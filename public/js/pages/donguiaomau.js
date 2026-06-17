@@ -1029,6 +1029,7 @@ async function _dgamShowDetail(id) {
         }
         const o = data.order;
         const payments = data.payments || [];
+        const logs = data.logs || [];
         const fmt = n => Number(n || 0).toLocaleString('vi-VN');
 
         const titleText = `👕 Đơn Mẫu: ${o.sample_order_code} — Còn lại: ${fmt(o.remaining_amount)}đ`;
@@ -1106,42 +1107,57 @@ async function _dgamShowDetail(id) {
         }
         prodHTML += `</div>`;
 
-        // 4. Chỉ thị gửi hàng & Vận chuyển
-        const priorityBg = o.shipping_priority === 'GẤP' ? '#fee2e2' : (o.shipping_priority === 'CHUẨN' ? '#dbeafe' : '#f1f5f9');
-        const priorityColor = o.shipping_priority === 'GẤP' ? '#991b1b' : (o.shipping_priority === 'CHUẨN' ? '#1e40af' : '#475569');
+        // 4. Chỉ thị gửi hàng & Vận chuyển (Sale Dặn Kế Toán Trước Gửi Hàng)
+        const row = (label, val) => `<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:180px">${label}</td><td style="padding:8px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
 
-        let saleKtHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📋 Chỉ Thị Gửi Hàng & Vận Chuyển</div>
-            <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:8px 12px;align-items:start">
-                <span style="color:#64748b;font-weight:600">🚛 Nhà Vận Chuyển:</span>
-                <span style="font-weight:700;color:#1e293b">${o.shipping_method || '—'}</span>
+        let progressSaleHTML = '<span style="color:#94a3b8;font-style:italic">Chưa có ngày gửi dự kiến</span>';
+        if (o.ship_date) {
+            const shipVN = new Date(o.ship_date);
+            shipVN.setHours(0,0,0,0);
+            const todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            todayVN.setHours(0,0,0,0);
+            const remainDays = Math.round((shipVN - todayVN) / 86400000);
+            if (remainDays > 0) {
+                progressSaleHTML = `<span style="color:#0369a1;font-weight:900;font-size:14px">⏳ Còn ${remainDays} ngày</span>`;
+            } else if (remainDays < 0) {
+                progressSaleHTML = `<span style="color:#dc2626;font-weight:900;font-size:14px">⚠️ Quá hạn ${Math.abs(remainDays)} ngày</span>`;
+            } else {
+                progressSaleHTML = `<span style="color:#059669;font-weight:900;font-size:14px">✅ Hôm nay</span>`;
+            }
+        }
 
-                <span style="color:#64748b;font-weight:600">⏰ Tiêu chuẩn gửi:</span>
-                <span><span style="background:${priorityBg};color:${priorityColor};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800">${o.shipping_priority || 'CHUẨN'}</span></span>
+        const formatExpectedShipDateWithDay = (dateStr) => {
+            if (!dateStr) return '<span style="color:#94a3b8;font-style:italic">Chưa có</span>';
+            const d = new Date(dateStr);
+            const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            const dayName = days[d.getDay()];
+            return `<strong>${dayName} - Ngày ${d.toLocaleDateString('vi-VN')}</strong>`;
+        };
 
-                <span style="color:#64748b;font-weight:600">📅 Ngày gửi dự kiến:</span>
-                <span style="font-weight:700">${o.ship_date ? new Date(o.ship_date).toLocaleDateString('vi-VN') : '—'}</span>
+        const tcColor2 = (o.shipping_priority === 'GẤP') ? '#dc2626' : (o.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
+        const tcValue = `<span style="color:${tcColor2};font-weight:900;font-size:14px">${o.shipping_priority || 'CHUẨN'}</span>`;
+        const timeValue = o.ship_time ? `<span style="font-weight:800;color:#0369a1">${o.ship_time}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>';
 
-                <span style="color:#64748b;font-weight:600">⏰ Giờ gửi hàng:</span>
-                <span style="font-weight:700">${o.ship_time || '—'}</span>
-
-                <span style="color:#64748b;font-weight:600">📝 Sale dặn kế toán:</span>
-                <span style="font-weight:700;color:#c2410c;white-space:pre-line">${o.sale_note_for_accountant || '—'}</span>
-            </div>`;
+        let saleKtHTML = `<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-radius:12px;border:2px solid #fb923c;padding:16px;margin-bottom:16px">
+            <div style="font-weight:900;font-size:15px;color:#9a3412;margin-bottom:12px">📋 Sale Dặn Kế Toán Trước Gửi Hàng</div>
+            <table style="width:100%;border-collapse:collapse">
+                ${row('🚚 Vận Chuyển YC Của Sale', o.shipping_method || '—')}
+                ${row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant || '<span style="color:#94a3b8;font-style:italic">—</span>')}
+                ${row('🏷️ TC Gửi', tcValue)}
+                ${row('📊 Tiến Độ Ra Hàng', progressSaleHTML)}
+                ${row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.ship_date))}
+                ${row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', timeValue)}
+            </table>`;
 
         if (o.status_hoan_hang || o.return_shipping_fee > 0) {
-            saleKtHTML += `<div style="margin-top:12px;padding-top:12px;border-top:1.5px solid #f1f5f9;font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:8px 12px;align-items:start">
-                <span style="color:#dc2626;font-weight:700">🔄 THÔNG TIN HOÀN HÀNG:</span>
-                <span style="font-weight:700;color:#dc2626">Đã kích hoạt trạng thái Hoàn Hàng</span>
-
-                <span style="color:#64748b;font-weight:600">💵 Cước hoàn thực tế:</span>
-                <span style="font-weight:700;color:#dc2626">${fmt(o.return_shipping_fee)}đ</span>
-
-                <span style="color:#64748b;font-weight:600">💳 Người trả ship hoàn:</span>
-                <span style="font-weight:700">${o.return_payer === 'hv' ? 'HV trả' : o.return_payer === 'khach' ? 'Khách trả' : o.return_payer || '—'}</span>
-
-                <span style="color:#64748b;font-weight:600">💳 H.thức thanh toán hoàn:</span>
-                <span style="font-weight:700">${o.return_payment_method || '—'}</span>
+            saleKtHTML += `<div style="margin-top:12px;padding-top:12px;border-top:1.5px solid #fb923c30;font-size:12px;color:#1e293b">
+                <div style="font-weight:800;color:#dc2626;margin-bottom:8px">🔄 THÔNG TIN HOÀN HÀNG:</div>
+                <table style="width:100%;border-collapse:collapse">
+                    ${row('Trạng thái', '<span style="font-weight:700;color:#dc2626">Đã kích hoạt trạng thái Hoàn Hàng</span>')}
+                    ${row('💵 Cước hoàn thực tế', `<span style="font-weight:700;color:#dc2626">${fmt(o.return_shipping_fee)}đ</span>`)}
+                    ${row('💳 Người trả ship hoàn', o.return_payer === 'hv' ? 'HV trả' : o.return_payer === 'khach' ? 'Khách trả' : o.return_payer || '—')}
+                    ${row('💳 H.thức thanh toán hoàn', o.return_payment_method || '—')}
+                </table>
             </div>`;
         }
         saleKtHTML += `</div>`;
@@ -1149,70 +1165,75 @@ async function _dgamShowDetail(id) {
         // 5. Thông tin khách hàng & Người lên đơn
         let infoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
             <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">👤 Thông Tin Đơn Hàng & Khách Hàng</div>
-            <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:8px 12px;align-items:start">
-                <span style="color:#64748b;font-weight:600">👤 Tên Khách Hàng:</span>
-                <span style="font-weight:700">${o.customer_name || '—'}</span>
-
-                <span style="color:#64748b;font-weight:600">📞 Số Điện Thoại:</span>
-                <span><a href="tel:${o.customer_phone || ''}" style="font-weight:700;color:var(--info)" onclick="event.stopPropagation()">${o.customer_phone || '—'}</a></span>
-
-                <span style="color:#64748b;font-weight:600">📍 Địa chỉ nhận mẫu:</span>
-                <span style="font-weight:700">${o.address || '—'}</span>
-
-                <span style="color:#64748b;font-weight:600">🏙️ Tỉnh / Thành Phố:</span>
-                <span style="font-weight:700">${o.province || '—'}</span>
-
-                <span style="color:#64748b;font-weight:600">✍️ Người lên đơn:</span>
-                <span style="font-weight:700">${o.created_by_name || '—'}</span>
-
-                <span style="color:#64748b;font-weight:600">📅 Ngày lên đơn:</span>
-                <span style="font-weight:700">${o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—'}</span>
-
-                <span style="color:#64748b;font-weight:600">💳 Người trả ship:</span>
-                <span style="font-weight:700">${o.payer === 'hv' ? 'HV trả' : o.payer === 'khach' ? 'Khách trả' : o.payer || '—'}</span>
-
-                <span style="color:#64748b;font-weight:600">💵 Tiền ship dự kiến:</span>
-                <span style="font-weight:700">${fmt(o.shipping_fee)}đ (${o.payment_method || '—'})</span>
-            </div>
+            <table style="width:100%;border-collapse:collapse">
+                ${row('Tên Khách Hàng', `<strong>${o.customer_name || '—'}</strong>`)}
+                <tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">📞 Số Điện Thoại</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px">${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:#9a3412;text-decoration:underline" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td></tr>
+                <tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">📍 Địa chỉ nhận mẫu</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px;word-break:break-word">${o.address || '—'}</td></tr>
+                <tr><td style="padding:8px 12px;font-size:12px;color:#9a3412;font-weight:800;white-space:nowrap;vertical-align:top;width:180px">🏙️ Tỉnh / Thành Phố</td><td style="padding:8px 12px;font-size:13px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:6px">${o.province || '—'}</td></tr>
+                ${row('Người lên đơn', o.created_by_name || '—')}
+                ${row('Ngày lên đơn', o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—')}
+            </table>
         </div>`;
 
-        // 6. Lịch sử cọc
+        // 5B. Thông tin vận chuyển
+        let shipInfoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>
+            <table style="width:100%;border-collapse:collapse">
+                ${row('Người trả ship', o.payer === 'hv' ? 'HV trả' : o.payer === 'khach' ? 'Khách trả' : o.payer || '—')}
+                ${row('Tiền ship dự kiến', `${fmt(o.shipping_fee)}đ (${o.payment_method || '—'})`)}
+            </table>
+        </div>`;
+
+        // 6. Lịch sử cập nhật
+        let historyLogs = [];
+        for (const log of logs) {
+            historyLogs.push({
+                created_at: log.created_at,
+                action: log.action || 'update',
+                summary: log.summary || '',
+                performer_name: log.performer_name || 'Hệ thống'
+            });
+        }
+        for (const p of payments) {
+            const typeLabels = { dat_coc: 'Đặt cọc', thanh_toan: 'Thanh toán' };
+            const typeLabel = typeLabels[p.payment_type] || p.payment_type || 'Đặt cọc';
+            historyLogs.push({
+                created_at: p.payment_date || p.created_at,
+                action: 'payment',
+                summary: `Thực hiện ${typeLabel}: +${fmt(p.amount)}đ (${p.payment_method || '—'}) - Nội dung: ${p.transfer_note || '—'}`,
+                performer_name: p.customer_name || 'Khách hàng'
+            });
+        }
+
+        // Sort by date DESC
+        historyLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
         let paymentHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">💵 Lịch Sử Cọc / Thanh Toán</div>`;
+            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📝 Lịch sử cập nhật <span style="background:#64748b;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${historyLogs.length}</span></div>`;
 
-        if (payments && payments.length > 0) {
-            paymentHTML += `<table class="table" style="width:100%;border-collapse:collapse">
-                <thead>
-                    <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0">
-                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">MÃ TIỀN</th>
-                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">HÌNH THỨC</th>
-                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">NGÂN HÀNG</th>
-                        <th style="padding:8px;text-align:right;font-size:11px;font-weight:700;color:#fff !important">SỐ TIỀN</th>
-                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">NỘI DUNG CHUYỂN</th>
-                        <th style="padding:8px;text-align:center;font-size:11px;font-weight:700;color:#fff !important">NGÀY GD</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            for (const p of payments) {
-                const typeLabels = { dat_coc: 'Đặt cọc', thanh_toan: 'Thanh toán' };
-                const typeBadge = `<span style="background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px">${typeLabels[p.payment_type] || p.payment_type || ''}</span>`;
+        if (historyLogs.length > 0) {
+            const actionStyles = {
+                create:  { color: '#059669', bg: '#f0fdf4', border: '#059669', icon: '🟢' },
+                update:  { color: '#d97706', bg: '#fffbeb', border: '#f59e0b', icon: '🟡' },
+                status:  { color: '#2563eb', bg: '#eff6ff', border: '#3b82f6', icon: '🔵' },
+                payment: { color: '#059669', bg: '#f0fdf4', border: '#10b981', icon: '💰' }
+            };
 
-                paymentHTML += `<tr style="border-bottom:1px solid #f1f5f9">
-                    <td style="padding:8px;font-size:12px;font-weight:700;color:#1e293b">${p.payment_code || '—'}${typeBadge}</td>
-                    <td style="padding:8px;font-size:12px;color:#1e293b">${p.payment_method || '—'}</td>
-                    <td style="padding:8px;font-size:12px;color:#1e293b">${p.bank_name || '—'}</td>
-                    <td style="padding:8px;font-size:12px;font-weight:700;color:#0284c7;text-align:right">${fmt(p.amount)}đ</td>
-                    <td style="padding:8px;font-size:12px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.transfer_note || ''}">${p.transfer_note || '—'}</td>
-                    <td style="padding:8px;font-size:12px;color:#1e293b;text-align:center">${p.payment_date ? new Date(p.payment_date).toLocaleDateString('vi-VN') : '—'}</td>
-                </tr>`;
+            for (const log of historyLogs) {
+                const st = actionStyles[log.action] || actionStyles.update;
+                const formattedTime = new Date(log.created_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+                paymentHTML += `<div style="padding:10px 12px;border-left:3px solid ${st.border};margin-bottom:8px;background:${st.bg};border-radius:0 8px 8px 0;text-align:left">
+                    <div style="font-size:11px;color:#64748b">${st.icon} ${formattedTime}</div>
+                    <div style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px">👤 <span style="color:var(--info)">${log.performer_name || '—'}</span> ${log.summary}</div>
+                </div>`;
             }
-            paymentHTML += `</tbody></table>`;
         } else {
-            paymentHTML += `<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px;font-style:italic">Chưa ghi nhận giao dịch cọc nào cho đơn mẫu này</div>`;
+            paymentHTML += `<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px;font-style:italic">Chưa có lịch sử cập nhật nào cho đơn mẫu này</div>`;
         }
         paymentHTML += `</div>`;
 
-        const bodyHTML = actionsHTML + histHTML + prodHTML + saleKtHTML + infoHTML + paymentHTML;
+        const bodyHTML = actionsHTML + histHTML + prodHTML + saleKtHTML + infoHTML + shipInfoHTML + paymentHTML;
         const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
 
         openModal(titleText, bodyHTML, footerHTML);

@@ -50,6 +50,15 @@ module.exports = async function(fastify) {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_order_date ON don_gui_ao_mau(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_status ON don_gui_ao_mau(order_status)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_code ON don_gui_ao_mau(sample_order_code)`);
+
+        await db.exec(`CREATE TABLE IF NOT EXISTS don_gui_ao_mau_logs (
+            id                  SERIAL PRIMARY KEY,
+            sample_order_id     INTEGER REFERENCES don_gui_ao_mau(id) ON DELETE CASCADE,
+            action              TEXT,
+            summary             TEXT,
+            performed_by        INTEGER REFERENCES users(id),
+            created_at          TIMESTAMPTZ DEFAULT NOW()
+        )`);
     } catch(e) { console.error('[DGAM Migration]', e.message); }
 
     // ========== NEXT SAMPLE ORDER CODE ==========
@@ -153,7 +162,6 @@ module.exports = async function(fastify) {
         return { orders };
     });
 
-    // ========== UPDATE STATUS ICONS ==========
     fastify.patch('/api/don-gui-ao-mau/:id/status', { preHandler: [authenticate] }, async (request, reply) => {
         const { id } = request.params;
         const { field, value } = request.body;
@@ -164,6 +172,20 @@ module.exports = async function(fastify) {
         }
 
         await db.run(`UPDATE don_gui_ao_mau SET ${field} = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3`, [value, request.user.id, id]);
+
+        const actionLabels = {
+            status_duyet: value ? 'duyệt đơn' : 'bỏ duyệt đơn',
+            status_gui_don: value ? 'gửi đơn' : 'bỏ gửi đơn',
+            status_hoan_hang: value ? 'hoàn hàng' : 'bỏ hoàn hàng',
+            status_kiem_tra: value ? 'kiểm tra' : 'bỏ kiểm tra'
+        };
+        const actionLabel = actionLabels[field] || field;
+        const summary = `Đã thay đổi trạng thái: ${actionLabel.toUpperCase()}`;
+        await db.run(
+            `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+            [id, 'status', summary, request.user.id]
+        );
+
         return { success: true };
     });
 
@@ -199,7 +221,15 @@ module.exports = async function(fastify) {
             ORDER BY payment_date DESC, id DESC
         `, [order.sample_order_code]);
 
-        return { order, payments };
+        const logs = await db.all(`
+            SELECT l.*, u.full_name AS performer_name
+            FROM don_gui_ao_mau_logs l
+            LEFT JOIN users u ON l.performed_by = u.id
+            WHERE l.sample_order_id = $1
+            ORDER BY l.created_at DESC
+        `, [orderId]);
+
+        return { order, payments, logs };
     });
 
     // ========== CREATE ORDER ==========
@@ -276,6 +306,11 @@ module.exports = async function(fastify) {
                     request.user.id,
                     existingDraft.id
                 ]);
+                const summary = b.order_status === 'draft' ? 'Đã cập nhật nháp đơn mẫu' : 'Đã xác nhận tạo đơn mẫu';
+                await db.run(
+                    `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+                    [existingDraft.id, 'update', summary, request.user.id]
+                );
                 return { success: true, id: existingDraft.id };
             }
         }
@@ -314,6 +349,12 @@ module.exports = async function(fastify) {
             b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0, b.ship_time || null,
             request.user.id
         ]);
+
+        const summary = b.order_status === 'draft' ? 'Đã tạo nháp đơn mẫu' : 'Đã tạo đơn mẫu mới';
+        await db.run(
+            `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+            [result.id, 'create', summary, request.user.id]
+        );
 
         return { success: true, id: result.id };
     });
