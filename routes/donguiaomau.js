@@ -45,6 +45,7 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS zalo_oa_sent BOOLEAN DEFAULT false`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS sale_note_for_accountant TEXT`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC DEFAULT 0`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS ship_time TEXT`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_order_date ON don_gui_ao_mau(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_status ON don_gui_ao_mau(order_status)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_code ON don_gui_ao_mau(sample_order_code)`);
@@ -218,8 +219,9 @@ module.exports = async function(fastify) {
                         zalo_oa_sent = $25,
                         sale_note_for_accountant = $26,
                         deposit_amount = $27,
+                        ship_time = $28,
                         updated_at = NOW()
-                    WHERE id = $28
+                    WHERE id = $29
                 `, [
                     b.order_date || new Date().toISOString().slice(0, 10),
                     b.remaining_amount || 0, b.payer || null, b.category || null,
@@ -230,6 +232,7 @@ module.exports = async function(fastify) {
                     b.address || null, b.province || null,
                     b.linh_vuc || null, b.sample_image || null, b.shipping_priority || null,
                     b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0,
+                    b.ship_time || null,
                     existingDraft.id
                 ]);
                 return { success: true, id: existingDraft.id };
@@ -245,7 +248,7 @@ module.exports = async function(fastify) {
                 return_shipping_fee, return_payer, return_payment_method,
                 created_by, address, province,
                 linh_vuc, sample_image, shipping_priority,
-                zalo_oa_sent, sale_note_for_accountant, deposit_amount
+                zalo_oa_sent, sale_note_for_accountant, deposit_amount, ship_time
             ) VALUES (
                 $1, $2, $3, $4, $5,
                 $6, $7, $8, $9,
@@ -254,7 +257,7 @@ module.exports = async function(fastify) {
                 $18, $19, $20,
                 $21, $22, $23,
                 $24, $25, $26,
-                $27, $28, $29
+                $27, $28, $29, $30
             ) RETURNING id
         `, [
             b.order_date || new Date().toISOString().slice(0, 10),
@@ -265,7 +268,8 @@ module.exports = async function(fastify) {
             b.return_shipping_fee || 0, b.return_payer || null, b.return_payment_method || null,
             request.user.id, b.address || null, b.province || null,
             b.linh_vuc || null, b.sample_image || null, b.shipping_priority || null,
-            b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0
+            b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0,
+            b.ship_time || null
         ]);
 
         return { success: true, id: result.id };

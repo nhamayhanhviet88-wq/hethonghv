@@ -197,7 +197,7 @@ function _dgamRenderRows(paged) {
             +'<td style="text-align:right">'+_dgamFmt(o.price)+'</td>'
             +'<td style="color:var(--success);font-weight:800;text-align:right">'+_dgamFmt(o.total_amount)+'</td>'
             +'<td>'+(o.deposit_code||'—')+'</td>'
-            +'<td>'+fmtDF(o.ship_date)+'</td>'
+            +'<td>'+fmtDF(o.ship_date)+(o.ship_time ? ' <span style="background:#f1f5f9;color:#475569;padding:1px 4px;border-radius:4px;font-size:10px;font-weight:700">' + o.ship_time + '</span>' : '')+'</td>'
             +'<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:'+st.bg+';color:'+st.color+'">'+st.label+'</span></td>'
             +'<td>'+(o.payment_method||'—')+'</td>'
             +'<td style="text-align:right">'+_dgamFmt(o.shipping_fee)+'</td>'
@@ -360,20 +360,111 @@ function _dgamDeleteSampleImg() {
     }
 }
 
+function _dgamValidateShipDate(dateStr) {
+    if (!dateStr) return { valid: false, error: 'Vui lòng chọn Ngày Gửi Hàng!' };
+    
+    const nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const yyyy = nowVN.getFullYear();
+    const mm = String(nowVN.getMonth() + 1).padStart(2, '0');
+    const dd = String(nowVN.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    
+    if (dateStr < todayStr) {
+        return { valid: false, error: 'Không được chọn ngày trong quá khứ!' };
+    }
+    
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    if (dateObj.getDay() === 0) {
+        return { valid: false, error: 'Không được chọn ngày Chủ Nhật!' };
+    }
+    
+    if (_dgam.holidaysList && _dgam.holidaysList.includes(dateStr)) {
+        const hol = _dgam.holidaysRaw ? _dgam.holidaysRaw.find(h => h.holiday_date === dateStr) : null;
+        const name = hol ? hol.holiday_name : 'Ngày nghỉ lễ';
+        return { valid: false, error: `Ngày này trùng với ngày nghỉ lễ (${name})!` };
+    }
+    
+    return { valid: true };
+}
+
+function _dgamOnShipDateChange() {
+    const el = document.getElementById('dgamAddShipDate');
+    if (!el) return;
+    const dateStr = el.value;
+    if (!dateStr) return;
+    
+    const res = _dgamValidateShipDate(dateStr);
+    if (!res.valid) {
+        showToast(res.error, 'error');
+        el.style.borderColor = '#ef4444';
+        el.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.12)';
+        
+        const nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const yyyy = nowVN.getFullYear();
+        const mm = String(nowVN.getMonth() + 1).padStart(2, '0');
+        const dd = String(nowVN.getDate()).padStart(2, '0');
+        el.value = `${yyyy}-${mm}-${dd}`;
+        
+        const todayRes = _dgamValidateShipDate(el.value);
+        if (!todayRes.valid) {
+            let nextDate = new Date(nowVN);
+            for (let i = 0; i < 30; i++) {
+                nextDate.setDate(nextDate.getDate() + 1);
+                const ny = nextDate.getFullYear();
+                const nm = String(nextDate.getMonth() + 1).padStart(2, '0');
+                const nd = String(nextDate.getDate()).padStart(2, '0');
+                const nextDateStr = `${ny}-${nm}-${nd}`;
+                if (_dgamValidateShipDate(nextDateStr).valid) {
+                    el.value = nextDateStr;
+                    break;
+                }
+            }
+        }
+    } else {
+        el.style.borderColor = '#cbd5e1';
+        el.style.boxShadow = 'none';
+    }
+}
+
+function _dgamOnShippingPriorityChange() {
+    const priority = document.getElementById('dgamAddShippingPriority')?.value;
+    const timeContainer = document.getElementById('dgamShipTimeContainer');
+    const timeInput = document.getElementById('dgamAddShipTime');
+    if (timeContainer) {
+        if (priority === 'CHUẨN') {
+            timeContainer.style.display = 'grid';
+            if (timeInput && !timeInput.value) {
+                const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+                const hr = String(now.getHours()).padStart(2, '0');
+                const min = String(now.getMinutes()).padStart(2, '0');
+                timeInput.value = `${hr}:${min}`;
+            }
+        } else {
+            timeContainer.style.display = 'none';
+            if (timeInput) timeInput.value = '';
+        }
+    }
+}
+
 async function _dgamShowAdd() {
     try {
-        const [draftsRes, catsRes, carriersRes] = await Promise.all([
+        const [draftsRes, catsRes, carriersRes, holidaysRes] = await Promise.all([
             apiCall('/api/don-gui-ao-mau/drafts'),
             apiCall('/api/dht/categories'),
-            apiCall('/api/dht/carriers')
+            apiCall('/api/dht/carriers'),
+            apiCall('/api/penalty/holidays').catch(() => ({ holidays: [] }))
         ]);
         _dgamDraftsList = draftsRes.drafts || [];
         _dgamDhtCategories = catsRes.categories || [];
         _dgamDhtCarriers = carriersRes.carriers || [];
+        _dgam.holidaysRaw = holidaysRes.holidays || [];
+        _dgam.holidaysList = (holidaysRes.holidays || []).map(h => h.holiday_date);
     } catch (e) {
         _dgamDraftsList = [];
         _dgamDhtCategories = [];
         _dgamDhtCarriers = [];
+        _dgam.holidaysRaw = [];
+        _dgam.holidaysList = [];
     }
 
     if (_dgamDraftsList.length === 0) {
@@ -577,15 +668,22 @@ function _dgamOnCategoryChange() {
                 </div>
                 <div class="form-group">
                     <label>Ngày Gửi Hàng <span style="color:var(--danger)">*</span></label>
-                    <input type="date" id="dgamAddShipDate" class="form-control">
+                    <input type="date" id="dgamAddShipDate" class="form-control" onchange="_dgamOnShipDateChange()">
                 </div>
                 <div class="form-group">
                     <label>Tiêu Chuẩn Gửi <span style="color:var(--danger)">*</span></label>
-                    <select id="dgamAddShippingPriority" class="form-control">
+                    <select id="dgamAddShippingPriority" class="form-control" onchange="_dgamOnShippingPriorityChange()">
                         <option value="CHUẨN">CHUẨN</option>
                         <option value="GỬI">GỬI</option>
                         <option value="GẤP" selected>GẤP</option>
                     </select>
+                </div>
+            </div>
+
+            <div id="dgamShipTimeContainer" style="display:none; grid-template-columns:1fr; gap:16px; margin-bottom: 16px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Giờ Gửi Hàng <span style="color:var(--danger)">*</span></label>
+                    <input type="time" id="dgamAddShipTime" class="form-control" style="max-width:200px;">
                 </div>
             </div>
 
@@ -594,7 +692,7 @@ function _dgamOnCategoryChange() {
                     <label>Nhà Vận Chuyển <span style="color:var(--danger)">*</span></label>
                     <select id="dgamAddCarrier" class="form-control">
                         <option value="">-- Chọn nhà vận chuyển --</option>
-                        ${_dgamDhtCarriers.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                        ${_dgamDhtCarriers.filter(c => c.name && c.name.toLowerCase() !== 'nhà xe').map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
                     </select>
                 </div>
                 <div class="form-group">
@@ -617,8 +715,25 @@ function _dgamOnCategoryChange() {
         const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
+        
+        let initDateStr = `${yyyy}-${mm}-${dd}`;
+        const initialRes = _dgamValidateShipDate(initDateStr);
+        if (!initialRes.valid) {
+            let nextDate = new Date(d);
+            for (let i = 0; i < 30; i++) {
+                nextDate.setDate(nextDate.getDate() + 1);
+                const ny = nextDate.getFullYear();
+                const nm = String(nextDate.getMonth() + 1).padStart(2, '0');
+                const nd = String(nextDate.getDate()).padStart(2, '0');
+                const nextDateStr = `${ny}-${nm}-${nd}`;
+                if (_dgamValidateShipDate(nextDateStr).valid) {
+                    initDateStr = nextDateStr;
+                    break;
+                }
+            }
+        }
         const shipDateEl = document.getElementById('dgamAddShipDate');
-        if (shipDateEl) shipDateEl.value = `${yyyy}-${mm}-${dd}`;
+        if (shipDateEl) shipDateEl.value = initDateStr;
 
         const depAmtField = document.getElementById('dgamAddDepositAmountField');
         if (depAmtField) depAmtField.value = (_dgam.selectedDepositAmount || 0).toLocaleString('vi-VN');
@@ -650,7 +765,7 @@ function _dgamOnCategoryChange() {
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                 <div class="form-group">
                     <label>Ngày Gửi Hàng</label>
-                    <input type="date" id="dgamAddShipDate" class="form-control">
+                    <input type="date" id="dgamAddShipDate" class="form-control" onchange="_dgamOnShipDateChange()">
                 </div>
                 <div class="form-group">
                     <label>Hình Thức Gửi</label>
@@ -848,8 +963,23 @@ async function _dgamSubmitAdd() {
             showToast('Vui lòng nhập Ngày Gửi Hàng!', 'error');
             return;
         }
+        
+        const shipDateRes = _dgamValidateShipDate(shipDate);
+        if (!shipDateRes.valid) {
+            showToast(shipDateRes.error, 'error');
+            return;
+        }
 
         const shippingPriority = document.getElementById('dgamAddShippingPriority').value;
+        let shipTime = null;
+        if (shippingPriority === 'CHUẨN') {
+            shipTime = document.getElementById('dgamAddShipTime')?.value || null;
+            if (!shipTime) {
+                showToast('Vui lòng chọn Giờ Gửi Hàng cho đơn CHUẨN!', 'error');
+                return;
+            }
+        }
+
         const carrier = document.getElementById('dgamAddCarrier').value;
         if (!carrier) {
             showToast('Vui lòng chọn Nhà Vận Chuyển!', 'error');
@@ -873,6 +1003,7 @@ async function _dgamSubmitAdd() {
             remaining_amount: remainingAmount,
             sample_image: _dgam.sampleImgBase64,
             ship_date: shipDate,
+            ship_time: shipTime,
             shipping_priority: shippingPriority,
             shipping_method: carrier,
             zalo_oa_sent: zaloOASent === 1,
@@ -898,6 +1029,13 @@ async function _dgamSubmitAdd() {
         const remainingAmount = totalAmount - (_dgam.selectedDepositAmount || 0);
 
         const shipDate = document.getElementById('dgamAddShipDate').value || null;
+        if (shipDate) {
+            const shipDateRes = _dgamValidateShipDate(shipDate);
+            if (!shipDateRes.valid) {
+                showToast(shipDateRes.error, 'error');
+                return;
+            }
+        }
         const shippingMethod = document.getElementById('dgamAddShippingMethod').value;
         const paymentMethod = document.getElementById('dgamAddPaymentMethod').value;
         const shippingFeeStr = document.getElementById('dgamAddShippingFee').value || '0';
