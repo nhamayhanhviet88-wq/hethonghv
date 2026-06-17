@@ -1101,7 +1101,7 @@ async function _dgamShowDetail(id) {
         if (o.sample_image) {
             prodHTML += `<div style="text-align:center;margin-top:16px;background:#f8fafc;padding:16px;border-radius:8px;border:1px dashed #cbd5e1">
                 <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px">🖼️ HÌNH ẢNH MẪU CHỤP</div>
-                <img src="${o.sample_image}" style="max-width:240px;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="window.open('${o.sample_image}', '_blank')" title="Click để xem ảnh gốc">
+                <img src="${o.sample_image}" style="max-width:240px;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="_dgamShowImagePreview('${o.sample_image}')" title="Click để xem ảnh gốc">
             </div>`;
         }
         prodHTML += `</div>`;
