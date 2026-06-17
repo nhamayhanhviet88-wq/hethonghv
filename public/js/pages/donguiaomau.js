@@ -547,28 +547,7 @@ function _dgamOnShipDateChange() {
         showToast(res.error, 'error');
         el.style.borderColor = '#ef4444';
         el.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.12)';
-        
-        const nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-        const yyyy = nowVN.getFullYear();
-        const mm = String(nowVN.getMonth() + 1).padStart(2, '0');
-        const dd = String(nowVN.getDate()).padStart(2, '0');
-        el.value = `${yyyy}-${mm}-${dd}`;
-        
-        const todayRes = _dgamValidateShipDate(el.value);
-        if (!todayRes.valid) {
-            let nextDate = new Date(nowVN);
-            for (let i = 0; i < 30; i++) {
-                nextDate.setDate(nextDate.getDate() + 1);
-                const ny = nextDate.getFullYear();
-                const nm = String(nextDate.getMonth() + 1).padStart(2, '0');
-                const nd = String(nextDate.getDate()).padStart(2, '0');
-                const nextDateStr = `${ny}-${nm}-${nd}`;
-                if (_dgamValidateShipDate(nextDateStr).valid) {
-                    el.value = nextDateStr;
-                    break;
-                }
-            }
-        }
+        el.value = '';
     } else {
         el.style.borderColor = '#cbd5e1';
         el.style.boxShadow = 'none';
@@ -912,24 +891,8 @@ function _dgamOnCategoryChange() {
     _dgam.sampleImgBase64 = null;
     _dgam.chuanProofImgBase64 = null;
 
-    let initDateStr = todayStr;
-    const initialRes = _dgamValidateShipDate(initDateStr);
-    if (!initialRes.valid) {
-        let nextDate = new Date(d);
-        for (let i = 0; i < 30; i++) {
-            nextDate.setDate(nextDate.getDate() + 1);
-            const ny = nextDate.getFullYear();
-            const nm = String(nextDate.getMonth() + 1).padStart(2, '0');
-            const nd = String(nextDate.getDate()).padStart(2, '0');
-            const nextDateStr = `${ny}-${nm}-${nd}`;
-            if (_dgamValidateShipDate(nextDateStr).valid) {
-                initDateStr = nextDateStr;
-                break;
-            }
-        }
-    }
     const shipDateEl = document.getElementById('dgamAddShipDate');
-    if (shipDateEl) shipDateEl.value = initDateStr;
+    if (shipDateEl) shipDateEl.value = '';
 
     if (isGarment) {
         const depAmtField = document.getElementById('dgamAddDepositAmountField');
