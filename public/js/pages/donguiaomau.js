@@ -160,14 +160,21 @@ function _dgamRenderRows(paged) {
 
         var userObj = window.currentUser || window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
         
-        // Chỉ Giám đốc, Quản lý xưởng Lê Công Thực được duyệt đơn mẫu (✅)
+        // Chỉ Giám đốc, Quản lý xưởng Lê Công Thực được duyệt đơn mẫu (✅). Quản lý cấp cao Lê Việt Trinh được hiển thị nhưng không ấn được (chỉ xem).
         var isCanApprove = userObj && (userObj.role === 'giam_doc' || userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
+        var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
         var approveBtnHtml = '';
         if (isCanApprove) {
             if (o.status_duyet) {
                 approveBtnHtml = '<button class="dgam-icon-btn on-duyet" title="Đã duyệt" style="opacity:0.5;cursor:not-allowed;" disabled>✅</button>';
             } else {
                 approveBtnHtml = '<button class="dgam-icon-btn" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>';
+            }
+        } else if (isLeVietTrinh) {
+            if (o.status_duyet) {
+                approveBtnHtml = '<button class="dgam-icon-btn on-duyet" title="Đã duyệt (Chỉ xem)" style="opacity:0.5;cursor:not-allowed;" disabled>✅</button>';
+            } else {
+                approveBtnHtml = '<button class="dgam-icon-btn" title="Chưa duyệt (Chỉ xem)" style="opacity:0.5;cursor:not-allowed;" disabled>✅</button>';
             }
         }
 
