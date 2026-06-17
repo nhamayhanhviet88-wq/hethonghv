@@ -37,6 +37,8 @@ module.exports = async function(fastify) {
             created_at          TIMESTAMPTZ DEFAULT NOW(),
             updated_at          TIMESTAMPTZ DEFAULT NOW()
         )`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS address TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS province TEXT`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_order_date ON don_gui_ao_mau(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_status ON don_gui_ao_mau(order_status)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_code ON don_gui_ao_mau(sample_order_code)`);
@@ -73,10 +75,12 @@ module.exports = async function(fastify) {
     // ========== DRAFT ORDERS LIST ==========
     fastify.get('/api/don-gui-ao-mau/drafts', { preHandler: [authenticate] }, async (request, reply) => {
         const drafts = await db.all(`
-            SELECT id, sample_order_code, customer_name, customer_phone, deposit_code
-            FROM don_gui_ao_mau
-            WHERE order_status = 'draft'
-            ORDER BY id DESC
+            SELECT d.id, d.sample_order_code, d.customer_name, d.customer_phone, d.deposit_code,
+                   c.address, c.province
+            FROM don_gui_ao_mau d
+            LEFT JOIN customers c ON c.phone = d.customer_phone
+            WHERE d.order_status = 'draft'
+            ORDER BY d.id DESC
         `);
         return { drafts };
     });
@@ -155,6 +159,21 @@ module.exports = async function(fastify) {
     fastify.post('/api/don-gui-ao-mau', { preHandler: [authenticate] }, async (request, reply) => {
         const b = request.body;
 
+        // Sync to customers table
+        if (b.customer_phone && (b.address || b.province)) {
+            try {
+                if (b.address && b.province) {
+                    await db.run(`UPDATE customers SET address = $1, province = $2, updated_at = NOW() WHERE phone = $3`, [b.address, b.province, b.customer_phone]);
+                } else if (b.address) {
+                    await db.run(`UPDATE customers SET address = $1, updated_at = NOW() WHERE phone = $2`, [b.address, b.customer_phone]);
+                } else if (b.province) {
+                    await db.run(`UPDATE customers SET province = $1, updated_at = NOW() WHERE phone = $2`, [b.province, b.customer_phone]);
+                }
+            } catch (err) {
+                console.error('[Sync Customer Address Error]', err.message);
+            }
+        }
+
         // Check if there is an existing draft with the same sample_order_code
         if (b.sample_order_code) {
             const existingDraft = await db.get(
@@ -184,8 +203,10 @@ module.exports = async function(fastify) {
                         return_shipping_fee = $17,
                         return_payer = $18,
                         return_payment_method = $19,
+                        address = $20,
+                        province = $21,
                         updated_at = NOW()
-                    WHERE id = $20
+                    WHERE id = $22
                 `, [
                     b.order_date || new Date().toISOString().slice(0, 10),
                     b.remaining_amount || 0, b.payer || null, b.category || null,
@@ -193,6 +214,7 @@ module.exports = async function(fastify) {
                     b.quantity || 0, b.price || 0, b.total_amount || 0, b.deposit_code || null, b.ship_date || null,
                     b.order_status || 'cho_duyet', b.payment_method || null, b.shipping_fee || 0,
                     b.return_shipping_fee || 0, b.return_payer || null, b.return_payment_method || null,
+                    b.address || null, b.province || null,
                     existingDraft.id
                 ]);
                 return { success: true, id: existingDraft.id };
@@ -206,14 +228,14 @@ module.exports = async function(fastify) {
                 quantity, price, total_amount, deposit_code, ship_date,
                 order_status, payment_method, shipping_fee,
                 return_shipping_fee, return_payer, return_payment_method,
-                created_by
+                created_by, address, province
             ) VALUES (
                 $1, $2, $3, $4, $5,
                 $6, $7, $8, $9,
                 $10, $11, $12, $13, $14,
                 $15, $16, $17,
                 $18, $19, $20,
-                $21
+                $21, $22, $23
             ) RETURNING id
         `, [
             b.order_date || new Date().toISOString().slice(0, 10),
@@ -222,7 +244,7 @@ module.exports = async function(fastify) {
             b.quantity || 0, b.price || 0, b.total_amount || 0, b.deposit_code || null, b.ship_date || null,
             b.order_status || 'cho_duyet', b.payment_method || null, b.shipping_fee || 0,
             b.return_shipping_fee || 0, b.return_payer || null, b.return_payment_method || null,
-            request.user.id
+            request.user.id, b.address || null, b.province || null
         ]);
 
         return { success: true, id: result.id };

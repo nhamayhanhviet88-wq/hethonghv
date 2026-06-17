@@ -1,6 +1,15 @@
 // ========== ĐƠN GỬI ÁO MẪU — Bộ Phận Văn Phòng ==========
 var _dgam = { tree: [], orders: [], filter: {}, page: 1, pageSize: 100 };
 var _dgamOpen = {};
+const DGAM_VN_PROVINCES = [
+    'An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương',
+    'Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai',
+    'Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình',
+    'Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định',
+    'Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị',
+    'Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh',
+    'Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'
+];
 function _dgamFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
 
 async function renderDonguiaomauPage(content) {
@@ -45,6 +54,8 @@ async function renderDonguiaomauPage(content) {
         +'<th>Tên Khách Hàng</th>'
         +'<th>Tên Sản Phẩm</th>'
         +'<th>SĐT Khách</th>'
+        +'<th>Địa Chỉ</th>'
+        +'<th>Thành Phố</th>'
         +'<th>Hình Thức Gửi</th>'
         +'<th>Số Lượng</th>'
         +'<th>Giá</th>'
@@ -57,7 +68,7 @@ async function renderDonguiaomauPage(content) {
         +'<th>Vận Chuyển Hoàn</th>'
         +'<th>Người Trả Hoàn</th>'
         +'<th>Hình Thức Trả Hoàn</th>'
-        +'</tr></thead><tbody id="dgamTbody"><tr><td colspan="21" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'</tr></thead><tbody id="dgamTbody"><tr><td colspan="23" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="dgamPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
 
@@ -135,7 +146,7 @@ var _dgamStatusMap = {
 function _dgamRenderRows(paged) {
     var tbody = document.getElementById('dgamTbody'); if (!tbody) return;
     if (paged.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="21"><div class="empty-state"><div class="icon">👕</div><h3>Chưa có đơn gửi áo mẫu nào</h3><p>Chọn thời gian ở sidebar hoặc thêm đơn mới</p></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="23"><div class="empty-state"><div class="icon">👕</div><h3>Chưa có đơn gửi áo mẫu nào</h3><p>Chọn thời gian ở sidebar hoặc thêm đơn mới</p></div></td></tr>';
         return;
     }
     var fmtD = function(d) { if (!d) return '—'; var dt = new Date(d); return dt.getDate() + '/' + (dt.getMonth()+1); };
@@ -161,6 +172,8 @@ function _dgamRenderRows(paged) {
             +'<td>'+(o.customer_name||'—')+'</td>'
             +'<td>'+(o.product_name||'—')+'</td>'
             +'<td>'+(o.customer_phone?'<a href="tel:'+o.customer_phone+'" style="color:var(--info)">'+o.customer_phone+'</a>':'—')+'</td>'
+            +'<td>'+(o.address||'—')+'</td>'
+            +'<td>'+(o.province||'—')+'</td>'
             +'<td>'+(o.shipping_method||'—')+'</td>'
             +'<td style="text-align:center;font-weight:800">'+(o.quantity||0)+'</td>'
             +'<td style="text-align:right">'+_dgamFmt(o.price)+'</td>'
@@ -282,11 +295,25 @@ async function _dgamShowAdd() {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
                 <div class="form-group">
                     <label style="font-weight:600;margin-bottom:4px;display:block;">Tên Khách Hàng</label>
-                    <input type="text" id="dgamAddCustName" class="form-control" placeholder="Tên khách hàng">
+                    <input type="text" id="dgamAddCustName" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600;" placeholder="Tên khách hàng">
                 </div>
                 <div class="form-group">
                     <label style="font-weight:600;margin-bottom:4px;display:block;">Số Điện Thoại</label>
-                    <input type="text" id="dgamAddCustPhone" class="form-control" placeholder="Số điện thoại" maxlength="10">
+                    <input type="text" id="dgamAddCustPhone" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600;" placeholder="Số điện thoại" maxlength="10">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Địa Chỉ <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="dgamAddAddress" class="form-control" placeholder="Địa chỉ giao hàng">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tỉnh, Thành Phố <span style="color:var(--danger)">*</span></label>
+                    <select id="dgamAddProvince" class="form-control">
+                        <option value="">-- Chọn tỉnh/thành --</option>
+                        ${DGAM_VN_PROVINCES.map(p => `<option value="${p}">${p}</option>`).join('')}
+                    </select>
                 </div>
             </div>
 
@@ -298,9 +325,13 @@ async function _dgamShowAdd() {
                 <div class="form-group">
                     <label style="font-weight:600;margin-bottom:4px;display:block;">Phân Loại</label>
                     <select id="dgamAddCategory" class="form-control">
-                        <option value="Áo mẫu">Áo mẫu</option>
-                        <option value="Mẫu vải">Mẫu vải</option>
-                        <option value="Áo mẫu + Mẫu vải">Áo mẫu + Mẫu vải</option>
+                        <option value="Gửi mẫu áo">Gửi mẫu áo</option>
+                        <option value="Gửi mẫu vải">Gửi mẫu vải</option>
+                        <option value="Gửi Tem">Gửi Tem</option>
+                        <option value="Gửi Pet">Gửi Pet</option>
+                        <option value="Gửi Khác">Gửi Khác</option>
+                        <option value="Gửi mẫu quần">Gửi mẫu quần</option>
+                        <option value="Gửi mẫu váy">Gửi mẫu váy</option>
                     </select>
                 </div>
             </div>
@@ -411,6 +442,8 @@ function _dgamOnDraftSelect() {
         document.getElementById('dgamAddCustName').value = '';
         document.getElementById('dgamAddCustPhone').value = '';
         document.getElementById('dgamAddDepositCode').value = '';
+        document.getElementById('dgamAddAddress').value = '';
+        document.getElementById('dgamAddProvince').value = '';
         return;
     }
     const draft = _dgamDraftsList.find(d => d.id == draftId);
@@ -418,6 +451,8 @@ function _dgamOnDraftSelect() {
         document.getElementById('dgamAddCustName').value = draft.customer_name || '';
         document.getElementById('dgamAddCustPhone').value = draft.customer_phone || '';
         document.getElementById('dgamAddDepositCode').value = draft.deposit_code || 'Không có cọc';
+        document.getElementById('dgamAddAddress').value = draft.address || '';
+        document.getElementById('dgamAddProvince').value = draft.province || '';
     }
 }
 
@@ -454,6 +489,17 @@ async function _dgamSubmitAdd() {
     const price = Number(priceStr.replace(/\./g, '')) || 0;
     const totalAmount = qty * price;
 
+    const address = document.getElementById('dgamAddAddress').value.trim();
+    if (!address) {
+        showToast('Vui lòng nhập Địa Chỉ!', 'error');
+        return;
+    }
+    const province = document.getElementById('dgamAddProvince').value;
+    if (!province) {
+        showToast('Vui lòng chọn Tỉnh, Thành Phố!', 'error');
+        return;
+    }
+
     const shipDate = document.getElementById('dgamAddShipDate').value || null;
     const shippingMethod = document.getElementById('dgamAddShippingMethod').value;
     const paymentMethod = document.getElementById('dgamAddPaymentMethod').value;
@@ -487,7 +533,9 @@ async function _dgamSubmitAdd() {
         return_payer: returnPayer,
         return_payment_method: returnPaymentMethod,
         order_status: orderStatus,
-        order_date: new Date().toISOString().slice(0, 10)
+        order_date: new Date().toISOString().slice(0, 10),
+        address: address,
+        province: province
     };
 
     try {
