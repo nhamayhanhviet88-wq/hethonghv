@@ -1277,9 +1277,13 @@ async function _dgamShowDetail(id) {
         
         let finRows = [
             ['Tổng Tiền Hàng Thực Tế', fmt(o.total_amount) + 'đ', '#1e293b', true],
-            ['Đã thanh toán (cọc)', fmt(o.deposit_amount) + 'đ', '#10b981', true],
-            ['Còn lại', fmt(o.remaining_amount) + 'đ', remColor, true]
+            ['Đã thanh toán (cọc)', fmt(o.deposit_amount) + 'đ', '#10b981', true]
         ];
+        const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(o.deposit_amount) || 0));
+        if (otherPaid > 0) {
+            finRows.push(['Thanh toán khác (NVC/SLL)', fmt(otherPaid) + 'đ', '#0ea5e9', true]);
+        }
+        finRows.push(['Còn lại', fmt(o.remaining_amount) + 'đ', remColor, true]);
         
         for (const [label, val, color, bold] of finRows) {
             const fontWt = bold ? '800' : '600';

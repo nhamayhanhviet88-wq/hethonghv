@@ -1447,11 +1447,24 @@ module.exports = async function(fastify) {
                        u_created.full_name AS created_by_name,
                        u_shipped.full_name AS shipped_by_name,
                        cr.name AS actual_carrier_name,
-                       cr.tracking_url_template AS actual_carrier_tracking_url
+                       cr.tracking_url_template AS actual_carrier_tracking_url,
+                       COALESCE(pr_dep.deposit_total, 0) AS calculated_deposit,
+                       COALESCE(pr_all.paid_total, 0) AS calculated_paid
                 FROM don_gui_ao_mau d
                 LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
                 LEFT JOIN users u_created ON d.created_by = u_created.id
                 LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                    FROM payment_records
+                    WHERE order_ao_mau = d.sample_order_code
+                      AND payment_type = 'dat_coc'
+                ) pr_dep ON true
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(amount), 0) AS paid_total
+                    FROM payment_records
+                    WHERE order_ao_mau = d.sample_order_code
+                ) pr_all ON true
                 WHERE d.id = $1
             `, [sampleId]);
             if (!row) return reply.code(404).send({ error: 'Không tìm thấy đơn mẫu' });
@@ -1489,8 +1502,8 @@ module.exports = async function(fastify) {
                 cskh_name: row.created_by_name,
                 created_by_name: row.created_by_name,
                 shipped_by_name: row.shipped_by_name,
-                deposit_amount: row.deposit_amount || 0,
-                remaining_amount: (Number(row.total_amount) || 0) - (Number(row.deposit_amount) || 0),
+                deposit_amount: row.calculated_deposit || row.deposit_amount || 0,
+                remaining_amount: Math.max(0, (Number(row.total_amount) || 0) - (Number(row.calculated_paid) || 0)),
                 carrier_name: row.shipping_method || null,
                 standard_delivery_time: row.ship_time || null,
                 sample_image: row.sample_image || null,

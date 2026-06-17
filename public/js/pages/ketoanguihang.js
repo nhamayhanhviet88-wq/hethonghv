@@ -1090,7 +1090,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     }
 
     const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
-    const finRemaining = String(o.id).startsWith('sample_') ? (calcBase - deposit) : (calcBase + surchargeTotal + vat - discount - deposit - shipCK);
+    const finRemaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : (calcBase + surchargeTotal + vat - discount - deposit - shipCK);
     const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
     var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px">`;
     finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
@@ -1098,9 +1098,13 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     if (String(o.id).startsWith('sample_')) {
         finRows.push(
             ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase) + 'đ', '#1e293b', true],
-            ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true],
-            ['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true]
+            ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true]
         );
+        const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(deposit) || 0));
+        if (otherPaid > 0) {
+            finRows.push(['Thanh toán khác (NVC/SLL)', fmtMoney(otherPaid) + 'đ', '#0ea5e9', true]);
+        }
+        finRows.push(['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true]);
     } else {
         finRows = [
             ['Tổng tiền hàng (trước VAT)', fmtMoney(calcBase) + 'đ', '#1e293b', false],

@@ -158,7 +158,7 @@ module.exports = async function(fastify) {
             SELECT
                 d.*,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
-                (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount,
+                (COALESCE(d.total_amount, 0) - COALESCE(pr_all.paid_total, 0)) AS remaining_amount,
                 u.full_name AS created_by_name,
                 uu.full_name AS updated_by_name,
                 o_codes.closed_order_codes
@@ -171,6 +171,11 @@ module.exports = async function(fastify) {
                 WHERE order_ao_mau = d.sample_order_code
                   AND payment_type = 'dat_coc'
             ) pr_dep ON true
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS paid_total
+                FROM payment_records
+                WHERE order_ao_mau = d.sample_order_code
+            ) pr_all ON true
             LEFT JOIN LATERAL (
                 SELECT STRING_AGG(DISTINCT o.order_code, '<br>') AS closed_order_codes
                 FROM dht_orders o
@@ -270,7 +275,7 @@ module.exports = async function(fastify) {
                 cr.name AS actual_carrier_name,
                 cr.tracking_url_template AS actual_carrier_tracking_url,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
-                (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount
+                (COALESCE(d.total_amount, 0) - COALESCE(pr_all.paid_total, 0)) AS remaining_amount
             FROM don_gui_ao_mau d
             LEFT JOIN users u ON d.created_by = u.id
             LEFT JOIN users uu ON d.updated_by = uu.id
@@ -282,6 +287,11 @@ module.exports = async function(fastify) {
                 WHERE order_ao_mau = d.sample_order_code
                   AND payment_type = 'dat_coc'
             ) pr_dep ON true
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS paid_total
+                FROM payment_records
+                WHERE order_ao_mau = d.sample_order_code
+            ) pr_all ON true
             WHERE d.id = $1
         `, [orderId]);
 
