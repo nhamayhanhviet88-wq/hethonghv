@@ -1,30 +1,43 @@
-const db = require('../db/pool');
+const { Pool } = require('pg');
 
-async function run() {
+const uri = 'postgresql://adminhv:hvadmin2026@192.168.0.201:5555/dongphuchv';
+const pool = new Pool({ connectionString: uri });
+
+async function checkOrder() {
     try {
-        const order = await db.get(`SELECT id, order_code, category_id, total_quantity FROM dht_orders WHERE order_code ILIKE '%VTTI0002%'`);
-        console.log('ORDER:', order);
-        if (!order) return;
+        const orderRes = await pool.query("SELECT * FROM don_gui_ao_mau WHERE sample_order_code = 'VTTI-GUIMAU0002'");
+        if (orderRes.rows.length === 0) {
+            console.log('Order not found in don_gui_ao_mau');
+            return;
+        }
+        const o = orderRes.rows[0];
+        console.log('ORDER:', {
+            id: o.id,
+            sample_order_code: o.sample_order_code,
+            total_amount: o.total_amount,
+            deposit_amount: o.deposit_amount,
+            remaining_amount: o.remaining_amount,
+            shipping_fee: o.shipping_fee,
+            shipping_fee_payer: o.shipping_fee_payer,
+            shipping_fee_method: o.shipping_fee_method,
+            shipping_payment_id: o.shipping_payment_id
+        });
 
-        const items = await db.all(`SELECT id, description, quantity, material_pairs FROM dht_order_items WHERE dht_order_id = $1`, [order.id]);
-        console.log('ITEMS:', items);
-
-        const assignments = await db.all(`SELECT * FROM qlx_assignments WHERE dht_order_id = $1`, [order.id]);
-        console.log('ASSIGNMENTS (qlx_assignments):', assignments);
-
-        const printRecs = await db.all(`SELECT id, dht_order_id, order_item_id, is_print_done, print_meters, current_roll, print_field, printer_id FROM printing_records WHERE dht_order_id = $1`, [order.id]);
-        console.log('PRINTING RECORDS:', printRecs);
-
-        const cutRecs = await db.all(`SELECT id, order_item_id, is_cut_done, product_name, material_name, fabric_color, cut_quantity FROM cutting_records WHERE order_item_id = ANY($1)`, [items.map(it => it.id)]);
-        console.log('CUTTING RECORDS:', cutRecs);
-
-        const pressingRecs = await db.all(`SELECT id, order_item_id, is_reported, press_images FROM pressing_records WHERE order_item_id = ANY($1)`, [items.map(it => it.id)]);
-        console.log('PRESSING RECORDS:', pressingRecs);
-    } catch (err) {
-        console.error(err);
+        const payRes = await pool.query("SELECT * FROM payment_records WHERE total_order_codes LIKE '%VTTI-GUIMAU0002%' OR order_tt_coc = $1 OR order_ao_mau = $1", [o.sample_order_code]);
+        console.log('PAYMENTS:', payRes.rows.map(p => ({
+            id: p.id,
+            payment_code: p.payment_code,
+            amount: p.amount,
+            payment_type: p.payment_type,
+            money_source: p.money_source,
+            transfer_note: p.transfer_note
+        })));
+        
+    } catch (e) {
+        console.error(e);
     } finally {
-        process.exit();
+        await pool.end();
     }
 }
 
-run();
+checkOrder();

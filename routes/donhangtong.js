@@ -1496,6 +1496,7 @@ module.exports = async function(fastify) {
                 shipping_fee: row.shipping_fee,
                 shipping_fee_payer: row.shipping_fee_payer,
                 shipping_fee_method: row.shipping_fee_method,
+                shipping_payment_id: row.shipping_payment_id,
                 receiver_name: row.customer_name,
                 actual_carrier_name: row.actual_carrier_name,
                 actual_carrier_tracking_url: row.actual_carrier_tracking_url,
