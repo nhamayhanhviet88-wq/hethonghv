@@ -1150,20 +1150,26 @@ async function _dhtShowDetail(id) {
         };
         // Recalculate totals from items (source of truth)
         let calcBase = 0, calcVat = 0;
-        for (const it of items) {
-            try {
-                const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]);
-                const base = qs.reduce((s,x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
-                calcBase += base;
-                calcVat += (Number(it.item_total) || 0) - base;
-            } catch(e) { calcBase += Number(it.item_total) || 0; }
+        if (String(o.id).startsWith('sample_')) {
+            for (const it of items) {
+                calcBase += Number(it.total_amount) || (Number(it.price_per_item) * Number(it.quantity)) || 0;
+            }
+        } else {
+            for (const it of items) {
+                try {
+                    const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]);
+                    const base = qs.reduce((s,x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
+                    calcBase += base;
+                    calcVat += (Number(it.item_total) || 0) - base;
+                } catch(e) { calcBase += Number(it.item_total) || 0; }
+            }
         }
         if (calcVat < 0) calcVat = 0;
         const deposit = Number(o.deposit_amount) || 0;
         const vat = calcVat;
         const discount = Number(o.discount_amount) || 0;
         const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
-        const total = calcBase + calcVat + surchargeTotal - discount;
+        const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
         const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
         const remaining = total - deposit;
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#7c3aed' };
@@ -1242,57 +1248,80 @@ async function _dhtShowDetail(id) {
         window._dhtDetailItems = items;
         var itemsHTML = '';
         if (items.length > 0) {
-            itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:8px;margin-bottom:16px;overflow:hidden">`;
-            itemsHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:var(--gold);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span> <span style="font-size:11px;color:#94a3b8;font-weight:500;margin-left:4px">— Bấm vào dòng để xem chi tiết</span></div>`;
-            itemsHTML += `<div><table style="width:100%;border-collapse:collapse;font-size:11px">`;
-            itemsHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:6px;text-align:left;font-size:10px">PHỐI</th><th style="padding:6px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:6px;text-align:left;font-size:10px">CHẤT LIỆU</th><th style="padding:6px;text-align:left;font-size:10px">MÀU</th><th style="padding:6px;text-align:center;font-size:10px">SL</th><th style="padding:6px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:6px;text-align:center;font-size:10px">VAT</th><th style="padding:6px;text-align:right;font-size:10px;white-space:nowrap">THÀNH TIỀN</th></tr></thead><tbody>`;
-            const _phoiColors = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626'];
-            const _phoiBgs = ['#f5f3ff','#eff6ff','#ecfdf5','#fffbeb','#fef2f2'];
-            for (let idx = 0; idx < items.length; idx++) {
-                const it = items[idx];
-                const saleText = (it.sale_type || '').toLowerCase();
-                const isBan = saleText === 'bán' || saleText === 'ban';
-                const saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
-                let itVat = 0;
-                try { const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]); const base = qs.reduce((s,x)=>s+(Number(x.qty)||0)*(Number(x.price)||0),0); if(base>0 && Number(it.item_total)>base) itVat=Math.round((Number(it.item_total)-base)/base*100); } catch(e){}
-                let matPairs = [];
-                try { matPairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e){}
-                // Fallback: if no material_pairs, use legacy material_name/color_name
-                if (matPairs.length === 0) {
-                    matPairs = [{ material_name: it.material_name || '—', color_name: it.color_name || '—' }];
-                }
-                const totalQty = it.quantity || 0;
-                for (let pi = 0; pi < matPairs.length; pi++) {
-                    const mp = matPairs[pi];
-                    const isFirst = pi === 0;
-                    const pColor = _phoiColors[idx % _phoiColors.length];
-                    const pBg = _phoiBgs[idx % _phoiBgs.length];
-                    const pLabel = matPairs.length > 1 ? `PHỐI ${pi+1}` : '';
-                    const phieuLabel = `Phiếu ${idx+1}`;
-                    const labelText = pLabel ? `${pLabel} — ${phieuLabel}` : phieuLabel;
-                    itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s;border-left:4px solid ${pColor};background:${isFirst ? '' : pBg}" onclick="_dhtShowItemDetail(${idx})" onmouseover="this.style.background='${pBg}'" onmouseout="this.style.background='${isFirst ? '' : pBg}'">`;
-                    // Col 1: Phối label + Sale badge (only first row)
-                    itemsHTML += `<td style="padding:6px"><div style="font-size:10px;font-weight:800;color:${pColor}">${labelText}</div>${isFirst ? '<div style="margin-top:3px">'+saleBadge+'</div>' : ''}</td>`;
-                    // Col 2: Product name (only first row)
-                    itemsHTML += `<td style="padding:6px;font-weight:700;color:var(--navy)">${isFirst ? (it.product_name || it.description || '—') + ' <span style="font-size:9px;color:#94a3b8">🔍</span>' : '<span style="color:#94a3b8;font-size:11px">↳ '+( it.product_name || '')+'</span>'}</td>`;
-                    // Col 3: Material
-                    itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.material_name || '—'}</td>`;
-                    // Col 4: Color
-                    itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.color_name || '—'}</td>`;
-                    // Col 5-8: Qty, Price, VAT, Total (only first row shows financials)
-                    if (isFirst) {
-                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700">${totalQty}</td>`;
-                        itemsHTML += `<td style="padding:6px;text-align:right;white-space:nowrap">${fmt(it.unit_price)}đ</td>`;
-                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700;color:#6366f1">${itVat > 0 ? itVat+'%' : '0%'}</td>`;
-                        itemsHTML += `<td style="padding:6px;text-align:right;font-weight:800;color:#dc2626;white-space:nowrap">${fmt(it.item_total || it.total)}đ</td>`;
-                    } else {
-                        itemsHTML += `<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">${totalQty}</td>`;
-                        itemsHTML += `<td colspan="3" style="padding:6px;text-align:center;color:#94a3b8;font-size:10px;font-style:italic">Cùng giá với Phối 1</td>`;
-                    }
+            if (String(o.id).startsWith('sample_')) {
+                itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px;margin-bottom:16px;overflow:hidden">`;
+                itemsHTML += `<div style="font-weight:800;font-size:14px;color:#059669;margin-bottom:12px">👕 Chi Tiết Sản Phẩm Gửi</div>`;
+                itemsHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">`;
+                itemsHTML += `<thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:6px;text-align:left;font-size:10px">PHÂN LOẠI</th><th style="padding:6px;text-align:left;font-size:10px">LĨNH VỰC</th><th style="padding:6px;text-align:left;font-size:10px">SẢN PHẨM / NỘI DUNG</th><th style="padding:6px;text-align:center;font-size:10px">SL</th><th style="padding:6px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:6px;text-align:right;font-size:10px;white-space:nowrap">TỔNG TIẾN</th></tr></thead><tbody>`;
+                for (let idx = 0; idx < items.length; idx++) {
+                    const it = items[idx];
+                    const typeText = it.category || 'Gửi mẫu áo';
+                    const lvText = it.linh_vuc || '—';
+                    const lvBadge = lvText !== '—' ? `<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">${lvText}</span>` : '—';
+                    
+                    itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;">`;
+                    itemsHTML += `<td style="padding:8px 6px;font-weight:700;color:#1e293b">${typeText}</td>`;
+                    itemsHTML += `<td style="padding:8px 6px">${lvBadge}</td>`;
+                    itemsHTML += `<td style="padding:8px 6px;font-weight:700;color:#1e3a8a">${it.product_name || '—'}</td>`;
+                    itemsHTML += `<td style="padding:8px 6px;text-align:center;font-weight:700">${it.quantity || 0}</td>`;
+                    itemsHTML += `<td style="padding:8px 6px;text-align:right;white-space:nowrap">${fmt(it.price_per_item || 0)}đ</td>`;
+                    itemsHTML += `<td style="padding:8px 6px;text-align:right;font-weight:800;color:#059669;white-space:nowrap">${fmt(it.total_amount || 0)}đ</td>`;
                     itemsHTML += `</tr>`;
                 }
+                itemsHTML += `</tbody></table></div></div>`;
+            } else {
+                itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:8px;margin-bottom:16px;overflow:hidden">`;
+                itemsHTML += `<div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:var(--gold);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span> <span style="font-size:11px;color:#94a3b8;font-weight:500;margin-left:4px">— Bấm vào dòng để xem chi tiết</span></div>`;
+                itemsHTML += `<div><table style="width:100%;border-collapse:collapse;font-size:11px">`;
+                itemsHTML += `<thead><tr style="background:var(--navy);color:#fff"><th style="padding:6px;text-align:left;font-size:10px">PHỐI</th><th style="padding:6px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:6px;text-align:left;font-size:10px">CHẤT LIỆU</th><th style="padding:6px;text-align:left;font-size:10px">MÀU</th><th style="padding:6px;text-align:center;font-size:10px">SL</th><th style="padding:6px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:6px;text-align:center;font-size:10px">VAT</th><th style="padding:6px;text-align:right;font-size:10px;white-space:nowrap">THÀNH TIỀN</th></tr></thead><tbody>`;
+                const _phoiColors = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626'];
+                const _phoiBgs = ['#f5f3ff','#eff6ff','#ecfdf5','#fffbeb','#fef2f2'];
+                for (let idx = 0; idx < items.length; idx++) {
+                    const it = items[idx];
+                    const saleText = (it.sale_type || '').toLowerCase();
+                    const isBan = saleText === 'bán' || saleText === 'ban';
+                    const saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
+                    let itVat = 0;
+                    try { const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]); const base = qs.reduce((s,x)=>s+(Number(x.qty)||0)*(Number(x.price)||0),0); if(base>0 && Number(it.item_total)>base) itVat=Math.round((Number(it.item_total)-base)/base*100); } catch(e){}
+                    let matPairs = [];
+                    try { matPairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e){}
+                    // Fallback: if no material_pairs, use legacy material_name/color_name
+                    if (matPairs.length === 0) {
+                        matPairs = [{ material_name: it.material_name || '—', color_name: it.color_name || '—' }];
+                    }
+                    const totalQty = it.quantity || 0;
+                    for (let pi = 0; pi < matPairs.length; pi++) {
+                        const mp = matPairs[pi];
+                        const isFirst = pi === 0;
+                        const pColor = _phoiColors[idx % _phoiColors.length];
+                        const pBg = _phoiBgs[idx % _phoiBgs.length];
+                        const pLabel = matPairs.length > 1 ? `PHỐI ${pi+1}` : '';
+                        const phieuLabel = `Phiếu ${idx+1}`;
+                        const labelText = pLabel ? `${pLabel} — ${phieuLabel}` : phieuLabel;
+                        itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s;border-left:4px solid ${pColor};background:${isFirst ? '' : pBg}" onclick="_dhtShowItemDetail(${idx})" onmouseover="this.style.background='${pBg}'" onmouseout="this.style.background='${isFirst ? '' : pBg}'">`;
+                        // Col 1: Phối label + Sale badge (only first row)
+                        itemsHTML += `<td style="padding:6px"><div style="font-size:10px;font-weight:800;color:${pColor}">${labelText}</div>${isFirst ? '<div style="margin-top:3px">'+saleBadge+'</div>' : ''}</td>`;
+                        // Col 2: Product name (only first row)
+                        itemsHTML += `<td style="padding:6px;font-weight:700;color:var(--navy)">${isFirst ? (it.product_name || it.description || '—') + ' <span style="font-size:9px;color:#94a3b8">🔍</span>' : '<span style="color:#94a3b8;font-size:11px">↳ '+( it.product_name || '')+'</span>'}</td>`;
+                        // Col 3: Material
+                        itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.material_name || '—'}</td>`;
+                        // Col 4: Color
+                        itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.color_name || '—'}</td>`;
+                        // Col 5-8: Qty, Price, VAT, Total (only first row shows financials)
+                        if (isFirst) {
+                            itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700">${totalQty}</td>`;
+                            itemsHTML += `<td style="padding:6px;text-align:right;white-space:nowrap">${fmt(it.unit_price)}đ</td>`;
+                            itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700;color:#6366f1">${itVat > 0 ? itVat+'%' : '0%'}</td>`;
+                            itemsHTML += `<td style="padding:6px;text-align:right;font-weight:800;color:#dc2626;white-space:nowrap">${fmt(it.item_total || it.total)}đ</td>`;
+                        } else {
+                            itemsHTML += `<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">${totalQty}</td>`;
+                            itemsHTML += `<td colspan="3" style="padding:6px;text-align:center;color:#94a3b8;font-size:10px;font-style:italic">Cùng giá với Phối 1</td>`;
+                        }
+                        itemsHTML += `</tr>`;
+                    }
+                }
+                itemsHTML += `</tbody></table></div></div>`;
             }
-            itemsHTML += `</tbody></table></div></div>`;
         }
 
         // ── Section 3: Chi tiết cọc & thanh toán (ALWAYS VISIBLE) ──
@@ -1359,29 +1388,38 @@ async function _dhtShowDetail(id) {
         }
 
         // ── Section 5: Tổng kết tài chính ──
-        const finRemaining = calcBase + surchargeTotal + vat - discount - deposit;
+        const finRemaining = String(o.id).startsWith('sample_') ? (calcBase - deposit) : (calcBase + surchargeTotal + vat - discount - deposit - shipCK);
         const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:16px;margin-bottom:16px">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
-        const finRows = [
-            ['Tổng tiền hàng (trước VAT)', fmt(calcBase) + 'đ', '#1e293b', false],
-            ['Phụ phí', fmt(surchargeTotal) + 'đ', '#f59e0b', false],
-            ['VAT', fmt(vat) + 'đ', '#6366f1', false],
-            ['Ưu đãi / Giảm giá', '-' + fmt(discount) + 'đ', '#059669', false],
-        ];
-        if (o.discount_reason) {
-            finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
+        let finRows = [];
+        if (String(o.id).startsWith('sample_')) {
+            finRows.push(
+                ['Tổng Tiền Hàng Thực Tế', fmt(calcBase) + 'đ', '#1e293b', true],
+                ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
+                ['Còn lại', fmt(finRemaining) + 'đ', remColor, true]
+            );
+        } else {
+            finRows = [
+                ['Tổng tiền hàng (trước VAT)', fmt(calcBase) + 'đ', '#1e293b', false],
+                ['Phụ phí', fmt(surchargeTotal) + 'đ', '#f59e0b', false],
+                ['VAT', fmt(vat) + 'đ', '#6366f1', false],
+                ['Ưu đãi / Giảm giá', '-' + fmt(discount) + 'đ', '#059669', false],
+            ];
+            if (o.discount_reason) {
+                finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
+            }
+            finRows.push(
+                ['Tổng Tiền Hàng Thực Tế', fmt(calcBase + surchargeTotal + vat - discount) + 'đ', '#1e293b', true],
+                ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
+            );
+            if (shipCK > 0) {
+                finRows.push(['🚚 Cước Chuyển Phát (HV Trả)', fmt(shipCK) + 'đ', '#7c3aed', true]);
+            }
+            finRows.push(
+                ['Còn lại', fmt(finRemaining) + 'đ', remColor, true],
+            );
         }
-        finRows.push(
-            ['Tổng Tiền Hàng Thực Tế', fmt(calcBase + surchargeTotal + vat - discount) + 'đ', '#1e293b', true],
-            ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
-        );
-        if (shipCK > 0) {
-            finRows.push(['🚚 Cước Chuyển Phát (HV Trả)', fmt(shipCK) + 'đ', '#7c3aed', true]);
-        }
-        finRows.push(
-            ['Còn lại', fmt(finRemaining) + 'đ', remColor, true],
-        );
         for (const [label, val, color, bold] of finRows) {
             if (label === '_reason_') {
                 finHTML += `<div style="padding:2px 0 6px 16px;border-bottom:1px solid rgba(0,0,0,0.05)">`;
