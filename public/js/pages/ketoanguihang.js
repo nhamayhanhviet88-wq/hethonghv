@@ -1150,12 +1150,12 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     // P1: Sale Dặn KT
     + '<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:2px solid #fb923c;border-radius:12px;padding:16px;margin-bottom:16px;">'
     + '<div style="font-size:15px;font-weight:900;color:#9a3412;margin-bottom:12px;">📋 Sale Dặn Kế Toán Trước Gửi Hàng</div>'
-    + '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">' + saleKtHTML + '</table>'
+    + '<table style="width:100%;border-collapse:collapse;">' + saleKtHTML + '</table>'
+    + '</div>'
     + itemsHTML
     + payHTML
     + surHTML
     + finHTML
-    + '</div>'
     // Checkbox confirm (Moved above info)
     + '<style>'
     + '@keyframes pulseBlinkConfirm {'

@@ -1522,10 +1522,6 @@ async function _dhtShowDetail(id) {
         saleNotesHTML += `</table>`;
 
         var saleKtHTML = `<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-radius:12px;border:2px solid #fb923c;padding:16px;margin-bottom:16px">`;
-        saleKtHTML += itemsHTML;
-        saleKtHTML += payHTML;
-        saleKtHTML += surHTML;
-        saleKtHTML += finHTML;
         saleKtHTML += saleNotesHTML;
         saleKtHTML += `</div>`;
 
@@ -2069,7 +2065,7 @@ async function _dhtShowDetail(id) {
         }
 
         // ── Combine all sections ──
-        const bodyHTML = actionsHTML + notesHTML + saleKtHTML + infoHTML + shipHTML + errorHTML + histHTML;
+        const bodyHTML = actionsHTML + notesHTML + itemsHTML + payHTML + surHTML + finHTML + saleKtHTML + infoHTML + shipHTML + errorHTML + histHTML;
 
         const titleText = `📦 ${o.order_code} — ${fmt(finRemaining)}đ`;
         const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
