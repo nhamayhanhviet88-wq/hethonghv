@@ -231,8 +231,9 @@ module.exports = async function(fastify) {
         } else if (field === 'status_kiem_tra') {
             const u = await db.get('SELECT full_name FROM users WHERE id=$1', [request.user.id]);
             const isLeVietTrinh = u && u.full_name && (u.full_name.includes('Lê Việt Trinh') || u.full_name.includes('Le Viet Trinh'));
-            if (!isLeVietTrinh) {
-                return reply.code(403).send({ error: '🔒 Chỉ tài khoản Lê Việt Trinh mới có quyền kiểm tra đơn mẫu!' });
+            const isGiamDoc = request.user.role === 'giam_doc';
+            if (!isLeVietTrinh && !isGiamDoc) {
+                return reply.code(403).send({ error: '🔒 Chỉ tài khoản Lê Việt Trinh và Giám đốc mới có quyền kiểm tra đơn mẫu!' });
             }
             await db.run(`UPDATE don_gui_ao_mau SET status_kiem_tra = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3`, [value, request.user.id, id]);
         } else {

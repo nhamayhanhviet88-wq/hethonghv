@@ -176,9 +176,10 @@ function _dgamRenderRows(paged) {
             ? '<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
             : '';
 
-        // Chỉ tài khoản Lê Việt Trinh mới có quyền và nhìn thấy nút kiểm tra (🔍)
+        // Chỉ tài khoản Lê Việt Trinh và Giám đốc mới có quyền và nhìn thấy nút kiểm tra (🔍)
         var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
-        var kiemTraBtnHtml = isLeVietTrinh
+        var isGiamDoc = userObj && userObj.role === 'giam_doc';
+        var kiemTraBtnHtml = (isLeVietTrinh || isGiamDoc)
             ? '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>'
             : '';
 
