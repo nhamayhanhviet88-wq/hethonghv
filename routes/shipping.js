@@ -624,6 +624,16 @@ module.exports = async function(fastify) {
         }
 
         // Count for each filter (for sidebar badges)
+        let countVisibilityFilterDht = '';
+        const countParamsDht = [todayParam];
+        if (!FULL_VIEW_ROLES.includes(userRole)) {
+            const kt = await isKeToan(userId);
+            if (!kt) {
+                countVisibilityFilterDht = ` AND (created_by = $2 OR cskh_user_id = $2)`;
+                countParamsDht.push(userId);
+            }
+        }
+
         const counts = await db.get(`
             SELECT
                 COUNT(*) FILTER (WHERE shipping_status = 'pending' AND COALESCE(rescheduled_ship_date, expected_ship_date) > $1::date) AS early_count,
@@ -632,7 +642,8 @@ module.exports = async function(fastify) {
                 COUNT(*) FILTER (WHERE shipping_status = 'shipped') AS shipped_count
             FROM dht_orders
             WHERE expected_ship_date IS NOT NULL
-        `, [todayParam]);
+            ${countVisibilityFilterDht}
+        `, countParamsDht);
 
         let countVisibilityFilter = '';
         const countParams = [todayParam];
@@ -667,7 +678,8 @@ module.exports = async function(fastify) {
             WHERE shipping_status IN ('pending','rescheduled')
               AND expected_ship_date IS NOT NULL
               AND COALESCE(rescheduled_ship_date, expected_ship_date) < $1::date
-        `, [todayParam]);
+              ${countVisibilityFilterDht}
+        `, countParamsDht);
 
         return {
             orders: combinedOrders,

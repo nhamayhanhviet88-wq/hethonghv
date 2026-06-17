@@ -454,10 +454,24 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
 }
 
 function _tsRenderStepModal(step, d){
-    const fmtDT = t => { if(!t) return '—'; return new Date(t).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}); };
-    const fmtD = t => { if(!t) return '—'; return new Date(t).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}); };
-    const fmtQCDate = t => { if(!t) return '—'; const d = new Date(t); const hh = d.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false }); const dd = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' }); return hh + ' ' + dd; };
-    const fmtShortDT = t => { if(!t) return '—'; const d = new Date(t); const hh = d.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false }); const dd = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' }); return hh + ' ' + dd; };
+    const fmtDT = t => { if(!t) return '—'; return formatVNDate(t, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }); };
+    const fmtD = t => { if(!t) return '—'; return formatVNDate(t, { day: '2-digit', month: '2-digit', year: 'numeric' }); };
+    const fmtQCDate = t => {
+        if(!t) return '—';
+        const d = parseVNDate(t);
+        if(!d || isNaN(d.getTime())) return '—';
+        const hh = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+        const dd = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' }).format(d);
+        return hh + ' ' + dd;
+    };
+    const fmtShortDT = t => {
+        if(!t) return '—';
+        const d = parseVNDate(t);
+        if(!d || isNaN(d.getTime())) return '—';
+        const hh = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+        const dd = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' }).format(d);
+        return hh + ' ' + dd;
+    };
     const V = v => v||'—';
     const hdr = (icon,title,sub,color) => `<div style="background:linear-gradient(135deg,${color});padding:18px 24px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:16px;font-weight:900">${icon} ${title}</div><div style="font-size:13px;font-weight:900;color:#fff;margin-top:4px;letter-spacing:0.5px;background:rgba(0,0,0,0.15);padding:2px 8px;border-radius:6px;display:inline-block">${sub}</div></div><button onclick="_tsCloseModal()" style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:white;font-size:18px;cursor:pointer;font-weight:800">✕</button></div>`;
     const row = (label,val,valColor) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9"><span style="color:#64748b;font-weight:600">${label}</span><span style="font-weight:700;color:${valColor||'#1e293b'}">${val}</span></div>`;
@@ -1481,14 +1495,33 @@ function _tsRenderStepModal(step, d){
         body+=row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${d.shipping_priority || 'CHUẨN'}</span>`);
 
         const formatExpectedShipDateWithDay = (dateVal) => {
-            if (!dateVal) return '<span style="color:#94a3b8;font-style:italic">Chưa có</span>';
-            const dt = new Date(dateVal);
-            const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-            const day = localDt.getDate();
-            const month = localDt.getMonth() + 1;
-            const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-            const dayName = daysOfWeek[localDt.getDay()];
-            return `${dayName} - Ngày ${day}/${month}`;
+            const dt = parseVNDate(dateVal);
+            if (!dt || isNaN(dt.getTime())) return '<span style="color:#94a3b8;font-style:italic">Chưa có</span>';
+            const formatter = new Intl.DateTimeFormat('vi-VN', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                weekday: 'long',
+                day: '2-digit',
+                month: '2-digit'
+            });
+            const parts = formatter.formatToParts(dt);
+            let weekdayVal = '';
+            let dayVal = '';
+            let monthVal = '';
+            for (const part of parts) {
+                if (part.type === 'weekday') weekdayVal = part.value;
+                if (part.type === 'day') dayVal = part.value;
+                if (part.type === 'month') monthVal = part.value;
+            }
+            let dayName = weekdayVal;
+            if (dayName.toLowerCase() === 'thứ năm') dayName = 'Thứ 5';
+            else if (dayName.toLowerCase() === 'thứ sáu') dayName = 'Thứ 6';
+            else if (dayName.toLowerCase() === 'thứ bảy') dayName = 'Thứ 7';
+            else if (dayName.toLowerCase() === 'thứ hai') dayName = 'Thứ 2';
+            else if (dayName.toLowerCase() === 'thứ ba') dayName = 'Thứ 3';
+            else if (dayName.toLowerCase() === 'thứ tư') dayName = 'Thứ 4';
+            else if (dayName.toLowerCase() === 'chủ nhật') dayName = 'Chủ Nhật';
+            
+            return `${dayName} - Ngày ${parseInt(dayVal)}/${parseInt(monthVal)}`;
         };
         body+=row('📅 Ngày gửi dự kiến',formatExpectedShipDateWithDay(d.expected_ship_date));
         
@@ -1500,12 +1533,14 @@ function _tsRenderStepModal(step, d){
             
             var progressSaleHTML = '<span style="color:#94a3b8;font-style:italic">Chưa có ngày gửi dự kiến</span>';
             if (d.expected_ship_date) {
-                var shipVN = new Date(d.expected_ship_date);
-                shipVN.setHours(0,0,0,0);
+                const getMidnightVN = (dateVal) => {
+                    const dateStr = vnDateStr(dateVal);
+                    return parseVNDate(dateStr);
+                };
+                const shipVN = getMidnightVN(d.expected_ship_date);
                 if (d.shipped_at) {
-                    var actualVN = new Date(d.shipped_at);
-                    actualVN.setHours(0,0,0,0);
-                    var diffDays = Math.round((shipVN - actualVN) / 86400000);
+                    const actualVN = getMidnightVN(d.shipped_at);
+                    const diffDays = Math.round((shipVN.getTime() - actualVN.getTime()) / 86400000);
                     if (diffDays > 0) {
                         progressSaleHTML = '<span style="color:#0369a1;font-weight:900;font-size:14px">🚀 Nhanh ' + diffDays + ' ngày</span>';
                     } else if (diffDays < 0) {
@@ -1514,9 +1549,8 @@ function _tsRenderStepModal(step, d){
                         progressSaleHTML = '<span style="color:#059669;font-weight:900;font-size:14px">✅ Đúng hạn</span>';
                     }
                 } else {
-                    var todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-                    todayVN.setHours(0,0,0,0);
-                    var remainDays = Math.round((shipVN - todayVN) / 86400000);
+                    const todayVN = getMidnightVN(new Date());
+                    const remainDays = Math.round((shipVN.getTime() - todayVN.getTime()) / 86400000);
                     if (remainDays > 0) {
                         progressSaleHTML = '<span style="color:#3b82f6;font-weight:900;font-size:14px">📅 Còn ' + remainDays + ' ngày</span>';
                     } else if (remainDays < 0) {

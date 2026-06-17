@@ -2009,8 +2009,10 @@ function _shToggleSkipPayment() {
 function _shShowReschedule(id, code) {
     document.getElementById('shRescheduleModal')?.remove();
     // Calculate tomorrow's date for min attribute
-    const _now = new Date(); _now.setDate(_now.getDate() + 1);
-    const _minDate = _now.toISOString().split('T')[0];
+    const _today = vnDateStr();
+    const _tomorrow = new Date(_today);
+    _tomorrow.setUTCDate(_tomorrow.getUTCDate() + 1);
+    const _minDate = _tomorrow.toISOString().split('T')[0];
     const m = document.createElement('div');
     m.id = 'shRescheduleModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';

@@ -16,6 +16,28 @@ function vnFormat(d) { if (!d) return '—'; return new Date(d).toLocaleString('
 function vnISOStr(d) { var vn = new Date((d ? new Date(d) : new Date()).toLocaleString('en-US',{timeZone:_VN_TZ})); return vn.getFullYear()+'-'+String(vn.getMonth()+1).padStart(2,'0')+'-'+String(vn.getDate()).padStart(2,'0')+'T'+String(vn.getHours()).padStart(2,'0')+':'+String(vn.getMinutes()).padStart(2,'0'); }
 function vnDateStr(d) { return vnISOStr(d).slice(0,10); }
 
+function parseVNDate(str) {
+    if (!str) return null;
+    if (str instanceof Date) return str;
+    let s = String(str).trim();
+    if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        s += 'T00:00:00+07:00';
+    } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(s)) {
+        s += '+07:00';
+    }
+    return new Date(s);
+}
+
+function formatVNDate(dateVal, formatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' }) {
+    const d = parseVNDate(dateVal);
+    if (!d || isNaN(d.getTime())) return '—';
+    return new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        ...formatOptions
+    }).format(d);
+}
+
 // ========== PERMISSION HELPER ==========
 // Usage: canDo('crm_nhu_cau', 'edit') → true/false
 // Actions: 'view', 'create', 'edit', 'delete'

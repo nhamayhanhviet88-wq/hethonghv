@@ -5,7 +5,7 @@ var _kpi = { month: '', data: null };
 
 async function renderKpikdoanhPage(container) {
     if (!_kpi.month) {
-        const now = new Date();
+        const now = vnNow();
         _kpi.month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
     }
     container.innerHTML = `
@@ -703,7 +703,7 @@ function kpiRenderContent(data) {
     let html = '';
 
     // Determine today and current stage
-    const now = new Date();
+    const now = vnNow();
     const [selY, selM] = _kpi.month.split('-').map(Number);
     const isCurrentMonth = (now.getFullYear() === selY && (now.getMonth()+1) === selM);
     const todayDay = isCurrentMonth ? now.getDate() : -1;
@@ -947,15 +947,15 @@ var _kpiLbMonth = ''; // for CHỌN THÁNG picker
 
 function kpiLbBuildUrl() {
     var base = '/api/reports/customer-retention/advanced';
-    var now = new Date();
+    var now = vnNow();
     var fmtD = function(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
     if (_kpiLbFilter === 'today') {
         return base + '?period=day&date=' + fmtD(now);
     } else if (_kpiLbFilter === 'yesterday') {
-        var yd = new Date(now); yd.setDate(yd.getDate() - 1);
+        var yd = new Date(now.getTime()); yd.setDate(yd.getDate() - 1);
         return base + '?period=day&date=' + fmtD(yd);
     } else if (_kpiLbFilter === '7days') {
-        var s7 = new Date(now); s7.setDate(s7.getDate() - 6);
+        var s7 = new Date(now.getTime()); s7.setDate(s7.getDate() - 6);
         return base + '?period=custom&startDate=' + fmtD(s7) + '&endDate=' + fmtD(now);
     } else if (_kpiLbFilter === 'this_month') {
         var tm = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -1215,15 +1215,15 @@ var _kpiTcMonth = '';
 
 function kpiTcBuildUrl() {
     var base = '/api/reports/customer-retention/advanced';
-    var now = new Date();
+    var now = vnNow();
     var fmtD = function(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
     if (_kpiTcFilter === 'today') {
         return base + '?period=day&date=' + fmtD(now);
     } else if (_kpiTcFilter === 'yesterday') {
-        var yd = new Date(now); yd.setDate(yd.getDate() - 1);
+        var yd = new Date(now.getTime()); yd.setDate(yd.getDate() - 1);
         return base + '?period=day&date=' + fmtD(yd);
     } else if (_kpiTcFilter === '7days') {
-        var s7 = new Date(now); s7.setDate(s7.getDate() - 6);
+        var s7 = new Date(now.getTime()); s7.setDate(s7.getDate() - 6);
         return base + '?period=custom&startDate=' + fmtD(s7) + '&endDate=' + fmtD(now);
     } else if (_kpiTcFilter === 'this_month') {
         var tm = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -1478,9 +1478,11 @@ function kpiRenderMeetingCommit(el) {
     h += '<div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="mcToggleSection()">';
     h += '<span id="mcCollapseIcon" style="font-size:16px;transition:transform .3s">' + (_mcCollapsed ? '▶' : '▼') + '</span>';
     h += '📝 Cam Kết Cuộc Họp : KPI P.Kinh Doanh';
-    var now = new Date();
+    var parts = _kpi.month.split('-');
+    var selYear = parseInt(parts[0]);
+    var selMonth = parseInt(parts[1]);
     var monthNames = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
-    h += ' <span style="font-size:13px;font-weight:500;color:#6366f1;margin-left:4px">— ' + monthNames[now.getMonth() + 1] + '/' + now.getFullYear() + ' (' + _mcSessions.length + ' cuộc họp)</span>';
+    h += ' <span style="font-size:13px;font-weight:500;color:#6366f1;margin-left:4px">— ' + monthNames[selMonth] + '/' + selYear + ' (' + _mcSessions.length + ' cuộc họp)</span>';
     h += '</div>';
     h += '<div style="display:flex;gap:8px">';
     if (isGD) {
@@ -1502,13 +1504,12 @@ function kpiRenderMeetingCommit(el) {
         // Helper: format % with 1 decimal, Vietnamese comma
         function mcFmtPct(v) { var r = Math.round(v * 10) / 10; return r.toString().replace('.', ','); }
         // ===== MONTHLY SUMMARY CARDS (collapsible) =====
-        var mNow = new Date();
         h += '<div style="margin-bottom:16px;padding:16px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-radius:14px;border:1px solid #e0e7ff;border-left:5px solid #6366f1">';
         // Collapsible header
         h += '<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="mcToggleMonthly()">';
         h += '<div style="display:flex;align-items:center;gap:8px">';
         h += '<span id="mcMonthlyIcon" style="font-size:14px;transition:transform .3s;color:#6366f1">' + (_mcMonthlyCollapsed ? '▶' : '▼') + '</span>';
-        h += '<span style="font-size:15px;font-weight:900;color:#1e293b">📊 Tổng Kết Cam Kết Tháng ' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span>';
+        h += '<span style="font-size:15px;font-weight:900;color:#1e293b">📊 Tổng Kết Cam Kết Tháng ' + selMonth + '/' + selYear + '</span>';
         h += '<span style="font-size:11px;font-weight:500;color:#6366f1;background:#eef2ff;padding:2px 8px;border-radius:8px">' + _mcSessions.length + ' cuộc họp</span>';
         h += '</div>';
         h += '</div>';
@@ -1698,7 +1699,8 @@ function kpiRenderMeetingCommit(el) {
             var sess = _mcSessions[si];
             var stt = si + 1;
             var isNewest = (si === _mcSessions.length - 1);
-            var sessDate = new Date(sess.meeting_date);
+            var dateParts = sess.meeting_date.split('T')[0].split('-');
+            var sessDateStr = dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0];
             var sessCommits = _mcAllCommitments.filter(function(c) { return c.session_id === sess.id; });
             var totalDone = sessCommits.filter(function(c) { return c.is_completed; }).length;
 
@@ -1712,7 +1714,7 @@ function kpiRenderMeetingCommit(el) {
             h += '<div style="display:flex;align-items:center;gap:10px">';
             h += '<span id="mcSessIcon_' + sess.id + '" style="font-size:14px;transition:transform .3s;color:' + pal.icon + '">▶</span>';
             h += '<span style="font-size:14px;font-weight:800;color:' + pal.text + '">📋 Cuộc Họp Thứ ' + stt + '</span>';
-            h += '<span style="font-size:12px;font-weight:500;color:' + pal.text + ';opacity:.7">— ' + sess.title + ' (' + sessDate.toLocaleDateString('vi-VN') + ')</span>';
+            h += '<span style="font-size:12px;font-weight:500;color:' + pal.text + ';opacity:.7">— ' + sess.title + ' (' + sessDateStr + ')</span>';
             h += '</div>';
             h += '<div style="display:flex;align-items:center;gap:8px">';
             if (sessCommits.length > 0) {
@@ -2301,7 +2303,7 @@ window.mcReviewTeam = function(deptId, teamName, readOnly) {
 
 // Create session popup
 window.mcCreateSession = function() {
-    var today = new Date().toISOString().split('T')[0];
+    var today = vnDateStr();
     var overlay = document.createElement('div');
     overlay.className = 'kpi-mc-modal-overlay';
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
@@ -2394,8 +2396,9 @@ window.mcEditUser = async function(userId, userName) {
 
     var sessionInfo = '';
     if (_mcSession) {
-        var sd = new Date(_mcSession.meeting_date);
-        sessionInfo = ' <span style="font-size:13px;font-weight:500;color:#92400e;display:block;margin-top:2px">— ' + _mcSession.title + ' (' + sd.toLocaleDateString('vi-VN') + ')</span>';
+        var dateParts = _mcSession.meeting_date.split('T')[0].split('-');
+        var sdStr = dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0];
+        sessionInfo = ' <span style="font-size:13px;font-weight:500;color:#92400e;display:block;margin-top:2px">— ' + _mcSession.title + ' (' + sdStr + ')</span>';
     }
 
     var h = '<div class="kpi-mc-modal">'
@@ -2792,7 +2795,8 @@ window.kpiShowEmpOrders = async function(userId, userName) {
         if (periodInfo && periodInfo.start && periodInfo.end) {
             // Use the actual queried date range from the advanced API
             // periodInfo.end already has +1 day applied, so subtract 1 for endDate
-            var endD = new Date(periodInfo.end + 'T00:00:00');
+            var parts = periodInfo.end.split('-');
+            var endD = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
             endD.setDate(endD.getDate() - 1);
             var endStr = endD.getFullYear() + '-' + String(endD.getMonth()+1).padStart(2,'0') + '-' + String(endD.getDate()).padStart(2,'0');
             apiUrl += '&startDate=' + periodInfo.start + '&endDate=' + endStr;
@@ -2869,8 +2873,7 @@ function odRenderTable() {
 
     for (var i = 0; i < pageItems.length; i++) {
         var o = pageItems[i];
-        var dt = new Date(o.created_at);
-        var dateStr = dt.getDate() + '/' + (dt.getMonth() + 1) + '/' + dt.getFullYear();
+        var dateStr = new Date(o.created_at).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' });
         var typeClass = o.customer_type === 'moi' ? 'kpi-od-type-moi' : 'kpi-od-type-cu';
         var typeLabel = o.customer_type === 'moi' ? '🆕 Mới' : '🔄 Cũ';
         var rev = parseFloat(o.revenue || 0);

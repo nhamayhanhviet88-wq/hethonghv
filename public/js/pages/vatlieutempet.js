@@ -75,15 +75,26 @@ async function _ptLoadAll(){try{var tR=await apiCall('/api/pettem/tree');_pt.tre
 function getVNDateParts(d) {
     var date = new Date(d);
     if (isNaN(date.getTime())) return null;
-    var vnTime = date.getTime() + (7 * 3600000);
-    var vnDate = new Date(vnTime);
-    return {
-        hour: String(vnDate.getUTCHours()).padStart(2, '0'),
-        min: String(vnDate.getUTCMinutes()).padStart(2, '0'),
-        day: String(vnDate.getUTCDate()).padStart(2, '0'),
-        month: String(vnDate.getUTCMonth() + 1).padStart(2, '0'),
-        year: vnDate.getUTCFullYear()
-    };
+    try {
+        var formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit',
+            hour12: false
+        });
+        var parts = formatter.formatToParts(date);
+        var partMap = {};
+        parts.forEach(function(p) { partMap[p.type] = p.value; });
+        return {
+            hour: partMap.hour,
+            min: partMap.minute,
+            day: partMap.day,
+            month: partMap.month,
+            year: parseInt(partMap.year)
+        };
+    } catch(e) {
+        return null;
+    }
 }
 function _ptFD(d) {
     if (!d) return '—';
@@ -278,7 +289,7 @@ async function openPtImportModal() {
     }
     
     // Set date and staff
-    var todayStr = typeof vnDateStr === 'function' ? vnDateStr() : new Date().toLocaleDateString('vi-VN');
+    var todayStr = typeof vnDateStr === 'function' ? vnDateStr() : new Date().toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
     var staffName = (window.currentUser && window.currentUser.full_name) || 'Nhân Viên';
     document.getElementById('ptImpDate').value = todayStr;
     document.getElementById('ptImpStaff').value = staffName;
@@ -600,7 +611,7 @@ async function submitPtImportForm(event) {
         console.error('[PT] Check active rolls failed:', e);
     }
     
-    var dateVal = typeof vnISOStr === 'function' ? vnISOStr().split('T')[0] : new Date().toISOString().split('T')[0];
+    var dateVal = typeof vnISOStr === 'function' ? vnISOStr().split('T')[0] : (typeof vnNow === 'function' ? vnNow() : new Date()).toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).split(' ')[0];
     
     try {
         var res = await apiCall('/api/pettem/rolls/import-from-warehouse', 'POST', {

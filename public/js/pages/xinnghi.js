@@ -4,7 +4,7 @@ let _leaveMonth = '';
 
 async function renderXinNghiPage(container) {
     const canViewStats = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role);
-    const now = new Date();
+    const now = vnNow();
     _leaveMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     container.innerHTML = `
@@ -359,7 +359,8 @@ async function _leaveLoadMyHistory() {
             const toF = item.date_to.split('-').reverse().join('/');
             const dateRange = item.date_from === item.date_to ? fromF : `${fromF} → ${toF}`;
             const isCancelled = item.status === 'cancelled';
-            const canCancel = !isCancelled && new Date(item.date_from) > new Date();
+            const todayStr = vnISOStr().split('T')[0];
+            const canCancel = !isCancelled && item.date_from > todayStr;
 
             let sessionInfo = '';
             if (item.date_from !== item.date_to) {

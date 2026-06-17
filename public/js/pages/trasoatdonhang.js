@@ -2,7 +2,7 @@
 var _ts = { page: 1, search: '', month: '', year: '', current_step: '', debounce: null, expandedId: null };
 
 function renderTrasoatdonhangPage(content) {
-    const now = new Date();
+    const now = vnNow();
     const curMonth = now.getMonth() + 1, curYear = now.getFullYear();
 
     // Parse URL parameter to auto-search
@@ -178,16 +178,24 @@ function _tsRenderTable(orders, totalCount) {
         document.getElementById('tsTableWrap').innerHTML = '<div style="text-align:center;padding:50px;color:#9ca3af"><div style="font-size:48px;margin-bottom:12px">📭</div><div style="font-weight:700">Không tìm thấy đơn hàng nào</div></div>';
         return;
     }
+    const parseVNDate = (val) => {
+        if (!val) return null;
+        if (typeof val === 'string' && val.length === 10 && !val.includes('T')) {
+            return new Date(val + 'T00:00:00+07:00');
+        }
+        return new Date(val);
+    };
+
     const getProgressSaleHTML = (o) => {
         if (!o.expected_ship_date) {
             return '<span style="color:#94a3b8;font-style:italic">—</span>';
         }
-        const shipVN = new Date(o.expected_ship_date);
-        shipVN.setHours(0,0,0,0);
+        const shipVN = parseVNDate(o.expected_ship_date);
+        if (shipVN) shipVN.setHours(0,0,0,0);
         
         if (o.shipped_at) {
-            const actualVN = new Date(o.shipped_at);
-            actualVN.setHours(0,0,0,0);
+            const shippedDateStr = new Date(o.shipped_at).toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).split(' ')[0];
+            const actualVN = new Date(shippedDateStr + 'T00:00:00+07:00');
             const diffDays = Math.round((shipVN - actualVN) / 86400000);
             if (diffDays > 0) {
                 return `<span style="color:#0369a1;font-weight:800;">🚀 Nhanh ${diffDays} ngày</span>`;
@@ -197,8 +205,8 @@ function _tsRenderTable(orders, totalCount) {
                 return `<span style="color:#059669;font-weight:800;">✅ Đúng hạn</span>`;
             }
         } else {
-            const todayVN = typeof vnNow === 'function' ? vnNow() : new Date();
-            todayVN.setHours(0,0,0,0);
+            const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).split(' ')[0];
+            const todayVN = new Date(todayStr + 'T00:00:00+07:00');
             const remainDays = Math.round((shipVN - todayVN) / 86400000);
             if (remainDays > 0) {
                 return `<span style="color:#2563eb;font-weight:800;">📅 Còn ${remainDays} ngày</span>`;
@@ -212,13 +220,27 @@ function _tsRenderTable(orders, totalCount) {
 
     const formatSaleExpectedDate = (dateVal, priority, standardDeliveryTime) => {
         if (!dateVal) return '—';
-        const dt = new Date(dateVal);
-        const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-        const day = localDt.getDate();
-        const month = localDt.getMonth() + 1;
-        const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-        const dayName = daysOfWeek[localDt.getDay()];
-
+        const dt = parseVNDate(dateVal);
+        if (!dt || isNaN(dt.getTime())) return '—';
+        
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric', month: 'numeric', day: 'numeric',
+            hour: 'numeric', minute: 'numeric',
+            weekday: 'long', hour12: false
+        });
+        const parts = formatter.formatToParts(dt);
+        const partMap = {};
+        parts.forEach(p => partMap[p.type] = p.value);
+        
+        const weekdayMap = {
+            'Sunday': 'Chủ Nhật', 'Monday': 'Thứ 2', 'Tuesday': 'Thứ 3',
+            'Wednesday': 'Thứ 4', 'Thursday': 'Thứ 5', 'Friday': 'Thứ 6', 'Saturday': 'Thứ 7'
+        };
+        const dayName = weekdayMap[partMap.weekday] || partMap.weekday;
+        const day = partMap.day;
+        const month = partMap.month;
+        
         const pri = (priority || 'CHUẨN').toUpperCase();
         if (pri === 'GẤP' || pri === 'GỬI') {
             return `<div>${dayName} - ${day}/${month}</div>`;
@@ -227,9 +249,7 @@ function _tsRenderTable(orders, totalCount) {
             if (standardDeliveryTime) {
                 timePart = standardDeliveryTime.trim();
             } else {
-                const hrs = String(localDt.getHours()).padStart(2, '0');
-                const mins = String(localDt.getMinutes()).padStart(2, '0');
-                timePart = `${hrs}:${mins}`;
+                timePart = `${partMap.hour}:${partMap.minute}`;
             }
             return `<div>${dayName} - ${day}/${month}</div>
                     <div style="font-size:10px;color:#0369a1;font-weight:normal;margin-top:2px;">Giờ: <b>${timePart}</b></div>`;
@@ -243,37 +263,46 @@ function _tsRenderTable(orders, totalCount) {
         let hourStr = qlxHour || '—';
         let note = '';
         
+        const formatLocalPart = (dVal) => {
+            const dt = parseVNDate(dVal);
+            if (!dt || isNaN(dt.getTime())) return '';
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                day: 'numeric', month: 'numeric', weekday: 'long'
+            });
+            const parts = formatter.formatToParts(dt);
+            const partMap = {};
+            parts.forEach(p => partMap[p.type] = p.value);
+            const weekdayMap = {
+                'Sunday': 'Chủ Nhật', 'Monday': 'Thứ 2', 'Tuesday': 'Thứ 3',
+                'Wednesday': 'Thứ 4', 'Thursday': 'Thứ 5', 'Friday': 'Thứ 6', 'Saturday': 'Thứ 7'
+            };
+            const dayName = weekdayMap[partMap.weekday] || partMap.weekday;
+            return `${dayName} - ${partMap.day}/${partMap.month}`;
+        };
+        
         if (reschedDate) {
-            const dt = new Date(reschedDate);
-            const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-            const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-            const dayName = daysOfWeek[localDt.getDay()];
-            const day = localDt.getDate();
-            const month = localDt.getMonth() + 1;
-            
-            dateStr = `${dayName} - ${day}/${month}`;
+            dateStr = formatLocalPart(reschedDate);
             note = `<div style="color:#d97706;font-size:10px;margin-top:2px;"><b>Hẹn lại</b><br/><i>${reschedReason || ''}</i></div>`;
         } else {
-            const dt = new Date(qlxDate);
-            const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-            const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-            const dayName = daysOfWeek[localDt.getDay()];
-            const day = localDt.getDate();
-            const month = localDt.getMonth() + 1;
-            
-            dateStr = `${dayName} - ${day}/${month}`;
+            dateStr = formatLocalPart(qlxDate);
         }
         
         if (actualOutputAt) {
-            const dt = new Date(actualOutputAt);
-            const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-            const day = localDt.getDate();
-            const month = localDt.getMonth() + 1;
-            const hrs = String(localDt.getHours()).padStart(2, '0');
-            const mins = String(localDt.getMinutes()).padStart(2, '0');
-            note = `<div style="color:#059669;font-size:10px;margin-top:2px;"><b>Xong lúc:</b> ${hrs}:${mins} ${day}/${month}</div>`;
+            const dt = parseVNDate(actualOutputAt);
+            if (dt && !isNaN(dt.getTime())) {
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    day: 'numeric', month: 'numeric',
+                    hour: 'numeric', minute: 'numeric', hour12: false
+                });
+                const parts = formatter.formatToParts(dt);
+                const partMap = {};
+                parts.forEach(p => partMap[p.type] = p.value);
+                note = `<div style="color:#059669;font-size:10px;margin-top:2px;"><b>Xong lúc:</b> ${partMap.hour}:${partMap.minute} ${partMap.day}/${partMap.month}</div>`;
+            }
         }
-
+        
         return `<div>${dateStr}</div>
                 <div style="font-size:10px;color:#4b5563;font-weight:normal;margin-top:2px;">Giờ: <b>${hourStr}</b></div>
                 ${note}`;
@@ -448,7 +477,7 @@ function _tsRenderTimeline(res) {
 }
 
 async function _tsLoadStats() {
-    const y = _ts.year || new Date().getFullYear();
+    const y = _ts.year || vnNow().getFullYear();
     const m = _ts.month || '';
     try {
         const s = await apiCall(`/api/trasoat/stats?year=${y}&month=${m}`);
@@ -793,7 +822,7 @@ function _tsDrawBar(s) {
 
 var _tsChartYearVal;
 async function _tsChartYear(delta) {
-    if (!_tsChartYearVal) _tsChartYearVal = Number(_ts.year) || new Date().getFullYear();
+    if (!_tsChartYearVal) _tsChartYearVal = Number(_ts.year) || vnNow().getFullYear();
     _tsChartYearVal += delta;
     document.getElementById('tsChartYear').textContent = _tsChartYearVal;
     try { const s = await apiCall('/api/trasoat/stats?year='+_tsChartYearVal); _tsDrawDonut(s); _tsDrawBar(s); } catch(e){}

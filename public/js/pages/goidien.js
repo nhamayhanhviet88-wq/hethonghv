@@ -553,7 +553,7 @@ async function _gd_loadCallsForUser(userId) {
     const noAB = parseInt(_gd_stats.no_answer||0)+parseInt(_gd_stats.busy||0);
     const prevNoAB = parseInt(ps.no_answer||0)+parseInt(ps.busy||0);
     // "Đã Phân Còn Lại" chỉ đếm pending hôm nay (ngày trước đã thu hồi)
-    const _todayStr = new Date().toLocaleDateString('en-CA');
+    const _todayStr = vnDateStr();
     const totalAssigned = _gd_calls.filter(c => c.call_status === 'pending' && (c.assigned_date||'').split('T')[0] === _todayStr).length;
     const prevAssigned = parseInt(ps.pending||0);
     const miniCards = [
@@ -873,8 +873,9 @@ async function _gd_selectAnswerStatus(assignmentId, answerStatusId, actionType, 
             <button onclick="_gd_confirmCold(${assignmentId},${answerStatusId})" style="padding:10px 24px;font-size:13px;font-weight:700;border:none;border-radius:10px;background:${cfg.btnGrad};color:white;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.2);transition:all .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">${cfg.btnText}</button>`);
         return;
     } else if (actionType === 'followup') {
-        const defaultDate = new Date(); defaultDate.setDate(defaultDate.getDate() + (defaultFollowupDays || 3));
-        const dateStr = defaultDate.toISOString().split('T')[0];
+        const d = new Date(vnDateStr());
+        d.setUTCDate(d.getUTCDate() + (defaultFollowupDays || 3));
+        const dateStr = d.toISOString().split('T')[0];
         openModal('📅 Hẹn Gọi Lại', `
             <div class="form-group"><label>📅 Ngày hẹn</label>
             <input type="date" id="gdCallbackDate" class="form-control" value="${dateStr}" readonly style="background:#f1f5f9;cursor:not-allowed;"></div>

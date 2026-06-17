@@ -148,7 +148,7 @@ function _zlRenderToolbar() {
 }
 
 function _vnTodayFE() {
-    return new Date().toLocaleDateString('en-CA');
+    return vnDateStr();
 }
 
 function _zlRenderDateBar() {
@@ -185,25 +185,33 @@ function _zlSetDateFilter(key) {
 
 function _zlGetDateParams() {
     const today = _vnTodayFE();
-    const d = new Date();
     switch (_zlDateFilter) {
         case 'today': return { date: today };
         case 'yesterday': {
-            const y = new Date(d); y.setDate(y.getDate() - 1);
+            const y = new Date(today);
+            y.setUTCDate(y.getUTCDate() - 1);
             return { date: y.toISOString().split('T')[0] };
         }
         case '7days': {
-            const from = new Date(d); from.setDate(from.getDate() - 6);
+            const from = new Date(today);
+            from.setUTCDate(from.getUTCDate() - 6);
             return { date_from: from.toISOString().split('T')[0], date_to: today };
         }
         case 'month': {
-            const from = new Date(d.getFullYear(), d.getMonth(), 1);
-            return { date_from: from.toISOString().split('T')[0], date_to: today };
+            const parts = today.split('-');
+            const from = parts[0] + '-' + parts[1] + '-01';
+            return { date_from: from, date_to: today };
         }
         case 'prev_month': {
-            const from = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-            const to = new Date(d.getFullYear(), d.getMonth(), 0);
-            return { date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0] };
+            const parts = today.split('-');
+            const y = parseInt(parts[0]);
+            const m = parseInt(parts[1]);
+            const prevM = m === 1 ? 12 : m - 1;
+            const prevY = m === 1 ? y - 1 : y;
+            const from = prevY + '-' + String(prevM).padStart(2, '0') + '-01';
+            const lastDayObj = new Date(Date.UTC(y, m - 1, 0));
+            const to = lastDayObj.toISOString().split('T')[0];
+            return { date_from: from, date_to: to };
         }
         case 'all': return { date: 'all' };
         case 'custom': {
@@ -383,7 +391,7 @@ function _zlRenderTasks(res) {
                     <td style="padding:6px 8px;text-align:center;border-left:1px solid #e5e7eb;">${r.spam_image ? `<img src="${r.spam_image}" onclick="window.open('${r.spam_image}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;border:1px solid #e5e7eb;transition:transform .2s;" onmouseover="this.style.transform='scale(1.5)'" onmouseout="this.style.transform='scale(1)'"/>` : '<span style="color:#9ca3af;font-size:10px;">—</span>'}</td>
                     <td style="padding:6px 8px;text-align:left;border-left:1px solid #e5e7eb;font-size:11px;color:#374151;max-width:180px;word-break:break-word;">${r.spam_reason || '<span style="color:#9ca3af;">—</span>'}</td>
                     ` : ''}
-                    <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:10px;color:#6b7280;white-space:nowrap;">${r.marked_at ? new Date(r.marked_at).toLocaleDateString('vi-VN') + '<br>' + new Date(r.marked_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+                    <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:10px;color:#6b7280;white-space:nowrap;">${r.marked_at ? new Date(r.marked_at).toLocaleDateString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh'}) + '<br>' + new Date(r.marked_at).toLocaleTimeString('vi-VN',{timeZone: 'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
                     ${(_zlFilter === 'spam_ok' || _zlFilter === 'spam_no' || _zlFilter === 'spam_done') ? `
                     <td style="padding:6px 8px;text-align:center;border-left:1px solid #e5e7eb;">${r.spam_screenshot ? `<img src="${r.spam_screenshot}" onclick="window.open('${r.spam_screenshot}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;border:1px solid #e5e7eb;" onmouseover="this.style.transform='scale(1.5)'" onmouseout="this.style.transform='scale(1)'"/>` : '<span style="color:#9ca3af;font-size:10px;">—</span>'}</td>
                     ` : ''}
@@ -404,7 +412,7 @@ function _zlRenderTasks(res) {
                 <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
                 <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
                 <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
-                <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:10px;color:#6b7280;white-space:nowrap;">${t.updated_at ? new Date(t.updated_at).toLocaleDateString('vi-VN') + '<br>' + new Date(t.updated_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+                <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:10px;color:#6b7280;white-space:nowrap;">${t.updated_at ? new Date(t.updated_at).toLocaleDateString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh'}) + '<br>' + new Date(t.updated_at).toLocaleTimeString('vi-VN',{timeZone: 'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
             </tr>`);
         }
     });
@@ -950,16 +958,38 @@ function _zpRenderDateBar() {
 }
 
 function _zpGetDateParams() {
-    const today = _vnTodayFE(), d = new Date(Date.now()+7*3600000);
-    switch(_zpDateFilter) {
-        case 'today': return {date:today};
-        case 'yesterday': { const y=new Date(d); y.setDate(y.getDate()-1); return {date:y.toISOString().split('T')[0]}; }
-        case '7days': { const f=new Date(d); f.setDate(f.getDate()-6); return {date_from:f.toISOString().split('T')[0],date_to:today}; }
-        case 'month': { return {date_from:new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0],date_to:today}; }
-        case 'prev_month': { const f=new Date(d.getFullYear(),d.getMonth()-1,1),t=new Date(d.getFullYear(),d.getMonth(),0); return {date_from:f.toISOString().split('T')[0],date_to:t.toISOString().split('T')[0]}; }
-        case 'all': return {date:'all'};
-        case 'custom': return (_zpCustomFrom&&_zpCustomTo)?{date_from:_zpCustomFrom,date_to:_zpCustomTo}:{date:'all'};
-        default: return {date:'all'};
+    const today = _vnTodayFE();
+    switch (_zpDateFilter) {
+        case 'today': return { date: today };
+        case 'yesterday': {
+            const y = new Date(today);
+            y.setUTCDate(y.getUTCDate() - 1);
+            return { date: y.toISOString().split('T')[0] };
+        }
+        case '7days': {
+            const from = new Date(today);
+            from.setUTCDate(from.getUTCDate() - 6);
+            return { date_from: from.toISOString().split('T')[0], date_to: today };
+        }
+        case 'month': {
+            const parts = today.split('-');
+            const from = parts[0] + '-' + parts[1] + '-01';
+            return { date_from: from, date_to: today };
+        }
+        case 'prev_month': {
+            const parts = today.split('-');
+            const y = parseInt(parts[0]);
+            const m = parseInt(parts[1]);
+            const prevM = m === 1 ? 12 : m - 1;
+            const prevY = m === 1 ? y - 1 : y;
+            const from = prevY + '-' + String(prevM).padStart(2, '0') + '-01';
+            const lastDayObj = new Date(Date.UTC(y, m - 1, 0));
+            const to = lastDayObj.toISOString().split('T')[0];
+            return { date_from: from, date_to: to };
+        }
+        case 'all': return { date: 'all' };
+        case 'custom': return (_zpCustomFrom && _zpCustomTo) ? { date_from: _zpCustomFrom, date_to: _zpCustomTo } : { date: 'all' };
+        default: return { date: 'all' };
     }
 }
 
@@ -1036,7 +1066,7 @@ function _zpRenderTable() {
         <td style="padding:8px;text-align:center;">${sc}</td>
         <td style="padding:6px;text-align:center;">${r.spam_image?`<img src="${r.spam_image}" onclick="window.open('${r.spam_image}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;"/>`:'<span style="color:#9ca3af;font-size:10px;">—</span>'}</td>
         <td style="padding:6px 8px;font-size:11px;color:#374151;max-width:180px;word-break:break-word;">${r.spam_reason||'<span style="color:#9ca3af;">—</span>'}</td>
-        <td style="padding:8px;text-align:center;font-size:10px;color:#6b7280;white-space:nowrap;">${r.marked_at?new Date(r.marked_at).toLocaleDateString('vi-VN')+'<br>'+new Date(r.marked_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
+        <td style="padding:8px;text-align:center;font-size:10px;color:#6b7280;white-space:nowrap;">${r.marked_at?new Date(r.marked_at).toLocaleDateString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh'})+'<br>'+new Date(r.marked_at).toLocaleTimeString('vi-VN',{timeZone: 'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit'}):'—'}</td>
         <td style="padding:6px;text-align:center;">${r.spam_screenshot?`<img src="${r.spam_screenshot}" onclick="window.open('${r.spam_screenshot}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;border:1px solid #e5e7eb;" onmouseover="this.style.transform='scale(1.5)'" onmouseout="this.style.transform='scale(1)'"/>`:r.spam_status==='marked'?'<span style="color:#f59e0b;font-size:10px;font-weight:700;">⏳ Chờ ảnh</span>':'<span style="color:#9ca3af;font-size:10px;">—</span>'}</td></tr>`;
     }).join('');
     el.innerHTML=`<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:${_ZP_GRAD};color:white;"><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">TÊN NV</th><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">TÊN NHÓM</th><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">LINK ZALO</th><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">LINK GROUP</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">TV</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">JOIN</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">SPAM</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">ẢNH NV</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">LÝ DO</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">TIME</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">ẢNH QL</th></tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -1149,7 +1179,7 @@ async function _zpLoadLockTaskStatus() {
         } else if (completed && overdue.length > 0) {
             statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#dcfce7,#f0fdf4);border:2px solid #86efac;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">✅</span><div><div style="font-size:14px;font-weight:800;color:#166534;">CV Khóa hoàn thành hôm nay — Dừng phạt</div><div style="font-size:11px;color:#dc2626;font-weight:600;">⚠️ Tổng phạt tích lũy: ' + totalPenalty.toLocaleString() + 'đ (' + overdue.length + ' ngày)</div></div></div>';
         } else if (remaining > 0 && overdue.length > 0) {
-            const dateList = overdue.map(d => { const dd = new Date(d.date + "T00:00:00"); return dd.toLocaleDateString("vi-VN",{weekday:"short",day:"2-digit",month:"2-digit"}); }).join(' · ');
+            const dateList = overdue.map(d => { const parts = d.date.split('-'); const dd = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])); return dd.toLocaleDateString("vi-VN",{weekday:"short",day:"2-digit",month:"2-digit"}); }).join(' · ');
             statusHtml = '<div style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:24px;">⚠️</span><div><div style="font-size:15px;font-weight:800;color:#991b1b;">CV Khóa quá hạn ' + overdue.length + ' ngày — Tổng phạt: ' + totalPenalty.toLocaleString() + 'đ</div></div></div><div style="font-size:11px;color:#dc2626;font-weight:600;padding-left:34px;margin-bottom:6px;">' + dateList + '</div><div style="font-size:11px;color:#7f1d1d;padding-left:34px;">Còn ' + remaining + ' nhóm chưa spam. Spam hết để hoàn thành CV hôm nay và dừng phạt thêm!</div></div>';
         } else if (remaining > 0) {
             statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">🔥</span><div><div style="font-size:14px;font-weight:800;color:#991b1b;">CV Khóa: Còn ' + remaining + ' nhóm chưa spam</div><div style="font-size:11px;color:#dc2626;font-weight:600;">Spam hết trong 🔥 QL Chưa Spam để tự động hoàn thành và không bị phạt 50,000đ</div></div></div>';
@@ -1179,7 +1209,7 @@ async function _zlLoadLockTaskStatus() {
         } else if (completed && overdue.length > 0) {
             statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#dcfce7,#f0fdf4);border:2px solid #86efac;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">\u2705</span><div><div style="font-size:14px;font-weight:800;color:#166534;">CV Kh\u00f3a ho\u00e0n th\u00e0nh h\u00f4m nay \u2014 D\u1eebng ph\u1ea1t</div><div style="font-size:11px;color:#dc2626;font-weight:600;">\u26a0\ufe0f T\u1ed5ng ph\u1ea1t t\u00edch l\u0169y: ' + totalPenalty.toLocaleString() + '\u0111 (' + overdue.length + ' ng\u00e0y)</div></div></div>';
         } else if (remaining > 0 && overdue.length > 0) {
-            const dateList = overdue.map(d => { const dd = new Date(d.date + "T00:00:00"); return dd.toLocaleDateString("vi-VN",{weekday:"short",day:"2-digit",month:"2-digit"}); }).join(' \u00b7 ');
+            const dateList = overdue.map(d => { const parts = d.date.split('-'); const dd = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])); return dd.toLocaleDateString("vi-VN",{weekday:"short",day:"2-digit",month:"2-digit"}); }).join(' \u00b7 ');
             statusHtml = '<div style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:24px;">\u26a0\ufe0f</span><div><div style="font-size:15px;font-weight:800;color:#991b1b;">CV Kh\u00f3a qu\u00e1 h\u1ea1n ' + overdue.length + ' ng\u00e0y \u2014 T\u1ed5ng ph\u1ea1t: ' + totalPenalty.toLocaleString() + '\u0111</div></div></div><div style="font-size:11px;color:#dc2626;font-weight:600;padding-left:34px;margin-bottom:6px;">' + dateList + '</div><div style="font-size:11px;color:#7f1d1d;padding-left:34px;">C\u00f2n ' + remaining + ' nh\u00f3m Group C\u00f3 Zalo ch\u01b0a x\u1eed l\u00fd. X\u1eed l\u00fd h\u1ebft \u0111\u1ec3 ho\u00e0n th\u00e0nh CV v\u00e0 d\u1eebng ph\u1ea1t!</div></div>';
         } else if (remaining > 0) {
             statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">\ud83d\udd25</span><div><div style="font-size:14px;font-weight:800;color:#991b1b;">CV Kh\u00f3a: C\u00f2n ' + remaining + ' nh\u00f3m Group C\u00f3 Zalo</div><div style="font-size:11px;color:#dc2626;font-weight:600;">X\u1eed l\u00fd h\u1ebft \u0111\u1ec3 t\u1ef1 \u0111\u1ed9ng ho\u00e0n th\u00e0nh v\u00e0 kh\u00f4ng b\u1ecb ph\u1ea1t</div></div></div>';
