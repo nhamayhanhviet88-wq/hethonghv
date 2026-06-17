@@ -3,6 +3,32 @@ var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, active
 function _dhtFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 function _dhtFmtCount(n) { return Number(n||0).toLocaleString('vi-VN') + ' đơn'; }
 
+function _dhtFmtOrderDate(orderDateStr, createdAtStr) {
+    if (!orderDateStr) return '—';
+    const parts = orderDateStr.split('-');
+    let datePart = '';
+    if (parts.length === 3) {
+        datePart = `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+    } else {
+        const dt = new Date(orderDateStr);
+        datePart = `${dt.getDate()}/${dt.getMonth()+1}`;
+    }
+    if (!createdAtStr) return datePart;
+    try {
+        const dt = new Date(createdAtStr);
+        const formatter = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+        const formattedTime = formatter.format(dt);
+        return `${formattedTime} ${datePart}`;
+    } catch (e) {
+        return datePart;
+    }
+}
+
 function formatDetailedQuantity(items, totalQuantity, orderCode) {
     if (!items || !Array.isArray(items) || items.length === 0) {
         return totalQuantity || 0;
@@ -848,7 +874,7 @@ function _dhtRenderOrderRows(filtered) {
 
         return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
-            <td>${fmtD(o.order_date)}</td>
+            <td>${_dhtFmtOrderDate(o.order_date, o.created_at)}</td>
             <td style="font-weight:600;">${shipDateFmt}</td>
             <td>${tienDo}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
@@ -1470,7 +1496,7 @@ async function _dhtShowDetail(id) {
         infoHTML += row('Thiết kế', o.designer_name || (o.designer_type === 'old_design' ? '🎨 Thiết Kế Cũ' : '—'));
         infoHTML += row('Nguồn', o.source || '—');
         infoHTML += row('Lĩnh vực', o.category_name || '—');
-        infoHTML += row('Ngày lên đơn', fmtD(o.order_date));
+        infoHTML += row('Ngày lên đơn', _dhtFmtOrderDate(o.order_date, o.created_at));
         infoHTML += `</table></div>`;
 
         // ── Section 7: 🚚 Thông tin vận chuyển ──
