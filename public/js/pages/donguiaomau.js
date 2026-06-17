@@ -159,6 +159,8 @@ function _dgamRenderRows(paged) {
         var remColor = remaining > 0 ? 'var(--danger)' : 'var(--success)';
 
         var userObj = window.currentUser || window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
+        
+        // Chỉ Giám đốc, Quản lý xưởng Lê Công Thực được duyệt đơn mẫu (✅)
         var isCanApprove = userObj && (userObj.role === 'giam_doc' || userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
         var approveBtnHtml = '';
         if (isCanApprove) {
@@ -173,6 +175,8 @@ function _dgamRenderRows(paged) {
         var hoanBtnHtml = !isQuanLyXuong 
             ? '<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
             : '';
+
+        // Chỉ tài khoản Lê Việt Trinh mới có quyền và nhìn thấy nút kiểm tra (🔍)
         var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
         var kiemTraBtnHtml = isLeVietTrinh
             ? '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>'
