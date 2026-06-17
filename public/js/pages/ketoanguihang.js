@@ -1699,103 +1699,234 @@ async function _shLoadMatchingPayments() {
 function _shRenderPayments(target) {
     var s = window._shModalState; if (!s) return;
     var el = document.getElementById('shPaymentSection'); if (!el) return;
-    var payments = s.matchingPayments || [];
-    var fmtM = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
-    var fmtD = function(d) { if(!d) return '\u2014'; var dt = new Date(d); return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+dt.getFullYear(); };
-    var isHvCk = (s.payer === 'hv' && s.method === 'ck');
     
-    var h = '<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:2px solid #93c5fd;border-radius:12px;padding:14px 16px;">';
-    h += '<div style="font-weight:800;font-size:13px;color:#1e40af;margin-bottom:2px;">💳 Thanh Toán Đơn Hàng</div>';
-    h += '<div style="font-size:12px;color:#3b82f6;font-weight:700;margin-bottom:10px;">Số tiền cần thanh toán: <b style="font-size:15px;color:#dc2626;">' + fmtM(target) + 'đ</b></div>';
-    if (payments.length === 0) {
-        if (isHvCk) {
-            s.skipPayment = false;
-            h += '<div style="text-align:center;padding:16px;background:#fef2f2;border:1.5px dashed #fca5a5;border-radius:10px;">';
-            h += '<div style="font-size:12px;color:#dc2626;font-weight:800;">⚠️ Không tìm thấy mã tiền phù hợp (Tối thiểu ' + fmtM(target) + 'đ)</div>';
-            h += '<div style="font-size:11px;color:#b91c1c;margin-top:4px;">Bắt buộc phải có giao dịch chuyển khoản trên hệ thống để đối soát. Vui lòng chờ tài khoản ngân hàng đồng bộ hoặc đổi sang hình thức phí ship Tiền Mặt (TM).</div>';
-            h += '</div>';
-        } else {
-            // No matching payments
-            s.skipPayment = true;
-            h += '<div style="text-align:center;padding:12px;background:rgba(255,255,255,.7);border-radius:8px;">';
-            h += '<div style="font-size:12px;color:#6b7280;font-weight:600;">📭 Không tìm thấy mã tiền phù hợp</div>';
-            h += '<div style="font-size:11px;color:#9ca3af;margin-top:4px;">Gửi hàng mà không liên kết thanh toán</div>';
-            h += '</div>';
-        }
-    } else {
-        // Payment list
-        h += '<div style="max-height:220px;overflow-y:auto;margin-bottom:8px;">';
-        for (var i = 0; i < payments.length; i++) {
-            var p = payments[i];
-            var diff = Number(p.diff) || 0;
-            var isSelected = s.selectedPaymentId === p.id;
-            var mlColors = { exact:'#059669', close:'#d97706', approximate:'#6b7280', far:'#9ca3af' };
-            var mlLabels = { exact:'✅ Khớp chính xác', close:'🟡 Gần giống', approximate:'⚪ Chênh lệch', far:'⚪ Xa' };
-            var mlBgs = { exact:'#f0fdf4', close:'#fffbeb', approximate:'#f8fafc', far:'#f8fafc' };
-            var ml = p.match_level || 'far';
-            
-            var isDeficit = isHvCk && (Number(p.amount) < target);
-            var border = isSelected ? '2px solid #2563eb' : '1.5px solid #e2e8f0';
-            var bg = isSelected ? '#eff6ff' : mlBgs[ml];
-            var shadow = isSelected ? 'box-shadow:0 0 0 3px rgba(37,99,235,0.15);' : '';
-            var cursor = 'pointer';
-            var opacity = '1';
-            
-            if (isDeficit) {
-                border = '1.5px solid #cbd5e1';
-                bg = '#f1f5f9';
-                cursor = 'not-allowed';
-                opacity = '0.65';
-                isSelected = false;
-            }
-            
-            var onClickStr = isDeficit ? '' : 'onclick="_shSelectPayment(' + p.id + ')"';
-            var methodIcon = p.payment_method === 'TM' ? '💰' : '🏦';
-            h += '<div ' + onClickStr + ' style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:' + border + ';border-radius:10px;margin-bottom:6px;cursor:' + cursor + ';opacity:' + opacity + ';background:' + bg + ';transition:all .15s;' + shadow + '" ' + (isDeficit ? '' : 'onmouseover="this.style.borderColor=\'#93c5fd\'" onmouseout="if(window._shModalState.selectedPaymentId!==' + p.id + ')this.style.borderColor=\'#e2e8f0\'"') + '>';
-            // Radio circle
-            h += '<div style="width:20px;height:20px;border-radius:50%;border:2px solid ' + (isSelected ? '#2563eb' : '#cbd5e1') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
-            if (isSelected) h += '<div style="width:10px;height:10px;border-radius:50%;background:#2563eb;"></div>';
-            h += '</div>';
-            // Info
-            h += '<div style="flex:1;min-width:0;">';
-            h += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
-            h += '<span style="font-weight:800;font-size:12px;color:#1e40af;">' + (p.payment_code||'\u2014') + '</span>';
-            h += '<span style="font-weight:900;font-size:13px;color:#dc2626;">' + fmtM(p.amount) + 'đ</span>';
-            if (isDeficit) {
-                h += '<span style="font-size:10px;font-weight:700;color:#dc2626;background:#fee2e2;padding:1.5px 6px;border-radius:4px;margin-left:auto;">⚠️ Thiếu tiền (Cần ≥ ' + fmtM(target) + 'đ)</span>';
-            } else {
-                h += '<span style="font-size:10px;font-weight:700;color:' + mlColors[ml] + ';">' + mlLabels[ml] + '</span>';
-            }
-            h += '</div>';
-            h += '<div style="font-size:10px;color:#64748b;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">';
-            h += '<span>' + methodIcon + ' ' + (p.payment_method||'') + '</span>';
-            if (p.bank_name) h += '<span>🏦 ' + p.bank_name + '</span>';
-            h += '<span>📅 ' + fmtD(p.payment_date) + '</span>';
-            if (diff > 0) h += '<span style="color:' + (diff <= 50000 ? '#d97706' : '#dc2626') + ';">Chênh: ' + (diff>0?'+':'') + fmtM(diff) + 'đ</span>';
-            h += '</div>';
-            if (p.transfer_note) {
-                h += '<div style="font-size:10px;color:#9ca3af;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.transfer_note||'').replace(/"/g,'&quot;') + '">📝 ' + p.transfer_note + '</div>';
-            }
-            h += '</div></div>';
-        }
+    // Check if we need to initialize the container
+    var containerExists = document.getElementById('shPaymentListContainer');
+    if (!containerExists) {
+        var h = '<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:2px solid #93c5fd;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;">';
+        h += '<div style="font-weight:800;font-size:13px;color:#1e40af;">💳 Thanh Toán Đơn Hàng</div>';
+        h += '<div id="shPaymentTargetAmount" style="font-size:12px;color:#3b82f6;font-weight:700;">Số tiền cần thanh toán: <b style="font-size:15px;color:#dc2626;">' + Number(target).toLocaleString('vi-VN') + 'đ</b></div>';
+        
+        // Search input
+        h += '<div style="position:relative;display:flex;align-items:center;">';
+        h += '<input type="text" id="shPaymentSearch" placeholder="🔍 Tìm mã tiền, số tiền, khách..." style="width:100%;padding:8px 12px;padding-right:30px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;outline:none;font-family:inherit;font-weight:600;color:#334155;background:#fff;" oninput="_shOnPaymentSearchInput(this.value)">';
+        h += '<span id="shPaymentSearchClear" onclick="_shClearPaymentSearch()" style="position:absolute;right:10px;cursor:pointer;color:#94a3b8;font-weight:800;font-size:14px;display:none;">×</span>';
         h += '</div>';
         
-        if (isHvCk) {
-            h += '<div style="background:#fffbeb;border:1.5px dashed #f59e0b;border-radius:8px;padding:8px 12px;font-size:12px;color:#d97706;font-weight:700;text-align:center;">';
-            h += '⚠️ Bắt buộc phải chọn mã tiền thanh toán (tối thiểu ' + fmtM(target) + 'đ) để gửi hàng.</div>';
-        } else {
-            // Skip button
-            var skipActive = s.skipPayment;
-            h += '<div onclick="_shToggleSkipPayment()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid ' + (skipActive ? '#f59e0b' : '#e2e8f0') + ';border-radius:8px;cursor:pointer;background:' + (skipActive ? '#fffbeb' : 'white') + ';transition:all .15s;" onmouseover="this.style.borderColor=\'#f59e0b\'" onmouseout="if(!' + skipActive + ')this.style.borderColor=\'#e2e8f0\'">';
-            h += '<div style="width:18px;height:18px;border-radius:4px;border:2px solid ' + (skipActive ? '#f59e0b' : '#cbd5e1') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + (skipActive ? '#f59e0b' : 'white') + ';">';
-            if (skipActive) h += '<span style="color:white;font-size:11px;font-weight:900;">✓</span>';
-            h += '</div>';
-            h += '<span style="font-size:12px;font-weight:600;color:' + (skipActive ? '#d97706' : '#6b7280') + ';">\u23ed\ufe0f Không thanh toán lần này</span>';
-            h += '</div>';
+        // List container
+        h += '<div id="shPaymentListContainer" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;"></div>';
+        
+        // Footer (skip / info)
+        h += '<div id="shPaymentFooter"></div>';
+        h += '</div>';
+        
+        el.innerHTML = h;
+    } else {
+        // Update target amount text in case it changed
+        var targetEl = document.getElementById('shPaymentTargetAmount');
+        if (targetEl) {
+            targetEl.innerHTML = 'Số tiền cần thanh toán: <b style="font-size:15px;color:#dc2626;">' + Number(target).toLocaleString('vi-VN') + 'đ</b>';
         }
     }
-    h += '</div>';
-    el.innerHTML = h;
+    
+    // Render list and footer
+    var q = s.searchQuery || '';
+    var searchInput = document.getElementById('shPaymentSearch');
+    if (searchInput) {
+        searchInput.value = q;
+        var clearBtn = document.getElementById('shPaymentSearchClear');
+        if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+    }
+    
+    _shRenderPaymentsList(target, q);
+}
+
+function _shRenderPaymentsList(target, q) {
+    var s = window._shModalState; if (!s) return;
+    var listEl = document.getElementById('shPaymentListContainer'); if (!listEl) return;
+    var payments = s.matchingPayments || [];
+    var isHvCk = (s.payer === 'hv' && s.method === 'ck');
+    
+    var query = (q || '').toLowerCase().trim();
+    
+    // Filter payments
+    var filtered = payments.filter(p => {
+        if (!query) return true;
+        
+        var matchCode = (p.payment_code || '').toLowerCase().includes(query);
+        var matchCust = (p.customer_name || '').toLowerCase().includes(query);
+        var matchPhone = (p.customer_phone || '').includes(query);
+        var matchBank = (p.bank_name || '').toLowerCase().includes(query);
+        var matchNote = (p.transfer_note || '').toLowerCase().includes(query);
+        
+        var cleanQ = query.replace(/[\.,đ]/g, '');
+        var matchAmount = cleanQ && (String(p.original_amount || '').includes(cleanQ) || String(p.amount || '').includes(cleanQ) || String(p.surplus || '').includes(cleanQ));
+        
+        return matchCode || matchCust || matchPhone || matchBank || matchNote || matchAmount;
+    });
+    
+    if (filtered.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center;padding:24px 12px;color:#94a3b8;font-size:12px;background:#fff;border-radius:8px;border:1.5px dashed #cbd5e1;">\u2205 Không tìm thấy mã tiền phù hợp</div>';
+        _shUpdatePaymentFooter(target);
+        return;
+    }
+    
+    var suggestions = [];
+    var surplusList = [];
+    var zeroList = [];
+    
+    filtered.forEach(p => {
+        var isSuggestion = (Number(p.amount) > 0) && (p.match_level === 'exact' || p.match_level === 'close' || p.match_level === 'approximate');
+        
+        // Show suggestions at the top regardless of search query
+        if (isSuggestion) {
+            suggestions.push(p);
+        } else if (Number(p.amount) > 0) {
+            surplusList.push(p);
+        } else {
+            zeroList.push(p);
+        }
+    });
+    
+    var h = '';
+    
+    // Render Suggestions
+    if (suggestions.length > 0) {
+        h += '<div style="font-size:11px;font-weight:800;color:#1e40af;margin-top:4px;margin-bottom:2px;display:flex;align-items:center;gap:4px;">✨ Đề xuất phù hợp (' + suggestions.length + ')</div>';
+        suggestions.forEach(p => {
+            h += _shBuildPaymentRowHTML(p, target, isHvCk, 'suggestion');
+        });
+    }
+    
+    // Render Surplus > 0 (Fully display)
+    if (surplusList.length > 0) {
+        var title = query ? 'Mã tiền còn dư (> 0đ)' : 'Danh sách mã tiền còn dư (> 0đ)';
+        h += '<div style="font-size:11px;font-weight:800;color:#059669;margin-top:6px;margin-bottom:2px;display:flex;align-items:center;gap:4px;">🟢 ' + title + ' (' + surplusList.length + ')</div>';
+        
+        surplusList.forEach(p => {
+            h += _shBuildPaymentRowHTML(p, target, isHvCk, 'surplus');
+        });
+    }
+    
+    // Render Surplus = 0 (Fully display)
+    if (zeroList.length > 0) {
+        var title = query ? 'Mã tiền đã dùng hết (dư = 0đ)' : 'Danh sách mã tiền đã dùng hết (dư = 0đ)';
+        h += '<div style="font-size:11px;font-weight:800;color:#64748b;margin-top:6px;margin-bottom:2px;display:flex;align-items:center;gap:4px;">⚫ ' + title + ' (' + zeroList.length + ')</div>';
+        
+        zeroList.forEach(p => {
+            h += _shBuildPaymentRowHTML(p, target, isHvCk, 'zero');
+        });
+    }
+    
+    listEl.innerHTML = h;
+    _shUpdatePaymentFooter(target);
+}
+
+function _shOnPaymentSearchInput(val) {
+    var s = window._shModalState; if (!s) return;
+    s.searchQuery = val;
+    var fee = Number((document.getElementById('shFeeInput')?.value||'').replace(/\D/g,'')) || 0;
+    var target = s.remaining;
+    if (s.payer === 'hv' && s.method === 'ck') target = s.remaining - fee;
+    
+    var clearBtn = document.getElementById('shPaymentSearchClear');
+    if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+    
+    _shRenderPaymentsList(target, val);
+}
+
+function _shClearPaymentSearch() {
+    var searchInput = document.getElementById('shPaymentSearch');
+    if (searchInput) searchInput.value = '';
+    _shOnPaymentSearchInput('');
+}
+
+function _shBuildPaymentRowHTML(p, target, isHvCk, groupType) {
+    var s = window._shModalState; if (!s) return '';
+    var fmtM = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
+    var fmtD = function(d) { if(!d) return '\u2014'; var dt = new Date(d); return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+dt.getFullYear(); };
+    
+    var isSelected = s.selectedPaymentId === p.id;
+    var isZero = (Number(p.amount) <= 0);
+    var isDeficit = isHvCk && (Number(p.amount) < target);
+    
+    var mlColors = { exact:'#059669', close:'#d97706', approximate:'#6b7280', far:'#9ca3af' };
+    var mlLabels = { exact:'✅ Khớp chính xác', close:'🟡 Gần giống', approximate:'⚪ Chênh lệch', far:'⚪ Xa' };
+    var mlBgs = { exact:'#f0fdf4', close:'#fffbeb', approximate:'#f8fafc', far:'#f8fafc' };
+    var ml = p.match_level || 'far';
+    
+    var border = isSelected ? '2px solid #2563eb' : '1.5px solid #e2e8f0';
+    var bg = isSelected ? '#eff6ff' : (isZero ? '#f1f5f9' : (groupType === 'suggestion' ? mlBgs[ml] : '#fff'));
+    var shadow = isSelected ? 'box-shadow:0 0 0 3px rgba(37,99,235,0.15);' : '';
+    
+    var cursor = 'pointer';
+    var opacity = '1';
+    var canSelect = true;
+    
+    if (isZero || isDeficit) {
+        cursor = 'not-allowed';
+        opacity = '0.65';
+        isSelected = false;
+        canSelect = false;
+        shadow = '';
+        if (isSelected) {
+            border = '1.5px solid #cbd5e1';
+        }
+    }
+    
+    var onClickStr = canSelect ? 'onclick="_shSelectPayment(' + p.id + ')"' : '';
+    var methodIcon = p.payment_method === 'TM' ? '💰' : '🏦';
+    
+    var row = '<div ' + onClickStr + ' style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:' + border + ';border-radius:10px;margin-bottom:6px;cursor:' + cursor + ';opacity:' + opacity + ';background:' + bg + ';transition:all .15s;' + shadow + '" ' + (canSelect ? 'onmouseover="this.style.borderColor=\'#93c5fd\'" onmouseout="if(window._shModalState.selectedPaymentId!==' + p.id + ')this.style.borderColor=\'#e2e8f0\'"' : '') + '>';
+    
+    // Radio button
+    row += '<div style="width:18px;height:18px;border-radius:50%;border:2px solid ' + (isSelected ? '#2563eb' : '#cbd5e1') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff;">';
+    if (isSelected) row += '<div style="width:9px;height:9px;border-radius:50%;background:#2563eb;"></div>';
+    row += '</div>';
+    
+    // Info
+    row += '<div style="flex:1;min-width:0;line-height:1.35;">';
+    row += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
+    row += '<span style="font-weight:800;font-size:11.5px;color:#1e40af;">' + (p.payment_code||'\u2014') + '</span>';
+    
+    var surplusVal = Number(p.surplus) || 0;
+    var originalAmtVal = Number(p.original_amount) || Number(p.amount) || 0;
+    
+    row += '<span style="font-weight:900;font-size:12px;color:#dc2626;">' + fmtM(originalAmtVal) + 'đ</span>';
+    
+    if (isZero) {
+        row += '<span style="font-size:9.5px;font-weight:700;color:#64748b;background:#e2e8f0;padding:1.5px 5px;border-radius:4px;margin-left:auto;">⚠️ Hết tiền (Dư 0đ)</span>';
+    } else if (isDeficit) {
+        row += '<span style="font-size:9.5px;font-weight:700;color:#dc2626;background:#fee2e2;padding:1.5px 5px;border-radius:4px;margin-left:auto;">⚠️ Thiếu tiền (Cần ≥ ' + fmtM(target) + 'đ)</span>';
+    } else if (groupType === 'suggestion') {
+        row += '<span style="font-size:9.5px;font-weight:700;color:' + mlColors[ml] + ';margin-left:auto;">' + mlLabels[ml] + '</span>';
+    } else {
+        row += '<span style="font-size:9.5px;font-weight:700;color:#059669;background:#dcfce7;padding:1.5px 5px;border-radius:4px;margin-left:auto;">Dư: ' + fmtM(p.amount) + 'đ</span>';
+    }
+    row += '</div>';
+    
+    // Subtext (bank, date, chênh lệch)
+    row += '<div style="font-size:10px;color:#64748b;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+    row += '<span>' + methodIcon + ' ' + (p.payment_method||'') + '</span>';
+    if (p.bank_name) row += '<span>🏦 ' + p.bank_name + '</span>';
+    row += '<span>📅 ' + fmtD(p.payment_date) + '</span>';
+    
+    if (originalAmtVal !== Number(p.amount) && Number(p.amount) > 0) {
+        row += '<span style="color:#0ea5e9;font-weight:700;">(Dư: ' + fmtM(p.amount) + 'đ)</span>';
+    }
+    
+    if (groupType === 'suggestion' && Number(p.diff) > 0) {
+        var diff = Number(p.diff);
+        row += '<span style="color:' + (diff <= 50000 ? '#d97706' : '#dc2626') + ';font-weight:700;">Chênh: ' + fmtM(diff) + 'đ</span>';
+    }
+    row += '</div>';
+    
+    if (p.transfer_note) {
+        row += '<div style="font-size:9.5px;color:#9ca3af;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (p.transfer_note||'').replace(/"/g,'&quot;') + '">📝 ' + p.transfer_note + '</div>';
+    }
+    
+    row += '</div></div>';
+    return row;
 }
 
 function _shSelectPayment(id) {
@@ -2709,5 +2840,7 @@ window._shCloseErrorModal = _shCloseErrorModal;
 window._shUploadErrorVideo = _shUploadErrorVideo;
 window._shSubmitError = _shSubmitError;
 window._shRemoveErrorImage = _shRemoveErrorImage;
+window._shOnPaymentSearchInput = _shOnPaymentSearchInput;
+window._shClearPaymentSearch = _shClearPaymentSearch;
 
 

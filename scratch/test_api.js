@@ -18,7 +18,7 @@ function post(url, data) {
             res.on('data', chunk => body += chunk);
             res.on('end', () => {
                 resolve({
-                    status: res.statusCode,
+                    statusCode: res.statusCode,
                     headers: res.headers,
                     body: body
                 });
@@ -30,7 +30,7 @@ function post(url, data) {
     });
 }
 
-function get(url, cookies) {
+function get(url, cookie) {
     return new Promise((resolve, reject) => {
         const u = new URL(url);
         const req = http.request({
@@ -39,14 +39,14 @@ function get(url, cookies) {
             path: u.pathname + u.search,
             method: 'GET',
             headers: {
-                'Cookie': cookies.join('; ')
+                'Cookie': cookie
             }
         }, (res) => {
             let body = '';
             res.on('data', chunk => body += chunk);
             res.on('end', () => {
                 resolve({
-                    status: res.statusCode,
+                    statusCode: res.statusCode,
                     headers: res.headers,
                     body: body
                 });
@@ -59,20 +59,22 @@ function get(url, cookies) {
 
 async function run() {
     try {
-        const loginRes = await post('http://localhost:11000/api/auth/login', { username: 'admin', password: 'admin123' });
-        console.log('Login Status:', loginRes.status);
-        const cookies = loginRes.headers['set-cookie'] || [];
-        
-        const ordersRes = await get('http://localhost:11000/api/trasoat/orders?search=AFF-VTTI0007', cookies);
-        console.log('Orders API Status:', ordersRes.status);
-        const data = JSON.parse(ordersRes.body);
-        
-        console.log('Returned Orders:');
-        data.orders.forEach(o => {
-            console.log(`- Code: ${o.order_code}, Stage: ${o.current_step_name}, Progress: ${o.progress_percent}%`);
+        // 1. Login
+        const loginRes = await post('http://localhost:11000/api/auth/login', {
+            username: 'admin',
+            password: 'admin123'
         });
-    } catch(e) {
-        console.error(e.message);
+        console.log('Login status:', loginRes.statusCode);
+        const cookie = loginRes.headers['set-cookie'] ? loginRes.headers['set-cookie'][0] : '';
+        console.log('Cookie:', cookie);
+
+        // 2. Call matching-payments API
+        const apiRes = await get('http://localhost:11000/api/shipping/matching-payments?order_code=NHANVIEN10-MAU0002&target_amount=200000', cookie);
+        console.log('API Status:', apiRes.statusCode);
+        console.log('API Response:', apiRes.body);
+    } catch (e) {
+        console.error(e);
     }
 }
+
 run();
