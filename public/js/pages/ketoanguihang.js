@@ -1093,7 +1093,6 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         surHTML += `</div>`;
     }
 
-    const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
     const finRemaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : (calcBase + surchargeTotal + vat - discount - deposit - shipCK);
     const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
     var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px">`;
