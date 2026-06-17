@@ -660,6 +660,13 @@ function _dgamOnCategoryChange() {
     } else {
         html += `
             <div class="form-group">
+                <label>Lĩnh Vực <span style="color:var(--danger)">*</span></label>
+                <select id="dgamAddLinhVuc" class="form-control">
+                    <option value="">-- Chọn lĩnh vực --</option>
+                    ${_dgamDhtCategories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
                 <label>Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
                 <input type="text" id="dgamAddProductName" class="form-control" placeholder="Tên sản phẩm mẫu">
             </div>
@@ -931,6 +938,12 @@ async function _dgamSubmitAdd() {
             order_status: 'cho_duyet'
         };
     } else {
+        const linhVuc = document.getElementById('dgamAddLinhVuc').value;
+        if (!linhVuc) {
+            showToast('Vui lòng chọn Lĩnh Vực!', 'error');
+            return;
+        }
+
         const productName = document.getElementById('dgamAddProductName').value.trim();
         if (!productName) {
             showToast('Vui lòng nhập Tên Sản Phẩm!', 'error');
@@ -986,7 +999,7 @@ async function _dgamSubmitAdd() {
 
         body = {
             ...body,
-            linh_vuc: null,
+            linh_vuc: linhVuc,
             product_name: productName,
             quantity: 1,
             price: 0,
