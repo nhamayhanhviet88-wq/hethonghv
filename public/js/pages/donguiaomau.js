@@ -463,6 +463,52 @@ function _dgamDeleteSampleImg() {
     }
 }
 
+async function _dgamPasteChuanProofImg(e) {
+    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            const blob = items[i].getAsFile();
+            const compressed = await _dgamResizeAndStoreImage(blob);
+            _dgam.chuanProofImgBase64 = compressed;
+            const img = document.getElementById('dgamChuanProofImg');
+            const ph = document.getElementById('dgamChuanProofImgPlaceholder');
+            const btn = document.getElementById('dgamChuanProofImgDeleteBtn');
+            if (img) { img.src = compressed; img.style.display = 'block'; }
+            if (ph) ph.style.display = 'none';
+            if (btn) btn.style.display = 'block';
+            const zone = document.getElementById('dgamChuanProofImgZone');
+            if (zone) { zone.style.borderColor = '#059669'; zone.style.background = '#f0fdf4'; }
+            if (typeof showToast === 'function') {
+                showToast('✅ Đã dán ảnh chứng minh thành công!');
+            }
+            e.preventDefault();
+            return;
+        }
+    }
+    if (typeof showToast === 'function') {
+        showToast('Không tìm thấy hình ảnh trong clipboard!', 'error');
+    }
+}
+
+function _dgamDeleteChuanProofImg() {
+    _dgam.chuanProofImgBase64 = null;
+    const img = document.getElementById('dgamChuanProofImg');
+    const ph = document.getElementById('dgamChuanProofImgPlaceholder');
+    const btn = document.getElementById('dgamChuanProofImgDeleteBtn');
+    const zone = document.getElementById('dgamChuanProofImgZone');
+    if (img) { img.src = ''; img.style.display = 'none'; }
+    if (ph) ph.style.display = 'block';
+    if (btn) btn.style.display = 'none';
+    if (zone) {
+        zone.style.borderColor = '#cbd5e1';
+        zone.style.background = '#f8fafc';
+    }
+    if (typeof showToast === 'function') {
+        showToast('Đã xóa ảnh chứng minh, vui lòng dán lại!');
+    }
+}
+
 function _dgamValidateShipDate(dateStr) {
     if (!dateStr) return { valid: false, error: 'Vui lòng chọn Ngày Gửi Hàng!' };
     
@@ -546,6 +592,7 @@ function _dgamOnShippingPriorityChange() {
             timeContainer.style.display = 'none';
             if (hourInput) hourInput.value = '';
             if (minuteInput) minuteInput.value = '';
+            _dgamDeleteChuanProofImg();
         }
     }
 }
@@ -582,6 +629,7 @@ async function _dgamShowAdd() {
 
     _dgam.selectedDepositAmount = 0;
     _dgam.sampleImgBase64 = null;
+    _dgam.chuanProofImgBase64 = null;
 
     const draftOptions = _dgamDraftsList.map(d => 
         `<option value="${d.id}">${d.sample_order_code} (${d.customer_name || 'Không tên'})</option>`
@@ -810,11 +858,21 @@ function _dgamOnCategoryChange() {
         </div>
 
         <div id="dgamShipTimeContainer" style="display:none; margin-bottom: 16px;">
-            <label style="display:block; margin-bottom:6px; font-weight:700; color:#475569; font-size:12.5px;">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) <span style="color:var(--danger)">*</span></label>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <input type="number" id="dgamAddShipHour" class="form-control" placeholder="Giờ" min="0" max="23" style="width:100px; text-align:center;">
-                <span style="font-size:18px; font-weight:bold; color:#64748b;">:</span>
-                <input type="number" id="dgamAddShipMinute" class="form-control" placeholder="Phút" min="0" max="59" style="width:100px; text-align:center;">
+            <div style="margin-bottom: 12px;">
+                <label style="display:block; margin-bottom:6px; font-weight:700; color:#475569; font-size:12.5px;">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) <span style="color:var(--danger)">*</span></label>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="number" id="dgamAddShipHour" class="form-control" placeholder="Giờ" min="0" max="23" style="width:100px; text-align:center;">
+                    <span style="font-size:18px; font-weight:bold; color:#64748b;">:</span>
+                    <input type="number" id="dgamAddShipMinute" class="form-control" placeholder="Phút" min="0" max="59" style="width:100px; text-align:center;">
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 16px;">
+                <label style="font-weight:700; color:#475569; font-size:12.5px; display:block; margin-bottom:6px;">📸 Ảnh chứng minh Tiêu Chuẩn CHUẨN <span style="color:var(--danger)">*</span> (bắt buộc)</label>
+                <div id="dgamChuanProofImgZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:#f8fafc;transition:all .2s;min-height:110px;display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative;" onpaste="_dgamPasteChuanProofImg(event)" onclick="this.focus()" onfocus="this.style.borderColor='#0ea5e9';this.style.background='#f0f9ff'" onblur="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
+                    <div id="dgamChuanProofImgPlaceholder" style="color:#64748b;font-size:13px;"><span style="font-size:24px">📋</span><br>Click vào đây rồi <b>Ctrl+V</b> dán hình ảnh</div>
+                    <img id="dgamChuanProofImg" style="display:none;max-width:100%;max-height:180px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.08)">
+                    <button id="dgamChuanProofImgDeleteBtn" type="button" style="display:none;position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(239,68,68,0.25);z-index:10;transition:all 0.2s;" onclick="event.stopPropagation(); _dgamDeleteChuanProofImg();" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">✕ Xóa & dán lại</button>
+                </div>
             </div>
         </div>
 
@@ -844,6 +902,7 @@ function _dgamOnCategoryChange() {
     container.innerHTML = html;
 
     _dgam.sampleImgBase64 = null;
+    _dgam.chuanProofImgBase64 = null;
 
     let initDateStr = todayStr;
     const initialRes = _dgamValidateShipDate(initDateStr);
@@ -1014,6 +1073,11 @@ async function _dgamSubmitAdd() {
                 return;
             }
             shipTime = `${String(hrNum).padStart(2, '0')}:${String(minNum).padStart(2, '0')}`;
+
+            if (!_dgam.chuanProofImgBase64) {
+                showToast('Vui lòng dán Ảnh chứng minh Tiêu Chuẩn CHUẨN!', 'error');
+                return;
+            }
         }
 
         const carrier = document.getElementById('dgamAddCarrier').value;
@@ -1042,7 +1106,8 @@ async function _dgamSubmitAdd() {
             shipping_priority: shippingPriority,
             shipping_method: carrier,
             sale_note_for_accountant: saleNote,
-            order_status: 'cho_duyet'
+            order_status: 'cho_duyet',
+            chuan_proof_image: (shippingPriority === 'CHUẨN') ? _dgam.chuanProofImgBase64 : null
         };
     } else {
         const linhVuc = document.getElementById('dgamAddLinhVuc').value;
@@ -1090,6 +1155,11 @@ async function _dgamSubmitAdd() {
                 return;
             }
             shipTime = `${String(hrNum).padStart(2, '0')}:${String(minNum).padStart(2, '0')}`;
+
+            if (!_dgam.chuanProofImgBase64) {
+                showToast('Vui lòng dán Ảnh chứng minh Tiêu Chuẩn CHUẨN!', 'error');
+                return;
+            }
         }
 
         const carrier = document.getElementById('dgamAddCarrier').value;
@@ -1118,7 +1188,8 @@ async function _dgamSubmitAdd() {
             shipping_priority: shippingPriority,
             shipping_method: carrier,
             sale_note_for_accountant: saleNote,
-            order_status: 'cho_duyet'
+            order_status: 'cho_duyet',
+            chuan_proof_image: (shippingPriority === 'CHUẨN') ? _dgam.chuanProofImgBase64 : null
         };
     }
 
@@ -1287,6 +1358,13 @@ async function _dgamShowDetail(id) {
                 ${row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.ship_date))}
                 ${row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', timeValue)}
             </table>`;
+
+        if (o.shipping_priority === 'CHUẨN' && o.chuan_proof_image) {
+            saleKtHTML += `<div style="text-align:center;margin-top:16px;background:#f8fafc;padding:16px;border-radius:8px;border:1px dashed #cbd5e1">
+                <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px">📸 ẢNH CHỨNG MINH TIÊU CHUẨN CHUẨN</div>
+                <img src="${o.chuan_proof_image}" style="max-width:240px;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="_dgamShowImagePreview('${o.chuan_proof_image}')" title="Click để xem ảnh gốc">
+            </div>`;
+        }
 
         if (o.status_hoan_hang || o.return_shipping_fee > 0) {
             saleKtHTML += `<div style="margin-top:12px;padding-top:12px;border-top:1.5px solid #fb923c30;font-size:12px;color:#1e293b">

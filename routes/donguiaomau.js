@@ -59,6 +59,7 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_fee_method TEXT`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_payment_id INTEGER`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS chuan_proof_image TEXT`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_order_date ON don_gui_ao_mau(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_status ON don_gui_ao_mau(order_status)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_code ON don_gui_ao_mau(sample_order_code)`);
@@ -370,8 +371,9 @@ module.exports = async function(fastify) {
                         deposit_amount = $27,
                         ship_time = $28,
                         updated_by = $29,
+                        chuan_proof_image = $30,
                         updated_at = NOW()
-                    WHERE id = $30
+                    WHERE id = $31
                 `, [
                     b.order_date || new Date().toISOString().slice(0, 10),
                     b.remaining_amount || 0, b.payer || null, b.category || null,
@@ -384,6 +386,7 @@ module.exports = async function(fastify) {
                     b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0,
                     b.ship_time || null,
                     request.user.id,
+                    b.chuan_proof_image || null,
                     existingDraft.id
                 ]);
                 const summary = b.order_status === 'draft' ? 'Đã cập nhật nháp đơn mẫu' : 'Đã xác nhận tạo đơn mẫu';
@@ -405,7 +408,7 @@ module.exports = async function(fastify) {
                 created_by, address, province,
                 linh_vuc, sample_image, shipping_priority,
                 zalo_oa_sent, sale_note_for_accountant, deposit_amount, ship_time,
-                updated_by
+                updated_by, chuan_proof_image
             ) VALUES (
                 $1, $2, $3, $4, $5,
                 $6, $7, $8, $9,
@@ -415,7 +418,7 @@ module.exports = async function(fastify) {
                 $21, $22, $23,
                 $24, $25, $26,
                 $27, $28, $29, $30,
-                $31
+                $31, $32
             ) RETURNING id
         `, [
             b.order_date || new Date().toISOString().slice(0, 10),
@@ -427,7 +430,8 @@ module.exports = async function(fastify) {
             request.user.id, b.address || null, b.province || null,
             b.linh_vuc || null, b.sample_image || null, b.shipping_priority || null,
             b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0, b.ship_time || null,
-            request.user.id
+            request.user.id,
+            b.chuan_proof_image || null
         ]);
 
         const summary = b.order_status === 'draft' ? 'Đã tạo nháp đơn mẫu' : 'Đã tạo đơn mẫu mới';
