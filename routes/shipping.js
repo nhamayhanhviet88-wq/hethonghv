@@ -1361,7 +1361,8 @@ module.exports = async function(fastify) {
                     const depositTotal = Number(depRow?.deposit_total) || 0;
                     const remainingDebt = (Number(order.total_amount) || 0)
                         - (Number(order.discount_amount) || 0)
-                        - Math.max(depositTotal, Number(order.deposit_amount_cache) || 0);
+                        - Math.max(depositTotal, Number(order.deposit_amount_cache) || 0)
+                        - ((b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck' && b.selected_payment_id) ? shipFee : 0);
 
                     const remainingBalance = pr.amount - Number(childSumRow.child_sum || 0);
                     const allocAmount = Math.min(remainingBalance, remainingDebt);
