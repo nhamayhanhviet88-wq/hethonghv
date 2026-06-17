@@ -429,19 +429,20 @@ function _dgamOnShipDateChange() {
 function _dgamOnShippingPriorityChange() {
     const priority = document.getElementById('dgamAddShippingPriority')?.value;
     const timeContainer = document.getElementById('dgamShipTimeContainer');
-    const timeInput = document.getElementById('dgamAddShipTime');
+    const hourInput = document.getElementById('dgamAddShipHour');
+    const minuteInput = document.getElementById('dgamAddShipMinute');
     if (timeContainer) {
         if (priority === 'CHUẨN') {
-            timeContainer.style.display = 'grid';
-            if (timeInput && !timeInput.value) {
+            timeContainer.style.display = 'block';
+            if (hourInput && hourInput.value === '' && minuteInput && minuteInput.value === '') {
                 const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-                const hr = String(now.getHours()).padStart(2, '0');
-                const min = String(now.getMinutes()).padStart(2, '0');
-                timeInput.value = `${hr}:${min}`;
+                hourInput.value = String(now.getHours()).padStart(2, '0');
+                minuteInput.value = String(now.getMinutes()).padStart(2, '0');
             }
         } else {
             timeContainer.style.display = 'none';
-            if (timeInput) timeInput.value = '';
+            if (hourInput) hourInput.value = '';
+            if (minuteInput) minuteInput.value = '';
         }
     }
 }
@@ -586,6 +587,17 @@ async function _dgamShowAdd() {
                 </div>
             </div>
 
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group">
+                    <label>Gửi Zalo OA</label>
+                    <div style="border: 1.5px solid #0ea5e9; border-radius: 8px; padding: 10px 14px; background-color: #f0f9ff; display: flex; align-items: center; gap: 8px; height: 43.5px;">
+                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;">
+                        <label for="dgamAddZaloOASent" style="margin: 0 !important; font-weight: 600; color: #0369a1; cursor: pointer; user-select: none;">Gửi Zalo OA</label>
+                    </div>
+                </div>
+                <div></div>
+            </div>
+
             <div id="dgamDynamicFieldsContainer" style="margin-top:8px;"></div>
         </div>
     `;
@@ -607,6 +619,12 @@ function _dgamOnCategoryChange() {
         container.innerHTML = '';
         return;
     }
+
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
 
     if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(cat)) {
         // Garment specific layout
@@ -668,7 +686,7 @@ function _dgamOnCategoryChange() {
                 </div>
                 <div class="form-group">
                     <label>Ngày Gửi Hàng <span style="color:var(--danger)">*</span></label>
-                    <input type="date" id="dgamAddShipDate" class="form-control" onchange="_dgamOnShipDateChange()">
+                    <input type="date" id="dgamAddShipDate" class="form-control" min="${todayStr}" onchange="_dgamOnShipDateChange()">
                 </div>
                 <div class="form-group">
                     <label>Tiêu Chuẩn Gửi <span style="color:var(--danger)">*</span></label>
@@ -680,10 +698,12 @@ function _dgamOnCategoryChange() {
                 </div>
             </div>
 
-            <div id="dgamShipTimeContainer" style="display:none; grid-template-columns:1fr; gap:16px; margin-bottom: 16px;">
-                <div class="form-group" style="margin-bottom:0;">
-                    <label>Giờ Gửi Hàng <span style="color:var(--danger)">*</span></label>
-                    <input type="time" id="dgamAddShipTime" class="form-control" style="max-width:200px;">
+            <div id="dgamShipTimeContainer" style="display:none; margin-bottom: 16px;">
+                <label style="display:block; margin-bottom:6px; font-weight:700; color:#475569; font-size:12.5px;">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) <span style="color:var(--danger)">*</span></label>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="number" id="dgamAddShipHour" class="form-control" placeholder="Giờ" min="0" max="23" style="width:100px; text-align:center;">
+                    <span style="font-size:18px; font-weight:bold; color:#64748b;">:</span>
+                    <input type="number" id="dgamAddShipMinute" class="form-control" placeholder="Phút" min="0" max="59" style="width:100px; text-align:center;">
                 </div>
             </div>
 
@@ -695,13 +715,7 @@ function _dgamOnCategoryChange() {
                         ${_dgamDhtCarriers.filter(c => c.name && c.name.toLowerCase() !== 'nhà xe').map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Gửi Zalo OA</label>
-                    <select id="dgamAddZaloOASent" class="form-control">
-                        <option value="1">✅ Gửi Zalo OA</option>
-                        <option value="0" selected>Không gửi</option>
-                    </select>
-                </div>
+                <div></div>
             </div>
 
             <div class="form-group">
@@ -710,13 +724,7 @@ function _dgamOnCategoryChange() {
             </div>
         `;
 
-        // Populate standard today's ship date automatically
-        const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        
-        let initDateStr = `${yyyy}-${mm}-${dd}`;
+        let initDateStr = todayStr;
         const initialRes = _dgamValidateShipDate(initDateStr);
         if (!initialRes.valid) {
             let nextDate = new Date(d);
@@ -765,7 +773,7 @@ function _dgamOnCategoryChange() {
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                 <div class="form-group">
                     <label>Ngày Gửi Hàng</label>
-                    <input type="date" id="dgamAddShipDate" class="form-control" onchange="_dgamOnShipDateChange()">
+                    <input type="date" id="dgamAddShipDate" class="form-control" min="${todayStr}" onchange="_dgamOnShipDateChange()">
                 </div>
                 <div class="form-group">
                     <label>Hình Thức Gửi</label>
@@ -824,12 +832,24 @@ function _dgamOnCategoryChange() {
             </div>
         `;
 
-        const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
+        let initDateStr = todayStr;
+        const initialRes = _dgamValidateShipDate(initDateStr);
+        if (!initialRes.valid) {
+            let nextDate = new Date(d);
+            for (let i = 0; i < 30; i++) {
+                nextDate.setDate(nextDate.getDate() + 1);
+                const ny = nextDate.getFullYear();
+                const nm = String(nextDate.getMonth() + 1).padStart(2, '0');
+                const nd = String(nextDate.getDate()).padStart(2, '0');
+                const nextDateStr = `${ny}-${nm}-${nd}`;
+                if (_dgamValidateShipDate(nextDateStr).valid) {
+                    initDateStr = nextDateStr;
+                    break;
+                }
+            }
+        }
         const shipDateEl = document.getElementById('dgamAddShipDate');
-        if (shipDateEl) shipDateEl.value = `${yyyy}-${mm}-${dd}`;
+        if (shipDateEl) shipDateEl.value = initDateStr;
 
         _dgamCalcTotal();
     }
@@ -917,6 +937,8 @@ async function _dgamSubmitAdd() {
         return;
     }
 
+    const zaloOASent = document.getElementById('dgamAddZaloOASent')?.checked || false;
+
     let body = {
         sample_order_code: draft.sample_order_code,
         customer_name: document.getElementById('dgamAddCustName').value.trim() || draft.customer_name,
@@ -926,7 +948,8 @@ async function _dgamSubmitAdd() {
         address,
         province,
         order_date: new Date().toISOString().slice(0, 10),
-        deposit_amount: _dgam.selectedDepositAmount || 0
+        deposit_amount: _dgam.selectedDepositAmount || 0,
+        zalo_oa_sent: zaloOASent
     };
 
     if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(category)) {
@@ -973,11 +996,19 @@ async function _dgamSubmitAdd() {
         const shippingPriority = document.getElementById('dgamAddShippingPriority').value;
         let shipTime = null;
         if (shippingPriority === 'CHUẨN') {
-            shipTime = document.getElementById('dgamAddShipTime')?.value || null;
-            if (!shipTime) {
-                showToast('Vui lòng chọn Giờ Gửi Hàng cho đơn CHUẨN!', 'error');
+            const hrVal = document.getElementById('dgamAddShipHour')?.value || '';
+            const minVal = document.getElementById('dgamAddShipMinute')?.value || '';
+            if (hrVal === '' || minVal === '') {
+                showToast('Vui lòng nhập Giờ và Phút Gửi Hàng cho đơn CHUẨN!', 'error');
                 return;
             }
+            const hrNum = parseInt(hrVal, 10);
+            const minNum = parseInt(minVal, 10);
+            if (isNaN(hrNum) || hrNum < 0 || hrNum > 23 || isNaN(minNum) || minNum < 0 || minNum > 59) {
+                showToast('Giờ (0-23) hoặc Phút (0-59) không hợp lệ!', 'error');
+                return;
+            }
+            shipTime = `${String(hrNum).padStart(2, '0')}:${String(minNum).padStart(2, '0')}`;
         }
 
         const carrier = document.getElementById('dgamAddCarrier').value;
@@ -986,7 +1017,6 @@ async function _dgamSubmitAdd() {
             return;
         }
 
-        const zaloOASent = Number(document.getElementById('dgamAddZaloOASent').value) || 0;
         const saleNote = document.getElementById('dgamAddSaleNote').value.trim();
         if (!saleNote) {
             showToast('Vui lòng nhập Nội Dung Sale Dặn Kế Toán Gửi Hàng!', 'error');
@@ -1006,7 +1036,6 @@ async function _dgamSubmitAdd() {
             ship_time: shipTime,
             shipping_priority: shippingPriority,
             shipping_method: carrier,
-            zalo_oa_sent: zaloOASent === 1,
             sale_note_for_accountant: saleNote,
             order_status: 'cho_duyet'
         };
