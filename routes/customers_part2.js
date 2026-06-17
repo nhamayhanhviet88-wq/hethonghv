@@ -1231,20 +1231,126 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         const stats = {};
         for (const cid of ids) {
-            const lastHoanThanh = await db.get("SELECT id FROM consultation_logs WHERE customer_id = ? AND log_type = 'hoan_thanh' ORDER BY id DESC LIMIT 1", [cid]);
-            let consultCount;
-            if (lastHoanThanh) {
-                consultCount = (await db.get("SELECT COUNT(*) as cnt FROM consultation_logs WHERE customer_id = ? AND id > ?", [cid, lastHoanThanh.id]))?.cnt || 0;
-            } else {
-                consultCount = (await db.get('SELECT COUNT(*) as cnt FROM consultation_logs WHERE customer_id = ?', [cid]))?.cnt || 0;
-            }
-            const chotDon = (await db.get("SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id = ? AND status != 'cancelled'", [cid]))?.cnt || 0;
-            const lastLog = await db.get(`SELECT log_type, content, created_at FROM consultation_logs WHERE customer_id = ? AND log_type != 'khong_xu_ly'
-                ORDER BY created_at DESC, CASE WHEN log_type = 'hoan_thanh_cap_cuu' THEN 0 ELSE 1 END, id DESC LIMIT 1`, [cid]);
-            const revenue = (await db.get(`SELECT COALESCE(SUM(sub.rev), 0) as t FROM (SELECT COALESCE((SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code), (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id), 0) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) as rev FROM order_codes oc WHERE oc.customer_id = $1 AND (oc.status IS NULL OR oc.status != 'cancelled') GROUP BY oc.id, oc.order_code) sub`, [cid]))?.t || 0;
-            const latestOrderCode = await db.get('SELECT order_code FROM order_codes WHERE customer_id = ? ORDER BY id DESC LIMIT 1', [cid]);
-            stats[cid] = { consultCount, chotDonCount: chotDon, lastLog, revenue, latestOrderCode: latestOrderCode?.order_code || null };
+            stats[cid] = { consultCount: 0, chotDonCount: 0, lastLog: null, revenue: 0, latestOrderCode: null };
         }
+
+        const placeholders = ids.map(() => '?').join(',');
+
+        try {
+            const [consultCounts, chotDons, lastLogs, revenues, latestOrderCodes] = await Promise.all([
+                db.all(`
+                    WITH last_ht AS (
+                        SELECT customer_id, MAX(id) as id
+                        FROM consultation_logs
+                        WHERE log_type = 'hoan_thanh' AND customer_id IN (${placeholders})
+                        GROUP BY customer_id
+                    )
+                    SELECT 
+                        c.id as customer_id,
+                        COALESCE(COUNT(cl.id), 0)::int as cnt
+                    FROM customers c
+                    LEFT JOIN last_ht lh ON c.id = lh.customer_id
+                    LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
+                        AND (lh.id IS NULL OR cl.id > lh.id)
+                    WHERE c.id IN (${placeholders})
+                    GROUP BY c.id
+                `, [...ids, ...ids]),
+
+                db.all(`
+                    SELECT customer_id, COUNT(*)::int as cnt
+                    FROM order_codes
+                    WHERE customer_id IN (${placeholders}) AND status != 'cancelled'
+                    GROUP BY customer_id
+                `, ids),
+
+                db.all(`
+                    WITH ranked_logs AS (
+                        SELECT 
+                            customer_id, 
+                            log_type, 
+                            content, 
+                            created_at,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY customer_id 
+                                ORDER BY created_at DESC, CASE WHEN log_type = 'hoan_thanh_cap_cuu' THEN 0 ELSE 1 END, id DESC
+                            ) as rn
+                        FROM consultation_logs
+                        WHERE log_type != 'khong_xu_ly' AND customer_id IN (${placeholders})
+                    )
+                    SELECT customer_id, log_type, content, created_at
+                    FROM ranked_logs
+                    WHERE rn = 1
+                `, ids),
+
+                db.all(`
+                    SELECT 
+                        sub.customer_id,
+                        COALESCE(SUM(sub.rev), 0)::float as total_revenue
+                    FROM (
+                        SELECT 
+                            oc.customer_id,
+                            COALESCE(
+                                (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                                (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                                0
+                            ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0)
+                              - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) as rev
+                        FROM order_codes oc
+                        WHERE oc.customer_id IN (${placeholders}) AND (oc.status IS NULL OR oc.status != 'cancelled')
+                        GROUP BY oc.id, oc.order_code, oc.customer_id
+                    ) sub
+                    GROUP BY sub.customer_id
+                `, ids),
+
+                db.all(`
+                    WITH ranked_orders AS (
+                        SELECT 
+                            customer_id,
+                            order_code,
+                            ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY id DESC) as rn
+                        FROM order_codes
+                        WHERE customer_id IN (${placeholders})
+                    )
+                    SELECT customer_id, order_code
+                    FROM ranked_orders
+                    WHERE rn = 1
+                `, ids)
+            ]);
+
+            // Populate stats
+            for (const row of consultCounts) {
+                if (stats[row.customer_id]) {
+                    stats[row.customer_id].consultCount = Number(row.cnt) || 0;
+                }
+            }
+            for (const row of chotDons) {
+                if (stats[row.customer_id]) {
+                    stats[row.customer_id].chotDonCount = Number(row.cnt) || 0;
+                }
+            }
+            for (const row of lastLogs) {
+                if (stats[row.customer_id]) {
+                    stats[row.customer_id].lastLog = {
+                        log_type: row.log_type,
+                        content: row.content,
+                        created_at: row.created_at
+                    };
+                }
+            }
+            for (const row of revenues) {
+                if (stats[row.customer_id]) {
+                    stats[row.customer_id].revenue = Number(row.total_revenue) || 0;
+                }
+            }
+            for (const row of latestOrderCodes) {
+                if (stats[row.customer_id]) {
+                    stats[row.customer_id].latestOrderCode = row.order_code || null;
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching batch consult stats:', error);
+        }
+
         return { stats };
     });
 
