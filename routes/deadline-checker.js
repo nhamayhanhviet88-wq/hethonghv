@@ -41,7 +41,7 @@ let _leaveCacheTime = 0;
 // Kiểm tra user (NV/TP/QL) có nghỉ ngày X không
 async function isUserOnLeave(userId, dateStr) {
     const now = Date.now();
-    if (_leaveCache && now - _leaveCacheTime < 10000) {
+    if (_leaveCache && now - _leaveCacheTime < 300000) {
         const list = _leaveCache.get(userId);
         if (!list) return false;
         return list.some(lr => dateStr >= lr.date_from && dateStr <= lr.date_to);

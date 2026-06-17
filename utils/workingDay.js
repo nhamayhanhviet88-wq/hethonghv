@@ -22,13 +22,38 @@ async function getHolidays() {
     return _holidayCache;
 }
 
+let _leaveCache = null;
+let _leaveCacheTime = 0;
+
 // Kiểm tra user có nghỉ ngày X không
 async function isUserOnLeave(userId, dateStr) {
-    const leave = await db.get(
-        "SELECT id FROM leave_requests WHERE user_id = $1 AND status = 'active' AND date_from <= $2 AND date_to >= $2",
-        [userId, dateStr]
-    );
-    return !!leave;
+    const now = Date.now();
+    if (_leaveCache && now - _leaveCacheTime < 300000) {
+        const list = _leaveCache.get(userId);
+        if (!list) return false;
+        return list.some(lr => dateStr >= lr.date_from && dateStr <= lr.date_to);
+    }
+
+    try {
+        const rows = await db.all("SELECT user_id, date_from::text as date_from, date_to::text as date_to FROM leave_requests WHERE status = 'active'");
+        const map = new Map();
+        for (const r of rows) {
+            if (!map.has(r.user_id)) map.set(r.user_id, []);
+            map.get(r.user_id).push(r);
+        }
+        _leaveCache = map;
+        _leaveCacheTime = now;
+
+        const list = _leaveCache.get(userId);
+        if (!list) return false;
+        return list.some(lr => dateStr >= lr.date_from && dateStr <= lr.date_to);
+    } catch(e) {
+        const leave = await db.get(
+            "SELECT id FROM leave_requests WHERE user_id = $1 AND status = 'active' AND date_from <= $2 AND date_to >= $2",
+            [userId, dateStr]
+        );
+        return !!leave;
+    }
 }
 
 /**
