@@ -1892,16 +1892,18 @@ async function runTelesaleRecall() {
     // 1. Pending (not called) → return to pool
     // IMPORTANT: Only return data that has NO 'answered' assignments at all
     // This prevents numbers that were already "Chuyển Số" from being recycled
-    const pendingAssigns = await db.all(`SELECT a.data_id FROM telesale_assignments a
-        WHERE a.assigned_date <= $1 AND a.call_status = 'pending'
-        AND NOT EXISTS (
-            SELECT 1 FROM telesale_assignments a2
-            WHERE a2.data_id = a.data_id AND a2.call_status = 'answered'
-        )`, [yesterday]);
-    for (const a of pendingAssigns) {
-        await db.run("UPDATE telesale_data SET status = 'available', updated_at = NOW() WHERE id = ? AND status = 'assigned'", [a.data_id]);
-        recalled++;
-    }
+    const recallRes = await db.run(`
+        UPDATE telesale_data SET status = 'available', updated_at = NOW()
+        WHERE status = 'assigned' AND id IN (
+            SELECT a.data_id FROM telesale_assignments a
+            WHERE a.assigned_date <= $1 AND a.call_status = 'pending'
+            AND NOT EXISTS (
+                SELECT 1 FROM telesale_assignments a2
+                WHERE a2.data_id = a.data_id AND a2.call_status = 'answered'
+            )
+        )
+    `, [yesterday]);
+    recalled = recallRes.changes || 0;
 
     // 2. No answer + busy → NO LONGER auto-recalled (GĐ uses "Chuyển Đổi Về Sẵn Sàng" manually)
     // Kept for reference — previously these were returned to pool automatically
