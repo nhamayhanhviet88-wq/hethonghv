@@ -1394,13 +1394,14 @@ async function _dhtShowDetail(id) {
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
         let finRows = [];
         if (String(o.id).startsWith('sample_')) {
+            const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - deposit - shipCK);
+            const totalPaid = deposit + otherPaid;
             finRows.push(
                 ['Tổng Tiền Hàng Thực Tế', fmt(calcBase) + 'đ', '#1e293b', true],
-                ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true]
+                ['Đã thanh toán (cọc)', fmt(totalPaid) + 'đ', '#10b981', true]
             );
-            const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - deposit);
-            if (otherPaid > 0) {
-                finRows.push(['Thanh toán khác (NVC/SLL)', fmt(otherPaid) + 'đ', '#0ea5e9', true]);
+            if (shipCK > 0) {
+                finRows.push(['🚚 Cước Vận Chuyển (HV Trả)', fmt(shipCK) + 'đ', '#f97316', true]);
             }
             finRows.push(
                 ['Còn lại', fmt(finRemaining) + 'đ', remColor, true]

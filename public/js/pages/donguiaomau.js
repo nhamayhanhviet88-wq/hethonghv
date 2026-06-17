@@ -1275,17 +1275,16 @@ async function _dgamShowDetail(id) {
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
         
-        let finRows = [
-            ['Tổng Tiền Hàng Thực Tế', fmt(o.total_amount) + 'đ', '#1e293b', true],
-            ['Đã thanh toán (cọc)', fmt(o.deposit_amount) + 'đ', '#10b981', true]
-        ];
         const shipDeduct = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
         const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(o.deposit_amount) || 0) - shipDeduct);
-        if (otherPaid > 0) {
-            finRows.push(['Thanh toán khác (NVC/SLL)', fmt(otherPaid) + 'đ', '#0ea5e9', true]);
-        }
+        const totalPaid = (Number(o.deposit_amount) || 0) + otherPaid;
+
+        let finRows = [
+            ['Tổng Tiền Hàng Thực Tế', fmt(o.total_amount) + 'đ', '#1e293b', true],
+            ['Đã thanh toán (cọc)', fmt(totalPaid) + 'đ', '#10b981', true]
+        ];
         if (shipDeduct > 0) {
-            finRows.push(['Phí ship trừ COD (HV trả)', fmt(shipDeduct) + 'đ', '#f97316', true]);
+            finRows.push(['🚚 Cước Vận Chuyển (HV Trả)', fmt(shipDeduct) + 'đ', '#f97316', true]);
         }
         finRows.push(['Còn lại', fmt(o.remaining_amount) + 'đ', remColor, true]);
         
