@@ -243,23 +243,20 @@ module.exports = async function(fastify) {
 
         if (unpaid === 'true') {
             // New Carrier -> Year -> Month grouping for unpaid orders
-            let whereClause = 'WHERE o.parent_order_id IS NULL';
             const queryParams = [];
             let paramIdx = 1;
+            let filterCreatedBy = '';
             if (!isFullView && !isKeToan) {
-                whereClause += ` AND o.created_by = $${paramIdx++}`;
+                filterCreatedBy = ` AND o.created_by = $${paramIdx++}`;
                 queryParams.push(request.user.id);
             }
-            whereClause += ` AND (
-                (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0))) > 0
-                OR
-                o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
-            )`;
 
             const unpaidTreeRows = await db.all(`
                 WITH unpaid_orders AS (
-                    SELECT o.id, o.order_code, o.order_date, o.shipping_status, o.actual_carrier_id, o.shipped_at,
-                        (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))) AS remaining_amount
+                    SELECT o.id::text AS id, o.order_code, o.order_date, o.shipping_status, o.actual_carrier_id, o.shipped_at,
+                        (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))) AS remaining_amount,
+                        'dht_order' AS order_type,
+                        o.created_by
                     FROM dht_orders o
                     LEFT JOIN LATERAL (
                         SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -267,7 +264,34 @@ module.exports = async function(fastify) {
                         WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                            OR order_tt_coc = o.order_code
                     ) pr_dep ON true
-                    ${whereClause}
+                    WHERE o.parent_order_id IS NULL
+                      AND (
+                          (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0))) > 0
+                          OR
+                          o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
+                      )
+
+                    UNION ALL
+
+                    SELECT 'sample_' || d.id AS id, d.sample_order_code AS order_code, d.order_date,
+                        CASE WHEN d.status_gui_don = true OR d.shipped_at IS NOT NULL THEN 'shipped' ELSE 'pending' END AS shipping_status,
+                        d.actual_carrier_id, d.shipped_at,
+                        (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount,
+                        'ao_mau' AS order_type,
+                        d.created_by
+                    FROM don_gui_ao_mau d
+                    LEFT JOIN LATERAL (
+                        SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                        FROM payment_records
+                        WHERE order_ao_mau = d.sample_order_code
+                           OR order_tt_coc = d.sample_order_code
+                    ) pr_dep ON true
+                    WHERE COALESCE(d.sample_order_code, '') != ''
+                      AND (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+                ),
+                filtered_unpaid AS (
+                    SELECT * FROM unpaid_orders o
+                    WHERE 1=1 ${filterCreatedBy}
                 ),
                 order_carriers AS (
                     SELECT DISTINCT
@@ -279,9 +303,10 @@ module.exports = async function(fastify) {
                             ELSE o.order_date
                         END AS assoc_date,
                         o.remaining_amount
-                    FROM unpaid_orders o
-                    JOIN dht_order_items oi ON oi.dht_order_id = o.id
-                    WHERE o.remaining_amount > 0
+                    FROM filtered_unpaid o
+                    JOIN dht_order_items oi ON oi.dht_order_id = CAST(o.id AS integer)
+                    WHERE o.order_type = 'dht_order'
+                      AND o.remaining_amount > 0
                       AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
                       AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
                       AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
@@ -302,15 +327,35 @@ module.exports = async function(fastify) {
                             ELSE o.order_date 
                         END AS assoc_date,
                         o.remaining_amount
-                    FROM unpaid_orders o
-                    WHERE NOT EXISTS (
+                    FROM filtered_unpaid o
+                    WHERE o.order_type = 'dht_order'
+                      AND NOT EXISTS (
                         SELECT 1 FROM dht_order_items 
-                        WHERE dht_order_id = o.id
+                        WHERE dht_order_id = CAST(o.id AS integer)
                           AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
                           AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
                           AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
                           AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
                     )
+                      AND o.remaining_amount > 0
+
+                    UNION
+
+                    SELECT
+                        o.id AS order_id,
+                        CASE 
+                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
+                            THEN o.actual_carrier_id 
+                            ELSE 0 
+                        END AS carrier_id,
+                        CASE 
+                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
+                            THEN COALESCE(o.shipped_at, o.order_date) 
+                            ELSE o.order_date 
+                        END AS assoc_date,
+                        o.remaining_amount
+                    FROM filtered_unpaid o
+                    WHERE o.order_type = 'ao_mau'
                       AND o.remaining_amount > 0
 
                     UNION
@@ -320,8 +365,9 @@ module.exports = async function(fastify) {
                         -2 AS carrier_id,
                         COALESCE(o.shipped_at, o.order_date) AS assoc_date,
                         o.remaining_amount
-                    FROM unpaid_orders o
-                    WHERE (SELECT COUNT(*) FROM dht_audit_logs WHERE dht_order_id = o.id AND action = 'ship') >= 2
+                    FROM filtered_unpaid o
+                    WHERE o.order_type = 'dht_order'
+                      AND (SELECT COUNT(*) FROM dht_audit_logs WHERE dht_order_id = CAST(o.id AS integer) AND action = 'ship') >= 2
                 )
                 SELECT 
                     oc.carrier_id,
@@ -697,6 +743,155 @@ module.exports = async function(fastify) {
             }
         }
 
+        let sampleOrders = [];
+        if (unpaid === 'true') {
+            let sampleWhere = "WHERE COALESCE(d.sample_order_code, '') != ''";
+            const sampleParams = [];
+            let sIdx = 1;
+
+            if (!FULL_VIEW_ROLES.includes(request.user.role)) {
+                const userDept = await db.get(
+                    'SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
+                    [request.user.id]
+                );
+                const isKeToan = userDept && userDept.name && (userDept.name.toLowerCase().includes('kế toán') || userDept.name.toLowerCase().includes('ke toan'));
+                if (!isKeToan) {
+                    sampleWhere += ` AND d.created_by = $${sIdx++}`;
+                    sampleParams.push(request.user.id);
+                }
+            }
+
+            sampleWhere += ` AND (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0`;
+
+            if (carrier_id !== undefined) {
+                const carrierId = Number(carrier_id);
+                if (carrierId === 0) {
+                    sampleWhere += ` AND (d.status_gui_don = false OR d.actual_carrier_id IS NULL OR d.actual_carrier_id = 0)`;
+                    if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(year)); }
+                    if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(month)); }
+                    if (day) { sampleWhere += ` AND EXTRACT(DAY FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(day)); }
+                } else if (carrierId === -2) {
+                    sampleWhere += ` AND 1=0`;
+                } else {
+                    sampleWhere += ` AND d.status_gui_don = true AND d.actual_carrier_id = $${sIdx++}`;
+                    sampleParams.push(carrierId);
+                    
+                    if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx++}`; sampleParams.push(Number(year)); }
+                    if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx++}`; sampleParams.push(Number(month)); }
+                    if (day) { sampleWhere += ` AND EXTRACT(DAY FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx++}`; sampleParams.push(Number(day)); }
+                }
+            } else {
+                if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(year)); }
+                if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(month)); }
+                if (day) { sampleWhere += ` AND EXTRACT(DAY FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(day)); }
+            }
+
+            if (search) {
+                sampleWhere += ` AND (d.sample_order_code ILIKE $${sIdx} OR d.customer_name ILIKE $${sIdx} OR d.customer_phone ILIKE $${sIdx})`;
+                sampleParams.push(`%${search}%`);
+                sIdx++;
+            }
+
+            if (category_id) {
+                sampleWhere += ` AND 1=0`;
+            }
+
+            const rawSampleOrders = await db.all(`
+                SELECT 
+                    d.id,
+                    d.sample_order_code AS order_code,
+                    d.order_date,
+                    d.ship_date AS expected_ship_date,
+                    d.shipped_at,
+                    CASE WHEN d.status_gui_don = true OR d.shipped_at IS NOT NULL THEN 'shipped' ELSE 'pending' END AS shipping_status,
+                    d.actual_carrier_id,
+                    d.customer_name,
+                    d.customer_phone,
+                    d.province,
+                    d.created_by,
+                    d.updated_by,
+                    d.total_amount,
+                    d.shipping_fee,
+                    d.shipping_fee_payer,
+                    d.shipping_fee_method,
+                    d.shipping_payment_id,
+                    d.shipping_priority,
+                    COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
+                    (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount,
+                    d.updated_at AS last_updated_at,
+                    'Áo Mẫu' AS category_name,
+                    u_created.full_name AS cskh_name,
+                    u_created.full_name AS created_by_name,
+                    u_updated.full_name AS last_updated_by_name,
+                    d.product_name,
+                    d.quantity
+                FROM don_gui_ao_mau d
+                LEFT JOIN users u_created ON d.created_by = u_created.id
+                LEFT JOIN users u_updated ON d.updated_by = u_updated.id
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                    FROM payment_records
+                    WHERE order_ao_mau = d.sample_order_code
+                       OR order_tt_coc = d.sample_order_code
+                ) pr_dep ON true
+                ${sampleWhere}
+            `, sampleParams);
+
+            sampleOrders = rawSampleOrders.map(row => ({
+                id: 'sample_' + row.id,
+                order_code: row.order_code,
+                order_date: row.order_date,
+                expected_ship_date: row.expected_ship_date,
+                rescheduled_ship_date: null,
+                shipped_at: row.shipped_at,
+                shipping_status: row.shipping_status,
+                actual_carrier_id: row.actual_carrier_id,
+                category_id: null,
+                customer_name: row.customer_name,
+                customer_phone: row.customer_phone,
+                province: row.province,
+                cskh_user_id: null,
+                created_by: row.created_by,
+                last_updated_by: row.updated_by,
+                vat_exported_by: null,
+                total_amount: row.total_amount,
+                discount_amount: 0,
+                shipping_fee: row.shipping_fee,
+                shipping_fee_payer: row.shipping_fee_payer,
+                shipping_fee_method: row.shipping_fee_method,
+                shipping_payment_id: row.shipping_payment_id,
+                shipping_priority: row.shipping_priority || 'Chuẩn',
+                has_error: false,
+                is_edited: false,
+                deposit_amount: row.deposit_amount,
+                remaining_amount: row.remaining_amount,
+                order_type: 'ao_mau',
+                ship_count: 1,
+                is_print_done: false,
+                items: [
+                    {
+                        product_name: row.product_name || 'Mẫu áo',
+                        description: 'Áo Mẫu',
+                        quantity: row.quantity || 1,
+                        actual_carrier_id: row.actual_carrier_id,
+                        shipping_status: row.shipping_status,
+                        shipping_date: row.shipped_at || row.expected_ship_date
+                    }
+                ],
+                prod_done: 0,
+                prod_total: 0,
+                prod_current: null,
+                next_step_name: null,
+                has_repair_order: false,
+                last_updated_at: row.last_updated_at,
+                category_name: row.category_name,
+                cskh_name: row.cskh_name,
+                created_by_name: row.created_by_name,
+                last_updated_by_name: row.last_updated_by_name,
+                vat_exported_by_name: null
+            }));
+        }
+
         const orders = await db.all(`
             SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count, COALESCE(o.is_edited, FALSE) AS is_edited,
                 c.name AS category_name,
@@ -792,7 +987,43 @@ module.exports = async function(fastify) {
             return o;
         });
 
-        return { orders: processedOrders };
+        const allOrders = unpaid === 'true' ? [...processedOrders, ...sampleOrders] : processedOrders;
+
+        if (unpaid === 'true') {
+            allOrders.sort((a, b) => {
+                const isShippedA = a.shipping_status === 'shipped' || !!a.shipped_at || (a.items && a.items.some(item => item.shipping_status === 'shipped'));
+                const isShippedB = b.shipping_status === 'shipped' || !!b.shipped_at || (b.items && b.items.some(item => item.shipping_status === 'shipped'));
+                
+                if (isShippedA !== isShippedB) {
+                    return isShippedA ? 1 : -1;
+                }
+                
+                if (!isShippedA) {
+                    const dateA = new Date(a.rescheduled_ship_date || a.expected_ship_date || a.order_date);
+                    const dateB = new Date(b.rescheduled_ship_date || b.expected_ship_date || b.order_date);
+                    if (dateA - dateB !== 0) return dateA - dateB;
+                } else {
+                    const getShipDate = (o) => {
+                        if (o.items && o.items.length > 0) {
+                            const dates = o.items.filter(item => item.shipping_status === 'shipped').map(item => item.shipping_date).filter(Boolean);
+                            if (dates.length > 0) {
+                                return new Date(dates.sort((x, y) => new Date(y) - new Date(x))[0]);
+                            }
+                        }
+                        return new Date(o.shipped_at || o.order_date);
+                    };
+                    const dateA = getShipDate(a);
+                    const dateB = getShipDate(b);
+                    if (dateA - dateB !== 0) return dateA - dateB;
+                }
+                
+                const idA = String(a.id);
+                const idB = String(b.id);
+                return idB.localeCompare(idA);
+            });
+        }
+
+        return { orders: allOrders };
     });
 
     // ========== ORDERS: Create ==========

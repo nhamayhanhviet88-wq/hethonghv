@@ -803,11 +803,11 @@ function _dhcttRenderOrderRows(filtered) {
         const lastUser = o.last_updated_by_name ? `<br><span style="color:var(--info);font-size:10px;">${o.last_updated_by_name}</span>` : '';
 
         // Delegate row click to existing _dhtShowDetail if it exists globally
-        const clickHandler = window._dhtShowDetail ? `_dhtShowDetail(${o.id})` : '';
+        const clickHandler = window._dhtShowDetail ? `_dhtShowDetail('${o.id}')` : '';
 
         const hasShippedItems = o.shipping_status === 'shipped' || !!o.shipped_at || (o.items && o.items.some(item => item.shipping_status === 'shipped'));
         const phieuCell = hasShippedItems 
-            ? `<div onclick="event.stopPropagation(); _dhcttShowShippingDetail(${o.id})" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #bfdbfe;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" title="Xem phiếu ship">📄</div>`
+            ? `<div onclick="event.stopPropagation(); _dhcttShowShippingDetail('${o.id}')" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #bfdbfe;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" title="Xem phiếu ship">📄</div>`
             : '—';
 
         return `<tr data-id="${o.id}" onclick="${clickHandler}" style="cursor:pointer;" title="Xem chi tiết">
