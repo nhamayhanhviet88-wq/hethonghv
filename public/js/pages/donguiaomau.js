@@ -1193,11 +1193,11 @@ async function _dgamShowDetail(id) {
                     <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:8px">
                         <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left">
                             <thead>
-                                <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
-                                    <th style="padding:8px 12px;font-weight:700;color:#475569">Mã Đơn</th>
-                                    <th style="padding:8px 12px;font-weight:700;color:#475569;text-align:center">Số Lượng</th>
-                                    <th style="padding:8px 12px;font-weight:700;color:#475569;text-align:right">Tổng Doanh Số</th>
-                                    <th style="padding:8px 12px;font-weight:700;color:#475569;text-align:center">Ngày Lên Đơn</th>
+                                <tr style="background:#1e293b;border-bottom:1px solid #e2e8f0">
+                                    <th style="padding:8px 12px;font-weight:700;color:#ffffff !important">Mã Đơn</th>
+                                    <th style="padding:8px 12px;font-weight:700;color:#ffffff !important;text-align:center">Số Lượng</th>
+                                    <th style="padding:8px 12px;font-weight:700;color:#ffffff !important;text-align:right">Tổng Doanh Số</th>
+                                    <th style="padding:8px 12px;font-weight:700;color:#ffffff !important;text-align:center">Ngày Lên Đơn</th>
                                 </tr>
                             </thead>
                             <tbody>
