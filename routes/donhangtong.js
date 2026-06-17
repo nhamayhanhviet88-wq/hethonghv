@@ -2384,6 +2384,7 @@ module.exports = async function(fastify) {
               AND COALESCE(pr.payment_type, '') NOT IN ('dat_coc', 'tra_lai_coc', 'thanh_toan', 'tt_sll')
               AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
               AND (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
+              AND (pr.order_ao_mau IS NULL OR pr.order_ao_mau = '')
               AND (
                   pr.locked_by IS NULL
                   OR pr.locked_by = $1
@@ -2864,8 +2865,11 @@ module.exports = async function(fastify) {
                 FROM payment_records
                 WHERE payment_type = 'child_sll' AND (parent_id = pr.id OR source_ref_id = pr.id::text)
             ) pr_child ON true
-            WHERE COALESCE(pr.payment_type, '') NOT IN ('tra_lai_coc', 'child_sll')
+            WHERE COALESCE(pr.payment_type, '') NOT IN ('dat_coc', 'tra_lai_coc', 'thanh_toan', 'tt_sll', 'child_sll')
               AND COALESCE(pr.source, '') != 'cashflow_chi'
+              AND (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
+              AND (pr.order_ao_mau IS NULL OR pr.order_ao_mau = '')
+              AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
               AND (pr.amount - COALESCE(pr_child.child_sum, 0)) > 0
               AND (pr.locked_by IS NULL OR pr.locked_by = $1
                    OR pr.locked_at < NOW() - INTERVAL '10 minutes')
