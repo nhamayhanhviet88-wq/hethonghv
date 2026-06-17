@@ -46,6 +46,7 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS sale_note_for_accountant TEXT`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC DEFAULT 0`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS ship_time TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS updated_by INTEGER REFERENCES users(id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_order_date ON don_gui_ao_mau(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_status ON don_gui_ao_mau(order_status)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_code ON don_gui_ao_mau(sample_order_code)`);
@@ -133,10 +134,13 @@ module.exports = async function(fastify) {
         const orders = await db.all(`
             SELECT
                 d.*,
+                COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
                 (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount,
-                u.full_name AS created_by_name
+                u.full_name AS created_by_name,
+                uu.full_name AS updated_by_name
             FROM don_gui_ao_mau d
             LEFT JOIN users u ON d.created_by = u.id
+            LEFT JOIN users uu ON d.updated_by = uu.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
@@ -159,7 +163,7 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Trường không hợp lệ' });
         }
 
-        await db.run(`UPDATE don_gui_ao_mau SET ${field} = $1, updated_at = NOW() WHERE id = $2`, [value, id]);
+        await db.run(`UPDATE don_gui_ao_mau SET ${field} = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3`, [value, request.user.id, id]);
         return { success: true };
     });
 
@@ -171,10 +175,12 @@ module.exports = async function(fastify) {
             SELECT
                 d.*,
                 u.full_name AS created_by_name,
+                uu.full_name AS updated_by_name,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
                 (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount
             FROM don_gui_ao_mau d
             LEFT JOIN users u ON d.created_by = u.id
+            LEFT JOIN users uu ON d.updated_by = uu.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
@@ -253,8 +259,9 @@ module.exports = async function(fastify) {
                         sale_note_for_accountant = $26,
                         deposit_amount = $27,
                         ship_time = $28,
+                        updated_by = $29,
                         updated_at = NOW()
-                    WHERE id = $29
+                    WHERE id = $30
                 `, [
                     b.order_date || new Date().toISOString().slice(0, 10),
                     b.remaining_amount || 0, b.payer || null, b.category || null,
@@ -266,6 +273,7 @@ module.exports = async function(fastify) {
                     b.linh_vuc || null, b.sample_image || null, b.shipping_priority || null,
                     b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0,
                     b.ship_time || null,
+                    request.user.id,
                     existingDraft.id
                 ]);
                 return { success: true, id: existingDraft.id };
@@ -281,7 +289,8 @@ module.exports = async function(fastify) {
                 return_shipping_fee, return_payer, return_payment_method,
                 created_by, address, province,
                 linh_vuc, sample_image, shipping_priority,
-                zalo_oa_sent, sale_note_for_accountant, deposit_amount, ship_time
+                zalo_oa_sent, sale_note_for_accountant, deposit_amount, ship_time,
+                updated_by
             ) VALUES (
                 $1, $2, $3, $4, $5,
                 $6, $7, $8, $9,
@@ -290,7 +299,8 @@ module.exports = async function(fastify) {
                 $18, $19, $20,
                 $21, $22, $23,
                 $24, $25, $26,
-                $27, $28, $29, $30
+                $27, $28, $29, $30,
+                $31
             ) RETURNING id
         `, [
             b.order_date || new Date().toISOString().slice(0, 10),
@@ -301,8 +311,8 @@ module.exports = async function(fastify) {
             b.return_shipping_fee || 0, b.return_payer || null, b.return_payment_method || null,
             request.user.id, b.address || null, b.province || null,
             b.linh_vuc || null, b.sample_image || null, b.shipping_priority || null,
-            b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0,
-            b.ship_time || null
+            b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0, b.ship_time || null,
+            request.user.id
         ]);
 
         return { success: true, id: result.id };

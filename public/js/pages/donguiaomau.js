@@ -45,30 +45,22 @@ async function renderDonguiaomauPage(content) {
         +'</div>'
         +'<div id="dgamPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dgamTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>Thao Tác</th>'
-        +'<th>Ngày Lên Đơn</th>'
-        +'<th>Số Tiền Còn Lại</th>'
-        +'<th>Người Trả</th>'
+        +'<th>Trạng Thái</th>'
+        +'<th>Ngày LĐ</th>'
+        +'<th>Còn Lại</th>'
         +'<th>Mã Đơn Áo Mẫu</th>'
-        +'<th>Loại</th>'
-        +'<th>Tên Khách Hàng</th>'
-        +'<th>Tên Sản Phẩm</th>'
+        +'<th>Tên SP</th>'
+        +'<th>Ảnh Mẫu</th>'
+        +'<th>Loại SP</th>'
+        +'<th>Tên Khách</th>'
         +'<th>SĐT Khách</th>'
-        +'<th>Địa Chỉ</th>'
         +'<th>Thành Phố</th>'
-        +'<th>Hình Thức Gửi</th>'
+        +'<th>CSKH</th>'
         +'<th>Số Lượng</th>'
         +'<th>Giá</th>'
-        +'<th>Tổng Tiền</th>'
-        +'<th>Mã Cọc</th>'
-        +'<th>Ngày Gửi Hàng</th>'
-        +'<th>Trạng Thái Đơn</th>'
-        +'<th>Hình Thức Trả</th>'
-        +'<th>Tiền Vận Chuyển</th>'
-        +'<th>Vận Chuyển Hoàn</th>'
-        +'<th>Người Trả Hoàn</th>'
-        +'<th>Hình Thức Trả Hoàn</th>'
-        +'</tr></thead><tbody id="dgamTbody"><tr><td colspan="23" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'<th>Đặt Cọc</th>'
+        +'<th>Lịch Sử CN</th>'
+        +'</tr></thead><tbody id="dgamTbody"><tr><td colspan="15" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="dgamPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
 
@@ -146,72 +138,77 @@ var _dgamStatusMap = {
 function _dgamRenderRows(paged) {
     var tbody = document.getElementById('dgamTbody'); if (!tbody) return;
     if (paged.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="23"><div class="empty-state"><div class="icon">👕</div><h3>Chưa có đơn gửi áo mẫu nào</h3><p>Chọn thời gian ở sidebar hoặc thêm đơn mới</p></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="15"><div class="empty-state"><div class="icon">👕</div><h3>Chưa có đơn gửi áo mẫu nào</h3><p>Chọn thời gian ở sidebar hoặc thêm đơn mới</p></div></td></tr>';
         return;
     }
-    var fmtD = function(d) { if (!d) return '—'; var dt = new Date(d); return dt.getDate() + '/' + (dt.getMonth()+1); };
-    var fmtDF = function(d) { if (!d) return '—'; var dt = new Date(d); return dt.getDate() + '/' + (dt.getMonth()+1) + '/' + dt.getFullYear(); };
+    var fmtHM_DM = function(d) {
+        if (!d) return '—';
+        var dt = new Date(d);
+        var hr = String(dt.getHours()).padStart(2, '0');
+        var min = String(dt.getMinutes()).padStart(2, '0');
+        var date = dt.getDate();
+        var month = dt.getMonth() + 1;
+        return hr + ':' + min + ' ' + date + '/' + month;
+    };
 
     tbody.innerHTML = paged.map(function(o) {
         var st = _dgamStatusMap[o.order_status] || { label: o.order_status || '—', bg: '#f1f5f9', color: '#475569' };
         var remaining = Number(o.remaining_amount) || 0;
         var remColor = remaining > 0 ? 'var(--danger)' : 'var(--success)';
 
+        var statusHtml = '<td style="text-align:center" onclick="event.stopPropagation()">'
+            +'<div style="margin-bottom:6px"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:'+st.bg+';color:'+st.color+'">'+st.label+'</span></div>'
+            +'<div style="display:flex;gap:2px;justify-content:center">'
+            +'<button class="dgam-icon-btn'+(o.status_duyet?' on-duyet':'')+'" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>'
+            +'<button class="dgam-icon-btn'+(o.status_gui_don?' on-gui':'')+'" title="Gửi đơn" onclick="_dgamTogSt('+o.id+',\'status_gui_don\','+!o.status_gui_don+')">📤</button>'
+            +'<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
+            +'<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>'
+            +'</div>'
+            +'</td>';
+
         var prodDisplay = o.product_name || '—';
         if (o.linh_vuc) {
             prodDisplay = '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:4px">' + o.linh_vuc + '</span>' + prodDisplay;
-        }
-        if (o.sample_image) {
-            prodDisplay += '<br><img src="' + o.sample_image + '" style="max-height:40px;border-radius:4px;margin-top:4px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15)" onclick="window.open(\'' + o.sample_image + '\', \'_blank\')">';
         }
         if (o.sale_note_for_accountant) {
             prodDisplay += '<div style="font-size:10px;color:#d97706;font-style:italic;max-width:180px;white-space:normal;margin-top:2px">📝 ' + o.sale_note_for_accountant + '</div>';
         }
 
-        var shipDisplay = o.shipping_method || '—';
-        if (o.shipping_priority) {
-            var priBg = o.shipping_priority === 'GẤP' ? '#fee2e2' : (o.shipping_priority === 'CHUẨN' ? '#dbeafe' : '#f1f5f9');
-            var priColor = o.shipping_priority === 'GẤP' ? '#991b1b' : (o.shipping_priority === 'CHUẨN' ? '#1e40af' : '#475569');
-            shipDisplay += '<br><span style="background:'+priBg+';color:'+priColor+';padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800">' + o.shipping_priority + '</span>';
+        var imgDisplay = '—';
+        if (o.sample_image) {
+            imgDisplay = '<img src="' + o.sample_image + '" style="max-height:45px;max-width:45px;border-radius:6px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);object-fit:cover;" onclick="event.stopPropagation();_dgamShowImagePreview(\'' + o.sample_image + '\')">';
+        }
+
+        var updaterText = '—';
+        if (o.updated_by_name) {
+            updaterText = '<span style="font-weight:700;color:var(--primary)">' + o.updated_by_name + '</span><br><span style="font-size:10px;color:var(--gray-500)">' + fmtHM_DM(o.updated_at) + '</span>';
+        } else if (o.created_by_name) {
+            updaterText = '<span style="font-weight:700;color:var(--gray-600)">' + o.created_by_name + '</span><br><span style="font-size:10px;color:var(--gray-500)">' + fmtHM_DM(o.created_at) + '</span>';
         }
 
         return '<tr style="cursor:pointer" onclick="_dgamShowDetail('+o.id+')">'
-            +'<td style="text-align:center" onclick="event.stopPropagation()">'
-            +'<button class="dgam-icon-btn'+(o.status_duyet?' on-duyet':'')+'" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>'
-            +'<button class="dgam-icon-btn'+(o.status_gui_don?' on-gui':'')+'" title="Gửi đơn" onclick="_dgamTogSt('+o.id+',\'status_gui_don\','+!o.status_gui_don+')">📤</button>'
-            +'<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
-            +'<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>'
-            +'</td>'
-            +'<td>'+fmtDF(o.order_date)+'</td>'
+            +statusHtml
+            +'<td>'+fmtHM_DM(o.created_at)+'</td>'
             +'<td style="font-weight:700;color:'+remColor+'">'+_dgamFmt(remaining)+'</td>'
-            +'<td>'+(o.payer||'—')+'</td>'
             +'<td><strong style="color:'+(remaining>0?'#c2410c':'#0f766e')+'">'+(o.sample_order_code||'—')+'</strong></td>'
+            +'<td>'+prodDisplay+'</td>'
+            +'<td style="text-align:center">'+imgDisplay+'</td>'
             +'<td>'+(o.category||'—')+'</td>'
             +'<td>'+(o.customer_name||'—')+'</td>'
-            +'<td>'+prodDisplay+'</td>'
             +'<td>'+(o.customer_phone?'<a href="tel:'+o.customer_phone+'" style="color:var(--info)" onclick="event.stopPropagation()">'+o.customer_phone+'</a>':'—')+'</td>'
-            +'<td>'+(o.address||'—')+'</td>'
             +'<td>'+(o.province||'—')+'</td>'
-            +'<td>'+shipDisplay+'</td>'
+            +'<td>'+(o.created_by_name||'—')+'</td>'
             +'<td style="text-align:center;font-weight:800">'+(o.quantity||0)+'</td>'
             +'<td style="text-align:right">'+_dgamFmt(o.price)+'</td>'
-            +'<td style="color:var(--success);font-weight:800;text-align:right">'+_dgamFmt(o.total_amount)+'</td>'
-            +'<td>'+(o.deposit_code||'—')+'</td>'
-            +'<td>'+fmtDF(o.ship_date)+(o.ship_time ? ' <span style="background:#f1f5f9;color:#475569;padding:1px 4px;border-radius:4px;font-size:10px;font-weight:700">' + o.ship_time + '</span>' : '')+'</td>'
-            +'<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:'+st.bg+';color:'+st.color+'">'+st.label+'</span></td>'
-            +'<td>'+(o.payment_method||'—')+'</td>'
-            +'<td style="text-align:right">'+_dgamFmt(o.shipping_fee)+'</td>'
-            +'<td style="text-align:right">'+_dgamFmt(o.return_shipping_fee)+'</td>'
-            +'<td>'+(o.return_payer||'—')+'</td>'
-            +'<td>'+(o.return_payment_method||'—')+'</td>'
+            +'<td style="color:var(--success);font-weight:800;text-align:right">'+_dgamFmt(o.deposit_amount || 0)+'</td>'
+            +'<td>'+updaterText+'</td>'
             +'</tr>';
     }).join('');
 }
 
 async function _dgamTogSt(id, field, val) {
     await apiCall('/api/don-gui-ao-mau/' + id + '/status', 'PATCH', { field: field, value: val });
-    for (var i = 0; i < _dgam.orders.length; i++) { if (_dgam.orders[i].id === id) { _dgam.orders[i][field] = val; break; } }
-    _dgamRenderTable();
+    await _dgamLoadOrders();
 }
 
 function _dgamRenderPagination(totalItems, totalPages) {
@@ -1226,5 +1223,36 @@ async function _dgamShowDetail(id) {
     } catch (e) {
         console.error('Error opening sample order details:', e);
         showToast('Lỗi tải chi tiết đơn mẫu', 'error');
+    }
+}
+
+function _dgamShowImagePreview(src) {
+    let preview = document.getElementById('dgamImagePreviewOverlay');
+    if (!preview) {
+        preview = document.createElement('div');
+        preview.id = 'dgamImagePreviewOverlay';
+        preview.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;';
+        preview.innerHTML = `
+            <div style="position:relative;background:#fff;padding:8px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.4);max-width:90%;max-height:90%;margin:20px;">
+                <button onclick="_dgamCloseImagePreview()" style="position:absolute;top:-15px;right:-15px;width:32px;height:32px;border-radius:50%;background:#ef4444;color:#fff;border:none;font-size:16px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.15s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">✕</button>
+                <img id="dgamImagePreviewImg" src="" style="max-width:100%;max-height:80vh;border-radius:8px;display:block;object-fit:contain;">
+            </div>
+        `;
+        preview.onclick = function(e) {
+            if (e.target === preview) _dgamCloseImagePreview();
+        };
+        document.body.appendChild(preview);
+    }
+    
+    document.getElementById('dgamImagePreviewImg').src = src;
+    preview.style.display = 'flex';
+    setTimeout(() => { preview.style.opacity = '1'; }, 10);
+}
+
+function _dgamCloseImagePreview() {
+    const preview = document.getElementById('dgamImagePreviewOverlay');
+    if (preview) {
+        preview.style.opacity = '0';
+        setTimeout(() => { preview.style.display = 'none'; }, 200);
     }
 }
