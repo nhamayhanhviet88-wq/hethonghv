@@ -459,11 +459,10 @@ module.exports = async function(fastify) {
                 }));
 
             const grandInfo = await db.get(`
-                SELECT 
-                    COALESCE(SUM(GREATEST(remaining_amount, 0)), 0)::numeric AS total,
-                    COUNT(*)::int AS count
-                FROM (
-                        SELECT (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount
+                WITH unpaid_orders AS (
+                    SELECT o.id::text AS id, o.order_code,
+                        (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
+                        o.created_by
                     FROM dht_orders o
                     LEFT JOIN LATERAL (
                         SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -471,8 +470,36 @@ module.exports = async function(fastify) {
                         WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                            OR order_tt_coc = o.order_code
                     ) pr_dep ON true
-                    ${whereClause}
-                ) sub
+                    WHERE o.parent_order_id IS NULL
+                      AND (
+                          (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0))) > 0
+                          OR
+                          o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
+                      )
+
+                    UNION ALL
+
+                    SELECT 'sample_' || d.id AS id, d.sample_order_code AS order_code,
+                        (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount,
+                        d.created_by
+                    FROM don_gui_ao_mau d
+                    LEFT JOIN LATERAL (
+                        SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                        FROM payment_records
+                        WHERE order_ao_mau = d.sample_order_code
+                           OR order_tt_coc = d.sample_order_code
+                    ) pr_dep ON true
+                    WHERE COALESCE(d.sample_order_code, '') != ''
+                      AND (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+                ),
+                filtered_unpaid AS (
+                    SELECT * FROM unpaid_orders o
+                    WHERE 1=1 ${filterCreatedBy}
+                )
+                SELECT 
+                    COALESCE(SUM(GREATEST(remaining_amount, 0)), 0)::numeric AS total,
+                    COUNT(*)::int AS count
+                FROM filtered_unpaid
             `, queryParams);
 
             const grandTotal = summaryVisibility === 'full' ? Number(grandInfo.total) : 0;
