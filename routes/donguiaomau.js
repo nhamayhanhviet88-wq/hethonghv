@@ -39,6 +39,12 @@ module.exports = async function(fastify) {
         )`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS address TEXT`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS province TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS linh_vuc TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS sample_image TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_priority TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS zalo_oa_sent BOOLEAN DEFAULT false`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS sale_note_for_accountant TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC DEFAULT 0`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_order_date ON don_gui_ao_mau(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_status ON don_gui_ao_mau(order_status)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_code ON don_gui_ao_mau(sample_order_code)`);
@@ -76,9 +82,10 @@ module.exports = async function(fastify) {
     fastify.get('/api/don-gui-ao-mau/drafts', { preHandler: [authenticate] }, async (request, reply) => {
         const drafts = await db.all(`
             SELECT d.id, d.sample_order_code, d.customer_name, d.customer_phone, d.deposit_code,
-                   c.address, c.province
+                   c.address, c.province, COALESCE(pr.amount, 0) AS deposit_amount
             FROM don_gui_ao_mau d
             LEFT JOIN customers c ON c.phone = d.customer_phone
+            LEFT JOIN payment_records pr ON pr.payment_code = d.deposit_code
             WHERE d.order_status = 'draft'
             ORDER BY d.id DESC
         `);
@@ -205,8 +212,14 @@ module.exports = async function(fastify) {
                         return_payment_method = $19,
                         address = $20,
                         province = $21,
+                        linh_vuc = $22,
+                        sample_image = $23,
+                        shipping_priority = $24,
+                        zalo_oa_sent = $25,
+                        sale_note_for_accountant = $26,
+                        deposit_amount = $27,
                         updated_at = NOW()
-                    WHERE id = $22
+                    WHERE id = $28
                 `, [
                     b.order_date || new Date().toISOString().slice(0, 10),
                     b.remaining_amount || 0, b.payer || null, b.category || null,
@@ -215,6 +228,8 @@ module.exports = async function(fastify) {
                     b.order_status || 'cho_duyet', b.payment_method || null, b.shipping_fee || 0,
                     b.return_shipping_fee || 0, b.return_payer || null, b.return_payment_method || null,
                     b.address || null, b.province || null,
+                    b.linh_vuc || null, b.sample_image || null, b.shipping_priority || null,
+                    b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0,
                     existingDraft.id
                 ]);
                 return { success: true, id: existingDraft.id };
@@ -228,14 +243,18 @@ module.exports = async function(fastify) {
                 quantity, price, total_amount, deposit_code, ship_date,
                 order_status, payment_method, shipping_fee,
                 return_shipping_fee, return_payer, return_payment_method,
-                created_by, address, province
+                created_by, address, province,
+                linh_vuc, sample_image, shipping_priority,
+                zalo_oa_sent, sale_note_for_accountant, deposit_amount
             ) VALUES (
                 $1, $2, $3, $4, $5,
                 $6, $7, $8, $9,
                 $10, $11, $12, $13, $14,
                 $15, $16, $17,
                 $18, $19, $20,
-                $21, $22, $23
+                $21, $22, $23,
+                $24, $25, $26,
+                $27, $28, $29
             ) RETURNING id
         `, [
             b.order_date || new Date().toISOString().slice(0, 10),
@@ -244,7 +263,9 @@ module.exports = async function(fastify) {
             b.quantity || 0, b.price || 0, b.total_amount || 0, b.deposit_code || null, b.ship_date || null,
             b.order_status || 'cho_duyet', b.payment_method || null, b.shipping_fee || 0,
             b.return_shipping_fee || 0, b.return_payer || null, b.return_payment_method || null,
-            request.user.id, b.address || null, b.province || null
+            request.user.id, b.address || null, b.province || null,
+            b.linh_vuc || null, b.sample_image || null, b.shipping_priority || null,
+            b.zalo_oa_sent || false, b.sale_note_for_accountant || null, b.deposit_amount || 0
         ]);
 
         return { success: true, id: result.id };

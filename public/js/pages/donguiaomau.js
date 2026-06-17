@@ -157,6 +157,24 @@ function _dgamRenderRows(paged) {
         var remaining = Number(o.remaining_amount) || 0;
         var remColor = remaining > 0 ? 'var(--danger)' : 'var(--success)';
 
+        var prodDisplay = o.product_name || '—';
+        if (o.linh_vuc) {
+            prodDisplay = '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:4px">' + o.linh_vuc + '</span>' + prodDisplay;
+        }
+        if (o.sample_image) {
+            prodDisplay += '<br><img src="' + o.sample_image + '" style="max-height:40px;border-radius:4px;margin-top:4px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15)" onclick="window.open(\'' + o.sample_image + '\', \'_blank\')">';
+        }
+        if (o.sale_note_for_accountant) {
+            prodDisplay += '<div style="font-size:10px;color:#d97706;font-style:italic;max-width:180px;white-space:normal;margin-top:2px">📝 ' + o.sale_note_for_accountant + '</div>';
+        }
+
+        var shipDisplay = o.shipping_method || '—';
+        if (o.shipping_priority) {
+            var priBg = o.shipping_priority === 'GẤP' ? '#fee2e2' : (o.shipping_priority === 'CHUẨN' ? '#dbeafe' : '#f1f5f9');
+            var priColor = o.shipping_priority === 'GẤP' ? '#991b1b' : (o.shipping_priority === 'CHUẨN' ? '#1e40af' : '#475569');
+            shipDisplay += '<br><span style="background:'+priBg+';color:'+priColor+';padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800">' + o.shipping_priority + '</span>';
+        }
+
         return '<tr>'
             +'<td style="text-align:center">'
             +'<button class="dgam-icon-btn'+(o.status_duyet?' on-duyet':'')+'" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>'
@@ -170,11 +188,11 @@ function _dgamRenderRows(paged) {
             +'<td><strong style="color:'+(remaining>0?'#c2410c':'#0f766e')+'">'+(o.sample_order_code||'—')+'</strong></td>'
             +'<td>'+(o.category||'—')+'</td>'
             +'<td>'+(o.customer_name||'—')+'</td>'
-            +'<td>'+(o.product_name||'—')+'</td>'
+            +'<td>'+prodDisplay+'</td>'
             +'<td>'+(o.customer_phone?'<a href="tel:'+o.customer_phone+'" style="color:var(--info)">'+o.customer_phone+'</a>':'—')+'</td>'
             +'<td>'+(o.address||'—')+'</td>'
             +'<td>'+(o.province||'—')+'</td>'
-            +'<td>'+(o.shipping_method||'—')+'</td>'
+            +'<td>'+shipDisplay+'</td>'
             +'<td style="text-align:center;font-weight:800">'+(o.quantity||0)+'</td>'
             +'<td style="text-align:right">'+_dgamFmt(o.price)+'</td>'
             +'<td style="color:var(--success);font-weight:800;text-align:right">'+_dgamFmt(o.total_amount)+'</td>'
@@ -260,13 +278,82 @@ function _dgamRenderInfo(count, arr) {
 }
 
 var _dgamDraftsList = [];
+var _dgamDhtCategories = [];
+var _dgamDhtCarriers = [];
+
+// Helper to resize pasted image proof
+function _dgamResizeAndStoreImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 800;
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(compressedBase64);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+async function _dgamPasteSampleImg(e) {
+    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            const blob = items[i].getAsFile();
+            const compressed = await _dgamResizeAndStoreImage(blob);
+            _dgam.sampleImgBase64 = compressed;
+            const img = document.getElementById('dgamAddSampleImg');
+            const ph = document.getElementById('dgamAddSampleImgPlaceholder');
+            if (img) { img.src = compressed; img.style.display = 'block'; }
+            if (ph) ph.style.display = 'none';
+            const zone = document.getElementById('dgamAddSampleImgZone');
+            if (zone) { zone.style.borderColor = '#059669'; zone.style.background = '#f0fdf4'; }
+            if (typeof showToast === 'function') {
+                showToast('✅ Đã dán ảnh mẫu thành công!');
+            }
+            e.preventDefault();
+            return;
+        }
+    }
+    if (typeof showToast === 'function') {
+        showToast('Không tìm thấy hình ảnh trong clipboard!', 'error');
+    }
+}
 
 async function _dgamShowAdd() {
     try {
-        const res = await apiCall('/api/don-gui-ao-mau/drafts');
-        _dgamDraftsList = res.drafts || [];
+        const [draftsRes, catsRes, carriersRes] = await Promise.all([
+            apiCall('/api/don-gui-ao-mau/drafts'),
+            apiCall('/api/dht/categories'),
+            apiCall('/api/dht/carriers')
+        ]);
+        _dgamDraftsList = draftsRes.drafts || [];
+        _dgamDhtCategories = catsRes.categories || [];
+        _dgamDhtCarriers = carriersRes.carriers || [];
     } catch (e) {
         _dgamDraftsList = [];
+        _dgamDhtCategories = [];
+        _dgamDhtCarriers = [];
     }
 
     if (_dgamDraftsList.length === 0) {
@@ -277,6 +364,9 @@ async function _dgamShowAdd() {
         }
         return;
     }
+
+    _dgam.selectedDepositAmount = 0;
+    _dgam.sampleImgBase64 = null;
 
     const draftOptions = _dgamDraftsList.map(d => 
         `<option value="${d.id}">${d.sample_order_code} (${d.customer_name || 'Không tên'})</option>`
@@ -295,11 +385,11 @@ async function _dgamShowAdd() {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
                 <div class="form-group">
                     <label style="font-weight:600;margin-bottom:4px;display:block;">Tên Khách Hàng</label>
-                    <input type="text" id="dgamAddCustName" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600;" placeholder="Tên khách hàng">
+                    <input type="text" id="dgamAddCustName" class="form-control" readonly style="background:#e2e8f0;cursor:not-allowed;font-weight:600;color:#64748b;" placeholder="Tên khách hàng">
                 </div>
                 <div class="form-group">
                     <label style="font-weight:600;margin-bottom:4px;display:block;">Số Điện Thoại</label>
-                    <input type="text" id="dgamAddCustPhone" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600;" placeholder="Số điện thoại" maxlength="10">
+                    <input type="text" id="dgamAddCustPhone" class="form-control" readonly style="background:#e2e8f0;cursor:not-allowed;font-weight:600;color:#64748b;" placeholder="Số điện thoại" maxlength="10">
                 </div>
             </div>
 
@@ -320,11 +410,12 @@ async function _dgamShowAdd() {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
                 <div class="form-group">
                     <label style="font-weight:600;margin-bottom:4px;display:block;">Mã Tiền Đặt Cọc</label>
-                    <input type="text" id="dgamAddDepositCode" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600;" placeholder="Không có cọc">
+                    <input type="text" id="dgamAddDepositCode" class="form-control" readonly style="background:#e2e8f0;cursor:not-allowed;font-weight:600;color:#64748b;" placeholder="Không có cọc">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:600;margin-bottom:4px;display:block;">Phân Loại</label>
-                    <select id="dgamAddCategory" class="form-control">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Phân Loại <span style="color:var(--danger)">*</span></label>
+                    <select id="dgamAddCategory" class="form-control" onchange="_dgamOnCategoryChange()" style="border:1.5px solid #0284c7;font-weight:700;">
+                        <option value="">-- Chọn phân loại --</option>
                         <option value="Gửi mẫu áo">Gửi mẫu áo</option>
                         <option value="Gửi mẫu vải">Gửi mẫu vải</option>
                         <option value="Gửi Tem">Gửi Tem</option>
@@ -336,6 +427,119 @@ async function _dgamShowAdd() {
                 </div>
             </div>
 
+            <div id="dgamDynamicFieldsContainer" style="margin-top:12px;"></div>
+        </div>
+    `;
+
+    const footerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+        <button class="btn btn-primary" onclick="_dgamSubmitAdd()" style="width:auto;background:linear-gradient(135deg,#0369a1,#0ea5e9);border:none;">💾 Tạo Đơn</button>
+    `;
+
+    openModal('➕ THÀNH LẬP ĐƠN GỬI ÁO MẪU', bodyHTML, footerHTML);
+}
+
+function _dgamOnCategoryChange() {
+    const cat = document.getElementById('dgamAddCategory').value;
+    const container = document.getElementById('dgamDynamicFieldsContainer');
+    if (!container) return;
+
+    if (!cat) {
+        container.innerHTML = '';
+        return;
+    }
+
+    if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(cat)) {
+        // Garment specific layout
+        container.innerHTML = `
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:600;margin-bottom:4px;display:block;">Lĩnh Vực <span style="color:var(--danger)">*</span></label>
+                <select id="dgamAddLinhVuc" class="form-control">
+                    <option value="">-- Chọn lĩnh vực --</option>
+                    ${_dgamDhtCategories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:600;margin-bottom:4px;display:block;">Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="dgamAddProductName" class="form-control" placeholder="Tên sản phẩm">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Số Lượng <span style="color:var(--danger)">*</span></label>
+                    <input type="number" id="dgamAddQuantity" class="form-control" value="1" min="1" oninput="_dgamCalcRemaining()">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Giá Thành <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="dgamAddPrice" class="form-control" placeholder="0" oninput="if (typeof formatDepositInput === 'function') formatDepositInput(this); _dgamCalcRemaining()">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tổng Tiền Đơn Mẫu</label>
+                    <input type="text" id="dgamAddTotalAmount" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700;color:var(--success);" value="0">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Số Tiền Còn Lại</label>
+                    <input type="text" id="dgamAddRemainingAmount" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:800;color:var(--danger);" value="0">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:600;margin-bottom:4px;display:block;">Hình Ảnh Mẫu <span style="color:var(--danger)">*</span> <span style="font-size:11px;color:var(--gray-500);font-weight:normal;">(Click vào khung rồi Ctrl+V dán ảnh, hệ thống tự nén dung lượng thấp)</span></label>
+                <div id="dgamAddSampleImgZone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;transition:all .2s;min-height:90px;display:flex;align-items:center;justify-content:center;flex-direction:column" onpaste="_dgamPasteSampleImg(event)" onclick="this.focus()" onfocus="this.style.borderColor='#b8860b';this.style.background='#fffbeb'" onblur="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
+                    <div id="dgamAddSampleImgPlaceholder" style="color:#94a3b8;font-size:12px"><span style="font-size:24px">📸</span><br>Click vào đây rồi <b>Ctrl+V</b> dán hình ảnh</div>
+                    <img id="dgamAddSampleImg" style="display:none;max-width:100%;max-height:160px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Ngày Lên Đơn</label>
+                    <input type="text" id="dgamAddOrderDate" class="form-control" readonly style="background:#f1f5f9;cursor:not-allowed;" value="${new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })).toLocaleDateString('vi-VN')}">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Ngày Gửi Hàng <span style="color:var(--danger)">*</span></label>
+                    <input type="date" id="dgamAddShipDate" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Tiêu Chuẩn Gửi <span style="color:var(--danger)">*</span></label>
+                    <select id="dgamAddShippingPriority" class="form-control">
+                        <option value="CHUẨN">CHUẨN</option>
+                        <option value="GỬI">GỬI</option>
+                        <option value="GẤP" selected>GẤP</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Nhà Vận Chuyển <span style="color:var(--danger)">*</span></label>
+                    <select id="dgamAddCarrier" class="form-control">
+                        <option value="">-- Chọn nhà vận chuyển --</option>
+                        ${_dgamDhtCarriers.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:600;margin-bottom:4px;display:block;">Gửi Zalo OA</label>
+                    <select id="dgamAddZaloOASent" class="form-control">
+                        <option value="1">✅ Gửi Zalo OA</option>
+                        <option value="0" selected>Không gửi</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:600;margin-bottom:4px;display:block;">📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng <span style="color:var(--danger)">*</span></label>
+                <textarea id="dgamAddSaleNote" class="form-control" rows="3" placeholder="Nhập nội dung dặn dò cho kế toán..." style="font-size:12px;resize:vertical;border:1.5px solid #f59e0b;"></textarea>
+            </div>
+        `;
+
+        // Populate standard today's ship date automatically
+        const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const shipDateEl = document.getElementById('dgamAddShipDate');
+        if (shipDateEl) shipDateEl.value = `${yyyy}-${mm}-${dd}`;
+
+        _dgamCalcRemaining();
+    } else {
+        // Standard layout
+        container.innerHTML = `
             <div class="form-group" style="margin-bottom:12px;">
                 <label style="font-weight:600;margin-bottom:4px;display:block;">Tên Sản Phẩm <span style="color:var(--danger)">*</span></label>
                 <input type="text" id="dgamAddProductName" class="form-control" placeholder="Ví dụ: Áo thun cổ tròn HV">
@@ -416,24 +620,17 @@ async function _dgamShowAdd() {
                     </div>
                 </div>
             </div>
-        </div>
-    `;
+        `;
 
-    const footerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        <button class="btn btn-primary" onclick="_dgamSubmitAdd()" style="width:auto;background:linear-gradient(135deg,#0369a1,#0ea5e9);border:none;">💾 Tạo Đơn</button>
-    `;
-
-    openModal('➕ THÀNH LẬP ĐƠN GỬI ÁO MẪU', bodyHTML, footerHTML);
-
-    setTimeout(() => {
         const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
         const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
         const shipDateEl = document.getElementById('dgamAddShipDate');
         if (shipDateEl) shipDateEl.value = `${yyyy}-${mm}-${dd}`;
-    }, 100);
+
+        _dgamCalcTotal();
+    }
 }
 
 function _dgamOnDraftSelect() {
@@ -444,6 +641,7 @@ function _dgamOnDraftSelect() {
         document.getElementById('dgamAddDepositCode').value = '';
         document.getElementById('dgamAddAddress').value = '';
         document.getElementById('dgamAddProvince').value = '';
+        _dgam.selectedDepositAmount = 0;
         return;
     }
     const draft = _dgamDraftsList.find(d => d.id == draftId);
@@ -453,15 +651,38 @@ function _dgamOnDraftSelect() {
         document.getElementById('dgamAddDepositCode').value = draft.deposit_code || 'Không có cọc';
         document.getElementById('dgamAddAddress').value = draft.address || '';
         document.getElementById('dgamAddProvince').value = draft.province || '';
+        _dgam.selectedDepositAmount = Number(draft.deposit_amount) || 0;
+
+        const cat = document.getElementById('dgamAddCategory').value;
+        if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(cat)) {
+            _dgamCalcRemaining();
+        } else {
+            _dgamCalcTotal();
+        }
     }
 }
 
-function _dgamCalcTotal() {
-    const qty = Number(document.getElementById('dgamAddQuantity').value) || 0;
-    const priceStr = document.getElementById('dgamAddPrice').value || '0';
+function _dgamCalcRemaining() {
+    const qty = Number(document.getElementById('dgamAddQuantity')?.value) || 0;
+    const priceStr = document.getElementById('dgamAddPrice')?.value || '0';
     const price = Number(priceStr.replace(/\./g, '')) || 0;
     const total = qty * price;
-    document.getElementById('dgamAddTotalAmount').value = total.toLocaleString('vi-VN');
+    
+    const totalEl = document.getElementById('dgamAddTotalAmount');
+    if (totalEl) totalEl.value = total.toLocaleString('vi-VN');
+
+    const remaining = total - (_dgam.selectedDepositAmount || 0);
+    const remainingEl = document.getElementById('dgamAddRemainingAmount');
+    if (remainingEl) remainingEl.value = remaining.toLocaleString('vi-VN');
+}
+
+function _dgamCalcTotal() {
+    const qty = Number(document.getElementById('dgamAddQuantity')?.value) || 0;
+    const priceStr = document.getElementById('dgamAddPrice')?.value || '0';
+    const price = Number(priceStr.replace(/\./g, '')) || 0;
+    const total = qty * price;
+    const totalEl = document.getElementById('dgamAddTotalAmount');
+    if (totalEl) totalEl.value = total.toLocaleString('vi-VN');
 }
 
 async function _dgamSubmitAdd() {
@@ -473,21 +694,11 @@ async function _dgamSubmitAdd() {
     const draft = _dgamDraftsList.find(d => d.id == draftId);
     if (!draft) return;
 
-    const productName = document.getElementById('dgamAddProductName').value.trim();
-    if (!productName) {
-        showToast('Vui lòng nhập Tên Sản Phẩm!', 'error');
+    const category = document.getElementById('dgamAddCategory').value;
+    if (!category) {
+        showToast('Vui lòng chọn Phân Loại!', 'error');
         return;
     }
-
-    const qty = Number(document.getElementById('dgamAddQuantity').value) || 0;
-    if (qty <= 0) {
-        showToast('Số lượng phải lớn hơn 0!', 'error');
-        return;
-    }
-
-    const priceStr = document.getElementById('dgamAddPrice').value || '0';
-    const price = Number(priceStr.replace(/\./g, '')) || 0;
-    const totalAmount = qty * price;
 
     const address = document.getElementById('dgamAddAddress').value.trim();
     if (!address) {
@@ -500,43 +711,131 @@ async function _dgamSubmitAdd() {
         return;
     }
 
-    const shipDate = document.getElementById('dgamAddShipDate').value || null;
-    const shippingMethod = document.getElementById('dgamAddShippingMethod').value;
-    const paymentMethod = document.getElementById('dgamAddPaymentMethod').value;
-    const shippingFeeStr = document.getElementById('dgamAddShippingFee').value || '0';
-    const shippingFee = Number(shippingFeeStr.replace(/\./g, '')) || 0;
-
-    const returnShippingFeeStr = document.getElementById('dgamAddReturnShippingFee').value || '0';
-    const returnShippingFee = Number(returnShippingFeeStr.replace(/\./g, '')) || 0;
-
-    const returnPayer = document.getElementById('dgamAddReturnPayer').value.trim() || null;
-    const returnPaymentMethod = document.getElementById('dgamAddReturnPaymentMethod').value.trim() || null;
-
-    const orderStatus = document.getElementById('dgamAddOrderStatus').value;
-    const category = document.getElementById('dgamAddCategory').value;
-
-    const body = {
+    let body = {
         sample_order_code: draft.sample_order_code,
         customer_name: document.getElementById('dgamAddCustName').value.trim() || draft.customer_name,
         customer_phone: document.getElementById('dgamAddCustPhone').value.trim() || draft.customer_phone,
         deposit_code: document.getElementById('dgamAddDepositCode').value === 'Không có cọc' ? null : (document.getElementById('dgamAddDepositCode').value || null),
-        product_name: productName,
         category,
-        quantity: qty,
-        price,
-        total_amount: totalAmount,
-        ship_date: shipDate,
-        shipping_method: shippingMethod,
-        payment_method: paymentMethod,
-        shipping_fee: shippingFee,
-        return_shipping_fee: returnShippingFee,
-        return_payer: returnPayer,
-        return_payment_method: returnPaymentMethod,
-        order_status: orderStatus,
+        address,
+        province,
         order_date: new Date().toISOString().slice(0, 10),
-        address: address,
-        province: province
+        deposit_amount: _dgam.selectedDepositAmount || 0
     };
+
+    if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(category)) {
+        const linhVuc = document.getElementById('dgamAddLinhVuc').value;
+        if (!linhVuc) {
+            showToast('Vui lòng chọn Lĩnh Vực!', 'error');
+            return;
+        }
+
+        const productName = document.getElementById('dgamAddProductName').value.trim();
+        if (!productName) {
+            showToast('Vui lòng nhập Tên Sản Phẩm!', 'error');
+            return;
+        }
+
+        const qty = Number(document.getElementById('dgamAddQuantity').value) || 0;
+        if (qty <= 0) {
+            showToast('Số lượng phải lớn hơn 0!', 'error');
+            return;
+        }
+
+        const priceStr = document.getElementById('dgamAddPrice').value || '0';
+        const price = Number(priceStr.replace(/\./g, '')) || 0;
+        const totalAmount = qty * price;
+        const remainingAmount = totalAmount - (_dgam.selectedDepositAmount || 0);
+
+        if (!_dgam.sampleImgBase64) {
+            showToast('Vui lòng dán Hình Ảnh Mẫu!', 'error');
+            return;
+        }
+
+        const shipDate = document.getElementById('dgamAddShipDate').value || null;
+        if (!shipDate) {
+            showToast('Vui lòng nhập Ngày Gửi Hàng!', 'error');
+            return;
+        }
+
+        const shippingPriority = document.getElementById('dgamAddShippingPriority').value;
+        const carrier = document.getElementById('dgamAddCarrier').value;
+        if (!carrier) {
+            showToast('Vui lòng chọn Nhà Vận Chuyển!', 'error');
+            return;
+        }
+
+        const zaloOASent = Number(document.getElementById('dgamAddZaloOASent').value) || 0;
+        const saleNote = document.getElementById('dgamAddSaleNote').value.trim();
+        if (!saleNote) {
+            showToast('Vui lòng nhập Nội Dung Sale Dặn Kế Toán Gửi Hàng!', 'error');
+            return;
+        }
+
+        body = {
+            ...body,
+            linh_vuc: linhVuc,
+            product_name: productName,
+            quantity: qty,
+            price,
+            total_amount: totalAmount,
+            remaining_amount: remainingAmount,
+            sample_image: _dgam.sampleImgBase64,
+            ship_date: shipDate,
+            shipping_priority: shippingPriority,
+            shipping_method: carrier,
+            zalo_oa_sent: zaloOASent === 1,
+            sale_note_for_accountant: saleNote,
+            order_status: 'cho_duyet'
+        };
+    } else {
+        const productName = document.getElementById('dgamAddProductName').value.trim();
+        if (!productName) {
+            showToast('Vui lòng nhập Tên Sản Phẩm!', 'error');
+            return;
+        }
+
+        const qty = Number(document.getElementById('dgamAddQuantity').value) || 0;
+        if (qty <= 0) {
+            showToast('Số lượng phải lớn hơn 0!', 'error');
+            return;
+        }
+
+        const priceStr = document.getElementById('dgamAddPrice').value || '0';
+        const price = Number(priceStr.replace(/\./g, '')) || 0;
+        const totalAmount = qty * price;
+        const remainingAmount = totalAmount - (_dgam.selectedDepositAmount || 0);
+
+        const shipDate = document.getElementById('dgamAddShipDate').value || null;
+        const shippingMethod = document.getElementById('dgamAddShippingMethod').value;
+        const paymentMethod = document.getElementById('dgamAddPaymentMethod').value;
+        const shippingFeeStr = document.getElementById('dgamAddShippingFee').value || '0';
+        const shippingFee = Number(shippingFeeStr.replace(/\./g, '')) || 0;
+
+        const returnShippingFeeStr = document.getElementById('dgamAddReturnShippingFee').value || '0';
+        const returnShippingFee = Number(returnShippingFeeStr.replace(/\./g, '')) || 0;
+
+        const returnPayer = document.getElementById('dgamAddReturnPayer').value.trim() || null;
+        const returnPaymentMethod = document.getElementById('dgamAddReturnPaymentMethod').value.trim() || null;
+        const orderStatus = document.getElementById('dgamAddOrderStatus').value;
+
+        body = {
+            ...body,
+            product_name: productName,
+            quantity: qty,
+            price,
+            total_amount: totalAmount,
+            remaining_amount: remainingAmount,
+            ship_date: shipDate,
+            shipping_method: shippingMethod,
+            payment_method: paymentMethod,
+            shipping_fee: shippingFee,
+            return_shipping_fee: returnShippingFee,
+            return_payer: returnPayer,
+            return_payment_method: returnPaymentMethod,
+            order_status: orderStatus
+        };
+    }
 
     try {
         const res = await apiCall('/api/don-gui-ao-mau', 'POST', body);
