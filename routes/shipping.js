@@ -828,10 +828,97 @@ module.exports = async function(fastify) {
             params.push(sampleId);
             await db.run(`UPDATE don_gui_ao_mau SET ${sets.join(', ')} WHERE id = $${idx}`, params);
 
+            // Link payment record for sample order settlement (if selected)
+            let paymentLinkResult = null;
+            if (b.selected_payment_id) {
+                const prId = Number(b.selected_payment_id);
+                try {
+                    const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [prId]);
+                    if (pr) {
+                        const childSumRow = await db.get(`
+                            SELECT COALESCE(SUM(amount), 0) AS child_sum
+                            FROM payment_records
+                            WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                        `, [prId]);
+                        
+                        const paidRow = await db.get(
+                            `SELECT COALESCE(SUM(amount), 0) AS paid_total
+                             FROM payment_records
+                             WHERE order_ao_mau = $1`,
+                            [order.order_code]
+                        );
+                        const paidTotal = Number(paidRow?.paid_total) || 0;
+                        const remainingDebt = (Number(order.total_amount) || 0) - paidTotal;
+
+                        const remainingBalance = pr.amount - Number(childSumRow.child_sum || 0);
+                        const allocAmount = Math.min(remainingBalance, remainingDebt);
+
+                        if (allocAmount > 0) {
+                            const childCountRow = await db.get(`
+                                SELECT COUNT(*) AS cnt FROM payment_records
+                                WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                            `, [prId]);
+                            const childIdx = Number(childCountRow.cnt) + 1;
+                            const splitCode = `${pr.payment_code}-S${childIdx}`;
+
+                            // Insert child record
+                            await db.run(`
+                                INSERT INTO payment_records (
+                                    payment_code, payment_method, daily_seq,
+                                    customer_name, customer_phone, cskh_user_id,
+                                    amount, payment_type,
+                                    order_tt_coc, order_ao_mau,
+                                    transfer_note, money_source, bank_name,
+                                    total_order_codes, total_cod, shipping_fee,
+                                    handover_status, handover_at, handover_by,
+                                    source, source_ref_id, payment_date, created_by,
+                                    parent_id
+                                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                            `, [
+                                splitCode, pr.payment_method, pr.daily_seq,
+                                pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                                allocAmount, 'child_sll',
+                                null, order.order_code,
+                                (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)',
+                                'khach_hang', pr.bank_name || null,
+                                null, 0, 0,
+                                'chua_bangiao',
+                                pr.handover_at || null,
+                                pr.handover_by || null,
+                                pr.source, null, pr.payment_date, userId,
+                                prId
+                            ]);
+
+                            // Update parent
+                            const totalAllocationsCount = childIdx;
+                            const moneySource = totalAllocationsCount >= 2 ? 'khach_hang_sll' : 'khach_hang';
+
+                            await db.run(`
+                                UPDATE payment_records SET
+                                    payment_type = 'parent_sll',
+                                    order_tt_coc = NULL,
+                                    total_order_codes = NULL,
+                                    money_source = $1,
+                                    updated_at = NOW()
+                                WHERE id = $2
+                            `, [moneySource, prId]);
+
+                            paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                        }
+                    }
+                } catch (prErr) {
+                    console.error('[Ship Sample Payment] Link error:', prErr.message);
+                }
+            }
+
             // Log
+            let logSummary = `Kế toán đã xác nhận gửi hàng mẫu (NVC: ${b.actual_carrier_id}, Ship fee: ${shipFee})`;
+            if (paymentLinkResult) {
+                logSummary += ` — Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`;
+            }
             await db.run(
                 `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
-                [sampleId, 'ship', `Kế toán đã xác nhận gửi hàng mẫu (NVC: ${b.actual_carrier_id}, Ship fee: ${shipFee})`, userId]
+                [sampleId, 'ship', logSummary, userId]
             );
 
             // Send Telegram message to notifications or cashflow channel if there was a CHI
@@ -851,7 +938,13 @@ module.exports = async function(fastify) {
                 } catch (tgErr) { console.error('[Ship TG] Error:', tgErr.message); }
             }
 
-            return { success: true };
+            // Build result message
+            let resultMsgParts = [`✅ Đã gửi đơn mẫu ${order.order_code}`];
+            if (cashflowResult) resultMsgParts.push(`Phiếu chi ship: ${cashflowResult.cashflow_code}`);
+            if (paymentLinkResult) resultMsgParts.push(`Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`);
+            const resultMsg = resultMsgParts.join(' — ');
+
+            return { success: true, message: resultMsg, cashflow_code: cashflowResult?.cashflow_code || null, payment_linked: paymentLinkResult?.payment_code || null };
         }
 
         const orderId = Number(request.params.id);

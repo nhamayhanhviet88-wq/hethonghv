@@ -284,11 +284,15 @@ module.exports = async function(fastify) {
         const rows = await db.all(
             `SELECT pr.*,
                     o.deposit_payment_id,
-                    COALESCE(o.total_amount, 0)
-                      - COALESCE(o.discount_amount, 0)
-                      - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                      - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
-                      AS order_remaining
+                    CASE 
+                        WHEN pr.order_ao_mau IS NOT NULL AND pr.order_ao_mau != '' THEN
+                            COALESCE(d.total_amount, 0) - COALESCE(pr_all_ao_mau.paid_total, 0)
+                        ELSE
+                            COALESCE(o.total_amount, 0)
+                              - COALESCE(o.discount_amount, 0)
+                              - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                              - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                    END AS order_remaining
              FROM payment_records pr
              LEFT JOIN dht_orders o ON pr.order_tt_coc = o.order_code
              LEFT JOIN LATERAL (
@@ -297,6 +301,12 @@ module.exports = async function(fastify) {
                  WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                     OR order_tt_coc = o.order_code
              ) pr_dep ON true
+             LEFT JOIN don_gui_ao_mau d ON pr.order_ao_mau = d.sample_order_code
+             LEFT JOIN LATERAL (
+                 SELECT COALESCE(SUM(amount), 0) AS paid_total
+                 FROM payment_records
+                 WHERE order_ao_mau = d.sample_order_code
+             ) pr_all_ao_mau ON true
              WHERE pr.payment_type = 'child_sll' AND (pr.parent_id = $1 OR pr.source_ref_id = $1::text)
              ORDER BY pr.id ASC`,
             [Number(id)]
@@ -305,11 +315,15 @@ module.exports = async function(fastify) {
             const parentRec = await db.get(
                 `SELECT pr.*,
                         o.deposit_payment_id,
-                        COALESCE(o.total_amount, 0)
-                          - COALESCE(o.discount_amount, 0)
-                          - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                          - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
-                          AS order_remaining
+                        CASE 
+                            WHEN pr.order_ao_mau IS NOT NULL AND pr.order_ao_mau != '' THEN
+                                COALESCE(d.total_amount, 0) - COALESCE(pr_all_ao_mau.paid_total, 0)
+                            ELSE
+                                COALESCE(o.total_amount, 0)
+                                  - COALESCE(o.discount_amount, 0)
+                                  - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
+                                  - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND o.shipping_payment_id IS NOT NULL THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                        END AS order_remaining
                  FROM payment_records pr
                  LEFT JOIN dht_orders o ON pr.order_tt_coc = o.order_code
                  LEFT JOIN LATERAL (
@@ -318,7 +332,16 @@ module.exports = async function(fastify) {
                      WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                         OR order_tt_coc = o.order_code
                  ) pr_dep ON true
-                 WHERE pr.id = $1 AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''`,
+                 LEFT JOIN don_gui_ao_mau d ON pr.order_ao_mau = d.sample_order_code
+                 LEFT JOIN LATERAL (
+                     SELECT COALESCE(SUM(amount), 0) AS paid_total
+                     FROM payment_records
+                     WHERE order_ao_mau = d.sample_order_code
+                 ) pr_all_ao_mau ON true
+                 WHERE pr.id = $1 AND (
+                     (pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != '') OR
+                     (pr.order_ao_mau IS NOT NULL AND pr.order_ao_mau != '')
+                 )`,
                 [Number(id)]
             );
             if (parentRec) {
@@ -360,7 +383,7 @@ module.exports = async function(fastify) {
                        WHERE c.payment_type = 'child_sll' AND (c.parent_id = pr.id OR c.source_ref_id = pr.id::text)
                    ) AS sll_customer_names,
                    (
-                       SELECT string_agg(c.order_tt_coc, ', ')
+                       SELECT string_agg(COALESCE(c.order_tt_coc, c.order_ao_mau), ', ')
                        FROM payment_records c
                        WHERE c.payment_type = 'child_sll' AND (c.parent_id = pr.id OR c.source_ref_id = pr.id::text)
                    ) AS sll_order_codes,
@@ -576,7 +599,8 @@ module.exports = async function(fastify) {
                      (payment_type = 'dat_coc') OR 
                      (payment_type = 'tra_lai_coc') OR 
                      (total_order_codes IS NOT NULL AND total_order_codes != '') OR 
-                     (order_tt_coc IS NOT NULL AND order_tt_coc != '')
+                     (order_tt_coc IS NOT NULL AND order_tt_coc != '') OR
+                     (order_ao_mau IS NOT NULL AND order_ao_mau != '')
                  )`, [Number(id)]
             );
             if (claimedSplit) {
@@ -595,7 +619,7 @@ module.exports = async function(fastify) {
             existing.total_order_codes = null;
         }
 
-        const isAlreadyClaimed = (existing.payment_type === 'dat_coc') || (existing.payment_type === 'tra_lai_coc') || (existing.total_order_codes && existing.total_order_codes.trim() !== '') || (existing.order_tt_coc && existing.order_tt_coc.trim() !== '');
+        const isAlreadyClaimed = (existing.payment_type === 'dat_coc') || (existing.payment_type === 'tra_lai_coc') || (existing.total_order_codes && existing.total_order_codes.trim() !== '') || (existing.order_tt_coc && existing.order_tt_coc.trim() !== '') || (existing.order_ao_mau && existing.order_ao_mau.trim() !== '');
         if (isAlreadyClaimed) {
             return reply.code(400).send({ error: 'Mã tiền đã nhận tiền/liên kết đơn hàng, không thể chỉnh sửa!' });
         }
@@ -1041,6 +1065,34 @@ module.exports = async function(fastify) {
             } catch (e) {
                 console.error('[AutoComplete] Error:', e.message);
                 // Không throw — payment đã update thành công, auto-complete là bonus
+            }
+        }
+
+        const sampleOrderCode = b.order_ao_mau;
+        if (sampleOrderCode) {
+            try {
+                const sampleOrder = await db.get(
+                    'SELECT id, total_amount, sample_order_code FROM don_gui_ao_mau WHERE sample_order_code = $1', [sampleOrderCode]
+                );
+                if (sampleOrder) {
+                    const remainRow = await db.get(`
+                        SELECT (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
+                        FROM don_gui_ao_mau d
+                        LEFT JOIN LATERAL (
+                            SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                            FROM payment_records
+                            WHERE order_ao_mau = d.sample_order_code
+                        ) pr_dep ON true
+                        WHERE d.sample_order_code = $1
+                    `, [sampleOrderCode]);
+
+                    if (remainRow && remainRow.remaining <= 0) {
+                        await db.run("UPDATE don_gui_ao_mau SET order_status = 'hoan_thanh', updated_at = NOW() WHERE id = $1", [sampleOrder.id]);
+                        autoCompleted = true;
+                    }
+                }
+            } catch (e) {
+                console.error('[AoMau AutoComplete] Error:', e.message);
             }
         }
 
@@ -1727,7 +1779,7 @@ module.exports = async function(fastify) {
         const existing = await db.get('SELECT * FROM payment_records WHERE id = $1', [request.params.id]);
         if (!existing) return reply.code(404).send({ error: 'Không tìm thấy' });
 
-        const isAlreadyClaimed = (existing.payment_type === 'dat_coc') || (existing.payment_type === 'tra_lai_coc') || (existing.total_order_codes && existing.total_order_codes.trim() !== '') || (existing.order_tt_coc && existing.order_tt_coc.trim() !== '');
+        const isAlreadyClaimed = (existing.payment_type === 'dat_coc') || (existing.payment_type === 'tra_lai_coc') || (existing.total_order_codes && existing.total_order_codes.trim() !== '') || (existing.order_tt_coc && existing.order_tt_coc.trim() !== '') || (existing.order_ao_mau && existing.order_ao_mau.trim() !== '');
         if (isAlreadyClaimed) {
             return reply.code(400).send({ error: 'Mã tiền đã nhận tiền/liên kết đơn hàng, không thể đổi nguồn tiền!' });
         }
