@@ -794,20 +794,26 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
 
     // Recalculate totals from items (source of truth)
     let calcBase = 0, calcVat = 0;
-    for (const it of items) {
-        try {
-            const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]);
-            const base = qs.reduce((s,x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
-            calcBase += base;
-            calcVat += (Number(it.item_total) || 0) - base;
-        } catch(e) { calcBase += Number(it.item_total) || 0; }
+    if (String(o.id).startsWith('sample_')) {
+        for (const it of items) {
+            calcBase += Number(it.total_amount) || (Number(it.price_per_item) * Number(it.quantity)) || 0;
+        }
+    } else {
+        for (const it of items) {
+            try {
+                const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]);
+                const base = qs.reduce((s,x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
+                calcBase += base;
+                calcVat += (Number(it.item_total) || 0) - base;
+            } catch(e) { calcBase += Number(it.item_total) || 0; }
+        }
     }
     if (calcVat < 0) calcVat = 0;
     const deposit = Number(o.deposit_amount) || 0;
     const vat = calcVat;
     const discount = Number(o.discount_amount) || 0;
     const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const total = calcBase + calcVat + surchargeTotal - discount;
+    const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
     const remaining = total - deposit;
 
     let carrierOpts = '<option value="">— Chọn NVC —</option>';
@@ -1084,29 +1090,38 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     }
 
     const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
-    const finRemaining = calcBase + surchargeTotal + vat - discount - deposit - shipCK;
+    const finRemaining = String(o.id).startsWith('sample_') ? (calcBase - deposit) : (calcBase + surchargeTotal + vat - discount - deposit - shipCK);
     const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
     var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px">`;
     finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
-    const finRows = [
-        ['Tổng tiền hàng (trước VAT)', fmtMoney(calcBase) + 'đ', '#1e293b', false],
-        ['Phụ phí', fmtMoney(surchargeTotal) + 'đ', '#f59e0b', false],
-        ['VAT', fmtMoney(vat) + 'đ', '#6366f1', false],
-        ['Ưu đãi / Giảm giá', '-' + fmtMoney(discount) + 'đ', '#059669', false],
-    ];
-    if (o.discount_reason) {
-        finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
+    let finRows = [];
+    if (String(o.id).startsWith('sample_')) {
+        finRows.push(
+            ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase) + 'đ', '#1e293b', true],
+            ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true],
+            ['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true]
+        );
+    } else {
+        finRows = [
+            ['Tổng tiền hàng (trước VAT)', fmtMoney(calcBase) + 'đ', '#1e293b', false],
+            ['Phụ phí', fmtMoney(surchargeTotal) + 'đ', '#f59e0b', false],
+            ['VAT', fmtMoney(vat) + 'đ', '#6366f1', false],
+            ['Ưu đãi / Giảm giá', '-' + fmtMoney(discount) + 'đ', '#059669', false],
+        ];
+        if (o.discount_reason) {
+            finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
+        }
+        finRows.push(
+            ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase + surchargeTotal + vat - discount) + 'đ', '#1e293b', true],
+            ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true],
+        );
+        if (shipCK > 0) {
+            finRows.push(['🚚 Cước Chuyển Phát (HV Trả)', fmtMoney(shipCK) + 'đ', '#7c3aed', true]);
+        }
+        finRows.push(
+            ['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true],
+        );
     }
-    finRows.push(
-        ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase + surchargeTotal + vat - discount) + 'đ', '#1e293b', true],
-        ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true],
-    );
-    if (shipCK > 0) {
-        finRows.push(['🚚 Cước Chuyển Phát (HV Trả)', fmtMoney(shipCK) + 'đ', '#7c3aed', true]);
-    }
-    finRows.push(
-        ['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true],
-    );
     for (const [label, val, color, bold] of finRows) {
         if (label === '_reason_') {
             finHTML += `<div style="padding:2px 0 6px 16px;border-bottom:1px solid rgba(0,0,0,0.05)">`;
