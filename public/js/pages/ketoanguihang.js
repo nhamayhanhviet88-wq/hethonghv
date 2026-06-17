@@ -834,6 +834,9 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         const month = localDt.getMonth() + 1;
         const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
         const dayName = daysOfWeek[localDt.getDay()];
+        if (String(o.id).startsWith('sample_')) {
+            return `<strong>${dayName} - Ngày ${day}/${month}/${localDt.getFullYear()}</strong>`;
+        }
         return `${dayName} - Ngày ${day}/${month}`;
     };
 
@@ -910,11 +913,19 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
             todayVN.setHours(0,0,0,0);
             var remainDays = Math.round((shipVN - todayVN) / 86400000);
             if (remainDays > 0) {
-                progressSaleHTML = '<span style="color:#3b82f6;font-weight:900;font-size:14px">📅 Còn ' + remainDays + ' ngày</span>';
+                if (String(o.id).startsWith('sample_')) {
+                    progressSaleHTML = '<span style="color:#0369a1;font-weight:900;font-size:14px">⏳ Còn ' + remainDays + ' ngày</span>';
+                } else {
+                    progressSaleHTML = '<span style="color:#3b82f6;font-weight:900;font-size:14px">📅 Còn ' + remainDays + ' ngày</span>';
+                }
             } else if (remainDays < 0) {
                 progressSaleHTML = '<span style="color:#dc2626;font-weight:900;font-size:14px">⚠️ Quá hạn ' + Math.abs(remainDays) + ' ngày</span>';
             } else {
-                progressSaleHTML = '<span style="color:#d97706;font-weight:900;font-size:14px">📦 Hôm nay gửi</span>';
+                if (String(o.id).startsWith('sample_')) {
+                    progressSaleHTML = '<span style="color:#059669;font-weight:900;font-size:14px">✅ Hôm nay</span>';
+                } else {
+                    progressSaleHTML = '<span style="color:#d97706;font-weight:900;font-size:14px">📦 Hôm nay gửi</span>';
+                }
             }
         }
         saleKtHTML += row('📊 Tiến Độ Ra Hàng', progressSaleHTML);
