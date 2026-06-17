@@ -1082,6 +1082,7 @@ async function _dgamShowDetail(id) {
                 <thead>
                     <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0">
                         <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">PHÂN LOẠI</th>
+                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">LĨNH VỰC</th>
                         <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">SẢN PHẨM / NỘI DUNG</th>
                         <th style="padding:10px;text-align:center;font-size:11px;font-weight:700;color:#fff !important;width:80px">SL</th>
                         <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;color:#fff !important;width:120px">ĐƠN GIÁ</th>
@@ -1091,7 +1092,8 @@ async function _dgamShowDetail(id) {
                 <tbody>
                     <tr style="border-bottom:1px solid #f1f5f9">
                         <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${categoryLabel}</td>
-                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${linhVucBadge}${o.product_name || '—'}</td>
+                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${linhVucBadge || '—'}</td>
+                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${o.product_name || '—'}</td>
                         <td style="padding:10px;text-align:center;font-size:13px;font-weight:700;color:#1e293b">${o.quantity || 0}</td>
                         <td style="padding:10px;text-align:right;font-size:13px;font-weight:700;color:#1e293b">${fmt(o.price)}đ</td>
                         <td style="padding:10px;text-align:right;font-size:13px;font-weight:700;color:var(--success)">${fmt(o.total_amount)}đ</td>
