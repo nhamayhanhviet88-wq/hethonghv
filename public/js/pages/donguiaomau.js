@@ -586,7 +586,9 @@ function _dgamOnShippingPriorityChange() {
             if (hourInput && hourInput.value === '' && minuteInput && minuteInput.value === '') {
                 const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
                 hourInput.value = String(now.getHours()).padStart(2, '0');
-                minuteInput.value = String(now.getMinutes()).padStart(2, '0');
+                const roundedMin = Math.round(now.getMinutes() / 5) * 5;
+                const finalMin = roundedMin >= 60 ? 55 : roundedMin;
+                minuteInput.value = String(finalMin).padStart(2, '0');
             }
         } else {
             timeContainer.style.display = 'none';
@@ -861,9 +863,15 @@ function _dgamOnCategoryChange() {
             <div style="margin-bottom: 12px;">
                 <label style="display:block; margin-bottom:6px; font-weight:700; color:#475569; font-size:12.5px;">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) <span style="color:var(--danger)">*</span></label>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <input type="number" id="dgamAddShipHour" class="form-control" placeholder="Giờ" min="0" max="23" style="width:100px; text-align:center;">
+                    <select id="dgamAddShipHour" class="form-control" style="width:110px; text-align:center;">
+                        <option value="">Giờ</option>
+                        ${Array.from({length: 24}, (_, i) => String(i).padStart(2, '0')).map(h => `<option value="${h}">${h}</option>`).join('')}
+                    </select>
                     <span style="font-size:18px; font-weight:bold; color:#64748b;">:</span>
-                    <input type="number" id="dgamAddShipMinute" class="form-control" placeholder="Phút" min="0" max="59" style="width:100px; text-align:center;">
+                    <select id="dgamAddShipMinute" class="form-control" style="width:110px; text-align:center;">
+                        <option value="">Phút</option>
+                        ${Array.from({length: 12}, (_, i) => String(i * 5).padStart(2, '0')).map(m => `<option value="${m}">${m}</option>`).join('')}
+                    </select>
                 </div>
             </div>
             <div class="form-group" style="margin-top: 16px;">
