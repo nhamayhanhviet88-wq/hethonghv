@@ -16,8 +16,20 @@ var _kockolDepositList = [];
 async function _kockolFetchDeposits() {
     try { const data = await apiCall('/api/dht/unclaimed-deposits'); _kockolDepositList = data.deposits || []; } catch(e) { _kockolDepositList = []; }
 }
+function _kockolClearSelectedDeposit() {
+    var pr = document.getElementById('consultPaymentRecordId'); if (pr) pr.value = '';
+    var amt = document.getElementById('consultDepositAmount'); if (amt) amt.value = '0';
+    var sel = document.getElementById('consultDepositSelected'); if (sel) sel.style.display = 'none';
+    var lbl = document.getElementById('consultDepositLabel'); if (lbl) lbl.textContent = '';
+    var disp = document.getElementById('consultDepositAmountDisplay'); if (disp) disp.textContent = '';
+    var search = document.getElementById('consultDepositSearch');
+    if (search) { search.value = ''; search.style.background = ''; search.style.fontWeight = ''; }
+}
 function _kockolFilterDepositList() {
     var q = (document.getElementById('consultDepositSearch')?.value || '').toLowerCase();
+    if (!q) {
+        _kockolClearSelectedDeposit();
+    }
     var dd = document.getElementById('consultDepositDropdown'); if (!dd) return;
     var filtered = _kockolDepositList.filter(function(d) { return !q || (d.payment_code+' '+(d.transfer_note||'')+' '+d.amount+' '+(d.customer_name||'')).toLowerCase().indexOf(q)>=0; });
     if (!filtered.length) { dd.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9ca3af">Không có mã tiền</div>'; }
@@ -1099,9 +1111,10 @@ async function _kockolOpenConsultModal(customerId) {
                 style="font-size:13px;border:2px solid #daa520;">
             <div id="consultDepositDropdown" style="display:none;position:relative;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:220px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div>
             <input type="hidden" id="consultPaymentRecordId">
-            <div id="consultDepositSelected" style="display:none;background:#f0fdf4;border:1px solid #059669;border-radius:8px;padding:10px 14px;margin-top:6px">
+            <div id="consultDepositSelected" style="display:none;background:#f0fdf4;border:1px solid #059669;border-radius:8px;padding:10px 14px;margin-top:6px;position:relative;">
                 <span style="font-weight:800;color:#059669">✅ Đã chọn: </span><span id="consultDepositLabel" style="font-weight:700;color:#1e293b"></span>
                 <div style="margin-top:4px;font-size:13px;font-weight:800;color:#e65100" id="consultDepositAmountDisplay"></div>
+                <button type="button" onclick="_kockolClearSelectedDeposit()" style="position:absolute;top:8px;right:8px;background:none;border:none;color:#ef4444;font-size:16px;font-weight:800;cursor:pointer;padding:2px 6px;" title="Xóa chọn">✕</button>
             </div>
             <input type="hidden" id="consultDepositAmount" value="0">
         </div>
