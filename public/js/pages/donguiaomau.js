@@ -163,13 +163,21 @@ function _dgamRenderRows(paged) {
             ? '<button class="dgam-icon-btn'+(o.status_duyet?' on-duyet':'')+'" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>'
             : '';
 
+        var isQuanLyXuong = userObj && (userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
+        var hoanBtnHtml = !isQuanLyXuong 
+            ? '<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
+            : '';
+        var kiemTraBtnHtml = !isQuanLyXuong 
+            ? '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>'
+            : '';
+
         var statusHtml = '<td style="text-align:center" onclick="event.stopPropagation()">'
             +'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">'
             +'<div><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:'+st.bg+';color:'+st.color+';white-space:nowrap;">'+st.label+'</span></div>'
             +'<div style="display:flex;gap:2px;justify-content:center">'
             +approveBtnHtml
-            +'<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
-            +'<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>'
+            +hoanBtnHtml
+            +kiemTraBtnHtml
             +'</div>'
             +'</div>'
             +'</td>';
