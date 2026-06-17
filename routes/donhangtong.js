@@ -1182,6 +1182,91 @@ module.exports = async function(fastify) {
 
     // ========== ORDERS: Detail (full info) ==========
     fastify.get('/api/dht/orders/:id/detail', { preHandler: [authenticate] }, async (request, reply) => {
+        if (String(request.params.id).startsWith('sample_')) {
+            const sampleId = Number(String(request.params.id).replace('sample_', ''));
+            const row = await db.get(`
+                SELECT d.*, 
+                       u_created.full_name AS created_by_name,
+                       u_shipped.full_name AS shipped_by_name,
+                       cr.name AS actual_carrier_name,
+                       cr.tracking_url_template AS actual_carrier_tracking_url
+                FROM don_gui_ao_mau d
+                LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
+                LEFT JOIN users u_created ON d.created_by = u_created.id
+                LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
+                WHERE d.id = $1
+            `, [sampleId]);
+            if (!row) return reply.code(404).send({ error: 'Không tìm thấy đơn mẫu' });
+
+            const order = {
+                id: 'sample_' + row.id,
+                order_code: row.sample_order_code,
+                order_date: row.order_date,
+                expected_ship_date: row.ship_date,
+                rescheduled_ship_date: null,
+                reschedule_reason: null,
+                shipping_status: row.status_gui_don ? 'shipped' : 'pending',
+                shipping_priority: row.shipping_priority || 'Chuẩn',
+                delivery_progress: null,
+                customer_name: row.customer_name,
+                customer_phone: row.customer_phone,
+                province: row.province,
+                address: row.address,
+                tracking_code: row.tracking_code,
+                carrier_phone: row.carrier_phone,
+                shipping_bill_link: row.shipping_bill_link,
+                shipped_by: row.shipped_by,
+                shipped_at: row.shipped_at,
+                total_amount: row.total_amount,
+                actual_carrier_id: row.actual_carrier_id,
+                created_by: row.created_by,
+                cskh_user_id: row.created_by,
+                sale_note_for_accountant: row.sale_note_for_accountant,
+                shipping_fee: row.shipping_fee,
+                shipping_fee_payer: row.shipping_fee_payer,
+                shipping_fee_method: row.shipping_fee_method,
+                receiver_name: row.customer_name,
+                actual_carrier_name: row.actual_carrier_name,
+                actual_carrier_tracking_url: row.actual_carrier_tracking_url,
+                cskh_name: row.created_by_name,
+                created_by_name: row.created_by_name,
+                shipped_by_name: row.shipped_by_name,
+                deposit_amount: row.deposit_amount || 0,
+                remaining_amount: (Number(row.total_amount) || 0) - (Number(row.deposit_amount) || 0)
+            };
+
+            const items = [{
+                id: 'sample_item_' + row.id,
+                dht_order_id: 'sample_' + row.id,
+                product_name: row.product_name || 'Áo mẫu',
+                description: `Lĩnh vực: ${row.linh_vuc || '—'} | Thể loại: ${row.category || '—'}`,
+                quantity: row.quantity || 1,
+                accounting_notes: row.sale_note_for_accountant || '',
+                shipping_status: row.status_gui_don ? 'shipped' : 'pending',
+                shipped_at: row.shipped_at,
+                shipped_by: row.shipped_by,
+                shipping_date: row.ship_date,
+                actual_carrier_id: row.actual_carrier_id,
+                actual_carrier_name: row.actual_carrier_name,
+                tracking_code: row.tracking_code,
+                shipping_bill_link: row.shipping_bill_link,
+                carrier_phone: row.carrier_phone,
+                receiver_name: row.customer_name,
+                shipping_fee: row.shipping_fee,
+                shipping_fee_payer: row.shipping_fee_payer,
+                shipping_fee_method: row.shipping_fee_method
+            }];
+
+            return {
+                order,
+                items,
+                payments: [],
+                surcharges: [],
+                audit_logs: [],
+                shipments: []
+            };
+        }
+
         const orderId = Number(request.params.id);
 
         // 1. Full order + joined fields

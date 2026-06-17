@@ -2,6 +2,7 @@
 // Module quản lý đơn gửi áo mẫu cho bộ phận văn phòng
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
+const { vnNow, vnDateStr } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
@@ -47,6 +48,17 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC DEFAULT 0`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS ship_time TEXT`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS updated_by INTEGER REFERENCES users(id)`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS approval_date DATE`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS actual_carrier_id INTEGER`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS tracking_code TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_bill_link TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipped_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipped_by INTEGER`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_fee_payer TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_fee_method TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_payment_id INTEGER`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_order_date ON don_gui_ao_mau(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_status ON don_gui_ao_mau(order_status)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_code ON don_gui_ao_mau(sample_order_code)`);
@@ -181,7 +193,42 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Trường không hợp lệ' });
         }
 
-        await db.run(`UPDATE don_gui_ao_mau SET ${field} = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3`, [value, request.user.id, id]);
+        const now = vnNow();
+        const todayStr = vnDateStr(now);
+
+        if (field === 'status_duyet') {
+            const isGiamDoc = request.user.role === 'giam_doc';
+            const isLeCongThuc = request.user.username === 'quanlyxuong' || request.user.full_name === 'Lê Công Thực';
+            if (!isGiamDoc && !isLeCongThuc) {
+                return reply.code(403).send({ error: '🔒 Chỉ Giám đốc và Quản lý xưởng Lê Công Thực mới được duyệt gửi!' });
+            }
+
+            const status = value ? 'dang_gui_hang' : 'cho_duyet';
+            await db.run(
+                `UPDATE don_gui_ao_mau 
+                 SET status_duyet = $1, 
+                     order_status = $2, 
+                     approved_at = $3, 
+                     approval_date = $4, 
+                     updated_at = NOW(), 
+                     updated_by = $5 
+                 WHERE id = $6`,
+                [value, status, value ? now.toISOString() : null, value ? todayStr : null, request.user.id, id]
+            );
+        } else if (field === 'status_gui_don') {
+            const status = value ? 'da_gui' : 'dang_gui_hang';
+            await db.run(
+                `UPDATE don_gui_ao_mau 
+                 SET status_gui_don = $1, 
+                     order_status = $2, 
+                     updated_at = NOW(), 
+                     updated_by = $3 
+                 WHERE id = $4`,
+                [value, status, request.user.id, id]
+            );
+        } else {
+            await db.run(`UPDATE don_gui_ao_mau SET ${field} = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3`, [value, request.user.id, id]);
+        }
 
         const actionLabels = {
             status_duyet: value ? 'duyệt đơn' : 'bỏ duyệt đơn',

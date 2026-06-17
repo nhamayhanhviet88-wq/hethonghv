@@ -157,11 +157,17 @@ function _dgamRenderRows(paged) {
         var remaining = Number(o.remaining_amount) || 0;
         var remColor = remaining > 0 ? 'var(--danger)' : 'var(--success)';
 
+        var userObj = window.currentUser || window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
+        var isCanApprove = userObj && (userObj.role === 'giam_doc' || userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
+        var approveBtnHtml = isCanApprove 
+            ? '<button class="dgam-icon-btn'+(o.status_duyet?' on-duyet':'')+'" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>'
+            : '';
+
         var statusHtml = '<td style="text-align:center" onclick="event.stopPropagation()">'
             +'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">'
             +'<div><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:'+st.bg+';color:'+st.color+';white-space:nowrap;">'+st.label+'</span></div>'
             +'<div style="display:flex;gap:2px;justify-content:center">'
-            +'<button class="dgam-icon-btn'+(o.status_duyet?' on-duyet':'')+'" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>'
+            +approveBtnHtml
             +'<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
             +'<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>'
             +'</div>'
@@ -212,8 +218,67 @@ function _dgamRenderRows(paged) {
 }
 
 async function _dgamTogSt(id, field, val) {
-    await apiCall('/api/don-gui-ao-mau/' + id + '/status', 'PATCH', { field: field, value: val });
-    await _dgamLoadOrders();
+    if (field === 'status_duyet' && val === true) {
+        var o = (_dgam.orders || []).find(x => x.id === id);
+        if (o) {
+            var imgHtml = o.sample_image 
+                ? '<img src="' + o.sample_image + '" style="max-width:100%;max-height:220px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);margin:12px 0;object-fit:contain;">'
+                : '<div style="background:#f1f5f9;color:#94a3b8;padding:24px;border-radius:12px;text-align:center;font-size:13px;font-weight:600;margin:12px 0;">🚫 Không có ảnh mẫu</div>';
+            
+            var bodyHTML = '<div style="text-align:center;font-family:inherit;padding:12px 6px;">'
+                +'<div style="font-size:42px;margin-bottom:12px;">📋</div>'
+                +'<h3 style="font-size:18px;font-weight:800;color:#1e293b;margin-bottom:8px;">Xác nhận duyệt gửi đơn hàng mẫu</h3>'
+                +'<p style="font-size:13.5px;color:#64748b;line-height:1.5;margin-bottom:16px;">Vui lòng kiểm tra kỹ thông tin sản phẩm mẫu trước khi duyệt:</p>'
+                +'<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:12px;padding:16px;text-align:left;max-width:380px;margin:0 auto;box-shadow:inset 0 2px 4px rgba(0,0,0,0.02);">'
+                +'<div style="margin-bottom:8px;font-size:13px;"><strong style="color:#475569;">👕 Sản phẩm:</strong> <span style="font-weight:700;color:#0f172a;">'+(o.product_name||'—')+'</span></div>'
+                +'<div style="margin-bottom:8px;font-size:13px;"><strong style="color:#475569;">🔢 Số lượng:</strong> <span style="font-weight:800;color:#2563eb;font-size:14px;">'+(o.quantity||0)+'</span></div>'
+                +'<div style="margin-bottom:8px;font-size:13px;"><strong style="color:#475569;">🏷️ Mã đơn mẫu:</strong> <span style="font-weight:700;color:#0f766e;">'+(o.sample_order_code||'—')+'</span></div>'
+                +'</div>'
+                +imgHtml
+                +'</div>';
+                
+            var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;font-weight:600;">Hủy</button>'
+                +'<button class="btn btn-success" id="dgamConfirmApproveBtn" style="padding:10px 28px;font-weight:700;background:linear-gradient(135deg,#10b981,#059669);border:none;box-shadow:0 4px 12px rgba(16,185,129,0.3);" onclick="_dgamExecuteApprove('+id+')">✅ Xác Nhận Duyệt</button>';
+                
+            openModal('Duyệt Gửi Đơn Mẫu', bodyHTML, footerHTML);
+            return;
+        }
+    }
+
+    try {
+        await apiCall('/api/don-gui-ao-mau/' + id + '/status', 'PATCH', { field: field, value: val });
+        if (typeof showToast === 'function') {
+            showToast('✅ Đã cập nhật trạng thái thành công!');
+        }
+        await _dgamLoadOrders();
+    } catch (err) {
+        if (typeof showToast === 'function') {
+            showToast(err.message || 'Lỗi khi cập nhật trạng thái', 'error');
+        }
+    }
+}
+
+async function _dgamExecuteApprove(id) {
+    const btn = document.getElementById('dgamConfirmApproveBtn');
+    if (btn) { btn.disabled = true; btn.innerText = 'Đang xử lý...'; }
+    try {
+        await apiCall('/api/don-gui-ao-mau/' + id + '/status', 'PATCH', { field: 'status_duyet', value: true });
+        closeModal();
+        if (typeof showToast === 'function') {
+            showToast('✅ Đã duyệt gửi đơn mẫu thành công!');
+        }
+        await _dgamLoadOrders();
+        
+        // Redirect to "Đơn Hàng Kế Toán Gửi" page
+        if (typeof navigate === 'function') {
+            navigate('ke-toan-gui-hang');
+        }
+    } catch(err) {
+        if (btn) { btn.disabled = false; btn.innerText = '✅ Xác Nhận Duyệt'; }
+        if (typeof showToast === 'function') {
+            showToast(err.message || 'Lỗi khi duyệt gửi', 'error');
+        }
+    }
 }
 
 function _dgamRenderPagination(totalItems, totalPages) {
