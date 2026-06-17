@@ -417,7 +417,8 @@ module.exports = async function(fastify) {
                 CASE WHEN o.shipping_status IN ('pending','rescheduled')
                      AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) < $${idx}::date
                      THEN true ELSE false END AS is_overdue,
-                GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount
+                GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
+                (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount
             FROM dht_orders o
             LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
@@ -511,11 +512,17 @@ module.exports = async function(fastify) {
                 cr.name AS actual_carrier_name,
                 cr.tracking_url_template AS actual_carrier_tracking_url,
                 u_created.full_name AS created_by_name,
-                u_shipped.full_name AS shipped_by_name
+                u_shipped.full_name AS shipped_by_name,
+                (COALESCE(d.total_amount, 0) - COALESCE(pr_all.paid_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) AS remaining_amount
             FROM don_gui_ao_mau d
             LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
             LEFT JOIN users u_created ON d.created_by = u_created.id
             LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS paid_total
+                FROM payment_records
+                WHERE order_ao_mau = d.sample_order_code
+            ) pr_all ON true
             WHERE d.status_duyet = true
             ${sampleWhere}
             ORDER BY d.ship_date DESC NULLS LAST, d.created_at DESC
@@ -570,6 +577,7 @@ module.exports = async function(fastify) {
                 effective_ship_date: row.expected_ship_date,
                 is_overdue: !isShipped && row.expected_ship_date && new Date(row.expected_ship_date) < new Date(todayStr),
                 deposit_amount: row.deposit_amount || 0,
+                remaining_amount: row.remaining_amount,
                 items: [{
                     item_id: 'sample_item_' + row.id,
                     dht_order_id: 'sample_' + row.id,

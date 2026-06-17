@@ -377,7 +377,7 @@ function _shBuildTable(orders) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','Phiếu Gửi','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Mã Đơn','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX'].map(h => {
+        ${['','Phiếu Gửi','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Số Tiền Còn Lại','Mã Đơn','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX'].map(h => {
             const align = (h === 'Phiếu Gửi' || h === '') ? 'center' : 'left';
             return `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">${h}</th>`;
         }).join('')}
@@ -454,6 +454,11 @@ function _shBuildTable(orders) {
         html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">—</span>'}</td>`;
         // Col 6: Progress
         html += `<td style="padding:8px 6px;">${progressBadge}</td>`;
+
+        // Col: Số Tiền Còn Lại
+        const remaining = Number(o.remaining_amount) || 0;
+        const remColor = remaining > 0 ? '#dc2626' : '#059669';
+        html += `<td style="padding:8px 6px;font-weight:700;color:${remColor};white-space:nowrap;">${remaining.toLocaleString('vi-VN')}</td>`;
         
         // Col 7: Order code + Priority (combined)
         const prio = (o.shipping_priority || 'CHUẨN').toUpperCase();
@@ -494,7 +499,7 @@ function _shBuildTable(orders) {
         // Sub-row for items/slips
         const itemsTableHtml = _shBuildItemsTable(o);
         html += `<tr id="shItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
-            <td colspan="14" style="padding:12px 16px;">
+            <td colspan="15" style="padding:12px 16px;">
                 <div style="font-size:12px;font-weight:800;color:#1e3a5f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                     <span>📋 Danh sách phiếu sản phẩm của đơn ${o.order_code}</span>
                 </div>
