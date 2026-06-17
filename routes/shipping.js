@@ -1481,11 +1481,17 @@ module.exports = async function(fastify) {
         const payments = await db.all(`
             SELECT pr.id, pr.payment_code, pr.payment_type,
                    pr.amount AS original_amount,
-                   GREATEST(0, pr.amount - COALESCE(pr_child.child_sum, 0)) AS amount,
+                   CASE 
+                       WHEN pr.payment_type IN ('pending', 'parent_sll') THEN GREATEST(0, pr.amount - COALESCE(pr_child.child_sum, 0))
+                       ELSE 0 
+                   END AS amount,
                    pr.payment_date,
                    pr.payment_method, pr.bank_name, pr.transfer_note,
                    pr.customer_name, pr.customer_phone,
-                   ABS(GREATEST(0, pr.amount - COALESCE(pr_child.child_sum, 0)) - $1) AS diff,
+                   ABS((CASE 
+                       WHEN pr.payment_type IN ('pending', 'parent_sll') THEN GREATEST(0, pr.amount - COALESCE(pr_child.child_sum, 0))
+                       ELSE 0 
+                   END) - $1) AS diff,
                    CASE 
                        WHEN pr.payment_type IN ('pending', 'parent_sll') THEN GREATEST(0, pr.amount - COALESCE(pr_child.child_sum, 0))
                        ELSE 0 
@@ -1499,7 +1505,10 @@ module.exports = async function(fastify) {
             WHERE COALESCE(pr.payment_type, '') NOT IN ('tra_lai_coc', 'child_sll')
               AND COALESCE(pr.source, '') != 'cashflow_chi'
               AND COALESCE(pr.money_source, 'khach_hang') != 'nha_van_chuyen'
-            ORDER BY ABS(GREATEST(0, pr.amount - COALESCE(pr_child.child_sum, 0)) - $1) ASC
+            ORDER BY ABS((CASE 
+                       WHEN pr.payment_type IN ('pending', 'parent_sll') THEN GREATEST(0, pr.amount - COALESCE(pr_child.child_sum, 0))
+                       ELSE 0 
+                   END) - $1) ASC
         `, [target]);
 
         // Add match_level for UI styling

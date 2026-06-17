@@ -69,7 +69,7 @@ async function run() {
         console.log('Cookie:', cookie);
 
         // 2. Call matching-payments API
-        const apiRes = await get('http://localhost:11000/api/shipping/matching-payments?order_code=NHANVIEN10-MAU0002&target_amount=200000', cookie);
+        const apiRes = await get('http://localhost:11000/api/shipping/matching-payments?order_code=NHANVIEN10-MAU0002&target_amount=2064000', cookie);
         console.log('API Status:', apiRes.statusCode);
         console.log('API Response:', apiRes.body);
     } catch (e) {

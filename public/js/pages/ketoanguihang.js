@@ -1822,6 +1822,50 @@ function _shRenderPaymentsList(target, q) {
     _shUpdatePaymentFooter(target);
 }
 
+function _shUpdatePaymentFooter(target) {
+    var s = window._shModalState; if (!s) return;
+    var el = document.getElementById('shPaymentFooter'); if (!el) return;
+    var fmtM = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
+    
+    var h = '<div style="margin-top:4px;border-top:1.5px solid #cbd5e1;padding-top:8px;display:flex;flex-direction:column;gap:6px;">';
+    
+    if (s.selectedPaymentId) {
+        var p = s.matchingPayments.find(x => x.id === s.selectedPaymentId);
+        if (p) {
+            h += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">';
+            h += '<div style="font-size:11.5px;color:#166534;font-weight:700;line-height:1.4;">';
+            h += '👉 Đã chọn: <span style="color:#15803d;font-weight:900;">' + p.payment_code + '</span> (' + fmtM(p.amount) + 'đ)';
+            h += '</div>';
+            h += '<button type="button" onclick="_shSelectPayment(' + p.id + ')" style="padding:4px 8px;border:1px solid #fca5a5;background:#fef2f2;color:#ef4444;font-size:10.5px;font-weight:700;border-radius:6px;cursor:pointer;">Bỏ chọn</button>';
+            h += '</div>';
+        }
+    } else if (s.skipPayment) {
+        h += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">';
+        h += '<div style="font-size:11.5px;color:#92400e;font-weight:700;line-height:1.4;">';
+        h += '👉 Đang bỏ qua thanh toán lần này';
+        h += '</div>';
+        h += '<button type="button" onclick="_shToggleSkipPayment()" style="padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#64748b;font-size:10.5px;font-weight:700;border-radius:6px;cursor:pointer;">Hủy bỏ qua</button>';
+        h += '</div>';
+    } else {
+        var isHvCk = (s.payer === 'hv' && s.method === 'ck');
+        if (isHvCk) {
+            h += '<div style="font-size:11px;font-weight:700;color:#dc2626;padding:4px 8px;background:#fef2f2;border-radius:6px;border:1px solid #fca5a5;line-height:1.4;">';
+            h += '⚠️ Bắt buộc phải chọn mã tiền thanh toán (tối thiểu ' + fmtM(target) + 'đ) để gửi hàng.</div>';
+        } else {
+            // Skip button
+            var skipActive = s.skipPayment;
+            h += '<div onclick="_shToggleSkipPayment()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid ' + (skipActive ? '#f59e0b' : '#e2e8f0') + ';border-radius:8px;cursor:pointer;background:' + (skipActive ? '#fffbeb' : 'white') + ';transition:all .15s;" onmouseover="this.style.borderColor=\'#f59e0b\'" onmouseout="if(!' + skipActive + ')this.style.borderColor=\'#e2e8f0\'">';
+            h += '<div style="width:18px;height:18px;border-radius:4px;border:2px solid ' + (skipActive ? '#f59e0b' : '#cbd5e1') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + (skipActive ? '#f59e0b' : 'white') + ';">';
+            if (skipActive) h += '<span style="color:white;font-size:11px;font-weight:900;">✓</span>';
+            h += '</div>';
+            h += '<span style="font-size:12px;font-weight:600;color:' + (skipActive ? '#d97706' : '#6b7280') + ';">⏭️ Không thanh toán lần này</span>';
+            h += '</div>';
+        }
+    }
+    h += '</div>';
+    el.innerHTML = h;
+}
+
 function _shOnPaymentSearchInput(val) {
     var s = window._shModalState; if (!s) return;
     s.searchQuery = val;
