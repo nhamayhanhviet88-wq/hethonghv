@@ -174,7 +174,7 @@ function _dgamRenderRows(paged) {
             ? '<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
             : '';
         var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
-        var kiemTraBtnHtml = isLeVietTrinh 
+        var kiemTraBtnHtml = isLeVietTrinh
             ? '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>'
             : '';
 
