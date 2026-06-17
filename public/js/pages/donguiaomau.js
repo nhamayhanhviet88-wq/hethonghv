@@ -130,8 +130,9 @@ function _dgamRenderTable() {
 
 var _dgamStatusMap = {
     'cho_duyet': { label: 'Chờ Duyệt', bg: '#fef3c7', color: '#92400e' },
+    'dang_gui_hang': { label: 'Đã Duyệt Gửi', bg: '#dcfce7', color: '#166534' },
     'da_duyet': { label: 'Đã Duyệt', bg: '#dcfce7', color: '#166534' },
-    'da_gui': { label: 'Đã Gửi', bg: '#dbeafe', color: '#1e40af' },
+    'da_gui': { label: 'Đã Gửi Mẫu', bg: '#dbeafe', color: '#1e40af' },
     'hoan_hang': { label: 'Hoàn Hàng', bg: '#fee2e2', color: '#991b1b' },
     'hoan_thanh': { label: 'Hoàn Thành', bg: '#d1fae5', color: '#065f46' }
 };
