@@ -1808,16 +1808,6 @@ function _shRenderPaymentsList(target, q) {
         });
     }
     
-    // Render Surplus = 0 (Fully display)
-    if (zeroList.length > 0) {
-        var title = query ? 'Mã tiền đã dùng hết (dư = 0đ)' : 'Danh sách mã tiền đã dùng hết (dư = 0đ)';
-        h += '<div style="font-size:11px;font-weight:800;color:#64748b;margin-top:6px;margin-bottom:2px;display:flex;align-items:center;gap:4px;">⚫ ' + title + ' (' + zeroList.length + ')</div>';
-        
-        zeroList.forEach(p => {
-            h += _shBuildPaymentRowHTML(p, target, isHvCk, 'zero');
-        });
-    }
-    
     listEl.innerHTML = h;
     _shUpdatePaymentFooter(target);
 }
