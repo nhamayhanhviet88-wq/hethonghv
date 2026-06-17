@@ -707,7 +707,7 @@ function _dgamOnCategoryChange() {
                 <div class="form-group">
                     <label>Gửi Zalo OA</label>
                     <div style="border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; height: 43.5px;">
-                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;">
+                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;" checked>
                         <label for="dgamAddZaloOASent" style="margin: 0 !important; font-weight: 600; color: #475569; cursor: pointer; user-select: none;">Gửi Zalo OA</label>
                     </div>
                 </div>
@@ -809,7 +809,7 @@ function _dgamOnCategoryChange() {
                 <div class="form-group">
                     <label>Gửi Zalo OA</label>
                     <div style="border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; height: 43.5px;">
-                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;">
+                        <input type="checkbox" id="dgamAddZaloOASent" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;" checked>
                         <label for="dgamAddZaloOASent" style="margin: 0 !important; font-weight: 600; color: #475569; cursor: pointer; user-select: none;">Gửi Zalo OA</label>
                     </div>
                 </div>
