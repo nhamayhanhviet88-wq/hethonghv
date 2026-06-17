@@ -275,11 +275,11 @@ function _shApplySearch() {
 }
 
 function _shGetOrderMenu(o) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = vnDateStr();
     let effDate = o.rescheduled_ship_date || o.expected_ship_date;
     if (effDate) {
         try {
-            effDate = new Date(effDate).toISOString().split('T')[0];
+            effDate = vnDateStr(effDate);
         } catch(e) {}
     }
     if (o.shipping_status === 'shipped') {
@@ -287,7 +287,7 @@ function _shGetOrderMenu(o) {
     }
     if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
         let reschedDate = o.rescheduled_ship_date;
-        try { reschedDate = new Date(reschedDate).toISOString().split('T')[0]; } catch(e){}
+        try { reschedDate = vnDateStr(reschedDate); } catch(e){}
         if (reschedDate > today) {
             return { key: 'rescheduled', label: 'Chưa Gửi', color: '#d97706', bg: '#fffbeb' };
         }
@@ -348,7 +348,7 @@ function _shRenderContent() {
 
 function _shBuildTable(orders) {
     const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
-    const today = new Date().toISOString().split('T')[0];
+    const today = vnDateStr();
 
     const formatExpectedShipDateWithDay = (dateVal) => {
         if (!dateVal) return '—';

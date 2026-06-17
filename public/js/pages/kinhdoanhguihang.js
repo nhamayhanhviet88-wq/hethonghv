@@ -61,7 +61,7 @@ function _kdShRenderTable(el) {
         return;
     }
     const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
-    const today = new Date().toISOString().split('T')[0];
+    const today = vnDateStr();
 
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;">
