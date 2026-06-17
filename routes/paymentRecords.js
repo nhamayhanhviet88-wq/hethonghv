@@ -692,10 +692,10 @@ module.exports = async function(fastify) {
                     if (dhtOrder) {
                         const remainRow = await db.get(`
                             SELECT
-                                COALESCE(o.total_amount, 0)
+                                GREATEST(0, COALESCE(o.total_amount, 0)
                                 - COALESCE(o.discount_amount, 0)
                                 - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                                - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                                - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)
                                 AS remaining
                             FROM dht_orders o
                             LEFT JOIN LATERAL (
@@ -783,7 +783,7 @@ module.exports = async function(fastify) {
                     );
                     if (sampleOrder) {
                         const remainRow = await db.get(`
-                            SELECT (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) AS remaining
+                            SELECT GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining
                             FROM don_gui_ao_mau d
                             LEFT JOIN LATERAL (
                                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -1020,10 +1020,10 @@ module.exports = async function(fastify) {
                     // 2. Tính remaining_amount (cùng công thức chuẩn DHT — Source of Truth)
                     const remainRow = await db.get(`
                         SELECT
-                            COALESCE(o.total_amount, 0)
+                            GREATEST(0, COALESCE(o.total_amount, 0)
                             - COALESCE(o.discount_amount, 0)
                             - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0))
-                            - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                            - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)
                             AS remaining
                         FROM dht_orders o
                         LEFT JOIN LATERAL (
@@ -1119,7 +1119,7 @@ module.exports = async function(fastify) {
                 );
                 if (sampleOrder) {
                     const remainRow = await db.get(`
-                        SELECT (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) AS remaining
+                        SELECT GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining
                         FROM don_gui_ao_mau d
                         LEFT JOIN LATERAL (
                             SELECT COALESCE(SUM(amount), 0) AS deposit_total

@@ -418,7 +418,7 @@ module.exports = async function(fastify) {
                      AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) < $${idx}::date
                      THEN true ELSE false END AS is_overdue,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
-                (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount
+                GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount
             FROM dht_orders o
             LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
@@ -513,7 +513,7 @@ module.exports = async function(fastify) {
                 cr.tracking_url_template AS actual_carrier_tracking_url,
                 u_created.full_name AS created_by_name,
                 u_shipped.full_name AS shipped_by_name,
-                (COALESCE(d.total_amount, 0) - COALESCE(pr_all.paid_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) AS remaining_amount
+                GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_all.paid_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining_amount
             FROM don_gui_ao_mau d
             LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
             LEFT JOIN users u_created ON d.created_by = u_created.id
@@ -897,9 +897,11 @@ module.exports = async function(fastify) {
                             [order.order_code]
                         );
                         const paidTotal = Number(paidRow?.paid_total) || 0;
-                        const remainingDebt = (Number(order.total_amount) || 0) - paidTotal - ((b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck' && b.selected_payment_id) ? shipFee : 0);
+                        const isCarrier = pr.money_source === 'nha_van_chuyen';
+                        const parentShipFee = isCarrier ? (Number(pr.shipping_fee || 0)) : 0;
+                        const remainingDebt = Math.max(0, (Number(order.total_amount) || 0) - paidTotal - ((!isCarrier && b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck' && b.selected_payment_id) ? shipFee : 0));
 
-                        const remainingBalance = pr.amount - Number(childSumRow.child_sum || 0);
+                        const remainingBalance = pr.amount + parentShipFee - Number(childSumRow.child_sum || 0);
                         const allocAmount = Math.min(remainingBalance, remainingDebt);
 
                         if (allocAmount > 0) {
@@ -1367,12 +1369,14 @@ module.exports = async function(fastify) {
                         [order.order_code]
                     );
                     const depositTotal = Number(depRow?.deposit_total) || 0;
-                    const remainingDebt = (Number(order.total_amount) || 0)
+                    const isCarrier = pr.money_source === 'nha_van_chuyen';
+                    const parentShipFee = isCarrier ? (Number(pr.shipping_fee || 0)) : 0;
+                    const remainingDebt = Math.max(0, (Number(order.total_amount) || 0)
                         - (Number(order.discount_amount) || 0)
                         - Math.max(depositTotal, Number(order.deposit_amount_cache) || 0)
-                        - ((b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck' && b.selected_payment_id) ? shipFee : 0);
+                        - ((!isCarrier && b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck' && b.selected_payment_id) ? shipFee : 0));
 
-                    const remainingBalance = pr.amount - Number(childSumRow.child_sum || 0);
+                    const remainingBalance = pr.amount + parentShipFee - Number(childSumRow.child_sum || 0);
                     const allocAmount = Math.min(remainingBalance, remainingDebt);
 
                     if (allocAmount > 0) {

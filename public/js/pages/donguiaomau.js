@@ -1278,7 +1278,8 @@ async function _dgamShowDetail(id) {
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
         
-        const shipDeduct = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+        const hasCarrierPayment = payments.some(p => p.money_source === 'nha_van_chuyen');
+        const shipDeduct = (!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
         const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(o.deposit_amount) || 0) - shipDeduct);
         const totalPaid = (Number(o.deposit_amount) || 0) + otherPaid;
 
