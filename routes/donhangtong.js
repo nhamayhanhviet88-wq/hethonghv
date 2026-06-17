@@ -1232,7 +1232,9 @@ module.exports = async function(fastify) {
                 created_by_name: row.created_by_name,
                 shipped_by_name: row.shipped_by_name,
                 deposit_amount: row.deposit_amount || 0,
-                remaining_amount: (Number(row.total_amount) || 0) - (Number(row.deposit_amount) || 0)
+                remaining_amount: (Number(row.total_amount) || 0) - (Number(row.deposit_amount) || 0),
+                carrier_name: row.shipping_method || null,
+                standard_delivery_time: row.ship_time || null
             };
 
             const items = [{
@@ -1241,7 +1243,7 @@ module.exports = async function(fastify) {
                 product_name: row.product_name || 'Áo mẫu',
                 description: `Lĩnh vực: ${row.linh_vuc || '—'} | Thể loại: ${row.category || '—'}`,
                 quantity: row.quantity || 1,
-                accounting_notes: row.sale_note_for_accountant || '',
+                accounting_notes: '',
                 shipping_status: row.status_gui_don ? 'shipped' : 'pending',
                 shipped_at: row.shipped_at,
                 shipped_by: row.shipped_by,
