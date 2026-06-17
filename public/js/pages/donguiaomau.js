@@ -592,7 +592,7 @@ async function _dgamShowAdd() {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        <button class="btn btn-primary" onclick="_dgamSubmitAdd()" style="width:auto;background:linear-gradient(135deg,#0369a1,#0ea5e9);border:none;">💾 Tạo Đơn</button>
+        <button class="btn btn-primary" onclick="_dgamSubmitAdd()" style="width:auto;background:linear-gradient(135deg,#0369a1,#0ea5e9);border:none;color:#fff !important;">💾 Tạo Đơn</button>
     `;
 
     openModal('➕ THÀNH LẬP ĐƠN GỬI ÁO MẪU', bodyHTML, footerHTML);
@@ -1040,7 +1040,7 @@ async function _dgamShowDetail(id) {
                 <span style="background:#e0f2fe;color:#0369a1;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;">📨 Luôn tự động gửi Zalo OA</span>
             </div>
             <div>
-                <button class="btn btn-secondary" onclick="window.print()" style="padding:6px 16px;font-size:12px;font-weight:700;">🖨️ In Phiếu</button>
+                <button class="btn btn-secondary" onclick="window.print()" style="padding:6px 16px;font-size:12px;font-weight:700;color:#fff !important;">🖨️ In Phiếu</button>
             </div>
         </div>`;
 
@@ -1080,11 +1080,11 @@ async function _dgamShowDetail(id) {
             <table class="table" style="width:100%;border-collapse:collapse;margin-bottom:12px;">
                 <thead>
                     <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0">
-                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#64748b">PHÂN LOẠI</th>
-                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#64748b">SẢN PHẨM / NỘI DUNG</th>
-                        <th style="padding:10px;text-align:center;font-size:11px;font-weight:700;color:#64748b;width:80px">SL</th>
-                        <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;color:#64748b;width:120px">ĐƠN GIÁ</th>
-                        <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;color:#64748b;width:120px">TỔNG TIỀN</th>
+                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">PHÂN LOẠI</th>
+                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">SẢN PHẨM / NỘI DUNG</th>
+                        <th style="padding:10px;text-align:center;font-size:11px;font-weight:700;color:#fff !important;width:80px">SL</th>
+                        <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;color:#fff !important;width:120px">ĐƠN GIÁ</th>
+                        <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;color:#fff !important;width:120px">TỔNG TIỀN</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1184,12 +1184,12 @@ async function _dgamShowDetail(id) {
             paymentHTML += `<table class="table" style="width:100%;border-collapse:collapse">
                 <thead>
                     <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0">
-                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#64748b">MÃ TIỀN</th>
-                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#64748b">HÌNH THỨC</th>
-                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#64748b">NGÂN HÀNG</th>
-                        <th style="padding:8px;text-align:right;font-size:11px;font-weight:700;color:#64748b">SỐ TIỀN</th>
-                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#64748b">NỘI DUNG CHUYỂN</th>
-                        <th style="padding:8px;text-align:center;font-size:11px;font-weight:700;color:#64748b">NGÀY GD</th>
+                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">MÃ TIỀN</th>
+                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">HÌNH THỨC</th>
+                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">NGÂN HÀNG</th>
+                        <th style="padding:8px;text-align:right;font-size:11px;font-weight:700;color:#fff !important">SỐ TIỀN</th>
+                        <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">NỘI DUNG CHUYỂN</th>
+                        <th style="padding:8px;text-align:center;font-size:11px;font-weight:700;color:#fff !important">NGÀY GD</th>
                     </tr>
                 </thead>
                 <tbody>`;
