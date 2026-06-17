@@ -1171,7 +1171,7 @@ async function _dhtShowDetail(id) {
         const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
         const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
         const shipCK = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
-        const remaining = total - deposit;
+        const remaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : (total - deposit);
         const priColors = { 'GẤP': '#dc2626', 'GỬI': '#2563eb', 'CHUẨN': '#7c3aed' };
         const priColor = priColors[o.shipping_priority] || '#7c3aed';
         const typeLabels = { thanh_toan: 'TT', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
@@ -1388,7 +1388,7 @@ async function _dhtShowDetail(id) {
         }
 
         // ── Section 5: Tổng kết tài chính ──
-        const finRemaining = String(o.id).startsWith('sample_') ? (calcBase - deposit) : (calcBase + surchargeTotal + vat - discount - deposit - shipCK);
+        const finRemaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : (calcBase + surchargeTotal + vat - discount - deposit - shipCK);
         const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
         var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:16px;margin-bottom:16px">`;
         finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
@@ -1396,7 +1396,13 @@ async function _dhtShowDetail(id) {
         if (String(o.id).startsWith('sample_')) {
             finRows.push(
                 ['Tổng Tiền Hàng Thực Tế', fmt(calcBase) + 'đ', '#1e293b', true],
-                ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true],
+                ['Đã thanh toán (cọc)', fmt(deposit) + 'đ', '#10b981', true]
+            );
+            const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - deposit);
+            if (otherPaid > 0) {
+                finRows.push(['Thanh toán khác (NVC/SLL)', fmt(otherPaid) + 'đ', '#0ea5e9', true]);
+            }
+            finRows.push(
                 ['Còn lại', fmt(finRemaining) + 'đ', remColor, true]
             );
         } else {
