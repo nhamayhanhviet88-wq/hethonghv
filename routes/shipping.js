@@ -860,7 +860,7 @@ module.exports = async function(fastify) {
                             [order.order_code]
                         );
                         const paidTotal = Number(paidRow?.paid_total) || 0;
-                        const remainingDebt = (Number(order.total_amount) || 0) - paidTotal;
+                        const remainingDebt = (Number(order.total_amount) || 0) - paidTotal - ((b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck' && b.selected_payment_id) ? shipFee : 0);
 
                         const remainingBalance = pr.amount - Number(childSumRow.child_sum || 0);
                         const allocAmount = Math.min(remainingBalance, remainingDebt);

@@ -1100,9 +1100,12 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
             ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase) + 'đ', '#1e293b', true],
             ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true]
         );
-        const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(deposit) || 0));
+        const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(deposit) || 0) - shipCK);
         if (otherPaid > 0) {
             finRows.push(['Thanh toán khác (NVC/SLL)', fmtMoney(otherPaid) + 'đ', '#0ea5e9', true]);
+        }
+        if (shipCK > 0) {
+            finRows.push(['Phí ship trừ COD (HV trả)', fmtMoney(shipCK) + 'đ', '#f97316', true]);
         }
         finRows.push(['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true]);
     } else {

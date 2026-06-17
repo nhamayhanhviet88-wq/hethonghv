@@ -1503,7 +1503,7 @@ module.exports = async function(fastify) {
                 created_by_name: row.created_by_name,
                 shipped_by_name: row.shipped_by_name,
                 deposit_amount: row.calculated_deposit || row.deposit_amount || 0,
-                remaining_amount: Math.max(0, (Number(row.total_amount) || 0) - (Number(row.calculated_paid) || 0)),
+                remaining_amount: Math.max(0, (Number(row.total_amount) || 0) - (Number(row.calculated_paid) || 0) - ((row.shipping_fee_payer === 'hv' && row.shipping_fee_method === 'ck' && row.shipping_payment_id) ? (Number(row.shipping_fee) || 0) : 0)),
                 carrier_name: row.shipping_method || null,
                 standard_delivery_time: row.ship_time || null,
                 sample_image: row.sample_image || null,

@@ -818,7 +818,7 @@ module.exports = async function(fastify) {
                     );
                     if (sampleOrder) {
                         const remainRow = await db.get(`
-                            SELECT (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
+                            SELECT (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND d.shipping_payment_id IS NOT NULL THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) AS remaining
                             FROM don_gui_ao_mau d
                             LEFT JOIN LATERAL (
                                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -1076,7 +1076,7 @@ module.exports = async function(fastify) {
                 );
                 if (sampleOrder) {
                     const remainRow = await db.get(`
-                        SELECT (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining
+                        SELECT (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND d.shipping_payment_id IS NOT NULL THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) AS remaining
                         FROM don_gui_ao_mau d
                         LEFT JOIN LATERAL (
                             SELECT COALESCE(SUM(amount), 0) AS deposit_total

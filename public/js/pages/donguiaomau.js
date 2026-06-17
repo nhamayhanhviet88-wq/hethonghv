@@ -1279,9 +1279,13 @@ async function _dgamShowDetail(id) {
             ['Tổng Tiền Hàng Thực Tế', fmt(o.total_amount) + 'đ', '#1e293b', true],
             ['Đã thanh toán (cọc)', fmt(o.deposit_amount) + 'đ', '#10b981', true]
         ];
-        const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(o.deposit_amount) || 0));
+        const shipDeduct = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && o.shipping_payment_id) ? (Number(o.shipping_fee) || 0) : 0;
+        const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(o.deposit_amount) || 0) - shipDeduct);
         if (otherPaid > 0) {
             finRows.push(['Thanh toán khác (NVC/SLL)', fmt(otherPaid) + 'đ', '#0ea5e9', true]);
+        }
+        if (shipDeduct > 0) {
+            finRows.push(['Phí ship trừ COD (HV trả)', fmt(shipDeduct) + 'đ', '#f97316', true]);
         }
         finRows.push(['Còn lại', fmt(o.remaining_amount) + 'đ', remColor, true]);
         
