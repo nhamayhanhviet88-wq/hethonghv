@@ -1669,65 +1669,67 @@ function navigate(page) {
 
 // ========== ROUTING HOOKS & HELPERS ==========
 function findMenuItemForPage(pageId) {
-    // 1. Khớp trực tiếp theo ID menu
-    var item = MENU_CONFIG.find(function(m) { return m.id === pageId; });
-    if (item) return item;
+    // Helper to check if a menu config item matches the pageId
+    function isMatch(m, pid) {
+        if (m.id === pid) return true;
+        if (m.href && m.href.replace(/^\//, '') === pid) return true;
+        
+        var aliasMap = {
+            'baocaohoahong': 'bao-cao-hoa-hong',
+            'chapnhanctvaffliate': 'chap-nhan-ctv-affiliate',
+            'baocaohoahonghv': 'bao-cao-hoa-hong-hv',
+            'huongdansudung': 'huong-dan-su-dung',
+            'bangxephangaffiliate': 'bang-xep-hang-affiliate',
+            'bangxephangkinhdoanh': 'bang-xep-hang-kinh-doanh',
+            'bangxephangsale': 'bang-xep-hang-sale',
+            'bangxephangctv': 'bang-xep-hang-ctv',
+            'bxhsanxuat': 'bxh-san-xuat',
+            'bxhvanphong': 'bxh-van-phong',
+            'giaithuonggame': 'giai-thuong-game',
+            'traogiaithuong': 'trao-giai-thuong',
+            'bangiaodiem': 'bangiao-diem-kd',
+            'lichkhoabieu': 'lich-khoa-bieu',
+            'lichsubaocaocv': 'lich-su-bao-cao',
+            'khoatknv': 'khoa-tk-nv',
+            'mokhoatkphat': 'mo-khoa-tk-phat',
+            'xinnghinhanvien': 'xin-nghi-nv',
+            'setupngayle': 'setup-ngay-le',
+            'bangiaokhoa': 'bangiao-khoa',
+            'timkiemkhachhanghv': 'timkiemkhachhang',
+            'chamsocaffiliate': 'cham-soc-affiliate',
+            'chamsockockol': 'cham-soc-koc-kol',
+            'luongsanxuat': 'luong-san-xuat',
+            'donkhachsll': 'don-khach-sll',
+            'donkhachnhieulan': 'don-khach-nhieu-lan',
+            'donkhachmoi': 'don-khach-moi',
+            'donquanhe': 'don-quan-he'
+        };
+        var resolvedId = aliasMap[pid];
+        if (resolvedId && m.id === resolvedId) return true;
 
-    // 2. Khớp trực tiếp theo href (bỏ dấu gạch chéo đầu)
-    item = MENU_CONFIG.find(function(m) { return m.href && m.href.replace(/^\//, '') === pageId; });
-    if (item) return item;
+        var cleanId = pid.replace(/-/g, '').toLowerCase();
+        if (m.id.replace(/-/g, '').toLowerCase() === cleanId) return true;
+        if (m.href && m.href.replace(/^\//, '').replace(/-/g, '').toLowerCase() === cleanId) return true;
 
-    // 3. Khớp các alias phổ biến (chỉ các trang đại diện cho menu chính)
-    var aliasMap = {
-        'baocaohoahong': 'bao-cao-hoa-hong',
-        'chapnhanctvaffliate': 'chap-nhan-ctv-affiliate',
-        'baocaohoahonghv': 'bao-cao-hoa-hong-hv',
-        'huongdansudung': 'huong-dan-su-dung',
-        'bangxephangaffiliate': 'bang-xep-hang-affiliate',
-        'bangxephangkinhdoanh': 'bang-xep-hang-kinh-doanh',
-        'bangxephangsale': 'bang-xep-hang-sale',
-        'bangxephangctv': 'bang-xep-hang-ctv',
-        'bxhsanxuat': 'bxh-san-xuat',
-        'bxhvanphong': 'bxh-van-phong',
-        'giaithuonggame': 'giai-thuong-game',
-        'traogiaithuong': 'trao-giai-thuong',
-        'bangiaodiem': 'bangiao-diem-kd',
-        'lichkhoabieu': 'lich-khoa-bieu',
-        'lichsubaocaocv': 'lich-su-bao-cao',
-        'khoatknv': 'khoa-tk-nv',
-        'mokhoatkphat': 'mo-khoa-tk-phat',
-        'xinnghinhanvien': 'xin-nghi-nv',
-        'setupngayle': 'setup-ngay-le',
-        'bangiaokhoa': 'bangiao-khoa',
-        'timkiemkhachhanghv': 'timkiemkhachhang',
-        'chamsocaffiliate': 'cham-soc-affiliate',
-        'chamsockockol': 'cham-soc-koc-kol',
-        'luongsanxuat': 'luong-san-xuat',
-        'donkhachsll': 'don-khach-sll',
-        'donkhachnhieulan': 'don-khach-nhieu-lan',
-        'donkhachmoi': 'don-khach-moi',
-        'donquanhe': 'don-quan-he'
-    };
-
-    var resolvedId = aliasMap[pageId];
-    if (resolvedId) {
-        return MENU_CONFIG.find(function(m) { return m.id === resolvedId; });
+        return false;
     }
 
-    // 4. Khớp bằng cách loại bỏ dấu gạch ngang (ví dụ: bophancat khớp bo-phan-cat)
-    var cleanId = pageId.replace(/-/g, '').toLowerCase();
-    item = MENU_CONFIG.find(function(m) {
-        return m.id.replace(/-/g, '').toLowerCase() === cleanId;
+    // Filter all items in MENU_CONFIG that match the pageId
+    var matches = MENU_CONFIG.filter(function(m) {
+        return isMatch(m, pageId);
     });
-    if (item) return item;
 
-    // 5. Khớp qua href sau khi loại bỏ dấu gạch ngang
-    item = MENU_CONFIG.find(function(m) {
-        return m.href && m.href.replace(/^\//, '').replace(/-/g, '').toLowerCase() === cleanId;
-    });
-    if (item) return item;
+    if (matches.length === 0) return null;
 
-    return null;
+    // From the matches, find one that the current user has permission to access
+    for (var i = 0; i < matches.length; i++) {
+        if (hasMenuPermission(matches[i])) {
+            return matches[i];
+        }
+    }
+
+    // If none has permission, fallback to the first match
+    return matches[0];
 }
 
 function findPermissionMenuItem(pageId) {
