@@ -373,27 +373,30 @@ function _dgamRenderRows(paged) {
         var isQLCCTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh') || userObj.username === 'trinh');
         var isGiamDoc = userObj && userObj.role === 'giam_doc';
         var isSale = !isKeToan && !isQuanLyXuong && !isQLCCTrinh && !isGiamDoc;
+        var isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
 
         var receivedProofBtnHtml = '';
-        if (isMauAoDaHoan) {
-            if (o.hoan_hang_received_proof_image) {
-                receivedProofBtnHtml = '<button class="dgam-icon-btn on-proof-uploaded" title="Xem ảnh chứng minh mẫu về" onclick="_dgamShowReceivedProofModal('+o.id+')">📸</button>';
-            } else {
-                if (isSale) {
-                    receivedProofBtnHtml = '<button class="dgam-icon-btn on-proof-pending" title="Chụp ảnh chứng minh mẫu đã về" onclick="_dgamShowReceivedProofModal('+o.id+')">📸</button>';
+        if (isTargetCategory) {
+            if (isMauAoDaHoan) {
+                if (o.hoan_hang_received_proof_image) {
+                    receivedProofBtnHtml = '<button class="dgam-icon-btn on-proof-uploaded" title="Xem ảnh chứng minh mẫu về" onclick="_dgamShowReceivedProofModal('+o.id+')">📸</button>';
                 } else {
-                    receivedProofBtnHtml = '<button class="dgam-icon-btn" title="Chỉ nhân viên sale mới được chụp ảnh chứng minh" style="opacity:0.4;cursor:not-allowed;" disabled>📸</button>';
+                    if (isSale) {
+                        receivedProofBtnHtml = '<button class="dgam-icon-btn on-proof-pending" title="Chụp ảnh chứng minh mẫu đã về" onclick="_dgamShowReceivedProofModal('+o.id+')">📸</button>';
+                    } else {
+                        receivedProofBtnHtml = '<button class="dgam-icon-btn" title="Chỉ nhân viên sale mới được chụp ảnh chứng minh" style="opacity:0.4;cursor:not-allowed;" disabled>📸</button>';
+                    }
                 }
+            } else {
+                receivedProofBtnHtml = '<button class="dgam-icon-btn" title="Chụp ảnh chứng minh mẫu đã về (Chỉ khi mẫu đã hoàn)" style="opacity:0.4;cursor:not-allowed;" disabled>📸</button>';
             }
-        } else {
-            receivedProofBtnHtml = '<button class="dgam-icon-btn" title="Chụp ảnh chứng minh mẫu đã về (Chỉ khi mẫu đã hoàn)" style="opacity:0.4;cursor:not-allowed;" disabled>📸</button>';
         }
 
         // Kiểm tra đơn mẫu (🔍): Lê Việt Trinh và Giám đốc có quyền kiểm tra; các tài khoản khác chỉ xem (disabled)
         var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
         var kiemTraBtnHtml = '';
         if (isLeVietTrinh || isGiamDoc) {
-            if (o.status_hoan_hang && !o.hoan_hang_received_proof_image) {
+            if (o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image) {
                 kiemTraBtnHtml = '<button class="dgam-icon-btn" title="Mẫu áo chưa về nên chưa được kiểm tra" style="opacity:0.4;cursor:not-allowed;" onclick="showToast(\'🔒 Mẫu áo chưa về nên chưa được kiểm tra\', \'error\')">🔍</button>';
             } else {
                 kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>';

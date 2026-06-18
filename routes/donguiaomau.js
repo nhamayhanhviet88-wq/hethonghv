@@ -261,8 +261,9 @@ module.exports = async function(fastify) {
                 return reply.code(403).send({ error: '🔒 Chỉ tài khoản Lê Việt Trinh và Giám đốc mới có quyền kiểm tra đơn mẫu!' });
             }
             if (value) {
-                const order = await db.get('SELECT status_hoan_hang, hoan_hang_received_proof_image FROM don_gui_ao_mau WHERE id = $1', [id]);
-                if (order && order.status_hoan_hang && !order.hoan_hang_received_proof_image) {
+                const order = await db.get('SELECT category, status_hoan_hang, hoan_hang_received_proof_image FROM don_gui_ao_mau WHERE id = $1', [id]);
+                const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(order ? order.category : '');
+                if (order && order.status_hoan_hang && isTargetCategory && !order.hoan_hang_received_proof_image) {
                     return reply.code(400).send({ error: '🔒 Mẫu áo chưa về nên chưa được kiểm tra!' });
                 }
             }
