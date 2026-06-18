@@ -454,7 +454,7 @@ async function _dgamExecuteApprove(id) {
 function _dgamRenderPagination(totalItems, totalPages) {
     var html = '';
     if (totalPages <= 1) {
-        html = '<div style="text-align:center;font-size:11px;color:#64748b;padding:4px"><span style="font-weight:700">' + totalItems + ' đơn</span></div>';
+        html = '';
     } else {
         html = '<div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;padding:6px 0">';
         html += '<button onclick="_dgamGoPage(' + (_dgam.page-1) + ')" ' + (_dgam.page<=1?'disabled':'') + ' style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:'+(_dgam.page<=1?'#f1f5f9':'#fff')+';color:'+(_dgam.page<=1?'#94a3b8':'#0369a1')+';font-size:11px;font-weight:700;cursor:'+(_dgam.page<=1?'not-allowed':'pointer')+'">◀ Trước</button>';
