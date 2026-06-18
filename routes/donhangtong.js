@@ -290,11 +290,7 @@ module.exports = async function(fastify) {
                     SELECT DISTINCT
                         o.id AS order_id,
                         COALESCE(oi.actual_carrier_id, 0) AS carrier_id,
-                        CASE 
-                            WHEN oi.shipping_status = 'shipped' AND oi.actual_carrier_id IS NOT NULL 
-                            THEN COALESCE(oi.shipping_date, o.order_date)
-                            ELSE o.order_date
-                        END AS assoc_date,
+                        o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
                     JOIN dht_order_items oi ON oi.dht_order_id = CAST(o.id AS integer)
@@ -314,11 +310,7 @@ module.exports = async function(fastify) {
                             THEN o.actual_carrier_id 
                             ELSE 0 
                         END AS carrier_id,
-                        CASE 
-                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
-                            THEN COALESCE(o.shipped_at, o.order_date) 
-                            ELSE o.order_date 
-                        END AS assoc_date,
+                        o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
                     WHERE o.order_type = 'dht_order'
@@ -341,11 +333,7 @@ module.exports = async function(fastify) {
                             THEN o.actual_carrier_id 
                             ELSE 0 
                         END AS carrier_id,
-                        CASE 
-                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
-                            THEN COALESCE(o.shipped_at, o.order_date) 
-                            ELSE o.order_date 
-                        END AS assoc_date,
+                        o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
                     WHERE o.order_type = 'ao_mau'
@@ -356,7 +344,7 @@ module.exports = async function(fastify) {
                     SELECT DISTINCT
                         o.id AS order_id,
                         -2 AS carrier_id,
-                        COALESCE(o.shipped_at, o.order_date) AS assoc_date,
+                        o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
                     WHERE (
@@ -553,11 +541,7 @@ module.exports = async function(fastify) {
                     SELECT DISTINCT
                         o.id AS order_id,
                         COALESCE(oi.actual_carrier_id, 0) AS carrier_id,
-                        CASE 
-                            WHEN oi.shipping_status = 'shipped' AND oi.actual_carrier_id IS NOT NULL 
-                            THEN COALESCE(oi.shipping_date, o.order_date)
-                            ELSE o.order_date
-                        END AS assoc_date,
+                        o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
                     JOIN dht_order_items oi ON oi.dht_order_id = CAST(o.id AS integer)
@@ -577,11 +561,7 @@ module.exports = async function(fastify) {
                             THEN o.actual_carrier_id 
                             ELSE 0 
                         END AS carrier_id,
-                        CASE 
-                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
-                            THEN COALESCE(o.shipped_at, o.order_date) 
-                            ELSE o.order_date 
-                        END AS assoc_date,
+                        o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
                     WHERE o.order_type = 'dht_order'
@@ -604,11 +584,7 @@ module.exports = async function(fastify) {
                             THEN o.actual_carrier_id 
                             ELSE 0 
                         END AS carrier_id,
-                        CASE 
-                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
-                            THEN COALESCE(o.shipped_at, o.order_date) 
-                            ELSE o.order_date 
-                        END AS assoc_date,
+                        o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
                     WHERE o.order_type = 'ao_mau'
@@ -619,7 +595,7 @@ module.exports = async function(fastify) {
                     SELECT DISTINCT
                         o.id AS order_id,
                         -2 AS carrier_id,
-                        COALESCE(o.shipped_at, o.order_date) AS assoc_date,
+                        o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
                     WHERE (
@@ -808,98 +784,35 @@ module.exports = async function(fastify) {
                 orderBy = 'COALESCE(o.shipped_at, o.order_date) ASC, o.id DESC';
                 // Vận Chuyển 2 Lần: order must have been shipped >= 2 times
                 where += ` AND (o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2))`;
-                if (year) {
-                    where += ` AND (
-                        EXTRACT(YEAR FROM COALESCE(o.shipped_at, o.order_date)) = $${idx}
-                        OR EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND EXTRACT(YEAR FROM COALESCE(shipping_date, o.order_date)) = $${idx})
-                    )`;
-                    params.push(Number(year));
-                    idx++;
-                }
-                if (month) {
-                    where += ` AND (
-                        EXTRACT(MONTH FROM COALESCE(o.shipped_at, o.order_date)) = $${idx}
-                        OR EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND EXTRACT(MONTH FROM COALESCE(shipping_date, o.order_date)) = $${idx})
-                    )`;
-                    params.push(Number(month));
-                    idx++;
-                }
-                if (day) {
-                    where += ` AND (
-                        EXTRACT(DAY FROM COALESCE(o.shipped_at, o.order_date)) = $${idx}
-                        OR EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND EXTRACT(DAY FROM COALESCE(shipping_date, o.order_date)) = $${idx})
-                    )`;
-                    params.push(Number(day));
-                    idx++;
-                }
+                if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
+                if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
+                if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
             } else {
                 orderBy = 'COALESCE(o.shipped_at, o.order_date) ASC, o.id DESC';
                 const carrierParamIdx = idx++;
                 params.push(carrierId);
-                let carrierDateCond = '';
-                if (year) {
-                    carrierDateCond += ` AND EXTRACT(YEAR FROM COALESCE(shipping_date, o.order_date)) = $${idx++}`;
-                    params.push(Number(year));
-                }
-                if (month) {
-                    carrierDateCond += ` AND EXTRACT(MONTH FROM COALESCE(shipping_date, o.order_date)) = $${idx++}`;
-                    params.push(Number(month));
-                }
-                if (day) {
-                    carrierDateCond += ` AND EXTRACT(DAY FROM COALESCE(shipping_date, o.order_date)) = $${idx++}`;
-                    params.push(Number(day));
-                }
-
-                let orderCarrierDateCond = '';
-                if (year) {
-                    orderCarrierDateCond += ` AND EXTRACT(YEAR FROM COALESCE(o.shipped_at, o.order_date)) = $${idx++}`;
-                    params.push(Number(year));
-                }
-                if (month) {
-                    orderCarrierDateCond += ` AND EXTRACT(MONTH FROM COALESCE(o.shipped_at, o.order_date)) = $${idx++}`;
-                    params.push(Number(month));
-                }
-                if (day) {
-                    orderCarrierDateCond += ` AND EXTRACT(DAY FROM COALESCE(o.shipped_at, o.order_date)) = $${idx++}`;
-                    params.push(Number(day));
-                }
 
                 where += ` AND (
                     (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) 
                         AND COALESCE(o.shipping_status, 'pending') = 'shipped' 
-                        AND o.actual_carrier_id = $${carrierParamIdx}
-                        ${orderCarrierDateCond})
+                        AND o.actual_carrier_id = $${carrierParamIdx})
                     OR
                     EXISTS (SELECT 1 FROM dht_order_items 
                         WHERE dht_order_id = o.id 
                         AND COALESCE(shipping_status, 'pending') = 'shipped' 
-                        AND actual_carrier_id = $${carrierParamIdx}
-                        ${carrierDateCond})
+                        AND actual_carrier_id = $${carrierParamIdx})
                 )`;
+
+                if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
+                if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
+                if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
             }
         } else {
             if (unpaid === 'true') {
-                let itemDateCond = '';
-                let orderDateCond = '';
-                if (year) {
-                    itemDateCond += ` AND EXTRACT(YEAR FROM COALESCE(shipping_date, o.order_date)) = $${idx}`;
-                    orderDateCond += ` AND EXTRACT(YEAR FROM COALESCE(o.shipped_at, o.order_date)) = $${idx}`;
-                    params.push(Number(year));
-                    idx++;
-                }
-                if (month) {
-                    itemDateCond += ` AND EXTRACT(MONTH FROM COALESCE(shipping_date, o.order_date)) = $${idx}`;
-                    orderDateCond += ` AND EXTRACT(MONTH FROM COALESCE(o.shipped_at, o.order_date)) = $${idx}`;
-                    params.push(Number(month));
-                    idx++;
-                }
-                if (day) {
-                    itemDateCond += ` AND EXTRACT(DAY FROM COALESCE(shipping_date, o.order_date)) = $${idx}`;
-                    orderDateCond += ` AND EXTRACT(DAY FROM COALESCE(o.shipped_at, o.order_date)) = $${idx}`;
-                    params.push(Number(day));
-                    idx++;
-                }
-
+                if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
+                if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
+                if (day) { where += ` AND EXTRACT(DAY FROM o.order_date) = $${idx++}`; params.push(Number(day)); }
+                
                 where += ` AND (
                     (NOT EXISTS (
                         SELECT 1 FROM dht_order_items 
@@ -908,7 +821,7 @@ module.exports = async function(fastify) {
                           AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
                           AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
                           AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
-                    ) ${orderDateCond})
+                    ))
                     OR
                     EXISTS (
                         SELECT 1 FROM dht_order_items 
@@ -917,7 +830,6 @@ module.exports = async function(fastify) {
                           AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
                           AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
                           AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
-                          ${itemDateCond}
                     )
                 )`;
             } else if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
@@ -989,21 +901,21 @@ module.exports = async function(fastify) {
                     if (day) { sampleWhere += ` AND EXTRACT(DAY FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(day)); }
                 } else if (carrierId === -2) {
                     sampleWhere += ` AND d.status_hoan_hang = true`;
-                    if (year) { sampleWhere += ` AND (EXTRACT(YEAR FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx} OR EXTRACT(YEAR FROM COALESCE(d.hoan_hang_shipped_at, d.order_date)) = $${sIdx})`; sampleParams.push(Number(year)); sIdx++; }
-                    if (month) { sampleWhere += ` AND (EXTRACT(MONTH FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx} OR EXTRACT(MONTH FROM COALESCE(d.hoan_hang_shipped_at, d.order_date)) = $${sIdx})`; sampleParams.push(Number(month)); sIdx++; }
-                    if (day) { sampleWhere += ` AND (EXTRACT(DAY FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx} OR EXTRACT(DAY FROM COALESCE(d.hoan_hang_shipped_at, d.order_date)) = $${sIdx})`; sampleParams.push(Number(day)); sIdx++; }
+                    if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(year)); }
+                    if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(month)); }
+                    if (day) { sampleWhere += ` AND EXTRACT(DAY FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(day)); }
                 } else {
                     sampleWhere += ` AND d.status_gui_don = true AND d.actual_carrier_id = $${sIdx++}`;
                     sampleParams.push(carrierId);
                     
-                    if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx++}`; sampleParams.push(Number(year)); }
-                    if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx++}`; sampleParams.push(Number(month)); }
-                    if (day) { sampleWhere += ` AND EXTRACT(DAY FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx++}`; sampleParams.push(Number(day)); }
+                    if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(year)); }
+                    if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(month)); }
+                    if (day) { sampleWhere += ` AND EXTRACT(DAY FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(day)); }
                 }
             } else {
-                if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx++}`; sampleParams.push(Number(year)); }
-                if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx++}`; sampleParams.push(Number(month)); }
-                if (day) { sampleWhere += ` AND EXTRACT(DAY FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx++}`; sampleParams.push(Number(day)); }
+                if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(year)); }
+                if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(month)); }
+                if (day) { sampleWhere += ` AND EXTRACT(DAY FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(day)); }
             }
 
             if (search) {
