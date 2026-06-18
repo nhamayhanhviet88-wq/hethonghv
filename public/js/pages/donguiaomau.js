@@ -117,8 +117,10 @@ function _dgamFilterMonth(y, m) { _dgam.filter = { year: y, month: m }; _dgam.su
 // ========== ORDERS ==========
 async function _dgamLoadOrders() {
     var f = _dgam.filter, url = '/api/don-gui-ao-mau/orders?';
-    if (f.year) url += 'year=' + f.year + '&';
-    if (f.month) url += 'month=' + f.month + '&';
+    if (!_dgam.searchQuery) {
+        if (f.year) url += 'year=' + f.year + '&';
+        if (f.month) url += 'month=' + f.month + '&';
+    }
     var data = await apiCall(url);
     _dgam.orders = data.orders || [];
     _dgam.page = 1;
@@ -265,6 +267,7 @@ function _dgamSetSubFilter(filterName) {
     _dgamRenderTable();
 }
 
+var _dgamSearchTimeout = null;
 function _dgamOnSearchInput(val) {
     _dgam.searchQuery = val;
     const clearBtn = document.getElementById('dgamSearchClearBtn');
@@ -272,7 +275,11 @@ function _dgamOnSearchInput(val) {
         clearBtn.style.display = val ? 'block' : 'none';
     }
     _dgam.page = 1;
-    _dgamRenderTable();
+    
+    if (_dgamSearchTimeout) clearTimeout(_dgamSearchTimeout);
+    _dgamSearchTimeout = setTimeout(async function() {
+        await _dgamLoadOrders();
+    }, 250);
 }
 
 function _dgamClearSearch() {
@@ -280,7 +287,14 @@ function _dgamClearSearch() {
     if (input) {
         input.value = '';
     }
-    _dgamOnSearchInput('');
+    if (_dgamSearchTimeout) clearTimeout(_dgamSearchTimeout);
+    _dgam.searchQuery = '';
+    const clearBtn = document.getElementById('dgamSearchClearBtn');
+    if (clearBtn) {
+        clearBtn.style.display = 'none';
+    }
+    _dgam.page = 1;
+    _dgamLoadOrders();
 }
 
 var _dgamStatusMap = {
@@ -524,10 +538,15 @@ function _dgamGoPage(p) {
 
 function _dgamRenderInfo(count, arr) {
     var el = document.getElementById('dgamFilterInfo'); if (!el) return;
-    var f = _dgam.filter, parts = [];
-    if (f.year) parts.push('<span style="color:#0ea5e9">📆</span> NĂM ' + f.year);
-    if (f.month) parts.push('<span style="color:#60a5fa">🗓️</span> THÁNG ' + f.month);
-    var label = parts.length > 0 ? parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ') : 'Tất cả';
+    var label = '';
+    if (_dgam.searchQuery) {
+        label = '<span style="color:#38bdf8">🔍</span> TÌM KIẾM TOÀN BỘ';
+    } else {
+        var f = _dgam.filter, parts = [];
+        if (f.year) parts.push('<span style="color:#0ea5e9">📆</span> NĂM ' + f.year);
+        if (f.month) parts.push('<span style="color:#60a5fa">🗓️</span> THÁNG ' + f.month);
+        label = parts.length > 0 ? parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ') : 'Tất cả';
+    }
     el.innerHTML = '<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:0.3px">'
         + label + ' <span style="opacity:0.5;margin:0 4px">—</span> <span style="color:#38bdf8;font-weight:900">' + count + '</span> đơn</div>';
 
