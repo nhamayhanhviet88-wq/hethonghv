@@ -529,4 +529,16 @@ module.exports = async function(fastify) {
 
         return { success: true };
     });
+
+    // ========== GENERAL UPLOAD ROUTE (Ctrl+V paste for proof images) ==========
+    fastify.post('/api/upload', { preHandler: [authenticate] }, async (request, reply) => {
+        const data = await request.file();
+        if (!data) return reply.code(400).send({ error: 'Không có file' });
+        const path = require('path');
+        const { compressAndSave } = require('../utils/imageCompressor');
+        const dir = path.join(__dirname, '..', 'uploads', 'tsam');
+        const buf = await data.toBuffer();
+        const result = await compressAndSave(buf, dir, 'tsam_');
+        return { success: true, url: `/uploads/tsam/${result.fileName}` };
+    });
 };
