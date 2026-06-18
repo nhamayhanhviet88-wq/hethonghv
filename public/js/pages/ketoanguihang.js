@@ -857,8 +857,8 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
     const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
     const hasCarrierPayment = payments.some(p => p.money_source === 'nha_van_chuyen');
-    const shipCK = (!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && !(o.tracking_code && o.tracking_code.trim())) ? (Number(o.shipping_fee) || 0) : 0;
-    const remaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, total - deposit - shipCK);
+    const shipCK = o.ship_ck_deduct !== undefined ? (Number(o.ship_ck_deduct) || 0) : ((!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && !(o.tracking_code && o.tracking_code.trim())) ? (Number(o.shipping_fee) || 0) : 0);
+    const remaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : (String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, total - deposit - shipCK));
 
     let carrierOpts = '<option value="">— Chọn NVC —</option>';
     _shCarriers.forEach(c => { carrierOpts += '<option value="' + c.id + '" data-name="' + c.name + '" data-allow-update-later="' + (c.allow_update_later ? 'true' : 'false') + '">' + c.name + '</option>'; });
@@ -1136,7 +1136,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         surHTML += `</div>`;
     }
 
-    const finRemaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, calcBase + surchargeTotal + vat - discount - deposit - shipCK);
+    const finRemaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : (String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, calcBase + surchargeTotal + vat - discount - deposit - shipCK));
     const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
     var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px">`;
     finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
@@ -3314,8 +3314,8 @@ async function _shOpenUpdateShipmentModal(id, code) {
     const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
     const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
     const hasCarrierPayment = payments.some(p => p.money_source === 'nha_van_chuyen');
-    const shipCK = (!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && !(o.tracking_code && o.tracking_code.trim())) ? (Number(o.shipping_fee) || 0) : 0;
-    const remaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, total - deposit - shipCK);
+    const shipCK = o.ship_ck_deduct !== undefined ? (Number(o.ship_ck_deduct) || 0) : ((!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && !(o.tracking_code && o.tracking_code.trim())) ? (Number(o.shipping_fee) || 0) : 0);
+    const remaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : (String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, total - deposit - shipCK));
 
     let carrierName = o.actual_carrier_name || '';
     let carrierId = o.actual_carrier_id || '';
