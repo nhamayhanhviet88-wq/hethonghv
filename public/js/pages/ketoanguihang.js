@@ -2073,13 +2073,60 @@ function _shToggleSkipPayment() {
     _shRenderPayments(target);
 }
 
-function _shShowReschedule(id, code) {
+async function _shShowReschedule(id, code) {
     document.getElementById('shRescheduleModal')?.remove();
-    // Calculate tomorrow's date for min attribute
+    // Load holidays first so we have them for validation and calculating options
+    await _shLoadHolidays();
+    
+    // Fetch reschedule limit days config
+    let limitVal = null;
+    try {
+        const configRes = await apiCall('/api/app-config/reschedule_limit_days');
+        if (configRes && configRes.value) {
+            limitVal = parseInt(configRes.value, 10);
+        }
+    } catch(e) { console.error(e); }
+
     const _today = vnDateStr();
-    const _tomorrow = new Date(_today);
-    _tomorrow.setUTCDate(_tomorrow.getUTCDate() + 1);
-    const _minDate = _tomorrow.toISOString().split('T')[0];
+    let dateInputHtml = '';
+    
+    if (limitVal && limitVal > 0) {
+        // Generate limitVal valid dates
+        const validDates = [];
+        let checkDate = new Date(_today + 'T00:00:00+07:00');
+        let safetyCounter = 0;
+        while (validDates.length < limitVal && safetyCounter < 100) {
+            safetyCounter++;
+            checkDate.setDate(checkDate.getDate() + 1);
+            const y = checkDate.getFullYear();
+            const m = String(checkDate.getMonth() + 1).padStart(2, '0');
+            const d = String(checkDate.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${d}`;
+            const dayOfWeek = checkDate.getDay();
+            const isSunday = dayOfWeek === 0;
+            const isHoliday = !!_shHolidayMap[dateStr];
+            if (!isSunday && !isHoliday) {
+                const dayName = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][dayOfWeek];
+                validDates.push({ dateStr, label: `${dayName} - ${d}/${m}/${y}` });
+            }
+        }
+        
+        dateInputHtml = `
+            <select id="shNewDate" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;font-weight:700;color:#1e293b;background:white;cursor:pointer;">
+                ${validDates.map(vd => `<option value="${vd.dateStr}">${vd.label}</option>`).join('')}
+            </select>
+        `;
+    } else {
+        // Fallback to normal date picker but validate Sunday + holidays
+        const _tomorrow = new Date(_today);
+        _tomorrow.setUTCDate(_tomorrow.getUTCDate() + 1);
+        const _minDate = _tomorrow.toISOString().split('T')[0];
+        dateInputHtml = `
+            <input type="date" id="shNewDate" min="${_minDate}" onchange="_shCheckHoliday()" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;">
+            <div id="shHolidayWarn" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fca5a5;font-size:12px;color:#dc2626;font-weight:700;"></div>
+        `;
+    }
+
     const m = document.createElement('div');
     m.id = 'shRescheduleModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
@@ -2087,8 +2134,7 @@ function _shShowReschedule(id, code) {
         <div style="font-size:16px;font-weight:800;color:#122546;margin-bottom:16px;">📅 Hẹn Lại — ${code}</div>
         <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:700;color:#374151;">Ngày gửi mới <span style="color:#dc2626">*</span></label>
-            <input type="date" id="shNewDate" min="${_minDate}" onchange="_shCheckHoliday()" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;">
-            <div id="shHolidayWarn" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fca5a5;font-size:12px;color:#dc2626;font-weight:700;"></div>
+            ${dateInputHtml}
         </div>
         <div style="margin-bottom:16px;">
             <label style="font-size:12px;font-weight:700;color:#374151;">Lý do <span style="color:#dc2626">*</span></label>
@@ -2101,8 +2147,6 @@ function _shShowReschedule(id, code) {
     </div>`;
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
-    // Load holidays for validation
-    _shLoadHolidays();
 }
 
 // Holiday cache
@@ -2126,8 +2170,19 @@ function _shCheckHoliday() {
     const warnEl = document.getElementById('shHolidayWarn');
     const btn = document.getElementById('shRescheduleBtn');
     if (!dateVal || !warnEl || !btn) return;
+    
+    // Check Sunday
+    const d = new Date(dateVal + 'T00:00:00+07:00');
+    const isSunday = d.getDay() === 0;
     const holidayName = _shHolidayMap[dateVal];
-    if (holidayName) {
+    
+    if (isSunday) {
+        warnEl.style.display = 'block';
+        warnEl.innerHTML = '⚠️ Ngày ' + dateVal.split('-').reverse().join('/') + ' là <b>Chủ Nhật</b> — Theo quy định không được hẹn vào ngày Chủ Nhật!';
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+    } else if (holidayName) {
         warnEl.style.display = 'block';
         warnEl.innerHTML = '⚠️ Ngày ' + dateVal.split('-').reverse().join('/') + ' là <b>' + holidayName + '</b> — Không được hẹn vào ngày lễ!';
         btn.disabled = true;
@@ -2146,8 +2201,12 @@ async function _shDoReschedule(id) {
     const reason = document.getElementById('shReason')?.value;
     if (!newDate) { alert('Chọn ngày gửi mới'); return; }
     if (!reason?.trim()) { alert('Nhập lý do'); return; }
-    // Double-check holiday on client
+    
+    // Double-check holiday and Sunday on client
+    const d = new Date(newDate + 'T00:00:00+07:00');
+    if (d.getDay() === 0) { alert('⚠️ Không được hẹn vào ngày Chủ Nhật'); return; }
     if (_shHolidayMap[newDate]) { alert('⚠️ Không được hẹn vào ngày lễ: ' + _shHolidayMap[newDate]); return; }
+    
     try {
         const r = await apiCall(`/api/shipping/orders/${id}/reschedule`, 'POST', { new_date: newDate, reason: reason.trim() });
         if (r.error) { alert(r.error); return; }

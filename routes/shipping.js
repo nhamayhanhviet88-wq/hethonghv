@@ -1612,10 +1612,60 @@ module.exports = async function(fastify) {
         const todayStr = vnDateStr(vnNow());
         if (new_date <= todayStr) return reply.code(400).send({ error: 'Ngày gửi mới phải sau hôm nay' });
 
+        // Sunday check
+        const dObj = new Date(new_date + 'T00:00:00+07:00');
+        const vnTimeMs = dObj.getTime();
+        const utcd = new Date(vnTimeMs + 7 * 3600 * 1000);
+        if (utcd.getUTCDay() === 0) {
+            return reply.code(400).send({ error: '⚠️ Theo quy định không được hẹn vào ngày Chủ Nhật' });
+        }
+
         // ★ Holiday check: cannot reschedule to a public holiday
         const holidayRow = await db.get('SELECT holiday_name FROM holidays WHERE holiday_date = $1', [new_date]);
         if (holidayRow) {
             return reply.code(400).send({ error: `⚠️ Không được hẹn vào ngày lễ: ${holidayRow.holiday_name}` });
+        }
+
+        // Limit days check
+        try {
+            const limitRow = await db.get("SELECT value FROM app_config WHERE key = 'reschedule_limit_days'");
+            if (limitRow && limitRow.value) {
+                const limitVal = parseInt(limitRow.value, 10);
+                if (limitVal > 0) {
+                    // Fetch holidays
+                    const holidaysRows = await db.all("SELECT holiday_date FROM holidays");
+                    const holidaysSet = new Set(holidaysRows.map(h => {
+                        if (h.holiday_date instanceof Date) {
+                            return vnDateStr(h.holiday_date);
+                        }
+                        return String(h.holiday_date).split('T')[0].split(' ')[0];
+                    }));
+                    
+                    const validDates = [];
+                    let checkDate = new Date(todayStr + 'T00:00:00+07:00');
+                    let safety = 0;
+                    while (validDates.length < limitVal && safety < 100) {
+                        safety++;
+                        checkDate.setDate(checkDate.getDate() + 1);
+                        const y = checkDate.getFullYear();
+                        const m = String(checkDate.getMonth() + 1).padStart(2, '0');
+                        const d = String(checkDate.getDate()).padStart(2, '0');
+                        const dateStr = `${y}-${m}-${d}`;
+                        const dayOfWeek = checkDate.getDay();
+                        const isSunday = dayOfWeek === 0;
+                        const isHoliday = holidaysSet.has(dateStr);
+                        if (!isSunday && !isHoliday) {
+                            validDates.push(dateStr);
+                        }
+                    }
+                    
+                    if (!validDates.includes(new_date)) {
+                        return reply.code(400).send({ error: `⚠️ Ngày hẹn phải nằm trong giới hạn ${limitVal} ngày làm việc gần nhất (${validDates.join(', ')})` });
+                    }
+                }
+            }
+        } catch(cfgErr) {
+            console.error('[Reschedule limit check error]', cfgErr);
         }
 
         const orderId = Number(request.params.id);
