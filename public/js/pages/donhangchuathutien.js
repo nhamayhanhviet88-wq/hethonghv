@@ -1001,6 +1001,7 @@ async function _dhcttShowShippingDetail(orderId) {
         }
         const o = data.order;
         const items = data.items || [];
+        const payments = data.payments || [];
         
         const shippedItems = items.filter(it => it.shipping_status === 'shipped');
         const totalItemsCount = items.length;
@@ -1238,6 +1239,23 @@ async function _dhcttShowShippingDetail(orderId) {
                             <span style="font-weight:700;color:#d97706">${it.shipping_cashflow_code || '—'}</span>
                         ` : ''}
                         <span style="color:#64748b;font-weight:600;">💰 Cước Vận Chuyển:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
+                        ${(() => {
+                            if (!it.tracking_code) return '';
+                            const cleanCode = it.tracking_code.trim().toLowerCase();
+                            let totalPaid = 0;
+                            let found = false;
+                            for (const p of payments) {
+                                const note = (p.transfer_note || '').toLowerCase();
+                                if (note.includes(cleanCode)) {
+                                    totalPaid += Number(p.amount) || 0;
+                                    found = true;
+                                }
+                            }
+                            if (found && totalPaid > 0) {
+                                return `<span style="color:#64748b;font-weight:600;">💸 Tiền Thanh Toán Vận Chuyển Này:</span> <span style="font-weight:800;color:#10b981">${totalPaid.toLocaleString('vi-VN')}đ</span>`;
+                            }
+                            return '';
+                        })()}
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💵 Số tiền thanh toán:</span> <span style="font-weight:700;color:#0284c7">${(Number(it.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>` : ''}
                         ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
@@ -1327,6 +1345,27 @@ async function _dhcttShowShippingDetail(orderId) {
                 }
                 const _sfee = Number(o.shipping_fee) || 0;
                 shipHTML += row('💰 Cước Vận Chuyển', `<span style="font-weight:800;color:#dc2626">${_sfee.toLocaleString('vi-VN')}đ</span>`);
+                
+                let carrierPaidHtml = '';
+                if (o.tracking_code) {
+                    const cleanCode = o.tracking_code.trim().toLowerCase();
+                    let totalPaid = 0;
+                    let found = false;
+                    for (const p of payments) {
+                        const note = (p.transfer_note || '').toLowerCase();
+                        if (note.includes(cleanCode)) {
+                            totalPaid += Number(p.amount) || 0;
+                            found = true;
+                        }
+                    }
+                    if (found && totalPaid > 0) {
+                        carrierPaidHtml = `<span style="font-weight:800;color:#10b981">${totalPaid.toLocaleString('vi-VN')}đ</span>`;
+                    }
+                }
+                if (carrierPaidHtml) {
+                    shipHTML += row('💸 Tiền Thanh Toán Vận Chuyển Này', carrierPaidHtml);
+                }
+                
                 if (o.shipping_payment_code) {
                     shipHTML += row('💳 Mã thanh toán', `<span style="font-weight:700;color:#059669">${o.shipping_payment_code}</span>`);
                     shipHTML += row('💵 Số tiền thanh toán', `<span style="font-weight:700;color:#0284c7">${(Number(o.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>`);
