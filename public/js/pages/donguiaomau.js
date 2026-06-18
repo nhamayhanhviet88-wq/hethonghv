@@ -323,7 +323,7 @@ function _dgamRenderRows(paged) {
     };
 
     tbody.innerHTML = paged.map(function(o) {
-        var st = _dgamStatusMap[o.order_status] || { label: o.order_status || '—', bg: '#f1f5f9', color: '#475569' };
+        var st = o.status_hoan_hang ? _dgamStatusMap['hoan_hang'] : (_dgamStatusMap[o.order_status] || { label: o.order_status || '—', bg: '#f1f5f9', color: '#475569' });
         var remaining = Number(o.remaining_amount) || 0;
         var remColor = remaining > 0 ? 'var(--danger)' : 'var(--success)';
 
