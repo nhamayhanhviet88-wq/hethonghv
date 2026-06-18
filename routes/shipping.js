@@ -918,7 +918,7 @@ module.exports = async function(fastify) {
                     JOIN dht_orders o ON s.dht_order_id = o.id
                     WHERE s.tracking_code = $1
                     UNION
-                    SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1 AND id <> $2
+                    SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE (tracking_code = $1 OR hoan_hang_tracking_code = $1) AND id <> $2
                 ) LIMIT 1
             `, [trackingCode, sampleId]);
         } else {
@@ -930,7 +930,7 @@ module.exports = async function(fastify) {
                     JOIN dht_orders o ON s.dht_order_id = o.id
                     WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
                     UNION
-                    SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1
+                    SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE (tracking_code = $1 OR hoan_hang_tracking_code = $1)
                 ) LIMIT 1
             `, [trackingCode, dhtOrderId]);
         }
@@ -979,7 +979,7 @@ module.exports = async function(fastify) {
                             JOIN dht_orders o ON s.dht_order_id = o.id
                             WHERE s.tracking_code = $1
                             UNION
-                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1 AND id <> $2
+                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE (tracking_code = $1 OR hoan_hang_tracking_code = $1) AND id <> $2
                         ) LIMIT 1
                     `, [trackingCode, sampleId]);
                     if (dup) {
@@ -1100,7 +1100,7 @@ module.exports = async function(fastify) {
                             JOIN dht_orders o ON s.dht_order_id = o.id
                             WHERE s.tracking_code = $1
                             UNION
-                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1 AND id <> $2
+                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE (tracking_code = $1 OR hoan_hang_tracking_code = $1) AND id <> $2
                         ) LIMIT 1
                     `, [trackingCode, sampleId]);
                     if (dup) {
@@ -1383,7 +1383,7 @@ module.exports = async function(fastify) {
                         JOIN dht_orders o ON s.dht_order_id = o.id
                         WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
                         UNION
-                        SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1
+                        SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE (tracking_code = $1 OR hoan_hang_tracking_code = $1)
                     ) LIMIT 1
                 `, [trackingCode, orderId]);
                 if (dup) {
@@ -2024,7 +2024,7 @@ module.exports = async function(fastify) {
                         JOIN dht_orders o ON s.dht_order_id = o.id
                         WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
                         UNION
-                        SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1
+                        SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE (tracking_code = $1 OR hoan_hang_tracking_code = $1)
                     ) LIMIT 1
                 `, [trackingCode, orderId]);
                 if (dup) {
@@ -2231,7 +2231,7 @@ module.exports = async function(fastify) {
                             JOIN dht_orders o ON s.dht_order_id = o.id
                             WHERE s.tracking_code = $1
                             UNION
-                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1 AND id <> $2
+                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE (tracking_code = $1 OR hoan_hang_tracking_code = $1) AND id <> $2
                         ) LIMIT 1
                     `, [trackingCode, sampleId]);
                     if (dup) {
@@ -2312,7 +2312,7 @@ module.exports = async function(fastify) {
                             JOIN dht_orders o ON s.dht_order_id = o.id
                             WHERE s.tracking_code = $1
                             UNION
-                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1 AND id <> $2
+                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE (tracking_code = $1 OR hoan_hang_tracking_code = $1) AND id <> $2
                         ) LIMIT 1
                     `, [trackingCode, sampleId]);
                     if (dup) {
@@ -2531,7 +2531,7 @@ module.exports = async function(fastify) {
                             JOIN dht_orders o ON s.dht_order_id = o.id
                             WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
                             UNION
-                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1
+                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE (tracking_code = $1 OR hoan_hang_tracking_code = $1)
                         ) LIMIT 1
                     `, [trackingCode, orderId]);
                     if (dup) {
