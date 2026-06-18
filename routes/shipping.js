@@ -529,94 +529,260 @@ module.exports = async function(fastify) {
             ORDER BY d.ship_date DESC NULLS LAST, d.created_at DESC
         `, sampleParams);
 
-        const mappedSampleOrders = sampleOrdersRows.map(row => {
-            const isShipped = row.status_gui_don === true || row.order_status === 'da_gui' || row.order_status === 'hoan_thanh';
-            return {
-                id: 'sample_' + row.id,
-                order_code: row.order_code,
-                order_date: row.order_date,
-                expected_ship_date: row.expected_ship_date,
-                rescheduled_ship_date: null,
-                reschedule_reason: null,
-                shipping_status: isShipped ? 'shipped' : 'pending',
-                shipping_priority: row.shipping_priority || 'Chuẩn',
-                delivery_progress: null,
-                customer_name: row.customer_name,
-                customer_phone: row.customer_phone,
-                province: row.province,
-                address: row.address,
-                tracking_code: row.tracking_code,
-                carrier_phone: row.carrier_phone,
-                shipping_bill_link: row.shipping_bill_link,
-                shipped_by: row.shipped_by,
-                shipped_at: row.shipped_at,
-                total_amount: row.total_amount,
-                carrier_id: null,
-                actual_carrier_id: row.actual_carrier_id,
-                created_by: row.created_by,
-                cskh_user_id: row.created_by,
-                sale_note_for_accountant: row.sale_note_for_accountant,
-                shipping_fee: row.shipping_fee,
-                shipping_fee_payer: row.shipping_fee_payer,
-                shipping_fee_method: row.shipping_fee_method,
-                receiver_name: row.customer_name,
-                discount_amount: 0,
-                has_vat: false,
-                vat_amount: 0,
-                deposit_amount_cache: row.deposit_amount,
-                carrier_extra: null,
-                notes: row.sale_note_for_accountant,
-                standard_delivery_time: row.ship_time || null,
-                standard_proof_image: null,
-                category_id: null,
-                carrier_name: row.shipping_method || null,
-                actual_carrier_name: row.actual_carrier_name,
-                actual_carrier_tracking_url: row.actual_carrier_tracking_url,
-                cskh_name: row.created_by_name,
-                created_by_name: row.created_by_name,
-                shipped_by_name: row.shipped_by_name,
-                effective_ship_date: row.expected_ship_date,
-                is_overdue: !isShipped && row.expected_ship_date && new Date(row.expected_ship_date) < new Date(todayStr),
-                deposit_amount: row.deposit_amount || 0,
-                remaining_amount: row.remaining_amount,
-                is_pending_update: !!row.is_pending_update,
-                items: [{
-                    item_id: 'sample_item_' + row.id,
-                    dht_order_id: 'sample_' + row.id,
-                    product_name: row.product_name || 'Áo mẫu',
-                    description: `Lĩnh vực: ${row.linh_vuc || '—'} | Thể loại: ${row.category || '—'}`,
-                    category: row.category || 'Gửi mẫu áo',
-                    linh_vuc: row.linh_vuc || '—',
-                    quantity: row.quantity || 1,
-                    price_per_item: row.price_per_item || 0,
-                    total_amount: row.total_amount || 0,
-                    accounting_notes: '',
-                    shipping_status: isShipped ? 'shipped' : 'pending',
-                    shipped_at: row.shipped_at,
-                    shipped_by: row.shipped_by,
-                    shipping_date: row.expected_ship_date,
-                    actual_carrier_id: row.actual_carrier_id,
-                    actual_carrier_name: row.actual_carrier_name,
-                    tracking_code: row.tracking_code,
-                    shipping_bill_link: row.shipping_bill_link,
-                    carrier_phone: row.carrier_phone,
-                    receiver_name: row.customer_name,
-                    shipping_fee: row.shipping_fee,
-                    shipping_fee_payer: row.shipping_fee_payer,
-                    shipping_fee_method: row.shipping_fee_method,
-                    cut_done: true,
-                    print_done: true,
-                    press_done: true,
-                    sew_done: true,
-                    qc_done: true,
-                    finish_done: true,
-                    all_done: true,
-                    missing_steps: []
-                }]
-            };
-        });
+         const mappedSampleOrders = sampleOrdersRows.map(row => {
+             const isShipped = row.status_gui_don === true || row.order_status === 'da_gui' || row.order_status === 'hoan_thanh';
+             return {
+                 id: 'sample_' + row.id,
+                 order_code: row.order_code,
+                 order_date: row.order_date,
+                 expected_ship_date: row.expected_ship_date,
+                 rescheduled_ship_date: null,
+                 reschedule_reason: null,
+                 shipping_status: isShipped ? 'shipped' : 'pending',
+                 shipping_priority: row.shipping_priority || 'Chuẩn',
+                 delivery_progress: null,
+                 customer_name: row.customer_name,
+                 customer_phone: row.customer_phone,
+                 province: row.province,
+                 address: row.address,
+                 tracking_code: row.tracking_code,
+                 carrier_phone: row.carrier_phone,
+                 shipping_bill_link: row.shipping_bill_link,
+                 shipped_by: row.shipped_by,
+                 shipped_at: row.shipped_at,
+                 total_amount: row.total_amount,
+                 carrier_id: null,
+                 actual_carrier_id: row.actual_carrier_id,
+                 created_by: row.created_by,
+                 cskh_user_id: row.created_by,
+                 sale_note_for_accountant: row.sale_note_for_accountant,
+                 shipping_fee: row.shipping_fee,
+                 shipping_fee_payer: row.shipping_fee_payer,
+                 shipping_fee_method: row.shipping_fee_method,
+                 receiver_name: row.customer_name,
+                 discount_amount: 0,
+                 has_vat: false,
+                 vat_amount: 0,
+                 deposit_amount_cache: row.deposit_amount,
+                 carrier_extra: null,
+                 notes: row.sale_note_for_accountant,
+                 standard_delivery_time: row.ship_time || null,
+                 standard_proof_image: null,
+                 category_id: null,
+                 carrier_name: row.shipping_method || null,
+                 actual_carrier_name: row.actual_carrier_name,
+                 actual_carrier_tracking_url: row.actual_carrier_tracking_url,
+                 cskh_name: row.created_by_name,
+                 created_by_name: row.created_by_name,
+                 shipped_by_name: row.shipped_by_name,
+                 effective_ship_date: row.expected_ship_date,
+                 is_overdue: !isShipped && row.expected_ship_date && new Date(row.expected_ship_date) < new Date(todayStr),
+                 deposit_amount: row.deposit_amount || 0,
+                 remaining_amount: row.remaining_amount,
+                 is_pending_update: !!row.is_pending_update,
+                 items: [{
+                     item_id: 'sample_item_' + row.id,
+                     dht_order_id: 'sample_' + row.id,
+                     product_name: row.product_name || 'Áo mẫu',
+                     description: `Lĩnh vực: ${row.linh_vuc || '—'} | Thể loại: ${row.category || '—'}`,
+                     category: row.category || 'Gửi mẫu áo',
+                     linh_vuc: row.linh_vuc || '—',
+                     quantity: row.quantity || 1,
+                     price_per_item: row.price_per_item || 0,
+                     total_amount: row.total_amount || 0,
+                     accounting_notes: '',
+                     shipping_status: isShipped ? 'shipped' : 'pending',
+                     shipped_at: row.shipped_at,
+                     shipped_by: row.shipped_by,
+                     shipping_date: row.expected_ship_date,
+                     actual_carrier_id: row.actual_carrier_id,
+                     actual_carrier_name: row.actual_carrier_name,
+                     tracking_code: row.tracking_code,
+                     shipping_bill_link: row.shipping_bill_link,
+                     carrier_phone: row.carrier_phone,
+                     receiver_name: row.customer_name,
+                     shipping_fee: row.shipping_fee,
+                     shipping_fee_payer: row.shipping_fee_payer,
+                     shipping_fee_method: row.shipping_fee_method,
+                     cut_done: true,
+                     print_done: true,
+                     press_done: true,
+                     sew_done: true,
+                     qc_done: true,
+                     finish_done: true,
+                     all_done: true,
+                     missing_steps: []
+                 }]
+             };
+         });
 
-        const combinedOrders = [...orders, ...mappedSampleOrders];
+         // ------------------ RETURN SAMPLE ORDERS ------------------
+         let hoanWhere = '';
+         const hoanParams = [];
+         if (!FULL_VIEW_ROLES.includes(userRole)) {
+             const kt = await isKeToan(userId);
+             if (!kt) {
+                 hoanWhere += ` AND d.created_by = $1`;
+                 hoanParams.push(userId);
+             }
+         }
+         let hoanTodayIdx = hoanParams.length + 1;
+         if (filter === 'early') {
+             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $${hoanTodayIdx}::date < d.hoan_hang_ship_date`;
+             hoanParams.push(todayParam);
+         } else if (filter === 'today') {
+             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $${hoanTodayIdx}::date >= d.hoan_hang_ship_date`;
+             hoanParams.push(todayParam);
+         } else if (filter === 'rescheduled') {
+             hoanWhere += ` AND 1=0`;
+         } else if (filter === 'shipped') {
+             hoanWhere += ` AND d.status_gui_don_hoan = true`;
+         } else if (filter === 'all') {
+             hoanWhere += ` AND d.status_hoan_hang = true`;
+         }
+
+         let hoanSampleOrdersRows = [];
+         if (filter !== 'rescheduled') {
+             hoanSampleOrdersRows = await db.all(`
+                 SELECT 
+                     d.id,
+                     d.sample_order_code AS order_code,
+                     d.order_date,
+                     d.hoan_hang_ship_date AS expected_ship_date,
+                     d.order_status,
+                     d.status_gui_don_hoan,
+                     d.hoan_hang_shipping_priority AS shipping_priority,
+                     d.customer_name,
+                     d.customer_phone,
+                     d.province,
+                     d.address,
+                     d.hoan_hang_tracking_code AS tracking_code,
+                     NULL AS carrier_phone,
+                     d.hoan_hang_shipping_bill_link AS shipping_bill_link,
+                     d.hoan_hang_shipped_by AS shipped_by,
+                     d.hoan_hang_shipped_at AS shipped_at,
+                     d.total_amount,
+                     d.hoan_hang_actual_carrier_id AS actual_carrier_id,
+                     d.hoan_hang_is_pending_update AS is_pending_update,
+                     d.created_by,
+                     d.hoan_hang_sale_note AS sale_note_for_accountant,
+                     d.return_shipping_fee AS shipping_fee,
+                     d.return_payer AS shipping_fee_payer,
+                     d.return_payment_method AS shipping_fee_method,
+                     d.approval_date,
+                     d.approved_at,
+                     d.quantity,
+                     d.product_name,
+                     d.category,
+                     d.linh_vuc,
+                     d.deposit_amount,
+                     d.price AS price_per_item,
+                     d.hoan_hang_shipping_method AS shipping_method,
+                     d.hoan_hang_ship_time AS ship_time,
+                     d.hoan_hang_chuan_proof_image AS standard_proof_image,
+                     cr.name AS actual_carrier_name,
+                     cr.tracking_url_template AS actual_carrier_tracking_url,
+                     u_created.full_name AS created_by_name,
+                     u_shipped.full_name AS shipped_by_name
+                 FROM don_gui_ao_mau d
+                 LEFT JOIN dht_carriers cr ON d.hoan_hang_actual_carrier_id = cr.id
+                 LEFT JOIN users u_created ON d.created_by = u_created.id
+                 LEFT JOIN users u_shipped ON d.hoan_hang_shipped_by = u_shipped.id
+                 WHERE d.status_hoan_hang = true
+                 ${hoanWhere}
+                 ORDER BY d.hoan_hang_ship_date DESC NULLS LAST, d.created_at DESC
+             `, hoanParams);
+         }
+
+         const mappedHoanSampleOrders = hoanSampleOrdersRows.map(row => {
+             const isShipped = row.status_gui_don_hoan === true;
+             return {
+                 id: 'sample_hoan_' + row.id,
+                 order_code: row.order_code,
+                 order_date: row.order_date,
+                 expected_ship_date: row.expected_ship_date,
+                 rescheduled_ship_date: null,
+                 reschedule_reason: null,
+                 shipping_status: isShipped ? 'shipped' : 'pending',
+                 shipping_priority: row.shipping_priority || 'Chuẩn',
+                 delivery_progress: null,
+                 customer_name: row.customer_name,
+                 customer_phone: row.customer_phone,
+                 province: row.province,
+                 address: row.address,
+                 tracking_code: row.tracking_code,
+                 carrier_phone: row.carrier_phone,
+                 shipping_bill_link: row.shipping_bill_link,
+                 shipped_by: row.shipped_by,
+                 shipped_at: row.shipped_at,
+                 total_amount: row.total_amount,
+                 carrier_id: null,
+                 actual_carrier_id: row.actual_carrier_id,
+                 created_by: row.created_by,
+                 cskh_user_id: row.created_by,
+                 sale_note_for_accountant: row.sale_note_for_accountant,
+                 shipping_fee: row.shipping_fee,
+                 shipping_fee_payer: row.shipping_fee_payer,
+                 shipping_fee_method: row.shipping_fee_method,
+                 receiver_name: row.customer_name,
+                 discount_amount: 0,
+                 has_vat: false,
+                 vat_amount: 0,
+                 deposit_amount_cache: row.deposit_amount,
+                 carrier_extra: null,
+                 notes: row.sale_note_for_accountant,
+                 standard_delivery_time: row.ship_time || null,
+                 standard_proof_image: row.standard_proof_image || null,
+                 category_id: null,
+                 carrier_name: row.shipping_method || null,
+                 actual_carrier_name: row.actual_carrier_name,
+                 actual_carrier_tracking_url: row.actual_carrier_tracking_url,
+                 cskh_name: row.created_by_name,
+                 created_by_name: row.created_by_name,
+                 shipped_by_name: row.shipped_by_name,
+                 effective_ship_date: row.expected_ship_date,
+                 is_overdue: !isShipped && row.expected_ship_date && new Date(row.expected_ship_date) < new Date(todayStr),
+                 deposit_amount: row.deposit_amount || 0,
+                 remaining_amount: Math.max(0, (Number(row.total_amount) || 0) - (Number(row.deposit_amount) || 0)),
+                 is_pending_update: !!row.is_pending_update,
+                 is_hoan_hang: true,
+                 items: [{
+                     item_id: 'sample_hoan_item_' + row.id,
+                     dht_order_id: 'sample_hoan_' + row.id,
+                     product_name: '🔄 [HOÀN] ' + (row.product_name || 'Áo mẫu'),
+                     description: `Lĩnh vực: ${row.linh_vuc || '—'} | Thể loại: ${row.category || '—'}`,
+                     category: row.category || 'Gửi mẫu áo',
+                     linh_vuc: row.linh_vuc || '—',
+                     quantity: row.quantity || 1,
+                     price_per_item: row.price_per_item || 0,
+                     total_amount: row.total_amount || 0,
+                     accounting_notes: '',
+                     shipping_status: isShipped ? 'shipped' : 'pending',
+                     shipped_at: row.shipped_at,
+                     shipped_by: row.shipped_by,
+                     shipping_date: row.expected_ship_date,
+                     actual_carrier_id: row.actual_carrier_id,
+                     actual_carrier_name: row.actual_carrier_name,
+                     tracking_code: row.tracking_code,
+                     shipping_bill_link: row.shipping_bill_link,
+                     carrier_phone: row.carrier_phone,
+                     receiver_name: row.customer_name,
+                     shipping_fee: row.shipping_fee,
+                     shipping_fee_payer: row.shipping_fee_payer,
+                     shipping_fee_method: row.shipping_fee_method,
+                     cut_done: true,
+                     print_done: true,
+                     press_done: true,
+                     sew_done: true,
+                     qc_done: true,
+                     finish_done: true,
+                     all_done: true,
+                     missing_steps: []
+                 }]
+             };
+         });
+ 
+         const combinedOrders = [...orders, ...mappedSampleOrders, ...mappedHoanSampleOrders];
 
         // Sort combined list: if filter is early/today, sort by expected_ship_date ASC, else by shipped_at DESC
         if (filter === 'early' || filter === 'today') {
@@ -675,11 +841,24 @@ module.exports = async function(fastify) {
             ${countVisibilityFilter}
         `, countParams);
 
+        const sampleHoanCounts = await db.get(`
+            SELECT
+                COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $1::date < d.hoan_hang_ship_date) AS early_count,
+                COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $1::date >= d.hoan_hang_ship_date) AS today_count,
+                COUNT(*) FILTER (WHERE d.status_gui_don_hoan = true) AS shipped_count
+            FROM don_gui_ao_mau d
+            WHERE d.status_hoan_hang = true
+            ${countVisibilityFilter}
+        `, countParams);
+
         const sampleOverdueCount = await db.get(`
             SELECT COUNT(*) AS cnt FROM don_gui_ao_mau d
-            WHERE d.status_duyet = true AND d.status_gui_don = false
-              AND d.ship_date < $1::date
-              ${countVisibilityFilter}
+            WHERE (
+                (d.status_duyet = true AND d.status_gui_don = false AND d.ship_date < $1::date)
+                OR
+                (d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.hoan_hang_ship_date < $1::date)
+            )
+            ${countVisibilityFilter}
         `, countParams);
 
         // Overdue count
@@ -694,10 +873,10 @@ module.exports = async function(fastify) {
         return {
             orders: combinedOrders,
             counts: {
-                early: (Number(counts?.early_count) || 0) + (Number(sampleCounts?.early_count) || 0),
-                today: (Number(counts?.today_count) || 0) + (Number(sampleCounts?.today_count) || 0),
+                early: (Number(counts?.early_count) || 0) + (Number(sampleCounts?.early_count) || 0) + (Number(sampleHoanCounts?.early_count) || 0),
+                today: (Number(counts?.today_count) || 0) + (Number(sampleCounts?.today_count) || 0) + (Number(sampleHoanCounts?.today_count) || 0),
                 rescheduled: Number(counts?.rescheduled_count) || 0,
-                shipped: (Number(counts?.shipped_count) || 0) + (Number(sampleCounts?.shipped_count) || 0),
+                shipped: (Number(counts?.shipped_count) || 0) + (Number(sampleCounts?.shipped_count) || 0) + (Number(sampleHoanCounts?.shipped_count) || 0),
                 overdue: (Number(overdueCount?.cnt) || 0) + (Number(sampleOverdueCount?.cnt) || 0)
             }
         };
@@ -768,7 +947,127 @@ module.exports = async function(fastify) {
         }
 
         const rawId = String(request.params.id);
-        if (rawId.startsWith('sample_')) {
+        if (rawId.startsWith('sample_hoan_')) {
+            const sampleId = Number(rawId.replace('sample_hoan_', ''));
+            const order = await db.get('SELECT id, sample_order_code AS order_code, total_amount, deposit_amount, customer_name, customer_phone, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
+            if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });
+
+            const b = request.body || {};
+            const isPendingUpdate = !!b.is_pending_update;
+
+            if (isPendingUpdate) {
+                const carrier = await db.get('SELECT allow_update_later FROM dht_carriers WHERE id = $1', [Number(b.actual_carrier_id)]);
+                if (!carrier || !carrier.allow_update_later) {
+                    return reply.code(400).send({ error: 'Nhà vận chuyển này không hỗ trợ cập nhật phí/bill sau' });
+                }
+            }
+
+            if (!isPendingUpdate && b.tracking_code) {
+                const trackingCode = String(b.tracking_code).trim();
+                if (trackingCode) {
+                    const dup = await db.get(`
+                        SELECT order_code FROM (
+                            SELECT order_code FROM dht_orders WHERE tracking_code = $1
+                            UNION
+                            SELECT o.order_code FROM dht_order_shipments s
+                            JOIN dht_orders o ON s.dht_order_id = o.id
+                            WHERE s.tracking_code = $1
+                            UNION
+                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1 AND id <> $2
+                        ) LIMIT 1
+                    `, [trackingCode, sampleId]);
+                    if (dup) {
+                        return reply.code(400).send({ error: `⚠️ Mã Vận Đơn * này đã bị trùng với đơn ${dup.order_code}` });
+                    }
+                }
+            }
+
+            if (!b.actual_carrier_id) return reply.code(400).send({ error: 'Vui lòng chọn Nhà Vận Chuyển' });
+
+            const isNoFeeCarrier = !!b.no_fee_carrier;
+            if (!isPendingUpdate && !isNoFeeCarrier) {
+                if (b.shipping_fee === undefined || b.shipping_fee === null || b.shipping_fee === '') {
+                    return reply.code(400).send({ error: 'Vui lòng nhập phí gửi hàng' });
+                }
+            }
+            const shipFee = (isPendingUpdate || isNoFeeCarrier) ? 0 : Number(b.shipping_fee);
+            if (!isPendingUpdate && !isNoFeeCarrier) {
+                if (isNaN(shipFee) || shipFee < 0) return reply.code(400).send({ error: 'Phí gửi hàng không hợp lệ' });
+            }
+
+            if (!isPendingUpdate && !isNoFeeCarrier) {
+                if (!b.shipping_fee_payer || !['hv', 'khach'].includes(b.shipping_fee_payer)) {
+                    return reply.code(400).send({ error: 'Vui lòng chọn Người trả phí' });
+                }
+                if (!b.shipping_fee_method || !['ck', 'tm'].includes(b.shipping_fee_method)) {
+                    return reply.code(400).send({ error: 'Vui lòng chọn Hình thức trả' });
+                }
+            }
+
+            const now = vnNow();
+            const todayStr = vnDateStr(now);
+
+            // Update database for sample return order
+            const sets = [];
+            const params = [];
+            let idx = 1;
+
+            sets.push(`status_gui_don_hoan = true`);
+            sets.push(`hoan_hang_shipped_by = $${idx++}`); params.push(userId);
+            sets.push(`hoan_hang_shipped_at = $${idx++}`); params.push(now.toISOString());
+            sets.push(`hoan_hang_actual_carrier_id = $${idx++}`); params.push(Number(b.actual_carrier_id));
+            sets.push(`hoan_hang_is_pending_update = $${idx++}`); params.push(isPendingUpdate);
+
+            if (!isPendingUpdate && b.tracking_code) { sets.push(`hoan_hang_tracking_code = $${idx++}`); params.push(b.tracking_code); }
+            if (!isPendingUpdate && b.shipping_bill_link) { sets.push(`hoan_hang_shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
+
+            sets.push(`return_shipping_fee = $${idx++}`); params.push(shipFee);
+            sets.push(`return_payer = $${idx++}`); params.push(isPendingUpdate ? null : b.shipping_fee_payer);
+            sets.push(`return_payment_method = $${idx++}`); params.push(isPendingUpdate ? null : b.shipping_fee_method);
+
+            let cashflowResult = null;
+            let cfDescription = null;
+            if (!isPendingUpdate && b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
+                try {
+                    const seq = await _getNextTMSeq(todayStr);
+                    const cfCode = _buildTMCode(seq, todayStr);
+                    cfDescription = `Tiền ship gửi HÀNG HOÀN mẫu đơn ${order.order_code}`;
+                    const cfImageUrl = b.shipping_bill_link || null;
+
+                    await db.run(`
+                        INSERT INTO payment_records (payment_code, payment_method, daily_seq, amount, payment_type, transfer_note, money_source, source, payment_date, created_by)
+                        VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'cashflow_chi', $5, $6)
+                    `, [cfCode, seq, shipFee, cfDescription, todayStr, userId]);
+
+                    cashflowResult = await db.get(`
+                        INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, order_code, image_url, money_source, created_by)
+                        VALUES ($1, 'CHI', $2, $3, $4, $5, $6, $7, 'congty', $8)
+                        RETURNING id, cashflow_code
+                    `, [cfCode, seq, todayStr, cfDescription, shipFee, order.order_code, cfImageUrl, userId]);
+
+                    sets.push(`hoan_hang_shipping_cashflow_id = $${idx++}`);
+                    params.push(cashflowResult.id);
+                } catch (cfErr) {
+                    console.error('[Ship Return Sample Cashflow] Error:', cfErr.message);
+                    return reply.code(500).send({ error: 'Lỗi tạo phiếu chi tiền ship hoàn: ' + cfErr.message });
+                }
+            }
+
+            if (!isPendingUpdate && b.selected_payment_id) {
+                sets.push(`hoan_hang_shipping_payment_id = $${idx++}`);
+                params.push(Number(b.selected_payment_id));
+            }
+
+            params.push(sampleId);
+            await db.run(`UPDATE don_gui_ao_mau SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+
+            await db.run(
+                `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+                [sampleId, 'ship_hoan', `Xác nhận gửi hàng hoàn. Phí ship: ${shipFee}đ, NVC: ${b.actual_carrier_id}`, userId]
+            );
+
+            return { success: true };
+        } else if (rawId.startsWith('sample_')) {
             const sampleId = Number(rawId.replace('sample_', ''));
             const order = await db.get('SELECT id, sample_order_code AS order_code, total_amount, deposit_amount, customer_name, customer_phone, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
             if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });
@@ -1910,7 +2209,88 @@ module.exports = async function(fastify) {
         const now = vnNow();
         const todayStr = vnDateStr(now);
 
-        if (rawId.startsWith('sample_')) {
+        if (rawId.startsWith('sample_hoan_')) {
+            const sampleId = Number(rawId.replace('sample_hoan_', ''));
+            const order = await db.get('SELECT id, sample_order_code AS order_code, total_amount, deposit_amount, actual_carrier_id, customer_name, customer_phone, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
+            if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });
+
+            if (b.tracking_code) {
+                const trackingCode = String(b.tracking_code).trim();
+                if (trackingCode) {
+                    const dup = await db.get(`
+                        SELECT order_code FROM (
+                            SELECT order_code FROM dht_orders WHERE tracking_code = $1
+                            UNION
+                            SELECT o.order_code FROM dht_order_shipments s
+                            JOIN dht_orders o ON s.dht_order_id = o.id
+                            WHERE s.tracking_code = $1
+                            UNION
+                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1 AND id <> $2
+                        ) LIMIT 1
+                    `, [trackingCode, sampleId]);
+                    if (dup) {
+                        return reply.code(400).send({ error: `⚠️ Mã Vận Đơn * này đã bị trùng với đơn ${dup.order_code}` });
+                    }
+                }
+            }
+
+            const sets = [
+                `hoan_hang_is_pending_update = false`,
+                `return_shipping_fee = $1`,
+                `return_payer = $2`,
+                `return_payment_method = $3`,
+                `updated_at = NOW()`,
+                `updated_by = $4`
+            ];
+            const params = [shipFee, b.shipping_fee_payer, b.shipping_fee_method, userId];
+            let idx = 5;
+
+            if (b.tracking_code) { sets.push(`hoan_hang_tracking_code = $${idx++}`); params.push(b.tracking_code); }
+            if (b.shipping_bill_link) { sets.push(`hoan_hang_shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
+
+            let cashflowResult = null;
+            let cfDescription = null;
+            if (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
+                try {
+                    const seq = await _getNextTMSeq(todayStr);
+                    const cfCode = _buildTMCode(seq, todayStr);
+                    cfDescription = `Tiền ship gửi HÀNG HOÀN mẫu đơn ${order.order_code} (cập nhật sau)`;
+                    const cfImageUrl = b.shipping_bill_link || null;
+
+                    await db.run(`
+                        INSERT INTO payment_records (payment_code, payment_method, daily_seq, amount, payment_type, transfer_note, money_source, source, payment_date, created_by)
+                        VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'cashflow_chi', $5, $6)
+                    `, [cfCode, seq, shipFee, cfDescription, todayStr, userId]);
+
+                    cashflowResult = await db.get(`
+                        INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, order_code, image_url, money_source, created_by)
+                        VALUES ($1, 'CHI', $2, $3, $4, $5, $6, $7, 'congty', $8)
+                        RETURNING id, cashflow_code
+                    `, [cfCode, seq, todayStr, cfDescription, shipFee, order.order_code, cfImageUrl, userId]);
+
+                    sets.push(`hoan_hang_shipping_cashflow_id = $${idx++}`);
+                    params.push(cashflowResult.id);
+                } catch (cfErr) {
+                    console.error('[Update Return Sample Cashflow] Error:', cfErr.message);
+                    return reply.code(500).send({ error: 'Lỗi tạo phiếu chi tiền ship hoàn: ' + cfErr.message });
+                }
+            }
+
+            if (b.selected_payment_id) {
+                sets.push(`hoan_hang_shipping_payment_id = $${idx++}`);
+                params.push(Number(b.selected_payment_id));
+            }
+
+            params.push(sampleId);
+            await db.run(`UPDATE don_gui_ao_mau SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+
+            await db.run(
+                `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+                [sampleId, 'update_ship_hoan', `Cập nhật thông tin gửi hàng hoàn. Phí ship: ${shipFee}đ`, userId]
+            );
+
+            return { success: true };
+        } else if (rawId.startsWith('sample_')) {
             const sampleId = Number(rawId.replace('sample_', ''));
             const order = await db.get('SELECT id, sample_order_code AS order_code, total_amount, deposit_amount, actual_carrier_id, customer_name, customer_phone, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
             if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });

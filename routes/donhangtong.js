@@ -1449,6 +1449,108 @@ module.exports = async function(fastify) {
 
     // ========== ORDERS: Detail (full info) ==========
     fastify.get('/api/dht/orders/:id/detail', { preHandler: [authenticate] }, async (request, reply) => {
+        if (String(request.params.id).startsWith('sample_hoan_')) {
+            const sampleId = Number(String(request.params.id).replace('sample_hoan_', ''));
+            const row = await db.get(`
+                SELECT d.*, 
+                       u_created.full_name AS created_by_name,
+                       u_shipped.full_name AS shipped_by_name,
+                       cr.name AS actual_carrier_name,
+                       cr.tracking_url_template AS actual_carrier_tracking_url,
+                       cf_ship.cashflow_code AS shipping_cashflow_code
+                FROM don_gui_ao_mau d
+                LEFT JOIN dht_carriers cr ON d.hoan_hang_actual_carrier_id = cr.id
+                LEFT JOIN users u_created ON d.created_by = u_created.id
+                LEFT JOIN users u_shipped ON d.hoan_hang_shipped_by = u_shipped.id
+                LEFT JOIN cashflow_records cf_ship ON d.hoan_hang_shipping_cashflow_id = cf_ship.id
+                WHERE d.id = $1
+            `, [sampleId]);
+            if (!row) return reply.code(404).send({ error: 'Không tìm thấy đơn mẫu hàng hoàn' });
+
+            const order = {
+                id: 'sample_hoan_' + row.id,
+                order_code: row.sample_order_code,
+                order_date: row.order_date,
+                expected_ship_date: row.hoan_hang_ship_date,
+                rescheduled_ship_date: null,
+                reschedule_reason: null,
+                shipping_status: row.status_gui_don_hoan ? 'shipped' : 'pending',
+                shipping_priority: row.hoan_hang_shipping_priority || 'Chuẩn',
+                delivery_progress: null,
+                customer_name: row.customer_name,
+                customer_phone: row.customer_phone,
+                province: row.province,
+                address: row.address,
+                tracking_code: row.hoan_hang_tracking_code,
+                carrier_phone: null,
+                shipping_bill_link: row.hoan_hang_shipping_bill_link,
+                shipped_by: row.hoan_hang_shipped_by,
+                shipped_at: row.hoan_hang_shipped_at,
+                total_amount: row.total_amount,
+                actual_carrier_id: row.hoan_hang_actual_carrier_id,
+                created_by: row.created_by,
+                cskh_user_id: row.created_by,
+                sale_note_for_accountant: row.hoan_hang_sale_note,
+                shipping_fee: row.return_shipping_fee,
+                shipping_fee_payer: row.return_payer,
+                shipping_fee_method: row.return_payment_method,
+                shipping_payment_id: row.hoan_hang_shipping_payment_id,
+                shipping_cashflow_code: row.shipping_cashflow_code,
+                receiver_name: row.customer_name,
+                actual_carrier_name: row.actual_carrier_name,
+                actual_carrier_tracking_url: row.actual_carrier_tracking_url,
+                cskh_name: row.created_by_name,
+                created_by_name: row.created_by_name,
+                shipped_by_name: row.shipped_by_name,
+                deposit_amount: row.deposit_amount || 0,
+                remaining_amount: Math.max(0, (Number(row.total_amount) || 0) - (Number(row.deposit_amount) || 0)),
+                carrier_name: row.hoan_hang_shipping_method || null,
+                standard_delivery_time: row.hoan_hang_ship_time || null,
+                sample_image: row.sample_image || null,
+                chuan_proof_image: row.hoan_hang_chuan_proof_image || null,
+                standard_proof_image: row.hoan_hang_chuan_proof_image || null,
+                is_hoan_hang: true
+            };
+
+            const items = [{
+                id: 'sample_hoan_item_' + row.id,
+                dht_order_id: 'sample_hoan_' + row.id,
+                product_name: '🔄 [HOÀN] ' + (row.product_name || 'Áo mẫu'),
+                description: `Lĩnh vực: ${row.linh_vuc || '—'} | Thể loại: ${row.category || '—'}`,
+                category: row.category || 'Gửi mẫu áo',
+                linh_vuc: row.linh_vuc || '—',
+                quantity: row.quantity || 1,
+                price_per_item: row.price || 0,
+                total_amount: row.total_amount || 0,
+                accounting_notes: '',
+                shipping_status: row.status_gui_don_hoan ? 'shipped' : 'pending',
+                shipped_at: row.hoan_hang_shipped_at,
+                shipped_by: row.hoan_hang_shipped_by,
+                shipping_date: row.hoan_hang_ship_date,
+                actual_carrier_id: row.hoan_hang_actual_carrier_id,
+                actual_carrier_name: row.actual_carrier_name,
+                tracking_code: row.hoan_hang_tracking_code,
+                shipping_bill_link: row.hoan_hang_shipping_bill_link,
+                carrier_phone: null,
+                receiver_name: row.customer_name,
+                shipping_fee: row.return_shipping_fee,
+                shipping_fee_payer: row.return_payer,
+                shipping_fee_method: row.return_payment_method,
+                shipping_cashflow_code: row.shipping_cashflow_code
+            }];
+
+            return {
+                order,
+                items,
+                payments: [],
+                surcharges: [],
+                audit_logs: [],
+                logs: [],
+                has_edit_history: false,
+                is_sample: true
+            };
+        }
+
         if (String(request.params.id).startsWith('sample_')) {
             const sampleId = Number(String(request.params.id).replace('sample_', ''));
             const row = await db.get(`

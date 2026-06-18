@@ -60,6 +60,24 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS shipping_payment_id INTEGER`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS chuan_proof_image TEXT`);
+
+        // Return shipping columns
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_ship_date DATE`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_shipping_priority TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_shipping_method TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_sale_note TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_ship_time TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_chuan_proof_image TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS status_gui_don_hoan BOOLEAN DEFAULT false`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_actual_carrier_id INTEGER`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_tracking_code TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_shipping_bill_link TEXT`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_shipped_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_shipped_by INTEGER`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_is_pending_update BOOLEAN DEFAULT false`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_shipping_cashflow_id INTEGER`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_shipping_payment_id INTEGER`);
+
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_order_date ON don_gui_ao_mau(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_status ON don_gui_ao_mau(order_status)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_code ON don_gui_ao_mau(sample_order_code)`);
@@ -272,7 +290,9 @@ module.exports = async function(fastify) {
                 u.full_name AS created_by_name,
                 uu.full_name AS updated_by_name,
                 u_shipped.full_name AS shipped_by_name,
+                u_shipped_hoan.full_name AS hoan_shipped_by_name,
                 cr.name AS actual_carrier_name,
+                cr_hoan.name AS hoan_actual_carrier_name,
                 cr.tracking_url_template AS actual_carrier_tracking_url,
                 cf_ship.cashflow_code AS shipping_cashflow_code,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
@@ -281,7 +301,9 @@ module.exports = async function(fastify) {
             LEFT JOIN users u ON d.created_by = u.id
             LEFT JOIN users uu ON d.updated_by = uu.id
             LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
+            LEFT JOIN users u_shipped_hoan ON d.hoan_hang_shipped_by = u_shipped_hoan.id
             LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
+            LEFT JOIN dht_carriers cr_hoan ON d.hoan_hang_actual_carrier_id = cr_hoan.id
             LEFT JOIN cashflow_records cf_ship ON d.shipping_cashflow_id = cf_ship.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -457,5 +479,52 @@ module.exports = async function(fastify) {
         );
 
         return { success: true, id: result.id };
+    });
+
+    fastify.post('/api/don-gui-ao-mau/:id/hoan-hang', { preHandler: [authenticate] }, async (request, reply) => {
+        const { id } = request.params;
+        const b = request.body || {};
+
+        if (!b.hoan_hang_ship_date) return reply.code(400).send({ error: 'Vui lòng chọn Ngày gửi hàng' });
+        if (!b.hoan_hang_shipping_priority) return reply.code(400).send({ error: 'Vui lòng chọn Tiêu chuẩn gửi' });
+        if (!b.hoan_hang_shipping_method) return reply.code(400).send({ error: 'Vui lòng chọn Nhà vận chuyển' });
+        if (!b.hoan_hang_sale_note || !b.hoan_hang_sale_note.trim()) return reply.code(400).send({ error: 'Vui lòng nhập nội dung sale dặn kế toán' });
+
+        if (b.hoan_hang_shipping_priority === 'CHUẨN') {
+            if (!b.hoan_hang_ship_time) return reply.code(400).send({ error: 'Vui lòng chọn Giờ hàng ra' });
+            if (!b.hoan_hang_chuan_proof_image) return reply.code(400).send({ error: 'Vui lòng tải lên hoặc dán Ảnh chứng minh chuẩn' });
+        }
+
+        await db.run(
+            `UPDATE don_gui_ao_mau 
+             SET status_hoan_hang = true,
+                 status_gui_don_hoan = false,
+                 hoan_hang_ship_date = $1,
+                 hoan_hang_shipping_priority = $2,
+                 hoan_hang_shipping_method = $3,
+                 hoan_hang_sale_note = $4,
+                 hoan_hang_ship_time = $5,
+                 hoan_hang_chuan_proof_image = $6,
+                 updated_at = NOW(),
+                 updated_by = $7
+             WHERE id = $8`,
+            [
+                b.hoan_hang_ship_date,
+                b.hoan_hang_shipping_priority,
+                b.hoan_hang_shipping_method,
+                b.hoan_hang_sale_note.trim(),
+                b.hoan_hang_shipping_priority === 'CHUẨN' ? b.hoan_hang_ship_time : null,
+                b.hoan_hang_shipping_priority === 'CHUẨN' ? b.hoan_hang_chuan_proof_image : null,
+                request.user.id,
+                id
+            ]
+        );
+
+        await db.run(
+            `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+            [id, 'hoan_hang', `Báo hoàn hàng. Tiêu chuẩn: ${b.hoan_hang_shipping_priority}, Ngày gửi: ${b.hoan_hang_ship_date}`, request.user.id]
+        );
+
+        return { success: true };
     });
 };

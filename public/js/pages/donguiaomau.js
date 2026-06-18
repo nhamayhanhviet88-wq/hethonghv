@@ -179,7 +179,7 @@ function _dgamRenderRows(paged) {
 
         var isQuanLyXuong = userObj && (userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
         var hoanBtnHtml = !isQuanLyXuong 
-            ? '<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamTogSt('+o.id+',\'status_hoan_hang\','+!o.status_hoan_hang+')">🔄</button>'
+            ? '<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamOnHoanHangClick('+o.id+')">🔄</button>'
             : '';
 
         // Kiểm tra đơn mẫu (🔍): Lê Việt Trinh và Giám đốc có quyền kiểm tra; các tài khoản khác chỉ xem (disabled)
@@ -1662,3 +1662,370 @@ function _dgamCloseImagePreview() {
         setTimeout(() => { preview.style.display = 'none'; }, 200);
     }
 }
+
+async function _dgamOnHoanHangClick(id) {
+    try {
+        const order = await apiCall('/api/don-gui-ao-mau/' + id + '/detail');
+        if (!order) return showToast('Không tìm thấy thông tin đơn hàng', 'error');
+
+        let carriers = [];
+        try {
+            const c = await apiCall('/api/shipping/carriers');
+            carriers = c.carriers || [];
+        } catch(e) {
+            console.error('Error fetching carriers:', e);
+        }
+
+        let modal = document.getElementById('dgamHoanHangModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'dgamHoanHangModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;';
+            document.body.appendChild(modal);
+        }
+
+        if (order.status_hoan_hang) {
+            let carrierName = order.hoan_actual_carrier_name || order.hoan_hang_shipping_method || '—';
+            let trackingCodeHtml = order.hoan_hang_tracking_code 
+                ? `<span style="font-weight:bold;color:#1e3a8a;">${order.hoan_hang_tracking_code}</span>` 
+                : '<span style="color:#6b7280;font-style:italic;">(Chưa có mã vận đơn)</span>';
+            if (order.hoan_hang_shipping_bill_link) {
+                trackingCodeHtml += ` <a href="${order.hoan_hang_shipping_bill_link}" target="_blank" style="margin-left:8px;color:#3b82f6;text-decoration:underline;font-weight:700;">📄 Xem Bill</a>`;
+            }
+
+            modal.innerHTML = `
+                <style>
+                    @keyframes dgamModalFadeIn {
+                        from { transform: scale(0.95); opacity: 0; }
+                        to { transform: scale(1); opacity: 1; }
+                    }
+                </style>
+                <div style="background:#fff;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);width:500px;max-width:95%;max-height:90vh;display:flex;flex-direction:column;animation:dgamModalFadeIn 0.25s ease-out;overflow:hidden;">
+                    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;">
+                        <h3 style="margin:0;font-size:16px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px;">🔄 Thông Tin Yêu Cầu Hoàn Hàng</h3>
+                        <button onclick="_dgamCloseHoanHangModal()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;line-height:1;padding:0;margin:0;">&times;</button>
+                    </div>
+                    <div style="padding:20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px;font-size:13px;line-height:1.5;color:#334155;">
+                        <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                            <span style="font-weight:600;color:#64748b;">Mã Đơn Áo Mẫu:</span>
+                            <span style="font-weight:700;color:#0f172a;">${order.sample_order_code || '—'}</span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                            <span style="font-weight:600;color:#64748b;">Ngày Gửi Hàng:</span>
+                            <span style="font-weight:700;color:#0f172a;background:#eff6ff;color:#1d4ed8;padding:2px 6px;border-radius:4px;width:fit-content;">${order.hoan_hang_ship_date ? fmt(order.hoan_hang_ship_date) : '—'}</span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                            <span style="font-weight:600;color:#64748b;">Tiêu Chuẩn Gửi:</span>
+                            <span style="font-weight:700;color:${order.hoan_hang_shipping_priority === 'GẤP' ? '#ef4444' : order.hoan_hang_shipping_priority === 'CHUẨN' ? '#eab308' : '#3b82f6'};">${order.hoan_hang_shipping_priority || '—'}</span>
+                        </div>
+                        ${order.hoan_hang_shipping_priority === 'CHUẨN' ? `
+                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                                <span style="font-weight:600;color:#64748b;">Giờ Hàng Ra (24h):</span>
+                                <span style="font-weight:700;color:#eab308;">⏰ ${order.hoan_hang_ship_time || '—'}</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;align-items:center;">
+                                <span style="font-weight:600;color:#64748b;">Ảnh Chứng Minh:</span>
+                                <div>
+                                    ${order.hoan_hang_chuan_proof_image 
+                                        ? `<img src="${order.hoan_hang_chuan_proof_image}" style="max-height:80px;border-radius:6px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);" onclick="_dgamShowImagePreview('${order.hoan_hang_chuan_proof_image}')">` 
+                                        : '—'}
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                            <span style="font-weight:600;color:#64748b;">Nhà Vận Chuyển:</span>
+                            <span style="font-weight:700;color:#0f172a;">${order.hoan_hang_shipping_method || '—'}</span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                            <span style="font-weight:600;color:#64748b;">Nội Dung Dặn Kế Toán:</span>
+                            <span style="font-weight:600;color:#0f172a;white-space:pre-wrap;background:#f8fafc;padding:6px 10px;border-radius:6px;border:1px solid #f1f5f9;display:block;">${order.hoan_hang_sale_note || '—'}</span>
+                        </div>
+                        <div style="border-top:1.5px solid #e2e8f0;margin-top:4px;padding-top:12px;">
+                            <h4 style="margin:0 0 10px 0;font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">🚛 Trạng Thái Gửi Hàng Của Kế Toán</h4>
+                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                                <span style="font-weight:600;color:#64748b;">Trạng Thái Gửi:</span>
+                                <span>
+                                    ${order.status_gui_don_hoan 
+                                        ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:9999px;font-weight:700;font-size:11px;">🟢 Đã gửi hàng hoàn</span>' 
+                                        : '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-weight:700;font-size:11px;">🔴 Chờ kế toán gửi hàng</span>'}
+                                </span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                                <span style="font-weight:600;color:#64748b;">Mã Vận Đơn:</span>
+                                <span>${trackingCodeHtml}</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                                <span style="font-weight:600;color:#64748b;">Phí Ship Hoàn:</span>
+                                <span style="font-weight:700;color:#dc2626;">${order.return_shipping_fee ? Number(order.return_shipping_fee).toLocaleString('vi-VN') + 'đ' : '0đ'}</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                                <span style="font-weight:600;color:#64748b;">Người Trả Phí:</span>
+                                <span style="font-weight:700;color:#0f172a;">${order.return_payer === 'hv' ? 'Đồng phục HV' : order.return_payer === 'khach' ? 'Khách trả' : '—'}</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                                <span style="font-weight:600;color:#64748b;">Hình Thức Trả:</span>
+                                <span style="font-weight:700;color:#0f172a;">${order.return_payment_method === 'tm' ? 'Tiền mặt' : order.return_payment_method === 'ck' ? 'Chuyển khoản' : '—'}</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                                <span style="font-weight:600;color:#64748b;">Nhà Vận Chuyển Thực:</span>
+                                <span style="font-weight:700;color:#0f172a;">${order.hoan_actual_carrier_name || '—'}</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
+                                <span style="font-weight:600;color:#64748b;">Người Gửi / Ngày Gửi:</span>
+                                <span style="font-weight:700;color:#0f172a;">
+                                    ${order.hoan_shipped_by_name ? `${order.hoan_shipped_by_name} (${fmtHM_DM(order.hoan_hang_shipped_at)})` : '—'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="padding:14px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:end;background:#f8fafc;">
+                        <button onclick="_dgamCloseHoanHangModal()" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.15s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#fff'">Đóng</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            let carrierOptions = carriers.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            modal.innerHTML = `
+                <style>
+                    @keyframes dgamModalFadeIn {
+                        from { transform: scale(0.95); opacity: 0; }
+                        to { transform: scale(1); opacity: 1; }
+                    }
+                </style>
+                <div style="background:#fff;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);width:480px;max-width:95%;max-height:90vh;display:flex;flex-direction:column;animation:dgamModalFadeIn 0.25s ease-out;overflow:hidden;">
+                    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;">
+                        <h3 style="margin:0;font-size:16px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px;">🔄 Yêu Cầu Hoàn Hàng Mẫu</h3>
+                        <button onclick="_dgamCloseHoanHangModal()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;line-height:1;padding:0;margin:0;">&times;</button>
+                    </div>
+                    <form id="dgamHoanHangForm" onsubmit="_dgamSubmitHoanHang(event, ${id})" style="margin:0;padding:20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px;font-size:13px;">
+                        <div>
+                            <label style="display:block;font-weight:700;margin-bottom:6px;color:#334155;">Ngày Gửi Hàng *</label>
+                            <input type="date" id="hoan_hang_ship_date" required min="${todayStr}" value="${tomorrowStr}" style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                        </div>
+                        <div>
+                            <label style="display:block;font-weight:700;margin-bottom:6px;color:#334155;">Tiêu Chuẩn Gửi *</label>
+                            <select id="hoan_hang_shipping_priority" required style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;background-color:#fff;outline:none;" onchange="_dgamOnPriorityChange(this.value)">
+                                <option value="GỬI">GỬI</option>
+                                <option value="CHUẨN">CHUẨN</option>
+                                <option value="GẤP">GẤP</option>
+                            </select>
+                        </div>
+                        <div id="hoan_chuan_fields" style="display:none;flex-direction:column;gap:14px;background:#fefefe;border:1.5px dashed #eab308;padding:12px;border-radius:10px;">
+                            <div>
+                                <label style="display:block;font-weight:700;margin-bottom:6px;color:#854d0e;">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) *</label>
+                                <input type="time" id="hoan_hang_ship_time" style="width:100%;padding:8px 12px;border:1px solid #eab308;border-radius:8px;font-size:13px;font-family:inherit;outline:none;background:#fefcf0;">
+                            </div>
+                            <div>
+                                <label style="display:block;font-weight:700;margin-bottom:6px;color:#854d0e;">📸 Ảnh chứng minh Tiêu Chuẩn CHUẨN *</label>
+                                <div style="display:flex;gap:10px;align-items:center;">
+                                    <div id="hoan_proof_preview_container" style="display:none;position:relative;">
+                                        <img id="hoan_proof_preview" style="max-height:80px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.15);">
+                                        <button type="button" onclick="_dgamRemoveProofImage()" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:white;border:none;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+                                    </div>
+                                    <button type="button" onclick="_dgamTriggerProofUpload()" id="hoan_proof_upload_btn" style="padding:10px 14px;border:1.5px dashed #cbd5e1;background:#f8fafc;border-radius:8px;color:#475569;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+                                        📤 Tải Ảnh
+                                    </button>
+                                    <span style="font-size:11px;color:#64748b;">(hoặc ctrl+v dán ảnh vào đây)</span>
+                                </div>
+                                <input type="hidden" id="hoan_hang_chuan_proof_image">
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display:block;font-weight:700;margin-bottom:6px;color:#334155;">Nhà Vận Chuyển *</label>
+                            <select id="hoan_hang_shipping_method" required style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;background-color:#fff;outline:none;">
+                                <option value="">-- Chọn nhà vận chuyển --</option>
+                                ${carrierOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block;font-weight:700;margin-bottom:6px;color:#334155;">📝 Nội Dung Sale Dặn Kế Toán Gửi Hàng *</label>
+                            <textarea id="hoan_hang_sale_note" required rows="3" placeholder="Ví dụ: Kế toán gửi hoàn áo mẫu cho khách Lê Văn A..." style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;outline:none;resize:vertical;transition:border-color 0.15s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+                        </div>
+                        <div style="padding-top:10px;border-top:1px solid #e2e8f0;display:flex;justify-content:end;gap:10px;margin-top:10px;">
+                            <button type="button" onclick="_dgamCloseHoanHangModal()" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.15s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#fff'">Hủy</button>
+                            <button type="submit" id="dgamHoanSubmitBtn" style="padding:8px 20px;border:none;border-radius:8px;background:#3b82f6;color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 4px 10px rgba(59,130,246,0.3);transition:all 0.15s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">Lưu Yêu Cầu</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+
+            modal.addEventListener('paste', async function(e) {
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const file = items[i].getAsFile();
+                        if (file) {
+                            try {
+                                showToast('Đang tải ảnh lên...', 'info');
+                                const formData = new FormData();
+                                formData.append('image', file);
+                                const uploadResult = await fetch('/api/upload', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                                    },
+                                    body: formData
+                                });
+                                const r = await uploadResult.json();
+                                if (r && r.url) {
+                                    _dgamSetProofImage(r.url);
+                                    showToast('Tải ảnh chứng minh thành công!', 'success');
+                                } else {
+                                    showToast('Lỗi tải ảnh lên: ' + (r.error || 'Unknown error'), 'error');
+                                }
+                            } catch (uploadErr) {
+                                console.error('Upload proof err:', uploadErr);
+                                showToast('Lỗi tải ảnh chứng minh: ' + uploadErr.message, 'error');
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        modal.style.display = 'flex';
+        setTimeout(() => { modal.style.opacity = '1'; }, 10);
+
+    } catch (e) {
+        console.error('Error opening hoan hang modal:', e);
+        showToast('Lỗi tải thông tin hoàn hàng', 'error');
+    }
+}
+
+function _dgamCloseHoanHangModal() {
+    const modal = document.getElementById('dgamHoanHangModal');
+    if (modal) {
+        modal.style.opacity = '0';
+        setTimeout(() => { modal.style.display = 'none'; }, 200);
+    }
+}
+
+function _dgamOnPriorityChange(val) {
+    const fields = document.getElementById('hoan_chuan_fields');
+    const timeInput = document.getElementById('hoan_hang_ship_time');
+    if (val === 'CHUẨN') {
+        fields.style.display = 'flex';
+        timeInput.required = true;
+    } else {
+        fields.style.display = 'none';
+        timeInput.required = false;
+        timeInput.value = '';
+        _dgamRemoveProofImage();
+    }
+}
+
+function _dgamTriggerProofUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async function() {
+        const file = input.files[0];
+        if (file) {
+            try {
+                showToast('Đang tải ảnh lên...', 'info');
+                const formData = new FormData();
+                formData.append('image', file);
+                const uploadResult = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: formData
+                });
+                const r = await uploadResult.json();
+                if (r && r.url) {
+                    _dgamSetProofImage(r.url);
+                    showToast('Tải ảnh chứng minh thành công!', 'success');
+                } else {
+                    showToast('Lỗi tải ảnh lên: ' + (r.error || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                console.error('Upload proof err:', err);
+                showToast('Lỗi tải ảnh: ' + err.message, 'error');
+            }
+        }
+    };
+    input.click();
+}
+
+function _dgamSetProofImage(url) {
+    document.getElementById('hoan_hang_chuan_proof_image').value = url;
+    document.getElementById('hoan_proof_preview').src = url;
+    document.getElementById('hoan_proof_preview_container').style.display = 'block';
+    document.getElementById('hoan_proof_upload_btn').style.display = 'none';
+}
+
+function _dgamRemoveProofImage() {
+    const proofVal = document.getElementById('hoan_hang_chuan_proof_image');
+    if (proofVal) proofVal.value = '';
+    const previewContainer = document.getElementById('hoan_proof_preview_container');
+    if (previewContainer) previewContainer.style.display = 'none';
+    const uploadBtn = document.getElementById('hoan_proof_upload_btn');
+    if (uploadBtn) uploadBtn.style.display = 'flex';
+}
+
+async function _dgamSubmitHoanHang(e, id) {
+    e.preventDefault();
+    const submitBtn = document.getElementById('dgamHoanSubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'Đang lưu...';
+
+    const ship_date = document.getElementById('hoan_hang_ship_date').value;
+    const priority = document.getElementById('hoan_hang_shipping_priority').value;
+    const method = document.getElementById('hoan_hang_shipping_method').value;
+    const note = document.getElementById('hoan_hang_sale_note').value;
+    const ship_time = document.getElementById('hoan_hang_ship_time').value;
+    const proof = document.getElementById('hoan_hang_chuan_proof_image').value;
+
+    if (priority === 'CHUẨN') {
+        if (!ship_time) {
+            showToast('Vui lòng chọn Giờ hàng ra cho đơn chuẩn!', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Lưu Yêu Cầu';
+            return;
+        }
+        if (!proof) {
+            showToast('Vui lòng tải lên hoặc dán Ảnh chứng minh cho đơn chuẩn!', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Lưu Yêu Cầu';
+            return;
+        }
+    }
+
+    try {
+        const body = {
+            hoan_hang_ship_date: ship_date,
+            hoan_hang_shipping_priority: priority,
+            hoan_hang_shipping_method: method,
+            hoan_hang_sale_note: note,
+            hoan_hang_ship_time: ship_time,
+            hoan_hang_chuan_proof_image: proof
+        };
+
+        const res = await apiCall('/api/don-gui-ao-mau/' + id + '/hoan-hang', 'POST', body);
+        if (res && res.success) {
+            showToast('Báo hoàn hàng mẫu thành công!', 'success');
+            _dgamCloseHoanHangModal();
+            if (typeof _dgamLoadOrders === 'function') {
+                _dgamLoadOrders();
+            } else {
+                location.reload();
+            }
+        } else {
+            showToast('Lỗi: ' + (res.error || 'Không thể gửi yêu cầu hoàn hàng'), 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Lưu Yêu Cầu';
+        }
+    } catch (err) {
+        console.error('Error submitting hoan hang request:', err);
+        showToast('Lỗi: ' + err.message, 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Lưu Yêu Cầu';
+    }
+}
+
