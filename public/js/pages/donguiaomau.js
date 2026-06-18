@@ -211,7 +211,7 @@ function _dgamRenderSubFilters() {
             }
         }
         
-        return `background:${bg}; border:1.8px solid ${border}; color:${text}; box-shadow:0 4px 12px ${shadow}; transform:${transform}; padding:8px 18px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.2s ease;`;
+        return `font-family: inherit; background:${bg}; border:1.8px solid ${border}; color:${text}; box-shadow:0 4px 12px ${shadow}; transform:${transform}; padding:8px 18px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.2s ease;`;
     };
 
     container.innerHTML = `
