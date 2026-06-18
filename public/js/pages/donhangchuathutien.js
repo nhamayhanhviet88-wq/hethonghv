@@ -612,7 +612,7 @@ async function _dhcttLoadTree() {
 
     // Expanded month list for Grand Total
     h += '<div style="display:' + (tOpen ? 'block' : 'none') + '; border-bottom:1px solid #fed7aa;">';
-    const unpaidMonthsMap = {};
+    const unpaidMonthsMap = {}; const unpaidMonthsList = data.grandMonths || []; if (false) {
     _dhctt.tree.forEach(function(carrier) {
         (carrier.years || []).forEach(function(yr) {
             (yr.months || []).forEach(function(mo) {
@@ -630,10 +630,10 @@ async function _dhcttLoadTree() {
             });
         });
     });
-    const unpaidMonthsList = Object.values(unpaidMonthsMap).sort(function(a, b) {
+    } if (false) { (function(a, b) {
         if (a.year !== b.year) return b.year - a.year;
         return b.month - a.month;
-    });
+    })} // if (false)
     unpaidMonthsList.forEach(function(mo) {
         const mActive = _dhctt.filter.carrier_id === undefined && _dhctt.filter.year == mo.year && _dhctt.filter.month == mo.month;
         const moValSpan = isFull ? '<span style="color:#b8860b;font-weight:800">' + _dhcttFmt(mo.total) + '</span>' : '';
