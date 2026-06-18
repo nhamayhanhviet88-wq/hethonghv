@@ -1657,8 +1657,8 @@ module.exports = async function(fastify) {
                     shipping_cashflow_code: row.shipping_cashflow_code,
                     shipped_by_name: row.shipped_by_name,
                     item_labels: JSON.stringify([{
-                        label: 'Phiếu 1 — [HOÀN]',
-                        name: '🔄 [HOÀN] ' + (row.product_name || 'Áo mẫu'),
+                        label: 'Phiếu 1',
+                        name: (row.product_name || 'Áo mẫu').replace(/🔄/g, '').replace(/\[HOÀN\]/g, '').replace(/\[HOAN\]/g, '').trim(),
                         qty: row.quantity || 1
                     }])
                 });
@@ -1854,8 +1854,8 @@ module.exports = async function(fastify) {
                     shipping_cashflow_code: row.hoan_shipping_cashflow_code,
                     shipped_by_name: row.hoan_shipped_by_name,
                     item_labels: JSON.stringify([{
-                        label: 'Phiếu 1 — [HOÀN]',
-                        name: '🔄 [HOÀN] ' + (row.product_name || 'Áo mẫu'),
+                        label: 'Phiếu 1',
+                        name: (row.product_name || 'Áo mẫu').replace(/🔄/g, '').replace(/\[HOÀN\]/g, '').replace(/\[HOAN\]/g, '').trim(),
                         qty: row.quantity || 1
                     }])
                 });
