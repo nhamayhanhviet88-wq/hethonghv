@@ -487,6 +487,12 @@ module.exports = async function(fastify) {
         const { id } = request.params;
         const b = request.body || {};
 
+        const order = await db.get(`SELECT order_status, status_hoan_hang FROM don_gui_ao_mau WHERE id = $1`, [id]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+        if (!order.status_hoan_hang && order.order_status !== 'da_gui' && order.order_status !== 'hoan_thanh') {
+            return reply.code(400).send({ error: 'Chỉ được báo hoàn hàng khi đơn hàng có trạng thái Đã Gửi Mẫu' });
+        }
+
         if (!b.hoan_hang_ship_date) return reply.code(400).send({ error: 'Vui lòng chọn Ngày gửi hàng' });
         if (!b.hoan_hang_shipping_priority) return reply.code(400).send({ error: 'Vui lòng chọn Tiêu chuẩn gửi' });
         if (!b.hoan_hang_shipping_method) return reply.code(400).send({ error: 'Vui lòng chọn Nhà vận chuyển' });

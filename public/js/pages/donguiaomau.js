@@ -349,9 +349,17 @@ function _dgamRenderRows(paged) {
         var catLower = (o.category || '').toLowerCase().trim();
         var noReturnNeeded = catLower.includes('tem') || catLower.includes('pet') || catLower.includes('khác') || catLower.includes('khac') || catLower.includes('vải') || catLower.includes('vai');
         var isQuanLyXuong = userObj && (userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
-        var hoanBtnHtml = (!isQuanLyXuong && !noReturnNeeded) 
-            ? '<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamOnHoanHangClick('+o.id+')">🔄</button>'
-            : '';
+        var isDaGuiMau = o.order_status === 'da_gui' || o.order_status === 'hoan_thanh';
+        var hoanBtnHtml = '';
+        if (!isQuanLyXuong && !noReturnNeeded) {
+            if (o.status_hoan_hang) {
+                hoanBtnHtml = '<button class="dgam-icon-btn on-hoan" title="Thông tin hoàn hàng" onclick="_dgamOnHoanHangClick('+o.id+')">🔄</button>';
+            } else if (isDaGuiMau) {
+                hoanBtnHtml = '<button class="dgam-icon-btn" title="Hoàn hàng" onclick="_dgamOnHoanHangClick('+o.id+')">🔄</button>';
+            } else {
+                hoanBtnHtml = '<button class="dgam-icon-btn" title="Chỉ được hoàn hàng khi trạng thái là Đã Gửi Mẫu" style="opacity:0.5;cursor:not-allowed;" disabled>🔄</button>';
+            }
+        }
 
         // Kiểm tra đơn mẫu (🔍): Lê Việt Trinh và Giám đốc có quyền kiểm tra; các tài khoản khác chỉ xem (disabled)
         var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
@@ -1947,6 +1955,11 @@ async function _dgamOnHoanHangClick(id) {
         const res = await apiCall('/api/don-gui-ao-mau/' + id + '/detail');
         if (!res || !res.order) return showToast('Không tìm thấy thông tin đơn hàng', 'error');
         const order = res.order;
+
+        if (!order.status_hoan_hang && order.order_status !== 'da_gui' && order.order_status !== 'hoan_thanh') {
+            showToast('Chỉ được hoàn hàng khi trạng thái là Đã Gửi Mẫu', 'error');
+            return;
+        }
 
         const formatDgamDate = (dStr) => {
             if (!dStr) return '—';
