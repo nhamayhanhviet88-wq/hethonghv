@@ -287,7 +287,10 @@ module.exports = async function(fastify) {
                            OR order_tt_coc = d.sample_order_code
                     ) pr_dep ON true
                     WHERE COALESCE(d.sample_order_code, '') != ''
-                      AND (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+                      AND (
+                          (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+                          OR d.status_hoan_hang = true
+                      )
                 ),
                 filtered_unpaid AS (
                     SELECT * FROM unpaid_orders o
@@ -366,8 +369,17 @@ module.exports = async function(fastify) {
                         COALESCE(o.shipped_at, o.order_date) AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
-                    WHERE o.order_type = 'dht_order'
-                      AND (SELECT COUNT(*) FROM dht_audit_logs WHERE dht_order_id = CAST(o.id AS integer) AND action = 'ship') >= 2
+                    WHERE (
+                        o.order_type = 'dht_order'
+                        AND (SELECT COUNT(*) FROM dht_audit_logs WHERE dht_order_id = CAST(o.id AS integer) AND action = 'ship') >= 2
+                    ) OR (
+                        o.order_type = 'ao_mau'
+                        AND EXISTS (
+                            SELECT 1 FROM don_gui_ao_mau d 
+                            WHERE d.id = CAST(REPLACE(o.id, 'sample_', '') AS integer) 
+                              AND d.status_hoan_hang = true
+                        )
+                    )
                 )
                 SELECT 
                     oc.carrier_id,
@@ -490,7 +502,10 @@ module.exports = async function(fastify) {
                            OR order_tt_coc = d.sample_order_code
                     ) pr_dep ON true
                     WHERE COALESCE(d.sample_order_code, '') != ''
-                      AND (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+                      AND (
+                          (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+                          OR d.status_hoan_hang = true
+                      )
                 ),
                 filtered_unpaid AS (
                     SELECT * FROM unpaid_orders o
@@ -788,7 +803,7 @@ module.exports = async function(fastify) {
                 }
             }
 
-            sampleWhere += ` AND (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0`;
+            sampleWhere += ` AND ((COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0 OR d.status_hoan_hang = true)`;
 
             if (carrier_id !== undefined) {
                 const carrierId = Number(carrier_id);
@@ -798,7 +813,10 @@ module.exports = async function(fastify) {
                     if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(month)); }
                     if (day) { sampleWhere += ` AND EXTRACT(DAY FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(day)); }
                 } else if (carrierId === -2) {
-                    sampleWhere += ` AND 1=0`;
+                    sampleWhere += ` AND d.status_hoan_hang = true`;
+                    if (year) { sampleWhere += ` AND (EXTRACT(YEAR FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx} OR EXTRACT(YEAR FROM COALESCE(d.hoan_hang_shipped_at, d.order_date)) = $${sIdx})`; sampleParams.push(Number(year)); sIdx++; }
+                    if (month) { sampleWhere += ` AND (EXTRACT(MONTH FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx} OR EXTRACT(MONTH FROM COALESCE(d.hoan_hang_shipped_at, d.order_date)) = $${sIdx})`; sampleParams.push(Number(month)); sIdx++; }
+                    if (day) { sampleWhere += ` AND (EXTRACT(DAY FROM COALESCE(d.shipped_at, d.order_date)) = $${sIdx} OR EXTRACT(DAY FROM COALESCE(d.hoan_hang_shipped_at, d.order_date)) = $${sIdx})`; sampleParams.push(Number(day)); sIdx++; }
                 } else {
                     sampleWhere += ` AND d.status_gui_don = true AND d.actual_carrier_id = $${sIdx++}`;
                     sampleParams.push(carrierId);
@@ -851,7 +869,11 @@ module.exports = async function(fastify) {
                     u_created.full_name AS created_by_name,
                     u_updated.full_name AS last_updated_by_name,
                     d.product_name,
-                    d.quantity
+                    d.quantity,
+                    d.status_gui_don_hoan,
+                    d.hoan_hang_shipped_at,
+                    d.hoan_hang_ship_date,
+                    d.hoan_hang_actual_carrier_id
                 FROM don_gui_ao_mau d
                 LEFT JOIN users u_created ON d.created_by = u_created.id
                 LEFT JOIN users u_updated ON d.updated_by = u_updated.id
@@ -864,38 +886,8 @@ module.exports = async function(fastify) {
                 ${sampleWhere}
             `, sampleParams);
 
-            sampleOrders = rawSampleOrders.map(row => ({
-                id: 'sample_' + row.id,
-                order_code: row.order_code,
-                order_date: row.order_date,
-                expected_ship_date: row.expected_ship_date,
-                rescheduled_ship_date: null,
-                shipped_at: row.shipped_at,
-                shipping_status: row.shipping_status,
-                actual_carrier_id: row.actual_carrier_id,
-                category_id: null,
-                customer_name: row.customer_name,
-                customer_phone: row.customer_phone,
-                province: row.province,
-                cskh_user_id: null,
-                created_by: row.created_by,
-                last_updated_by: row.updated_by,
-                vat_exported_by: null,
-                total_amount: row.total_amount,
-                discount_amount: 0,
-                shipping_fee: row.shipping_fee,
-                shipping_fee_payer: row.shipping_fee_payer,
-                shipping_fee_method: row.shipping_fee_method,
-                shipping_payment_id: row.shipping_payment_id,
-                shipping_priority: row.shipping_priority || 'Chuẩn',
-                has_error: false,
-                is_edited: false,
-                deposit_amount: row.deposit_amount,
-                remaining_amount: row.remaining_amount,
-                order_type: 'ao_mau',
-                ship_count: 1,
-                is_print_done: false,
-                items: [
+            sampleOrders = rawSampleOrders.map(row => {
+                const items = [
                     {
                         product_name: row.product_name || 'Mẫu áo',
                         description: 'Áo Mẫu',
@@ -904,19 +896,63 @@ module.exports = async function(fastify) {
                         shipping_status: row.shipping_status,
                         shipping_date: row.shipped_at || row.expected_ship_date
                     }
-                ],
-                prod_done: 0,
-                prod_total: 0,
-                prod_current: null,
-                next_step_name: null,
-                has_repair_order: false,
-                last_updated_at: row.last_updated_at,
-                category_name: row.category_name,
-                cskh_name: row.cskh_name,
-                created_by_name: row.created_by_name,
-                last_updated_by_name: row.last_updated_by_name,
-                vat_exported_by_name: null
-            }));
+                ];
+                if (row.status_gui_don_hoan || row.hoan_hang_shipped_at) {
+                    items.push({
+                        product_name: '🔄 [HOÀN] ' + (row.product_name || 'Mẫu áo'),
+                        description: 'Áo Mẫu Hoàn',
+                        quantity: row.quantity || 1,
+                        actual_carrier_id: row.hoan_hang_actual_carrier_id || 0,
+                        shipping_status: row.status_gui_don_hoan ? 'shipped' : 'pending',
+                        shipping_date: row.hoan_hang_shipped_at || row.hoan_hang_ship_date
+                    });
+                }
+
+                return {
+                    id: 'sample_' + row.id,
+                    order_code: row.order_code,
+                    order_date: row.order_date,
+                    expected_ship_date: row.expected_ship_date,
+                    rescheduled_ship_date: null,
+                    shipped_at: row.shipped_at,
+                    shipping_status: row.shipping_status,
+                    actual_carrier_id: row.actual_carrier_id,
+                    category_id: null,
+                    customer_name: row.customer_name,
+                    customer_phone: row.customer_phone,
+                    province: row.province,
+                    cskh_user_id: null,
+                    created_by: row.created_by,
+                    last_updated_by: row.updated_by,
+                    vat_exported_by: null,
+                    total_amount: row.total_amount,
+                    discount_amount: 0,
+                    shipping_fee: row.shipping_fee,
+                    shipping_fee_payer: row.shipping_fee_payer,
+                    shipping_fee_method: row.shipping_fee_method,
+                    shipping_payment_id: row.shipping_payment_id,
+                    shipping_priority: row.shipping_priority || 'Chuẩn',
+                    has_error: false,
+                    is_edited: false,
+                    deposit_amount: row.deposit_amount,
+                    remaining_amount: row.remaining_amount,
+                    order_type: 'ao_mau',
+                    ship_count: (row.status_gui_don_hoan || row.hoan_hang_shipped_at) ? 2 : 1,
+                    is_print_done: false,
+                    items: items,
+                    prod_done: 0,
+                    prod_total: 0,
+                    prod_current: null,
+                    next_step_name: null,
+                    has_repair_order: false,
+                    last_updated_at: row.last_updated_at,
+                    category_name: row.category_name,
+                    cskh_name: row.cskh_name,
+                    created_by_name: row.created_by_name,
+                    last_updated_by_name: row.last_updated_by_name,
+                    vat_exported_by_name: null
+                };
+            });
         }
 
         const orders = await db.all(`
@@ -1664,13 +1700,28 @@ module.exports = async function(fastify) {
                         cf_ship.cashflow_code AS shipping_cashflow_code,
                         pr_ship.payment_code AS shipping_payment_code,
                         pr_ship.amount AS shipping_payment_amount,
-                        EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') AS has_carrier_payment
+                        EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') AS has_carrier_payment,
+                        
+                        -- Join fields for return shipment
+                        u_hoan_shipped.full_name AS hoan_shipped_by_name,
+                        cr_hoan.name AS hoan_carrier_name,
+                        cr_hoan.tracking_url_template AS hoan_carrier_tracking_url,
+                        cf_hoan.cashflow_code AS hoan_shipping_cashflow_code,
+                        pr_hoan.payment_code AS hoan_shipping_payment_code,
+                        pr_hoan.amount AS hoan_shipping_payment_amount
                  FROM don_gui_ao_mau d
                  LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
                  LEFT JOIN users u_created ON d.created_by = u_created.id
                  LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
                  LEFT JOIN cashflow_records cf_ship ON d.shipping_cashflow_id = cf_ship.id
                  LEFT JOIN payment_records pr_ship ON d.shipping_payment_id = pr_ship.id
+                 
+                 -- Return shipment joins
+                 LEFT JOIN users u_hoan_shipped ON d.hoan_hang_shipped_by = u_hoan_shipped.id
+                 LEFT JOIN dht_carriers cr_hoan ON d.hoan_hang_actual_carrier_id = cr_hoan.id
+                 LEFT JOIN cashflow_records cf_hoan ON d.hoan_hang_shipping_cashflow_id = cf_hoan.id
+                 LEFT JOIN payment_records pr_hoan ON d.hoan_hang_shipping_payment_id = pr_hoan.id
+
                  LEFT JOIN LATERAL (
                      SELECT COALESCE(SUM(amount), 0) AS deposit_total
                      FROM payment_records
@@ -1779,6 +1830,32 @@ module.exports = async function(fastify) {
                     item_labels: JSON.stringify([{
                         label: 'Phiếu 1',
                         name: row.product_name || 'Áo mẫu',
+                        qty: row.quantity || 1
+                    }])
+                });
+            }
+
+            if (row.status_gui_don_hoan || row.hoan_hang_shipped_at) {
+                shipments.push({
+                    id: 'hoan_' + row.id,
+                    shipped_at: row.hoan_hang_shipped_at,
+                    actual_ship_datetime: row.hoan_hang_shipped_at,
+                    actual_carrier_name: row.hoan_carrier_name || '—',
+                    actual_carrier_tracking_url: row.hoan_carrier_tracking_url,
+                    tracking_code: row.hoan_hang_tracking_code,
+                    shipping_bill_link: row.hoan_hang_shipping_bill_link,
+                    carrier_phone: null,
+                    receiver_name: row.customer_name,
+                    shipping_fee: row.return_shipping_fee,
+                    shipping_fee_payer: row.return_payer,
+                    shipping_fee_method: row.return_payment_method,
+                    shipping_payment_code: row.hoan_shipping_payment_code,
+                    shipping_payment_amount: row.hoan_shipping_payment_amount,
+                    shipping_cashflow_code: row.hoan_shipping_cashflow_code,
+                    shipped_by_name: row.hoan_shipped_by_name,
+                    item_labels: JSON.stringify([{
+                        label: 'Phiếu 1 — [HOÀN]',
+                        name: '🔄 [HOÀN] ' + (row.product_name || 'Áo mẫu'),
                         qty: row.quantity || 1
                     }])
                 });
