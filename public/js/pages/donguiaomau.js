@@ -2991,7 +2991,7 @@ function _dgamCompressImage(file, callback) {
         var img = new Image();
         img.onload = function() {
             var canvas = document.createElement('canvas');
-            var max_size = 1024;
+            var max_size = 800;
             var width = img.width;
             var height = img.height;
             
@@ -3014,7 +3014,7 @@ function _dgamCompressImage(file, callback) {
             
             canvas.toBlob(function(blob) {
                 callback(blob);
-            }, 'image/jpeg', 0.75);
+            }, 'image/jpeg', 0.6);
         };
         img.src = e.target.result;
     };
@@ -3074,8 +3074,8 @@ function _dgamShowReceivedProofModal(orderId) {
             bodyHTML = imgHtml 
                 + '<div style="border-top:1px solid #e2e8f0;margin:16px 0;padding-top:12px;">'
                 + '<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;">🔄 Thay thế bằng chứng mẫu đã về:</div>'
-                + '<div id="dgamProofPasteZone" tabindex="0" style="border:2.5px dashed #cbd5e1;border-radius:10px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:#f8fafc;outline:none;position:relative;padding:12px;">'
-                + '<span id="dgamProofHint" style="color:#64748b;font-size:12.5px;font-weight:600;text-align:center;">📋 Ctrl+V để dán ảnh mới<br><span style="font-size:11px;color:#94a3b8;font-weight:500;">Hoặc click vào đây để chọn file</span></span>'
+                + '<div id="dgamProofPasteZone" tabindex="0" style="border:2.5px dashed #cbd5e1;border-radius:10px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;outline:none;position:relative;padding:12px;">'
+                + '<span id="dgamProofHint" style="color:#64748b;font-size:12.5px;font-weight:600;text-align:center;">📋 Ctrl+V để dán ảnh mới<br><span style="font-size:11px;color:#94a3b8;font-weight:500;">Hoặc <span id="dgamSelectFileLink" style="text-decoration:underline;color:#3b82f6;cursor:pointer;">chọn file</span></span></span>'
                 + '<input type="file" id="dgamProofFileInput" accept="image/*" style="display:none;">'
                 + '<div id="dgamProofPreviewContainer" style="display:none;margin-top:8px;text-align:center;">'
                 + '<img id="dgamProofPreview" style="max-height:150px;max-width:100%;border-radius:6px;margin-bottom:4px;">'
@@ -3095,8 +3095,8 @@ function _dgamShowReceivedProofModal(orderId) {
             + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;font-size:12.5px;color:#166534;font-weight:600;text-align:center;">'
             + '📸 Vui lòng cung cấp hình ảnh chứng minh mẫu áo đã về xưởng.'
             + '</div>'
-            + '<div id="dgamProofPasteZone" tabindex="0" style="border:2.5px dashed #cbd5e1;border-radius:10px;min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:#f8fafc;outline:none;position:relative;padding:12px;">'
-            + '<span id="dgamProofHint" style="color:#64748b;font-size:12.5px;font-weight:600;text-align:center;">📋 Ctrl+V để dán ảnh bằng chứng<br><span style="font-size:11px;color:#94a3b8;font-weight:500;">Hoặc click vào đây để chọn file</span></span>'
+            + '<div id="dgamProofPasteZone" tabindex="0" style="border:2.5px dashed #cbd5e1;border-radius:10px;min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;outline:none;position:relative;padding:12px;">'
+            + '<span id="dgamProofHint" style="color:#64748b;font-size:12.5px;font-weight:600;text-align:center;">📋 Ctrl+V để dán ảnh bằng chứng<br><span style="font-size:11px;color:#94a3b8;font-weight:500;">Hoặc <span id="dgamSelectFileLink" style="text-decoration:underline;color:#3b82f6;cursor:pointer;">chọn file</span></span></span>'
             + '<input type="file" id="dgamProofFileInput" accept="image/*" style="display:none;">'
             + '<div id="dgamProofPreviewContainer" style="display:none;margin-top:8px;text-align:center;">'
             + '<img id="dgamProofPreview" style="max-height:180px;max-width:100%;border-radius:6px;margin-bottom:4px;">'
@@ -3115,12 +3115,14 @@ function _dgamShowReceivedProofModal(orderId) {
     setTimeout(function() {
         var zone = document.getElementById('dgamProofPasteZone');
         var fileInput = document.getElementById('dgamProofFileInput');
+        var selectLink = document.getElementById('dgamSelectFileLink');
         if (zone && fileInput) {
-            zone.addEventListener('click', function(e) {
-                if (e.target !== fileInput) {
+            if (selectLink) {
+                selectLink.addEventListener('click', function(e) {
+                    e.stopPropagation();
                     fileInput.click();
-                }
-            });
+                });
+            }
             fileInput.addEventListener('change', function(e) {
                 if (e.target.files && e.target.files[0]) {
                     _dgamHandleProofFile(e.target.files[0]);
@@ -3138,6 +3140,31 @@ function _dgamShowReceivedProofModal(orderId) {
                     }
                 }
             });
+            
+            // Add global paste event listener that checks if the zone exists
+            if (window._dgamGlobalPasteHandler) {
+                document.removeEventListener('paste', window._dgamGlobalPasteHandler);
+            }
+            window._dgamGlobalPasteHandler = function(ev) {
+                var currentZone = document.getElementById('dgamProofPasteZone');
+                if (!currentZone) {
+                    document.removeEventListener('paste', window._dgamGlobalPasteHandler);
+                    window._dgamGlobalPasteHandler = null;
+                    return;
+                }
+                var items = (ev.clipboardData || ev.originalEvent?.clipboardData)?.items;
+                if (!items) return;
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        ev.preventDefault();
+                        var file = items[i].getAsFile();
+                        _dgamHandleProofFile(file);
+                        return;
+                    }
+                }
+            };
+            document.addEventListener('paste', window._dgamGlobalPasteHandler);
+            
             zone.focus();
         }
     }, 200);

@@ -611,7 +611,7 @@ module.exports = async function(fastify) {
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
         const buf = await data.toBuffer();
-        const result = await compressAndSave(buf, dir, 'proof_');
+        const result = await compressAndSave(buf, dir, 'proof_', { maxWidth: 800, quality: 60 });
         const url = `/uploads/received_proofs/${result.fileName}`;
 
         // 3. Update database
