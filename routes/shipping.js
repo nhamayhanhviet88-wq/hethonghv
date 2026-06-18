@@ -770,7 +770,7 @@ module.exports = async function(fastify) {
         const rawId = String(request.params.id);
         if (rawId.startsWith('sample_')) {
             const sampleId = Number(rawId.replace('sample_', ''));
-            const order = await db.get('SELECT id, sample_order_code AS order_code, total_amount, deposit_amount FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
+            const order = await db.get('SELECT id, sample_order_code AS order_code, total_amount, deposit_amount, customer_name, customer_phone, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
             if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });
 
             const b = request.body || {};
@@ -925,18 +925,28 @@ module.exports = async function(fastify) {
                             `, [prId]);
                             const childIdx = Number(childCountRow.cnt) + 1;
 
-                            if (childIdx === 1 && allocAmount === pr.amount && pr.money_source !== 'nha_van_chuyen') {
+                            if (childIdx === 1 && allocAmount === Number(pr.amount) && pr.money_source !== 'nha_van_chuyen') {
                                 // Update parent directly to be a simple thanh_toan
                                 await db.run(`
                                     UPDATE payment_records SET
                                         payment_type = 'thanh_toan',
                                         order_tt_coc = NULL,
                                         order_ao_mau = $1,
+                                        customer_name = $2,
+                                        customer_phone = $3,
+                                        cskh_user_id = $4,
                                         money_source = 'khach_hang',
-                                        transfer_note = $2,
+                                        transfer_note = $5,
                                         updated_at = NOW()
-                                    WHERE id = $3
-                                `, [order.order_code, (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)', prId]);
+                                    WHERE id = $6
+                                `, [
+                                    order.order_code,
+                                    order.customer_name || null,
+                                    order.customer_phone || null,
+                                    order.created_by || null,
+                                    (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)',
+                                    prId
+                                ]);
                                 paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
                             } else {
                                 const splitCode = `${pr.payment_code}-S${childIdx}`;
@@ -956,7 +966,7 @@ module.exports = async function(fastify) {
                                     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
                                 `, [
                                     splitCode, pr.payment_method, pr.daily_seq,
-                                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                                    order.customer_name || null, order.customer_phone || null, order.created_by || null,
                                     allocAmount, 'child_sll',
                                     null, order.order_code,
                                     (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)',
@@ -978,10 +988,19 @@ module.exports = async function(fastify) {
                                         payment_type = 'parent_sll',
                                         order_tt_coc = NULL,
                                         total_order_codes = NULL,
-                                        money_source = $1,
+                                        customer_name = COALESCE(customer_name, $1),
+                                        customer_phone = COALESCE(customer_phone, $2),
+                                        cskh_user_id = COALESCE(cskh_user_id, $3),
+                                        money_source = $4,
                                         updated_at = NOW()
-                                    WHERE id = $2
-                                `, [moneySource, prId]);
+                                    WHERE id = $5
+                                `, [
+                                    order.customer_name || null,
+                                    order.customer_phone || null,
+                                    order.created_by || null,
+                                    moneySource,
+                                    prId
+                                ]);
 
                                 paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
                             }
@@ -1032,7 +1051,7 @@ module.exports = async function(fastify) {
         }
 
         const orderId = Number(request.params.id);
-        const order = await db.get('SELECT id, shipping_status, order_code, total_amount, discount_amount, deposit_amount_cache FROM dht_orders WHERE id = $1', [orderId]);
+        const order = await db.get('SELECT id, shipping_status, order_code, total_amount, discount_amount, deposit_amount_cache, customer_name, customer_phone, cskh_user_id FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
         // Allow reshipping: do not check if shipping_status is already 'shipped'
         // if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã được gửi rồi' });
@@ -1413,18 +1432,28 @@ module.exports = async function(fastify) {
                         `, [prId]);
                         const childIdx = Number(childCountRow.cnt) + 1;
 
-                        if (childIdx === 1 && allocAmount === pr.amount && pr.money_source !== 'nha_van_chuyen') {
+                        if (childIdx === 1 && allocAmount === Number(pr.amount) && pr.money_source !== 'nha_van_chuyen') {
                             // Update parent directly to be a simple thanh_toan
                             await db.run(`
                                 UPDATE payment_records SET
                                     payment_type = 'thanh_toan',
                                     order_tt_coc = $1,
                                     order_ao_mau = NULL,
+                                    customer_name = $2,
+                                    customer_phone = $3,
+                                    cskh_user_id = $4,
                                     money_source = 'khach_hang',
-                                    transfer_note = $2,
+                                    transfer_note = $5,
                                     updated_at = NOW()
-                                WHERE id = $3
-                            `, [order.order_code, (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)', prId]);
+                                WHERE id = $6
+                            `, [
+                                order.order_code,
+                                order.customer_name || null,
+                                order.customer_phone || null,
+                                order.cskh_user_id || null,
+                                (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)',
+                                prId
+                            ]);
                             paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
                         } else {
                             const splitCode = `${pr.payment_code}-S${childIdx}`;
@@ -1444,7 +1473,7 @@ module.exports = async function(fastify) {
                                 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
                             `, [
                                 splitCode, pr.payment_method, pr.daily_seq,
-                                pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                                order.customer_name || null, order.customer_phone || null, order.cskh_user_id || null,
                                 allocAmount, 'child_sll',
                                 order.order_code, null,
                                 (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)',
@@ -1466,10 +1495,19 @@ module.exports = async function(fastify) {
                                     payment_type = 'parent_sll',
                                     order_tt_coc = NULL,
                                     total_order_codes = NULL,
-                                    money_source = $1,
+                                    customer_name = COALESCE(customer_name, $1),
+                                    customer_phone = COALESCE(customer_phone, $2),
+                                    cskh_user_id = COALESCE(cskh_user_id, $3),
+                                    money_source = $4,
                                     updated_at = NOW()
-                                WHERE id = $2
-                            `, [moneySource, prId]);
+                                WHERE id = $5
+                            `, [
+                                order.customer_name || null,
+                                order.customer_phone || null,
+                                order.cskh_user_id || null,
+                                moneySource,
+                                prId
+                            ]);
 
                             paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
                         }
@@ -1824,7 +1862,7 @@ module.exports = async function(fastify) {
 
         if (rawId.startsWith('sample_')) {
             const sampleId = Number(rawId.replace('sample_', ''));
-            const order = await db.get('SELECT id, sample_order_code AS order_code, total_amount, deposit_amount, actual_carrier_id FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
+            const order = await db.get('SELECT id, sample_order_code AS order_code, total_amount, deposit_amount, actual_carrier_id, customer_name, customer_phone, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
             if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });
 
             if (b.tracking_code) {
@@ -1930,17 +1968,27 @@ module.exports = async function(fastify) {
                             `, [prId]);
                             const childIdx = Number(childCountRow.cnt) + 1;
 
-                            if (childIdx === 1 && allocAmount === pr.amount && pr.money_source !== 'nha_van_chuyen') {
+                            if (childIdx === 1 && allocAmount === Number(pr.amount) && pr.money_source !== 'nha_van_chuyen') {
                                 await db.run(`
                                     UPDATE payment_records SET
                                         payment_type = 'thanh_toan',
                                         order_tt_coc = NULL,
                                         order_ao_mau = $1,
+                                        customer_name = $2,
+                                        customer_phone = $3,
+                                        cskh_user_id = $4,
                                         money_source = 'khach_hang',
-                                        transfer_note = $2,
+                                        transfer_note = $5,
                                         updated_at = NOW()
-                                    WHERE id = $3
-                                `, [order.order_code, (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)', prId]);
+                                    WHERE id = $6
+                                `, [
+                                    order.order_code,
+                                    order.customer_name || null,
+                                    order.customer_phone || null,
+                                    order.created_by || null,
+                                    (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)',
+                                    prId
+                                ]);
                                 paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
                             } else {
                                 const splitCode = `${pr.payment_code}-S${childIdx}`;
@@ -1958,7 +2006,7 @@ module.exports = async function(fastify) {
                                     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
                                 `, [
                                     splitCode, pr.payment_method, pr.daily_seq,
-                                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                                    order.customer_name || null, order.customer_phone || null, order.created_by || null,
                                     allocAmount, 'child_sll',
                                     null, order.order_code,
                                     (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)',
@@ -1978,10 +2026,19 @@ module.exports = async function(fastify) {
                                         payment_type = 'parent_sll',
                                         order_tt_coc = NULL,
                                         total_order_codes = NULL,
-                                        money_source = $1,
+                                        customer_name = COALESCE(customer_name, $1),
+                                        customer_phone = COALESCE(customer_phone, $2),
+                                        cskh_user_id = COALESCE(cskh_user_id, $3),
+                                        money_source = $4,
                                         updated_at = NOW()
-                                    WHERE id = $2
-                                `, [moneySource, prId]);
+                                    WHERE id = $5
+                                `, [
+                                    order.customer_name || null,
+                                    order.customer_phone || null,
+                                    order.created_by || null,
+                                    moneySource,
+                                    prId
+                                ]);
 
                                 paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
                             }
@@ -2024,7 +2081,7 @@ module.exports = async function(fastify) {
 
         } else {
             const orderId = Number(rawId);
-            const order = await db.get('SELECT id, shipping_status, order_code, total_amount, discount_amount, deposit_amount_cache, actual_carrier_id FROM dht_orders WHERE id = $1', [orderId]);
+            const order = await db.get('SELECT id, shipping_status, order_code, total_amount, discount_amount, deposit_amount_cache, actual_carrier_id, customer_name, customer_phone, cskh_user_id FROM dht_orders WHERE id = $1', [orderId]);
             if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
 
             if (b.tracking_code) {
@@ -2191,17 +2248,27 @@ module.exports = async function(fastify) {
                             `, [prId]);
                             const childIdx = Number(childCountRow.cnt) + 1;
 
-                            if (childIdx === 1 && allocAmount === pr.amount && pr.money_source !== 'nha_van_chuyen') {
+                            if (childIdx === 1 && allocAmount === Number(pr.amount) && pr.money_source !== 'nha_van_chuyen') {
                                 await db.run(`
                                     UPDATE payment_records SET
                                         payment_type = 'thanh_toan',
                                         order_tt_coc = $1,
                                         order_ao_mau = NULL,
-                                        money_source = 'khach_hang',
-                                        transfer_note = $2,
+                                        customer_name = $2,
+                                         customer_phone = $3,
+                                         cskh_user_id = $4,
+                                         money_source = 'khach_hang',
+                                        transfer_note = $5,
                                         updated_at = NOW()
-                                    WHERE id = $3
-                                `, [order.order_code, (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)', prId]);
+                                    WHERE id = $6
+                                `, [
+                                     order.order_code,
+                                     order.customer_name || null,
+                                     order.customer_phone || null,
+                                     order.cskh_user_id || null,
+                                     (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)',
+                                     prId
+                                 ]);
                                 paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
                             } else {
                                 const splitCode = `${pr.payment_code}-S${childIdx}`;
@@ -2219,7 +2286,7 @@ module.exports = async function(fastify) {
                                     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
                                 `, [
                                     splitCode, pr.payment_method, pr.daily_seq,
-                                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                                    order.customer_name || null, order.customer_phone || null, order.cskh_user_id || null,
                                     allocAmount, 'child_sll',
                                     order.order_code, null,
                                     (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)',
@@ -2239,10 +2306,19 @@ module.exports = async function(fastify) {
                                         payment_type = 'parent_sll',
                                         order_tt_coc = NULL,
                                         total_order_codes = NULL,
-                                        money_source = $1,
+                                        customer_name = COALESCE(customer_name, $1),
+                                         customer_phone = COALESCE(customer_phone, $2),
+                                         cskh_user_id = COALESCE(cskh_user_id, $3),
+                                         money_source = $4,
                                         updated_at = NOW()
-                                    WHERE id = $2
-                                `, [moneySource, prId]);
+                                    WHERE id = $5
+                                `, [
+                                     order.customer_name || null,
+                                     order.customer_phone || null,
+                                     order.cskh_user_id || null,
+                                     moneySource,
+                                     prId
+                                 ]);
 
                                 paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
                             }

@@ -815,6 +815,14 @@ module.exports = async function(fastify) {
             if (allocations.length === 1 && totalAllocated === Number(pr.amount) && pr.money_source !== 'nha_van_chuyen') {
                 const alloc = allocations[0];
                 const isAoMau = alloc.order_type === 'ao_mau';
+                let cskhUserId = null;
+                if (isAoMau) {
+                    const sample = await db.get('SELECT created_by FROM don_gui_ao_mau WHERE sample_order_code = $1', [alloc.order_code]);
+                    if (sample) cskhUserId = sample.created_by;
+                } else {
+                    const dht = await db.get('SELECT cskh_user_id FROM dht_orders WHERE order_code = $1', [alloc.order_code]);
+                    if (dht) cskhUserId = dht.cskh_user_id;
+                }
                 
                 await db.run(`
                     UPDATE payment_records SET
@@ -823,17 +831,19 @@ module.exports = async function(fastify) {
                         order_ao_mau = $2,
                         customer_name = $3,
                         customer_phone = $4,
+                        cskh_user_id = $5,
                         total_order_codes = NULL,
-                        transfer_note = $5,
+                        transfer_note = $6,
                         money_source = 'khach_hang',
-                        handover_status = $6,
+                        handover_status = $7,
                         updated_at = NOW()
-                    WHERE id = $7
+                    WHERE id = $8
                 `, [
                     isAoMau ? null : alloc.order_code,
                     isAoMau ? alloc.order_code : null,
                     alloc.customer_name || null,
                     alloc.customer_phone || null,
+                    cskhUserId || null,
                     finalNote,
                     computeHandoverStatus('thanh_toan'),
                     id
@@ -852,21 +862,43 @@ module.exports = async function(fastify) {
                 return { success: true, auto_completed_orders: autoCompletedOrders };
             }
 
+            let parentCustName = null;
+            let parentCustPhone = null;
+            let parentCskhId = null;
+            if (allocations.length > 0) {
+                const firstAlloc = allocations[0];
+                parentCustName = firstAlloc.customer_name || null;
+                parentCustPhone = firstAlloc.customer_phone || null;
+                if (firstAlloc.order_type === 'ao_mau') {
+                    const sample = await db.get('SELECT created_by FROM don_gui_ao_mau WHERE sample_order_code = $1', [firstAlloc.order_code]);
+                    if (sample) parentCskhId = sample.created_by;
+                } else {
+                    const dht = await db.get('SELECT cskh_user_id FROM dht_orders WHERE order_code = $1', [firstAlloc.order_code]);
+                    if (dht) parentCskhId = dht.cskh_user_id;
+                }
+            }
+
             // 1. Update the parent record (keep original amount, set type = parent_sll, set order_tt_coc = NULL)
             await db.run(`
                 UPDATE payment_records SET
                     payment_type = 'parent_sll',
                     order_tt_coc = NULL,
                     total_order_codes = NULL,
-                    transfer_note = $1,
-                    money_source = $2,
-                    handover_status = $3,
-                    total_cod = COALESCE($4, total_cod),
-                    shipping_fee = COALESCE($5, shipping_fee),
-                    reconciled_waybills = $6,
+                    customer_name = COALESCE(customer_name, $1),
+                    customer_phone = COALESCE(customer_phone, $2),
+                    cskh_user_id = COALESCE(cskh_user_id, $3),
+                    transfer_note = $4,
+                    money_source = $5,
+                    handover_status = $6,
+                    total_cod = COALESCE($7, total_cod),
+                    shipping_fee = COALESCE($8, shipping_fee),
+                    reconciled_waybills = $9,
                     updated_at = NOW()
-                WHERE id = $7
+                WHERE id = $10
             `, [
+                parentCustName,
+                parentCustPhone,
+                parentCskhId,
                 finalNote,
                 moneySource,
                 parentHandover,
@@ -886,6 +918,14 @@ module.exports = async function(fastify) {
                 const splitCode = `${pr.payment_code}-S${i + 1}`;
                 const isAoMau = alloc.order_type === 'ao_mau';
                 const trackingSuffix = alloc.tracking_code ? ` - MVĐ: ${alloc.tracking_code}` : '';
+                let childCskhId = null;
+                if (isAoMau) {
+                    const sample = await db.get('SELECT created_by FROM don_gui_ao_mau WHERE sample_order_code = $1', [alloc.order_code]);
+                    if (sample) childCskhId = sample.created_by;
+                } else {
+                    const dht = await db.get('SELECT cskh_user_id FROM dht_orders WHERE order_code = $1', [alloc.order_code]);
+                    if (dht) childCskhId = dht.cskh_user_id;
+                }
                 
                 await db.run(`
                     INSERT INTO payment_records (
@@ -901,7 +941,7 @@ module.exports = async function(fastify) {
                     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
                 `, [
                     splitCode, pr.payment_method, pr.daily_seq,
-                    alloc.customer_name || null, alloc.customer_phone || null, pr.cskh_user_id || null,
+                    alloc.customer_name || null, alloc.customer_phone || null, childCskhId || pr.cskh_user_id || null,
                     alloc.amount, 'child_sll',
                     isAoMau ? null : alloc.order_code,
                     isAoMau ? alloc.order_code : null,

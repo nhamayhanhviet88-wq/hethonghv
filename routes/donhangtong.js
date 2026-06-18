@@ -1266,7 +1266,7 @@ module.exports = async function(fastify) {
                     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
                 `, [
                     splitCode, pr.payment_method, pr.daily_seq,
-                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                    b.customer_name || null, b.customer_phone || null, ((isFreeOrder || isRepairOrder) ? request.user.id : (b.cskh_user_id ? Number(b.cskh_user_id) : null)),
                     depositAllocatedAmount, 'child_sll',
                     orderCode, null,
                     (pr.transfer_note || '') + ' (Đặt cọc đơn ' + orderCode + ')',
@@ -1288,12 +1288,21 @@ module.exports = async function(fastify) {
                         payment_type = 'parent_sll',
                         order_tt_coc = NULL,
                         total_order_codes = NULL,
-                        money_source = $1,
+                        customer_name = COALESCE(customer_name, $1),
+                        customer_phone = COALESCE(customer_phone, $2),
+                        cskh_user_id = COALESCE(cskh_user_id, $3),
+                        money_source = $4,
                         locked_by = NULL,
                         locked_at = NULL,
                         updated_at = NOW()
-                    WHERE id = $2
-                `, [moneySource, depositPrId]);
+                    WHERE id = $5
+                `, [
+                    b.customer_name || null,
+                    b.customer_phone || null,
+                    ((isFreeOrder || isRepairOrder) ? request.user.id : (b.cskh_user_id ? Number(b.cskh_user_id) : null)),
+                    moneySource,
+                    depositPrId
+                ]);
             }
         }
 
@@ -3177,6 +3186,42 @@ module.exports = async function(fastify) {
             LIMIT 100
         `, [request.user.id]);
         return { deposits: rows };
+    });
+
+    // ========== PET/TEM: Free Customer Search ==========
+    fastify.get('/api/dht/free-customers/search', { preHandler: [authenticate] }, async (request, reply) => {
+        const q = (request.query.q || '').trim();
+        const cat = (request.query.cat || '').trim();
+        const role = request.user.role || '';
+        const userId = request.user.id;
+
+        // GĐ + QLCC see all, others see only their own
+        const seeAll = (role === 'giam_doc' || role === 'quan_ly_cap_cao');
+        const ownerFilter = seeAll ? '' : ' AND created_by = ' + parseInt(userId);
+
+        let rows;
+        if (!q) {
+            rows = await db.all(`
+                SELECT id, name, phone, address, province, categories
+                FROM dht_free_customers
+                WHERE 1=1 ${ownerFilter}
+                ORDER BY
+                    CASE WHEN $1 != '' AND $1 = ANY(categories) THEN 0 ELSE 1 END,
+                    updated_at DESC
+                LIMIT 30
+            `, [cat]);
+        } else {
+            rows = await db.all(`
+                SELECT id, name, phone, address, province, categories
+                FROM dht_free_customers
+                WHERE (name ILIKE $1 OR phone ILIKE $1) ${ownerFilter}
+                ORDER BY
+                    CASE WHEN $2 != '' AND $2 = ANY(categories) THEN 0 ELSE 1 END,
+                    updated_at DESC
+                LIMIT 15
+            `, ['%' + q + '%', cat]);
+        }
+        return { customers: rows };
     });
 
     // ========== PET/TEM: Source Settings ==========
