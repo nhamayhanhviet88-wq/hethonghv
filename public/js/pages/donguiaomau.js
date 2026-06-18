@@ -1814,6 +1814,16 @@ async function _dgamOnHoanHangClick(id) {
             `;
         } else {
             let carrierOptions = carriers.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            let hourOptions = '';
+            for (let i = 0; i < 24; i++) {
+                let v = (i < 10 ? '0' : '') + i;
+                hourOptions += `<option value="${v}">${v}</option>`;
+            }
+            let minuteOptions = '';
+            for (let i = 0; i < 60; i += 5) {
+                let v = (i < 10 ? '0' : '') + i;
+                minuteOptions += `<option value="${v}">${v}</option>`;
+            }
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             const tomorrowStr = tomorrow.toISOString().split('T')[0];
@@ -1847,19 +1857,29 @@ async function _dgamOnHoanHangClick(id) {
                         <div id="hoan_chuan_fields" style="display:none;flex-direction:column;gap:14px;background:#fefefe;border:1.5px dashed #eab308;padding:12px;border-radius:10px;">
                             <div>
                                 <label style="display:block;font-weight:700;margin-bottom:6px;color:#854d0e;">⏰ Yêu Cầu Chuẩn Giờ Hàng Ra (24h) *</label>
-                                <input type="time" id="hoan_hang_ship_time" style="width:100%;padding:8px 12px;border:1px solid #eab308;border-radius:8px;font-size:13px;font-family:inherit;outline:none;background:#fefcf0;">
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <select id="hoan_hang_ship_hour" style="flex:1;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;background-color:#fff;outline:none;">
+                                        <option value="">Giờ</option>
+                                        ${hourOptions}
+                                    </select>
+                                    <span style="font-weight:800;">:</span>
+                                    <select id="hoan_hang_ship_minute" style="flex:1;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;background-color:#fff;outline:none;">
+                                        <option value="">Phút</option>
+                                        ${minuteOptions}
+                                    </select>
+                                </div>
                             </div>
                             <div>
                                 <label style="display:block;font-weight:700;margin-bottom:6px;color:#854d0e;">📸 Ảnh chứng minh Tiêu Chuẩn CHUẨN *</label>
-                                <div style="display:flex;gap:10px;align-items:center;">
-                                    <div id="hoan_proof_preview_container" style="display:none;position:relative;">
-                                        <img id="hoan_proof_preview" style="max-height:80px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.15);">
-                                        <button type="button" onclick="_dgamRemoveProofImage()" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:white;border:none;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+                                <div id="hoan_proof_zone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;transition:all 0.2s;min-height:80px;display:flex;align-items:center;justify-content:center;flex-direction:column;outline:none;" onclick="this.focus()" onfocus="this.style.borderColor='#3b82f6';this.style.background='#f0f9ff';" onblur="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc';">
+                                    <div id="hoan_proof_placeholder" style="color:#94a3b8;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+                                        <span style="font-size:28px;color:#d97706;">📋</span>
+                                        <span style="color:#64748b;font-weight:500;">Click vào đây rồi <strong style="color:#475569;">Ctrl+V</strong> dán hình ảnh</span>
                                     </div>
-                                    <button type="button" onclick="_dgamTriggerProofUpload()" id="hoan_proof_upload_btn" style="padding:10px 14px;border:1.5px dashed #cbd5e1;background:#f8fafc;border-radius:8px;color:#475569;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
-                                        📤 Tải Ảnh
-                                    </button>
-                                    <span style="font-size:11px;color:#64748b;">(hoặc ctrl+v dán ảnh vào đây)</span>
+                                    <div id="hoan_proof_preview_container" style="display:none;position:relative;width:100%;text-align:center;">
+                                        <img id="hoan_proof_preview" style="max-height:120px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.1);max-width:100%;object-fit:contain;">
+                                        <button type="button" onclick="_dgamRemoveProofImage(); event.stopPropagation();" style="position:absolute;top:-8px;right:-8px;background:#ef4444;color:white;border:none;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.2);">✕</button>
+                                    </div>
                                 </div>
                                 <input type="hidden" id="hoan_hang_chuan_proof_image">
                             </div>
@@ -1936,57 +1956,34 @@ function _dgamCloseHoanHangModal() {
 
 function _dgamOnPriorityChange(val) {
     const fields = document.getElementById('hoan_chuan_fields');
-    const timeInput = document.getElementById('hoan_hang_ship_time');
+    const hourSelect = document.getElementById('hoan_hang_ship_hour');
+    const minSelect = document.getElementById('hoan_hang_ship_minute');
     if (val === 'CHUẨN') {
         fields.style.display = 'flex';
-        timeInput.required = true;
+        if (hourSelect) hourSelect.required = true;
+        if (minSelect) minSelect.required = true;
     } else {
         fields.style.display = 'none';
-        timeInput.required = false;
-        timeInput.value = '';
+        if (hourSelect) { hourSelect.required = false; hourSelect.value = ''; }
+        if (minSelect) { minSelect.required = false; minSelect.value = ''; }
         _dgamRemoveProofImage();
     }
 }
 
-function _dgamTriggerProofUpload() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async function() {
-        const file = input.files[0];
-        if (file) {
-            try {
-                showToast('Đang tải ảnh lên...', 'info');
-                const formData = new FormData();
-                formData.append('image', file);
-                const uploadResult = await fetch('/api/upload', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + localStorage.getItem('token')
-                    },
-                    body: formData
-                });
-                const r = await uploadResult.json();
-                if (r && r.url) {
-                    _dgamSetProofImage(r.url);
-                    showToast('Tải ảnh chứng minh thành công!', 'success');
-                } else {
-                    showToast('Lỗi tải ảnh lên: ' + (r.error || 'Unknown error'), 'error');
-                }
-            } catch (err) {
-                console.error('Upload proof err:', err);
-                showToast('Lỗi tải ảnh: ' + err.message, 'error');
-            }
-        }
-    };
-    input.click();
-}
-
 function _dgamSetProofImage(url) {
-    document.getElementById('hoan_hang_chuan_proof_image').value = url;
-    document.getElementById('hoan_proof_preview').src = url;
-    document.getElementById('hoan_proof_preview_container').style.display = 'block';
-    document.getElementById('hoan_proof_upload_btn').style.display = 'none';
+    const proofInp = document.getElementById('hoan_hang_chuan_proof_image');
+    if (proofInp) proofInp.value = url;
+    const img = document.getElementById('hoan_proof_preview');
+    if (img) img.src = url;
+    const container = document.getElementById('hoan_proof_preview_container');
+    if (container) container.style.display = 'block';
+    const placeholder = document.getElementById('hoan_proof_placeholder');
+    if (placeholder) placeholder.style.display = 'none';
+    const zone = document.getElementById('hoan_proof_zone');
+    if (zone) {
+        zone.style.borderColor = '#059669';
+        zone.style.background = '#f0fdf4';
+    }
 }
 
 function _dgamRemoveProofImage() {
@@ -1994,8 +1991,13 @@ function _dgamRemoveProofImage() {
     if (proofVal) proofVal.value = '';
     const previewContainer = document.getElementById('hoan_proof_preview_container');
     if (previewContainer) previewContainer.style.display = 'none';
-    const uploadBtn = document.getElementById('hoan_proof_upload_btn');
-    if (uploadBtn) uploadBtn.style.display = 'flex';
+    const placeholder = document.getElementById('hoan_proof_placeholder');
+    if (placeholder) placeholder.style.display = 'flex';
+    const zone = document.getElementById('hoan_proof_zone');
+    if (zone) {
+        zone.style.borderColor = '#cbd5e1';
+        zone.style.background = '#f8fafc';
+    }
 }
 
 async function _dgamSubmitHoanHang(e, id) {
@@ -2008,18 +2010,20 @@ async function _dgamSubmitHoanHang(e, id) {
     const priority = document.getElementById('hoan_hang_shipping_priority').value;
     const method = document.getElementById('hoan_hang_shipping_method').value;
     const note = document.getElementById('hoan_hang_sale_note').value;
-    const ship_time = document.getElementById('hoan_hang_ship_time').value;
+    const hour = document.getElementById('hoan_hang_ship_hour')?.value || '';
+    const minute = document.getElementById('hoan_hang_ship_minute')?.value || '';
+    const ship_time = (hour && minute) ? `${hour}:${minute}` : '';
     const proof = document.getElementById('hoan_hang_chuan_proof_image').value;
 
     if (priority === 'CHUẨN') {
-        if (!ship_time) {
-            showToast('Vui lòng chọn Giờ hàng ra cho đơn chuẩn!', 'error');
+        if (!hour || !minute) {
+            showToast('Vui lòng chọn đầy đủ Giờ và Phút hàng ra cho đơn chuẩn!', 'error');
             submitBtn.disabled = false;
             submitBtn.innerText = 'Lưu Yêu Cầu';
             return;
         }
         if (!proof) {
-            showToast('Vui lòng tải lên hoặc dán Ảnh chứng minh cho đơn chuẩn!', 'error');
+            showToast('Vui lòng dán Ảnh chứng minh cho đơn chuẩn!', 'error');
             submitBtn.disabled = false;
             submitBtn.innerText = 'Lưu Yêu Cầu';
             return;
