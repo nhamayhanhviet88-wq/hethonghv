@@ -892,7 +892,7 @@ async function renderDonhangchuathutienPage(content) {
     document.getElementById('dhcttSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(_st); _dhcttDoSearch(); } });
 
     var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-    _dhctt.filter = { carrier_id: 0, year: nowVN.getFullYear() };
+    _dhctt.filter = {};
     _dhcttSyncDateInputs();
 
     var ypEl = document.getElementById('dhcttYearPick');
