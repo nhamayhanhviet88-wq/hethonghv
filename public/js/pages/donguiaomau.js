@@ -377,7 +377,11 @@ function _dgamRenderRows(paged) {
             if (o.status_hoan_hang) {
                 hoanBtnHtml = '<button class="dgam-icon-btn on-hoan" title="Thông tin hoàn hàng" onclick="_dgamOnHoanHangClick('+o.id+')">🔄</button>';
             } else if (isDaGuiMau) {
-                hoanBtnHtml = '<button class="dgam-icon-btn" title="Hoàn hàng" onclick="_dgamOnHoanHangClick('+o.id+')">🔄</button>';
+                if (remaining === 0) {
+                    hoanBtnHtml = '<button class="dgam-icon-btn" title="Hoàn hàng" onclick="_dgamOnHoanHangClick('+o.id+')">🔄</button>';
+                } else {
+                    hoanBtnHtml = '<button class="dgam-icon-btn" title="Chỉ được hoàn hàng khi số tiền còn lại bằng 0" style="opacity:0.5;cursor:not-allowed;" onclick="showToast(\'🔒 Chỉ được hoàn hàng khi số tiền còn lại bằng 0!\', \'error\')">🔄</button>';
+                }
             } else {
                 hoanBtnHtml = '<button class="dgam-icon-btn" title="Chỉ được hoàn hàng khi trạng thái là Đã Gửi Mẫu" style="opacity:0.5;cursor:not-allowed;" disabled>🔄</button>';
             }

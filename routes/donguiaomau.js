@@ -495,10 +495,27 @@ module.exports = async function(fastify) {
         const { id } = request.params;
         const b = request.body || {};
 
-        const order = await db.get(`SELECT order_status, status_hoan_hang FROM don_gui_ao_mau WHERE id = $1`, [id]);
+        const order = await db.get(`
+            SELECT 
+                d.order_status, 
+                d.status_hoan_hang,
+                GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_all.paid_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining_amount
+            FROM don_gui_ao_mau d
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS paid_total
+                FROM payment_records
+                WHERE order_ao_mau = d.sample_order_code
+            ) pr_all ON true
+            WHERE d.id = $1
+        `, [id]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
-        if (!order.status_hoan_hang && order.order_status !== 'da_gui' && order.order_status !== 'hoan_thanh') {
-            return reply.code(400).send({ error: 'Chỉ được báo hoàn hàng khi đơn hàng có trạng thái Đã Gửi Mẫu' });
+        if (!order.status_hoan_hang) {
+            if (order.order_status !== 'da_gui' && order.order_status !== 'hoan_thanh') {
+                return reply.code(400).send({ error: 'Chỉ được báo hoàn hàng khi đơn hàng có trạng thái Đã Gửi Mẫu' });
+            }
+            if (Number(order.remaining_amount) > 0) {
+                return reply.code(400).send({ error: '🔒 Chỉ được hoàn hàng khi số tiền còn lại bằng 0!' });
+            }
         }
 
         if (!b.hoan_hang_ship_date) return reply.code(400).send({ error: 'Vui lòng chọn Ngày gửi hàng' });
