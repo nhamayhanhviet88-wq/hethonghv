@@ -33,6 +33,8 @@ async function renderDonguiaomauPage(content) {
             +'.dgam-icon-btn.on-gui{background:#dbeafe;border-color:#3b82f6}'
             +'.dgam-icon-btn.on-hoan{background:#fef3c7;border-color:#f59e0b}'
             +'.dgam-icon-btn.on-ktra{background:#ede9fe;border-color:#8b5cf6}'
+            +'.dgam-icon-btn.on-proof-pending{background:#ffedd5;border-color:#f97316}'
+            +'.dgam-icon-btn.on-proof-uploaded{background:#f3e8ff;border-color:#a855f7}'
             +'#dgamSearchInput:focus{border-color:#0284c7;box-shadow:0 0 0 3px rgba(2,132,199,0.15);background:#fff}'
         ;
         document.head.appendChild(st);
@@ -364,12 +366,38 @@ function _dgamRenderRows(paged) {
             }
         }
 
+        // Bằng chứng mẫu áo đã về (📸)
+        var isMauAoDaHoan = o.status_hoan_hang && o.status_gui_don_hoan;
+        var deptName = (userObj && userObj.department_name || '').toLowerCase();
+        var isKeToan = deptName.includes('kế toán') || deptName.includes('ke toan');
+        var isQLCCTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh') || userObj.username === 'trinh');
+        var isGiamDoc = userObj && userObj.role === 'giam_doc';
+        var isSale = !isKeToan && !isQuanLyXuong && !isQLCCTrinh && !isGiamDoc;
+
+        var receivedProofBtnHtml = '';
+        if (isMauAoDaHoan) {
+            if (o.hoan_hang_received_proof_image) {
+                receivedProofBtnHtml = '<button class="dgam-icon-btn on-proof-uploaded" title="Xem ảnh chứng minh mẫu về" onclick="_dgamShowReceivedProofModal('+o.id+')">📸</button>';
+            } else {
+                if (isSale) {
+                    receivedProofBtnHtml = '<button class="dgam-icon-btn on-proof-pending" title="Chụp ảnh chứng minh mẫu đã về" onclick="_dgamShowReceivedProofModal('+o.id+')">📸</button>';
+                } else {
+                    receivedProofBtnHtml = '<button class="dgam-icon-btn" title="Chỉ nhân viên sale mới được chụp ảnh chứng minh" style="opacity:0.4;cursor:not-allowed;" disabled>📸</button>';
+                }
+            }
+        } else {
+            receivedProofBtnHtml = '<button class="dgam-icon-btn" title="Chụp ảnh chứng minh mẫu đã về (Chỉ khi mẫu đã hoàn)" style="opacity:0.4;cursor:not-allowed;" disabled>📸</button>';
+        }
+
         // Kiểm tra đơn mẫu (🔍): Lê Việt Trinh và Giám đốc có quyền kiểm tra; các tài khoản khác chỉ xem (disabled)
         var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
-        var isGiamDoc = userObj && userObj.role === 'giam_doc';
         var kiemTraBtnHtml = '';
         if (isLeVietTrinh || isGiamDoc) {
-            kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>';
+            if (o.status_hoan_hang && !o.hoan_hang_received_proof_image) {
+                kiemTraBtnHtml = '<button class="dgam-icon-btn" title="Mẫu áo chưa về nên chưa được kiểm tra" style="opacity:0.4;cursor:not-allowed;" onclick="showToast(\'🔒 Mẫu áo chưa về nên chưa được kiểm tra\', \'error\')">🔍</button>';
+            } else {
+                kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>';
+            }
         } else {
             kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra (Chỉ xem)" style="opacity:0.5;cursor:not-allowed;" disabled>🔍</button>';
         }
@@ -380,6 +408,7 @@ function _dgamRenderRows(paged) {
             +'<div style="display:flex;gap:2px;justify-content:center">'
             +approveBtnHtml
             +hoanBtnHtml
+            +receivedProofBtnHtml
             +kiemTraBtnHtml
             +'</div>'
             +'</div>'
@@ -2411,4 +2440,210 @@ async function _dgamSubmitHoanHang(e, id) {
         submitBtn.innerText = 'Lưu Yêu Cầu';
     }
 }
+
+// ========== RECEIVED PROOF PHOTO MODAL & UPLOAD/COMPRESSION ==========
+var _dgamCompressedBlob = null;
+
+function _dgamCompressImage(file, callback) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var max_size = 1024;
+            var width = img.width;
+            var height = img.height;
+            
+            if (width > height) {
+                if (width > max_size) {
+                    height *= max_size / width;
+                    width = max_size;
+                }
+            } else {
+                if (height > max_size) {
+                    width *= max_size / height;
+                    height = max_size;
+                }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            canvas.toBlob(function(blob) {
+                callback(blob);
+            }, 'image/jpeg', 0.75);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function _dgamHandleProofFile(file) {
+    var hint = document.getElementById('dgamProofHint');
+    var container = document.getElementById('dgamProofPreviewContainer');
+    var img = document.getElementById('dgamProofPreview');
+    var sizeLabel = document.getElementById('dgamProofSize');
+    var submitBtn = document.getElementById('dgamSubmitProofBtn');
+    
+    if (hint) hint.style.display = 'none';
+    if (container) container.style.display = 'block';
+    if (sizeLabel) sizeLabel.innerHTML = '⏳ Đang nén ảnh...';
+    if (submitBtn) submitBtn.disabled = true;
+    
+    _dgamCompressImage(file, function(blob) {
+        _dgamCompressedBlob = blob;
+        var kb = Math.round(blob.size / 1024);
+        if (sizeLabel) {
+            sizeLabel.innerHTML = '✅ Đã nén thành công: <strong>' + kb + ' KB</strong>';
+        }
+        if (img) {
+            img.src = URL.createObjectURL(blob);
+        }
+        if (submitBtn) {
+            submitBtn.disabled = false;
+        }
+    });
+}
+
+function _dgamShowReceivedProofModal(orderId) {
+    var o = (_dgam.orders || []).find(x => x.id === orderId);
+    if (!o) return;
+    
+    _dgamCompressedBlob = null;
+    
+    var userObj = window.currentUser || window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
+    var deptName = (userObj && userObj.department_name || '').toLowerCase();
+    var isKeToan = deptName.includes('kế toán') || deptName.includes('ke toan');
+    var isQuanLyXuong = userObj && (userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
+    var isQLCCTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh') || userObj.username === 'trinh');
+    var isGiamDoc = userObj && userObj.role === 'giam_doc';
+    var isSale = !isKeToan && !isQuanLyXuong && !isQLCCTrinh && !isGiamDoc;
+    
+    var bodyHTML = '';
+    var footerHTML = '';
+    
+    if (o.hoan_hang_received_proof_image) {
+        var imgHtml = '<div style="text-align:center;margin-bottom:12px;">'
+            + '<img src="' + o.hoan_hang_received_proof_image + '" style="max-width:100%;max-height:300px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,0.1);">'
+            + '</div>';
+            
+        if (isSale) {
+            bodyHTML = imgHtml 
+                + '<div style="border-top:1px solid #e2e8f0;margin:16px 0;padding-top:12px;">'
+                + '<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;">🔄 Thay thế bằng chứng mẫu đã về:</div>'
+                + '<div id="dgamProofPasteZone" tabindex="0" style="border:2.5px dashed #cbd5e1;border-radius:10px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:#f8fafc;outline:none;position:relative;padding:12px;">'
+                + '<span id="dgamProofHint" style="color:#64748b;font-size:12.5px;font-weight:600;text-align:center;">📋 Ctrl+V để dán ảnh mới<br><span style="font-size:11px;color:#94a3b8;font-weight:500;">Hoặc click vào đây để chọn file</span></span>'
+                + '<input type="file" id="dgamProofFileInput" accept="image/*" style="display:none;">'
+                + '<div id="dgamProofPreviewContainer" style="display:none;margin-top:8px;text-align:center;">'
+                + '<img id="dgamProofPreview" style="max-height:150px;max-width:100%;border-radius:6px;margin-bottom:4px;">'
+                + '<div id="dgamProofSize" style="font-size:11px;font-weight:700;color:#22c55e;"></div>'
+                + '</div>'
+                + '</div>'
+                + '</div>';
+            
+            footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+                + '<button class="btn btn-primary" id="dgamSubmitProofBtn" onclick="_dgamSubmitReceivedProof(' + orderId + ')" style="width:auto;background:linear-gradient(135deg,#7e22ce,#6b21a8);border:none;">💾 Lưu thay đổi</button>';
+        } else {
+            bodyHTML = imgHtml + '<div style="text-align:center;font-size:12.5px;color:#64748b;font-weight:600;">Bạn không có quyền sửa đổi bằng chứng này</div>';
+            footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
+        }
+    } else {
+        bodyHTML = '<div style="display:flex;flex-direction:column;gap:12px;">'
+            + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;font-size:12.5px;color:#166534;font-weight:600;text-align:center;">'
+            + '📸 Vui lòng cung cấp hình ảnh chứng minh mẫu áo đã về xưởng.'
+            + '</div>'
+            + '<div id="dgamProofPasteZone" tabindex="0" style="border:2.5px dashed #cbd5e1;border-radius:10px;min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:#f8fafc;outline:none;position:relative;padding:12px;">'
+            + '<span id="dgamProofHint" style="color:#64748b;font-size:12.5px;font-weight:600;text-align:center;">📋 Ctrl+V để dán ảnh bằng chứng<br><span style="font-size:11px;color:#94a3b8;font-weight:500;">Hoặc click vào đây để chọn file</span></span>'
+            + '<input type="file" id="dgamProofFileInput" accept="image/*" style="display:none;">'
+            + '<div id="dgamProofPreviewContainer" style="display:none;margin-top:8px;text-align:center;">'
+            + '<img id="dgamProofPreview" style="max-height:180px;max-width:100%;border-radius:6px;margin-bottom:4px;">'
+            + '<div id="dgamProofSize" style="font-size:11px;font-weight:700;color:#22c55e;"></div>'
+            + '</div>'
+            + '</div>'
+            + '</div>';
+        
+        footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+            + '<button class="btn btn-primary" id="dgamSubmitProofBtn" onclick="_dgamSubmitReceivedProof(' + orderId + ')" style="width:auto;background:linear-gradient(135deg,#7e22ce,#6b21a8);border:none;" disabled>✅ Xác Nhận</button>';
+    }
+    
+    openModal('📸 Bằng Chứng Mẫu Áo Đã Về', bodyHTML, footerHTML);
+    
+    // Attach event listeners after DOM render
+    setTimeout(function() {
+        var zone = document.getElementById('dgamProofPasteZone');
+        var fileInput = document.getElementById('dgamProofFileInput');
+        if (zone && fileInput) {
+            zone.addEventListener('click', function(e) {
+                if (e.target !== fileInput) {
+                    fileInput.click();
+                }
+            });
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    _dgamHandleProofFile(e.target.files[0]);
+                }
+            });
+            zone.addEventListener('paste', function(e) {
+                var items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+                if (!items) return;
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        e.preventDefault();
+                        var file = items[i].getAsFile();
+                        _dgamHandleProofFile(file);
+                        return;
+                    }
+                }
+            });
+            zone.focus();
+        }
+    }, 200);
+}
+
+async function _dgamSubmitReceivedProof(id) {
+    if (!_dgamCompressedBlob) {
+        showToast('Vui lòng chọn hoặc dán hình ảnh!', 'error');
+        return;
+    }
+    
+    var submitBtn = document.getElementById('dgamSubmitProofBtn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Đang tải lên...';
+    }
+    
+    try {
+        var fd = new FormData();
+        fd.append('file', _dgamCompressedBlob, 'proof_' + id + '_' + Date.now() + '.jpg');
+        
+        var res = await fetch('/api/don-gui-ao-mau/' + id + '/upload-received-proof', {
+            method: 'POST',
+            body: fd,
+            credentials: 'include'
+        });
+        
+        var data = await res.json();
+        if (data.success) {
+            showToast('✅ Đã cập nhật bằng chứng mẫu áo đã về thành công!');
+            closeModal();
+            _dgamCompressedBlob = null;
+            await _dgamLoadOrders();
+        } else {
+            showToast(data.error || 'Lỗi khi tải lên', 'error');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = '✅ Xác Nhận';
+            }
+        }
+    } catch(err) {
+        showToast(err.message || 'Lỗi kết nối', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText = '✅ Xác Nhận';
+        }
+    }
+}
+
 

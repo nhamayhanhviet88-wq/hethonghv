@@ -77,6 +77,7 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_is_pending_update BOOLEAN DEFAULT false`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_shipping_cashflow_id INTEGER`);
         await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_shipping_payment_id INTEGER`);
+        await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS hoan_hang_received_proof_image TEXT`);
 
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_order_date ON don_gui_ao_mau(order_date)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dgam_status ON don_gui_ao_mau(order_status)`);
@@ -258,6 +259,12 @@ module.exports = async function(fastify) {
             const isGiamDoc = request.user.role === 'giam_doc';
             if (!isLeVietTrinh && !isGiamDoc) {
                 return reply.code(403).send({ error: '🔒 Chỉ tài khoản Lê Việt Trinh và Giám đốc mới có quyền kiểm tra đơn mẫu!' });
+            }
+            if (value) {
+                const order = await db.get('SELECT status_hoan_hang, hoan_hang_received_proof_image FROM don_gui_ao_mau WHERE id = $1', [id]);
+                if (order && order.status_hoan_hang && !order.hoan_hang_received_proof_image) {
+                    return reply.code(400).send({ error: '🔒 Mẫu áo chưa về nên chưa được kiểm tra!' });
+                }
             }
             await db.run(`UPDATE don_gui_ao_mau SET status_kiem_tra = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3`, [value, request.user.id, id]);
         } else {
@@ -547,5 +554,60 @@ module.exports = async function(fastify) {
         const buf = await data.toBuffer();
         const result = await compressAndSave(buf, dir, 'tsam_');
         return { success: true, url: `/uploads/tsam/${result.fileName}` };
+    });
+
+    // ========== UPLOAD RECEIVED PROOF IMAGE ==========
+    fastify.post('/api/don-gui-ao-mau/:id/upload-received-proof', { preHandler: [authenticate] }, async (request, reply) => {
+        const { id } = request.params;
+        
+        // 1. Get user details from DB to check role and department
+        const user = await db.get(
+            `SELECT u.id, u.username, u.full_name, u.role, d.name AS department_name 
+             FROM users u 
+             LEFT JOIN departments d ON u.department_id = d.id 
+             WHERE u.id = $1`, 
+            [request.user.id]
+        );
+        if (!user) return reply.code(404).send({ error: 'Không tìm thấy người dùng' });
+
+        const deptName = (user.department_name || '').toLowerCase();
+        const isKeToan = deptName.includes('kế toán') || deptName.includes('ke toan');
+        const isQuanLyXuong = user.username === 'quanlyxuong' || user.full_name === 'Lê Công Thực';
+        const isQLCCTrinh = user.full_name && (user.full_name.includes('Lê Việt Trinh') || user.full_name.includes('Le Viet Trinh') || user.username === 'trinh');
+        const isGiamDoc = user.role === 'giam_doc';
+
+        if (isKeToan || isQuanLyXuong || isQLCCTrinh || isGiamDoc) {
+            return reply.code(403).send({ error: '🔒 Chỉ nhân viên sale mới được quyền chụp ảnh bằng chứng mẫu đã về' });
+        }
+
+        // 2. Read the file
+        const data = await request.file();
+        if (!data) return reply.code(400).send({ error: 'Không có file' });
+
+        const path = require('path');
+        const fs = require('fs');
+        const { compressAndSave } = require('../utils/imageCompressor');
+        
+        // Create directory if not exists
+        const dir = path.join(__dirname, '..', 'uploads', 'received_proofs');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+        const buf = await data.toBuffer();
+        const result = await compressAndSave(buf, dir, 'proof_');
+        const url = `/uploads/received_proofs/${result.fileName}`;
+
+        // 3. Update database
+        await db.run(
+            `UPDATE don_gui_ao_mau SET hoan_hang_received_proof_image = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3`,
+            [url, request.user.id, id]
+        );
+
+        // 4. Log the action
+        await db.run(
+            `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+            [id, 'received_proof', 'Đã tải lên ảnh chứng minh mẫu áo đã về', request.user.id]
+        );
+
+        return { success: true, url };
     });
 };
