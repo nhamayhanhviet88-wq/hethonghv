@@ -513,6 +513,7 @@ module.exports = async function(fastify) {
                  hoan_hang_sale_note = $4,
                  hoan_hang_ship_time = $5,
                  hoan_hang_chuan_proof_image = $6,
+                 order_status = 'hoan_hang',
                  updated_at = NOW(),
                  updated_by = $7
              WHERE id = $8`,
