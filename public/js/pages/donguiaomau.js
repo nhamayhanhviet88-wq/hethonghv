@@ -167,42 +167,66 @@ function _dgamRenderSubFilters() {
 
     const activeFilter = _dgam.subFilter || '';
 
-    const btnStyle = (type, isActive, count) => {
-        let bg = '#ffffff', border = '#e2e8f0', text = '#475569', shadow = 'rgba(0,0,0,0.02)';
-        if (isActive) {
-            if (type === 'chua_duyet') {
-                bg = 'linear-gradient(135deg, #fef3c7, #fde68a)';
-                border = '#f59e0b';
-                text = '#92400e';
-                shadow = 'rgba(245, 158, 11, 0.2)';
-            } else if (type === 'chua_hoan') {
-                bg = 'linear-gradient(135deg, #fee2e2, #fca5a5)';
-                border = '#f87171';
-                text = '#991b1b';
-                shadow = 'rgba(248, 113, 113, 0.2)';
-            } else if (type === 'chua_kiem_tra') {
-                bg = 'linear-gradient(135deg, #ede9fe, #ddd6fe)';
-                border = '#a78bfa';
-                text = '#5b21b6';
-                shadow = 'rgba(167, 139, 250, 0.2)';
+    const btnStyle = (type, isActive) => {
+        let bg, border, text, shadow, transform = 'scale(1)';
+        
+        if (type === 'chua_duyet') {
+            if (isActive) {
+                bg = 'linear-gradient(135deg, #f59e0b, #d97706)';
+                border = '#d97706';
+                text = '#ffffff';
+                shadow = 'rgba(245, 158, 11, 0.4)';
+                transform = 'scale(1.05)';
+            } else {
+                bg = '#fef3c7';
+                border = '#fde68a';
+                text = '#b45309';
+                shadow = 'rgba(245, 158, 11, 0.08)';
+            }
+        } else if (type === 'chua_hoan') {
+            if (isActive) {
+                bg = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                border = '#dc2626';
+                text = '#ffffff';
+                shadow = 'rgba(239, 68, 68, 0.4)';
+                transform = 'scale(1.05)';
+            } else {
+                bg = '#fee2e2';
+                border = '#fca5a5';
+                text = '#b91c1c';
+                shadow = 'rgba(239, 68, 68, 0.08)';
+            }
+        } else if (type === 'chua_kiem_tra') {
+            if (isActive) {
+                bg = 'linear-gradient(135deg, #8b5cf6, #6d28d9)';
+                border = '#6d28d9';
+                text = '#ffffff';
+                shadow = 'rgba(139, 92, 246, 0.4)';
+                transform = 'scale(1.05)';
+            } else {
+                bg = '#ede9fe';
+                border = '#ddd6fe';
+                text = '#6d28d9';
+                shadow = 'rgba(139, 92, 246, 0.08)';
             }
         }
-        return `background:${bg}; border:1.5px solid ${border}; color:${text}; box-shadow:0 3px 8px ${shadow}; padding:8px 16px; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.15s;`;
+        
+        return `background:${bg}; border:1.8px solid ${border}; color:${text}; box-shadow:0 4px 12px ${shadow}; transform:${transform}; padding:8px 18px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.2s ease;`;
     };
 
     container.innerHTML = `
         <div style="font-weight:800; font-size:12px; color:#64748b; margin-right:8px; text-transform:uppercase; letter-spacing:0.5px;">Bộ lọc nhanh:</div>
-        <button onclick="_dgamSetSubFilter('chua_duyet')" style="${btnStyle('chua_duyet', activeFilter === 'chua_duyet', countChuaDuyet)}" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+        <button onclick="_dgamSetSubFilter('chua_duyet')" style="${btnStyle('chua_duyet', activeFilter === 'chua_duyet')}" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='${activeFilter === 'chua_duyet' ? 'scale(1.05)' : 'scale(1)'}'">
             <span>⏳ Chưa Duyệt</span>
-            <span style="background:${activeFilter === 'chua_duyet' ? '#92400e' : '#64748b'}; color:#fff; padding:1px 6px; border-radius:8px; font-size:10.5px;">${countChuaDuyet}</span>
+            <span style="background:${activeFilter === 'chua_duyet' ? '#ffffff' : '#b45309'}; color:${activeFilter === 'chua_duyet' ? '#b45309' : '#ffffff'}; padding:2px 8px; border-radius:8px; font-size:11px; font-weight:800; min-width:20px; text-align:center; transition:all 0.2s;">${countChuaDuyet}</span>
         </button>
-        <button onclick="_dgamSetSubFilter('chua_hoan')" style="${btnStyle('chua_hoan', activeFilter === 'chua_hoan', countChuaHoan)}" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+        <button onclick="_dgamSetSubFilter('chua_hoan')" style="${btnStyle('chua_hoan', activeFilter === 'chua_hoan')}" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='${activeFilter === 'chua_hoan' ? 'scale(1.05)' : 'scale(1)'}'">
             <span>🔄 Chưa Hoàn</span>
-            <span style="background:${activeFilter === 'chua_hoan' ? '#991b1b' : '#64748b'}; color:#fff; padding:1px 6px; border-radius:8px; font-size:10.5px;">${countChuaHoan}</span>
+            <span style="background:${activeFilter === 'chua_hoan' ? '#ffffff' : '#b91c1c'}; color:${activeFilter === 'chua_hoan' ? '#b91c1c' : '#ffffff'}; padding:2px 8px; border-radius:8px; font-size:11px; font-weight:800; min-width:20px; text-align:center; transition:all 0.2s;">${countChuaHoan}</span>
         </button>
-        <button onclick="_dgamSetSubFilter('chua_kiem_tra')" style="${btnStyle('chua_kiem_tra', activeFilter === 'chua_kiem_tra', countChuaKiemTra)}" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+        <button onclick="_dgamSetSubFilter('chua_kiem_tra')" style="${btnStyle('chua_kiem_tra', activeFilter === 'chua_kiem_tra')}" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='${activeFilter === 'chua_kiem_tra' ? 'scale(1.05)' : 'scale(1)'}'">
             <span>🔍 Chưa Kiểm Tra</span>
-            <span style="background:${activeFilter === 'chua_kiem_tra' ? '#5b21b6' : '#64748b'}; color:#fff; padding:1px 6px; border-radius:8px; font-size:10.5px;">${countChuaKiemTra}</span>
+            <span style="background:${activeFilter === 'chua_kiem_tra' ? '#ffffff' : '#6d28d9'}; color:${activeFilter === 'chua_kiem_tra' ? '#6d28d9' : '#ffffff'}; padding:2px 8px; border-radius:8px; font-size:11px; font-weight:800; min-width:20px; text-align:center; transition:all 0.2s;">${countChuaKiemTra}</span>
         </button>
         ${activeFilter ? `
             <button onclick="_dgamSetSubFilter(null)" style="background:none; border:none; color:#dc2626; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; padding:6px 10px;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
