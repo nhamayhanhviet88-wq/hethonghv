@@ -1687,12 +1687,14 @@ function _tsRenderStepModal(step, d){
             }
             
             // Render Shipped Batches
+            let countLanGui = 0;
             let batchIdx = 0;
             for (const batchKey in shippedBatches) {
                 const batch = shippedBatches[batchKey];
                 const it = batch.details;
                 const isReship = batchIdx > 0;
                 batchIdx++;
+                countLanGui++;
                 
                 const carrierName = it.actual_carrier_name || '—';
                 let trackingDisplay = it.tracking_code || '—';
@@ -1757,9 +1759,9 @@ function _tsRenderStepModal(step, d){
                 if (batch.labels.length === 1) {
                     const l = batch.labels[0];
                     if (isReship) {
-                        headerHtml = `📦 GỬI LẠI/THÊM: ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                        headerHtml = `GỬI LẦN ${countLanGui} - 📦 GỬI LẠI/THÊM: ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
                     } else {
-                        headerHtml = `📦 ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                        headerHtml = `GỬI LẦN ${countLanGui} - 📦 ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
                     }
                 } else {
                     if (isReship) {
@@ -1768,14 +1770,14 @@ function _tsRenderStepModal(step, d){
                                 ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
                             </span>
                         `).join(' ');
-                        headerHtml = `<span style="font-weight:800;color:#c2410c;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">🚛 GỬI LẠI/THÊM: ${itemsHeader}</span>`;
+                        headerHtml = `<span style="font-weight:800;color:#c2410c;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">GỬI LẦN ${countLanGui} - 🚛 GỬI LẠI/THÊM: ${itemsHeader}</span>`;
                     } else {
                         const itemsHeader = batch.labels.map(l => `
                             <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
                                 ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
                             </span>
                         `).join(' ');
-                        headerHtml = `<span style="font-weight:800;color:#166534;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">🚛 GỬI CHUNG: ${itemsHeader}</span>`;
+                        headerHtml = `<span style="font-weight:800;color:#166534;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">GỬI LẦN ${countLanGui} - 🚛 GỬI CHUNG: ${itemsHeader}</span>`;
                     }
                 }
                 
@@ -1816,10 +1818,11 @@ function _tsRenderStepModal(step, d){
             // Render Pending Items
             for (let i = 0; i < pendingItems.length; i++) {
                 const pit = pendingItems[i];
+                countLanGui++;
                 body += `
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:10px;opacity:0.85;display:flex;justify-content:space-between;align-items:center;">
                     <span style="font-weight:700;color:#475569;font-size:12.5px;display:flex;align-items:center;gap:6px;">
-                        📦 ${pit.label.toUpperCase()} — ${pit.name.toUpperCase()} <span style="background:#e2e8f0;color:#475569;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;">SL: ${pit.qty}</span>
+                        GỬI LẦN ${countLanGui} - 📦 dots${pit.label.toUpperCase()} — ${pit.name.toUpperCase()} <span style="background:#e2e8f0;color:#475569;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;">SL: dots${pit.qty}</span>
                     </span>
                     <span style="background:#e2e8f0;color:#475569;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">⏳ CHỜ GỬI</span>
                 </div>`;
