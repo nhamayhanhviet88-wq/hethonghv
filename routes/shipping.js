@@ -683,11 +683,17 @@ module.exports = async function(fastify) {
                      cr.name AS actual_carrier_name,
                      cr.tracking_url_template AS actual_carrier_tracking_url,
                      u_created.full_name AS created_by_name,
-                     u_shipped.full_name AS shipped_by_name
+                     u_shipped.full_name AS shipped_by_name,
+                     GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_all.paid_total, 0) - CASE WHEN d.return_payer = 'hv' AND d.return_payment_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.return_shipping_fee, 0) ELSE 0 END) AS remaining_amount
                  FROM don_gui_ao_mau d
                  LEFT JOIN dht_carriers cr ON d.hoan_hang_actual_carrier_id = cr.id
                  LEFT JOIN users u_created ON d.created_by = u_created.id
                  LEFT JOIN users u_shipped ON d.hoan_hang_shipped_by = u_shipped.id
+                 LEFT JOIN LATERAL (
+                     SELECT COALESCE(SUM(amount), 0) AS paid_total
+                     FROM payment_records
+                     WHERE order_ao_mau = d.sample_order_code
+                 ) pr_all ON true
                  WHERE d.status_hoan_hang = true
                  ${hoanWhere}
                  ORDER BY d.hoan_hang_ship_date DESC NULLS LAST, d.created_at DESC
@@ -743,7 +749,7 @@ module.exports = async function(fastify) {
                  effective_ship_date: row.expected_ship_date,
                  is_overdue: !isShipped && row.expected_ship_date && new Date(row.expected_ship_date) < new Date(todayStr),
                  deposit_amount: row.deposit_amount || 0,
-                 remaining_amount: Math.max(0, (Number(row.total_amount) || 0) - (Number(row.deposit_amount) || 0)),
+                 remaining_amount: row.remaining_amount,
                  is_pending_update: !!row.is_pending_update,
                  is_hoan_hang: true,
                  items: [{
