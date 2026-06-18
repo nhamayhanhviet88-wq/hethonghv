@@ -422,9 +422,10 @@ function _shBuildTable(orders) {
                 `;
             }
         } else {
+            const isSample = String(o.id).startsWith('sample_');
             orderLevelAction = `
                 <button onclick="event.stopPropagation();_shShowShippingDetailOnly('${o.id}')" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-size:14px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseout="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">📄</button>
-                <button onclick="event.stopPropagation();_shShipOrder('${o.id}', '${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">📤 Gửi Lại/Thêm</button>
+                ${isSample ? '' : `<button onclick="event.stopPropagation();_shShipOrder('${o.id}', '${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi thêm hoặc hoàn hàng cho đơn này">📤 Gửi Thêm/Hoàn</button>`}
                 <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
             `;
         }
@@ -603,7 +604,8 @@ function _shBuildItemsTable(order) {
         
         let actionHtml = '';
         if (item.shipping_status === 'shipped') {
-            actionHtml = `<button onclick="event.stopPropagation();_shShipOrder('${order.id}','${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;" title="Gửi lại hoặc gửi thêm hàng cho đơn này">🔁 Gửi lại</button>`;
+            const isSample = String(order.id).startsWith('sample_');
+            actionHtml = isSample ? '' : `<button onclick="event.stopPropagation();_shShipOrder('${order.id}','${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;" title="Gửi thêm hoặc hoàn hàng cho đơn này">🔁 Gửi lại</button>`;
         } else {
             if (item.all_done) {
                 actionHtml = `<button onclick="event.stopPropagation();_shShipOrder('${order.id}','${(order.order_code||'').replace(/'/g,"\\'")}', '${item.item_id}', '${(item.product_name||'').replace(/'/g,"\\'")}', 'Phiếu ${i + 1}')" style="padding:3px 8px;border:none;border-radius:4px;background:#10b981;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">📤 Gửi Phiếu</button>`;
@@ -2462,7 +2464,7 @@ async function _shShowShippingDetailOnly(orderId) {
                 if (batch.labels.length === 1) {
                     const l = batch.labels[0];
                     if (isReship) {
-                        headerHtml = `GỬI LẦN ${countLanGui} - 📦 GỬI LẠI/THÊM: ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                        headerHtml = `GỬI LẦN ${countLanGui} - 📦 GỬI THÊM/HOÀN: ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
                     } else {
                         headerHtml = `GỬI LẦN ${countLanGui} - 📦 ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
                     }
@@ -2473,7 +2475,7 @@ async function _shShowShippingDetailOnly(orderId) {
                                 ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
                             </span>
                         `).join(' ');
-                        headerHtml = `<span style="font-weight:800;color:#c2410c;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">GỬI LẦN ${countLanGui} - 🚛 GỬI LẠI/THÊM: ${itemsHeader}</span>`;
+                        headerHtml = `<span style="font-weight:800;color:#c2410c;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">GỬI LẦN ${countLanGui} - 🚛 GỬI THÊM/HOÀN: ${itemsHeader}</span>`;
                     } else {
                         const itemsHeader = batch.labels.map(l => `
                             <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
@@ -2489,7 +2491,7 @@ async function _shShowShippingDetailOnly(orderId) {
                 const boxHeaderBorder = isReship ? '1.5px solid #ffedd5' : '1.5px solid #dcfce7';
                 const boxShadow = isReship ? '0 2px 4px rgba(234,88,12,0.03)' : '0 2px 4px rgba(22,163,74,0.03)';
                 const badgeHtml = isReship 
-                    ? `<span style="background:#ea580c;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟠 GỬI LẠI/THÊM</span>`
+                    ? `<span style="background:#ea580c;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟠 GỬI THÊM/HOÀN</span>`
                     : `<span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>`;
                 
                 shipHTML += `

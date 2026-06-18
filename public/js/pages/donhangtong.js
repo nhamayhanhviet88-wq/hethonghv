@@ -1736,7 +1736,7 @@ async function _dhtShowDetail(id) {
                 if (batch.labels.length === 1) {
                     const l = batch.labels[0];
                     if (isReship) {
-                        headerHtml = `GỬI LẦN ${countLanGui} - 📦 GỬI LẠI/THÊM: ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                        headerHtml = `GỬI LẦN ${countLanGui} - 📦 GỬI THÊM/HOÀN: ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
                     } else {
                         headerHtml = `GỬI LẦN ${countLanGui} - 📦 ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
                     }
@@ -1747,7 +1747,7 @@ async function _dhtShowDetail(id) {
                                 ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
                             </span>
                         `).join(' ');
-                        headerHtml = `<span style="font-weight:800;color:#c2410c;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">GỬI LẦN ${countLanGui} - 🚛 GỬI LẠI/THÊM: ${itemsHeader}</span>`;
+                        headerHtml = `<span style="font-weight:800;color:#c2410c;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">GỬI LẦN ${countLanGui} - 🚛 GỬI THÊM/HOÀN: ${itemsHeader}</span>`;
                     } else {
                         const itemsHeader = batch.labels.map(l => `
                             <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
@@ -1763,7 +1763,7 @@ async function _dhtShowDetail(id) {
                 const boxHeaderBorder = isReship ? '1.5px solid #ffedd5' : '1.5px solid #dcfce7';
                 const boxShadow = isReship ? '0 2px 4px rgba(234,88,12,0.03)' : '0 2px 4px rgba(22,163,74,0.03)';
                 const badgeHtml = isReship 
-                    ? `<span style="background:#ea580c;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟠 GỬI LẠI/THÊM</span>`
+                    ? `<span style="background:#ea580c;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟠 GỬI THÊM/HOÀN</span>`
                     : `<span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>`;
                 
                 shipHTML += `
