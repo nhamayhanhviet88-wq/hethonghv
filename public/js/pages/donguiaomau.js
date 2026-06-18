@@ -1,5 +1,5 @@
 // ========== ĐƠN GỬI ÁO MẪU — Bộ Phận Văn Phòng ==========
-var _dgam = { tree: [], orders: [], filter: {}, page: 1, pageSize: 100 };
+var _dgam = { tree: [], orders: [], filter: {}, page: 1, pageSize: 50 };
 var _dgamOpen = {};
 const DGAM_VN_PROVINCES = [
     'An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương',
