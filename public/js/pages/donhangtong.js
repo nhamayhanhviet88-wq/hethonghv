@@ -2041,7 +2041,9 @@ async function _dhtShowDetail(id) {
         const isQLCC = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao';
         const canWriteNote = isGD || isQLCC || isKeToan;
 
-        if ((notes && notes.length > 0) || canWriteNote) {
+        const hideNotes = String(id).startsWith('sample_') && (window._dhtDetailSource === 'shipping' || window.location.pathname.includes('/ketoanguihang'));
+
+        if (((notes && notes.length > 0) || canWriteNote) && !hideNotes) {
             notesHTML = `<div style="background:#f8fafc;border-radius:12px;border:1px solid #cbd5e1;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.05);">`;
             notesHTML += `<div style="font-weight:900;font-size:14px;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;">📝 Ghi chú đơn hàng <span style="background:#64748b;color:#fff;padding:1px 6px;border-radius:8px;font-size:11px;margin-left:6px;font-weight:700;">${notes.length}</span></div>`;
             
