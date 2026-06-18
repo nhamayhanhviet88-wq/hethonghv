@@ -295,6 +295,7 @@ module.exports = async function(fastify) {
                 cr_hoan.name AS hoan_actual_carrier_name,
                 cr.tracking_url_template AS actual_carrier_tracking_url,
                 cf_ship.cashflow_code AS shipping_cashflow_code,
+                cf_ship_hoan.cashflow_code AS hoan_shipping_cashflow_code,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
                 GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_all.paid_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining_amount
             FROM don_gui_ao_mau d
@@ -305,6 +306,7 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
             LEFT JOIN dht_carriers cr_hoan ON d.hoan_hang_actual_carrier_id = cr_hoan.id
             LEFT JOIN cashflow_records cf_ship ON d.shipping_cashflow_id = cf_ship.id
+            LEFT JOIN cashflow_records cf_ship_hoan ON d.hoan_hang_shipping_cashflow_id = cf_ship_hoan.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records

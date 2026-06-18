@@ -1378,7 +1378,7 @@ async function _dgamShowDetail(id) {
         const timeValue = o.ship_time ? `<span style="font-weight:800;color:#0369a1">${o.ship_time}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>';
 
         let saleKtHTML = `<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-radius:12px;border:2px solid #fb923c;padding:16px;margin-bottom:16px">
-            <div style="font-weight:900;font-size:15px;color:#9a3412;margin-bottom:12px">📋 Sale Dặn Kế Toán Trước Gửi Hàng</div>
+            <div style="font-weight:900;font-size:15px;color:#9a3412;margin-bottom:12px">${o.status_hoan_hang ? '📋 Sale Dặn Kế Toán Trước Gửi Hàng lần 1' : '📋 Sale Dặn Kế Toán Trước Gửi Hàng'}</div>
             <table style="width:100%;border-collapse:collapse">
                 ${row('🚚 Vận Chuyển YC Của Sale', o.shipping_method || '—')}
                 ${row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant || '<span style="color:#94a3b8;font-style:italic">—</span>')}
@@ -1394,19 +1394,48 @@ async function _dgamShowDetail(id) {
                 <img src="${o.chuan_proof_image}" style="max-width:240px;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="_dgamShowImagePreview('${o.chuan_proof_image}')" title="Click để xem ảnh gốc">
             </div>`;
         }
-
-        if (o.status_hoan_hang || o.return_shipping_fee > 0) {
-            saleKtHTML += `<div style="margin-top:12px;padding-top:12px;border-top:1.5px solid #fb923c30;font-size:12px;color:#1e293b">
-                <div style="font-weight:800;color:#dc2626;margin-bottom:8px">🔄 THÔNG TIN HOÀN HÀNG:</div>
-                <table style="width:100%;border-collapse:collapse">
-                    ${row('Trạng thái', '<span style="font-weight:700;color:#dc2626">Đã kích hoạt trạng thái Hoàn Hàng</span>')}
-                    ${row('💵 Cước hoàn thực tế', `<span style="font-weight:700;color:#dc2626">${fmt(o.return_shipping_fee)}đ</span>`)}
-                    ${row('💳 Người trả ship hoàn', o.return_payer === 'hv' ? 'HV trả' : o.return_payer === 'khach' ? 'Khách trả' : o.return_payer || '—')}
-                    ${row('💳 H.thức thanh toán hoàn', o.return_payment_method || '—')}
-                </table>
-            </div>`;
-        }
         saleKtHTML += `</div>`;
+
+        if (o.status_hoan_hang) {
+            let progressHoanSaleHTML = '<span style="color:#94a3b8;font-style:italic">Chưa có ngày gửi dự kiến</span>';
+            if (o.hoan_hang_ship_date) {
+                const shipVN = new Date(o.hoan_hang_ship_date);
+                shipVN.setHours(0,0,0,0);
+                const todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+                todayVN.setHours(0,0,0,0);
+                const remainDays = Math.round((shipVN - todayVN) / 86400000);
+                if (remainDays > 0) {
+                    progressHoanSaleHTML = `<span style="color:#0369a1;font-weight:900;font-size:14px">⏳ Còn ${remainDays} ngày</span>`;
+                } else if (remainDays < 0) {
+                    progressHoanSaleHTML = `<span style="color:#dc2626;font-weight:900;font-size:14px">⚠️ Quá hạn ${Math.abs(remainDays)} ngày</span>`;
+                } else {
+                    progressHoanSaleHTML = `<span style="color:#059669;font-weight:900;font-size:14px">✅ Hôm nay</span>`;
+                }
+            }
+
+            const tcColorHoan = (o.hoan_hang_shipping_priority === 'GẤP') ? '#dc2626' : (o.hoan_hang_shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
+            const tcValueHoan = `<span style="color:${tcColorHoan};font-weight:900;font-size:14px">${o.hoan_hang_shipping_priority || 'CHUẨN'}</span>`;
+            const timeValueHoan = o.hoan_hang_ship_time ? `<span style="font-weight:800;color:#0369a1">${o.hoan_hang_ship_time}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>';
+
+            saleKtHTML += `<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;border:2px solid #22c55e;padding:16px;margin-bottom:16px">
+                <div style="font-weight:900;font-size:15px;color:#15803d;margin-bottom:12px">📋 Sale Dặn Kế Toán Trước Gửi Hàng lần 2</div>
+                <table style="width:100%;border-collapse:collapse">
+                    ${row('🚚 Vận Chuyển YC Của Sale', o.hoan_hang_shipping_method || '—')}
+                    ${row('📝 Nội Dung Dặn KT', o.hoan_hang_sale_note || '<span style="color:#94a3b8;font-style:italic">—</span>')}
+                    ${row('🏷️ TC Gửi', tcValueHoan)}
+                    ${row('📊 Tiến Độ Ra Hàng', progressHoanSaleHTML)}
+                    ${row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.hoan_hang_ship_date))}
+                    ${row('⏰ Yêu Cầu Chuẩn Giờ Hàng Ra', timeValueHoan)}
+                </table>`;
+
+            if (o.hoan_hang_shipping_priority === 'CHUẨN' && o.hoan_hang_chuan_proof_image) {
+                saleKtHTML += `<div style="text-align:center;margin-top:16px;background:#f8fafc;padding:16px;border-radius:8px;border:1px dashed #cbd5e1">
+                    <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px">📸 ẢNH CHỨNG MINH TIÊU CHUẨN CHUẨN (Lần 2)</div>
+                    <img src="${o.hoan_hang_chuan_proof_image}" style="max-width:240px;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="_dgamShowImagePreview('${o.hoan_hang_chuan_proof_image}')" title="Click để xem ảnh gốc">
+                </div>`;
+            }
+            saleKtHTML += `</div>`;
+        }
 
         // 5. Thông tin khách hàng & Người lên đơn
         let closedOrdersHTML = '';
@@ -1469,8 +1498,13 @@ async function _dgamShowDetail(id) {
         </div>`;
 
         // 5B. Thông tin vận chuyển
-        let shipInfoHTML = '';
-        if (o.status_gui_don || o.order_status === 'da_gui') {
+        let shipInfoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>`;
+
+        let hasShipment1 = o.status_gui_don || o.order_status === 'da_gui' || o.order_status === 'hoan_thanh';
+        let hasShipment2 = o.status_gui_don_hoan === true;
+
+        if (hasShipment1) {
             const timeValue = o.shipped_at ? new Date(o.shipped_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(',', '') : '—';
             const carrierName = o.actual_carrier_name || '—';
             let trackingDisplay = o.tracking_code || '—';
@@ -1528,16 +1562,10 @@ async function _dgamShowDetail(id) {
                 })(billCid, o.shipping_bill_link);
             }
 
-            shipInfoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>
-                
-                <div style="background:#f0fdf4;color:#15803d;padding:10px 14px;border-radius:8px;font-weight:800;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
-                    <span>✅ Đã giao hàng thành công (1/1 phiếu)</span>
-                </div>
-
-                <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(22,163,74,0.03)">
+            shipInfoHTML += `
+                <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(22,163,74,0.03);margin-bottom:14px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
-                        <span style="font-weight:800;color:#166534;font-size:13px;">📦 PHIẾU 1 — ${(o.product_name || 'MẪU ÁO').toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${o.quantity || 1}</span></span>
+                        <span style="font-weight:800;color:#166534;font-size:13px;">📦 LẦN 1 GỬI — ${(o.product_name || 'MẪU ÁO').toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${o.quantity || 1}</span></span>
                         <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>
                     </div>
                     <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
@@ -1554,18 +1582,100 @@ async function _dgamShowDetail(id) {
                         <span style="color:#64748b;font-weight:600;">💰 Cước Vận Chuyển:</span> <span style="font-weight:800;color:#dc2626">${fmt(feeAmt)}đ</span>
                         ${o.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
                     </div>
-                </div>
-            </div>`;
-        } else {
-            shipInfoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>
+                </div>`;
+        }
+
+        if (hasShipment2) {
+            const timeValueHoan = o.hoan_hang_shipped_at ? new Date(o.hoan_hang_shipped_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(',', '') : '—';
+            const carrierNameHoan = o.hoan_actual_carrier_name || '—';
+            let trackingDisplayHoan = o.hoan_hang_tracking_code || '—';
+            if (o.hoan_hang_tracking_code && o.actual_carrier_tracking_url) {
+                const trackingUrlHoan = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.hoan_hang_tracking_code));
+                trackingDisplayHoan = `<a href="${trackingUrlHoan}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.hoan_hang_tracking_code} 🔗</a>`;
+            }
+
+            const payerLabelHoan = o.return_payer === 'hv' ? (o.return_payment_method === 'ck' ? 'HV trả CK' : (o.return_payment_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : o.return_payer === 'khach' ? 'Khách trả' : '—';
+            const payerColorHoan = o.return_payer === 'hv' ? '#7c3aed' : '#059669';
+            const feeAmtHoan = Number(o.return_shipping_fee || 0);
+
+            let billHtmlHoan = '—';
+            if (o.hoan_hang_shipping_bill_link) {
+                const billCidHoan = `_dgamBillImgModalHoan_${o.id}`;
+                billHtmlHoan = `<span id="${billCidHoan}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                
+                (function(_cid, _origUrl) {
+                    setTimeout(async function() {
+                        const el = document.getElementById(_cid);
+                        if (!el) return;
+                        let imgSrc = _origUrl;
+                        try {
+                            if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                if (r && r.direct_url) imgSrc = r.direct_url;
+                            } else {
+                                const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                            }
+                        } catch(e) { console.warn('[BillResolve]', e); }
+                        
+                        if (imgSrc && imgSrc.includes('/uploads/')) {
+                            imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                        }
+                        let linkHref = _origUrl;
+                        if (linkHref && linkHref.includes('/uploads/')) {
+                            linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                        }
+                        
+                        const img = document.createElement('img');
+                        img.src = imgSrc;
+                        img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                        img.onerror = function() {
+                            el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                        };
+                        img.onclick = function() {
+                            _dgamShowImagePreview(imgSrc);
+                        };
+                        el.innerHTML = '';
+                        el.appendChild(img);
+                    }, 100);
+                })(billCidHoan, o.hoan_hang_shipping_bill_link);
+            }
+
+            shipInfoHTML += `
+                <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(22,163,74,0.03);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                        <span style="font-weight:800;color:#166534;font-size:13px;">📦 LẦN 2 GỬI — ${(o.product_name || 'MẪU ÁO').toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${o.quantity || 1}</span></span>
+                        <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI (HOÀN)</span>
+                    </div>
+                    <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
+                        <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${o.hoan_shipped_by_name || '—'}</span>
+                        <span style="color:#64748b;font-weight:600;">📅 Thời gian gửi:</span> <span style="font-weight:700;color:#1e293b">${timeValueHoan}</span>
+                        <span style="color:#64748b;font-weight:600;">🚛 Đơn vị vận chuyển:</span> <span style="font-weight:700;color:#1e293b">${carrierNameHoan}</span>
+                        ${o.hoan_hang_tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplayHoan}</span>` : ''}
+                        <span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${o.customer_name || '—'}</span>
+                        <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColorHoan}">${payerLabelHoan}</span></span>
+                        ${(o.return_payer === 'hv' && o.return_payment_method === 'tm') ? `
+                            <span style="color:#64748b;font-weight:600;">💵 Mã Tiền Chi TM:</span> 
+                            <span style="font-weight:700;color:#d97706">${o.hoan_shipping_cashflow_code || '—'}</span>
+                        ` : ''}
+                        <span style="color:#64748b;font-weight:600;">💰 Cước Vận Chuyển:</span> <span style="font-weight:800;color:#dc2626">${fmt(feeAmtHoan)}đ</span>
+                        ${o.hoan_hang_shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtmlHoan}</div>` : ''}
+                    </div>
+                </div>`;
+        }
+
+        if (!hasShipment1 && !hasShipment2) {
+            shipInfoHTML += `
                 <table style="width:100%;border-collapse:collapse">
                     ${row('Người trả ship', o.payer === 'hv' ? (o.payment_method === 'ck' ? 'HV trả CK' : (o.payment_method === 'tm' ? 'HV trả TM' : 'HV trả')) : o.payer === 'khach' ? 'Khách trả' : o.payer || '—')}
                     ${(o.payer === 'hv' && o.payment_method === 'tm') ? row('Mã Tiền Chi TM', o.shipping_cashflow_code || '—') : ''}
                     ${row('Tiền ship dự kiến', `${fmt(o.shipping_fee)}đ (${o.payment_method || '—'})`)}
-                </table>
-            </div>`;
+                </table>`;
         }
+
+        shipInfoHTML += `</div>`;
 
         // 6. Lịch sử cập nhật
         let historyLogs = [];
@@ -1871,7 +1981,7 @@ async function _dgamOnHoanHangClick(id) {
                             </div>
                             <div>
                                 <label style="display:block;font-weight:700;margin-bottom:6px;color:#854d0e;">📸 Ảnh chứng minh Tiêu Chuẩn CHUẨN *</label>
-                                <div id="hoan_proof_zone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;transition:all 0.2s;min-height:80px;display:flex;align-items:center;justify-content:center;flex-direction:column;outline:none;" onclick="this.focus()" onfocus="this.style.borderColor='#3b82f6';this.style.background='#f0f9ff';" onblur="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc';">
+                                <div id="hoan_proof_zone" tabindex="0" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;transition:all 0.2s;min-height:80px;display:flex;align-items:center;justify-content:center;flex-direction:column;outline:none;" onpaste="_dgamPasteHoanProofImg(event)" onclick="this.focus()" onfocus="this.style.borderColor='#3b82f6';this.style.background='#f0f9ff';" onblur="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc';">
                                     <div id="hoan_proof_placeholder" style="color:#94a3b8;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:6px;">
                                         <span style="font-size:28px;color:#d97706;">📋</span>
                                         <span style="color:#64748b;font-weight:500;">Click vào đây rồi <strong style="color:#475569;">Ctrl+V</strong> dán hình ảnh</span>
@@ -1902,39 +2012,6 @@ async function _dgamOnHoanHangClick(id) {
                     </form>
                 </div>
             `;
-
-            modal.addEventListener('paste', async function(e) {
-                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-                for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.indexOf('image') !== -1) {
-                        const file = items[i].getAsFile();
-                        if (file) {
-                            try {
-                                showToast('Đang tải ảnh lên...', 'info');
-                                const formData = new FormData();
-                                formData.append('image', file);
-                                const uploadResult = await fetch('/api/upload', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Authorization': 'Bearer ' + localStorage.getItem('token')
-                                    },
-                                    body: formData
-                                });
-                                const r = await uploadResult.json();
-                                if (r && r.url) {
-                                    _dgamSetProofImage(r.url);
-                                    showToast('Tải ảnh chứng minh thành công!', 'success');
-                                } else {
-                                    showToast('Lỗi tải ảnh lên: ' + (r.error || 'Unknown error'), 'error');
-                                }
-                            } catch (uploadErr) {
-                                console.error('Upload proof err:', uploadErr);
-                                showToast('Lỗi tải ảnh chứng minh: ' + uploadErr.message, 'error');
-                            }
-                        }
-                    }
-                }
-            });
         }
 
         modal.style.display = 'flex';
@@ -1997,6 +2074,39 @@ function _dgamRemoveProofImage() {
     if (zone) {
         zone.style.borderColor = '#cbd5e1';
         zone.style.background = '#f8fafc';
+    }
+}
+
+async function _dgamPasteHoanProofImg(e) {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            const file = items[i].getAsFile();
+            if (file) {
+                try {
+                    showToast('Đang tải ảnh lên...', 'info');
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    const uploadResult = await fetch('/api/upload', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + localStorage.getItem('token')
+                        },
+                        body: formData
+                    });
+                    const r = await uploadResult.json();
+                    if (r && r.url) {
+                        _dgamSetProofImage(r.url);
+                        showToast('Tải ảnh chứng minh thành công!', 'success');
+                    } else {
+                        showToast('Lỗi tải ảnh lên: ' + (r.error || 'Unknown error'), 'error');
+                    }
+                } catch (uploadErr) {
+                    console.error('Upload proof err:', uploadErr);
+                    showToast('Lỗi tải ảnh chứng minh: ' + uploadErr.message, 'error');
+                }
+            }
+        }
     }
 }
 
