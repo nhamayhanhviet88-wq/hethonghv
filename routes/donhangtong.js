@@ -263,13 +263,8 @@ module.exports = async function(fastify) {
                         FROM payment_records
                         WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                            OR order_tt_coc = o.order_code
-                    ) pr_dep ON true
-                    WHERE o.parent_order_id IS NULL
-                      AND (
-                          (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
-                          OR
-                          o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
-                      )
+                    ) pr_dep ON true                    WHERE o.parent_order_id IS NULL
+                      AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
 
                     UNION ALL
 
@@ -285,12 +280,8 @@ module.exports = async function(fastify) {
                         FROM payment_records
                         WHERE order_ao_mau = d.sample_order_code
                            OR order_tt_coc = d.sample_order_code
-                    ) pr_dep ON true
-                    WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
-                      AND (
-                          GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) > 0
-                          OR d.status_hoan_hang = true
-                      )
+                    ) pr_dep ON true                    WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
+                      AND GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) > 0
                 ),
                 filtered_unpaid AS (
                     SELECT * FROM unpaid_orders o
@@ -481,13 +472,8 @@ module.exports = async function(fastify) {
                         FROM payment_records
                         WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                            OR order_tt_coc = o.order_code
-                    ) pr_dep ON true
-                    WHERE o.parent_order_id IS NULL
-                      AND (
-                          (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
-                          OR
-                          o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
-                      )
+                    ) pr_dep ON true                    WHERE o.parent_order_id IS NULL
+                      AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
 
                     UNION ALL
 
@@ -500,12 +486,8 @@ module.exports = async function(fastify) {
                         FROM payment_records
                         WHERE order_ao_mau = d.sample_order_code
                            OR order_tt_coc = d.sample_order_code
-                    ) pr_dep ON true
-                    WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
-                      AND (
-                          GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) > 0
-                          OR d.status_hoan_hang = true
-                      )
+                    ) pr_dep ON true                    WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
+                      AND GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) > 0
                 ),
                 filtered_unpaid AS (
                     SELECT * FROM unpaid_orders o
@@ -756,13 +738,8 @@ module.exports = async function(fastify) {
             if (carrier_id !== undefined) {
                 if (Number(carrier_id) !== -2) {
                     where += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - ${shipCkDeductSql}) > 0`;
-                }
-            } else {
-                where += ` AND (
-                    (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - ${shipCkDeductSql}) > 0
-                    OR
-                    o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
-                )`;
+                }            } else {
+                where += ` AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep WHERE pr_dep.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - ${shipCkDeductSql}) > 0`;
             }
         }
         if (search) {
@@ -804,7 +781,11 @@ module.exports = async function(fastify) {
                 }
             }
 
-            sampleWhere += ` AND ((COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0 OR d.status_hoan_hang = true)`;
+            if (carrier_id !== undefined && Number(carrier_id) === -2) {
+                sampleWhere += ` AND ((COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0 OR d.status_hoan_hang = true)`;
+            } else {
+                sampleWhere += ` AND ((COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0)`;
+            }
 
             if (carrier_id !== undefined) {
                 const carrierId = Number(carrier_id);
