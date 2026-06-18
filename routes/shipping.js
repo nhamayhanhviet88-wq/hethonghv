@@ -524,7 +524,7 @@ module.exports = async function(fastify) {
                 FROM payment_records
                 WHERE order_ao_mau = d.sample_order_code
             ) pr_all ON true
-            WHERE d.status_duyet = true
+            WHERE d.status_duyet = true AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
             ${sampleWhere}
             ORDER BY d.ship_date DESC NULLS LAST, d.created_at DESC
         `, sampleParams);
@@ -837,7 +837,7 @@ module.exports = async function(fastify) {
                 COUNT(*) FILTER (WHERE d.status_gui_don = false AND (d.approval_date >= d.ship_date OR $1::date >= d.ship_date)) AS today_count,
                 COUNT(*) FILTER (WHERE d.status_gui_don = true) AS shipped_count
             FROM don_gui_ao_mau d
-            WHERE d.status_duyet = true
+            WHERE d.status_duyet = true AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
             ${countVisibilityFilter}
         `, countParams);
 
@@ -854,7 +854,7 @@ module.exports = async function(fastify) {
         const sampleOverdueCount = await db.get(`
             SELECT COUNT(*) AS cnt FROM don_gui_ao_mau d
             WHERE (
-                (d.status_duyet = true AND d.status_gui_don = false AND d.ship_date < $1::date)
+                (d.status_duyet = true AND d.status_gui_don = false AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND d.ship_date < $1::date)
                 OR
                 (d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.hoan_hang_ship_date < $1::date)
             )
