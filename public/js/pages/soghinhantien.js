@@ -176,6 +176,12 @@ async function _prLoadRecords() {
 function _prRenderToolbar() {
     var tb = document.getElementById('prToolbar');
     if (!tb) return;
+
+    var searchInput = document.getElementById('prSearchInput');
+    var isFocused = (document.activeElement === searchInput);
+    var cursorStart = searchInput ? searchInput.selectionStart : 0;
+    var cursorEnd = searchInput ? searchInput.selectionEnd : 0;
+
     var filterText = 'Tất cả';
     if (_pr.filterSearch && _pr.filterSearch.trim()) {
         filterText = '🔍 Tìm kiếm toàn bộ: "' + _pr.filterSearch.trim() + '"';
@@ -224,6 +230,16 @@ function _prRenderToolbar() {
         + searchBox
         + '<span style="font-size:13px;font-weight:800;color:var(--success);margin-right:15px">💰 '+_prFmt(total)+'</span>'
         + handoverBtn+permBtn+tgBtn+asBtn+bankBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
+
+    if (isFocused) {
+        var newSearchInput = document.getElementById('prSearchInput');
+        if (newSearchInput) {
+            newSearchInput.focus();
+            try {
+                newSearchInput.setSelectionRange(cursorStart, cursorEnd);
+            } catch (e) {}
+        }
+    }
 }
 
 function _prChangeFilterClaim(val) {
