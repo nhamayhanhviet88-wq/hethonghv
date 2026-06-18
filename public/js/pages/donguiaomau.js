@@ -134,7 +134,7 @@ var _dgamStatusMap = {
     'da_duyet': { label: 'Đã Duyệt', bg: '#dcfce7', color: '#166534' },
     'da_gui': { label: 'Đã Gửi Mẫu', bg: '#dbeafe', color: '#1e40af' },
     'hoan_hang': { label: 'Hoàn Hàng', bg: '#fee2e2', color: '#991b1b' },
-    'hoan_thanh': { label: 'Hoàn Thành', bg: '#10b981', color: '#ffffff' }
+    'hoan_thanh': { label: 'Đã Gửi Mẫu', bg: '#dbeafe', color: '#1e40af' }
 };
 
 function _dgamRenderRows(paged) {
