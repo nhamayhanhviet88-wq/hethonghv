@@ -642,10 +642,7 @@ async function _dhcttLoadTree() {
 
     // Initialize open state for first render if not set
     if (!_dhctt.open._init) {
-        if (_dhctt.tree.length > 0) {
-            var firstCid = _dhctt.tree[0].carrier_id;
-            _dhctt.open['c' + firstCid] = true;
-        }
+        _dhctt.open.grandTotal = true;
         _dhctt.open._init = true;
     }
 
