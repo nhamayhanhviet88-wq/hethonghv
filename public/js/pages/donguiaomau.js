@@ -139,9 +139,8 @@ function _dgamRenderTable() {
                 return !o.status_duyet;
             }
             if (_dgam.subFilter === 'chua_hoan') {
-                const catLower = (o.category || '').toLowerCase().trim();
-                const needReturn = !(catLower.includes('tem') || catLower.includes('pet') || catLower.includes('khác') || catLower.includes('khac') || catLower.includes('vải') || catLower.includes('vai'));
-                return needReturn && !o.status_hoan_hang;
+                const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
+                return o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image;
             }
             if (_dgam.subFilter === 'chua_kiem_tra') {
                 return !o.status_kiem_tra;
@@ -182,9 +181,8 @@ function _dgamRenderSubFilters() {
     const totalOrders = _dgam.orders || [];
     const countChuaDuyet = totalOrders.filter(o => !o.status_duyet).length;
     const countChuaHoan = totalOrders.filter(o => {
-        const catLower = (o.category || '').toLowerCase().trim();
-        const needReturn = !(catLower.includes('tem') || catLower.includes('pet') || catLower.includes('khác') || catLower.includes('khac') || catLower.includes('vải') || catLower.includes('vai'));
-        return needReturn && !o.status_hoan_hang;
+        const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
+        return o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image;
     }).length;
     const countChuaKiemTra = totalOrders.filter(o => !o.status_kiem_tra).length;
 
