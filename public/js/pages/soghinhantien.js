@@ -1440,7 +1440,7 @@ function _prSearchUnpaidOrders() {
             var h = '';
             orders.forEach(function(o){
                 var discount = Number(o.discount_amount) || 0;
-                var shipCk = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+                var shipCk = (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && !(o.tracking_code && o.tracking_code.trim())) ? (Number(o.shipping_fee) || 0) : 0;
                 var totalAmt = (Number(o.total_amount) || 0) - discount - shipCk;
                 var paid = Number(o.deposit_paid) || 0;
                 var remain = Number(o.remaining) || 0;

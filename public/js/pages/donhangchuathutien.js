@@ -1045,7 +1045,7 @@ async function _dhcttShowShippingDetail(orderId) {
                     trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${it.tracking_code} 🔗</a>`;
                 }
                 
-                const payerLabel = it.shipping_fee_payer === 'hv' ? (it.shipping_fee_method === 'ck' ? 'HV trả CK' : (it.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const payerLabel = it.shipping_fee_payer === 'hv' ? ((it.tracking_code && it.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (it.shipping_fee_method === 'ck' ? 'HV trả CK' : (it.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 const methodLabel = it.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : it.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
                 const payerColor = it.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 const feeAmt = Number(it.shipping_fee || 0);
@@ -1231,7 +1231,7 @@ async function _dhcttShowShippingDetail(orderId) {
                     })(_billCid, o.shipping_bill_link);
                 }
                 shipHTML += row('📷 Bill gửi hàng', billHtml);
-                const _payerLabel = o.shipping_fee_payer === 'hv' ? (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const _payerLabel = o.shipping_fee_payer === 'hv' ? ((o.tracking_code && o.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 const _payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 shipHTML += row('💳 Người Trả', `<span style="font-weight:800;color:${_payerColor}">${_payerLabel}</span>`);
                 if (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'tm') {

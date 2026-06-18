@@ -1703,7 +1703,7 @@ function _tsRenderStepModal(step, d){
                     trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${it.tracking_code} 🔗</a>`;
                 }
                 
-                const payerLabel = it.shipping_fee_payer === 'hv' ? (it.shipping_fee_method === 'ck' ? 'HV trả CK' : (it.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const payerLabel = it.shipping_fee_payer === 'hv' ? ((it.tracking_code && it.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (it.shipping_fee_method === 'ck' ? 'HV trả CK' : (it.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 const methodLabel = it.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : it.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
                 const payerColor = it.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 const feeAmt = Number(it.shipping_fee || 0);
@@ -1849,7 +1849,7 @@ function _tsRenderStepModal(step, d){
                     var rnLabel = acn.includes('nhân viên hv') || acn.includes('nhan vien hv') ? '👷 Tên Nhân Viên Gửi Hàng' : '🤝 Tên Người Nhận Hàng';
                     body+=row(rnLabel, `<span style="font-weight:800;color:#1e293b">${d.receiver_name}</span>`);
                 }
-                var payerLabel = d.shipping_fee_payer === 'hv' ? (d.shipping_fee_method === 'ck' ? 'HV trả CK' : (d.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : d.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                var payerLabel = d.shipping_fee_payer === 'hv' ? ((d.tracking_code && d.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (d.shipping_fee_method === 'ck' ? 'HV trả CK' : (d.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : d.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 var methodLabel = d.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : d.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
                 var payerColor = d.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 body+=row('💳 Người Trả', `<span style="font-weight:800;color:${payerColor}">${payerLabel}</span>`);

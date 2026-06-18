@@ -857,7 +857,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
     const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
     const hasCarrierPayment = payments.some(p => p.money_source === 'nha_van_chuyen');
-    const shipCK = (!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+    const shipCK = (!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && !(o.tracking_code && o.tracking_code.trim())) ? (Number(o.shipping_fee) || 0) : 0;
     const remaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, total - deposit - shipCK);
 
     let carrierOpts = '<option value="">— Chọn NVC —</option>';
@@ -2410,7 +2410,7 @@ async function _shShowShippingDetailOnly(orderId) {
                     trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${it.tracking_code} 🔗</a>`;
                 }
                 
-                const payerLabel = it.shipping_fee_payer === 'hv' ? (it.shipping_fee_method === 'ck' ? 'HV trả CK' : (it.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const payerLabel = it.shipping_fee_payer === 'hv' ? ((it.tracking_code && it.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (it.shipping_fee_method === 'ck' ? 'HV trả CK' : (it.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 const methodLabel = it.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : it.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
                 const payerColor = it.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 const feeAmt = Number(it.shipping_fee || 0);
@@ -2597,7 +2597,7 @@ async function _shShowShippingDetailOnly(orderId) {
                     })(_billCid, o.shipping_bill_link);
                 }
                 shipHTML += row('📷 Bill gửi hàng', billHtml);
-                const _payerLabel = o.shipping_fee_payer === 'hv' ? (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const _payerLabel = o.shipping_fee_payer === 'hv' ? ((o.tracking_code && o.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 const _payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 shipHTML += row('💳 Người Trả', `<span style="font-weight:800;color:${_payerColor}">${_payerLabel}</span>`);
                 if (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'tm') {
@@ -3314,7 +3314,7 @@ async function _shOpenUpdateShipmentModal(id, code) {
     const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
     const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
     const hasCarrierPayment = payments.some(p => p.money_source === 'nha_van_chuyen');
-    const shipCK = (!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+    const shipCK = (!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && !(o.tracking_code && o.tracking_code.trim())) ? (Number(o.shipping_fee) || 0) : 0;
     const remaining = String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, total - deposit - shipCK);
 
     let carrierName = o.actual_carrier_name || '';
