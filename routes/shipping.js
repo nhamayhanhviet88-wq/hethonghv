@@ -1037,7 +1037,7 @@ module.exports = async function(fastify) {
                 try {
                     const seq = await _getNextTMSeq(todayStr);
                     const cfCode = _buildTMCode(seq, todayStr);
-                    cfDescription = `Tiền ship gửi HÀNG HOÀN mẫu đơn ${order.order_code}`;
+                    cfDescription = `Gửi ship lần 2 đơn mẫu hoàn ${order.order_code}`;
                     const cfImageUrl = b.shipping_bill_link || null;
 
                     await db.run(`
@@ -2260,7 +2260,7 @@ module.exports = async function(fastify) {
                 try {
                     const seq = await _getNextTMSeq(todayStr);
                     const cfCode = _buildTMCode(seq, todayStr);
-                    cfDescription = `Tiền ship gửi HÀNG HOÀN mẫu đơn ${order.order_code} (cập nhật sau)`;
+                    cfDescription = `Gửi ship lần 2 đơn mẫu hoàn ${order.order_code} (cập nhật sau)`;
                     const cfImageUrl = b.shipping_bill_link || null;
 
                     await db.run(`
