@@ -420,7 +420,7 @@ function _dgamRenderRows(paged) {
             if (isTargetCategory && !o.hoan_hang_received_proof_image) {
                 kiemTraBtnHtml = '<button class="dgam-icon-btn" title="Mẫu áo chưa về nên chưa được kiểm tra" style="opacity:0.4;cursor:not-allowed;" onclick="showToast(\'🔒 Mẫu áo chưa về nên chưa được kiểm tra\', \'error\')">🔍</button>';
             } else {
-                kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>';
+                kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamShowInspectConfirmModal('+o.id+')">🔍</button>';
             }
         } else {
             if (o.status_kiem_tra) {
@@ -2092,6 +2092,405 @@ async function _dgamShowActionDetail(id, type) {
     }
 }
 window._dgamShowActionDetail = _dgamShowActionDetail;
+
+async function _dgamShowInspectConfirmModal(id) {
+    try {
+        const data = await apiCall(`/api/don-gui-ao-mau/${id}/detail`);
+        if (!data || !data.order) {
+            showToast('Không tìm thấy thông tin đơn mẫu', 'error');
+            return;
+        }
+        const o = data.order;
+        const payments = data.payments || [];
+        const logs = data.logs || [];
+        const closedOrders = data.closedOrders || [];
+        const fmt = n => Number(n || 0).toLocaleString('vi-VN');
+
+        const titleText = `🔍 KIỂM TRA ĐƠN MẪU: ${o.sample_order_code}`;
+
+        // 1. Chi tiết sản phẩm gửi + Hình ảnh mẫu chụp (ảnh 2)
+        const typeLabels = {
+            'gui_mau_ao': 'Gửi mẫu áo',
+            'gui_mau_vai': 'Gửi mẫu vải',
+            'gui_tem': 'Gửi Tem',
+            'gui_pet': 'Gửi Pet',
+            'gui_khac': 'Gửi Khác'
+        };
+        const categoryLabel = typeLabels[o.category] || o.category || '—';
+        const linhVucBadge = o.linh_vuc ? `<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:6px;white-space:nowrap">${o.linh_vuc}</span>` : '';
+
+        let prodHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">👕 Chi Tiết Sản Phẩm Gửi</div>
+            <table class="table" style="width:100%;border-collapse:collapse;margin-bottom:12px;">
+                <thead>
+                    <tr style="background:#f8fafc;border-bottom:1.5px solid #e2e8f0">
+                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">PHÂN LOẠI</th>
+                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">LĨNH VỰC</th>
+                        <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;color:#fff !important">SẢN PHẨM / NỘI DUNG</th>
+                        <th style="padding:10px;text-align:center;font-size:11px;font-weight:700;color:#fff !important;width:80px">SL</th>
+                        <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;color:#fff !important;width:120px">ĐƠN GIÁ</th>
+                        <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;color:#fff !important;width:120px">TỔNG TIỀN</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom:1px solid #f1f5f9">
+                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${categoryLabel}</td>
+                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap">${linhVucBadge || '—'}</td>
+                        <td style="padding:10px;font-size:13px;font-weight:700;color:#1e293b">${o.product_name || '—'}</td>
+                        <td style="padding:10px;text-align:center;font-size:13px;font-weight:700;color:#1e293b">${o.quantity || 0}</td>
+                        <td style="padding:10px;text-align:right;font-size:13px;font-weight:700;color:#1e293b">${fmt(o.price)}đ</td>
+                        <td style="padding:10px;text-align:right;font-size:13px;font-weight:700;color:var(--success)">${fmt(o.total_amount)}đ</td>
+                    </tr>
+                </tbody>
+            </table>`;
+
+        if (o.sample_image) {
+            prodHTML += `<div style="text-align:center;margin-top:16px;background:#f8fafc;padding:16px;border-radius:8px;border:1px dashed #cbd5e1">
+                <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px">🖼️ HÌNH ẢNH MẪU CHỤP</div>
+                <img src="${o.sample_image}" style="max-width:240px;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="_dgamShowImagePreview('${o.sample_image}')" title="Click để xem ảnh gốc">
+            </div>`;
+        }
+        prodHTML += `</div>`;
+
+        // 2. Chi tiết cọc / thanh toán (ảnh 3)
+        var displayPayments = payments.slice();
+        if (displayPayments.length === 0 && Number(o.deposit_amount) > 0) {
+            displayPayments.push({
+                payment_code: o.deposit_code || '—',
+                amount: o.deposit_amount,
+                payment_date: o.order_date || o.created_at,
+                payment_type: 'dat_coc',
+                payment_method: null,
+                transfer_note: 'Đặt cọc khi tạo đơn',
+                _synthetic: true
+            });
+        }
+
+        const fmtDt = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
+
+        var payHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">`;
+        payHTML += `<div style="font-weight:800;font-size:14px;color:#1e3a8a;margin-bottom:12px">💳 Chi tiết cọc / thanh toán <span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${displayPayments.length}</span></div>`;
+        if (displayPayments.length > 0) {
+            payHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
+            payHTML += `<thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">MÃ THANH TOÁN</th><th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">NGÀY TT</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
+            const typeLabelsPay = { thanh_toan: 'Thanh Toán', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
+            for (const p of displayPayments) {
+                payHTML += `<tr style="border-bottom:1px solid #f1f5f9${p._synthetic ? ';background:#fffbeb' : ''}">`;
+                payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${p.payment_code || '—'}</td>`;
+                payHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(p.amount)}đ</td>`;
+                payHTML += `<td style="padding:8px 10px;text-align:center">${fmtDt(p.payment_date)}</td>`;
+                
+                let badgeStyle = 'background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                let typeText = typeLabelsPay[p.payment_type] || p.payment_type || '—';
+                
+                if (p.money_source === 'nha_van_chuyen') {
+                    badgeStyle = 'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                    typeText = 'NVC';
+                } else if (p.money_source === 'khach_hang_sll' || p.payment_type === 'tt_sll' || p.payment_type === 'child_sll') {
+                    badgeStyle = 'background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                    typeText = 'KH SLL';
+                } else if (p.payment_type === 'dat_coc') {
+                    badgeStyle = 'background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;text-shadow:0 1px 2px rgba(0,0,0,.15);';
+                    typeText = 'Đặt Cọc';
+                } else if (p.payment_type === 'thanh_toan') {
+                    badgeStyle = 'background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;';
+                    typeText = 'Thanh Toán';
+                }
+                payHTML += `<td style="padding:8px 10px;text-align:center"><span style="${badgeStyle}">${typeText}</span></td>`;
+                payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
+                payHTML += `</tr>`;
+            }
+            payHTML += `</tbody></table></div>`;
+        } else {
+            payHTML += `<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px">Chưa có thanh toán / cọc nào được ghi nhận</div>`;
+        }
+        payHTML += `</div>`;
+
+        // 3. Tổng kết tài chính (ảnh 4)
+        const remColor = o.remaining_amount > 0 ? '#dc2626' : '#059669';
+        var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">`;
+        finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
+        
+        const hasCarrierPayment = payments.some(p => p.money_source === 'nha_van_chuyen');
+        const shipDeduct = (!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck') ? (Number(o.shipping_fee) || 0) : 0;
+        const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(o.deposit_amount) || 0) - shipDeduct);
+        const totalPaid = (Number(o.deposit_amount) || 0) + otherPaid;
+
+        let finRows = [
+            ['Tổng Tiền Hàng Thực Tế', fmt(o.total_amount) + 'đ', '#1e293b', true],
+            ['Đã thanh toán (cọc)', fmt(totalPaid) + 'đ', '#10b981', true]
+        ];
+        if (shipDeduct > 0) {
+            finRows.push(['🚚 Cước Vận Chuyển (HV Trả CK)', fmt(shipDeduct) + 'đ', '#f97316', true]);
+        }
+        finRows.push(['Còn lại', fmt(o.remaining_amount) + 'đ', remColor, true]);
+        
+        for (const [label, val, color, bold] of finRows) {
+            const fontWt = bold ? '800' : '600';
+            const fSize = bold ? '13px' : '12px';
+            finHTML += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);font-size:${fSize};font-weight:${fontWt};color:${color}">`;
+            finHTML += `<span>${label}</span>`;
+            finHTML += `<span>${val}</span>`;
+            finHTML += `</div>`;
+        }
+        finHTML += `</div>`;
+
+        // 4. Thông tin vận chuyển (ảnh 5)
+        let shipInfoHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px">🚚 Thông tin vận chuyển</div>`;
+
+        let hasShipment1 = o.status_gui_don || o.order_status === 'da_gui' || o.order_status === 'hoan_thanh';
+        let hasShipment2 = o.status_gui_don_hoan === true;
+
+        if (hasShipment1) {
+            const timeValue = o.shipped_at ? new Date(o.shipped_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(',', '') : '—';
+            const carrierName = o.actual_carrier_name || '—';
+            let trackingDisplay = o.tracking_code || '—';
+            if (o.tracking_code && o.actual_carrier_tracking_url) {
+                const trackingUrl = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.tracking_code));
+                trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.tracking_code} 🔗</a>`;
+            }
+
+            const payerLabel = o.shipping_fee_payer === 'hv' ? (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+            const payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
+            const feeAmt = Number(o.shipping_fee || 0);
+
+            let billHtml = '—';
+            if (o.shipping_bill_link) {
+                const billCid = `_dgamBillImgModalInspect_${o.id}`;
+                billHtml = `<span id="${billCid}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                
+                (function(_cid, _origUrl) {
+                    setTimeout(async function() {
+                        const el = document.getElementById(_cid);
+                        if (!el) return;
+                        let imgSrc = _origUrl;
+                        try {
+                            if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                if (r && r.direct_url) imgSrc = r.direct_url;
+                            } else {
+                                const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                            }
+                        } catch(e) { console.warn('[BillResolve]', e); }
+                        
+                        if (imgSrc && imgSrc.includes('/uploads/')) {
+                            imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                        }
+                        let linkHref = _origUrl;
+                        if (linkHref && linkHref.includes('/uploads/')) {
+                            linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                        }
+                        
+                        const img = document.createElement('img');
+                        img.src = imgSrc;
+                        img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                        img.onerror = function() {
+                            el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                        };
+                        img.onclick = function() {
+                            _dgamShowImagePreview(imgSrc);
+                        };
+                        el.innerHTML = '';
+                        el.appendChild(img);
+                    }, 100);
+                })(billCid, o.shipping_bill_link);
+            }
+
+            shipInfoHTML += `
+                <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(22,163,74,0.03);margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                        <span style="font-weight:800;font-size:12px;color:#15803d">📦 LẦN 1 GỬI — ${o.product_name || '—'} (SL: ${o.quantity || 0})</span>
+                        <span style="background:#22c55e;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:10px;">🟢 ĐÃ GỬI</span>
+                    </div>
+                    <table style="width:100%;font-size:12px;border-collapse:collapse;">
+                        <tr><td style="padding:4px 0;color:#64748b;width:120px">👤 Người gửi:</td><td style="padding:4px 0;font-weight:700;color:#1e293b">${o.created_by_name || '—'}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">📅 Thời gian gửi:</td><td style="padding:4px 0;font-weight:700;color:#1e293b">${timeValue}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">🚚 Đơn vị vận chuyển:</td><td style="padding:4px 0;font-weight:700;color:#1e293b">${carrierName}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">📦 Mã vận đơn:</td><td style="padding:4px 0;font-weight:700;color:#1e293b">${trackingDisplay}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">💳 Người trả ship:</td><td style="padding:4px 0;font-weight:700;color:${payerColor}">${payerLabel}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">💰 Cước Vận Chuyển:</td><td style="padding:4px 0;font-weight:800;color:#dc2626">${fmt(feeAmt)}đ</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">📎 Bill gửi hàng:</td><td style="padding:4px 0;" id="_dgamBillImgModalInspect_${o.id}">${billHtml}</td></tr>
+                    </table>
+                </div>`;
+        }
+
+        if (hasShipment2) {
+            const timeValue = o.hoan_hang_shipped_at ? new Date(o.hoan_hang_shipped_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(',', '') : '—';
+            const carrierName = o.hoan_hang_actual_carrier_name || '—';
+            let trackingDisplay = o.hoan_hang_tracking_code || '—';
+            if (o.hoan_hang_tracking_code && o.hoan_hang_actual_carrier_tracking_url) {
+                const trackingUrl = o.hoan_hang_actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.hoan_hang_tracking_code));
+                trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.hoan_hang_tracking_code} 🔗</a>`;
+            }
+
+            const payerLabel = o.return_payer === 'hv' ? (o.return_payment_method === 'ck' ? 'HV trả CK' : (o.return_payment_method === 'tm' ? 'HV trả TM' : 'HV trả cước hoàn')) : o.return_payer === 'khach' ? 'Khách trả' : '—';
+            const payerColor = o.return_payer === 'hv' ? '#7c3aed' : '#059669';
+            const feeAmt = Number(o.return_shipping_fee || 0);
+
+            let billHtml = '—';
+            if (o.hoan_hang_shipping_bill_link) {
+                const billCid = `_dgamBillImgModalInspect2_${o.id}`;
+                billHtml = `<span id="${billCid}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                
+                (function(_cid, _origUrl) {
+                    setTimeout(async function() {
+                        const el = document.getElementById(_cid);
+                        if (!el) return;
+                        let imgSrc = _origUrl;
+                        try {
+                            if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                if (r && r.direct_url) imgSrc = r.direct_url;
+                            } else {
+                                const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                            }
+                        } catch(e) { console.warn('[BillResolve]', e); }
+                        
+                        if (imgSrc && imgSrc.includes('/uploads/')) {
+                            imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                        }
+                        let linkHref = _origUrl;
+                        if (linkHref && linkHref.includes('/uploads/')) {
+                            linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                        }
+                        
+                        const img = document.createElement('img');
+                        img.src = imgSrc;
+                        img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                        img.onerror = function() {
+                            el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                        };
+                        img.onclick = function() {
+                            _dgamShowImagePreview(imgSrc);
+                        };
+                        el.innerHTML = '';
+                        el.appendChild(img);
+                    }, 100);
+                })(billCid, o.hoan_hang_shipping_bill_link);
+            }
+
+            shipInfoHTML += `
+                <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(59,130,246,0.03);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dbeafe;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                        <span style="font-weight:800;font-size:12px;color:#1d4ed8">📦 LẦN 2 GỬI — ${o.product_name || '—'} (SL: ${o.quantity || 0})</span>
+                        <span style="background:#3b82f6;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:10px;">🟢 ĐÃ GỬI (HOÀN)</span>
+                    </div>
+                    <table style="width:100%;font-size:12px;border-collapse:collapse;">
+                        <tr><td style="padding:4px 0;color:#64748b;width:120px">👤 Người gửi:</td><td style="padding:4px 0;font-weight:700;color:#1e293b">${o.updated_by_name || '—'}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">📅 Thời gian gửi:</td><td style="padding:4px 0;font-weight:700;color:#1e293b">${timeValue}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">🚚 Đơn vị vận chuyển:</td><td style="padding:4px 0;font-weight:700;color:#1e293b">${carrierName}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">📦 Mã vận đơn:</td><td style="padding:4px 0;font-weight:700;color:#1e293b">${trackingDisplay}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">💳 Người trả ship:</td><td style="padding:4px 0;font-weight:700;color:${payerColor}">${payerLabel}</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">💰 Cước Vận Chuyển:</td><td style="padding:4px 0;font-weight:800;color:#dc2626">${fmt(feeAmt)}đ</td></tr>
+                        <tr><td style="padding:4px 0;color:#64748b">📎 Bill gửi hàng:</td><td style="padding:4px 0;" id="_dgamBillImgModalInspect2_${o.id}">${billHtml}</td></tr>
+                    </table>
+                </div>`;
+        } else {
+            shipInfoHTML += `<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px;font-style:italic">Chưa có thông tin gửi hàng lần nào</div>`;
+        }
+        shipInfoHTML += `</div>`;
+
+        // 5. Bằng chứng mẫu áo đã về (nếu có)
+        let proofHTML = '';
+        if (o.hoan_hang_received_proof_image) {
+            proofHTML = `
+            <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.02);text-align:center;">
+                <div style="font-weight:800;font-size:14px;color:var(--navy);margin-bottom:12px;text-align:left;">📸 Bằng Chứng Mẫu Áo Đã Về</div>
+                <img src="${o.hoan_hang_received_proof_image}" style="max-width:320px;max-height:240px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.1)" onclick="_dgamShowImagePreview('${o.hoan_hang_received_proof_image}')" title="Click để xem ảnh gốc">
+            </div>
+            `;
+        }
+
+        // 6. Checkbox xác nhận (bắt buộc tích mới cho ấn)
+        let confirmCheckHTML = '';
+        if (o.status_kiem_tra) {
+            confirmCheckHTML = `
+            <div style="background:#f0fdf4;border:1.5px solid #22c55e;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;">
+                <label style="display:inline-flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:#15803d;cursor:pointer;">
+                    <input type="checkbox" id="dgamInspectCheckbox" checked disabled style="width:18px;height:18px;cursor:pointer;">
+                    Đã xác nhận mẫu áo đã về công ty để hoàn tiền
+                </label>
+            </div>
+            `;
+        } else {
+            confirmCheckHTML = `
+            <div style="background:#faf5ff;border:1.5px dashed #8b5cf6;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;">
+                <label style="display:inline-flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:#6b21a8;cursor:pointer;">
+                    <input type="checkbox" id="dgamInspectCheckbox" onchange="_dgamToggleConfirmBtn()" style="width:18px;height:18px;cursor:pointer;">
+                    Đã xác nhận mẫu áo đã về công ty để hoàn tiền
+                </label>
+            </div>
+            `;
+        }
+
+        const bodyHTML = prodHTML + payHTML + finHTML + shipInfoHTML + proofHTML + confirmCheckHTML;
+        
+        let footerHTML = '';
+        if (o.status_kiem_tra) {
+            footerHTML = `
+                <div style="display:flex;justify-content:space-between;width:100%;align-items:center;gap:12px;">
+                    <button class="btn btn-danger" onclick="_dgamSaveInspectStatus(${o.id}, false)" style="background:#ef4444;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;">❌ Bỏ kiểm tra</button>
+                    <button class="btn btn-secondary" onclick="closeModal()" style="padding:12px 28px">Đóng</button>
+                </div>
+            `;
+        } else {
+            footerHTML = `
+                <div style="display:flex;justify-content:space-between;width:100%;align-items:center;gap:12px;">
+                    <button id="dgamConfirmInspectBtn" class="btn" disabled onclick="_dgamSaveInspectStatus(${o.id}, true)" style="background:linear-gradient(135deg, #8b5cf6, #6d28d9);color:#fff;border:none;padding:12px 30px;border-radius:8px;font-weight:800;font-size:14px;box-shadow:0 4px 12px rgba(109, 40, 217, 0.3);transition:all 0.2s;opacity:0.5;cursor:not-allowed;">💜 Xác nhận kiểm tra xong</button>
+                    <button class="btn btn-secondary" onclick="closeModal()" style="padding:12px 28px">Đóng</button>
+                </div>
+            `;
+        }
+
+        openModal(titleText, bodyHTML, footerHTML);
+
+        // Widen modal
+        setTimeout(() => {
+            const mc = document.querySelector('.modal-content');
+            if (mc) { mc.style.maxWidth = '900px'; mc.style.width = '95vw'; }
+        }, 30);
+    } catch (e) {
+        console.error('Error opening inspect modal:', e);
+        showToast('Lỗi tải thông tin chi tiết', 'error');
+    }
+}
+
+function _dgamToggleConfirmBtn() {
+    const cb = document.getElementById('dgamInspectCheckbox');
+    const btn = document.getElementById('dgamConfirmInspectBtn');
+    if (cb && btn) {
+        if (cb.checked) {
+            btn.removeAttribute('disabled');
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        } else {
+            btn.setAttribute('disabled', 'true');
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+        }
+    }
+}
+
+async function _dgamSaveInspectStatus(id, value) {
+    try {
+        closeModal();
+        await _dgamTogSt(id, 'status_kiem_tra', value);
+    } catch (e) {
+        console.error(e);
+        showToast('Lỗi cập nhật trạng thái kiểm tra', 'error');
+    }
+}
+
+window._dgamShowInspectConfirmModal = _dgamShowInspectConfirmModal;
+window._dgamToggleConfirmBtn = _dgamToggleConfirmBtn;
+window._dgamSaveInspectStatus = _dgamSaveInspectStatus;
 
 function _dgamShowImagePreview(src) {
     let preview = document.getElementById('dgamImagePreviewOverlay');
