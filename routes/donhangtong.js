@@ -781,10 +781,11 @@ module.exports = async function(fastify) {
                 }
             }
 
+            const sampleDeductSql = `CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END`;
             if (carrier_id !== undefined && Number(carrier_id) === -2) {
-                sampleWhere += ` AND ((COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0 OR d.status_hoan_hang = true)`;
+                sampleWhere += ` AND ((COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - ${sampleDeductSql}) > 0 OR d.status_hoan_hang = true)`;
             } else {
-                sampleWhere += ` AND ((COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0)`;
+                sampleWhere += ` AND ((COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - ${sampleDeductSql}) > 0)`;
             }
 
             if (carrier_id !== undefined) {
