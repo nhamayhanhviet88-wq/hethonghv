@@ -2002,7 +2002,7 @@ async function _dgamOnHoanHangClick(id) {
                     <form id="dgamHoanHangForm" onsubmit="_dgamSubmitHoanHang(event, ${id})" style="margin:0;padding:20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px;font-size:13px;">
                         <div>
                             <label style="display:block;font-weight:700;margin-bottom:6px;color:#334155;">Ngày Gửi Hàng *</label>
-                            <input type="date" id="hoan_hang_ship_date" required min="${todayStr}" value="${tomorrowStr}" style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                            <input type="date" id="hoan_hang_ship_date" required min="${todayStr}" style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
                         </div>
                         <div>
                             <label style="display:block;font-weight:700;margin-bottom:6px;color:#334155;">Tiêu Chuẩn Gửi *</label>
