@@ -303,7 +303,7 @@ var _dgamStatusMap = {
     'da_duyet': { label: 'Đã Duyệt', bg: '#dcfce7', color: '#166534' },
     'da_gui': { label: 'Đã Gửi Mẫu', bg: '#dbeafe', color: '#1e40af' },
     'hoan_hang': { label: 'Yêu Cầu Hoàn Mẫu', bg: '#fee2e2', color: '#991b1b' },
-    'hoan_mau_xong': { label: 'Mẫu Áo Đã Hoàn', bg: '#dcfce7', color: '#166534' },
+    'hoan_mau_xong': { label: 'Mẫu Áo Đã Hoàn', bg: '#f3e8ff', color: '#7e22ce' },
     'hoan_thanh': { label: 'Đã Gửi Mẫu', bg: '#dbeafe', color: '#1e40af' }
 };
 
