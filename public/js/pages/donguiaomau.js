@@ -576,13 +576,6 @@ function _dgamOnShippingPriorityChange() {
     if (timeContainer) {
         if (priority === 'CHUẨN') {
             timeContainer.style.display = 'block';
-            if (hourInput && hourInput.value === '' && minuteInput && minuteInput.value === '') {
-                const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-                hourInput.value = String(now.getHours()).padStart(2, '0');
-                const roundedMin = Math.round(now.getMinutes() / 5) * 5;
-                const finalMin = roundedMin >= 60 ? 55 : roundedMin;
-                minuteInput.value = String(finalMin).padStart(2, '0');
-            }
         } else {
             timeContainer.style.display = 'none';
             if (hourInput) hourInput.value = '';
