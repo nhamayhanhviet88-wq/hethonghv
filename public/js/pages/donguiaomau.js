@@ -1806,7 +1806,7 @@ async function _dgamShowDetail(id) {
                 trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.tracking_code} 🔗</a>`;
             }
 
-            const payerLabel = o.shipping_fee_payer === 'hv' ? (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+            const payerLabel = o.shipping_fee_payer === 'hv' ? ((o.tracking_code && o.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
             const payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
             const feeAmt = Number(o.shipping_fee || 0);
 
@@ -1887,7 +1887,7 @@ async function _dgamShowDetail(id) {
                 trackingDisplayHoan = `<a href="${trackingUrlHoan}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.hoan_hang_tracking_code} 🔗</a>`;
             }
 
-            const payerLabelHoan = o.return_payer === 'hv' ? (o.return_payment_method === 'ck' ? 'HV trả CK' : (o.return_payment_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : o.return_payer === 'khach' ? 'Khách trả' : '—';
+            const payerLabelHoan = o.return_payer === 'hv' ? ((o.hoan_hang_tracking_code && o.hoan_hang_tracking_code.trim()) ? 'HV trả cước vận chuyển' : (o.return_payment_method === 'ck' ? 'HV trả CK' : (o.return_payment_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : o.return_payer === 'khach' ? 'Khách trả' : '—';
             const payerColorHoan = o.return_payer === 'hv' ? '#7c3aed' : '#059669';
             const feeAmtHoan = Number(o.return_shipping_fee || 0);
 
@@ -2251,7 +2251,7 @@ async function _dgamShowInspectConfirmModal(id) {
                 trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.tracking_code} 🔗</a>`;
             }
 
-            const payerLabel = o.shipping_fee_payer === 'hv' ? (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+            const payerLabel = o.shipping_fee_payer === 'hv' ? ((o.tracking_code && o.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
             const payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
             const feeAmt = Number(o.shipping_fee || 0);
 
@@ -2327,7 +2327,7 @@ async function _dgamShowInspectConfirmModal(id) {
                 trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.hoan_hang_tracking_code} 🔗</a>`;
             }
 
-            const payerLabel = o.return_payer === 'hv' ? (o.return_payment_method === 'ck' ? 'HV trả CK' : (o.return_payment_method === 'tm' ? 'HV trả TM' : 'HV trả cước hoàn')) : o.return_payer === 'khach' ? 'Khách trả' : '—';
+            const payerLabel = o.return_payer === 'hv' ? ((o.hoan_hang_tracking_code && o.hoan_hang_tracking_code.trim()) ? 'HV trả cước vận chuyển' : (o.return_payment_method === 'ck' ? 'HV trả CK' : (o.return_payment_method === 'tm' ? 'HV trả TM' : 'HV trả cước hoàn'))) : o.return_payer === 'khach' ? 'Khách trả' : '—';
             const payerColor = o.return_payer === 'hv' ? '#7c3aed' : '#059669';
             const feeAmt = Number(o.return_shipping_fee || 0);
 
@@ -2595,7 +2595,7 @@ async function _dgamOnHoanHangClick(id) {
                 trackingDisplayHoan = `<a href="${trackingUrlHoan}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${order.hoan_hang_tracking_code} 🔗</a>`;
             }
 
-            const payerLabelHoan = order.return_payer === 'hv' ? (order.return_payment_method === 'ck' ? 'HV trả CK' : (order.return_payment_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : order.return_payer === 'khach' ? 'Khách trả' : '—';
+            const payerLabelHoan = order.return_payer === 'hv' ? ((order.hoan_hang_tracking_code && order.hoan_hang_tracking_code.trim()) ? 'HV trả cước vận chuyển' : (order.return_payment_method === 'ck' ? 'HV trả CK' : (order.return_payment_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : order.return_payer === 'khach' ? 'Khách trả' : '—';
             const payerColorHoan = order.return_payer === 'hv' ? '#7c3aed' : '#059669';
             const feeAmtHoan = Number(order.return_shipping_fee || 0);
 

@@ -1839,7 +1839,7 @@ module.exports = async function(fastify) {
         try {
             const carrierRow = await db.get('SELECT name FROM dht_carriers WHERE id = $1', [Number(b.actual_carrier_id)]);
             const carrierName = carrierRow?.name || b.actual_carrier_id;
-            const payerLabel = b.shipping_fee_payer === 'hv' ? (b.shipping_fee_method === 'ck' ? 'HV trả CK' : (b.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : 'Khách trả';
+            const payerLabel = b.shipping_fee_payer === 'hv' ? ((b.tracking_code && b.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (b.shipping_fee_method === 'ck' ? 'HV trả CK' : (b.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : 'Khách trả';
             const changes = [
                 { field: 'actual_carrier', label: 'Nhà vận chuyển', old: null, new: carrierName },
                 { field: 'shipping_fee', label: 'Phí gửi hàng', old: null, new: String(shipFee) },
