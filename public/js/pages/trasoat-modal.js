@@ -1490,7 +1490,11 @@ function _tsRenderStepModal(step, d){
         body+=row('🏙️ Tỉnh / TP',V(d.province),'#dc2626');
         body+=row('👤 CSKH',V(d.cskh_name));
         body+=row('📅 Ngày lên đơn',fmtD(d.order_date));
-        body+=row('💰 Số tiền còn lại', (d.remaining_amount !== undefined && d.remaining_amount !== null ? Number(d.remaining_amount).toLocaleString('vi-VN') + 'đ' : '—'), '#dc2626');
+        const remainingVal = d.remaining_amount !== undefined && d.remaining_amount !== null ? Number(d.remaining_amount).toLocaleString('vi-VN') + 'đ' : '—';
+        body += `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin:8px 0;background:#fee2e2;border-radius:10px;border:1.5px solid #fca5a5;">
+            <span style="color:#991b1b;font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px">💰 Số tiền còn lại</span>
+            <span style="font-weight:900;color:#b91c1c;font-size:15px;background:white;padding:4px 12px;border-radius:8px;box-shadow:0 2px 4px rgba(220,38,38,0.08);">${remainingVal}</span>
+        </div>`;
         
         var tcColor2 = (d.shipping_priority === 'GẤP') ? '#dc2626' : (d.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
         body+=row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${d.shipping_priority || 'CHUẨN'}</span>`);
