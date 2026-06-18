@@ -1825,6 +1825,63 @@ async function _dgamOnHoanHangClick(id) {
                 trackingCodeHtml += ` <a href="${order.hoan_hang_shipping_bill_link}" target="_blank" style="margin-left:8px;color:#3b82f6;text-decoration:underline;font-weight:700;">📄 Xem Bill</a>`;
             }
 
+            const timeValueHoan = order.hoan_hang_shipped_at ? new Date(order.hoan_hang_shipped_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(',', '') : '—';
+            const carrierNameHoan = order.hoan_actual_carrier_name || '—';
+            let trackingDisplayHoan = order.hoan_hang_tracking_code || '—';
+            if (order.hoan_hang_tracking_code && order.actual_carrier_tracking_url) {
+                const trackingUrlHoan = order.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(order.hoan_hang_tracking_code));
+                trackingDisplayHoan = `<a href="${trackingUrlHoan}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${order.hoan_hang_tracking_code} 🔗</a>`;
+            }
+
+            const payerLabelHoan = order.return_payer === 'hv' ? (order.return_payment_method === 'ck' ? 'HV trả CK' : (order.return_payment_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển')) : order.return_payer === 'khach' ? 'Khách trả' : '—';
+            const payerColorHoan = order.return_payer === 'hv' ? '#7c3aed' : '#059669';
+            const feeAmtHoan = Number(order.return_shipping_fee || 0);
+
+            let billHtmlHoan = '—';
+            if (order.hoan_hang_shipping_bill_link) {
+                const billCidHoan = `_dgamBillImgModalHoan2_${order.id}`;
+                billHtmlHoan = `<span id="${billCidHoan}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                
+                (function(_cid, _origUrl) {
+                    setTimeout(async function() {
+                        const el = document.getElementById(_cid);
+                        if (!el) return;
+                        let imgSrc = _origUrl;
+                        try {
+                            if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                if (r && r.direct_url) imgSrc = r.direct_url;
+                            } else {
+                                const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                            }
+                        } catch(e) { console.warn('[BillResolve]', e); }
+                        
+                        if (imgSrc && imgSrc.includes('/uploads/')) {
+                            imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                        }
+                        let linkHref = _origUrl;
+                        if (linkHref && linkHref.includes('/uploads/')) {
+                            linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                        }
+                        
+                        const img = document.createElement('img');
+                        img.src = imgSrc;
+                        img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                        img.onerror = function() {
+                            el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                        };
+                        img.onclick = function() {
+                            _dgamShowImagePreview(imgSrc);
+                        };
+                        el.innerHTML = '';
+                        el.appendChild(img);
+                    }, 100);
+                })(billCidHoan, order.hoan_hang_shipping_bill_link);
+            }
+
             modal.innerHTML = `
                 <style>
                     @keyframes dgamModalFadeIn {
@@ -1873,41 +1930,39 @@ async function _dgamOnHoanHangClick(id) {
                             <span style="font-weight:600;color:#0f172a;white-space:pre-wrap;background:#f8fafc;padding:6px 10px;border-radius:6px;border:1px solid #f1f5f9;display:block;">${order.hoan_hang_sale_note || '—'}</span>
                         </div>
                         <div style="border-top:1.5px solid #e2e8f0;margin-top:4px;padding-top:12px;">
-                            <h4 style="margin:0 0 10px 0;font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">🚛 Trạng Thái Gửi Hàng Của Kế Toán</h4>
-                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
-                                <span style="font-weight:600;color:#64748b;">Trạng Thái Gửi:</span>
-                                <span>
-                                    ${order.status_gui_don_hoan 
-                                        ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:9999px;font-weight:700;font-size:11px;">🟢 Đã gửi hàng hoàn</span>' 
-                                        : '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-weight:700;font-size:11px;">🔴 Chờ kế toán gửi hàng</span>'}
-                                </span>
-                            </div>
-                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
-                                <span style="font-weight:600;color:#64748b;">Mã Vận Đơn:</span>
-                                <span>${trackingCodeHtml}</span>
-                            </div>
-                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
-                                <span style="font-weight:600;color:#64748b;">Phí Ship Hoàn:</span>
-                                <span style="font-weight:700;color:#dc2626;">${order.return_shipping_fee ? Number(order.return_shipping_fee).toLocaleString('vi-VN') + 'đ' : '0đ'}</span>
-                            </div>
-                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
-                                <span style="font-weight:600;color:#64748b;">Người Trả Phí:</span>
-                                <span style="font-weight:700;color:#0f172a;">${order.return_payer === 'hv' ? 'Đồng phục HV' : order.return_payer === 'khach' ? 'Khách trả' : '—'}</span>
-                            </div>
-                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
-                                <span style="font-weight:600;color:#64748b;">Hình Thức Trả:</span>
-                                <span style="font-weight:700;color:#0f172a;">${order.return_payment_method === 'tm' ? 'Tiền mặt' : order.return_payment_method === 'ck' ? 'Chuyển khoản' : '—'}</span>
-                            </div>
-                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
-                                <span style="font-weight:600;color:#64748b;">Nhà Vận Chuyển Thực:</span>
-                                <span style="font-weight:700;color:#0f172a;">${order.hoan_actual_carrier_name || '—'}</span>
-                            </div>
-                            <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
-                                <span style="font-weight:600;color:#64748b;">Người Gửi / Ngày Gửi:</span>
-                                <span style="font-weight:700;color:#0f172a;">
-                                    ${order.hoan_shipped_by_name ? `${order.hoan_shipped_by_name} (${formatDgamTime(order.hoan_hang_shipped_at)})` : '—'}
-                                </span>
-                            </div>
+                            <h4 style="margin:0 0 10px 0;font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">🚛 Trạng Thái Gửi Hàng Của Kế Toán</h4>
+                            ${order.status_gui_don_hoan ? `
+                                <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(22,163,74,0.03);">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                                        <span style="font-weight:800;color:#166534;font-size:13px;">📦 LẦN 2 GỬI — ${(order.product_name || 'MẪU ÁO').toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${order.quantity || 1}</span></span>
+                                        <span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI (HOÀN)</span>
+                                    </div>
+                                    <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
+                                        <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${order.hoan_shipped_by_name || '—'}</span>
+                                        <span style="color:#64748b;font-weight:600;">📅 Thời gian gửi:</span> <span style="font-weight:700;color:#1e293b">${timeValueHoan}</span>
+                                        <span style="color:#64748b;font-weight:600;">🚛 Đơn vị vận chuyển:</span> <span style="font-weight:700;color:#1e293b">${carrierNameHoan}</span>
+                                        ${order.hoan_hang_tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplayHoan}</span>` : ''}
+                                        <span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${order.customer_name || '—'}</span>
+                                        <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColorHoan}">${payerLabelHoan}</span></span>
+                                        ${(order.return_payer === 'hv' && order.return_payment_method === 'tm') ? `
+                                            <span style="color:#64748b;font-weight:600;">💵 Mã Tiền Chi TM:</span> 
+                                            <span style="font-weight:700;color:#d97706">${order.hoan_shipping_cashflow_code || '—'}</span>
+                                        ` : ''}
+                                        <span style="color:#64748b;font-weight:600;">💰 Cước Vận Chuyển:</span> <span style="font-weight:800;color:#dc2626">${Number(feeAmtHoan).toLocaleString('vi-VN')}đ</span>
+                                        ${order.hoan_hang_shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtmlHoan}</div>` : ''}
+                                    </div>
+                                </div>
+                            ` : `
+                                <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(234,179,8,0.03);">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #ffedd5;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                                        <span style="font-weight:800;color:#c2410c;font-size:13px;">📦 LẦN 2 GỬI — ${(order.product_name || 'MẪU ÁO').toUpperCase()} <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${order.quantity || 1}</span></span>
+                                        <span style="background:#ea580c;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">⏳ CHỜ KẾ TOÁN GỬI</span>
+                                    </div>
+                                    <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
+                                        <span style="color:#64748b;font-weight:600;">Trạng Thái:</span> <span style="font-weight:700;color:#c2410c">🔴 Chờ kế toán gửi hàng</span>
+                                    </div>
+                                </div>
+                            `}
                         </div>
                     </div>
                     <div style="padding:14px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:end;background:#f8fafc;">
