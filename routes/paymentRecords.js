@@ -103,11 +103,14 @@ module.exports = async function(fastify) {
             const orConditions = [];
             const params = [];
             trackingCodes.forEach((code, idx) => {
-                const paramIdx1 = idx * 2 + 1;
-                const paramIdx2 = idx * 2 + 2;
+                const paramIdx1 = idx * 3 + 1;
+                const paramIdx2 = idx * 3 + 2;
+                const paramIdx3 = idx * 3 + 3;
                 orConditions.push(`transfer_note ILIKE $${paramIdx1}`);
-                orConditions.push(`reconciled_waybills LIKE $${paramIdx2}`);
+                orConditions.push(`transfer_note ILIKE $${paramIdx2}`);
+                orConditions.push(`reconciled_waybills LIKE $${paramIdx3}`);
                 params.push(`%MVĐ: ${code}%`);
+                params.push(`%MVD: ${code}%`);
                 params.push(`%"code":"${code}"%`);
             });
             let reconciledQuery = `
@@ -123,7 +126,7 @@ module.exports = async function(fastify) {
             reconciledRecords.forEach(r => {
                 trackingCodes.forEach(code => {
                     let matched = false;
-                    if (r.transfer_note && r.transfer_note.includes(`MVĐ: ${code}`)) {
+                    if (r.transfer_note && (r.transfer_note.includes(`MVĐ: ${code}`) || r.transfer_note.includes(`MVD: ${code}`))) {
                         matched = true;
                     } else if (r.reconciled_waybills && r.reconciled_waybills.includes(`"code":"${code}"`)) {
                         matched = true;

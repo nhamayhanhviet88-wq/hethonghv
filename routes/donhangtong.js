@@ -300,7 +300,8 @@ module.exports = async function(fastify) {
                              AND EXISTS (
                                  SELECT 1 FROM payment_records pr 
                                  WHERE pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
-                                    OR pr.transfer_note ILIKE '%MVĐ: ' || oi.tracking_code || '%'
+                                    OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
+                                    OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
                              )
                             THEN 0
                             ELSE COALESCE(oi.actual_carrier_id, 0)
@@ -328,7 +329,8 @@ module.exports = async function(fastify) {
                              AND EXISTS (
                                  SELECT 1 FROM payment_records pr 
                                  WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
-                                    OR pr.transfer_note ILIKE '%MVĐ: ' || o.tracking_code || '%'
+                                    OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
+                                    OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
                              )
                             THEN 0
                             WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
@@ -361,7 +363,8 @@ module.exports = async function(fastify) {
                              AND EXISTS (
                                  SELECT 1 FROM payment_records pr 
                                  WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
-                                    OR pr.transfer_note ILIKE '%MVĐ: ' || o.tracking_code || '%'
+                                    OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
+                                    OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
                              )
                             THEN 0
                             WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
@@ -815,7 +818,8 @@ module.exports = async function(fastify) {
                             OR (o.tracking_code IS NOT NULL AND o.tracking_code != '' AND EXISTS (
                                 SELECT 1 FROM payment_records pr 
                                 WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
-                                   OR pr.transfer_note ILIKE '%MVĐ: ' || o.tracking_code || '%'
+                                   OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
+                                   OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
                             ))
                         )
                     )
@@ -828,7 +832,8 @@ module.exports = async function(fastify) {
                             OR (oi.tracking_code IS NOT NULL AND oi.tracking_code != '' AND EXISTS (
                                 SELECT 1 FROM payment_records pr 
                                 WHERE pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
-                                   OR pr.transfer_note ILIKE '%MVĐ: ' || oi.tracking_code || '%'
+                                   OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
+                                   OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
                             ))
                         )
                     )
@@ -855,7 +860,8 @@ module.exports = async function(fastify) {
                         AND NOT (o.tracking_code IS NOT NULL AND o.tracking_code != '' AND EXISTS (
                             SELECT 1 FROM payment_records pr 
                             WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
-                               OR pr.transfer_note ILIKE '%MVĐ: ' || o.tracking_code || '%'
+                               OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
+                               OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
                         ))
                     )
                     OR
@@ -866,7 +872,8 @@ module.exports = async function(fastify) {
                         AND NOT (oi.tracking_code IS NOT NULL AND oi.tracking_code != '' AND EXISTS (
                             SELECT 1 FROM payment_records pr 
                             WHERE pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
-                               OR pr.transfer_note ILIKE '%MVĐ: ' || oi.tracking_code || '%'
+                               OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
+                               OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
                         ))
                     )
                 )`;
@@ -966,7 +973,8 @@ module.exports = async function(fastify) {
                     sampleWhere += ` AND (d.status_gui_don = false OR d.actual_carrier_id IS NULL OR d.actual_carrier_id = 0 OR (d.tracking_code IS NOT NULL AND d.tracking_code != '' AND EXISTS (
                         SELECT 1 FROM payment_records pr 
                         WHERE pr.reconciled_waybills LIKE '%"' || d.tracking_code || '"%' 
-                           OR pr.transfer_note ILIKE '%MVĐ: ' || d.tracking_code || '%'
+                           OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || d.tracking_code || '%')
+                           OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || d.tracking_code || '%')
                     )))`;
                     if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(year)); }
                     if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(month)); }
@@ -980,7 +988,8 @@ module.exports = async function(fastify) {
                     sampleWhere += ` AND d.status_gui_don = true AND d.actual_carrier_id = $${sIdx++} AND NOT (d.tracking_code IS NOT NULL AND d.tracking_code != '' AND EXISTS (
                         SELECT 1 FROM payment_records pr 
                         WHERE pr.reconciled_waybills LIKE '%"' || d.tracking_code || '"%' 
-                           OR pr.transfer_note ILIKE '%MVĐ: ' || d.tracking_code || '%'
+                           OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || d.tracking_code || '%')
+                           OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || d.tracking_code || '%')
                     ))`;
                     sampleParams.push(carrierId);
                     
