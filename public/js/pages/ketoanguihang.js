@@ -689,7 +689,7 @@ function _shAlertCannotShip(itemName, missing, orderCode, orderId = null) {
 
     let backBtnHtml = '';
     if (orderId) {
-        backBtnHtml = `<button onclick="document.getElementById('shAlertModal')?.remove();_shAlertCannotShipOrder(${orderId})" style="padding:8px 20px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:700;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">\u2190 Trở lại</button>`;
+        backBtnHtml = `<button onclick="document.getElementById('shAlertModal')?.remove();_shAlertCannotShipOrder('${orderId}')" style="padding:8px 20px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:700;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">\u2190 Trở lại</button>`;
     }
 
     _shShowAlert('Không thể gửi phiếu hàng', html, '480px', backBtnHtml);
@@ -2858,7 +2858,7 @@ async function _shOpenErrorModal(orderId) {
 
         h += '<div class="bpc-modal-actions" style="margin-top:0;padding:16px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;border-radius:0 0 16px 16px;">';
         h += '<button class="bpc-modal-btn cancel" onclick="_shCloseErrorModal()" style="padding:10px 20px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">Hủy</button>';
-        h += '<button class="bpc-modal-btn confirm" id="_shErrorSubmitBtn" style="padding:10px 24px;border:none;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;" onclick="_shSubmitError(' + orderId + ')">🚨 BÁO LỖI</button>';
+        h += '<button class="bpc-modal-btn confirm" id="_shErrorSubmitBtn" style="padding:10px 24px;border:none;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;" onclick="_shSubmitError(\'' + orderId + '\')">🚨 BÁO LỖI</button>';
         h += '</div>';
 
         h += '</div></div>';

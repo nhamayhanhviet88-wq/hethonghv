@@ -759,7 +759,7 @@ function _dhtRenderOrderRows(filtered) {
         const prodTotal = Number(o.prod_total) || 0;
         const nextStepName = o.next_step_name || '';
         const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
-        const prodBadge = '<button onclick="event.stopPropagation();_dhtShowProduction(' + o.id + ',\'' + (o.order_code||'').replace(/'/g, '') + '\')" '
+        const prodBadge = '<button onclick="event.stopPropagation();_dhtShowProduction(\'' + o.id + '\',\'' + (o.order_code||'').replace(/'/g, '') + '\')" '
             + 'style="border:none;background:#e0f2fe;color:#0284c7;width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;box-shadow:0 1px 2px rgba(0,0,0,0.05);" '
             + 'title="Xem quy trình sản xuất" '
             + 'onmouseover="this.style.background=\'#bae6fd\';this.style.color=\'#0369a1\';" '
@@ -865,14 +865,14 @@ function _dhtRenderOrderRows(filtered) {
                 vatBtnHtml = `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtViewVat('${o.vat_proof_image}', '${o.vat_exported_by_name || ''}', '${o.vat_exported_at || ''}')" title="Xem hóa đơn VAT" style="background:#d1fae5;color:#065f46;border:1.5px solid #a7f3d0;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;">🧾 Xem VAT</button>`;
             } else {
                 if (canExportVat) {
-                    vatBtnHtml = `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtTriggerExportVat(${o.id}, '${o.order_code}')" title="Xuất hóa đơn VAT" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;">🧾 Xuất VAT</button>`;
+                    vatBtnHtml = `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtTriggerExportVat('${o.id}', '${o.order_code}')" title="Xuất hóa đơn VAT" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;">🧾 Xuất VAT</button>`;
                 } else {
                     vatBtnHtml = `<button class="btn btn-sm" disabled title="🔒 Chỉ Kế toán/GĐ/QLCC mới được xuất VAT" style="background:#f1f5f9;color:#94a3b8;border:1px solid #cbd5e1;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;margin-right:4px;opacity:0.6;cursor:not-allowed;">🧾 Chưa VAT</button>`;
                 }
             }
         }
 
-        return `<tr data-id="${o.id}" onclick="_dhtShowDetail(${o.id})" style="cursor:pointer;" title="Xem chi tiết">
+        return `<tr data-id="${o.id}" onclick="_dhtShowDetail('${o.id}')" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
             <td>${_dhtFmtOrderDate(o.order_date, o.created_at)}</td>
             <td style="font-weight:600;">${shipDateFmt}</td>
@@ -890,8 +890,8 @@ function _dhtRenderOrderRows(filtered) {
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
                 ${vatBtnHtml}
-                ${canDo('dht_sua_don', 'view') ? ((Number(o.remaining_amount) || 0) <= 0 ? `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>` : `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull(${o.id})" title="Sửa">✏️</button>`) : ''}
-                ${canDo('dht_xoa_don', 'view') ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtDeleteOrder(${o.id})" title="Xóa" style="color:var(--danger);">🗑️</button>` : ''}
+                ${canDo('dht_sua_don', 'view') ? ((Number(o.remaining_amount) || 0) <= 0 ? `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>` : `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull('${o.id}')" title="Sửa">✏️</button>`) : ''}
+                ${canDo('dht_xoa_don', 'view') ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtDeleteOrder('${o.id}')" title="Xóa" style="color:var(--danger);">🗑️</button>` : ''}
             </td>
         </tr>`;
     }).join('');
@@ -2057,8 +2057,8 @@ async function _dhtShowDetail(id) {
                             <div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:12px;white-space:nowrap;flex-shrink:0;">
                                 <span>bởi <strong style="color:#334155;">${nt.created_by_name}</strong> lúc <span style="font-weight:600;">${formattedTime}</span></span>
                                 ${isOwner ? `
-                                    <span onclick="_dhtEditNoteInline(${nt.id}, ${id})" style="cursor:pointer;color:#2563eb;font-weight:800;font-size:11px;" title="Sửa">✏️ Sửa</span>
-                                    <span onclick="_dhtDeleteNote(${nt.id}, ${id})" style="cursor:pointer;color:#dc2626;font-weight:800;font-size:11px;" title="Xóa">🗑️ Xóa</span>
+                                    <span onclick="_dhtEditNoteInline(${nt.id}, '${id}')" style="cursor:pointer;color:#2563eb;font-weight:800;font-size:11px;" title="Sửa">✏️ Sửa</span>
+                                    <span onclick="_dhtDeleteNote(${nt.id}, '${id}')" style="cursor:pointer;color:#dc2626;font-weight:800;font-size:11px;" title="Xóa">🗑️ Xóa</span>
                                 ` : ''}
                             </div>
                         </div>
@@ -2072,8 +2072,8 @@ async function _dhtShowDetail(id) {
             if (canWriteNote) {
                 notesHTML += `
                     <div style="display:flex;gap:10px;margin-top:10px;align-items:stretch;">
-                        <textarea id="newNoteInput" class="form-control" rows="1" placeholder="Nhập ghi chú mới... (Nhấn Enter để gửi)" style="flex:1;font-size:13px;padding:8px 12px;border-radius:8px;border:1.5px solid #cbd5e1;resize:none;line-height:1.4;" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); _dhtSubmitNote(${id}); }"></textarea>
-                        <button onclick="_dhtSubmitNote(${id})" class="btn" style="padding:0 20px;background:linear-gradient(135deg,#0284c7,#0369a1);color:white;font-weight:800;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(3,105,161,0.2);transition:all .15s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">Gửi</button>
+                        <textarea id="newNoteInput" class="form-control" rows="1" placeholder="Nhập ghi chú mới... (Nhấn Enter để gửi)" style="flex:1;font-size:13px;padding:8px 12px;border-radius:8px;border:1.5px solid #cbd5e1;resize:none;line-height:1.4;" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); _dhtSubmitNote('${id}'); }"></textarea>
+                        <button onclick="_dhtSubmitNote('${id}')" class="btn" style="padding:0 20px;background:linear-gradient(135deg,#0284c7,#0369a1);color:white;font-weight:800;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(3,105,161,0.2);transition:all .15s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">Gửi</button>
                     </div>
                 `;
             }
@@ -2589,11 +2589,11 @@ async function _dhtShowPhieuSX(orderId) {
 
         var confirmBtn = '';
         if (canConfirm && !confirmed) {
-            confirmBtn = `<button class="btn" onclick="_dhtConfirmPhieuSX(${orderId})" style="padding:8px 24px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận In SX</button>`;
+            confirmBtn = `<button class="btn" onclick="_dhtConfirmPhieuSX('${orderId}')" style="padding:8px 24px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận In SX</button>`;
         } else if (canConfirm && confirmed) {
             confirmBtn = `<button class="btn" disabled style="padding:8px 24px;background:#d1d5db;color:#6b7280;border:none;border-radius:8px;font-weight:800;cursor:not-allowed;margin-left:8px">✅ Đã Xác Nhận</button>`;
         }
-        var footer = `<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail(${orderId})},200)" style="padding:8px 20px">← Quay Lại</button>`
+        var footer = `<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail('${orderId}')},200)" style="padding:8px 20px">← Quay Lại</button>`
             + confirmBtn;
 
         openModal(`🏭 Phiếu Sản Xuất — ${o.order_code}`, body, footer);
@@ -2659,8 +2659,8 @@ async function _dhtApplyDiscount(orderId) {
         +'<input type="hidden" id="dhtDiscountMaxLimit" value="'+maxDiscount+'">'
         +'<div style="margin-top:6px;font-size:11px;color:#94a3b8">Nhập 0 để xóa giảm giá</div>'
         +'</div>';
-    var footer = '<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail('+orderId+')},200)" style="padding:8px 20px">Hủy</button>'
-        +'<button class="btn" onclick="_dhtConfirmDiscount('+orderId+')" style="padding:8px 24px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận</button>';
+    var footer = '<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail(\''+orderId+'\')},200)" style="padding:8px 20px">Hủy</button>'
+        +'<button class="btn" onclick="_dhtConfirmDiscount(\''+orderId+'\')" style="padding:8px 24px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận</button>';
     openModal('🏷️ Giảm Giá — ' + (o ? o.order_code : ''), body, footer);
     setTimeout(function() { var inp = document.getElementById('dhtDiscountInput'); if (inp) { inp.focus(); inp.select(); } }, 200);
 }
@@ -3619,7 +3619,7 @@ function _dhtEditNoteInline(noteId, orderId) {
         <textarea id="editNoteInput-${noteId}" class="form-control" rows="1" style="flex:1;font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid #cbd5e1;resize:none;line-height:1.4;margin:0;">${originalText}</textarea>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
             <button onclick="_dhtCancelNoteInline(${noteId})" class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 10px;font-weight:700;margin:0;">Hủy</button>
-            <button onclick="_dhtSaveNoteInline(${noteId}, ${orderId})" class="btn btn-sm" style="background:#059669;color:white;font-size:11px;padding:3px 10px;border:none;border-radius:4px;font-weight:800;cursor:pointer;margin:0;">Lưu</button>
+            <button onclick="_dhtSaveNoteInline(${noteId}, '${orderId}')" class="btn btn-sm" style="background:#059669;color:white;font-size:11px;padding:3px 10px;border:none;border-radius:4px;font-weight:800;cursor:pointer;margin:0;">Lưu</button>
         </div>
     `;
     

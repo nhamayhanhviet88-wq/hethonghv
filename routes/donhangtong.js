@@ -3496,7 +3496,11 @@ module.exports = async function(fastify) {
     fastify.get('/api/dht/orders/:id/notes', { preHandler: [authenticate] }, async (request, reply) => {
         const idStr = String(request.params.id);
         let orderId;
-        if (idStr.startsWith('sample_')) {
+        if (idStr.startsWith('sample_hoan_')) {
+            const sampleId = Number(idStr.replace('sample_hoan_', ''));
+            if (isNaN(sampleId)) return reply.code(400).send({ error: 'ID đơn mẫu không hợp lệ' });
+            orderId = -sampleId;
+        } else if (idStr.startsWith('sample_')) {
             const sampleId = Number(idStr.replace('sample_', ''));
             if (isNaN(sampleId)) return reply.code(400).send({ error: 'ID đơn mẫu không hợp lệ' });
             orderId = -sampleId;
@@ -3519,7 +3523,12 @@ module.exports = async function(fastify) {
         const idStr = String(request.params.id);
         let orderId;
         let isSample = false;
-        if (idStr.startsWith('sample_')) {
+        if (idStr.startsWith('sample_hoan_')) {
+            const sampleId = Number(idStr.replace('sample_hoan_', ''));
+            if (isNaN(sampleId)) return reply.code(400).send({ error: 'ID đơn mẫu không hợp lệ' });
+            orderId = -sampleId;
+            isSample = true;
+        } else if (idStr.startsWith('sample_')) {
             const sampleId = Number(idStr.replace('sample_', ''));
             if (isNaN(sampleId)) return reply.code(400).send({ error: 'ID đơn mẫu không hợp lệ' });
             orderId = -sampleId;
