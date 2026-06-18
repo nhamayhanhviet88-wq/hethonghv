@@ -1452,32 +1452,54 @@ module.exports = async function(fastify) {
         if (String(request.params.id).startsWith('sample_hoan_')) {
             const sampleId = Number(String(request.params.id).replace('sample_hoan_', ''));
             const row = await db.get(`
-                SELECT d.*, 
-                       u_created.full_name AS created_by_name,
-                       u_shipped.full_name AS shipped_by_name,
-                       cr.name AS actual_carrier_name,
-                       cr.tracking_url_template AS actual_carrier_tracking_url,
-                       cf_ship.cashflow_code AS shipping_cashflow_code,
-                       COALESCE(pr_dep.deposit_total, 0) AS calculated_deposit,
-                       COALESCE(pr_all.paid_total, 0) AS calculated_paid,
-                       EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') AS has_carrier_payment
-                FROM don_gui_ao_mau d
-                LEFT JOIN dht_carriers cr ON d.hoan_hang_actual_carrier_id = cr.id
-                LEFT JOIN users u_created ON d.created_by = u_created.id
-                LEFT JOIN users u_shipped ON d.hoan_hang_shipped_by = u_shipped.id
-                LEFT JOIN cashflow_records cf_ship ON d.hoan_hang_shipping_cashflow_id = cf_ship.id
-                LEFT JOIN LATERAL (
-                    SELECT COALESCE(SUM(amount), 0) AS deposit_total
-                    FROM payment_records
-                    WHERE order_ao_mau = d.sample_order_code
-                      AND payment_type = 'dat_coc'
-                ) pr_dep ON true
-                LEFT JOIN LATERAL (
-                    SELECT COALESCE(SUM(amount), 0) AS paid_total
-                    FROM payment_records
-                    WHERE order_ao_mau = d.sample_order_code
-                ) pr_all ON true
-                WHERE d.id = $1
+                 SELECT d.*, 
+                        u_created.full_name AS created_by_name,
+                        u_shipped.full_name AS shipped_by_name,
+                        cr.name AS actual_carrier_name,
+                        cr.tracking_url_template AS actual_carrier_tracking_url,
+                        cf_ship.cashflow_code AS shipping_cashflow_code,
+                        
+                        -- Join fields for the first shipment
+                        u_first_shipped.full_name AS first_shipped_by_name,
+                        cr_first.name AS first_carrier_name,
+                        cr_first.tracking_url_template AS first_carrier_tracking_url,
+                        cf_first.cashflow_code AS first_shipping_cashflow_code,
+                        
+                        pr_ship.payment_code AS shipping_payment_code,
+                        pr_ship.amount AS shipping_payment_amount,
+                        
+                        pr_first.payment_code AS first_shipping_payment_code,
+                        pr_first.amount AS first_shipping_payment_amount,
+
+                        COALESCE(pr_dep.deposit_total, 0) AS calculated_deposit,
+                        COALESCE(pr_all.paid_total, 0) AS calculated_paid,
+                        EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') AS has_carrier_payment
+                 FROM don_gui_ao_mau d
+                 LEFT JOIN dht_carriers cr ON d.hoan_hang_actual_carrier_id = cr.id
+                 LEFT JOIN users u_created ON d.created_by = u_created.id
+                 LEFT JOIN users u_shipped ON d.hoan_hang_shipped_by = u_shipped.id
+                 LEFT JOIN cashflow_records cf_ship ON d.hoan_hang_shipping_cashflow_id = cf_ship.id
+                 
+                 -- First shipment joins
+                 LEFT JOIN users u_first_shipped ON d.shipped_by = u_first_shipped.id
+                 LEFT JOIN dht_carriers cr_first ON d.actual_carrier_id = cr_first.id
+                 LEFT JOIN cashflow_records cf_first ON d.shipping_cashflow_id = cf_first.id
+                 
+                 LEFT JOIN payment_records pr_ship ON d.hoan_hang_shipping_payment_id = pr_ship.id
+                 LEFT JOIN payment_records pr_first ON d.shipping_payment_id = pr_first.id
+
+                 LEFT JOIN LATERAL (
+                     SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                     FROM payment_records
+                     WHERE order_ao_mau = d.sample_order_code
+                       AND payment_type = 'dat_coc'
+                 ) pr_dep ON true
+                 LEFT JOIN LATERAL (
+                     SELECT COALESCE(SUM(amount), 0) AS paid_total
+                     FROM payment_records
+                     WHERE order_ao_mau = d.sample_order_code
+                 ) pr_all ON true
+                 WHERE d.id = $1
             `, [sampleId]);
             if (!row) return reply.code(404).send({ error: 'Không tìm thấy đơn mẫu hàng hoàn' });
 
@@ -1553,6 +1575,59 @@ module.exports = async function(fastify) {
                 shipping_cashflow_code: row.shipping_cashflow_code
             }];
 
+            const shipments = [];
+            if (row.status_gui_don || row.shipped_at) {
+                shipments.push({
+                    id: 'first_' + row.id,
+                    shipped_at: row.shipped_at,
+                    actual_ship_datetime: row.shipped_at,
+                    actual_carrier_name: row.first_carrier_name || '—',
+                    actual_carrier_tracking_url: row.first_carrier_tracking_url,
+                    tracking_code: row.tracking_code,
+                    shipping_bill_link: row.shipping_bill_link,
+                    carrier_phone: row.carrier_phone,
+                    receiver_name: row.customer_name,
+                    shipping_fee: row.shipping_fee,
+                    shipping_fee_payer: row.shipping_fee_payer,
+                    shipping_fee_method: row.shipping_fee_method,
+                    shipping_payment_code: row.first_shipping_payment_code,
+                    shipping_payment_amount: row.first_shipping_payment_amount,
+                    shipping_cashflow_code: row.first_shipping_cashflow_code,
+                    shipped_by_name: row.first_shipped_by_name,
+                    item_labels: JSON.stringify([{
+                        label: 'Phiếu 1',
+                        name: row.product_name || 'Áo mẫu',
+                        qty: row.quantity || 1
+                    }])
+                });
+            }
+
+            if (row.status_gui_don_hoan || row.hoan_hang_shipped_at) {
+                shipments.push({
+                    id: 'hoan_' + row.id,
+                    shipped_at: row.hoan_hang_shipped_at,
+                    actual_ship_datetime: row.hoan_hang_shipped_at,
+                    actual_carrier_name: row.actual_carrier_name || '—',
+                    actual_carrier_tracking_url: row.actual_carrier_tracking_url,
+                    tracking_code: row.hoan_hang_tracking_code,
+                    shipping_bill_link: row.hoan_hang_shipping_bill_link,
+                    carrier_phone: null,
+                    receiver_name: row.customer_name,
+                    shipping_fee: row.return_shipping_fee,
+                    shipping_fee_payer: row.return_payer,
+                    shipping_fee_method: row.return_payment_method,
+                    shipping_payment_code: row.shipping_payment_code,
+                    shipping_payment_amount: row.shipping_payment_amount,
+                    shipping_cashflow_code: row.shipping_cashflow_code,
+                    shipped_by_name: row.shipped_by_name,
+                    item_labels: JSON.stringify([{
+                        label: 'Phiếu 1 — [HOÀN]',
+                        name: '🔄 [HOÀN] ' + (row.product_name || 'Áo mẫu'),
+                        qty: row.quantity || 1
+                    }])
+                });
+            }
+
             const payments = await db.all(`
                 SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
                        customer_name, customer_phone, transfer_note, total_order_codes, created_at, created_by, money_source
@@ -1571,39 +1646,43 @@ module.exports = async function(fastify) {
                 audit_logs: [],
                 logs: [],
                 has_edit_history: false,
-                is_sample: true
+                is_sample: true,
+                shipments
             };
         }
 
         if (String(request.params.id).startsWith('sample_')) {
             const sampleId = Number(String(request.params.id).replace('sample_', ''));
             const row = await db.get(`
-                SELECT d.*, 
-                       u_created.full_name AS created_by_name,
-                       u_shipped.full_name AS shipped_by_name,
-                       cr.name AS actual_carrier_name,
-                       cr.tracking_url_template AS actual_carrier_tracking_url,
-                       COALESCE(pr_dep.deposit_total, 0) AS calculated_deposit,
-                       COALESCE(pr_all.paid_total, 0) AS calculated_paid,
-                       cf_ship.cashflow_code AS shipping_cashflow_code,
-                       EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') AS has_carrier_payment
-                FROM don_gui_ao_mau d
-                LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
-                LEFT JOIN users u_created ON d.created_by = u_created.id
-                LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
-                LEFT JOIN cashflow_records cf_ship ON d.shipping_cashflow_id = cf_ship.id
-                LEFT JOIN LATERAL (
-                    SELECT COALESCE(SUM(amount), 0) AS deposit_total
-                    FROM payment_records
-                    WHERE order_ao_mau = d.sample_order_code
-                      AND payment_type = 'dat_coc'
-                ) pr_dep ON true
-                LEFT JOIN LATERAL (
-                    SELECT COALESCE(SUM(amount), 0) AS paid_total
-                    FROM payment_records
-                    WHERE order_ao_mau = d.sample_order_code
-                ) pr_all ON true
-                WHERE d.id = $1
+                 SELECT d.*, 
+                        u_created.full_name AS created_by_name,
+                        u_shipped.full_name AS shipped_by_name,
+                        cr.name AS actual_carrier_name,
+                        cr.tracking_url_template AS actual_carrier_tracking_url,
+                        COALESCE(pr_dep.deposit_total, 0) AS calculated_deposit,
+                        COALESCE(pr_all.paid_total, 0) AS calculated_paid,
+                        cf_ship.cashflow_code AS shipping_cashflow_code,
+                        pr_ship.payment_code AS shipping_payment_code,
+                        pr_ship.amount AS shipping_payment_amount,
+                        EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') AS has_carrier_payment
+                 FROM don_gui_ao_mau d
+                 LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
+                 LEFT JOIN users u_created ON d.created_by = u_created.id
+                 LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
+                 LEFT JOIN cashflow_records cf_ship ON d.shipping_cashflow_id = cf_ship.id
+                 LEFT JOIN payment_records pr_ship ON d.shipping_payment_id = pr_ship.id
+                 LEFT JOIN LATERAL (
+                     SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                     FROM payment_records
+                     WHERE order_ao_mau = d.sample_order_code
+                       AND payment_type = 'dat_coc'
+                 ) pr_dep ON true
+                 LEFT JOIN LATERAL (
+                     SELECT COALESCE(SUM(amount), 0) AS paid_total
+                     FROM payment_records
+                     WHERE order_ao_mau = d.sample_order_code
+                 ) pr_all ON true
+                 WHERE d.id = $1
             `, [sampleId]);
             if (!row) return reply.code(404).send({ error: 'Không tìm thấy đơn mẫu' });
 
@@ -1678,6 +1757,33 @@ module.exports = async function(fastify) {
                 shipping_cashflow_code: row.shipping_cashflow_code
             }];
 
+            const shipments = [];
+            if (row.status_gui_don || row.shipped_at) {
+                shipments.push({
+                    id: 'first_' + row.id,
+                    shipped_at: row.shipped_at,
+                    actual_ship_datetime: row.shipped_at,
+                    actual_carrier_name: row.actual_carrier_name || '—',
+                    actual_carrier_tracking_url: row.actual_carrier_tracking_url,
+                    tracking_code: row.tracking_code,
+                    shipping_bill_link: row.shipping_bill_link,
+                    carrier_phone: row.carrier_phone,
+                    receiver_name: row.customer_name,
+                    shipping_fee: row.shipping_fee,
+                    shipping_fee_payer: row.shipping_fee_payer,
+                    shipping_fee_method: row.shipping_fee_method,
+                    shipping_payment_code: row.shipping_payment_code,
+                    shipping_payment_amount: row.shipping_payment_amount,
+                    shipping_cashflow_code: row.shipping_cashflow_code,
+                    shipped_by_name: row.shipped_by_name,
+                    item_labels: JSON.stringify([{
+                        label: 'Phiếu 1',
+                        name: row.product_name || 'Áo mẫu',
+                        qty: row.quantity || 1
+                    }])
+                });
+            }
+
             const payments = await db.all(`
                 SELECT id, payment_code, amount, payment_date, payment_method, payment_type, bank_name,
                        customer_name, customer_phone, transfer_note, total_order_codes, created_at, created_by, money_source
@@ -1694,7 +1800,7 @@ module.exports = async function(fastify) {
                 payments,
                 surcharges: [],
                 audit_logs: [],
-                shipments: []
+                shipments
             };
         }
 
