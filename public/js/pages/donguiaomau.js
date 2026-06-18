@@ -151,7 +151,7 @@ function _dgamRenderTable() {
             }
             if (_dgam.subFilter === 'chua_kiem_tra') {
                 const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
-                const isInspectLocked = o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image;
+                const isInspectLocked = isTargetCategory && !o.hoan_hang_received_proof_image;
                 return !o.status_kiem_tra && !isInspectLocked;
             }
             return true;
@@ -202,7 +202,7 @@ function _dgamRenderSubFilters() {
     }).length;
     const countChuaKiemTra = totalOrders.filter(o => {
         const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
-        const isInspectLocked = o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image;
+        const isInspectLocked = isTargetCategory && !o.hoan_hang_received_proof_image;
         return !o.status_kiem_tra && !isInspectLocked;
     }).length;
 
@@ -414,7 +414,7 @@ function _dgamRenderRows(paged) {
         var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
         var kiemTraBtnHtml = '';
         if (isLeVietTrinh || isGiamDoc) {
-            if (o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image) {
+            if (isTargetCategory && !o.hoan_hang_received_proof_image) {
                 kiemTraBtnHtml = '<button class="dgam-icon-btn" title="Mẫu áo chưa về nên chưa được kiểm tra" style="opacity:0.4;cursor:not-allowed;" onclick="showToast(\'🔒 Mẫu áo chưa về nên chưa được kiểm tra\', \'error\')">🔍</button>';
             } else {
                 kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>';

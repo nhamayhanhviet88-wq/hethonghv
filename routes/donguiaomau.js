@@ -263,7 +263,7 @@ module.exports = async function(fastify) {
             if (value) {
                 const order = await db.get('SELECT category, status_hoan_hang, hoan_hang_received_proof_image FROM don_gui_ao_mau WHERE id = $1', [id]);
                 const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(order ? order.category : '');
-                if (order && order.status_hoan_hang && isTargetCategory && !order.hoan_hang_received_proof_image) {
+                if (order && isTargetCategory && !order.hoan_hang_received_proof_image) {
                     return reply.code(400).send({ error: '🔒 Mẫu áo chưa về nên chưa được kiểm tra!' });
                 }
             }
