@@ -383,8 +383,19 @@ function _dhcttRenderTable() {
     } else {
         // Default sorting requested by the user
         const carrierId = _dhctt.filter.carrier_id !== undefined ? Number(_dhctt.filter.carrier_id) : null;
-        if (carrierId === 0 || carrierId === null) {
-            // Chưa Gửi Đơn or default list:
+        if (carrierId === null) {
+            // "Tổng Còn Nợ": Sort by order date / created_at ascending (oldest first)
+            filtered.sort(function(a, b) {
+                const getEffectiveTime = (o) => {
+                    const dStr = o.created_at || o.order_date;
+                    if (!dStr) return 0;
+                    const t = new Date(dStr).getTime();
+                    return isNaN(t) ? 0 : t;
+                };
+                return getEffectiveTime(a) - getEffectiveTime(b);
+            });
+        } else if (carrierId === 0) {
+            // "Chưa Gửi Đơn":
             // 1. Unshipped orders (no shipping date) at the top, sorted by expected/rescheduled ship date ascending (oldest/more overdue first)
             // 2. Shipped orders (has shipping date) at the bottom, sorted by shipping date ascending (oldest shipped first)
             filtered.sort(function(a, b) {
