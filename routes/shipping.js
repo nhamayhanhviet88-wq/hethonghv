@@ -400,7 +400,7 @@ module.exports = async function(fastify) {
                 o.tracking_code, o.carrier_phone, o.shipping_bill_link,
                 o.completion_images, o.actual_ship_datetime,
                 o.shipped_by, o.shipped_at, o.total_amount,
-                o.carrier_id, o.actual_carrier_id,
+                o.carrier_id, o.actual_carrier_id, o.is_pending_update,
                 o.created_by, o.cskh_user_id,
                 o.sale_note_for_accountant, o.shipping_fee,
                 o.shipping_fee_payer, o.shipping_fee_method, o.receiver_name,
@@ -494,6 +494,7 @@ module.exports = async function(fastify) {
                 d.shipped_at,
                 d.total_amount,
                 d.actual_carrier_id,
+                d.is_pending_update,
                 d.created_by,
                 d.sale_note_for_accountant,
                 d.shipping_fee,
@@ -578,6 +579,7 @@ module.exports = async function(fastify) {
                 is_overdue: !isShipped && row.expected_ship_date && new Date(row.expected_ship_date) < new Date(todayStr),
                 deposit_amount: row.deposit_amount || 0,
                 remaining_amount: row.remaining_amount,
+                is_pending_update: !!row.is_pending_update,
                 items: [{
                     item_id: 'sample_item_' + row.id,
                     dht_order_id: 'sample_' + row.id,
@@ -772,8 +774,17 @@ module.exports = async function(fastify) {
             if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });
 
             const b = request.body || {};
+            const isPendingUpdate = !!b.is_pending_update;
 
-            if (b.tracking_code) {
+            if (isPendingUpdate) {
+                // Validate carrier allows update later
+                const carrier = await db.get('SELECT allow_update_later FROM dht_carriers WHERE id = $1', [Number(b.actual_carrier_id)]);
+                if (!carrier || !carrier.allow_update_later) {
+                    return reply.code(400).send({ error: 'Nhà vận chuyển này không hỗ trợ cập nhật phí/bill sau' });
+                }
+            }
+
+            if (!isPendingUpdate && b.tracking_code) {
                 const trackingCode = String(b.tracking_code).trim();
                 if (trackingCode) {
                     const dup = await db.get(`
@@ -798,15 +809,17 @@ module.exports = async function(fastify) {
 
             // Validate shipping fee
             const isNoFeeCarrier = !!b.no_fee_carrier;
-            if (!isNoFeeCarrier) {
+            if (!isPendingUpdate && !isNoFeeCarrier) {
                 if (b.shipping_fee === undefined || b.shipping_fee === null || b.shipping_fee === '') {
                     return reply.code(400).send({ error: 'Vui lòng nhập phí gửi hàng' });
                 }
             }
-            const shipFee = isNoFeeCarrier ? 0 : Number(b.shipping_fee);
-            if (isNaN(shipFee) || shipFee < 0) return reply.code(400).send({ error: 'Phí gửi hàng không hợp lệ' });
+            const shipFee = (isPendingUpdate || isNoFeeCarrier) ? 0 : Number(b.shipping_fee);
+            if (!isPendingUpdate && !isNoFeeCarrier) {
+                if (isNaN(shipFee) || shipFee < 0) return reply.code(400).send({ error: 'Phí gửi hàng không hợp lệ' });
+            }
 
-            if (!isNoFeeCarrier) {
+            if (!isPendingUpdate && !isNoFeeCarrier) {
                 if (!b.shipping_fee_payer || !['hv', 'khach'].includes(b.shipping_fee_payer)) {
                     return reply.code(400).send({ error: 'Vui lòng chọn Người trả phí' });
                 }
@@ -828,20 +841,21 @@ module.exports = async function(fastify) {
             sets.push(`shipped_by = $${idx++}`); params.push(userId);
             sets.push(`shipped_at = $${idx++}`); params.push(now.toISOString());
             sets.push(`actual_carrier_id = $${idx++}`); params.push(Number(b.actual_carrier_id));
+            sets.push(`is_pending_update = $${idx++}`); params.push(isPendingUpdate);
 
-            if (b.tracking_code) { sets.push(`tracking_code = $${idx++}`); params.push(b.tracking_code); }
-            if (b.shipping_bill_link) { sets.push(`shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
+            if (!isPendingUpdate && b.tracking_code) { sets.push(`tracking_code = $${idx++}`); params.push(b.tracking_code); }
+            if (!isPendingUpdate && b.shipping_bill_link) { sets.push(`shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
 
             sets.push(`shipping_fee = $${idx++}`); params.push(shipFee);
-            sets.push(`shipping_fee_payer = $${idx++}`); params.push(b.shipping_fee_payer);
-            sets.push(`shipping_fee_method = $${idx++}`); params.push(b.shipping_fee_method);
+            sets.push(`shipping_fee_payer = $${idx++}`); params.push(isPendingUpdate ? null : b.shipping_fee_payer);
+            sets.push(`shipping_fee_method = $${idx++}`); params.push(isPendingUpdate ? null : b.shipping_fee_method);
 
             sets.push(`updated_at = NOW()`);
             sets.push(`updated_by = $${idx++}`); params.push(userId);
 
             let cashflowResult = null;
             let cfDescription = null;
-            if (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
+            if (!isPendingUpdate && b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
                 try {
                     const seq = await _getNextTMSeq(todayStr);
                     const cfCode = _buildTMCode(seq, todayStr);
@@ -869,7 +883,7 @@ module.exports = async function(fastify) {
                 }
             }
 
-            if (b.selected_payment_id) {
+            if (!isPendingUpdate && b.selected_payment_id) {
                 sets.push(`shipping_payment_id = $${idx++}`);
                 params.push(Number(b.selected_payment_id));
             }
@@ -879,7 +893,7 @@ module.exports = async function(fastify) {
 
             // Link payment record for sample order settlement (if selected)
             let paymentLinkResult = null;
-            if (b.selected_payment_id) {
+            if (!isPendingUpdate && b.selected_payment_id) {
                 const prId = Number(b.selected_payment_id);
                 try {
                     const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [prId]);
@@ -979,7 +993,9 @@ module.exports = async function(fastify) {
             }
 
             // Log
-            let logSummary = `Kế toán đã xác nhận gửi hàng mẫu (NVC: ${b.actual_carrier_id}, Ship fee: ${shipFee})`;
+            let logSummary = isPendingUpdate 
+                ? `Kế toán đã gửi hàng mẫu (NVC: ${b.actual_carrier_id}, Cập nhật phí/bill sau)`
+                : `Kế toán đã xác nhận gửi hàng mẫu (NVC: ${b.actual_carrier_id}, Ship fee: ${shipFee})`;
             if (paymentLinkResult) {
                 logSummary += ` — Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`;
             }
@@ -1007,6 +1023,7 @@ module.exports = async function(fastify) {
 
             // Build result message
             let resultMsgParts = [`✅ Đã gửi đơn mẫu ${order.order_code}`];
+            if (isPendingUpdate) resultMsgParts = [`✅ Đã gửi đơn mẫu ${order.order_code} (chờ cập nhật phí/bill)`];
             if (cashflowResult) resultMsgParts.push(`Phiếu chi ship: ${cashflowResult.cashflow_code}`);
             if (paymentLinkResult) resultMsgParts.push(`Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`);
             const resultMsg = resultMsgParts.join(' — ');
@@ -1021,8 +1038,17 @@ module.exports = async function(fastify) {
         // if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã được gửi rồi' });
 
         const b = request.body || {};
+        const isPendingUpdate = !!b.is_pending_update;
 
-        if (b.tracking_code) {
+        if (isPendingUpdate) {
+            // Validate carrier allows update later
+            const carrier = await db.get('SELECT allow_update_later FROM dht_carriers WHERE id = $1', [Number(b.actual_carrier_id)]);
+            if (!carrier || !carrier.allow_update_later) {
+                return reply.code(400).send({ error: 'Nhà vận chuyển này không hỗ trợ cập nhật phí/bill sau' });
+            }
+        }
+
+        if (!isPendingUpdate && b.tracking_code) {
             const trackingCode = String(b.tracking_code).trim();
             if (trackingCode) {
                 const dup = await db.get(`
@@ -1047,15 +1073,17 @@ module.exports = async function(fastify) {
 
         // Validate shipping fee
         const isNoFeeCarrier = !!b.no_fee_carrier;
-        if (!isNoFeeCarrier) {
+        if (!isPendingUpdate && !isNoFeeCarrier) {
             if (b.shipping_fee === undefined || b.shipping_fee === null || b.shipping_fee === '') {
                 return reply.code(400).send({ error: 'Vui lòng nhập phí gửi hàng' });
             }
         }
-        const shipFee = isNoFeeCarrier ? 0 : Number(b.shipping_fee);
-        if (isNaN(shipFee) || shipFee < 0) return reply.code(400).send({ error: 'Phí gửi hàng không hợp lệ' });
+        const shipFee = (isPendingUpdate || isNoFeeCarrier) ? 0 : Number(b.shipping_fee);
+        if (!isPendingUpdate && !isNoFeeCarrier) {
+            if (isNaN(shipFee) || shipFee < 0) return reply.code(400).send({ error: 'Phí gửi hàng không hợp lệ' });
+        }
 
-        if (!isNoFeeCarrier) {
+        if (!isPendingUpdate && !isNoFeeCarrier) {
             if (!b.shipping_fee_payer || !['hv', 'khach'].includes(b.shipping_fee_payer)) {
                 return reply.code(400).send({ error: 'Vui lòng chọn Người trả phí' });
             }
@@ -1063,8 +1091,6 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Vui lòng chọn Hình thức trả' });
             }
         }
-
-
 
         const now = vnNow();
         const todayStr = vnDateStr(now);
@@ -1086,10 +1112,6 @@ module.exports = async function(fastify) {
             if (itemsToShip.length !== itemIds.length) {
                 return reply.code(404).send({ error: 'Không tìm thấy đầy đủ các phiếu/sản phẩm được chọn' });
             }
-            // Allow reshipping: do not check if items are already shipped
-            // if (itemsToShip.some(it => it.shipping_status === 'shipped')) {
-            //     return reply.code(400).send({ error: 'Một số phiếu được chọn đã được gửi trước đó' });
-            // }
         }
 
         // Build update SET
@@ -1104,22 +1126,23 @@ module.exports = async function(fastify) {
         sets.push(`shipping_date = $${idx++}`); params.push(todayStr);
         sets.push(`actual_ship_datetime = $${idx++}`); params.push(now.toISOString());
         sets.push(`actual_carrier_id = $${idx++}`); params.push(Number(b.actual_carrier_id));
+        sets.push(`is_pending_update = $${idx++}`); params.push(isPendingUpdate);
         // ★ Clear reschedule data — no longer relevant after shipping
         sets.push(`rescheduled_ship_date = NULL`);
         sets.push(`reschedule_reason = NULL`);
         sets.push(`ship_count = COALESCE(ship_count, 0) + 1`);
 
         // Tracking fields (conditional, from modal)
-        if (b.tracking_code) { sets.push(`tracking_code = $${idx++}`); params.push(b.tracking_code); }
-        if (b.shipping_bill_link) { sets.push(`shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
-        if (b.carrier_phone) { sets.push(`carrier_phone = $${idx++}`); params.push(b.carrier_phone); }
-        if (b.receiver_name) { sets.push(`receiver_name = $${idx++}`); params.push(b.receiver_name); }
+        if (!isPendingUpdate && b.tracking_code) { sets.push(`tracking_code = $${idx++}`); params.push(b.tracking_code); }
+        if (!isPendingUpdate && b.shipping_bill_link) { sets.push(`shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
+        if (!isPendingUpdate && b.carrier_phone) { sets.push(`carrier_phone = $${idx++}`); params.push(b.carrier_phone); }
+        if (!isPendingUpdate && b.receiver_name) { sets.push(`receiver_name = $${idx++}`); params.push(b.receiver_name); }
 
         // Fee fields
         sets.push(`shipping_fee = $${idx++}`); params.push(shipFee);
-        sets.push(`shipping_fee_payer = $${idx++}`); params.push(b.shipping_fee_payer);
-        sets.push(`shipping_fee_method = $${idx++}`); params.push(b.shipping_fee_method);
-        if (b.selected_payment_id) {
+        sets.push(`shipping_fee_payer = $${idx++}`); params.push(isPendingUpdate ? null : b.shipping_fee_payer);
+        sets.push(`shipping_fee_method = $${idx++}`); params.push(isPendingUpdate ? null : b.shipping_fee_method);
+        if (!isPendingUpdate && b.selected_payment_id) {
             sets.push(`shipping_payment_id = $${idx++}`); params.push(Number(b.selected_payment_id));
         }
 
@@ -1129,7 +1152,7 @@ module.exports = async function(fastify) {
         // Handle "HV trả + TM" → Auto create CHI in Sổ Thu Chi
         let cashflowResult = null;
         let cfDescription = null;
-        if (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
+        if (!isPendingUpdate && b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
             try {
                 const seq = await _getNextTMSeq(todayStr);
                 const cfCode = _buildTMCode(seq, todayStr);
@@ -1199,19 +1222,20 @@ module.exports = async function(fastify) {
             itemSets.push(`shipping_date = $${itemIdx++}`); itemParams.push(todayStr);
             itemSets.push(`actual_ship_datetime = $${itemIdx++}`); itemParams.push(now.toISOString());
             itemSets.push(`actual_carrier_id = $${itemIdx++}`); itemParams.push(Number(b.actual_carrier_id));
+            itemSets.push(`is_pending_update = $${itemIdx++}`); itemParams.push(isPendingUpdate);
             
-            if (b.tracking_code) { itemSets.push(`tracking_code = $${itemIdx++}`); itemParams.push(b.tracking_code); }
-            if (b.shipping_bill_link) { itemSets.push(`shipping_bill_link = $${itemIdx++}`); itemParams.push(b.shipping_bill_link); }
-            if (b.carrier_phone) { itemSets.push(`carrier_phone = $${itemIdx++}`); itemParams.push(b.carrier_phone); }
-            if (b.receiver_name) { itemSets.push(`receiver_name = $${itemIdx++}`); itemParams.push(b.receiver_name); }
+            if (!isPendingUpdate && b.tracking_code) { itemSets.push(`tracking_code = $${itemIdx++}`); itemParams.push(b.tracking_code); }
+            if (!isPendingUpdate && b.shipping_bill_link) { itemSets.push(`shipping_bill_link = $${itemIdx++}`); itemParams.push(b.shipping_bill_link); }
+            if (!isPendingUpdate && b.carrier_phone) { itemSets.push(`carrier_phone = $${itemIdx++}`); itemParams.push(b.carrier_phone); }
+            if (!isPendingUpdate && b.receiver_name) { itemSets.push(`receiver_name = $${itemIdx++}`); itemParams.push(b.receiver_name); }
 
             itemSets.push(`shipping_fee = $${itemIdx++}`); itemParams.push(shipFee);
-            itemSets.push(`shipping_fee_payer = $${itemIdx++}`); itemParams.push(b.shipping_fee_payer);
-            itemSets.push(`shipping_fee_method = $${itemIdx++}`); itemParams.push(b.shipping_fee_method);
+            itemSets.push(`shipping_fee_payer = $${itemIdx++}`); itemParams.push(isPendingUpdate ? null : b.shipping_fee_payer);
+            itemSets.push(`shipping_fee_method = $${itemIdx++}`); itemParams.push(isPendingUpdate ? null : b.shipping_fee_method);
             if (cashflowResult) {
                 itemSets.push(`shipping_cashflow_id = $${itemIdx++}`); itemParams.push(cashflowResult.id);
             }
-            if (b.selected_payment_id) {
+            if (!isPendingUpdate && b.selected_payment_id) {
                 itemSets.push(`shipping_payment_id = $${itemIdx++}`); itemParams.push(Number(b.selected_payment_id));
             }
             
@@ -1240,22 +1264,23 @@ module.exports = async function(fastify) {
                 orderSets.push(`shipping_date = $${orderIdx++}`); orderParams.push(todayStr);
                 orderSets.push(`actual_ship_datetime = $${orderIdx++}`); orderParams.push(now.toISOString());
                 orderSets.push(`actual_carrier_id = $${orderIdx++}`); orderParams.push(Number(b.actual_carrier_id));
+                orderSets.push(`is_pending_update = $${orderIdx++}`); orderParams.push(isPendingUpdate);
                 orderSets.push(`rescheduled_ship_date = NULL`);
                 orderSets.push(`reschedule_reason = NULL`);
                 orderSets.push(`ship_count = COALESCE(ship_count, 0) + 1`);
                 
-                if (b.tracking_code) { orderSets.push(`tracking_code = $${orderIdx++}`); orderParams.push(b.tracking_code); }
-                if (b.shipping_bill_link) { orderSets.push(`shipping_bill_link = $${orderIdx++}`); orderParams.push(b.shipping_bill_link); }
-                if (b.carrier_phone) { orderSets.push(`carrier_phone = $${orderIdx++}`); orderParams.push(b.carrier_phone); }
-                if (b.receiver_name) { orderSets.push(`receiver_name = $${orderIdx++}`); orderParams.push(b.receiver_name); }
+                if (!isPendingUpdate && b.tracking_code) { orderSets.push(`tracking_code = $${orderIdx++}`); orderParams.push(b.tracking_code); }
+                if (!isPendingUpdate && b.shipping_bill_link) { orderSets.push(`shipping_bill_link = $${orderIdx++}`); orderParams.push(b.shipping_bill_link); }
+                if (!isPendingUpdate && b.carrier_phone) { orderSets.push(`carrier_phone = $${orderIdx++}`); orderParams.push(b.carrier_phone); }
+                if (!isPendingUpdate && b.receiver_name) { orderSets.push(`receiver_name = $${orderIdx++}`); orderParams.push(b.receiver_name); }
                 
                 orderSets.push(`shipping_fee = $${orderIdx++}`); orderParams.push(shipFee);
-                orderSets.push(`shipping_fee_payer = $${orderIdx++}`); orderParams.push(b.shipping_fee_payer);
-                orderSets.push(`shipping_fee_method = $${orderIdx++}`); orderParams.push(b.shipping_fee_method);
+                orderSets.push(`shipping_fee_payer = $${orderIdx++}`); orderParams.push(isPendingUpdate ? null : b.shipping_fee_payer);
+                orderSets.push(`shipping_fee_method = $${orderIdx++}`); orderParams.push(isPendingUpdate ? null : b.shipping_fee_method);
                 if (cashflowResult) {
                     orderSets.push(`shipping_cashflow_id = $${orderIdx++}`); orderParams.push(cashflowResult.id);
                 }
-                if (b.selected_payment_id) {
+                if (!isPendingUpdate && b.selected_payment_id) {
                     orderSets.push(`shipping_payment_id = $${orderIdx++}`); orderParams.push(Number(b.selected_payment_id));
                 }
                 
@@ -1286,14 +1311,16 @@ module.exports = async function(fastify) {
                     shipping_fee_payer = $10,
                     shipping_fee_method = $11,
                     shipping_cashflow_id = $12,
-                    shipping_payment_id = $14
+                    shipping_payment_id = $14,
+                    is_pending_update = $15
                 WHERE dht_order_id = $13
             `, [
                 userId, now.toISOString(), todayStr, Number(b.actual_carrier_id),
-                b.tracking_code || null, b.shipping_bill_link || null, b.carrier_phone || null,
-                b.receiver_name || null, shipFee, b.shipping_fee_payer || null,
-                b.shipping_fee_method || null, cashflowResult?.id || null, orderId,
-                b.selected_payment_id ? Number(b.selected_payment_id) : null
+                (isPendingUpdate ? null : b.tracking_code) || null, (isPendingUpdate ? null : b.shipping_bill_link) || null, (isPendingUpdate ? null : b.carrier_phone) || null,
+                (isPendingUpdate ? null : b.receiver_name) || null, shipFee, isPendingUpdate ? null : (b.shipping_fee_payer || null),
+                isPendingUpdate ? null : (b.shipping_fee_method || null), cashflowResult?.id || null, orderId,
+                (!isPendingUpdate && b.selected_payment_id) ? Number(b.selected_payment_id) : null,
+                isPendingUpdate
             ]);
         }
 
@@ -1334,15 +1361,15 @@ module.exports = async function(fastify) {
                     dht_order_id, shipped_by, shipped_at, shipping_date, actual_ship_datetime,
                     actual_carrier_id, tracking_code, shipping_bill_link, carrier_phone, receiver_name,
                     shipping_fee, shipping_fee_payer, shipping_fee_method, shipping_cashflow_id, shipping_payment_id,
-                    item_ids, item_labels
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                    item_ids, item_labels, is_pending_update
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
             `, [
                 orderId, userId, now.toISOString(), todayStr, now.toISOString(),
-                Number(b.actual_carrier_id), b.tracking_code || null, b.shipping_bill_link || null,
-                b.carrier_phone || null, b.receiver_name || null, shipFee,
-                isNoFeeCarrier ? null : b.shipping_fee_payer, isNoFeeCarrier ? null : b.shipping_fee_method,
-                cashflowResult ? cashflowResult.id : null, b.selected_payment_id ? Number(b.selected_payment_id) : null,
-                shippedItemIds.join(','), itemLabelsJson
+                Number(b.actual_carrier_id), isPendingUpdate ? null : (b.tracking_code || null), isPendingUpdate ? null : (b.shipping_bill_link || null),
+                isPendingUpdate ? null : (b.carrier_phone || null), isPendingUpdate ? null : (b.receiver_name || null), shipFee,
+                (isPendingUpdate || isNoFeeCarrier) ? null : b.shipping_fee_payer, (isPendingUpdate || isNoFeeCarrier) ? null : b.shipping_fee_method,
+                cashflowResult ? cashflowResult.id : null, (!isPendingUpdate && b.selected_payment_id) ? Number(b.selected_payment_id) : null,
+                shippedItemIds.join(','), itemLabelsJson, isPendingUpdate
             ]);
         } catch (shipErr) {
             console.error('[Shipments Log] Error inserting shipment:', shipErr.message);
@@ -1350,7 +1377,7 @@ module.exports = async function(fastify) {
 
         // ★ Link payment record for order settlement (if selected)
         let paymentLinkResult = null;
-        if (b.selected_payment_id) {
+        if (!isPendingUpdate && b.selected_payment_id) {
             const prId = Number(b.selected_payment_id);
             try {
                 const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [prId]);
@@ -1457,9 +1484,9 @@ module.exports = async function(fastify) {
         let resultMsgParts = [];
         if (itemsToShip.length > 0) {
             const names = itemsToShip.map(it => it.product_name).join(', ');
-            resultMsgParts.push(`✅ Đã gửi phiếu (${names}) của đơn ${order.order_code}`);
+            resultMsgParts.push(isPendingUpdate ? `✅ Đã gửi phiếu (${names}) của đơn ${order.order_code} (chờ cập nhật phí/bill)` : `✅ Đã gửi phiếu (${names}) của đơn ${order.order_code}`);
         } else {
-            resultMsgParts.push(`✅ Đã gửi đơn ${order.order_code}`);
+            resultMsgParts.push(isPendingUpdate ? `✅ Đã gửi đơn ${order.order_code} (chờ cập nhật phí/bill)` : `✅ Đã gửi đơn ${order.order_code}`);
         }
         if (cashflowResult) resultMsgParts.push(`Phiếu chi ship: ${cashflowResult.cashflow_code}`);
         if (paymentLinkResult) resultMsgParts.push(`Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`);
@@ -1709,7 +1736,7 @@ module.exports = async function(fastify) {
 
     // ========== CARRIERS — Lấy danh sách NVC ==========
     fastify.get('/api/shipping/carriers', { preHandler: [authenticate] }, async (request, reply) => {
-        const rows = await db.all('SELECT id, name FROM dht_carriers WHERE is_active = true ORDER BY display_order ASC, id ASC');
+        const rows = await db.all('SELECT id, name, allow_update_later FROM dht_carriers WHERE is_active = true ORDER BY display_order ASC, id ASC');
         return { carriers: rows };
     });
 
@@ -1768,5 +1795,498 @@ module.exports = async function(fastify) {
             console.error('[ImageProxy]', e.message);
             return { direct_url: null, fallback: url };
         }
+    });
+
+    fastify.post('/api/shipping/orders/:id/update-shipment-details', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const userRole = request.user.role;
+
+        if (userRole !== 'giam_doc') {
+            const kt = await isKeToan(userId);
+            if (!kt) return reply.code(403).send({ error: '🔒 Chỉ Kế Toán mới được cập nhật thông tin gửi hàng' });
+        }
+
+        const rawId = String(request.params.id);
+        const b = request.body || {};
+
+        const shipFee = Number(b.shipping_fee) || 0;
+        if (isNaN(shipFee) || shipFee < 0) return reply.code(400).send({ error: 'Phí gửi hàng không hợp lệ' });
+
+        if (!b.shipping_fee_payer || !['hv', 'khach'].includes(b.shipping_fee_payer)) {
+            return reply.code(400).send({ error: 'Vui lòng chọn Người trả phí' });
+        }
+        if (!b.shipping_fee_method || !['ck', 'tm'].includes(b.shipping_fee_method)) {
+            return reply.code(400).send({ error: 'Vui lòng chọn Hình thức trả' });
+        }
+
+        const now = vnNow();
+        const todayStr = vnDateStr(now);
+
+        if (rawId.startsWith('sample_')) {
+            const sampleId = Number(rawId.replace('sample_', ''));
+            const order = await db.get('SELECT id, sample_order_code AS order_code, total_amount, deposit_amount, actual_carrier_id FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
+            if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });
+
+            if (b.tracking_code) {
+                const trackingCode = String(b.tracking_code).trim();
+                if (trackingCode) {
+                    const dup = await db.get(`
+                        SELECT order_code FROM (
+                            SELECT order_code FROM dht_orders WHERE tracking_code = $1
+                            UNION
+                            SELECT o.order_code FROM dht_order_shipments s
+                            JOIN dht_orders o ON s.dht_order_id = o.id
+                            WHERE s.tracking_code = $1
+                            UNION
+                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1 AND id <> $2
+                        ) LIMIT 1
+                    `, [trackingCode, sampleId]);
+                    if (dup) {
+                        return reply.code(400).send({ error: `⚠️ Mã Vận Đơn * này đã bị trùng với đơn ${dup.order_code}` });
+                    }
+                }
+            }
+
+            const sets = [
+                `is_pending_update = false`,
+                `shipping_fee = $1`,
+                `shipping_fee_payer = $2`,
+                `shipping_fee_method = $3`,
+                `updated_at = NOW()`,
+                `updated_by = $4`
+            ];
+            const params = [shipFee, b.shipping_fee_payer, b.shipping_fee_method, userId];
+            let idx = 5;
+
+            if (b.tracking_code) { sets.push(`tracking_code = $${idx++}`); params.push(b.tracking_code); }
+            if (b.shipping_bill_link) { sets.push(`shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
+
+            let cashflowResult = null;
+            let cfDescription = null;
+            if (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
+                try {
+                    const seq = await _getNextTMSeq(todayStr);
+                    const cfCode = _buildTMCode(seq, todayStr);
+                    cfDescription = `Tiền ship gửi mẫu đơn ${order.order_code} (cập nhật sau)`;
+                    const cfImageUrl = b.shipping_bill_link || null;
+
+                    await db.run(`
+                        INSERT INTO payment_records (payment_code, payment_method, daily_seq, amount, payment_type, transfer_note, money_source, source, payment_date, created_by)
+                        VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'cashflow_chi', $5, $6)
+                    `, [cfCode, seq, shipFee, cfDescription, todayStr, userId]);
+
+                    cashflowResult = await db.get(`
+                        INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, order_code, image_url, money_source, created_by)
+                        VALUES ($1, 'CHI', $2, $3, $4, $5, $6, $7, 'congty', $8)
+                        RETURNING id, cashflow_code
+                    `, [cfCode, seq, todayStr, cfDescription, shipFee, order.order_code, cfImageUrl, userId]);
+
+                    sets.push(`shipping_cashflow_id = $${idx++}`);
+                    params.push(cashflowResult.id);
+                } catch (cfErr) {
+                    console.error('[Update Sample Cashflow] Error:', cfErr.message);
+                    return reply.code(500).send({ error: 'Lỗi tạo phiếu chi tiền ship: ' + cfErr.message });
+                }
+            }
+
+            if (b.selected_payment_id) {
+                sets.push(`shipping_payment_id = $${idx++}`);
+                params.push(Number(b.selected_payment_id));
+            }
+
+            params.push(sampleId);
+            await db.run(`UPDATE don_gui_ao_mau SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+
+            let paymentLinkResult = null;
+            if (b.selected_payment_id) {
+                const prId = Number(b.selected_payment_id);
+                try {
+                    const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [prId]);
+                    if (pr) {
+                        const childSumRow = await db.get(`
+                            SELECT COALESCE(SUM(amount), 0) AS child_sum
+                            FROM payment_records
+                            WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                        `, [prId]);
+                        
+                        const paidRow = await db.get(
+                            `SELECT COALESCE(SUM(amount), 0) AS paid_total
+                             FROM payment_records
+                             WHERE order_ao_mau = $1`,
+                            [order.order_code]
+                        );
+                        const paidTotal = Number(paidRow?.paid_total) || 0;
+                        const isCarrier = pr.money_source === 'nha_van_chuyen';
+                        const parentShipFee = isCarrier ? (Number(pr.shipping_fee || 0)) : 0;
+                        const remainingDebt = Math.max(0, (Number(order.total_amount) || 0) - paidTotal - ((!isCarrier && b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck' && b.selected_payment_id) ? shipFee : 0));
+
+                        const remainingBalance = pr.amount + parentShipFee - Number(childSumRow.child_sum || 0);
+                        const allocAmount = Math.min(remainingBalance, remainingDebt);
+
+                        if (allocAmount > 0) {
+                            const childCountRow = await db.get(`
+                                SELECT COUNT(*) AS cnt FROM payment_records
+                                WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                            `, [prId]);
+                            const childIdx = Number(childCountRow.cnt) + 1;
+
+                            if (childIdx === 1 && allocAmount === pr.amount && pr.money_source !== 'nha_van_chuyen') {
+                                await db.run(`
+                                    UPDATE payment_records SET
+                                        payment_type = 'thanh_toan',
+                                        order_tt_coc = NULL,
+                                        order_ao_mau = $1,
+                                        money_source = 'khach_hang',
+                                        transfer_note = $2,
+                                        updated_at = NOW()
+                                    WHERE id = $3
+                                `, [order.order_code, (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)', prId]);
+                                paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                            } else {
+                                const splitCode = `${pr.payment_code}-S${childIdx}`;
+                                await db.run(`
+                                    INSERT INTO payment_records (
+                                        payment_code, payment_method, daily_seq,
+                                        customer_name, customer_phone, cskh_user_id,
+                                        amount, payment_type,
+                                        order_tt_coc, order_ao_mau,
+                                        transfer_note, money_source, bank_name,
+                                        total_order_codes, total_cod, shipping_fee,
+                                        handover_status, handover_at, handover_by,
+                                        source, source_ref_id, payment_date, created_by,
+                                        parent_id
+                                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                                `, [
+                                    splitCode, pr.payment_method, pr.daily_seq,
+                                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                                    allocAmount, 'child_sll',
+                                    null, order.order_code,
+                                    (pr.transfer_note || '') + ' (Thanh toán đơn mẫu ' + order.order_code + ' khi gửi hàng)',
+                                    'khach_hang', pr.bank_name || null,
+                                    null, 0, 0,
+                                    'chua_bangiao',
+                                    pr.handover_at || null,
+                                    pr.handover_by || null,
+                                    pr.source, null, pr.payment_date, userId,
+                                    prId
+                                ]);
+
+                                const totalAllocationsCount = childIdx;
+                                const moneySource = totalAllocationsCount >= 2 ? 'khach_hang_sll' : 'khach_hang';
+                                await db.run(`
+                                    UPDATE payment_records SET
+                                        payment_type = 'parent_sll',
+                                        order_tt_coc = NULL,
+                                        total_order_codes = NULL,
+                                        money_source = $1,
+                                        updated_at = NOW()
+                                    WHERE id = $2
+                                `, [moneySource, prId]);
+
+                                paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                            }
+                        }
+                    }
+                } catch (prErr) {
+                    console.error('[Update Sample Payment] Link error:', prErr.message);
+                }
+            }
+
+            let logSummary = `Kế toán đã cập nhật phí/bill cho đơn hàng mẫu (NVC: ${order.actual_carrier_id}, Ship fee: ${shipFee})`;
+            if (paymentLinkResult) {
+                logSummary += ` — Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`;
+            }
+            await db.run(
+                `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+                [sampleId, 'update_shipment', logSummary, userId]
+            );
+
+            if (cashflowResult && b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
+                try {
+                    const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_cashflow_group'");
+                    if (tgRow && tgRow.value) {
+                        const { sendTelegramMessage } = require('../utils/telegram');
+                        const amtStr = shipFee.toLocaleString('vi-VN');
+                        const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
+                        const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
+                        const runBal = Number(thuSum.t) - Number(chiSum.t);
+                        const balStr = runBal.toLocaleString('vi-VN');
+                        const msg = `🔴CHI TM <b>CÔNG TY</b> :\n💰${cashflowResult.cashflow_code} : <b>${amtStr}đ</b> ${cfDescription} 👤 ${request.user.full_name || request.user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
+                        await sendTelegramMessage(tgRow.value, msg);
+                    }
+                } catch (tgErr) { console.error('[Ship TG] Error:', tgErr.message); }
+            }
+
+            let resultMsgParts = [`✅ Đã cập nhật thông tin đơn mẫu ${order.order_code}`];
+            if (cashflowResult) resultMsgParts.push(`Phiếu chi ship: ${cashflowResult.cashflow_code}`);
+            if (paymentLinkResult) resultMsgParts.push(`Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`);
+            return { success: true, message: resultMsgParts.join(' | ') };
+
+        } else {
+            const orderId = Number(rawId);
+            const order = await db.get('SELECT id, shipping_status, order_code, total_amount, discount_amount, deposit_amount_cache, actual_carrier_id FROM dht_orders WHERE id = $1', [orderId]);
+            if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+            if (b.tracking_code) {
+                const trackingCode = String(b.tracking_code).trim();
+                if (trackingCode) {
+                    const dup = await db.get(`
+                        SELECT order_code FROM (
+                            SELECT order_code FROM dht_orders WHERE tracking_code = $1 AND id <> $2
+                            UNION
+                            SELECT o.order_code FROM dht_order_shipments s
+                            JOIN dht_orders o ON s.dht_order_id = o.id
+                            WHERE s.tracking_code = $1 AND s.dht_order_id <> $2
+                            UNION
+                            SELECT sample_order_code AS order_code FROM don_gui_ao_mau WHERE tracking_code = $1
+                        ) LIMIT 1
+                    `, [trackingCode, orderId]);
+                    if (dup) {
+                        return reply.code(400).send({ error: `⚠️ Mã Vận Đơn * này đã bị trùng với đơn ${dup.order_code}` });
+                    }
+                }
+            }
+
+            let cashflowResult = null;
+            let cfDescription = null;
+            if (b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'tm' && shipFee > 0) {
+                try {
+                    const seq = await _getNextTMSeq(todayStr);
+                    const cfCode = _buildTMCode(seq, todayStr);
+                    
+                    const existingShipments = await db.all(`
+                        SELECT id FROM dht_order_shipments WHERE dht_order_id = $1
+                    `, [orderId]);
+                    const shipmentCount = existingShipments.length;
+                    
+                    cfDescription = `Cập nhật tiền ship đơn ${order.order_code}`;
+                    if (shipmentCount > 1) {
+                        cfDescription = `Cập nhật tiền ship lần ${shipmentCount} đơn ${order.order_code}`;
+                    }
+                    const cfImageUrl = b.shipping_bill_link || null;
+
+                    await db.run(`
+                        INSERT INTO payment_records (payment_code, payment_method, daily_seq, amount, payment_type, transfer_note, money_source, source, payment_date, created_by)
+                        VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'cashflow_chi', $5, $6)
+                    `, [cfCode, seq, shipFee, cfDescription, todayStr, userId]);
+
+                    cashflowResult = await db.get(`
+                        INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, order_code, image_url, money_source, created_by)
+                        VALUES ($1, 'CHI', $2, $3, $4, $5, $6, $7, 'congty', $8)
+                        RETURNING id, cashflow_code
+                    `, [cfCode, seq, todayStr, cfDescription, shipFee, order.order_code, cfImageUrl, userId]);
+
+                    try {
+                        const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_cashflow_group'");
+                        if (tgRow && tgRow.value) {
+                            const { sendTelegramMessage } = require('../utils/telegram');
+                            const amtStr = shipFee.toLocaleString('vi-VN');
+                            const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
+                            const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
+                            const runBal = Number(thuSum.t) - Number(chiSum.t);
+                            const balStr = runBal.toLocaleString('vi-VN');
+                            const msg = `🔴CHI TM <b>CÔNG TY</b> :\n💰${cfCode} : <b>${amtStr}đ</b> ${cfDescription} 👤 ${request.user.full_name || request.user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
+                            await sendTelegramMessage(tgRow.value, msg);
+                        }
+                    } catch (tgErr) { console.error('[Ship TG] Error:', tgErr.message); }
+                } catch (cfErr) {
+                    console.error('[Update Cashflow] Error:', cfErr.message);
+                    return reply.code(500).send({ error: 'Lỗi tạo phiếu chi tiền ship: ' + cfErr.message });
+                }
+            }
+
+            const orderSets = [
+                `is_pending_update = false`,
+                `shipping_fee = $1`,
+                `shipping_fee_payer = $2`,
+                `shipping_fee_method = $3`,
+                `last_updated_by = $4`,
+                `last_updated_at = NOW()`
+            ];
+            const orderParams = [shipFee, b.shipping_fee_payer, b.shipping_fee_method, userId];
+            let oIdx = 5;
+
+            if (b.tracking_code) { orderSets.push(`tracking_code = $${oIdx++}`); orderParams.push(b.tracking_code); }
+            if (b.shipping_bill_link) { orderSets.push(`shipping_bill_link = $${oIdx++}`); orderParams.push(b.shipping_bill_link); }
+            if (b.carrier_phone) { orderSets.push(`carrier_phone = $${oIdx++}`); orderParams.push(b.carrier_phone); }
+            if (b.receiver_name) { orderSets.push(`receiver_name = $${oIdx++}`); orderParams.push(b.receiver_name); }
+            if (cashflowResult) { orderSets.push(`shipping_cashflow_id = $${oIdx++}`); orderParams.push(cashflowResult.id); }
+            if (b.selected_payment_id) { orderSets.push(`shipping_payment_id = $${oIdx++}`); orderParams.push(Number(b.selected_payment_id)); }
+
+            orderParams.push(orderId);
+            await db.run(`UPDATE dht_orders SET ${orderSets.join(', ')} WHERE id = $${oIdx}`, orderParams);
+
+            const itemSets = [
+                `is_pending_update = false`,
+                `shipping_fee = $1`,
+                `shipping_fee_payer = $2`,
+                `shipping_fee_method = $3`
+            ];
+            const itemParams = [shipFee, b.shipping_fee_payer, b.shipping_fee_method];
+            let itemIdx = 4;
+
+            if (b.tracking_code) { itemSets.push(`tracking_code = $${itemIdx++}`); itemParams.push(b.tracking_code); }
+            if (b.shipping_bill_link) { itemSets.push(`shipping_bill_link = $${itemIdx++}`); itemParams.push(b.shipping_bill_link); }
+            if (b.carrier_phone) { itemSets.push(`carrier_phone = $${itemIdx++}`); itemParams.push(b.carrier_phone); }
+            if (b.receiver_name) { itemSets.push(`receiver_name = $${itemIdx++}`); itemParams.push(b.receiver_name); }
+            if (cashflowResult) { itemSets.push(`shipping_cashflow_id = $${itemIdx++}`); itemParams.push(cashflowResult.id); }
+            if (b.selected_payment_id) { itemSets.push(`shipping_payment_id = $${itemIdx++}`); itemParams.push(Number(b.selected_payment_id)); }
+
+            itemParams.push(orderId);
+            await db.run(`UPDATE dht_order_items SET ${itemSets.join(', ')} WHERE dht_order_id = $${itemIdx} AND is_pending_update = true`, itemParams);
+
+            const shipSets = [
+                `is_pending_update = false`,
+                `shipping_fee = $1`,
+                `shipping_fee_payer = $2`,
+                `shipping_fee_method = $3`
+            ];
+            const shipParams = [shipFee, b.shipping_fee_payer, b.shipping_fee_method];
+            let sIdx = 4;
+
+            if (b.tracking_code) { shipSets.push(`tracking_code = $${sIdx++}`); shipParams.push(b.tracking_code); }
+            if (b.shipping_bill_link) { shipSets.push(`shipping_bill_link = $${sIdx++}`); shipParams.push(b.shipping_bill_link); }
+            if (b.carrier_phone) { shipSets.push(`carrier_phone = $${sIdx++}`); shipParams.push(b.carrier_phone); }
+            if (b.receiver_name) { shipSets.push(`receiver_name = $${sIdx++}`); shipParams.push(b.receiver_name); }
+            if (cashflowResult) { shipSets.push(`shipping_cashflow_id = $${sIdx++}`); shipParams.push(cashflowResult.id); }
+            if (b.selected_payment_id) { shipSets.push(`shipping_payment_id = $${sIdx++}`); shipParams.push(Number(b.selected_payment_id)); }
+
+            shipParams.push(orderId);
+            await db.run(`UPDATE dht_order_shipments SET ${shipSets.join(', ')} WHERE dht_order_id = $${sIdx} AND is_pending_update = true`, shipParams);
+
+            let paymentLinkResult = null;
+            if (b.selected_payment_id) {
+                const prId = Number(b.selected_payment_id);
+                try {
+                    const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [prId]);
+                    if (pr) {
+                        const childSumRow = await db.get(`
+                            SELECT COALESCE(SUM(amount), 0) AS child_sum
+                            FROM payment_records
+                            WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                        `, [prId]);
+                        
+                        const depRow = await db.get(
+                            `SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                             FROM payment_records
+                             WHERE total_order_codes ILIKE '%' || $1 || '%'
+                                OR order_tt_coc = $1`,
+                            [order.order_code]
+                        );
+                        const depositTotal = Number(depRow?.deposit_total) || 0;
+                        const isCarrier = pr.money_source === 'nha_van_chuyen';
+                        const parentShipFee = isCarrier ? (Number(pr.shipping_fee || 0)) : 0;
+                        const remainingDebt = Math.max(0, (Number(order.total_amount) || 0)
+                            - (Number(order.discount_amount) || 0)
+                            - Math.max(depositTotal, Number(order.deposit_amount_cache) || 0)
+                            - ((!isCarrier && b.shipping_fee_payer === 'hv' && b.shipping_fee_method === 'ck' && b.selected_payment_id) ? shipFee : 0));
+
+                        const remainingBalance = pr.amount + parentShipFee - Number(childSumRow.child_sum || 0);
+                        const allocAmount = Math.min(remainingBalance, remainingDebt);
+
+                        if (allocAmount > 0) {
+                            const childCountRow = await db.get(`
+                                SELECT COUNT(*) AS cnt FROM payment_records
+                                WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                            `, [prId]);
+                            const childIdx = Number(childCountRow.cnt) + 1;
+
+                            if (childIdx === 1 && allocAmount === pr.amount && pr.money_source !== 'nha_van_chuyen') {
+                                await db.run(`
+                                    UPDATE payment_records SET
+                                        payment_type = 'thanh_toan',
+                                        order_tt_coc = $1,
+                                        order_ao_mau = NULL,
+                                        money_source = 'khach_hang',
+                                        transfer_note = $2,
+                                        updated_at = NOW()
+                                    WHERE id = $3
+                                `, [order.order_code, (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)', prId]);
+                                paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                            } else {
+                                const splitCode = `${pr.payment_code}-S${childIdx}`;
+                                await db.run(`
+                                    INSERT INTO payment_records (
+                                        payment_code, payment_method, daily_seq,
+                                        customer_name, customer_phone, cskh_user_id,
+                                        amount, payment_type,
+                                        order_tt_coc, order_ao_mau,
+                                        transfer_note, money_source, bank_name,
+                                        total_order_codes, total_cod, shipping_fee,
+                                        handover_status, handover_at, handover_by,
+                                        source, source_ref_id, payment_date, created_by,
+                                        parent_id
+                                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                                `, [
+                                    splitCode, pr.payment_method, pr.daily_seq,
+                                    pr.customer_name || null, pr.customer_phone || null, pr.cskh_user_id || null,
+                                    allocAmount, 'child_sll',
+                                    order.order_code, null,
+                                    (pr.transfer_note || '') + ' (Thanh toán đơn ' + order.order_code + ' khi gửi hàng)',
+                                    'khach_hang', pr.bank_name || null,
+                                    null, 0, 0,
+                                    'chua_bangiao',
+                                    pr.handover_at || null,
+                                    pr.handover_by || null,
+                                    pr.source, null, pr.payment_date, userId,
+                                    prId
+                                ]);
+
+                                const totalAllocationsCount = childIdx;
+                                const moneySource = totalAllocationsCount >= 2 ? 'khach_hang_sll' : 'khach_hang';
+                                await db.run(`
+                                    UPDATE payment_records SET
+                                        payment_type = 'parent_sll',
+                                        order_tt_coc = NULL,
+                                        total_order_codes = NULL,
+                                        money_source = $1,
+                                        updated_at = NOW()
+                                    WHERE id = $2
+                                `, [moneySource, prId]);
+
+                                paymentLinkResult = { id: prId, payment_code: pr.payment_code, amount: allocAmount };
+                            }
+                        }
+                    }
+                } catch (prErr) {
+                    console.error('[Update Payment] Link error:', prErr.message);
+                }
+            }
+
+            try {
+                let logSummary = `Kế toán đã cập nhật phí/bill cho đơn hàng (NVC: ${order.actual_carrier_id}, Ship fee: ${shipFee})`;
+                if (paymentLinkResult) {
+                    logSummary += ` — Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`;
+                }
+                await db.run(`
+                    INSERT INTO dht_order_logs (dht_order_id, action, summary, performed_by)
+                    VALUES ($1, 'update_shipment', $2, $3)
+                `, [orderId, logSummary, userId]);
+            } catch(logErr) {}
+
+            let resultMsgParts = [`✅ Đã cập nhật thông tin đơn hàng ${order.order_code}`];
+            if (cashflowResult) resultMsgParts.push(`Phiếu chi ship: ${cashflowResult.cashflow_code}`);
+            if (paymentLinkResult) resultMsgParts.push(`Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`);
+            return { success: true, message: resultMsgParts.join(' | ') };
+        }
+    });
+
+    fastify.post('/api/shipping/carriers/update-settings', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const userRole = request.user.role;
+
+        if (userRole !== 'giam_doc') {
+            const kt = await isKeToan(userId);
+            if (!kt) return reply.code(403).send({ error: '🔒 Chỉ Kế Toán/Giám Đốc mới được thay đổi cấu hình nhà vận chuyển' });
+        }
+
+        const b = request.body || {};
+        const settings = b.settings || {};
+
+        for (const [carrierId, allow] of Object.entries(settings)) {
+            await db.run('UPDATE dht_carriers SET allow_update_later = $1 WHERE id = $2', [!!allow, Number(carrierId)]);
+        }
+
+        return { success: true, message: 'Đã cập nhật cấu hình nhà vận chuyển thành công' };
     });
 };
