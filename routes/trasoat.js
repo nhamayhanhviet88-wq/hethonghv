@@ -726,7 +726,8 @@ module.exports = async function(fastify) {
                 u_shipped.full_name AS shipped_by_name,
                 cr2.name AS carrier_name, cr2.tracking_url_template AS carrier_tracking_url,
                 pr_ship.payment_code AS shipping_payment_code,
-                pr_ship.amount AS shipping_payment_amount
+                pr_ship.amount AS shipping_payment_amount,
+                GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -734,6 +735,12 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
             LEFT JOIN payment_records pr_ship ON o.shipping_payment_id = pr_ship.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
+            ) pr_dep ON true
             WHERE o.id = $1
         `, [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
@@ -1369,6 +1376,7 @@ module.exports = async function(fastify) {
                 carrier_phone: order.carrier_phone,
                 shipping_fee: order.shipping_fee,
                 shipping_fee_payer: order.shipping_fee_payer,
+                remaining_amount: order.remaining_amount,
                 done_order_at,
                 items,
                 shipments
