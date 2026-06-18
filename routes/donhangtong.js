@@ -286,7 +286,7 @@ module.exports = async function(fastify) {
                         WHERE order_ao_mau = d.sample_order_code
                            OR order_tt_coc = d.sample_order_code
                     ) pr_dep ON true
-                    WHERE COALESCE(d.sample_order_code, '') != ''
+                    WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
                       AND (
                           (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
                           OR d.status_hoan_hang = true
@@ -501,7 +501,7 @@ module.exports = async function(fastify) {
                         WHERE order_ao_mau = d.sample_order_code
                            OR order_tt_coc = d.sample_order_code
                     ) pr_dep ON true
-                    WHERE COALESCE(d.sample_order_code, '') != ''
+                    WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
                       AND (
                           (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
                           OR d.status_hoan_hang = true
@@ -787,7 +787,7 @@ module.exports = async function(fastify) {
 
         let sampleOrders = [];
         if (unpaid === 'true') {
-            let sampleWhere = "WHERE COALESCE(d.sample_order_code, '') != ''";
+            let sampleWhere = "WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'";
             const sampleParams = [];
             let sIdx = 1;
 
