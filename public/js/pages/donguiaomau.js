@@ -177,8 +177,10 @@ function _dgamRenderRows(paged) {
             }
         }
 
+        var catLower = (o.category || '').toLowerCase().trim();
+        var noReturnNeeded = catLower.includes('tem') || catLower.includes('pet') || catLower.includes('khác') || catLower.includes('khac') || catLower.includes('vải') || catLower.includes('vai');
         var isQuanLyXuong = userObj && (userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
-        var hoanBtnHtml = !isQuanLyXuong 
+        var hoanBtnHtml = (!isQuanLyXuong && !noReturnNeeded) 
             ? '<button class="dgam-icon-btn'+(o.status_hoan_hang?' on-hoan':'')+'" title="Hoàn hàng" onclick="_dgamOnHoanHangClick('+o.id+')">🔄</button>'
             : '';
 
