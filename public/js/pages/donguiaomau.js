@@ -410,7 +410,7 @@ function _dgamRenderRows(paged) {
             }
         }
 
-        // Kiểm tra đơn mẫu (🔍): Lê Việt Trinh và Giám đốc mới được hiển thị và có quyền kiểm tra
+        // Kiểm tra đơn mẫu (🔍): Lê Việt Trinh và Giám đốc có quyền kiểm tra; các tài khoản khác chỉ xem (disabled)
         var isLeVietTrinh = userObj && userObj.full_name && (userObj.full_name.includes('Lê Việt Trinh') || userObj.full_name.includes('Le Viet Trinh'));
         var kiemTraBtnHtml = '';
         if (isLeVietTrinh || isGiamDoc) {
@@ -419,6 +419,8 @@ function _dgamRenderRows(paged) {
             } else {
                 kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>';
             }
+        } else {
+            kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra (Chỉ xem)" style="opacity:0.5;cursor:not-allowed;" disabled>🔍</button>';
         }
 
         var statusHtml = '<td style="text-align:center" onclick="event.stopPropagation()">'
