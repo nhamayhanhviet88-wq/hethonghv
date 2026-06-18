@@ -140,7 +140,14 @@ function _dgamRenderTable() {
             }
             if (_dgam.subFilter === 'chua_hoan') {
                 const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
-                return o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image;
+                if (isTargetCategory) {
+                    if (o.status_hoan_hang) {
+                        return !o.hoan_hang_received_proof_image;
+                    } else {
+                        return o.order_status === 'da_gui' || o.order_status === 'hoan_thanh';
+                    }
+                }
+                return false;
             }
             if (_dgam.subFilter === 'chua_kiem_tra') {
                 return !o.status_kiem_tra;
@@ -182,7 +189,14 @@ function _dgamRenderSubFilters() {
     const countChuaDuyet = totalOrders.filter(o => !o.status_duyet).length;
     const countChuaHoan = totalOrders.filter(o => {
         const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
-        return o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image;
+        if (isTargetCategory) {
+            if (o.status_hoan_hang) {
+                return !o.hoan_hang_received_proof_image;
+            } else {
+                return o.order_status === 'da_gui' || o.order_status === 'hoan_thanh';
+            }
+        }
+        return false;
     }).length;
     const countChuaKiemTra = totalOrders.filter(o => !o.status_kiem_tra).length;
 
