@@ -1,5 +1,5 @@
 // ========== ĐƠN GỬI ÁO MẪU — Bộ Phận Văn Phòng ==========
-var _dgam = { tree: [], orders: [], filter: {}, page: 1, pageSize: 50 };
+var _dgam = { tree: [], orders: [], filter: {}, page: 1, pageSize: 50, searchQuery: '' };
 var _dgamOpen = {};
 const DGAM_VN_PROVINCES = [
     'An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương',
@@ -33,13 +33,19 @@ async function renderDonguiaomauPage(content) {
             +'.dgam-icon-btn.on-gui{background:#dbeafe;border-color:#3b82f6}'
             +'.dgam-icon-btn.on-hoan{background:#fef3c7;border-color:#f59e0b}'
             +'.dgam-icon-btn.on-ktra{background:#ede9fe;border-color:#8b5cf6}'
+            +'#dgamSearchInput:focus{border-color:#0284c7;box-shadow:0 0 0 3px rgba(2,132,199,0.15);background:#fff}'
         ;
         document.head.appendChild(st);
     }
 
     content.innerHTML = '<div class="dgam-wrap"><div class="dgam-sidebar" id="dgamSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dgam-main">'
-        +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
+        +'<div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'
         +'<div id="dgamFilterInfo" style="font-size:12px"></div>'
+        +'<div id="dgamSearchContainer" style="position:relative;width:280px;margin-left:4px">'
+        +'<input type="text" id="dgamSearchInput" placeholder="🔍 Tìm mã đơn, khách, SĐT..." oninput="_dgamOnSearchInput(this.value)" style="width:100%;font-family:inherit;font-size:12.5px;font-weight:600;padding:8px 30px 8px 32px;border:1.8px solid #cbd5e1;border-radius:10px;outline:none;transition:all 0.2s;box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);">'
+        +'<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#94a3b8;pointer-events:none;">🔍</span>'
+        +'<button id="dgamSearchClearBtn" onclick="_dgamClearSearch()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:none;font-size:14px;color:#94a3b8;cursor:pointer;display:none;font-weight:700;padding:0;line-height:1;">✕</button>'
+        +'</div>'
         +'<div id="dgamStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +'<div style="margin-left:auto"><button onclick="_dgamShowAdd()" style="font-size:13px;padding:9px 20px;background:linear-gradient(135deg,#0369a1,#0284c7,#0ea5e9);color:#fff;border:none;border-radius:10px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(14,165,233,0.4);transition:all .2s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">➕ Thêm Đơn</button></div>'
         +'</div>'
@@ -69,6 +75,7 @@ async function renderDonguiaomauPage(content) {
     var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     _dgam.filter = { year: nowVN.getFullYear() };
     _dgam.subFilter = null;
+    _dgam.searchQuery = '';
     if (!_dgamOpen._init) { _dgamOpen['y' + nowVN.getFullYear()] = true; _dgamOpen._init = true; }
 
     await _dgamLoadTree();
@@ -136,6 +143,18 @@ function _dgamRenderTable() {
                 return !o.status_kiem_tra;
             }
             return true;
+        });
+    }
+
+    // Apply search query if active
+    if (_dgam.searchQuery) {
+        const q = _dgam.searchQuery.toLowerCase().trim();
+        all = all.filter(o => {
+            const matchSampleCode = (o.sample_order_code || '').toLowerCase().includes(q);
+            const matchClosedCodes = (o.closed_order_codes || '').toLowerCase().includes(q);
+            const matchName = (o.customer_name || '').toLowerCase().includes(q);
+            const matchPhone = (o.customer_phone || '').toLowerCase().includes(q);
+            return matchSampleCode || matchClosedCodes || matchName || matchPhone;
         });
     }
 
@@ -244,6 +263,24 @@ function _dgamSetSubFilter(filterName) {
     }
     _dgam.page = 1;
     _dgamRenderTable();
+}
+
+function _dgamOnSearchInput(val) {
+    _dgam.searchQuery = val;
+    const clearBtn = document.getElementById('dgamSearchClearBtn');
+    if (clearBtn) {
+        clearBtn.style.display = val ? 'block' : 'none';
+    }
+    _dgam.page = 1;
+    _dgamRenderTable();
+}
+
+function _dgamClearSearch() {
+    const input = document.getElementById('dgamSearchInput');
+    if (input) {
+        input.value = '';
+    }
+    _dgamOnSearchInput('');
 }
 
 var _dgamStatusMap = {
