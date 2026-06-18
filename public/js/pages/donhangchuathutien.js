@@ -812,6 +812,7 @@ function _dhcttRenderOrderRows(filtered) {
         const shipDateFmt = shipDateVal ? fmtD(shipDateVal) : '—';
 
         let tienDo = '';
+        let tienDoClick = '';
         if (o.expected_ship_date) {
             const shipExpected = new Date(o.expected_ship_date); shipExpected.setHours(0,0,0,0);
             const diffDays = Math.round((_todayVN.getTime() - shipExpected.getTime()) / 86400000);
@@ -820,21 +821,24 @@ function _dhcttRenderOrderRows(filtered) {
                 shipActual.setHours(0,0,0,0);
                 const shipDiff = Math.round((shipExpected.getTime() - shipActual.getTime()) / 86400000);
                 if (shipDiff > 0) {
-                    tienDo = `<span style="color:#059669;font-size:10px;font-weight:700">⚡Nhanh ${shipDiff} ngày</span>`;
+                    tienDo = `<span class="dhctt-tiendo-badge dhctt-tiendo-green">⚡Nhanh ${shipDiff} ngày</span>`;
                 } else if (shipDiff === 0) {
-                    tienDo = `<span style="color:#059669;font-size:10px;font-weight:700">✅ Đúng hạn</span>`;
+                    tienDo = `<span class="dhctt-tiendo-badge dhctt-tiendo-green">✅ Đúng hạn</span>`;
                 } else {
-                    tienDo = `<span style="color:#dc2626;font-size:10px;font-weight:700">⚠️ Trễ ${Math.abs(shipDiff)} ngày</span>`;
+                    tienDo = `<span class="dhctt-tiendo-badge dhctt-tiendo-red">⚠️ Trễ ${Math.abs(shipDiff)} ngày</span>`;
                 }
             } else {
                 if (diffDays < 0) {
-                    tienDo = `<span style="color:#2563eb;font-size:10px;font-weight:700">⏳ Còn ${Math.abs(diffDays)} ngày</span>`;
+                    tienDo = `<span class="dhctt-tiendo-badge dhctt-tiendo-blue">⏳ Còn ${Math.abs(diffDays)} ngày</span>`;
                 } else if (diffDays === 0) {
-                    tienDo = `<span style="color:#f59e0b;font-size:10px;font-weight:800">📦 Hôm nay!</span>`;
+                    tienDo = `<span class="dhctt-tiendo-badge dhctt-tiendo-yellow">📦 Hôm nay!</span>`;
                 } else {
-                    tienDo = `<span style="color:#dc2626;font-size:10px;font-weight:800;animation:dhcttBlink 1s infinite">🔥 Quá hạn ${diffDays} ngày</span>`;
+                    tienDo = `<span class="dhctt-tiendo-badge dhctt-tiendo-red" style="animation:dhcttBlink 1s infinite">🔥 Quá hạn ${diffDays} ngày</span>`;
                 }
             }
+            tienDoClick = `onclick="event.stopPropagation(); _dhcttShowTraSoatModal('${o.id}', '${o.order_code}')" title="Xem tra soát tiến độ"`;
+        } else {
+            tienDo = `<span style="color:#94a3b8;font-style:italic">—</span>`;
         }
         const priStyle = (o.shipping_priority === 'GẤP' ? 'background:#dc2626;color:#fff;' : (o.shipping_priority === 'GỬI' ? 'background:#2563eb;color:#fff;' : 'background:#7c3aed;color:#fff;'));
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
@@ -854,7 +858,7 @@ function _dhcttRenderOrderRows(filtered) {
             <td style="font-weight:600;">${_dhcttGetOrderCarriers(o)}</td>
             <td style="font-weight:600;">${_dhcttFmtOrderDate(o.order_date, o.created_at)}</td>
             <td style="font-weight:600;">${shipDateFmt}</td>
-            <td>${tienDo}</td>
+            <td ${tienDoClick}>${tienDo}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
             <td>${o.has_error ? '<span class="dhctt-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
             <td>${o.customer_name || '—'}</td>
@@ -895,7 +899,14 @@ async function renderDonhangchuathutienPage(content) {
             +'.dhctt-sort-arrow{font-size:10px;margin-left:3px;opacity:0.9}'
             +'@keyframes dhcttErrorPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.2);opacity:0.7}}'
             +'.dhctt-error-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dc2626;color:#fff;font-size:10px;font-weight:900;margin-right:4px;animation:dhcttErrorPulse 1.5s ease-in-out infinite;box-shadow:0 0 6px rgba(220,38,38,0.6),0 0 12px rgba(220,38,38,0.3);vertical-align:middle;line-height:1}'
-            +'@keyframes dhcttBlink{0%,100%{opacity:1}50%{opacity:0.4}}';
+            +'@keyframes dhcttBlink{0%,100%{opacity:1}50%{opacity:0.4}}'
+            +'.dhctt-tiendo-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s cubic-bezier(0.16,1,0.3,1);box-shadow:0 2px 4px rgba(0,0,0,0.03);border:1px solid transparent}'
+            +'.dhctt-tiendo-badge:hover{transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,0.08);filter:brightness(1.05)}'
+            +'.dhctt-tiendo-badge:active{transform:translateY(0)}'
+            +'.dhctt-tiendo-green{background-color:#dcfce7;color:#15803d;border-color:rgba(21,128,61,0.2)}'
+            +'.dhctt-tiendo-red{background-color:#fee2e2;color:#b91c1c;border-color:rgba(185,28,28,0.2)}'
+            +'.dhctt-tiendo-blue{background-color:#dbeafe;color:#1d4ed8;border-color:rgba(29,78,216,0.2)}'
+            +'.dhctt-tiendo-yellow{background-color:#fef3c7;color:#b45309;border-color:rgba(180,83,9,0.2)}';
         document.head.appendChild(st);
     }
 
@@ -1339,4 +1350,40 @@ function _dhcttShowShippingBillLightbox(url) {
         }
     };
     document.addEventListener('keydown', escHandler);
+}
+
+async function _dhcttShowTraSoatModal(orderId, orderCode) {
+    const container = document.getElementById('modalContainer');
+    if (container) {
+        container.style.maxWidth = '900px';
+        container.style.width = '95%';
+    }
+    
+    const initialBody = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:12px;color:#6b7280;">
+        <div style="width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:#ea580c;border-radius:50%;animation:dhcttSpin 1s linear infinite;"></div>
+        <div style="font-size:13px;font-weight:600;">Đang tải dữ liệu tra soát đơn hàng...</div>
+    </div>
+    <style>
+        @keyframes dhcttSpin { to { transform: rotate(360deg); } }
+    </style>`;
+    
+    openModal(`🔍 Tra Soát Đơn Hàng — ${orderCode}`, initialBody, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`);
+    
+    try {
+        const res = await apiCall('/api/trasoat/orders/' + orderId + '/detail');
+        if (typeof _tsRenderTimeline === 'function') {
+            const html = _tsRenderTimeline(res);
+            document.getElementById('modalBody').innerHTML = html;
+        } else {
+            document.getElementById('modalBody').innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">
+                <span style="font-size:24px;">⚠️</span>
+                <div style="font-weight:700;margin-top:8px;">Lỗi: Thư viện Tra Soát Đơn Hàng chưa được tải</div>
+            </div>`;
+        }
+    } catch(err) {
+        document.getElementById('modalBody').innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">
+            <span style="font-size:24px;">❌</span>
+            <div style="font-weight:700;margin-top:8px;">Lỗi khi lấy dữ liệu: ${err.message || err}</div>
+        </div>`;
+    }
 }
