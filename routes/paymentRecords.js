@@ -200,6 +200,10 @@ module.exports = async function(fastify) {
                 FROM don_gui_ao_mau
                 WHERE tracking_code IN (${placeholders1}) AND order_status != 'draft'
                 UNION
+                SELECT *, hoan_hang_tracking_code AS matched_tracking_code
+                FROM don_gui_ao_mau
+                WHERE hoan_hang_tracking_code IN (${placeholders1}) AND order_status != 'draft'
+                UNION
                 SELECT *, sample_order_code AS matched_tracking_code
                 FROM don_gui_ao_mau
                 WHERE sample_order_code IN (${placeholders2}) AND order_status != 'draft'
@@ -1069,6 +1073,15 @@ module.exports = async function(fastify) {
                         shipping_fee_method = 'ck', 
                         updated_at = NOW() 
                     WHERE tracking_code = $2
+                `, [shippingFee, trackingCode]);
+
+                await db.run(`
+                    UPDATE don_gui_ao_mau 
+                    SET return_shipping_fee = $1, 
+                        return_payer = 'hv', 
+                        return_payment_method = 'ck', 
+                        updated_at = NOW() 
+                    WHERE hoan_hang_tracking_code = $2
                 `, [shippingFee, trackingCode]);
             }
 
