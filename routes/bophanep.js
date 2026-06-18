@@ -49,6 +49,7 @@ module.exports = async function(fastify) {
     const MGMT = ['giam_doc', 'quan_ly_cap_cao'];
     async function isPressManager(req) {
         if (MGMT.includes(req.user.role)) return true;
+        if (['nhan_vien', 'part_time', 'thu_viec'].includes(req.user.role)) return false;
         const d = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [req.user.id]);
         if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('qlx') || n.includes('ép') || n.includes('ep') || n.includes('quản lý xưởng')) return true; }
         return false;
