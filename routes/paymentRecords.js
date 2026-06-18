@@ -735,6 +735,54 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Yêu cầu phải chọn ít nhất 1 đơn hàng để liên kết.' });
             }
 
+            // Check for already reconciled waybills to prevent duplicates/overwrites
+            const trackingCodesToCheck = [];
+            for (const alloc of allocations) {
+                if (alloc.tracking_code) {
+                    const code = String(alloc.tracking_code).trim();
+                    if (code) trackingCodesToCheck.push(code);
+                }
+            }
+            const partBWaybillsToCheck = b.part_b_waybills || [];
+            for (const wb of partBWaybillsToCheck) {
+                if (wb.tracking_code) {
+                    const code = String(wb.tracking_code).trim();
+                    if (code) trackingCodesToCheck.push(code);
+                }
+            }
+
+            const uniqueTrackingCodes = [...new Set(trackingCodesToCheck)];
+
+            if (uniqueTrackingCodes.length > 0) {
+                const orConditions = [];
+                const params = [];
+                uniqueTrackingCodes.forEach((code, idx) => {
+                    orConditions.push(`transfer_note ILIKE $${idx + 1}`);
+                    params.push(`%MVĐ: ${code}%`);
+                });
+                
+                let checkQuery = `
+                    SELECT id, payment_code, transfer_note
+                    FROM payment_records
+                    WHERE (${orConditions.join(' OR ')})
+                      AND id != $${uniqueTrackingCodes.length + 1}
+                      AND (parent_id IS NULL OR parent_id != $${uniqueTrackingCodes.length + 1})
+                `;
+                const checkRecords = await db.all(checkQuery, [...params, Number(id)]);
+                
+                if (checkRecords.length > 0) {
+                    for (const r of checkRecords) {
+                        for (const code of uniqueTrackingCodes) {
+                            if (r.transfer_note.includes(`MVĐ: ${code}`)) {
+                                return reply.code(400).send({ 
+                                    error: `⚠️ Mã vận đơn ${code} đã được đối soát tại phiếu ${r.payment_code}. Vui lòng kiểm tra lại!` 
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
             const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [id]);
             if (!pr) {
                 return reply.code(404).send({ error: 'Không tìm thấy giao dịch thanh toán' });

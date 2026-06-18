@@ -2327,7 +2327,25 @@ function _prRenderExcelComparison(totalCod, totalFee, totalNet, recordAmount) {
         var matchStatusHTML = '';
         var rowBg = '';
 
-        if (match) {
+        var isAlreadyReconciled = _pr.reconcileState.alreadyReconciledMap && !!_pr.reconcileState.alreadyReconciledMap[code];
+        var reconciledPaymentCode = isAlreadyReconciled ? (_pr.reconcileState.alreadyReconciledMap[code].payment_code || '') : '';
+
+        if (isAlreadyReconciled) {
+            hasCriticalBlock = true;
+            matchStatusHTML = '<span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:4px 8px;border-radius:6px;font-weight:700;font-size:11.5px;line-height:1.4;display:inline-block">❌ Đã đối soát<br>(' + reconciledPaymentCode + ')</span>';
+            rowBg = 'background:#fee2e2;opacity:0.95';
+            
+            if (match) {
+                var typeTag = match.order_type === 'ao_mau' 
+                    ? '<span style="background:#ede9fe;color:#6d28d9;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Áo mẫu</span>'
+                    : '<span style="background:#e0f2fe;color:#0369a1;padding:1px 4px;border-radius:4px;font-size:8.5px;font-weight:bold;margin-left:4px">Đơn tổng</span>';
+
+                crmInfoHTML = '<div style="display:flex;align-items:center;gap:4px"><strong style="color:var(--navy);font-size:12px">' + match.order_code + '</strong>' + typeTag + '</div>'
+                    + '<div style="font-size:10px;color:#64748b;margin-top:2px">' + (match.customer_name || '—') + ' · SĐT: ' + (match.customer_phone || '—') + '</div>';
+            } else {
+                crmInfoHTML = '<div style="color:#94a3b8;font-style:italic">Không tìm thấy đơn</div>';
+            }
+        } else if (match) {
             totalPartBMatched++;
             matchStatusHTML = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px">✓ Khớp đơn</span>';
             rowBg = 'background:#f0fdf4';
