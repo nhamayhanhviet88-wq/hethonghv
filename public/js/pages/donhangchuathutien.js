@@ -586,11 +586,59 @@ async function _dhcttLoadTree() {
     
     // Grand Total
     const gCount = data.grandCount || 0;
+    const isGrandActive = _dhctt.filter.carrier_id === undefined && !_dhctt.filter.year && !_dhctt.filter.month;
+    const tOpen = !!_dhctt.open.grandTotal;
     if (isFull) {
-        h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ <span style="font-size:11px;font-weight:bold;color:#fff;margin-left:3px;white-space:nowrap;">(' + gCount + ' đơn)</span></span><span>'+_dhcttFmt(data.grandTotal||0)+'</span></div>';
+        h += '<div class="dhctt-sb-total' + (isGrandActive ? ' active' : '') + '" onclick="_dhcttFilterOnly({})" style="padding: 10px 16px;">'
+            + '<div style="display:flex;flex-direction:column;gap:2px;">'
+            + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyGrandTotal()">' + (tOpen ? '▼' : '▶') + '</span> Tổng Còn Nợ</span>'
+            + '<span style="font-size:11px;font-weight:bold;color:#ffd700;padding-left:14px;white-space:nowrap;">(' + gCount + ' đơn)</span>'
+            + '</div>'
+            + '<span style="align-self:center;">' + _dhcttFmt(data.grandTotal || 0) + '</span>'
+            + '</div>';
     } else {
-        h += '<div class="dhctt-sb-total" onclick="_dhcttFilterOnly({})"><span>▼ Tổng Còn Nợ <span style="font-size:11px;font-weight:bold;color:#fff;margin-left:3px;white-space:nowrap;">(' + gCount + ' đơn)</span></span></div>';
+        h += '<div class="dhctt-sb-total' + (isGrandActive ? ' active' : '') + '" onclick="_dhcttFilterOnly({})" style="padding: 10px 16px;">'
+            + '<div style="display:flex;flex-direction:column;gap:2px;">'
+            + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyGrandTotal()">' + (tOpen ? '▼' : '▶') + '</span> Tổng Còn Nợ</span>'
+            + '<span style="font-size:11px;font-weight:bold;color:#ffd700;padding-left:14px;white-space:nowrap;">(' + gCount + ' đơn)</span>'
+            + '</div>'
+            + '</div>';
     }
+
+    // Expanded month list for Grand Total
+    h += '<div style="display:' + (tOpen ? 'block' : 'none') + '; border-bottom:1px solid #fed7aa;">';
+    const unpaidMonthsMap = {};
+    _dhctt.tree.forEach(function(carrier) {
+        (carrier.years || []).forEach(function(yr) {
+            (yr.months || []).forEach(function(mo) {
+                const key = yr.year + '-' + mo.month;
+                if (!unpaidMonthsMap[key]) {
+                    unpaidMonthsMap[key] = {
+                        year: yr.year,
+                        month: mo.month,
+                        total: 0,
+                        count: 0
+                    };
+                }
+                unpaidMonthsMap[key].total += mo.total;
+                unpaidMonthsMap[key].count += mo.count;
+            });
+        });
+    });
+    const unpaidMonthsList = Object.values(unpaidMonthsMap).sort(function(a, b) {
+        if (a.year !== b.year) return b.year - a.year;
+        return b.month - a.month;
+    });
+    unpaidMonthsList.forEach(function(mo) {
+        const mActive = _dhctt.filter.carrier_id === undefined && _dhctt.filter.year == mo.year && _dhctt.filter.month == mo.month;
+        const moValSpan = isFull ? '<span style="color:#b8860b;font-weight:800">' + _dhcttFmt(mo.total) + '</span>' : '';
+        h += '<div class="dhctt-sb-month' + (mActive ? ' active' : '') + '" onclick="event.stopPropagation();_dhcttFilterOnly({year:' + mo.year + ',month:' + mo.month + '})" style="padding-left: 28px; background: #fffcf8; border-bottom: 1px solid #fef3c7;">'
+            + '<span>▸ Tháng ' + String(mo.month).padStart(2,'0') + '/' + mo.year + ' <span style="font-size:9.5px;font-weight:bold;color:#374151;margin-left:3px;white-space:nowrap;">(' + mo.count + ' đơn)</span></span>'
+            + moValSpan
+            + '</div>';
+    });
+    h += '</div>';
+
 
     // Initialize open state for first render if not set
     if (!_dhctt.open._init) {
@@ -679,6 +727,12 @@ async function _dhcttLoadTree() {
     });
 
     sb.innerHTML = h;
+}
+
+function _dhcttToggleOnlyGrandTotal() {
+    _dhctt.open = _dhctt.open || {};
+    _dhctt.open.grandTotal = !_dhctt.open.grandTotal;
+    _dhcttLoadTree();
 }
 
 function _dhcttToggleOnlyCarrier(key) {
@@ -883,7 +937,8 @@ async function renderDonhangchuathutienPage(content) {
             +'.dhctt-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;position:relative;overflow:hidden}'
             +'.dhctt-sb-title::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(250,210,76,0.08) 50%,transparent 70%);animation:dhcttShimmer 3s infinite}'
             +'@keyframes dhcttShimmer{0%{transform:translateX(-100%) rotate(0)}100%{transform:translateX(100%) rotate(0)}}'
-            +'.dhctt-sb-total{background:linear-gradient(135deg,#c2410c,#ea580c,#f97316);color:#fff;padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer;position:relative;overflow:hidden}'
+            +'.dhctt-sb-total{background:linear-gradient(135deg,#c2410c,#ea580c,#f97316);color:#fff;padding:12px 16px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;cursor:pointer;position:relative;overflow:hidden;transition:all 0.2s}'
+            +'.dhctt-sb-total.active{background:linear-gradient(135deg,#b91c1c,#c2410c,#ea580c);box-shadow:inset 0 0 0 2px #ffd700;}'
             +'.dhctt-sb-total::after{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);animation:dhcttGlow 2.5s infinite}'
             +'@keyframes dhcttGlow{0%{left:-100%}100%{left:150%}}'
             +'.dhctt-sb-year{padding:8px 16px;font-weight:800;font-size:12px;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-bottom:1px solid var(--gray-200)}'
