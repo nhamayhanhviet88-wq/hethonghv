@@ -276,7 +276,7 @@ module.exports = async function(fastify) {
                     SELECT 'sample_' || d.id AS id, d.sample_order_code AS order_code, d.order_date,
                         CASE WHEN d.status_gui_don = true OR d.shipped_at IS NOT NULL THEN 'shipped' ELSE 'pending' END AS shipping_status,
                         d.actual_carrier_id, d.shipped_at,
-                        (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount,
+                        GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
                         'ao_mau' AS order_type,
                         d.created_by
                     FROM don_gui_ao_mau d
@@ -288,7 +288,7 @@ module.exports = async function(fastify) {
                     ) pr_dep ON true
                     WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
                       AND (
-                          (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+                          GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) > 0
                           OR d.status_hoan_hang = true
                       )
                 ),
@@ -492,7 +492,7 @@ module.exports = async function(fastify) {
                     UNION ALL
 
                     SELECT 'sample_' || d.id AS id, d.sample_order_code AS order_code,
-                        (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount,
+                        GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
                         d.created_by
                     FROM don_gui_ao_mau d
                     LEFT JOIN LATERAL (
@@ -503,7 +503,7 @@ module.exports = async function(fastify) {
                     ) pr_dep ON true
                     WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
                       AND (
-                          (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) > 0
+                          GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) > 0
                           OR d.status_hoan_hang = true
                       )
                 ),
@@ -863,8 +863,8 @@ module.exports = async function(fastify) {
                     d.shipping_payment_id,
                     d.shipping_priority,
                     COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
-                    CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END AS ship_ck_deduct,
-                    (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0)) AS remaining_amount,
+                    CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END AS ship_ck_deduct,
+                    GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
                     d.updated_at AS last_updated_at,
                     'Áo Mẫu' AS category_name,
                     u_created.full_name AS cskh_name,
