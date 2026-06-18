@@ -1138,6 +1138,7 @@ function _dgamOnDraftSelect() {
         _dgam.selectedDepositAmount = 0;
         const depAmtField = document.getElementById('dgamAddDepositAmountField');
         if (depAmtField) depAmtField.value = '0';
+        _dgamUpdateCategoryDropdown();
         return;
     }
     const draft = _dgamDraftsList.find(d => d.id == draftId);
@@ -1151,10 +1152,65 @@ function _dgamOnDraftSelect() {
         const depAmtField = document.getElementById('dgamAddDepositAmountField');
         if (depAmtField) depAmtField.value = _dgam.selectedDepositAmount.toLocaleString('vi-VN');
 
+        _dgamUpdateCategoryDropdown();
+
         const cat = document.getElementById('dgamAddCategory').value;
         if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(cat)) {
             _dgamCalcRemaining();
         }
+    }
+}
+
+function _dgamUpdateCategoryDropdown() {
+    const depCodeInput = document.getElementById('dgamAddDepositCode');
+    const catSelect = document.getElementById('dgamAddCategory');
+    if (!depCodeInput || !catSelect) return;
+
+    const depCode = depCodeInput.value.trim();
+    // Có cọc nếu mã cọc khác rỗng và khác "Không có cọc"
+    const hasDeposit = depCode !== '' && depCode !== 'Không có cọc';
+
+    const selectedValue = catSelect.value;
+    
+    // Xóa sạch và xây dựng lại options
+    catSelect.innerHTML = '<option value="">-- Chọn phân loại --</option>';
+
+    const allOptions = [
+        { value: 'Gửi mẫu áo', text: 'Gửi mẫu áo' },
+        { value: 'Gửi mẫu vải', text: 'Gửi mẫu vải' },
+        { value: 'Gửi Tem', text: 'Gửi Tem' },
+        { value: 'Gửi Pet', text: 'Gửi Pet' },
+        { value: 'Gửi Khác', text: 'Gửi Khác' },
+        { value: 'Gửi mẫu quần', text: 'Gửi mẫu quần' },
+        { value: 'Gửi mẫu váy', text: 'Gửi mẫu váy' }
+    ];
+
+    allOptions.forEach(opt => {
+        if (hasDeposit) {
+            // Có cọc: Chỉ cho phép 'Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'
+            if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(opt.value)) {
+                catSelect.appendChild(new Option(opt.text, opt.value));
+            }
+        } else {
+            // Không cọc: Hiển thị đầy đủ
+            catSelect.appendChild(new Option(opt.text, opt.value));
+        }
+    });
+
+    // Phục hồi lựa chọn trước đó nếu lựa chọn đó vẫn tồn tại trong danh sách mới
+    let stillExists = false;
+    for (let i = 0; i < catSelect.options.length; i++) {
+        if (catSelect.options[i].value === selectedValue) {
+            stillExists = true;
+            break;
+        }
+    }
+
+    if (stillExists) {
+        catSelect.value = selectedValue;
+    } else {
+        catSelect.value = '';
+        _dgamOnCategoryChange();
     }
 }
 
