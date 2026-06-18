@@ -212,8 +212,7 @@ function _prRenderToolbar() {
         + (_pr.filterSearch ? '<button onclick="_prClearSearch()" style="background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;font-weight:bold;padding:0 4px">✕</button>' : '')
         + '</div>';
 
-    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+filtered.length+' mã</span></span>'
-        + '<div style="display:flex;gap:6px;margin-left:10px">'
+    tb.innerHTML = '<div style="display:flex;gap:6px;margin-right:10px">'
         + '<select id="prFilterClaim" style="padding:4px 10px;font-size:12px;border-radius:8px;border:1px solid #94a3b8;background:#f1f5f9;outline:none;cursor:pointer;font-weight:800;color:#0f172a;height:32px;font-family:inherit" onchange="_prChangeFilterClaim(this.value)">'
         + '<option value=""' + (_pr.filterClaimState === '' ? ' selected' : '') + '>-- Trạng thái nhận --</option>'
         + '<option value="unclaimed"' + (_pr.filterClaimState === 'unclaimed' ? ' selected' : '') + '>Chưa ai nhận</option>'
@@ -226,8 +225,9 @@ function _prRenderToolbar() {
         + '<option value="nha_van_chuyen"' + (_pr.filterSource === 'nha_van_chuyen' ? ' selected' : '') + '>Nhà vận chuyển</option>'
         + '</select>'
         + '</div>'
-        + '<span style="flex:1"></span>'
         + searchBox
+        + '<span class="pr-filter-info" style="margin-left:10px">📅 '+filterText+' <span class="pr-count">'+filtered.length+' mã</span></span>'
+        + '<span style="flex:1"></span>'
         + '<span style="font-size:13px;font-weight:800;color:var(--success);margin-right:15px">💰 '+_prFmt(total)+'</span>'
         + handoverBtn+permBtn+tgBtn+asBtn+bankBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
 
