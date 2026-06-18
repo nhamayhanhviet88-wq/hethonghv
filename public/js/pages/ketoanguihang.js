@@ -507,7 +507,9 @@ function _shBuildTable(orders) {
         html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;white-space:nowrap;">
             <div style="display:flex;align-items:center;">
                 ${prioBadgeHtml}
-                <span style="font-size:12px;font-weight:900;color:#1e1b4b;letter-spacing:0.5px;">${o.is_hoan_hang ? '🔄 [HOÀN] ' : ''}${o.order_code || '—'}</span>
+                <span style="font-size:12px;font-weight:900;color:#1e1b4b;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:4px;">
+                    ${o.is_hoan_hang ? '🔄 <span style="background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe;padding:2.5px 6px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;vertical-align:middle;line-height:1;">Hoàn</span>' : ''}${o.order_code || '—'}
+                </span>
             </div>
         </td>`;
 
