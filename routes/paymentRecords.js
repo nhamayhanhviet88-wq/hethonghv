@@ -274,11 +274,19 @@ module.exports = async function(fastify) {
         return { tree };
     });
 
+    function maskPhone(phone) {
+        if (!phone) return phone;
+        const str = String(phone).trim();
+        if (str.length < 6) return '***';
+        return str.substring(0, 3) + '***' + str.substring(str.length - 3);
+    }
+
     fastify.get('/api/payment-records/parent/:id/children', async (request, reply) => {
         const token = request.cookies?.token;
         if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
         const jwt = require('jsonwebtoken');
-        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
 
         const { id } = request.params;
         const rows = await db.all(
@@ -350,6 +358,21 @@ module.exports = async function(fastify) {
                 rows.push(parentRec);
             }
         }
+
+        const isGD = user.role === 'giam_doc';
+        const isQLCC = user.role === 'quan_ly_cap_cao';
+        const isKT = await isKeToan(user.id);
+        const hasFullPhoneAccess = isGD || isQLCC || isKT;
+
+        if (!hasFullPhoneAccess) {
+            rows.forEach(r => {
+                const isOwner = (r.cskh_user_id === user.id || r.created_by === user.id);
+                if (!isOwner && r.customer_phone) {
+                    r.customer_phone = maskPhone(r.customer_phone);
+                }
+            });
+        }
+
         const splitRows = await db.all(
             `SELECT payment_code, amount, payment_type FROM payment_records WHERE parent_id = $1 AND payment_type != 'child_sll' ORDER BY id ASC`,
             [Number(id)]
@@ -365,14 +388,52 @@ module.exports = async function(fastify) {
         let user;
         try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
 
-        const { year, month, day } = request.query;
+        const { year, month, day, search } = request.query;
         let where = "WHERE COALESCE(pr.source, '') != 'cashflow_chi' AND COALESCE(pr.payment_type, '') != 'child_sll'";
         const params = [];
         let paramIdx = 1;
+        let limitClause = '';
 
-        if (year) { where += ` AND EXTRACT(YEAR FROM pr.payment_date) = $${paramIdx++}`; params.push(Number(year)); }
-        if (month) { where += ` AND EXTRACT(MONTH FROM pr.payment_date) = $${paramIdx++}`; params.push(Number(month)); }
-        if (day) { where += ` AND EXTRACT(DAY FROM pr.payment_date) = $${paramIdx++}`; params.push(Number(day)); }
+        if (search && search.trim()) {
+            const q = search.trim();
+            // Chuẩn hóa search số tiền (nếu người dùng nhập dạng tiền tệ)
+            const cleanAmtQuery = q.replace(/[\.,đđ]/g, '');
+            const isNumeric = /^\d+$/.test(cleanAmtQuery);
+
+            where += ` AND (
+                pr.payment_code ILIKE $${paramIdx}
+                OR pr.customer_name ILIKE $${paramIdx}
+                OR pr.customer_phone ILIKE $${paramIdx}
+                OR pr.transfer_note ILIKE $${paramIdx}
+                OR pr.order_tt_coc ILIKE $${paramIdx}
+                OR pr.order_ao_mau ILIKE $${paramIdx}
+                OR pr.total_order_codes ILIKE $${paramIdx}
+                OR EXISTS (
+                    SELECT 1 FROM payment_records c
+                    WHERE c.payment_type = 'child_sll'
+                      AND (c.parent_id = pr.id OR c.source_ref_id = pr.id::text)
+                      AND (
+                          c.customer_name ILIKE $${paramIdx}
+                          OR c.order_tt_coc ILIKE $${paramIdx}
+                          OR c.order_ao_mau ILIKE $${paramIdx}
+                      )
+                )
+            `;
+            params.push(`%${q}%`);
+            paramIdx++;
+
+            if (isNumeric && cleanAmtQuery.length > 0) {
+                where += ` OR CAST(pr.amount AS TEXT) LIKE $${paramIdx}`;
+                params.push(`%${cleanAmtQuery}%`);
+                paramIdx++;
+            }
+            where += ` )`;
+            limitClause = ' LIMIT 300';
+        } else {
+            if (year) { where += ` AND EXTRACT(YEAR FROM pr.payment_date) = $${paramIdx++}`; params.push(Number(year)); }
+            if (month) { where += ` AND EXTRACT(MONTH FROM pr.payment_date) = $${paramIdx++}`; params.push(Number(month)); }
+            if (day) { where += ` AND EXTRACT(DAY FROM pr.payment_date) = $${paramIdx++}`; params.push(Number(day)); }
+        }
 
         const rows = await db.all(`
             SELECT pr.*,
@@ -400,7 +461,22 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_handover ON pr.handover_by = u_handover.id
             ${where}
             ORDER BY pr.payment_date DESC, pr.id DESC
+            ${limitClause}
         `, params);
+
+        const isGD = user.role === 'giam_doc';
+        const isQLCC = user.role === 'quan_ly_cap_cao';
+        const isKT = await isKeToan(user.id);
+        const hasFullPhoneAccess = isGD || isQLCC || isKT;
+
+        if (!hasFullPhoneAccess) {
+            rows.forEach(r => {
+                const isOwner = (r.cskh_user_id === user.id || r.created_by === user.id);
+                if (!isOwner && r.customer_phone) {
+                    r.customer_phone = maskPhone(r.customer_phone);
+                }
+            });
+        }
 
         return { records: rows };
     });
@@ -1724,6 +1800,7 @@ module.exports = async function(fastify) {
                 o.order_code,
                 o.customer_name,
                 o.customer_phone,
+                o.cskh_user_id,
                 o.order_date,
                 (SELECT COUNT(*) FROM dht_order_shipments WHERE dht_order_id = o.id) AS shipment_count,
                 (COALESCE(o.total_amount, 0)
@@ -1759,6 +1836,7 @@ module.exports = async function(fastify) {
                 d.sample_order_code AS order_code,
                 d.customer_name,
                 d.customer_phone,
+                d.created_by,
                 d.order_date,
                 1 AS shipment_count,
                 (COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - (CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' THEN COALESCE(d.shipping_fee, 0) ELSE 0 END)) AS remaining
@@ -1785,6 +1863,25 @@ module.exports = async function(fastify) {
 
         // Combine
         let combined = [...dhtOrders, ...sampleOrders];
+
+        const isGD = user.role === 'giam_doc';
+        const isQLCC = user.role === 'quan_ly_cap_cao';
+        const isKT = await isKeToan(user.id);
+        const hasFullPhoneAccess = isGD || isQLCC || isKT;
+
+        if (!hasFullPhoneAccess) {
+            combined.forEach(o => {
+                let isOwner = false;
+                if (o.order_type === 'dht_order') {
+                    isOwner = (o.cskh_user_id === user.id);
+                } else if (o.order_type === 'ao_mau') {
+                    isOwner = (o.created_by === user.id);
+                }
+                if (!isOwner && o.customer_phone) {
+                    o.customer_phone = maskPhone(o.customer_phone);
+                }
+            });
+        }
 
         // Sort
         if (q) {
@@ -1894,7 +1991,8 @@ module.exports = async function(fastify) {
         const token = request.cookies?.token;
         if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
         const jwt = require('jsonwebtoken');
-        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
 
         const { q } = request.query;
         let searchWhereDht = '';
@@ -1908,7 +2006,7 @@ module.exports = async function(fastify) {
 
         const dhtOrders = await db.all(`
             SELECT 'dht_order' AS order_type,
-                   o.id, o.order_code, o.customer_name, o.customer_phone,
+                   o.id, o.order_code, o.customer_name, o.customer_phone, o.cskh_user_id,
                    o.total_amount, o.discount_amount, o.order_date,
                    o.shipping_fee_payer, o.shipping_fee_method, o.shipping_fee,
                    u.full_name AS cskh_name,
@@ -1938,7 +2036,7 @@ module.exports = async function(fastify) {
 
         const sampleOrders = await db.all(`
             SELECT 'ao_mau' AS order_type,
-                   d.id, d.sample_order_code AS order_code, d.customer_name, d.customer_phone,
+                   d.id, d.sample_order_code AS order_code, d.customer_name, d.customer_phone, d.created_by,
                    d.total_amount, 0 AS discount_amount, d.order_date,
                    d.shipping_fee_payer, d.shipping_fee_method, d.shipping_fee,
                    u.full_name AS cskh_name,
@@ -1962,6 +2060,25 @@ module.exports = async function(fastify) {
         const combined = [...dhtOrders, ...sampleOrders];
         combined.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
         const orders = combined.slice(0, 40);
+
+        const isGD = user.role === 'giam_doc';
+        const isQLCC = user.role === 'quan_ly_cap_cao';
+        const isKT = await isKeToan(user.id);
+        const hasFullPhoneAccess = isGD || isQLCC || isKT;
+
+        if (!hasFullPhoneAccess) {
+            orders.forEach(o => {
+                let isOwner = false;
+                if (o.order_type === 'dht_order') {
+                    isOwner = (o.cskh_user_id === user.id);
+                } else if (o.order_type === 'ao_mau') {
+                    isOwner = (o.created_by === user.id);
+                }
+                if (!isOwner && o.customer_phone) {
+                    o.customer_phone = maskPhone(o.customer_phone);
+                }
+            });
+        }
 
         return { orders };
     });

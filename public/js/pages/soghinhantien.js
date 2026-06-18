@@ -115,10 +115,10 @@ function _prRenderSidebar() {
     sb.innerHTML = h;
 }
 
-function _prFilterAll() { _pr.filter={}; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
-function _prFilterYear(y) { _pr.filter={year:y}; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
-function _prFilterMonth(y,m) { _pr.filter={year:y,month:m}; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
-function _prFilterDay(y,m,d) { _pr.filter={year:y,month:m,day:d}; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
+function _prFilterAll() { _pr.filter={}; _pr.filterSearch = ''; var input = document.getElementById('prSearchInput'); if (input) input.value = ''; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
+function _prFilterYear(y) { _pr.filter={year:y}; _pr.filterSearch = ''; var input = document.getElementById('prSearchInput'); if (input) input.value = ''; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
+function _prFilterMonth(y,m) { _pr.filter={year:y,month:m}; _pr.filterSearch = ''; var input = document.getElementById('prSearchInput'); if (input) input.value = ''; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
+function _prFilterDay(y,m,d) { _pr.filter={year:y,month:m,day:d}; _pr.filterSearch = ''; var input = document.getElementById('prSearchInput'); if (input) input.value = ''; _pr.currentPage = 1; _prRenderSidebar(); _prLoadRecords(); }
 
 function _prGetFilteredRecords() {
     return _pr.records.filter(function(r) {
@@ -138,11 +138,17 @@ function _prGetFilteredRecords() {
             var matchCode = (r.payment_code || '').toLowerCase().includes(q);
             var matchName = (r.customer_name || '').toLowerCase().includes(q);
             var matchPhone = (r.customer_phone || '').toLowerCase().includes(q);
+            var matchNote = (r.transfer_note || '').toLowerCase().includes(q);
+            var matchOrderTt = (r.order_tt_coc || '').toLowerCase().includes(q);
+            var matchOrderAo = (r.order_ao_mau || '').toLowerCase().includes(q);
+            var matchTotalOrder = (r.total_order_codes || '').toLowerCase().includes(q);
+            var matchSllNames = (r.sll_customer_names || '').toLowerCase().includes(q);
+            var matchSllOrders = (r.sll_order_codes || '').toLowerCase().includes(q);
             
             var cleanAmtQuery = q.replace(/[\.,đ]/g, '');
             var matchAmount = cleanAmtQuery && String(r.amount || '').includes(cleanAmtQuery);
             
-            if (!matchCode && !matchName && !matchPhone && !matchAmount) {
+            if (!matchCode && !matchName && !matchPhone && !matchAmount && !matchNote && !matchOrderTt && !matchOrderAo && !matchTotalOrder && !matchSllNames && !matchSllOrders) {
                 return false;
             }
         }
@@ -152,9 +158,13 @@ function _prGetFilteredRecords() {
 
 async function _prLoadRecords() {
     var params = [];
-    if (_pr.filter.year) params.push('year='+_pr.filter.year);
-    if (_pr.filter.month) params.push('month='+_pr.filter.month);
-    if (_pr.filter.day) params.push('day='+_pr.filter.day);
+    if (_pr.filterSearch && _pr.filterSearch.trim()) {
+        params.push('search=' + encodeURIComponent(_pr.filterSearch.trim()));
+    } else {
+        if (_pr.filter.year) params.push('year='+_pr.filter.year);
+        if (_pr.filter.month) params.push('month='+_pr.filter.month);
+        if (_pr.filter.day) params.push('day='+_pr.filter.day);
+    }
     var url = '/api/payment-records' + (params.length ? '?'+params.join('&') : '');
     var data = await apiCall(url);
     _pr.records = data.records || [];
@@ -167,9 +177,13 @@ function _prRenderToolbar() {
     var tb = document.getElementById('prToolbar');
     if (!tb) return;
     var filterText = 'Tất cả';
-    if (_pr.filter.day) filterText = _pr.filter.day+'/'+_pr.filter.month+'/'+_pr.filter.year;
-    else if (_pr.filter.month) filterText = 'Tháng '+_pr.filter.month+'/'+_pr.filter.year;
-    else if (_pr.filter.year) filterText = 'Năm '+_pr.filter.year;
+    if (_pr.filterSearch && _pr.filterSearch.trim()) {
+        filterText = '🔍 Tìm kiếm toàn bộ: "' + _pr.filterSearch.trim() + '"';
+    } else {
+        if (_pr.filter.day) filterText = _pr.filter.day+'/'+_pr.filter.month+'/'+_pr.filter.year;
+        else if (_pr.filter.month) filterText = 'Tháng '+_pr.filter.month+'/'+_pr.filter.year;
+        else if (_pr.filter.year) filterText = 'Năm '+_pr.filter.year;
+    }
 
     var filtered = _prGetFilteredRecords();
     var total = filtered.reduce(function(s,r){return s+Number(r.amount||0)},0);
@@ -404,8 +418,7 @@ function _prDoSearch() {
     var val = document.getElementById('prSearchInput')?.value || '';
     _pr.filterSearch = val;
     _pr.currentPage = 1;
-    _prRenderToolbar();
-    _prRenderTable();
+    _prLoadRecords();
 }
 
 function _prClearSearch() {
@@ -413,8 +426,7 @@ function _prClearSearch() {
     var input = document.getElementById('prSearchInput');
     if (input) input.value = '';
     _pr.currentPage = 1;
-    _prRenderToolbar();
-    _prRenderTable();
+    _prLoadRecords();
 }
 
 var _prSearchDebounce = null;
@@ -423,8 +435,7 @@ function _prOnSearchInput(val) {
     _prSearchDebounce = setTimeout(function() {
         _pr.filterSearch = val;
         _pr.currentPage = 1;
-        _prRenderTable();
-        _prUpdateToolbarCounts();
+        _prLoadRecords();
     }, 250);
 }
 
