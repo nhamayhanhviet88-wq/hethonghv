@@ -256,14 +256,16 @@ module.exports = async function(fastify) {
                     SELECT o.id::text AS id, o.order_code, o.order_date, o.shipping_status, o.actual_carrier_id, o.shipped_at,
                         GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) AS remaining_amount,
                         'dht_order' AS order_type,
-                        o.created_by
+                        o.created_by,
+                        o.tracking_code
                     FROM dht_orders o
                     LEFT JOIN LATERAL (
                         SELECT COALESCE(SUM(amount), 0) AS deposit_total
                         FROM payment_records
                         WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                            OR order_tt_coc = o.order_code
-                    ) pr_dep ON true                    WHERE (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
+                    ) pr_dep ON true
+                    WHERE (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
 
                     UNION ALL
 
@@ -272,14 +274,16 @@ module.exports = async function(fastify) {
                         d.actual_carrier_id, d.shipped_at,
                         GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
                         'ao_mau' AS order_type,
-                        d.created_by
+                        d.created_by,
+                        d.tracking_code
                     FROM don_gui_ao_mau d
                     LEFT JOIN LATERAL (
                         SELECT COALESCE(SUM(amount), 0) AS deposit_total
                         FROM payment_records
                         WHERE order_ao_mau = d.sample_order_code
                            OR order_tt_coc = d.sample_order_code
-                    ) pr_dep ON true                    WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
+                    ) pr_dep ON true
+                    WHERE COALESCE(d.sample_order_code, '') != '' AND d.order_status != 'draft'
                       AND GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) > 0
                 ),
                 filtered_unpaid AS (
@@ -289,7 +293,18 @@ module.exports = async function(fastify) {
                 order_carriers AS (
                     SELECT DISTINCT
                         o.id AS order_id,
-                        COALESCE(oi.actual_carrier_id, 0) AS carrier_id,
+                        CASE 
+                            WHEN oi.shipping_status = 'shipped' 
+                             AND oi.tracking_code IS NOT NULL 
+                             AND oi.tracking_code != ''
+                             AND EXISTS (
+                                 SELECT 1 FROM payment_records pr 
+                                 WHERE pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
+                                    OR pr.transfer_note ILIKE '%MVĐ: ' || oi.tracking_code || '%'
+                             )
+                            THEN 0
+                            ELSE COALESCE(oi.actual_carrier_id, 0)
+                        END AS carrier_id,
                         o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
@@ -306,6 +321,16 @@ module.exports = async function(fastify) {
                     SELECT
                         o.id AS order_id,
                         CASE 
+                            WHEN o.shipping_status = 'shipped' 
+                             AND o.actual_carrier_id IS NOT NULL 
+                             AND o.tracking_code IS NOT NULL 
+                             AND o.tracking_code != ''
+                             AND EXISTS (
+                                 SELECT 1 FROM payment_records pr 
+                                 WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
+                                    OR pr.transfer_note ILIKE '%MVĐ: ' || o.tracking_code || '%'
+                             )
+                            THEN 0
                             WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
                             THEN o.actual_carrier_id 
                             ELSE 0 
@@ -329,6 +354,16 @@ module.exports = async function(fastify) {
                     SELECT
                         o.id AS order_id,
                         CASE 
+                            WHEN o.shipping_status = 'shipped' 
+                             AND o.actual_carrier_id IS NOT NULL 
+                             AND o.tracking_code IS NOT NULL 
+                             AND o.tracking_code != ''
+                             AND EXISTS (
+                                 SELECT 1 FROM payment_records pr 
+                                 WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
+                                    OR pr.transfer_note ILIKE '%MVĐ: ' || o.tracking_code || '%'
+                             )
+                            THEN 0
                             WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
                             THEN o.actual_carrier_id 
                             ELSE 0 
@@ -773,9 +808,30 @@ module.exports = async function(fastify) {
                     o.id DESC
                 `;
                 where += ` AND (
-                    (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) AND (COALESCE(o.shipping_status, 'pending') != 'shipped' OR o.actual_carrier_id IS NULL OR o.actual_carrier_id = 0))
+                    (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) 
+                        AND (COALESCE(o.shipping_status, 'pending') != 'shipped' 
+                            OR o.actual_carrier_id IS NULL 
+                            OR o.actual_carrier_id = 0
+                            OR (o.tracking_code IS NOT NULL AND o.tracking_code != '' AND EXISTS (
+                                SELECT 1 FROM payment_records pr 
+                                WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
+                                   OR pr.transfer_note ILIKE '%MVĐ: ' || o.tracking_code || '%'
+                            ))
+                        )
+                    )
                     OR
-                    EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND (COALESCE(shipping_status, 'pending') != 'shipped' OR actual_carrier_id IS NULL OR actual_carrier_id = 0))
+                    EXISTS (SELECT 1 FROM dht_order_items oi 
+                        WHERE oi.dht_order_id = o.id 
+                        AND (COALESCE(oi.shipping_status, 'pending') != 'shipped' 
+                            OR oi.actual_carrier_id IS NULL 
+                            OR oi.actual_carrier_id = 0
+                            OR (oi.tracking_code IS NOT NULL AND oi.tracking_code != '' AND EXISTS (
+                                SELECT 1 FROM payment_records pr 
+                                WHERE pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
+                                   OR pr.transfer_note ILIKE '%MVĐ: ' || oi.tracking_code || '%'
+                            ))
+                        )
+                    )
                 )`;
                 if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
                 if (month) { where += ` AND EXTRACT(MONTH FROM o.order_date) = $${idx++}`; params.push(Number(month)); }
@@ -795,12 +851,24 @@ module.exports = async function(fastify) {
                 where += ` AND (
                     (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) 
                         AND COALESCE(o.shipping_status, 'pending') = 'shipped' 
-                        AND o.actual_carrier_id = $${carrierParamIdx})
+                        AND o.actual_carrier_id = $${carrierParamIdx}
+                        AND NOT (o.tracking_code IS NOT NULL AND o.tracking_code != '' AND EXISTS (
+                            SELECT 1 FROM payment_records pr 
+                            WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
+                               OR pr.transfer_note ILIKE '%MVĐ: ' || o.tracking_code || '%'
+                        ))
+                    )
                     OR
-                    EXISTS (SELECT 1 FROM dht_order_items 
-                        WHERE dht_order_id = o.id 
-                        AND COALESCE(shipping_status, 'pending') = 'shipped' 
-                        AND actual_carrier_id = $${carrierParamIdx})
+                    EXISTS (SELECT 1 FROM dht_order_items oi 
+                        WHERE oi.dht_order_id = o.id 
+                        AND COALESCE(oi.shipping_status, 'pending') = 'shipped' 
+                        AND oi.actual_carrier_id = $${carrierParamIdx}
+                        AND NOT (oi.tracking_code IS NOT NULL AND oi.tracking_code != '' AND EXISTS (
+                            SELECT 1 FROM payment_records pr 
+                            WHERE pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
+                               OR pr.transfer_note ILIKE '%MVĐ: ' || oi.tracking_code || '%'
+                        ))
+                    )
                 )`;
 
                 if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
@@ -895,7 +963,11 @@ module.exports = async function(fastify) {
             if (carrier_id !== undefined) {
                 const carrierId = Number(carrier_id);
                 if (carrierId === 0) {
-                    sampleWhere += ` AND (d.status_gui_don = false OR d.actual_carrier_id IS NULL OR d.actual_carrier_id = 0)`;
+                    sampleWhere += ` AND (d.status_gui_don = false OR d.actual_carrier_id IS NULL OR d.actual_carrier_id = 0 OR (d.tracking_code IS NOT NULL AND d.tracking_code != '' AND EXISTS (
+                        SELECT 1 FROM payment_records pr 
+                        WHERE pr.reconciled_waybills LIKE '%"' || d.tracking_code || '"%' 
+                           OR pr.transfer_note ILIKE '%MVĐ: ' || d.tracking_code || '%'
+                    )))`;
                     if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(year)); }
                     if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(month)); }
                     if (day) { sampleWhere += ` AND EXTRACT(DAY FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(day)); }
@@ -905,7 +977,11 @@ module.exports = async function(fastify) {
                     if (month) { sampleWhere += ` AND EXTRACT(MONTH FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(month)); }
                     if (day) { sampleWhere += ` AND EXTRACT(DAY FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(day)); }
                 } else {
-                    sampleWhere += ` AND d.status_gui_don = true AND d.actual_carrier_id = $${sIdx++}`;
+                    sampleWhere += ` AND d.status_gui_don = true AND d.actual_carrier_id = $${sIdx++} AND NOT (d.tracking_code IS NOT NULL AND d.tracking_code != '' AND EXISTS (
+                        SELECT 1 FROM payment_records pr 
+                        WHERE pr.reconciled_waybills LIKE '%"' || d.tracking_code || '"%' 
+                           OR pr.transfer_note ILIKE '%MVĐ: ' || d.tracking_code || '%'
+                    ))`;
                     sampleParams.push(carrierId);
                     
                     if (year) { sampleWhere += ` AND EXTRACT(YEAR FROM d.order_date) = $${sIdx++}`; sampleParams.push(Number(year)); }
