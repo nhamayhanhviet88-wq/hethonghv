@@ -25,7 +25,6 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="telegram-notify" onclick="switchSettingTab('telegram-notify', this)">🔔 Telegram Thông Báo</div>
                     <div class="tab" data-tab="production-mode" onclick="switchSettingTab('production-mode', this)" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;color:#92400e;font-weight:700;">🚀 Thực Chiến</div>
                     <div class="tab" data-tab="master-key" onclick="switchSettingTab('master-key', this)">🔐 Mã Khóa Tổng</div>
-                    <div class="tab" data-tab="reschedule-limit" onclick="switchSettingTab('reschedule-limit', this)">📅 Giới Hạn Hẹn Lại</div>
                 </div>
                 <div id="settingsContent">
                     <div class="text-center text-muted" style="padding:30px;">Đang tải...</div>
@@ -66,8 +65,6 @@ function switchSettingTab(tab, el) {
         loadTelegramNotifySettings();
     } else if (tab === 'master-key') {
         loadMasterKeySettings();
-    } else if (tab === 'reschedule-limit') {
-        loadRescheduleLimitSettings();
     } else if (tab === 'production-mode') {
         loadProductionModeSettings();
     } else if (tab === 'dht-carriers') {
@@ -2274,65 +2271,3 @@ async function deleteCarrierItem(id, name) {
         showToast(data.error || 'Lỗi xóa', 'error');
     }
 }
-
-// ========== RESCHEDULE LIMIT SETTINGS ==========
-async function loadRescheduleLimitSettings() {
-    const el = document.getElementById('settingsContent');
-    el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
-
-    const res = await apiCall('/api/app-config/reschedule_limit_days');
-    const limitDays = res.value || '';
-
-    el.innerHTML = `
-        <div style="max-width:600px;">
-            <div style="margin-bottom:24px;">
-                <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">📅 Giới Hạn Số Ngày Hẹn Lại (Kế Toán Gửi)</h4>
-                <p style="font-size:12px;color:#6b7280;margin:0;line-height:1.6;">
-                    Thiết lập giới hạn số ngày tối đa mà Kế toán có thể chọn khi bấm hẹn lại đơn hàng gửi.
-                    Hệ thống sẽ tự động bỏ qua ngày Chủ Nhật và các ngày Lễ khi tính toán các ngày gần nhất.
-                </p>
-            </div>
-
-            <!-- Form -->
-            <div style="padding:24px;background:linear-gradient(165deg,#f8fafc,#ffffff);border:1.5px solid #e2e8f0;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,0.02);">
-                <div style="margin-bottom:20px;">
-                    <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;">
-                        🔢 Số ngày giới hạn
-                    </label>
-                    <input type="number" id="rescheduleLimitDaysInput" class="form-control" 
-                        value="${limitDays}" min="1" placeholder="Nhập số ngày (VD: 3)..."
-                        style="padding:10px 14px;border-radius:10px;font-size:14px;width:100%;max-width:240px;border:1.5px solid #cbd5e1;">
-                    <div style="font-size:11px;color:#64748b;margin-top:6px;line-height:1.4;">
-                        * Để trống hoặc nhập 0 để tắt giới hạn (cho phép Kế toán chọn ngày bất kỳ, ngoại trừ Chủ Nhật và Lễ).
-                    </div>
-                </div>
-
-                <div style="display:flex;gap:8px;">
-                    <button onclick="saveRescheduleLimitSettings()" 
-                        style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;
-                        padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;
-                        cursor:pointer;box-shadow:0 4px 10px rgba(5,150,105,0.2);transition:all .2s;"
-                        onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
-                        💾 Lưu Cài Đặt
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-async function saveRescheduleLimitSettings() {
-    const val = document.getElementById('rescheduleLimitDaysInput')?.value || '';
-    const num = parseInt(val, 10);
-    const finalVal = (isNaN(num) || num <= 0) ? '' : String(num);
-
-    const res = await apiCall('/api/app-config/reschedule_limit_days', 'PUT', { value: finalVal });
-    if (res.success) {
-        showToast('✅ Đã lưu cài đặt giới hạn hẹn lại thành công!');
-        loadRescheduleLimitSettings();
-    } else {
-        showToast('❌ Lỗi lưu cài đặt: ' + (res.error || 'Thử lại sau'), 'error');
-    }
-}
-
-
