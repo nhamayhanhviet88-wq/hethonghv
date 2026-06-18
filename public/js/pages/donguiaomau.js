@@ -43,6 +43,7 @@ async function renderDonguiaomauPage(content) {
         +'<div id="dgamStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +'<div style="margin-left:auto"><button onclick="_dgamShowAdd()" style="font-size:13px;padding:9px 20px;background:linear-gradient(135deg,#0369a1,#0284c7,#0ea5e9);color:#fff;border:none;border-radius:10px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(14,165,233,0.4);transition:all .2s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">➕ Thêm Đơn</button></div>'
         +'</div>'
+        +'<div id="dgamSubFilterContainer" style="display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap"></div>'
         +'<div id="dgamPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dgamTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>Trạng Thái</th>'
@@ -67,6 +68,7 @@ async function renderDonguiaomauPage(content) {
 
     var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     _dgam.filter = { year: nowVN.getFullYear() };
+    _dgam.subFilter = null;
     if (!_dgamOpen._init) { _dgamOpen['y' + nowVN.getFullYear()] = true; _dgamOpen._init = true; }
 
     await _dgamLoadTree();
@@ -102,8 +104,8 @@ async function _dgamLoadTree() {
 }
 
 function _dgamToggle(key) { _dgamOpen[key] = !_dgamOpen[key]; _dgamLoadTree(); }
-function _dgamFilterAll() { var n = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Ho_Chi_Minh'})); _dgam.filter={year:n.getFullYear()}; _dgam.page=1; _dgamLoadTree(); _dgamLoadOrders(); }
-function _dgamFilterMonth(y, m) { _dgam.filter = { year: y, month: m }; _dgam.page = 1; _dgamLoadTree(); _dgamLoadOrders(); }
+function _dgamFilterAll() { var n = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Ho_Chi_Minh'})); _dgam.filter={year:n.getFullYear()}; _dgam.subFilter=null; _dgam.page=1; _dgamLoadTree(); _dgamLoadOrders(); }
+function _dgamFilterMonth(y, m) { _dgam.filter = { year: y, month: m }; _dgam.subFilter=null; _dgam.page = 1; _dgamLoadTree(); _dgamLoadOrders(); }
 
 // ========== ORDERS ==========
 async function _dgamLoadOrders() {
@@ -118,6 +120,25 @@ async function _dgamLoadOrders() {
 
 function _dgamRenderTable() {
     var all = _dgam.orders.slice();
+
+    // Apply subFilter if active
+    if (_dgam.subFilter) {
+        all = all.filter(o => {
+            if (_dgam.subFilter === 'chua_duyet') {
+                return !o.status_duyet;
+            }
+            if (_dgam.subFilter === 'chua_hoan') {
+                const catLower = (o.category || '').toLowerCase().trim();
+                const needReturn = !(catLower.includes('tem') || catLower.includes('pet') || catLower.includes('khác') || catLower.includes('khac') || catLower.includes('vải') || catLower.includes('vai'));
+                return needReturn && !o.status_hoan_hang;
+            }
+            if (_dgam.subFilter === 'chua_kiem_tra') {
+                return !o.status_kiem_tra;
+            }
+            return true;
+        });
+    }
+
     var total = all.length, totalPages = Math.ceil(total / _dgam.pageSize) || 1;
     if (_dgam.page > totalPages) _dgam.page = totalPages;
     if (_dgam.page < 1) _dgam.page = 1;
@@ -126,6 +147,79 @@ function _dgamRenderTable() {
     _dgamRenderRows(paged);
     _dgamRenderPagination(total, totalPages);
     _dgamRenderInfo(total, all);
+    
+    // Render the sub-filters UI
+    _dgamRenderSubFilters();
+}
+
+function _dgamRenderSubFilters() {
+    const container = document.getElementById('dgamSubFilterContainer');
+    if (!container) return;
+
+    const totalOrders = _dgam.orders || [];
+    const countChuaDuyet = totalOrders.filter(o => !o.status_duyet).length;
+    const countChuaHoan = totalOrders.filter(o => {
+        const catLower = (o.category || '').toLowerCase().trim();
+        const needReturn = !(catLower.includes('tem') || catLower.includes('pet') || catLower.includes('khác') || catLower.includes('khac') || catLower.includes('vải') || catLower.includes('vai'));
+        return needReturn && !o.status_hoan_hang;
+    }).length;
+    const countChuaKiemTra = totalOrders.filter(o => !o.status_kiem_tra).length;
+
+    const activeFilter = _dgam.subFilter || '';
+
+    const btnStyle = (type, isActive, count) => {
+        let bg = '#ffffff', border = '#e2e8f0', text = '#475569', shadow = 'rgba(0,0,0,0.02)';
+        if (isActive) {
+            if (type === 'chua_duyet') {
+                bg = 'linear-gradient(135deg, #fef3c7, #fde68a)';
+                border = '#f59e0b';
+                text = '#92400e';
+                shadow = 'rgba(245, 158, 11, 0.2)';
+            } else if (type === 'chua_hoan') {
+                bg = 'linear-gradient(135deg, #fee2e2, #fca5a5)';
+                border = '#f87171';
+                text = '#991b1b';
+                shadow = 'rgba(248, 113, 113, 0.2)';
+            } else if (type === 'chua_kiem_tra') {
+                bg = 'linear-gradient(135deg, #ede9fe, #ddd6fe)';
+                border = '#a78bfa';
+                text = '#5b21b6';
+                shadow = 'rgba(167, 139, 250, 0.2)';
+            }
+        }
+        return `background:${bg}; border:1.5px solid ${border}; color:${text}; box-shadow:0 3px 8px ${shadow}; padding:8px 16px; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:all 0.15s;`;
+    };
+
+    container.innerHTML = `
+        <div style="font-weight:800; font-size:12px; color:#64748b; margin-right:8px; text-transform:uppercase; letter-spacing:0.5px;">Bộ lọc nhanh:</div>
+        <button onclick="_dgamSetSubFilter('chua_duyet')" style="${btnStyle('chua_duyet', activeFilter === 'chua_duyet', countChuaDuyet)}" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+            <span>⏳ Chưa Duyệt</span>
+            <span style="background:${activeFilter === 'chua_duyet' ? '#92400e' : '#64748b'}; color:#fff; padding:1px 6px; border-radius:8px; font-size:10.5px;">${countChuaDuyet}</span>
+        </button>
+        <button onclick="_dgamSetSubFilter('chua_hoan')" style="${btnStyle('chua_hoan', activeFilter === 'chua_hoan', countChuaHoan)}" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+            <span>🔄 Chưa Hoàn</span>
+            <span style="background:${activeFilter === 'chua_hoan' ? '#991b1b' : '#64748b'}; color:#fff; padding:1px 6px; border-radius:8px; font-size:10.5px;">${countChuaHoan}</span>
+        </button>
+        <button onclick="_dgamSetSubFilter('chua_kiem_tra')" style="${btnStyle('chua_kiem_tra', activeFilter === 'chua_kiem_tra', countChuaKiemTra)}" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+            <span>🔍 Chưa Kiểm Tra</span>
+            <span style="background:${activeFilter === 'chua_kiem_tra' ? '#5b21b6' : '#64748b'}; color:#fff; padding:1px 6px; border-radius:8px; font-size:10.5px;">${countChuaKiemTra}</span>
+        </button>
+        ${activeFilter ? `
+            <button onclick="_dgamSetSubFilter(null)" style="background:none; border:none; color:#dc2626; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; padding:6px 10px;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                ✕ Xóa bộ lọc
+            </button>
+        ` : ''}
+    `;
+}
+
+function _dgamSetSubFilter(filterName) {
+    if (_dgam.subFilter === filterName) {
+        _dgam.subFilter = null;
+    } else {
+        _dgam.subFilter = filterName;
+    }
+    _dgam.page = 1;
+    _dgamRenderTable();
 }
 
 var _dgamStatusMap = {
