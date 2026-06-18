@@ -254,7 +254,7 @@ module.exports = async function(fastify) {
             const unpaidTreeRows = await db.all(`
                 WITH unpaid_orders AS (
                     SELECT o.id::text AS id, o.order_code, o.order_date, o.shipping_status, o.actual_carrier_id, o.shipped_at,
-                        GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
+                        GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) AS remaining_amount,
                         'dht_order' AS order_type,
                         o.created_by
                     FROM dht_orders o
@@ -266,7 +266,7 @@ module.exports = async function(fastify) {
                     ) pr_dep ON true
                     WHERE o.parent_order_id IS NULL
                       AND (
-                          (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0
+                          (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
                           OR
                           o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
                       )
@@ -473,7 +473,7 @@ module.exports = async function(fastify) {
             const grandInfo = await db.get(`
                 WITH unpaid_orders AS (
                     SELECT o.id::text AS id, o.order_code,
-                        GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
+                        GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) AS remaining_amount,
                         o.created_by
                     FROM dht_orders o
                     LEFT JOIN LATERAL (
@@ -484,7 +484,7 @@ module.exports = async function(fastify) {
                     ) pr_dep ON true
                     WHERE o.parent_order_id IS NULL
                       AND (
-                          (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) > 0
+                          (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
                           OR
                           o.id IN (SELECT dht_order_id FROM dht_audit_logs WHERE action = 'ship' GROUP BY dht_order_id HAVING COUNT(*) >= 2)
                       )
@@ -963,7 +963,7 @@ module.exports = async function(fastify) {
                 u_updated.full_name AS last_updated_by_name,
                 u_vat.full_name AS vat_exported_by_name,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
-                GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
+                GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) AS remaining_amount,
                 COALESCE(prod_progress.done_steps, 0) AS prod_done,
                 COALESCE(prod_progress.total_steps, 0) AS prod_total,
                 prod_progress.current_step_short AS prod_current,
@@ -1900,7 +1900,7 @@ module.exports = async function(fastify) {
                 pr_ship.amount AS shipping_payment_amount,
                 cf_ship.cashflow_code AS shipping_cashflow_code,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
-                GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
+                GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - (CASE WHEN EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN 0 ELSE COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) END)) AS remaining_amount,
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
                 CASE WHEN COALESCE(err_check.error_count, 0) > 0
                      THEN COALESCE(err_check.error_count, 0) = COALESCE(err_handover.handed_count, 0)
@@ -2467,7 +2467,26 @@ module.exports = async function(fastify) {
                    GREATEST(
                        COALESCE(pr_dep.deposit_total, 0),
                        COALESCE(o.deposit_amount_cache, 0)
-                   ) AS deposit_amount
+                   ) AS deposit_amount,
+                   COALESCE(
+                       (SELECT SUM(COALESCE(os.shipping_fee, 0)) 
+                        FROM dht_order_shipments os 
+                        WHERE os.dht_order_id = o.id 
+                          AND os.shipping_fee_payer = 'hv' 
+                          AND os.shipping_fee_method = 'ck' 
+                          AND (os.tracking_code IS NULL OR os.tracking_code = '')),
+                       CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END
+                   ) AS ship_ck_val,
+                   COALESCE(
+                       (SELECT SUM(COALESCE(os.shipping_fee, 0)) 
+                        FROM dht_order_shipments os 
+                        WHERE os.dht_order_id = o.id 
+                          AND os.id != (SELECT MAX(id) FROM dht_order_shipments WHERE dht_order_id = o.id)
+                          AND os.shipping_fee_payer = 'hv' 
+                          AND os.shipping_fee_method = 'ck' 
+                          AND (os.tracking_code IS NULL OR os.tracking_code = '')),
+                       0
+                   ) AS previous_ship_ck_val
             FROM dht_orders o
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
@@ -2484,7 +2503,7 @@ module.exports = async function(fastify) {
             const disc = Number(currentObj.discount_amount) || 0;
             const hasCarrierPay = await db.get("SELECT 1 FROM payment_records WHERE (total_order_codes ILIKE '%' || $1 || '%' OR order_tt_coc = $1) AND money_source = 'nha_van_chuyen'", [currentObj.order_code]);
             const hasTrackingCodeVal = !!(currentObj.tracking_code && currentObj.tracking_code.trim());
-            const shipCKVal = hasCarrierPay ? 0 : ((currentObj.shipping_fee_payer === 'hv' && currentObj.shipping_fee_method === 'ck' && !hasTrackingCodeVal) ? (Number(currentObj.shipping_fee) || 0) : 0);
+            const shipCKVal = hasCarrierPay ? 0 : (Number(currentObj.ship_ck_val) || 0);
             const rem = tot - disc - dep - shipCKVal;
 
             // Edit restriction: If remaining amount <= 0, non-GĐ cannot edit order details
@@ -2503,7 +2522,9 @@ module.exports = async function(fastify) {
             const updatedTrackingCode = b.tracking_code !== undefined ? b.tracking_code : currentObj.tracking_code;
             const hasNewTrackingCodeVal = !!(updatedTrackingCode && updatedTrackingCode.trim());
             const newShipCK = (newShipPayer === 'hv' && newShipMethod === 'ck' && !hasNewTrackingCodeVal) ? newShipFee : 0;
-            const newShipCKVal = hasCarrierPay ? 0 : newShipCK;
+            
+            const prevShipCKVal = Number(currentObj.previous_ship_ck_val) || 0;
+            const newShipCKVal = hasCarrierPay ? 0 : (prevShipCKVal + newShipCK);
             const newRemain = newTotal - newDiscount - newDeposit - newShipCKVal;
             if (newRemain < 0) {
                 return reply.code(400).send({ error: `⛔ Số tiền Còn Lại không được phép âm! (Mới tính: ${newRemain.toLocaleString('vi-VN')}đ)` });
@@ -2916,7 +2937,7 @@ module.exports = async function(fastify) {
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 COALESCE(pr_dep.deposit_total, 0) AS deposit_amount,
-                GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
+                GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - COALESCE(pr_dep.deposit_total, 0) - (CASE WHEN EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN 0 ELSE COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) END)) AS remaining_amount,
                 order_items.items AS items
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
