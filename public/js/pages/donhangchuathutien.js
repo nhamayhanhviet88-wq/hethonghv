@@ -577,6 +577,11 @@ async function _dhcttLoadTree() {
     _dhctt.summaryVisibility = data.summaryVisibility || 'none';
     var sb = document.getElementById('dhcttSidebar'); if (!sb) return;
     _dhctt.open = _dhctt.open || {};
+    // Initialize open state for first render if not set
+    if (!_dhctt.open._init) {
+        _dhctt.open.grandTotal = true;
+        _dhctt.open._init = true;
+    }
 
     var isFull = _dhctt.summaryVisibility === 'full';
     var _sbVal = function(total, count) { return isFull ? _dhcttFmt(total) : ''; };
@@ -589,7 +594,7 @@ async function _dhcttLoadTree() {
     const isGrandActive = _dhctt.filter.carrier_id === undefined && !_dhctt.filter.year && !_dhctt.filter.month;
     const tOpen = !!_dhctt.open.grandTotal;
     if (isFull) {
-        h += '<div class="dhctt-sb-total' + (isGrandActive ? ' active' : '') + '" onclick="_dhcttFilterOnly({})" style="padding: 10px 16px;">'
+        h += '<div class="dhctt-sb-total' + (isGrandActive ? ' active' : '') + '" onclick="_dhcttClickGrandTotal()" style="padding: 10px 16px;">'
             + '<div style="display:flex;flex-direction:column;gap:2px;">'
             + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyGrandTotal()">' + (tOpen ? '▼' : '▶') + '</span> Tổng Còn Nợ</span>'
             + '<span style="font-size:11px;font-weight:bold;color:#ffd700;padding-left:14px;white-space:nowrap;">(' + gCount + ' đơn)</span>'
@@ -597,7 +602,7 @@ async function _dhcttLoadTree() {
             + '<span style="align-self:center;">' + _dhcttFmt(data.grandTotal || 0) + '</span>'
             + '</div>';
     } else {
-        h += '<div class="dhctt-sb-total' + (isGrandActive ? ' active' : '') + '" onclick="_dhcttFilterOnly({})" style="padding: 10px 16px;">'
+        h += '<div class="dhctt-sb-total' + (isGrandActive ? ' active' : '') + '" onclick="_dhcttClickGrandTotal()" style="padding: 10px 16px;">'
             + '<div style="display:flex;flex-direction:column;gap:2px;">'
             + '<span><span class="dhctt-arrow-btn" onclick="event.stopPropagation(); _dhcttToggleOnlyGrandTotal()">' + (tOpen ? '▼' : '▶') + '</span> Tổng Còn Nợ</span>'
             + '<span style="font-size:11px;font-weight:bold;color:#ffd700;padding-left:14px;white-space:nowrap;">(' + gCount + ' đơn)</span>'
@@ -640,11 +645,7 @@ async function _dhcttLoadTree() {
     h += '</div>';
 
 
-    // Initialize open state for first render if not set
-    if (!_dhctt.open._init) {
-        _dhctt.open.grandTotal = true;
-        _dhctt.open._init = true;
-    }
+    // (State initialized at the top of _dhcttLoadTree)
 
     _dhctt.tree.forEach(function(carrier) {
         var cKey = 'c' + carrier.carrier_id;
@@ -730,6 +731,12 @@ function _dhcttToggleOnlyGrandTotal() {
     _dhctt.open = _dhctt.open || {};
     _dhctt.open.grandTotal = !_dhctt.open.grandTotal;
     _dhcttLoadTree();
+}
+
+function _dhcttClickGrandTotal() {
+    _dhctt.open = _dhctt.open || {};
+    _dhctt.open.grandTotal = !_dhctt.open.grandTotal;
+    _dhcttFilterOnly({});
 }
 
 function _dhcttToggleOnlyCarrier(key) {
