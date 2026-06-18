@@ -1665,8 +1665,37 @@ function _dgamCloseImagePreview() {
 
 async function _dgamOnHoanHangClick(id) {
     try {
-        const order = await apiCall('/api/don-gui-ao-mau/' + id + '/detail');
-        if (!order) return showToast('Không tìm thấy thông tin đơn hàng', 'error');
+        const res = await apiCall('/api/don-gui-ao-mau/' + id + '/detail');
+        if (!res || !res.order) return showToast('Không tìm thấy thông tin đơn hàng', 'error');
+        const order = res.order;
+
+        const formatDgamDate = (dStr) => {
+            if (!dStr) return '—';
+            try {
+                const d = new Date(dStr);
+                if (isNaN(d.getTime())) return dStr;
+                const date = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                return `${date}/${month}/${year}`;
+            } catch (e) {
+                return dStr;
+            }
+        };
+        const formatDgamTime = (dStr) => {
+            if (!dStr) return '—';
+            try {
+                const d = new Date(dStr);
+                if (isNaN(d.getTime())) return dStr;
+                const hr = String(d.getHours()).padStart(2, '0');
+                const min = String(d.getMinutes()).padStart(2, '0');
+                const date = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                return `${hr}:${min} ${date}/${month}`;
+            } catch (e) {
+                return dStr;
+            }
+        };
 
         let carriers = [];
         try {
@@ -1712,7 +1741,7 @@ async function _dgamOnHoanHangClick(id) {
                         </div>
                         <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
                             <span style="font-weight:600;color:#64748b;">Ngày Gửi Hàng:</span>
-                            <span style="font-weight:700;color:#0f172a;background:#eff6ff;color:#1d4ed8;padding:2px 6px;border-radius:4px;width:fit-content;">${order.hoan_hang_ship_date ? fmt(order.hoan_hang_ship_date) : '—'}</span>
+                            <span style="font-weight:700;color:#0f172a;background:#eff6ff;color:#1d4ed8;padding:2px 6px;border-radius:4px;width:fit-content;">${order.hoan_hang_ship_date ? formatDgamDate(order.hoan_hang_ship_date) : '—'}</span>
                         </div>
                         <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
                             <span style="font-weight:600;color:#64748b;">Tiêu Chuẩn Gửi:</span>
@@ -1773,7 +1802,7 @@ async function _dgamOnHoanHangClick(id) {
                             <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;border-bottom:1px dashed #f1f5f9;padding-bottom:8px;">
                                 <span style="font-weight:600;color:#64748b;">Người Gửi / Ngày Gửi:</span>
                                 <span style="font-weight:700;color:#0f172a;">
-                                    ${order.hoan_shipped_by_name ? `${order.hoan_shipped_by_name} (${fmtHM_DM(order.hoan_hang_shipped_at)})` : '—'}
+                                    ${order.hoan_shipped_by_name ? `${order.hoan_shipped_by_name} (${formatDgamTime(order.hoan_hang_shipped_at)})` : '—'}
                                 </span>
                             </div>
                         </div>
