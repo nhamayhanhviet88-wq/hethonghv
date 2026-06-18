@@ -103,11 +103,15 @@ module.exports = async function(fastify) {
             const orConditions = [];
             const params = [];
             trackingCodes.forEach((code, idx) => {
-                orConditions.push(`transfer_note ILIKE $${idx + 1}`);
+                const paramIdx1 = idx * 2 + 1;
+                const paramIdx2 = idx * 2 + 2;
+                orConditions.push(`transfer_note ILIKE $${paramIdx1}`);
+                orConditions.push(`reconciled_waybills LIKE $${paramIdx2}`);
                 params.push(`%MVĐ: ${code}%`);
+                params.push(`%"code":"${code}"%`);
             });
             let reconciledQuery = `
-                SELECT id, payment_code, transfer_note
+                SELECT id, payment_code, transfer_note, reconciled_waybills
                 FROM payment_records
                 WHERE (${orConditions.join(' OR ')})
             `;
@@ -118,7 +122,13 @@ module.exports = async function(fastify) {
             
             reconciledRecords.forEach(r => {
                 trackingCodes.forEach(code => {
-                    if (r.transfer_note.includes(`MVĐ: ${code}`)) {
+                    let matched = false;
+                    if (r.transfer_note && r.transfer_note.includes(`MVĐ: ${code}`)) {
+                        matched = true;
+                    } else if (r.reconciled_waybills && r.reconciled_waybills.includes(`"code":"${code}"`)) {
+                        matched = true;
+                    }
+                    if (matched) {
                         alreadyReconciledMap[code] = {
                             payment_id: r.id,
                             payment_code: r.payment_code
@@ -757,23 +767,34 @@ module.exports = async function(fastify) {
                 const orConditions = [];
                 const params = [];
                 uniqueTrackingCodes.forEach((code, idx) => {
-                    orConditions.push(`transfer_note ILIKE $${idx + 1}`);
+                    const paramIdx1 = idx * 2 + 1;
+                    const paramIdx2 = idx * 2 + 2;
+                    orConditions.push(`transfer_note ILIKE $${paramIdx1}`);
+                    orConditions.push(`reconciled_waybills LIKE $${paramIdx2}`);
                     params.push(`%MVĐ: ${code}%`);
+                    params.push(`%"code":"${code}"%`);
                 });
                 
+                const idPlaceholderIdx = uniqueTrackingCodes.length * 2 + 1;
                 let checkQuery = `
-                    SELECT id, payment_code, transfer_note
+                    SELECT id, payment_code, transfer_note, reconciled_waybills
                     FROM payment_records
                     WHERE (${orConditions.join(' OR ')})
-                      AND id != $${uniqueTrackingCodes.length + 1}
-                      AND (parent_id IS NULL OR parent_id != $${uniqueTrackingCodes.length + 1})
+                      AND id != $${idPlaceholderIdx}
+                      AND (parent_id IS NULL OR parent_id != $${idPlaceholderIdx})
                 `;
                 const checkRecords = await db.all(checkQuery, [...params, Number(id)]);
                 
                 if (checkRecords.length > 0) {
                     for (const r of checkRecords) {
                         for (const code of uniqueTrackingCodes) {
-                            if (r.transfer_note.includes(`MVĐ: ${code}`)) {
+                            let matched = false;
+                            if (r.transfer_note && r.transfer_note.includes(`MVĐ: ${code}`)) {
+                                matched = true;
+                            } else if (r.reconciled_waybills && r.reconciled_waybills.includes(`"code":"${code}"`)) {
+                                matched = true;
+                            }
+                            if (matched) {
                                 return reply.code(400).send({ 
                                     error: `⚠️ Mã vận đơn ${code} đã được đối soát tại phiếu ${r.payment_code}. Vui lòng kiểm tra lại!` 
                                 });
