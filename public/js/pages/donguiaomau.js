@@ -150,7 +150,9 @@ function _dgamRenderTable() {
                 return false;
             }
             if (_dgam.subFilter === 'chua_kiem_tra') {
-                return !o.status_kiem_tra;
+                const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
+                const isInspectLocked = o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image;
+                return !o.status_kiem_tra && !isInspectLocked;
             }
             return true;
         });
@@ -198,7 +200,11 @@ function _dgamRenderSubFilters() {
         }
         return false;
     }).length;
-    const countChuaKiemTra = totalOrders.filter(o => !o.status_kiem_tra).length;
+    const countChuaKiemTra = totalOrders.filter(o => {
+        const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
+        const isInspectLocked = o.status_hoan_hang && isTargetCategory && !o.hoan_hang_received_proof_image;
+        return !o.status_kiem_tra && !isInspectLocked;
+    }).length;
 
     const activeFilter = _dgam.subFilter || '';
 
