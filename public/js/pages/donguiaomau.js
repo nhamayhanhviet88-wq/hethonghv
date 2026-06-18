@@ -352,20 +352,19 @@ function _dgamRenderRows(paged) {
 
         var userObj = window.currentUser || window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
         
-        // Duyệt đơn mẫu (✅): Giám đốc, Quản lý xưởng Lê Công Thực được duyệt; các tài khoản khác chỉ xem (disabled)
         var isCanApprove = userObj && (userObj.role === 'giam_doc' || userObj.username === 'quanlyxuong' || userObj.full_name === 'Lê Công Thực');
         var approveBtnHtml = '';
         if (isCanApprove) {
             if (o.status_duyet) {
-                approveBtnHtml = '<button class="dgam-icon-btn on-duyet" title="Đã duyệt" style="opacity:0.5;cursor:not-allowed;" disabled>✅</button>';
+                approveBtnHtml = '<button class="dgam-icon-btn on-duyet" title="Xem chi tiết duyệt" onclick="_dgamShowActionDetail('+o.id+',\'duyet\')">✅</button>';
             } else {
                 approveBtnHtml = '<button class="dgam-icon-btn" title="Duyệt" onclick="_dgamTogSt('+o.id+',\'status_duyet\','+!o.status_duyet+')">✅</button>';
             }
         } else {
             if (o.status_duyet) {
-                approveBtnHtml = '<button class="dgam-icon-btn on-duyet" title="Đã duyệt (Chỉ xem)" style="opacity:0.5;cursor:not-allowed;" disabled>✅</button>';
+                approveBtnHtml = '<button class="dgam-icon-btn on-duyet" title="Xem chi tiết duyệt" onclick="_dgamShowActionDetail('+o.id+',\'duyet\')">✅</button>';
             } else {
-                approveBtnHtml = '<button class="dgam-icon-btn" title="Chưa duyệt (Chỉ xem)" style="opacity:0.5;cursor:not-allowed;" disabled>✅</button>';
+                approveBtnHtml = '<button class="dgam-icon-btn" title="Chưa duyệt" style="opacity:0.5;cursor:not-allowed;" disabled>✅</button>';
             }
         }
 
@@ -420,7 +419,11 @@ function _dgamRenderRows(paged) {
                 kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra" onclick="_dgamTogSt('+o.id+',\'status_kiem_tra\','+!o.status_kiem_tra+')">🔍</button>';
             }
         } else {
-            kiemTraBtnHtml = '<button class="dgam-icon-btn'+(o.status_kiem_tra?' on-ktra':'')+'" title="Kiểm tra (Chỉ xem)" style="opacity:0.5;cursor:not-allowed;" disabled>🔍</button>';
+            if (o.status_kiem_tra) {
+                kiemTraBtnHtml = '<button class="dgam-icon-btn on-ktra" title="Xem chi tiết kiểm tra" onclick="_dgamShowActionDetail('+o.id+',\'kiem_tra\')">🔍</button>';
+            } else {
+                kiemTraBtnHtml = '<button class="dgam-icon-btn" title="Chưa kiểm tra" style="opacity:0.5;cursor:not-allowed;" disabled>🔍</button>';
+            }
         }
 
         var statusHtml = '<td style="text-align:center" onclick="event.stopPropagation()">'
@@ -2027,6 +2030,64 @@ async function _dgamShowDetail(id) {
         showToast('Lỗi tải chi tiết đơn mẫu', 'error');
     }
 }
+
+async function _dgamShowActionDetail(id, type) {
+    try {
+        const data = await apiCall(`/api/don-gui-ao-mau/${id}/detail`);
+        if (!data || !data.order) {
+            showToast('Không tìm thấy thông tin đơn mẫu', 'error');
+            return;
+        }
+        const o = data.order;
+        const logs = data.logs || [];
+        
+        let title = '';
+        let body = '';
+        
+        if (type === 'duyet') {
+            title = 'Thông Tin Duyệt Gửi';
+            const log = logs.find(l => l.action === 'status' && l.summary && l.summary.includes('duyệt đơn') && l.summary.includes('Bật'));
+            const performer = log ? log.performer_name : 'Quản lý xưởng';
+            const timeStr = log ? new Date(log.created_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : (o.approved_at ? new Date(o.approved_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '—');
+            
+            body = `
+                <div style="text-align:center;padding:20px 10px;">
+                    <div style="font-size:48px;margin-bottom:15px;">✅</div>
+                    <h3 style="color:#0f172a;font-size:18px;font-weight:800;margin-bottom:8px;">Đơn hàng đã được duyệt gửi</h3>
+                    <p style="color:#64748b;font-size:14px;margin-bottom:20px;">Thông tin chi tiết về việc duyệt đơn mẫu:</p>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:15px;max-width:400px;margin:0 auto;text-align:left;">
+                        <div style="margin-bottom:8px;font-size:13px;color:#334155;"><span style="font-weight:700;">Người duyệt:</span> <span style="color:#2563eb;font-weight:700;">${performer}</span></div>
+                        <div style="font-size:13px;color:#334155;"><span style="font-weight:700;">Thời gian duyệt:</span> <span>${timeStr}</span></div>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'kiem_tra') {
+            title = 'Thông Tin Kiểm Tra';
+            const log = logs.find(l => l.action === 'status' && l.summary && l.summary.includes('kiểm tra') && l.summary.includes('Bật'));
+            const performer = log ? log.performer_name : 'Quản lý cấp cao Lê Việt Trinh';
+            const timeStr = log ? new Date(log.created_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '—';
+            
+            body = `
+                <div style="text-align:center;padding:20px 10px;">
+                    <div style="font-size:48px;margin-bottom:15px;">🔍</div>
+                    <h3 style="color:#0f172a;font-size:18px;font-weight:800;margin-bottom:8px;">Đơn hàng đã được kiểm tra</h3>
+                    <p style="color:#64748b;font-size:14px;margin-bottom:20px;">Thông tin chi tiết về việc kiểm tra mẫu áo:</p>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:15px;max-width:400px;margin:0 auto;text-align:left;">
+                        <div style="margin-bottom:8px;font-size:13px;color:#334155;"><span style="font-weight:700;">Người kiểm tra:</span> <span style="color:#7e22ce;font-weight:700;">${performer}</span></div>
+                        <div style="font-size:13px;color:#334155;"><span style="font-weight:700;">Thời gian kiểm tra:</span> <span>${timeStr}</span></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        const footer = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
+        openModal(title, body, footer);
+    } catch(e) {
+        console.error('Error opening action details:', e);
+        showToast('Lỗi tải thông tin chi tiết', 'error');
+    }
+}
+window._dgamShowActionDetail = _dgamShowActionDetail;
 
 function _dgamShowImagePreview(src) {
     let preview = document.getElementById('dgamImagePreviewOverlay');
