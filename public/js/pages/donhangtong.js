@@ -1207,37 +1207,7 @@ async function _dhtShowDetail(id) {
             { icon: o.sx_print_confirmed ? '✅' : '🏭', label: o.sx_print_confirmed ? 'Đã In Phiếu SX' : 'In Phiếu SX', color: o.sx_print_confirmed ? '#059669' : '#0891b2', bg: o.sx_print_confirmed ? '#d1fae5' : '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: true },
             { icon: '🔧', label: 'Lên Đơn Sửa', color: (o.has_error && o.all_errors_handed_over) ? '#b45309' : '#cbd5e1', bg: (o.has_error && o.all_errors_handed_over) ? '#fef3c7' : '#f1f5f9', fn: `_dhtCreateRepairOrder(${id})`, disabled: !(o.has_error && o.all_errors_handed_over), perm: canDo('dht_don_sua', 'view'), disabledTitle: !o.has_error ? 'Cần báo đơn lỗi trước' : 'Cần bàn giao Hàng Lỗi Về cho QLX trước', extraClass: (o.has_error && o.all_errors_handed_over) ? 'dht-don-sua-glow' : '' },
             { icon: '📦', label: 'Hàng Lỗi Về', color: o.has_error ? (o.all_errors_handed_over ? '#059669' : '#0369a1') : '#cbd5e1', bg: o.has_error ? (o.all_errors_handed_over ? '#d1fae5' : '#e0f2fe') : '#f1f5f9', fn: `_dhtErrorReturnHandover(${id})`, disabled: !o.has_error, perm: canDo('dht_bao_loi', 'view'), disabledTitle: 'Cần báo đơn lỗi trước', extraClass: o.has_error ? 'dht-hang-loi-ve-glow' : '' },
-            { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') },
-            ...(o.has_vat ? [
-                (() => {
-                    const deptName = (typeof currentUser !== 'undefined' && currentUser && currentUser.department_name) ? currentUser.department_name.toLowerCase() : '';
-                    const isKeToan = deptName.includes('kế toán') || deptName.includes('ke toan');
-                    const isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
-                    const isQLCC = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'quan_ly_cap_cao';
-                    const canExportVat = isGD || isQLCC || isKeToan;
-
-                    if (o.vat_exported) {
-                        return {
-                            icon: '✅',
-                            label: 'Đã Xuất VAT',
-                            color: '#059669',
-                            bg: '#d1fae5',
-                            fn: `_dhtViewVat('${o.vat_proof_image}', '${o.vat_exported_by_name || ''}', '${o.vat_exported_at || ''}')`,
-                            perm: true
-                        };
-                    } else {
-                        return {
-                            icon: '🧾',
-                            label: 'Xuất VAT',
-                            color: '#dc2626',
-                            bg: '#fee2e2',
-                            fn: `_dhtTriggerExportVat(${id}, '${o.order_code}')`,
-                            perm: canExportVat,
-                            disabledTitle: '🔒 Chỉ Kế toán/GĐ/QLCC mới được xuất VAT'
-                        };
-                    }
-                })()
-            ] : [])
+            { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') }
         ];
         for (const a of actionBtns) {
             const noPerm = a.perm === false;
