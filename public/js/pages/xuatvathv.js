@@ -847,30 +847,17 @@ function _vatGetOrderDetailsHTML(o, items, payments) {
 }
 
 // 3. MODAL: Nhận Hợp Đồng
-async function _vatShowContractModal(id, forceEditMode = false) {
+// 3. MODAL: Nhận Hợp Đồng
+function _vatShowContractModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
-
-    // Fetch details
-    let items = [];
-    let payments = [];
-    try {
-        const data = await apiCall(`/api/dht/orders/${id}/detail`);
-        items = data.items || [];
-        payments = data.payments || [];
-    } catch (err) {
-        console.error('Error fetching order details:', err);
-    }
 
     const editable = _vatCanEdit();
     const isConfirmed = !!o.vat_contract_received;
     const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
 
     const bodyHTML = `
-        <div class="vat-modal-content" style="padding:4px; max-height: 70vh; overflow-y: auto;">
-            <!-- Order Details (ảnh 1 và ảnh 2) -->
-            ${_vatGetOrderDetailsHTML(o, items, payments)}
-
+        <div class="vat-modal-content" style="padding:4px;">
             <div style="margin-bottom:16px;padding:12px;background:#f3e8ff;border-radius:8px;border:1px solid #d8b4fe;">
                 <span style="font-weight:800;color:#6b21a8;">Hợp Đồng:</span> 
                 ${o.vat_contract_received 
@@ -935,30 +922,16 @@ async function _vatShowContractModal(id, forceEditMode = false) {
 
 
 // 4. MODAL: Biên Bản Bàn Giao
-async function _vatShowHandoverModal(id, forceEditMode = false) {
+function _vatShowHandoverModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
-
-    // Fetch details
-    let items = [];
-    let payments = [];
-    try {
-        const data = await apiCall(`/api/dht/orders/${id}/detail`);
-        items = data.items || [];
-        payments = data.payments || [];
-    } catch (err) {
-        console.error('Error fetching order details:', err);
-    }
 
     const editable = _vatCanEdit();
     const isConfirmed = !!o.vat_handover_received;
     const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
 
     const bodyHTML = `
-        <div class="vat-modal-content" style="padding:4px; max-height: 70vh; overflow-y: auto;">
-            <!-- Order Details (ảnh 1 và ảnh 2) -->
-            ${_vatGetOrderDetailsHTML(o, items, payments)}
-
+        <div class="vat-modal-content" style="padding:4px;">
             <div style="margin-bottom:16px;padding:12px;background:#fff7ed;border-radius:8px;border:1px solid #fed7aa;">
                 <span style="font-weight:800;color:#c2410c;">Biên Bản Bàn Giao:</span> 
                 ${o.vat_handover_received 
