@@ -1394,10 +1394,31 @@ async function _dhtShowDetail(id) {
                 ['Còn lại', fmt(finRemaining) + 'đ', remColor, true]
             );
         } else {
+            const isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+            const isTrinh = typeof currentUser !== 'undefined' && currentUser && (
+                (currentUser.full_name && (currentUser.full_name.includes('Lê Việt Trinh') || currentUser.full_name.includes('Le Viet Trinh'))) || 
+                currentUser.username === 'leviettrinh' || 
+                currentUser.username === 'trinh'
+            );
+            const canEditVAT = (Number(o.additional_vat_amount || 0) === 0) || isGD || isTrinh;
+
+            let vatLabel = 'VAT';
+            if (Number(o.additional_vat_amount || 0) > 0) {
+                vatLabel = `VAT (gồm thêm <span style="font-weight:700;color:#4f46e5">${fmt(o.additional_vat_amount)}đ</span>)`;
+            }
+
+            if (canEditVAT) {
+                vatLabel += ` <span onclick="event.stopPropagation();_dhtEditAdditionalVat(${o.id}, ${o.additional_vat_amount || 0})" style="cursor:pointer;margin-left:6px;color:#4f46e5;font-weight:bold;font-size:11px;background:#e0e7ff;padding:2px 6px;border-radius:6px;display:inline-flex;align-items:center;gap:3px;transition:all 0.2s;" onmouseover="this.style.background='#c7d2fe'" onmouseout="this.style.background='#e0e7ff'">
+                    ${Number(o.additional_vat_amount || 0) > 0 ? '✏️ Sửa VAT Thêm' : '➕ Thêm VAT'}
+                </span>`;
+            } else {
+                vatLabel += ` <span style="margin-left:6px;color:#94a3b8;font-size:11px;display:inline-flex;align-items:center;" title="Số tiền VAT thêm đã nhập. Chỉ Giám đốc hoặc Lê Việt Trinh mới được sửa.">🔒 Khóa</span>`;
+            }
+
             finRows = [
                 ['Tổng tiền hàng (trước VAT)', fmt(calcBase) + 'đ', '#1e293b', false],
                 ['Phụ phí', fmt(surchargeTotal) + 'đ', '#f59e0b', false],
-                [Number(o.additional_vat_amount || 0) > 0 ? `VAT (gồm thêm ${fmt(o.additional_vat_amount)}đ)` : 'VAT', fmt(vat) + 'đ', '#6366f1', false],
+                [vatLabel, fmt(vat) + 'đ', '#6366f1', false],
                 ['Ưu đãi / Giảm giá', '-' + fmt(discount) + 'đ', '#059669', false],
             ];
             if (o.discount_reason) {
@@ -3741,3 +3762,91 @@ async function _dhtShowTraSoatModal(orderId, orderCode) {
         </div>`;
     }
 }
+
+// ========== VAT THÊM ==========
+async function _dhtEditAdditionalVat(orderId, currentVal) {
+    const o = (_dht.orders || []).find(x => x.id === orderId);
+    const code = o ? o.order_code : '';
+    const isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+    const isTrinh = typeof currentUser !== 'undefined' && currentUser && (
+        (currentUser.full_name && (currentUser.full_name.includes('Lê Việt Trinh') || currentUser.full_name.includes('Le Viet Trinh'))) || 
+        currentUser.username === 'leviettrinh' || 
+        currentUser.username === 'trinh'
+    );
+    const canEdit = (Number(currentVal || 0) === 0) || isGD || isTrinh;
+
+    if (!canEdit) {
+        showToast('🔒 Số tiền VAT thêm đã được nhập. Chỉ Giám đốc hoặc Lê Việt Trinh mới được sửa!', 'error');
+        return;
+    }
+
+    const fmt = n => Number(n||0).toLocaleString('vi-VN');
+
+    const body = `
+        <div style="text-align:center;padding:8px 0">
+            <div style="background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;display:inline-block;padding:12px 28px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 15px rgba(99,102,241,0.25)">
+                <div style="font-size:10px;font-weight:600;opacity:0.85;letter-spacing:1px;margin-bottom:4px">VAT THÊM HIỆN TẠI</div>
+                <div style="font-size:22px;font-weight:900">${currentVal > 0 ? '+' + fmt(currentVal) + 'đ' : '0đ'}</div>
+            </div>
+            <div style="text-align:left;margin-bottom:8px">
+                <label style="font-size:12px;font-weight:700;color:#1e293b">💰 Nhập Số Tiền VAT Thêm (VNĐ):</label>
+            </div>
+            <input type="text" id="dhtAddVatInput" class="form-control" placeholder="Ví dụ: 100.000" 
+                style="font-size:18px;font-weight:900;text-align:center;padding:12px;border:2px solid #6366f1;border-radius:10px;color:#6366f1" 
+                value="${currentVal > 0 ? fmt(currentVal) : ''}" oninput="_dhtAddVatFormat(this)">
+            <div id="dhtAddVatPreview" style="margin-top:6px;font-size:13px;font-weight:700;color:#6366f1;min-height:20px">
+                ${currentVal > 0 ? '→ +' + fmt(currentVal) + 'đ' : ''}
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:#94a3b8">Nhập 0 hoặc để trống để xóa VAT thêm</div>
+        </div>
+    `;
+
+    const footer = `
+        <button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail(${orderId})},200)" style="padding:8px 20px">Hủy</button>
+        <button class="btn" onclick="_dhtConfirmAddVat(${orderId})" style="padding:8px 24px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận</button>
+    `;
+
+    openModal('➕ VAT Thêm — ' + code, body, footer);
+    setTimeout(() => {
+        const inp = document.getElementById('dhtAddVatInput');
+        if (inp) {
+            inp.focus();
+            inp.select();
+        }
+    }, 200);
+}
+
+function _dhtAddVatFormat(el) {
+    const raw = el.value.replace(/[^\d]/g, '');
+    if (raw) el.value = Number(raw).toLocaleString('vi-VN');
+    const preview = document.getElementById('dhtAddVatPreview');
+    if (preview && raw) {
+        preview.innerHTML = '→ +' + Number(raw).toLocaleString('vi-VN') + 'đ';
+    } else if (preview) {
+        preview.innerHTML = '';
+    }
+}
+
+async function _dhtConfirmAddVat(orderId) {
+    const inp = document.getElementById('dhtAddVatInput');
+    if (!inp) return;
+    const raw = inp.value.replace(/[^\d]/g, '');
+    const val = raw ? Number(raw) : 0;
+
+    try {
+        const res = await apiCall(`/api/dht/orders/${orderId}/additional-vat`, 'PUT', { additional_vat_amount: val });
+        if (res.success) {
+            showToast('Cập nhật số tiền VAT thêm thành công!');
+            closeModal();
+            setTimeout(async () => {
+                await _dhtShowDetail(orderId);
+                if (typeof _dhtLoadOrders === 'function') await _dhtLoadOrders();
+            }, 200);
+        } else {
+            showToast(res.error || 'Lỗi không xác định', 'error');
+        }
+    } catch (e) {
+        showToast(e.message || 'Lỗi khi cập nhật VAT', 'error');
+    }
+}
+

@@ -4593,4 +4593,67 @@ module.exports = async function(fastify) {
 
         return { success: true };
     });
+
+    // Update additional VAT amount
+    fastify.put('/api/dht/orders/:id/additional-vat', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        const b = request.body || {};
+        const newVal = b.additional_vat_amount !== undefined ? (Number(b.additional_vat_amount) || 0) : 0;
+
+        if (newVal < 0) {
+            return reply.code(400).send({ error: '⛔ Số tiền VAT thêm không được phép âm!' });
+        }
+
+        const order = await db.get('SELECT id, order_code, total_amount, additional_vat_amount, has_vat FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) {
+            return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+        }
+
+        const oldVal = Number(order.additional_vat_amount) || 0;
+
+        // Condition check: "khi đã nhập rồi , thì k nhập lại được nữa . chỉ Lê Việt Trinh và giám đốc được sửa thôi"
+        const isGDOrTrinh = request.user.role === 'giam_doc' || 
+                            (request.user.full_name && (request.user.full_name.includes('Lê Việt Trinh') || request.user.full_name.includes('Le Viet Trinh'))) || 
+                            request.user.username === 'leviettrinh' || 
+                            request.user.username === 'trinh';
+
+        if (oldVal > 0 && !isGDOrTrinh) {
+            return reply.code(403).send({ error: '🔒 Số tiền VAT thêm đã được nhập. Chỉ Giám đốc hoặc Lê Việt Trinh mới được sửa đổi!' });
+        }
+
+        // Auto-enable has_vat if newVal > 0
+        const hasVatSet = newVal > 0 ? true : order.has_vat;
+
+        // Perform DB updates
+        await db.run(
+            `UPDATE dht_orders 
+             SET additional_vat_amount = $1,
+                 total_amount = total_amount - $2 + $3,
+                 has_vat = $4,
+                 last_updated_at = NOW()
+             WHERE id = $5`,
+            [newVal, oldVal, newVal, hasVatSet, orderId]
+        );
+
+        // Audit Log entry
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                [
+                    orderId,
+                    'update',
+                    '✏️ Cập nhật Số tiền VAT thêm',
+                    JSON.stringify([
+                        { field: 'additional_vat_amount', label: 'Số tiền VAT thêm', old: oldVal, new: newVal }
+                    ]),
+                    request.user.id
+                ]
+            );
+        } catch(e) { 
+            console.error('[Audit Log Additional VAT Error]:', e.message); 
+        }
+
+        return { success: true, new_total: order.total_amount - oldVal + newVal };
+    });
 };
+
