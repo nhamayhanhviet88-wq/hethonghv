@@ -1,2672 +1,1624 @@
-// ========== ĐƠN HÀNG HÔM NAY QUẢN LÝ XƯỞNG ==========
-let _dhnqlxFilter = 'xu_ly';
-let _dhnqlxData = { som: [], xu_ly: [], hen_lai: [], hoan_thanh: [] };
-let _dhnqlxCounts = { som: 0, xu_ly: 0, hen_lai: 0, hoan_thanh: 0 };
-let _dhnqlxSearchVal = '';
-let _dhnqlxConfig = { xu_ly_days: 1, hoan_thanh_mode: 'today' };
-let _dhnqlxCompletedMonths = [];
-let _dhnqlxExpandedMonths = new Set();
-let _dhnqlxMonthOrders = {};
-window._qlxHolidaysSet = window._qlxHolidaysSet || new Set();
-let _qlxHolidaysSet = window._qlxHolidaysSet;
-
-async function _qlxLoadHolidays() {
-    try {
-        _qlxHolidaysSet.clear();
-        const currentYear = new Date().getFullYear();
-        const res1 = await apiCall(`/api/holidays?year=${currentYear}`);
-        if (res1 && res1.holidays) {
-            res1.holidays.forEach(h => {
-                const dateStr = h.holiday_date.split('T')[0];
-                _qlxHolidaysSet.add(dateStr);
-            });
-        }
-        const res2 = await apiCall(`/api/holidays?year=${currentYear + 1}`);
-        if (res2 && res2.holidays) {
-            res2.holidays.forEach(h => {
-                const dateStr = h.holiday_date.split('T')[0];
-                _qlxHolidaysSet.add(dateStr);
-            });
-        }
-    } catch (e) {
-        console.error('Lỗi tải danh sách ngày lễ:', e);
-    }
-}
-window._qlxLoadHolidays = _qlxLoadHolidays;
-window._qlxGetMinDateTimeStr = _qlxGetMinDateTimeStr;
-
-function _qlxGetMinDateTimeStr() {
-    const date = new Date();
-    const tzOffset = 7 * 60; // Vietnam timezone (UTC+7)
-    const localTime = new Date(date.getTime() + tzOffset * 60 * 1000);
-    return localTime.toISOString().slice(0, 16);
-}
-
+// ========== ĐƠN HÀNG HÔM NAY QLX ==========
+let _qlxdhFilter = 'today';
+let _qlxdhOrders = [];
+let _qlxdhCounts = {};
+let _qlxdhCarriers = [];
+let _qlxdhSearchVal = '';
+let _qlxdhCskhVal = '';
+let _qlxdhSearched = [];
+let _qlxdhPage = 1;
+const _QLXDH_PER_PAGE = 100;
+let _qlxdhAllOrdersLoaded = false;
+let _qlxdhAllOrdersLoading = null;
+let _qlxdhSelectedYear = 'all';
+let _qlxdhSelectedMonth = 'all';
+let _qlxdhHolidayMap = {};
 
 async function renderDonhanghomnayqlxPage(container) {
-    _dhnqlxFilter = 'xu_ly';
-    _dhnqlxSearchVal = '';
-    
-    container.innerHTML = `
-    <style>
-        .dhnqlx-container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 16px;
-            font-family: 'Inter', sans-serif;
+    _qlxdhFilter = 'today'; _qlxdhSearchVal = ''; _qlxdhCskhVal = ''; _qlxdhPage = 1;
+    _qlxdhSelectedYear = 'all'; _qlxdhSelectedMonth = 'all';
+    container.innerHTML = `<style>
+        @keyframes shimmerSparkle {
+            0% {
+                background-position: -200% center;
+                text-shadow: 0 0 4px rgba(124, 58, 237, 0.2);
+            }
+            50% {
+                text-shadow: 0 0 10px rgba(124, 58, 237, 0.5), 0 0 20px rgba(236, 72, 153, 0.2);
+            }
+            100% {
+                background-position: 200% center;
+                text-shadow: 0 0 4px rgba(124, 58, 237, 0.2);
+            }
         }
-        .dhnqlx-title {
-            margin: 0 0 16px;
-            font-size: 22px;
-            color: #1e293b;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .dhnqlx-layout {
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-        }
-        .dhnqlx-sidebar {
-            width: 240px;
-            flex-shrink: 0;
-        }
-        .dhnqlx-main {
-            flex: 1;
-            min-width: 0;
-        }
-        .dhnqlx-tab-card {
-            padding: 12px 14px;
-            margin-bottom: 8px;
-            border-radius: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.2s ease;
-            border: 2px solid #e2e8f0;
-            background: white;
-        }
-        .dhnqlx-tab-card:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        }
-        .dhnqlx-tab-card.active {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-        .dhnqlx-badge {
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 800;
-            color: white;
-        }
-        .dhnqlx-search-input {
-            width: 100%;
-            padding: 9px 12px 9px 36px;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 600;
-            outline: none;
-            transition: all 0.2s;
-        }
-        .dhnqlx-search-input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .dhnqlx-table-container {
-            overflow-x: auto;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,.05);
-            background: white;
-            margin-top: 12px;
-        }
-        .dhnqlx-table {
-            width: 100%;
-            border-collapse: collapse;
+        .shimmer-sparkle {
+            font-weight: 900;
             font-size: 12px;
-            min-width: 1100px;
-        }
-        .dhnqlx-table th {
-            padding: 10px 8px;
-            color: white;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: .5px;
-            text-align: left;
-        }
-        .dhnqlx-table td {
-            padding: 10px 8px;
-            border-bottom: 1px solid #f1f5f9;
-            color: #334155;
-            vertical-align: middle;
-        }
-        .dhnqlx-action-btn {
-            padding: 4px 8px;
-            border: 1px solid transparent;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.15s;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
+            background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 25%, #ec4899 50%, #7c3aed 75%, #4f46e5 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmerSparkle 2.5s linear infinite;
+            display: inline-block;
             white-space: nowrap;
         }
-        .dhnqlx-action-btn:hover {
-            transform: scale(1.02);
-        }
-        .dhnqlx-btn-blue { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
-        .dhnqlx-btn-blue:hover { background: #dbeafe; }
-        .dhnqlx-btn-green { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
-        .dhnqlx-btn-green:hover { background: #d1fae5; }
-        .dhnqlx-btn-yellow { background: #fffbeb; color: #d97706; border-color: #fde68a; }
-        .dhnqlx-btn-yellow:hover { background: #fef3c7; }
-        .dhnqlx-btn-gray { background: #f9fafb; color: #4b5563; border-color: #e5e7eb; }
-        .dhnqlx-btn-gray:hover { background: #f3f4f6; }
-        
-        .dhnqlx-prio-tag {
-            padding: 2.5px 6px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 800;
-            display: inline-block;
-            line-height: 1;
-        }
-        .dhnqlx-prio-gap { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
-        .dhnqlx-prio-gui { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-        .dhnqlx-prio-chuan { background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
-
-        @keyframes dhnqlxModalFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes dhnqlxModalSlideUp { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .dht-tiendo-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s cubic-bezier(0.16,1,0.3,1);box-shadow:0 2px 4px rgba(0,0,0,0.03);border:1px solid transparent}
+        .dht-tiendo-badge:hover{transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,0.08);filter:brightness(1.05)}
+        .dht-tiendo-badge:active{transform:translateY(0)}
+        .dht-tiendo-green{background-color:#dcfce7;color:#15803d;border-color:rgba(21,128,61,0.2)}
+        .dht-tiendo-red{background-color:#fee2e2;color:#b91c1c;border-color:rgba(185,28,28,0.2)}
+        .dht-tiendo-blue{background-color:#dbeafe;color:#1d4ed8;border-color:rgba(29,78,216,0.2)}
+        .dht-tiendo-yellow{background-color:#fef3c7;color:#b45309;border-color:rgba(180,83,9,0.2)}
+        @keyframes dhtBlink{0%,100%{opacity:1}50%{opacity:0.4}}
     </style>
-    
-    <div class="dhnqlx-container">
-        <div class="dhnqlx-title">
-            <span style="display:flex;align-items:center;gap:8px;">🏭 Đơn Hàng Hôm Nay QLX</span>
-            <button id="dhnqlxConfigBtn" onclick="_dhnqlxOpenConfigModal()" style="display:none; padding:8px 14px; background:white; border:1.5px solid #cbd5e1; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; color:#475569; align-items:center; gap:6px; transition:all 0.2s;" onmouseover="this.style.borderColor='#4f46e5';this.style.color='#4f46e5';" onmouseout="this.style.borderColor='#cbd5e1';this.style.color='#475569';">
-                ⚙️ Cấu Hình QLX
-            </button>
+    <div style="max-width:1600px;margin:0 auto;padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+            <h2 style="margin:0;font-size:22px;color:#122546;font-weight:800;display:flex;align-items:center;gap:8px;">📦 Đơn Hàng Hôm Nay QLX</h2>
         </div>
-        <div class="dhnqlx-layout">
-            <div id="dhnqlxSidebar" class="dhnqlx-sidebar"></div>
-            <div class="dhnqlx-main">
-                <div style="position:relative; max-width: 400px;">
-                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;">🔍</span>
-                    <input type="text" id="dhnqlxSearchInput" class="dhnqlx-search-input" placeholder="Tìm mã đơn, tên khách, SĐT..." oninput="_dhnqlxOnSearch(this.value)">
-                </div>
-                <div id="dhnqlxContent"></div>
+        <div style="display:flex;gap:16px;align-items:flex-start;">
+            <div id="qlxdhSidebar" style="width:220px;flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;">
+                <div id="qlxdhSearchBar" style="margin-bottom:12px;"></div>
+                <div id="qlxdhContent"></div>
             </div>
         </div>
     </div>`;
-
-    await _dhnqlxLoadData();
-    _dhnqlxLoadCutoffTime();
-    _qlxLoadHolidays();
+    try { const c = await apiCall('/api/shipping/carriers'); _qlxdhCarriers = c.carriers || []; } catch(e){}
+    _qlxdhRenderSidebar();
+    _qlxdhRenderSearchBar();
+    _qlxdhLoadOrders();
 }
 
-// ===== DATA OPERATIONS =====
-async function _dhnqlxLoadData() {
-    const el = document.getElementById('dhnqlxContent');
-    if (el) el.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải dữ liệu...</div>';
-    
-    try {
-        const res = await apiCall('/api/qlx-orders/today-summary');
-        if (res && res.tabs) {
-            _dhnqlxData.som = res.tabs.som.orders || [];
-            _dhnqlxData.xu_ly = res.tabs.xu_ly.orders || [];
-            _dhnqlxData.hen_lai = res.tabs.hen_lai.orders || [];
-            _dhnqlxData.hoan_thanh = res.tabs.hoan_thanh.orders || [];
-
-            _dhnqlxCounts.som = res.tabs.som.count || 0;
-            _dhnqlxCounts.xu_ly = res.tabs.xu_ly.count || 0;
-            _dhnqlxCounts.hen_lai = res.tabs.hen_lai.count || 0;
-            _dhnqlxCounts.hoan_thanh = res.tabs.hoan_thanh.count || 0;
-
-            if (res.config) {
-                _dhnqlxConfig.xu_ly_days = res.config.xu_ly_days;
-                _dhnqlxConfig.hoan_thanh_mode = res.config.hoan_thanh_mode;
-            }
-        }
-
-        // If hoan_thanh_mode is 'all', let's load completed-months list
-        if (_dhnqlxConfig.hoan_thanh_mode === 'all') {
-            const monthsRes = await apiCall('/api/qlx-orders/completed-months');
-            _dhnqlxCompletedMonths = monthsRes || [];
-        } else {
-            _dhnqlxCompletedMonths = [];
-        }
-
-        _dhnqlxRenderSidebar();
-        _dhnqlxRenderContent();
-    } catch(e) {
-        if (el) el.innerHTML = `<div style="color:#dc2626;text-align:center;padding:40px;">Lỗi tải dữ liệu: ${e.message}</div>`;
-    }
-}
-
-async function _dhnqlxLoadCutoffTime() {
-    if (typeof currentUser === 'undefined' || !currentUser || currentUser.role !== 'giam_doc') return;
-    try {
-        const res = await apiCall('/api/penalty/config');
-        const configs = res.configs || [];
-        const cfg = configs.find(c => c.key === 'qlx_cutoff_time');
-        const amount = cfg ? cfg.amount : 1080; // default 18:00
-        
-        // Load QLX configs
-        const qlxRes = await apiCall('/api/qlx-orders/config');
-        _dhnqlxConfig.xu_ly_days = qlxRes.xu_ly_days || 1;
-        _dhnqlxConfig.hoan_thanh_mode = qlxRes.hoan_thanh_mode || 'today';
-        
-        const btn = document.getElementById('dhnqlxConfigBtn');
-        if (btn) {
-            btn.style.display = 'inline-flex';
-            btn.dataset.cutoffValue = amount;
-            btn.innerHTML = `⚙️ Cấu Hình QLX`;
-        }
-    } catch(e) {
-        console.error('Failed to load configs:', e);
-    }
-}
-
-function _dhnqlxRenderSidebar() {
-    const sb = document.getElementById('dhnqlxSidebar');
+function _qlxdhRenderSidebar() {
+    const sb = document.getElementById('qlxdhSidebar');
     if (!sb) return;
+    const filters = [
+        { key:'early', icon:'🔵', label:'Gửi Sớm', color:'#3b82f6', bg:'#eff6ff' },
+        { key:'today', icon:'🔴', label:'Hôm Nay Gửi', color:'#dc2626', bg:'#fef2f2' },
+        { key:'rescheduled', icon:'🟡', label:'Chưa Gửi', color:'#d97706', bg:'#fffbeb' },
+        { key:'shipped', icon:'✅', label:'Đã Gửi', color:'#059669', bg:'#ecfdf5' }
+    ];
+    const cskhMap = {};
+    _qlxdhOrders.forEach(o => { if (o.cskh_name && o.cskh_user_id) cskhMap[o.cskh_user_id] = o.cskh_name; });
+    const cskhOpts = Object.entries(cskhMap).sort((a,b) => a[1].localeCompare(b[1]));
 
-    const tabsDef = [
-        { key: 'xu_ly', label: 'ĐƠN HÀNG XỬ LÝ', icon: '🔴', color: '#dc2626', bg: '#fef2f2', badgeClass: 'xu_ly' },
-        { key: 'som', label: 'ĐƠN HÀNG SỚM', icon: '🔵', color: '#3b82f6', bg: '#eff6ff', badgeClass: 'som' },
-        { key: 'hen_lai', label: 'ĐƠN HÀNG HẸN LẠI', icon: '🟡', color: '#d97706', bg: '#fffbeb', badgeClass: 'hen_lai' },
-        { key: 'hoan_thanh', label: 'ĐƠN HÀNG HOÀN THÀNH', icon: '✅', color: '#059669', bg: '#ecfdf5', badgeClass: 'hoan_thanh' }
+    sb.innerHTML = filters.map(f => {
+        const active = _qlxdhFilter === f.key;
+        const cnt = _qlxdhCounts[f.key] || 0;
+        let html = `<div onclick="_qlxdhSetFilter('${f.key}')" style="padding:12px 14px;margin-bottom:6px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all .2s;border:2px solid ${active ? f.color : '#e2e8f0'};background:${active ? f.bg : 'white'};box-shadow:${active ? '0 2px 8px rgba(0,0,0,.08)' : 'none'};" onmouseover="if(!${active})this.style.borderColor='${f.color}'" onmouseout="if(!${active})this.style.borderColor='#e2e8f0'">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:16px;">${f.icon}</span>
+                <span style="font-size:13px;font-weight:700;color:${active ? f.color : '#334155'};">${f.label}</span>
+            </div>
+            <span style="background:${active ? f.color : '#e2e8f0'};color:${active ? 'white' : '#64748b'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800;">${cnt}</span>
+        </div>`;
+        if (f.key === 'shipped' && active) {
+            html += _qlxdhBuildYearMonthTreeHTML();
+        }
+        return html;
+    }).join('') + `
+    <div style="margin-top:12px;padding:10px 12px;border-radius:10px;border:2px solid #e2e8f0;background:white;">
+        <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">👤 CSKH</div>
+        <select onchange="_qlxdhOnCskhChange(this.value)" style="width:100%;padding:7px 8px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;background:white;">
+            <option value="">Tất cả</option>
+            ${cskhOpts.map(([id,name]) => `<option value="${id}" ${_qlxdhCskhVal==String(id)?'selected':''}>${name}</option>`).join('')}
+        </select>
+    </div>
+    ` + `${_qlxdhCounts.overdue > 0 ? `<div style="margin-top:10px;padding:10px;border-radius:8px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;"><div style="font-size:11px;font-weight:700;color:#dc2626;">⚠️ ${_qlxdhCounts.overdue} đơn quá hạn!</div></div>` : ''}`;
+}
+
+function _qlxdhBuildYearMonthTreeHTML() {
+    const shippedOrders = _qlxdhOrders.filter(o => o.shipping_status === 'shipped');
+    const yearMonthMap = {};
+    shippedOrders.forEach(o => {
+        let dateObj = null;
+        if (o.shipped_at) dateObj = new Date(o.shipped_at);
+        else if (o.shipping_date) dateObj = new Date(o.shipping_date);
+        else if (o.expected_ship_date) dateObj = new Date(o.expected_ship_date);
+        else if (o.created_at) dateObj = new Date(o.created_at);
+        
+        if (dateObj) {
+            const y = dateObj.getFullYear();
+            const m = dateObj.getMonth() + 1;
+            if (!yearMonthMap[y]) yearMonthMap[y] = {};
+            if (!yearMonthMap[y][m]) yearMonthMap[y][m] = 0;
+            yearMonthMap[y][m]++;
+        }
+    });
+
+    const sortedYears = Object.keys(yearMonthMap).map(Number).sort((a, b) => b - a);
+    if (sortedYears.length === 0) return '';
+
+    let html = `<div style="margin-left: 10px; border-left: 2px dashed #cbd5e1; padding-left: 10px; margin-top: 4px; margin-bottom: 8px; font-size: 12px;">`;
+    
+    const isAllActive = _qlxdhSelectedYear === 'all';
+    html += `<div onclick="event.stopPropagation(); _qlxdhSelectYearMonth('all', 'all')" style="padding: 4px 8px; margin-bottom: 2px; border-radius: 6px; cursor: pointer; font-weight: 700; color: ${isAllActive ? '#059669' : '#475569'}; background: ${isAllActive ? '#ecfdf5' : 'transparent'}; display: flex; justify-content: space-between; align-items: center;">
+        <span>📅 Tất cả đã gửi</span>
+        <span style="font-size: 10px; background: ${isAllActive ? '#059669' : '#e2e8f0'}; color: ${isAllActive ? 'white' : '#64748b'}; padding: 1px 6px; border-radius: 8px;">${shippedOrders.length}</span>
+    </div>`;
+
+    sortedYears.forEach(y => {
+        const isYearActive = _qlxdhSelectedYear === y && _qlxdhSelectedMonth === 'all';
+        const yearTotal = Object.values(yearMonthMap[y]).reduce((a, b) => a + b, 0);
+        
+        html += `<div onclick="event.stopPropagation(); _qlxdhSelectYearMonth(${y}, 'all')" style="padding: 4px 8px; margin-top: 4px; margin-bottom: 2px; border-radius: 6px; cursor: pointer; font-weight: 700; color: ${_qlxdhSelectedYear === y ? '#059669' : '#1e293b'}; background: ${isYearActive ? '#ecfdf5' : 'transparent'}; display: flex; justify-content: space-between; align-items: center;">
+            <span>🗓️ Năm ${y}</span>
+            <span style="font-size: 10px; background: ${isYearActive ? '#059669' : '#cbd5e1'}; color: ${isYearActive ? 'white' : '#475569'}; padding: 1px 6px; border-radius: 8px;">${yearTotal}</span>
+        </div>`;
+
+        const sortedMonths = Object.keys(yearMonthMap[y]).map(Number).sort((a, b) => b - a);
+        html += `<div style="margin-left: 12px; border-left: 1px solid #e2e8f0; padding-left: 8px;">`;
+        sortedMonths.forEach(m => {
+            const isMonthActive = _qlxdhSelectedYear === y && _qlxdhSelectedMonth === m;
+            const count = yearMonthMap[y][m];
+            const monthLabel = m < 10 ? '0' + m : m;
+            html += `<div onclick="event.stopPropagation(); _qlxdhSelectYearMonth(${y}, ${m})" style="padding: 3px 6px; margin-bottom: 2px; border-radius: 5px; cursor: pointer; font-weight: 600; color: ${isMonthActive ? '#059669' : '#64748b'}; background: ${isMonthActive ? '#ecfdf5' : 'transparent'}; display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='${isMonthActive ? '#ecfdf5' : '#f8fafc'}'" onmouseout="this.style.background='${isMonthActive ? '#ecfdf5' : 'transparent'}'">
+                <span>Tháng ${monthLabel}</span>
+                <span style="font-size: 9px; font-weight: 800; color: ${isMonthActive ? '#059669' : '#94a3b8'};">${count}</span>
+            </div>`;
+        });
+        html += `</div>`;
+    });
+
+    html += `</div>`;
+    return html;
+}
+
+function _qlxdhSelectYearMonth(year, month) {
+    _qlxdhSelectedYear = year;
+    _qlxdhSelectedMonth = month;
+    _qlxdhPage = 1;
+    _qlxdhApplySearch();
+    _qlxdhRenderContent();
+    _qlxdhRenderSidebar();
+}
+
+function _qlxdhSetFilter(key) {
+    _qlxdhFilter = key; _qlxdhSearchVal = ''; _qlxdhCskhVal = ''; _qlxdhPage = 1;
+    _qlxdhSelectedYear = 'all';
+    _qlxdhSelectedMonth = 'all';
+    _qlxdhAllOrdersLoaded = false;
+    _qlxdhAllOrdersLoading = null;
+    const si = document.getElementById('qlxdhSearchInput'); if (si) si.value = '';
+    _qlxdhRenderSidebar(); _qlxdhLoadOrders();
+}
+
+function _qlxdhOnCskhChange(val) {
+    _qlxdhCskhVal = val; _qlxdhPage = 1; _qlxdhApplySearch(); _qlxdhRenderContent(); _qlxdhRenderSidebar();
+}
+
+function _qlxdhRenderSearchBar() {
+    const sb = document.getElementById('qlxdhSearchBar');
+    if (!sb) return;
+    sb.innerHTML = `<div style="display:flex;gap:8px;align-items:center;">
+        <div style="flex:1;max-width:420px;position:relative;">
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;">🔍</span>
+            <input type="text" id="qlxdhSearchInput" value="${_qlxdhSearchVal}" oninput="_qlxdhOnSearch(this.value)" placeholder="Tìm mã đơn hàng, SĐT, tên khách..." style="width:100%;padding:9px 12px 9px 36px;border:2px solid #fbbf24;border-radius:10px;font-size:13px;font-weight:600;background:#fffef5;outline:none;transition:border .2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fbbf24'">
+        </div>
+    </div>`;
+}
+
+async function _qlxdhOnSearch(val) {
+    _qlxdhSearchVal = val; _qlxdhPage = 1;
+    if (val.trim() !== '') {
+        if (!_qlxdhAllOrdersLoaded) {
+            if (!_qlxdhAllOrdersLoading) {
+                _qlxdhAllOrdersLoading = _qlxdhLoadAllOrders();
+            }
+            await _qlxdhAllOrdersLoading;
+        }
+    }
+    _qlxdhApplySearch();
+    _qlxdhRenderContent();
+}
+
+async function _qlxdhLoadAllOrders() {
+    try {
+        const data = await apiCall('/api/shipping/orders?filter=all&page_type=qlx');
+        _qlxdhOrders = data.orders || [];
+        _qlxdhCounts = data.counts || {};
+        _qlxdhAllOrdersLoaded = true;
+        _qlxdhRenderSidebar();
+    } catch(e) {
+        console.error('Error loading all orders for search:', e);
+        showToast('Lỗi tải dữ liệu tìm kiếm: ' + e.message, 'error');
+    } finally {
+        _qlxdhAllOrdersLoading = null;
+    }
+}
+
+async function _qlxdhLoadOrders() {
+    const el = document.getElementById('qlxdhContent');
+    if (!el) return;
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải...</div>';
+    _qlxdhAllOrdersLoaded = false;
+    _qlxdhAllOrdersLoading = null;
+    try {
+        const data = await apiCall(`/api/shipping/orders?filter=${_qlxdhFilter}&page_type=qlx`);
+        _qlxdhOrders = data.orders || [];
+        _qlxdhCounts = data.counts || {};
+        _qlxdhRenderSidebar();
+        _qlxdhApplySearch();
+        _qlxdhRenderContent();
+    } catch(e) {
+        el.innerHTML = `<div style="color:#dc2626;text-align:center;padding:40px;">Lỗi: ${e.message}</div>`;
+    }
+}
+
+function _qlxdhApplySearch() {
+    let list = _qlxdhOrders.slice();
+    const q = (_qlxdhSearchVal || '').toLowerCase().trim();
+    if (q) {
+        list = list.filter(o => {
+            return (o.order_code || '').toLowerCase().includes(q)
+                || (o.customer_phone || '').toLowerCase().includes(q)
+                || (o.customer_name || '').toLowerCase().includes(q);
+        });
+    } else {
+        if (_qlxdhCskhVal) list = list.filter(o => String(o.cskh_user_id) === _qlxdhCskhVal);
+        list = list.filter(o => {
+            const menu = _qlxdhGetOrderMenu(o);
+            if (menu.key !== _qlxdhFilter) return false;
+            
+            if (_qlxdhFilter === 'shipped') {
+                if (_qlxdhSelectedYear !== 'all') {
+                    let dateObj = null;
+                    if (o.shipped_at) dateObj = new Date(o.shipped_at);
+                    else if (o.shipping_date) dateObj = new Date(o.shipping_date);
+                    else if (o.expected_ship_date) dateObj = new Date(o.expected_ship_date);
+                    else if (o.created_at) dateObj = new Date(o.created_at);
+                    
+                    if (!dateObj) return false;
+                    const y = dateObj.getFullYear();
+                    const m = dateObj.getMonth() + 1;
+                    
+                    if (y !== Number(_qlxdhSelectedYear)) return false;
+                    if (_qlxdhSelectedMonth !== 'all' && m !== Number(_qlxdhSelectedMonth)) return false;
+                }
+            }
+            return true;
+        });
+    }
+    _qlxdhSearched = list;
+}
+
+function _qlxdhGetOrderMenu(o) {
+    const today = vnDateStr();
+    let effDate = o.rescheduled_ship_date || o.expected_ship_date;
+    if (effDate) {
+        try {
+            effDate = vnDateStr(effDate);
+        } catch(e) {}
+    }
+    if (o.shipping_status === 'shipped') {
+        return { key: 'shipped', label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5' };
+    }
+    if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
+        let reschedDate = o.rescheduled_ship_date;
+        try { reschedDate = vnDateStr(reschedDate); } catch(e){}
+        if (reschedDate > today) {
+            return { key: 'rescheduled', label: 'Chưa Gửi', color: '#d97706', bg: '#fffbeb' };
+        }
+    }
+    if (o.shipping_status === 'pending' && effDate && effDate > today) {
+        return { key: 'early', label: 'Gửi Sớm', color: '#3b82f6', bg: '#eff6ff' };
+    }
+    if (['pending', 'rescheduled'].includes(o.shipping_status) && effDate && effDate <= today) {
+        return { key: 'today', label: 'Hôm Nay Gửi', color: '#dc2626', bg: '#fef2f2' };
+    }
+    return { key: 'unknown', label: 'Khác', color: '#6b7280', bg: '#f3f4f6' };
+}
+
+function _qlxdhPaginationHTML(total, page, perPage) {
+    const totalPages = Math.ceil(total / perPage) || 1;
+    if (totalPages <= 1) return '';
+    const btns = [];
+    btns.push(`<button onclick="_qlxdhGoPage(1)" ${page<=1?'disabled':''} style="${_qlxdhPgBtn(page>1)}">⏮</button>`);
+    btns.push(`<button onclick="_qlxdhGoPage(${page-1})" ${page<=1?'disabled':''} style="${_qlxdhPgBtn(page>1)}">◀</button>`);
+    btns.push(`<span style="font-size:12px;font-weight:700;color:#334155;padding:0 8px;">Trang ${page} / ${totalPages}</span>`);
+    btns.push(`<button onclick="_qlxdhGoPage(${page+1})" ${page>=totalPages?'disabled':''} style="${_qlxdhPgBtn(page<totalPages)}">▶</button>`);
+    btns.push(`<button onclick="_qlxdhGoPage(${totalPages})" ${page>=totalPages?'disabled':''} style="${_qlxdhPgBtn(page<totalPages)}">⏭</button>`);
+    return `<div style="display:flex;align-items:center;justify-content:center;gap:4px;padding:8px 0;">${btns.join('')}</div>`;
+}
+
+function _qlxdhPgBtn(enabled) {
+    return `padding:5px 10px;border:1px solid ${enabled?'#122546':'#e2e8f0'};border-radius:6px;background:${enabled?'white':'#f1f5f9'};color:${enabled?'#122546':'#cbd5e1'};cursor:${enabled?'pointer':'not-allowed'};font-size:12px;font-weight:700;`;
+}
+
+function _qlxdhGoPage(p) {
+    const totalPages = Math.ceil(_qlxdhSearched.length / _QLXDH_PER_PAGE) || 1;
+    _qlxdhPage = Math.max(1, Math.min(p, totalPages));
+    _qlxdhRenderContent();
+}
+
+function _qlxdhRenderContent() {
+    const el = document.getElementById('qlxdhContent');
+    if (!el) return;
+    if (_qlxdhSearched.length === 0) {
+        el.innerHTML = `<div style="text-align:center;padding:60px;"><div style="font-size:48px;margin-bottom:12px;">📭</div><div style="color:#9ca3af;font-size:14px;font-weight:600;">Không có đơn hàng nào</div></div>`;
+        return;
+    }
+    const total = _qlxdhSearched.length;
+    const totalPages = Math.ceil(total / _QLXDH_PER_PAGE);
+    if (_qlxdhPage > totalPages) _qlxdhPage = totalPages;
+    const start = (_qlxdhPage - 1) * _QLXDH_PER_PAGE;
+    const pageOrders = _qlxdhSearched.slice(start, start + _QLXDH_PER_PAGE);
+
+    const pgHTML = _qlxdhPaginationHTML(total, _qlxdhPage, _QLXDH_PER_PAGE);
+    const countHTML = `<div style="font-size:11px;color:#64748b;font-weight:600;text-align:center;padding:4px 0;">Tổng: ${total} đơn${totalPages>1?` — Hiển thị ${start+1}-${Math.min(start+_QLXDH_PER_PAGE,total)}`:''}</div>`;
+
+    let html = pgHTML + countHTML;
+    html += _qlxdhBuildTable(pageOrders);
+    html += countHTML + pgHTML;
+    el.innerHTML = html;
+}
+
+function _qlxdhBuildTable(orders) {
+    const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+    const today = vnDateStr();
+
+    const formatExpectedShipDateWithDay = (dateVal) => {
+        if (!dateVal) return '—';
+        const dt = new Date(dateVal);
+        const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const day = localDt.getDate();
+        const month = localDt.getMonth() + 1;
+        const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = daysOfWeek[localDt.getDay()];
+        return `${dayName} - ${day}/${month}`;
+    };
+
+    const formatActualShipDateWithDay = (dateVal) => {
+        if (!dateVal) return '—';
+        const dt = new Date(dateVal);
+        const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const hh = String(localDt.getHours()).padStart(2, '0');
+        const mm = String(localDt.getMinutes()).padStart(2, '0');
+        const day = localDt.getDate();
+        const month = localDt.getMonth() + 1;
+        const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = daysOfWeek[localDt.getDay()];
+        return `<span class="shimmer-sparkle">${hh}:${mm} ${dayName} - ${day}/${month}</span>`;
+    };
+
+    let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
+    <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
+        ${['','Phiếu Gửi','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'].map(h => {
+            const align = (h === 'Phiếu Gửi' || h === '') ? 'center' : 'left';
+            return `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">${h}</th>`;
+        }).join('')}
+    </tr></thead><tbody>`;
+
+    for (const o of orders) {
+        const overdue = o.is_overdue;
+        const rowBg = overdue ? '#fef2f2' : '';
+        const isKT = o.shipping_status !== 'shipped';
+
+        const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+        const allPendingCompleted = pendingItems.every(item => item.all_done);
+
+        let orderLevelAction = '';
+        if (isKT && o.shipping_status !== 'shipped') {
+            orderLevelAction = `
+                ${!allPendingCompleted ? `<button onclick="event.stopPropagation();_qlxdhShowOrderSlipsModal('${o.id}')" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;margin-bottom:3px;display:block;width:100%;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>` : ''}
+                <button onclick="event.stopPropagation();_qlxdhShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                <button onclick="event.stopPropagation();_qlxdhOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
+            `;
+        } else {
+            orderLevelAction = `
+                <button onclick="event.stopPropagation();_qlxdhShowShippingDetailOnly('${o.id}')" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-size:14px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseout="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">📄</button>
+                <button onclick="event.stopPropagation();_qlxdhOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
+            `;
+        }
+        
+        let progressBadge = '';
+        let tienDoClick = '';
+        if (o.expected_ship_date) {
+            const shipExpected = new Date(o.expected_ship_date); shipExpected.setHours(0,0,0,0);
+            const _todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })); _todayVN.setHours(0,0,0,0);
+            const diffDays = Math.round((_todayVN.getTime() - shipExpected.getTime()) / 86400000);
+            if (o.shipped_at || o.shipping_status === 'shipped') {
+                const shipActual = new Date(o.shipped_at || o.shipping_date || o.created_at); shipActual.setHours(0,0,0,0);
+                const shipDiff = Math.round((shipExpected.getTime() - shipActual.getTime()) / 86400000);
+                if (shipDiff > 0) {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-green">🚀 Nhanh ${shipDiff} ngày</span>`;
+                } else if (shipDiff === 0) {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-green">📦 Đúng hạn</span>`;
+                } else {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-red">⚠️ Trễ ${Math.abs(shipDiff)} ngày</span>`;
+                }
+            } else {
+                if (diffDays < 0) {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-blue">⏳ Còn ${Math.abs(diffDays)} ngày</span>`;
+                } else if (diffDays === 0) {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-yellow">📦 Hôm nay!</span>`;
+                } else {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-red" style="animation:dhtBlink 1s infinite">🔥 Trễ ${diffDays} ngày</span>`;
+                }
+            }
+            tienDoClick = `onclick="event.stopPropagation(); _dhtShowTraSoatModal('${o.id}', '${o.order_code}')" title="Xem tra soát tiến độ"`;
+        } else {
+            progressBadge = `<span style="color:#94a3b8;font-style:italic">—</span>`;
+        }
+
+        html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};cursor:pointer;" onclick="window._dhtDetailSource='shipping';_dhtShowDetail('${o.id}')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'" title="Xem chi tiết đơn hàng">`;
+        
+        html += `<td style="padding:8px 6px;text-align:center;" onclick="event.stopPropagation();_qlxdhToggleOrderItems('${o.id}')">
+            <span id="qlxdhChevron_${o.id}" style="font-size:14px;cursor:pointer;user-select:none;color:#64748b;font-weight:bold;padding:4px;">▶</span>
+        </td>`;
+
+        html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;white-space:nowrap;">${formatExpectedShipDateWithDay(o.expected_ship_date)}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;white-space:nowrap;">${formatActualShipDateWithDay(o.shipped_at)}</td>`;
+        
+        html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span onclick="event.stopPropagation(); _qlxdhShowHistory('${o.id}', '${o.order_code}')" style="color:#d97706;font-weight:700;cursor:pointer;text-decoration:underline;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">—</span>'}</td>`;
+        
+        html += `<td style="padding:8px 6px;" ${tienDoClick}>${progressBadge}</td>`;
+
+        const remaining = Number(o.remaining_amount) || 0;
+        const remColor = remaining > 0 ? '#dc2626' : '#059669';
+        const remBg = remaining > 0 ? '#fee2e2' : '#dcfce7';
+        const remBorder = remaining > 0 ? '#fca5a5' : '#86efac';
+        html += `<td style="padding:8px 6px;white-space:nowrap;vertical-align:middle;">
+            <span style="font-weight:800;color:${remColor};background:${remBg};border:1.5px solid ${remBorder};padding:4px 8px;border-radius:8px;font-size:12px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.05);text-align:right;min-width:75px;">
+                ${remaining.toLocaleString('vi-VN')}đ
+            </span>
+        </td>`;
+
+        const totalAmount = Number(o.total_amount) || 0;
+        html += `<td style="padding:8px 6px;white-space:nowrap;vertical-align:middle;">
+            <span style="font-weight:800;color:#1e3a8a;background:#eff6ff;border:1.5px solid #bfdbfe;padding:4px 8px;border-radius:8px;font-size:12px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.05);text-align:right;min-width:75px;">
+                ${totalAmount.toLocaleString('vi-VN')}đ
+            </span>
+        </td>`;
+        
+        const prio = (o.shipping_priority || 'CHUẨN').toUpperCase();
+        let prioBadgeHtml = '';
+        if (prio === 'GẤP') {
+            prioBadgeHtml = `<span style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:2.5px 6px;border-radius:6px;font-size:10px;font-weight:800;margin-right:6px;display:inline-block;vertical-align:middle;line-height:1;">GẤP</span>`;
+        } else if (prio === 'GỬI') {
+            prioBadgeHtml = `<span style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:2.5px 6px;border-radius:6px;font-size:10px;font-weight:800;margin-right:6px;display:inline-block;vertical-align:middle;line-height:1;">GỬI</span>`;
+        } else {
+            prioBadgeHtml = `<span style="background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe;padding:2.5px 6px;border-radius:6px;font-size:10px;font-weight:800;margin-right:6px;display:inline-block;vertical-align:middle;line-height:1;">Chuẩn</span>`;
+        }
+        html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;white-space:nowrap;">
+            <div style="display:flex;align-items:center;">
+                ${prioBadgeHtml}
+                <span style="font-size:12px;font-weight:900;color:#1e1b4b;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:4px;">
+                    ${o.is_hoan_hang ? '🔄 <span style="background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe;padding:2.5px 6px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;vertical-align:middle;line-height:1;">Hoàn</span>' : ''}${o.order_code || '—'}
+                </span>
+            </div>
+        </td>`;
+
+        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${o.customer_name||''}">${o.customer_name || '—'}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '—'}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.cskh_name || '—'}</td>`;
+        html += '</tr>';
+
+        const itemsTableHtml = _qlxdhBuildItemsTable(o);
+        html += `<tr id="qlxdhItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
+            <td colspan="12" style="padding:12px 16px;">
+                <div style="font-size:12px;font-weight:800;color:#1e3a5f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                    <span>📋 Danh sách phiếu sản phẩm của đơn ${o.order_code}</span>
+                </div>
+                ${itemsTableHtml}
+            </td>
+        </tr>`;
+    }
+    html += '</tbody></table></div>';
+    return html;
+}
+
+function _qlxdhToggleOrderItems(orderId) {
+    const row = document.getElementById(`qlxdhItemsRow_${orderId}`);
+    const chevron = document.getElementById(`qlxdhChevron_${orderId}`);
+    if (!row || !chevron) return;
+    if (row.style.display === 'none') {
+        row.style.display = '';
+        chevron.innerText = '▼';
+    } else {
+        row.style.display = 'none';
+        chevron.innerText = '▶';
+    }
+}
+
+function _qlxdhBuildProgressHTML(item) {
+    const steps = [
+        { label: 'Cắt', done: item.cut_done, needed: item.needs_cut },
+        { label: 'In', done: item.print_done, needed: item.needs_print },
+        { label: 'Ép', done: item.press_done, needed: item.needs_press },
+        { label: 'May', done: item.sew_done, needed: item.needs_sew },
+        { label: 'QC', done: item.qc_done, needed: item.needs_sew },
+        { label: 'HT', done: item.finish_done, needed: item.needs_finishing }
     ];
 
-    sb.innerHTML = tabsDef.map(t => {
-        const active = _dhnqlxFilter === t.key;
-        
-        // Compute count dynamically based on search filter
-        let cnt = 0;
-        const list = _dhnqlxData[t.key] || [];
-        if (_dhnqlxSearchVal) {
-            cnt = list.filter(o => 
-                (o.order_code || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-                (o.customer_name || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-                (o.customer_phone || '').toLowerCase().includes(_dhnqlxSearchVal)
-            ).length;
-        } else {
-            cnt = list.length;
-        }
-
-        const borderColor = active ? t.color : '#e2e8f0';
-        const background = active ? t.bg : 'white';
-        const textColor = active ? t.color : '#475569';
-        const badgeBg = t.color;
-
-        return `
-            <div onclick="_dhnqlxSetFilter('${t.key}')" class="dhnqlx-tab-card ${active ? 'active' : ''}" style="border-color: ${borderColor}; background: ${background};">
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:16px;">${t.icon}</span>
-                    <span style="font-size:12px;font-weight:700;color:${textColor};">${t.label}</span>
-                </div>
-                <span class="dhnqlx-badge" style="background:${badgeBg};">${cnt}</span>
-            </div>
-        `;
-    }).join('');
+    return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">` + 
+        steps.map(s => {
+            if (!s.needed) return '';
+            const bg = s.done ? '#dcfce7' : '#fee2e2';
+            const color = s.done ? '#15803d' : '#b91c1c';
+            const icon = s.done ? '✓' : '✗';
+            return `<span style="padding:1.5px 5px;border-radius:4px;font-size:9.5px;font-weight:700;background:${bg};color:${color};display:inline-flex;align-items:center;gap:2.5px;" title="${s.label}: ${s.done ? 'Đã hoàn thành' : 'Chưa hoàn thành'}">
+                ${s.label} ${icon}
+            </span>`;
+        }).join('') + `</div>`;
 }
 
-function _dhnqlxSetFilter(key) {
-    _dhnqlxFilter = key;
-    _dhnqlxRenderSidebar();
-    _dhnqlxRenderContent();
-}
-
-function _dhnqlxOnSearch(val) {
-    _dhnqlxSearchVal = val.trim().toLowerCase();
-
-    if (_dhnqlxSearchVal) {
-        const tabsDefKeys = ['xu_ly', 'som', 'hen_lai', 'hoan_thanh'];
-        const matchedCounts = {};
-        tabsDefKeys.forEach(key => {
-            const list = _dhnqlxData[key] || [];
-            matchedCounts[key] = list.filter(o => 
-                (o.order_code || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-                (o.customer_name || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-                (o.customer_phone || '').toLowerCase().includes(_dhnqlxSearchVal)
-            ).length;
-        });
-
-        // If the query matches anything, switch the filter to the first tab that has matches
-        const firstMatchTab = tabsDefKeys.find(key => matchedCounts[key] > 0);
-        if (firstMatchTab && firstMatchTab !== _dhnqlxFilter) {
-            _dhnqlxFilter = firstMatchTab;
-        }
-
-        // If we switched to/are in hoan_thanh, auto-expand any months containing matches
-        if (_dhnqlxFilter === 'hoan_thanh') {
-            for (const monthKey in _dhnqlxMonthOrders) {
-                const monthOrders = _dhnqlxMonthOrders[monthKey] || [];
-                const monthMatches = monthOrders.filter(o => 
-                    (o.order_code || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-                    (o.customer_name || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-                    (o.customer_phone || '').toLowerCase().includes(_dhnqlxSearchVal)
-                ).length;
-                if (monthMatches > 0) {
-                    _dhnqlxExpandedMonths.add(monthKey);
-                }
-            }
-        }
+function _qlxdhBuildItemsTable(order) {
+    if (!order.items || !order.items.length) {
+        return `<div style="color:#64748b;font-style:italic;font-size:11px;">Không có chi tiết phiếu sản phẩm</div>`;
     }
 
-    _dhnqlxRenderSidebar();
-    _dhnqlxRenderContent();
-}
-
-function getProgressSaleHTML(o) {
-    if (!o.expected_ship_date) {
-        return '<span style="color:#94a3b8;font-style:italic">—</span>';
-    }
-    const shipVN = new Date(o.expected_ship_date);
-    shipVN.setHours(0,0,0,0);
-    
-    if (o.shipped_at) {
-        const actualVN = new Date(o.shipped_at);
-        actualVN.setHours(0,0,0,0);
-        const diffDays = Math.round((shipVN - actualVN) / 86400000);
-        if (diffDays > 0) {
-            return `<span style="color:#0369a1;font-weight:800;">🚀 Nhanh ${diffDays} ngày</span>`;
-        } else if (diffDays < 0) {
-            return `<span style="color:#dc2626;font-weight:800;">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
-        } else {
-            return `<span style="color:#059669;font-weight:800;">✅ Đúng hạn</span>`;
-        }
-    } else {
-        const todayVN = typeof vnNow === 'function' ? vnNow() : new Date();
-        todayVN.setHours(0,0,0,0);
-        const remainDays = Math.round((shipVN - todayVN) / 86400000);
-        if (remainDays > 0) {
-            return `<span style="color:#2563eb;font-weight:800;">📅 Còn ${remainDays} ngày</span>`;
-        } else if (remainDays < 0) {
-            return `<span style="color:#dc2626;font-weight:800;">⚠️ Quá hạn ${Math.abs(remainDays)} ngày</span>`;
-        } else {
-            return `<span style="color:#d97706;font-weight:800;">📦 Hôm nay gửi</span>`;
-        }
-    }
-}
-
-function formatExpectedShipDateWithDay(dateVal) {
-    if (!dateVal) return '—';
-    const dt = new Date(dateVal);
-    const localDt = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-    const day = localDt.getDate();
-    const month = localDt.getMonth() + 1;
-    const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-    const dayName = daysOfWeek[localDt.getDay()];
-    return `${dayName} - ${day}/${month}`;
-}
-
-function _dhnqlxRenderContent() {
-    const container = document.getElementById('dhnqlxContent');
-    if (!container) return;
-
-    // Year-Month grouping for completed orders if configured to show all completed history
-    if (_dhnqlxFilter === 'hoan_thanh' && _dhnqlxConfig.hoan_thanh_mode === 'all') {
-        if (_dhnqlxCompletedMonths.length === 0) {
-            container.innerHTML = `
-                <div style="text-align:center;padding:60px;">
-                    <div style="font-size:48px;margin-bottom:12px;">📭</div>
-                    <div style="color:#9ca3af;font-size:14px;font-weight:600;">Không có đơn hàng hoàn thành nào trong lịch sử</div>
-                </div>`;
-            return;
-        }
-
-        let html = '<div class="completed-tree-container" style="display:flex; flex-direction:column; gap:16px;">';
-        _dhnqlxCompletedMonths.forEach(y => {
-            html += `
-                <div class="completed-year-group" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px;">
-                    <div style="font-size:16px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                        <span>📁</span> Năm ${y.year}
-                    </div>
-                    <div class="completed-months-list" style="display:flex; flex-direction:column; gap:8px; padding-left:12px;">
-            `;
-            y.months.forEach(m => {
-                const monthKey = `${y.year}-${m.month}`;
-                const isExpanded = _dhnqlxExpandedMonths.has(monthKey);
-                const ordersList = _dhnqlxMonthOrders[monthKey] || [];
-                
-                let filteredOrders = ordersList;
-                if (_dhnqlxSearchVal) {
-                    filteredOrders = ordersList.filter(o => 
-                        (o.order_code || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-                        (o.customer_name || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-                        (o.customer_phone || '').toLowerCase().includes(_dhnqlxSearchVal)
-                    );
-                }
-
-                html += `
-                    <div class="completed-month-item" style="border:1px solid #f1f5f9; border-radius:8px; background:white; overflow:hidden;">
-                        <div onclick="_dhnqlxToggleMonth('${monthKey}')" style="display:flex; justify-content:between; align-items:center; padding:10px 14px; cursor:pointer; background:#f8fafc; font-weight:700; color:#475569; user-select:none; border:1px solid #e2e8f0; border-radius:6px;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <span>📅</span> Tháng ${m.month} <span style="font-weight:normal; color:#64748b;">(${m.count} đơn)</span>
-                            </div>
-                            <span style="font-size:12px; color:#94a3b8; margin-left:auto;">${isExpanded ? '▲ Thu gọn' : '▼ Xem chi tiết'}</span>
-                        </div>
-                `;
-
-                if (isExpanded) {
-                    html += `<div style="padding:12px; border-top:1px solid #e2e8f0; overflow-x:auto;">`;
-                    if (filteredOrders.length === 0) {
-                        html += `
-                            <div style="text-align:center; padding:20px; color:#94a3b8; font-size:13px;">
-                                ${ordersList.length === 0 ? '⏳ Đang tải dữ liệu...' : 'Không tìm thấy đơn hàng phù hợp'}
-                            </div>`;
-                    } else {
-                        html += _dhnqlxBuildTableHTML(filteredOrders);
-                    }
-                    html += `</div>`;
-                }
-
-                html += `</div>`;
-            });
-            html += `
-                    </div>
-                </div>
-            `;
-        });
-        html += '</div>';
-        container.innerHTML = html;
-        return;
-    }
-
-    let orders = _dhnqlxData[_dhnqlxFilter] || [];
-    
-    if (_dhnqlxSearchVal) {
-        orders = orders.filter(o => 
-            (o.order_code || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-            (o.customer_name || '').toLowerCase().includes(_dhnqlxSearchVal) ||
-            (o.customer_phone || '').toLowerCase().includes(_dhnqlxSearchVal)
-        );
-    }
-
-    if (orders.length === 0) {
-        container.innerHTML = `
-            <div style="text-align:center;padding:60px;">
-                <div style="font-size:48px;margin-bottom:12px;">📭</div>
-                <div style="color:#9ca3af;font-size:14px;font-weight:600;">Không có đơn hàng nào trong mục này</div>
-            </div>`;
-        return;
-    }
-
-    container.innerHTML = _dhnqlxBuildTableHTML(orders);
-}
-
-function _dhnqlxBuildTableHTML(orders) {
-    let tbodyRows = orders.map(o => {
-        const prio = (o.shipping_priority || 'CHUẨN').toUpperCase();
-        let prioClass = 'dhnqlx-prio-chuan';
-        if (prio === 'GẤP') prioClass = 'dhnqlx-prio-gap';
-        else if (prio === 'GỬI') prioClass = 'dhnqlx-prio-gui';
-
-        const orderDateStr = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
-        const progressHTML = getProgressSaleHTML(o);
-
-        // Sale Ship Date Column
-        const saleExpectedDateStr = formatExpectedShipDateWithDay(o.expected_ship_date);
-        const deliveryTimeHtml = o.standard_delivery_time ? `<div style="font-size:10px;color:#0369a1;font-weight:normal;">Giờ: <b>${o.standard_delivery_time}</b></div>` : '';
-
-        // QLX Expected Date Column
-        const qlxExpectedDateStr = formatExpectedShipDateWithDay(o.qlx_expected_date);
-        const qlxExpectedHourStr = o.qlx_expected_hour || '—';
-
-        // Action Buttons dependent on status
-        let actionButtons = '';
-        if (!o.qlx_actual_output_at) {
-            actionButtons += `
-                <button onclick="event.stopPropagation(); _dhnqlxShowExpectedTimeModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-blue">⏱ Báo giờ ra</button>
-                <button onclick="event.stopPropagation(); _dhnqlxConfirmComplete(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-green">✅ Hoàn thành</button>
-                <button onclick="event.stopPropagation(); _dhnqlxShowRescheduleModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-yellow">📅 Hẹn lại</button>
-            `;
-        }
-        actionButtons += `<button onclick="event.stopPropagation(); _dhnqlxShowLogsModal(${o.id}, '${o.order_code}')" class="dhnqlx-action-btn dhnqlx-btn-gray">📜 Lịch sử</button>`;
-
-        // Reschedule Reason / Status Note
-        let statusNote = '';
-        if (o.qlx_rescheduled_date) {
-            statusNote = `<div style="color:#d97706;font-size:10px;margin-top:2px;"><b>Hẹn lại:</b> ${o.qlx_rescheduled_date_fmt} <br/> <i>${o.qlx_rescheduled_reason || ''}</i></div>`;
-        } else if (o.qlx_actual_output_at) {
-            statusNote = `<div style="color:#059669;font-size:10px;margin-top:2px;"><b>Xong lúc:</b> ${o.qlx_actual_output_at_fmt}</div>`;
-        }
-
-        return `
-            <tr id="dhnqlxRow${o.id}" onclick="_dhnqlxToggleDetail(${o.id})" style="cursor:pointer;">
-                <td style="white-space:nowrap;font-weight:bold;">
-                    ${progressHTML}
-                </td>
-                <td style="font-weight: 800; white-space: nowrap;">
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span class="dhnqlx-prio-tag ${prioClass}">${prio}</span>
-                        <a href="/trasoatdonhang?search=${o.order_code}" target="_blank" onclick="event.stopPropagation()" style="font-size:12px; font-weight:900; color:#1e1b4b; text-decoration:none;">${o.order_code}</a>
-                    </div>
-                </td>
-                <td>
-                    <div style="font-weight:600;color:#1e293b;">${o.customer_name || '—'}</div>
-                    <div style="font-size:10px;color:#64748b;">${o.customer_phone || '—'}</div>
-                </td>
-                <td style="font-size:11px;">
-                    <div>${o.category_name || '—'}</div>
-                    <div style="font-size:10px;color:#64748b;">SL: <b>${o.total_quantity || 0}</b></div>
-                </td>
-                <td style="font-weight:600;color:#0f172a; white-space:nowrap;">
-                    <div>${saleExpectedDateStr}</div>
-                    ${deliveryTimeHtml}
-                </td>
-                <td style="font-weight:600;color:#0f172a; white-space:nowrap;">
-                    <div>${qlxExpectedDateStr}</div>
-                    <div style="font-size:10px;color:#4b5563;font-weight:normal;">Giờ: <b>${qlxExpectedHourStr}</b></div>
-                    ${statusNote}
-                </td>
-                <td>
-                    <div style="font-size:11px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${o.notes||''}">
-                        ${o.notes || '<span style="color:#cbd5e1;">—</span>'}
-                    </div>
-                </td>
-                <td>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                        ${actionButtons}
-                    </div>
-                </td>
+    let html = `<div style="background:white;border:1px solid #cbd5e1;border-radius:10px;padding:8px;box-shadow:inset 0 1px 3px rgba(0,0,0,.05);overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:700px;">
+        <thead>
+            <tr style="border-bottom:1.5px solid #cbd5e1;background:#f8fafc;color:#475569;">
+                <th style="padding:6px 8px;text-align:left;font-weight:700;width:220px;">Mã Phiếu đơn</th>
+                <th style="padding:6px 8px;text-align:center;font-weight:700;width:60px;">SL</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;">Tiến độ bộ phận</th>
+                <th style="padding:6px 8px;text-align:center;font-weight:700;width:110px;">Trạng thái gửi</th>
+                <th style="padding:6px 8px;text-align:center;font-weight:700;width:140px;">Thao tác</th>
             </tr>
-        `;
-    }).join('');
+        </thead>
+        <tbody>`;
 
-    return `
-        <div class="dhnqlx-table-container">
-            <table class="dhnqlx-table">
-                <thead>
-                    <tr style="background: linear-gradient(135deg, #1e293b, #334155);">
-                        <th style="width: 140px;">📊 Tiến Độ Ra Hàng</th>
-                        <th style="width: 130px;">Mã Đơn</th>
-                        <th style="width: 150px;">Khách Hàng</th>
-                        <th style="width: 130px;">Thông Tin</th>
-                        <th style="width: 160px;">Ngày Ra Đơn (SALE)</th>
-                        <th style="width: 160px;">Hẹn Ra Đơn (QLX)</th>
-                        <th>Ghi Chú Đơn</th>
-                        <th style="width: 320px;">Thao Tác</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${tbodyRows}
-                </tbody>
-            </table>
-        </div>
-    `;
-}
-
-async function _dhnqlxToggleMonth(monthKey) {
-    if (_dhnqlxExpandedMonths.has(monthKey)) {
-        _dhnqlxExpandedMonths.delete(monthKey);
-        _dhnqlxRenderContent();
-    } else {
-        _dhnqlxExpandedMonths.add(monthKey);
-        if (!_dhnqlxMonthOrders[monthKey]) {
-            _dhnqlxRenderContent();
-            try {
-                const res = await apiCall(`/api/qlx-orders/completed-by-month?month=${monthKey}`);
-                _dhnqlxMonthOrders[monthKey] = res.orders || [];
-            } catch (e) {
-                showToast('Lỗi tải danh sách đơn hoàn thành: ' + e.message, 'error');
-                _dhnqlxExpandedMonths.delete(monthKey);
+    for (let i = 0; i < order.items.length; i++) {
+        const item = order.items[i];
+        const trStyle = `border-bottom:1px solid #f1f5f9;`;
+        
+        let actionHtml = '';
+        if (item.shipping_status === 'shipped') {
+            actionHtml = '';
+        } else {
+            if (item.all_done) {
+                actionHtml = `<span style="color:#10b981;font-weight:700;font-size:11.5px;">Chờ gửi</span>`;
+            } else {
+                actionHtml = `<button onclick="event.stopPropagation();_qlxdhAlertCannotShip('${(item.product_name||'').replace(/'/g,"\\'")}', '${item.missing_steps.join(', ')}', '${(order.order_code||'').replace(/'/g,"\\'")}', '${order.id}')" style="padding:3px 8px;border:none;border-radius:4px;background:#ef4444;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚠️ Không gửi được</button>`;
             }
         }
-        _dhnqlxRenderContent();
+
+        const progressHtml = _qlxdhBuildProgressHTML(item);
+        const statusBadge = item.shipping_status === 'shipped' 
+            ? `<span style="background:#ecfdf5;color:#047857;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">✅ Đã gửi</span>` 
+            : `<span style="background:#fffbeb;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chờ gửi</span>`;
+
+        html += `<tr style="${trStyle}">
+            <td style="padding:6px 8px;font-weight:600;color:#1e293b;">
+                <div>🏷️ Phiếu ${i + 1}: ${item.product_name}</div>
+                <div style="font-size:10px;color:#64748b;font-weight:normal;margin-top:2px;">${item.description || ''}</div>
+            </td>
+            <td style="padding:6px 8px;text-align:center;font-weight:700;color:#334155;">${item.quantity}</td>
+            <td style="padding:6px 8px;">${progressHtml}</td>
+            <td style="padding:6px 8px;text-align:center;">${statusBadge}</td>
+            <td style="padding:6px 8px;text-align:center;">${actionHtml}</td>
+        </tr>`;
     }
+
+    html += `</tbody></table></div>`;
+    return html;
 }
 
-// ===== DIALOG MODALS =====
-function _dhnqlxCreateModal(title, contentHtml, footerHtml, width = '460px') {
-    document.getElementById('dhnqlxActionModal')?.remove();
+function _qlxdhShowAlert(title, contentHtml, width = '480px', backBtnHtml = '', headerStyle = '', icon = '⚠️') {
+    document.getElementById('qlxdhAlertModal')?.remove();
+    
+    if (!document.getElementById('qlxdhAlertStyles')) {
+        const style = document.createElement('style');
+        style.id = 'qlxdhAlertStyles';
+        style.innerHTML = `
+            @keyframes qlxdhAlertFadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes qlxdhAlertSlideUp { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        `;
+        document.head.appendChild(style);
+    }
 
     const m = document.createElement('div');
-    m.id = 'dhnqlxActionModal';
-    m.setAttribute('data-no-debounce', 'true');
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:dhnqlxModalFadeIn 0.2s ease-out;';
+    m.id = 'qlxdhAlertModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:qlxdhAlertFadeIn 0.2s ease-out;';
     
+    const hStyle = headerStyle || 'background:linear-gradient(135deg,#ef4444,#dc2626);';
     m.innerHTML = `
-    <div style="background:white;border-radius:16px;width:${width};max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);overflow:hidden;animation:dhnqlxModalSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);transition:all 0.2s ease;">
-        <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 24px;color:white;display:flex;align-items:center;justify-content:between;" data-no-debounce="true">
-            <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;" data-no-debounce="true">⚙️ ${title}</div>
-            <span onclick="document.getElementById('dhnqlxActionModal').remove()" style="cursor:pointer;color:white;font-size:20px;font-weight:700;opacity:0.8;margin-left:auto;">✕</span>
+    <div style="background:white;border-radius:16px;width:${width};max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;animation:qlxdhAlertSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
+        <div style="${hStyle}padding:18px 24px;color:white;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">${icon}</span>
+            <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;">${title}</div>
         </div>
         <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;max-height:60vh;overflow-y:auto;">
             ${contentHtml}
         </div>
         <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">
-            ${footerHtml}
+            ${backBtnHtml}
+            <button onclick="document.getElementById('qlxdhAlertModal')?.remove()" style="padding:8px 20px;border:none;border-radius:8px;background:#374151;color:white;cursor:pointer;font-weight:700;font-size:13px;transition:background 0.2s;" onmouseover="this.style.background='#1f2937'" onmouseout="this.style.background='#374151'">Đóng</button>
         </div>
     </div>`;
 
     document.body.appendChild(m);
-    
-    const isSpecial = title.includes('Báo báo') || title.includes('Báo cáo') || title.includes('Báo Cáo') || title.includes('Chi tiết Chặng');
-    if (isSpecial) {
-        m.style.zIndex = '99999';
-        const closeCross = m.querySelector('span[onclick*="remove"]');
-        if (closeCross) closeCross.style.display = 'none';
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+}
+
+function _qlxdhAlertCannotShip(itemName, missing, orderCode, orderId = null) {
+    const missingBadges = missing.split(', ').map(step => 
+        `<span style="display:inline-block;background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11px;margin:2px 4px 2px 0;">${step}</span>`
+    ).join('');
+
+    const html = `
+        <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div>Phiếu sản phẩm <b style="color:#1e293b;font-size:14px;">"${itemName}"</b> chưa đủ điều kiện để gửi hàng.</div>
+            ${orderCode ? `<a href="/trasoatdonhang?search=${orderCode}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>` : ''}
+        </div>
+        <div style="background:#fff7ed;border:1px solid #ffedd5;border-radius:8px;padding:12px;margin-bottom:8px;">
+            <div style="font-weight:700;color:#c2410c;margin-bottom:6px;font-size:12px;">🔴 Các bộ phận chưa hoàn thành:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">${missingBadges}</div>
+        </div>
+        <div style="color:#64748b;font-size:12px;margin-top:12px;">Vui lòng đốc thúc các bộ phận liên quan hoàn thành để kế toán có thể xuất hàng.</div>
+    `;
+
+    let backBtnHtml = '';
+    if (orderId) {
+        backBtnHtml = `<button onclick="document.getElementById('qlxdhAlertModal')?.remove();_qlxdhAlertCannotShipOrder('${orderId}')" style="padding:8px 20px;border:1px solid #d97706;border-radius:8px;background:white;color:#d97706;cursor:pointer;font-weight:700;font-size:13px;margin-right:auto;display:inline-flex;align-items:center;gap:4px;">\u2190 Trở lại</button>`;
+    }
+
+    _qlxdhShowAlert('Không thể gửi phiếu hàng', html, '480px', backBtnHtml);
+}
+
+function _qlxdhAlertCannotShipOrder(orderId) {
+    _qlxdhShowOrderSlipsModal(orderId);
+}
+
+function _qlxdhShowOrderSlipsModal(orderId) {
+    const o = _qlxdhOrders.find(x => String(x.id) === String(orderId));
+    if (!o) return;
+
+    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+
+    let html = '';
+    let title = '';
+    let headerStyle = '';
+    let icon = '⚠️';
+
+    if (pendingItems.length === 0) {
+        title = `Đơn hàng ${o.order_code}`;
+        headerStyle = 'background:linear-gradient(135deg,#374151,#1f2937);';
+        icon = '📦';
+        html = `
+            <div style="margin-bottom:12px;font-size:13px;color:#334155;">Đơn hàng <b style="color:#1e293b;">${o.order_code}</b> hiện tại không có phiếu sản phẩm nào ở trạng thái chờ gửi.</div>
+        `;
     } else {
-        m.addEventListener('click', e => { if (e.target === m) m.remove(); });
-    }
-}
-
-function _dhnqlxOpenConfigModal() {
-    const btn = document.getElementById('dhnqlxConfigBtn');
-    const currentCutoff = btn ? parseInt(btn.dataset.cutoffValue) || 1080 : 1080;
-    const hrs = Math.floor(currentCutoff / 60);
-    const mins = currentCutoff % 60;
-    const cutoffTimeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-
-    const content = `
-        <div style="display:flex; flex-direction:column; gap:16px;">
-            <div>
-                <label style="display:block;font-weight:700;margin-bottom:6px;color:#1e293b;">1. Giờ nghỉ chốt nhận đơn của QLX:</label>
-                <input type="time" id="dhnqlxCutoffTimeInput" value="${cutoffTimeStr}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:16px;text-align:center;color:#4f46e5;">
-                <div style="font-size:11px; color:#64748b; margin-top:4px; line-height:1.4;">
-                    * Đơn do CSKH bắn sau giờ này sẽ tự động dời thời hạn sang ngày tiếp theo (miễn phạt trễ ngày hôm đó).
-                </div>
-            </div>
-            
-            <div style="border-top:1px solid #e2e8f0; padding-top:12px;">
-                <label style="display:block;font-weight:700;margin-bottom:6px;color:#1e293b;">2. Phạm vi ngày hiển thị trong "Đơn Hàng Xử Lý":</label>
-                <select id="dhnqlxXuLyDaysSelect" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-weight:600;font-size:14px;color:#1e293b;background:white;">
-                    <option value="1" ${_dhnqlxConfig.xu_ly_days === 1 ? 'selected' : ''}>Hôm nay + Ngày mai (Mặc định)</option>
-                    <option value="2" ${_dhnqlxConfig.xu_ly_days === 2 ? 'selected' : ''}>Hôm nay + Ngày mai + Ngày kia</option>
-                    <option value="3" ${_dhnqlxConfig.xu_ly_days === 3 ? 'selected' : ''}>Hôm nay + 3 ngày tới</option>
-                    <option value="5" ${_dhnqlxConfig.xu_ly_days === 5 ? 'selected' : ''}>Hôm nay + 5 ngày tới</option>
-                </select>
-                <div style="font-size:11px; color:#64748b; margin-top:4px;">
-                    * Điều chỉnh khoảng thời gian gom đơn từ tab "Sớm" chuyển về tab "Xử Lý".
-                </div>
-            </div>
-
-            <div style="border-top:1px solid #e2e8f0; padding-top:12px;">
-                <label style="display:block;font-weight:700;margin-bottom:6px;color:#1e293b;">3. Chế độ hiển thị "Đơn Hàng Hoàn Thành":</label>
-                <div style="display:flex; flex-direction:column; gap:8px;">
-                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
-                        <input type="radio" name="dhnqlxHoanThanhMode" value="today" ${_dhnqlxConfig.hoan_thanh_mode === 'today' ? 'checked' : ''}>
-                        Chỉ hiển thị đơn hoàn thành trong ngày hôm nay
-                    </label>
-                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
-                        <input type="radio" name="dhnqlxHoanThanhMode" value="all" ${_dhnqlxConfig.hoan_thanh_mode === 'all' ? 'checked' : ''}>
-                        Hiển thị tất cả đơn hoàn thành (Theo Năm/Tháng)
-                    </label>
-                </div>
-            </div>
-        </div>
-    `;
-
-    const footer = `
-        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #d1d5db;background:white;border-radius:8px;cursor:pointer;font-weight:600;">Hủy</button>
-        <button onclick="_dhnqlxSubmitConfig()" style="padding:8px 16px;background:#4f46e5;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Lưu Cấu Hình</button>
-    `;
-
-    _dhnqlxCreateModal('Cài Đặt Hệ Thống QLX', content, footer, '500px');
-}
-
-async function _dhnqlxSubmitConfig() {
-    const timeVal = document.getElementById('dhnqlxCutoffTimeInput').value;
-    if (!timeVal) {
-        showToast('Vui lòng chọn thời gian chốt đơn', 'error');
-        return;
-    }
-    const xuLyDays = parseInt(document.getElementById('dhnqlxXuLyDaysSelect').value) || 1;
-    const hoanThanhMode = document.querySelector('input[name="dhnqlxHoanThanhMode"]:checked').value;
-
-    const [hrs, mins] = timeVal.split(':').map(Number);
-    const totalMins = hrs * 60 + mins;
-
-    try {
-        const resCutoff = await apiCall('/api/penalty/config', 'POST', {
-            configs: [
-                { key: 'qlx_cutoff_time', amount: totalMins }
-            ]
-        });
-        if (!resCutoff.success) {
-            showToast('Lỗi lưu cấu hình giờ chốt đơn: ' + (resCutoff.error || ''), 'error');
-            return;
-        }
-
-        const resQlx = await apiCall('/api/qlx-orders/config', 'POST', {
-            xu_ly_days: xuLyDays,
-            hoan_thanh_mode: hoanThanhMode
-        });
-        if (!resQlx.success) {
-            showToast('Lỗi lưu cấu hình khoảng ngày QLX: ' + (resQlx.error || ''), 'error');
-            return;
-        }
-
-        showToast('Lưu cấu hình hệ thống QLX thành công!');
-        document.getElementById('dhnqlxActionModal')?.remove();
-        
-        await _dhnqlxLoadCutoffTime();
-        await _dhnqlxLoadData();
-    } catch(e) {
-        showToast(e.message, 'error');
-    }
-}
-
-function _dhnqlxShowExpectedTimeModal(orderId, orderCode) {
-    const todayStr = vnDateStr(vnNow());
-    const content = `
-        <div style="margin-bottom:12px;">Báo giờ ra cho đơn hàng <b style="color:#1e3a8a;">${orderCode}</b></div>
-        <div style="margin-bottom:12px;">
-            <label style="display:block;font-weight:700;margin-bottom:4px;">Ngày ra đơn dự kiến:</label>
-            <input type="date" id="expectedDateInput" value="${todayStr}" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-weight:600;">
-        </div>
-        <div>
-            <label style="display:block;font-weight:700;margin-bottom:4px;">Giờ ra đơn dự kiến (ví dụ: 14:00, 16:30):</label>
-            <input type="time" id="expectedHourInput" value="17:00" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-weight:600;">
-        </div>
-    `;
-
-    const footer = `
-        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #d1d5db;background:white;border-radius:8px;cursor:pointer;font-weight:600;">Hủy</button>
-        <button onclick="_dhnqlxSubmitExpectedTime(${orderId})" style="padding:8px 16px;background:#2563eb;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Xác nhận</button>
-    `;
-
-    _dhnqlxCreateModal('Báo Giờ Ra Đơn', content, footer);
-}
-
-async function _dhnqlxSubmitExpectedTime(orderId) {
-    const qlx_expected_date = document.getElementById('expectedDateInput').value;
-    const qlx_expected_hour = document.getElementById('expectedHourInput').value;
-
-    if (!qlx_expected_date || !qlx_expected_hour) {
-        showToast('Vui lòng điền đầy đủ ngày và giờ', 'error');
-        return;
-    }
-
-    try {
-        const res = await apiCall(`/api/qlx-orders/${orderId}/expected-time`, 'POST', { qlx_expected_date, qlx_expected_hour });
-        if (res.success) {
-            showToast('Cập nhật giờ ra đơn thành công!');
-            document.getElementById('dhnqlxActionModal')?.remove();
-            _dhnqlxLoadData();
-        } else {
-            showToast(res.error || 'Lỗi cập nhật', 'error');
-        }
-    } catch(e) {
-        showToast(e.message, 'error');
-    }
-}
-
-function _dhnqlxConfirmComplete(orderId, orderCode) {
-    const content = `
-        <div style="font-size:14px;text-align:center;padding:10px 0;">
-            Bạn có chắc chắn đã sản xuất hoàn thành đơn hàng <b>${orderCode}</b>?<br/>
-            Đơn hàng sẽ được chuyển sang danh sách <b>Chờ Kế Toán Xuất Hàng</b>.
-        </div>
-    `;
-    const footer = `
-        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #d1d5db;background:white;border-radius:8px;cursor:pointer;font-weight:600;">Hủy</button>
-        <button onclick="_dhnqlxSubmitComplete(${orderId})" style="padding:8px 16px;background:#059669;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Đúng, Hoàn Thành</button>
-    `;
-    _dhnqlxCreateModal('Báo Hoàn Thành Đơn', content, footer);
-}
-
-async function _dhnqlxSubmitComplete(orderId) {
-    try {
-        const res = await apiCall(`/api/qlx-orders/${orderId}/complete`, 'POST');
-        if (res.success) {
-            showToast('Báo hoàn thành đơn thành công!');
-            document.getElementById('dhnqlxActionModal')?.remove();
-            _dhnqlxLoadData();
-        } else {
-            showToast(res.error || 'Lỗi báo hoàn thành', 'error');
-        }
-    } catch(e) {
-        showToast(e.message, 'error');
-    }
-}
-
-function _dhnqlxShowRescheduleModal(orderId, orderCode) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 2); // default reschedule to som D+2
-    const defaultDateStr = vnDateStr(tomorrow);
-
-    const content = `
-        <div style="margin-bottom:12px;">Hẹn lại lịch ra đơn cho đơn hàng <b style="color:#d97706;">${orderCode}</b></div>
-        <div style="margin-bottom:12px;">
-            <label style="display:block;font-weight:700;margin-bottom:4px;">Ngày hẹn mới (D+2 trở đi để vào Đơn Hẹn Lại):</label>
-            <input type="date" id="rescheduledDateInput" value="${defaultDateStr}" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-weight:600;">
-        </div>
-        <div>
-            <label style="display:block;font-weight:700;margin-bottom:4px;">Lý do hẹn lại:</label>
-            <textarea id="rescheduledReasonInput" rows="3" placeholder="Nhập lý do chi tiết..." style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:13px;"></textarea>
-        </div>
-    `;
-
-    const footer = `
-        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #d1d5db;background:white;border-radius:8px;cursor:pointer;font-weight:600;">Hủy</button>
-        <button onclick="_dhnqlxSubmitReschedule(${orderId})" style="padding:8px 16px;background:#d97706;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Hẹn Lại</button>
-    `;
-
-    _dhnqlxCreateModal('Hẹn Lại Lịch Ra Đơn', content, footer);
-}
-
-async function _dhnqlxSubmitReschedule(orderId) {
-    const qlx_rescheduled_date = document.getElementById('rescheduledDateInput').value;
-    const qlx_rescheduled_reason = document.getElementById('rescheduledReasonInput').value.trim();
-
-    if (!qlx_rescheduled_date || !qlx_rescheduled_reason) {
-        showToast('Vui lòng điền đầy đủ ngày hẹn và lý do', 'error');
-        return;
-    }
-
-    try {
-        const res = await apiCall(`/api/qlx-orders/${orderId}/reschedule`, 'POST', { qlx_rescheduled_date, qlx_rescheduled_reason });
-        if (res.success) {
-            showToast('Hẹn lại đơn hàng thành công!');
-            document.getElementById('dhnqlxActionModal')?.remove();
-            _dhnqlxLoadData();
-        } else {
-            showToast(res.error || 'Lỗi hẹn lại đơn', 'error');
-        }
-    } catch(e) {
-        showToast(e.message, 'error');
-    }
-}
-
-async function _dhnqlxShowLogsModal(orderId, orderCode) {
-    _dhnqlxCreateModal(`Lịch sử cập nhật — ${orderCode}`, '<div style="text-align:center;padding:20px;color:#9ca3af;">⏳ Đang tải lịch sử...</div>', `
-        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 20px;border:none;border-radius:8px;background:#374151;color:white;cursor:pointer;font-weight:700;">Đóng</button>
-    `, '550px');
-
-    try {
-        const res = await apiCall(`/api/qlx-orders/${orderId}/logs`);
-        const history = res.history || [];
-        
-        let logsHtml = '';
-        if (history.length === 0) {
-            logsHtml = '<div style="text-align:center;color:#9ca3af;padding:20px 0;">Chưa có lịch sử cập nhật nào cho đơn hàng này.</div>';
-        } else {
-            logsHtml = '<div style="display:flex;flex-direction:column;gap:12px;">';
-            history.forEach(h => {
-                const actionLabel = h.action === 'qlx_expected_time' ? '⏱ Báo giờ ra' : 
-                                    h.action === 'qlx_complete' ? '✅ Hoàn thành' : 
-                                    h.action === 'qlx_reschedule' ? '📅 Hẹn lại' : h.action;
-
-                logsHtml += `
-                    <div style="border-left: 3px solid #6366f1; padding-left: 10px; font-size:12px;">
-                        <div style="display:flex;justify-content:space-between;font-weight:700;color:#1e293b;">
-                            <span>${actionLabel}</span>
-                            <span style="font-weight:normal;color:#94a3b8;font-size:10px;">${vnFormat(h.performed_at)}</span>
-                        </div>
-                        <div style="color:#4b5563;margin-top:2px;">${h.details || ''}</div>
-                        <div style="color:#94a3b8;font-size:10px;margin-top:1px;">Thực hiện bởi: <b>${h.performed_by_name || 'Hệ thống'}</b></div>
-                    </div>
-                `;
-            });
-            logsHtml += '</div>';
-        }
-
-        const modalBody = document.querySelector('#dhnqlxActionModal div div:nth-child(2)');
-        if (modalBody) {
-            modalBody.innerHTML = logsHtml;
-        }
-    } catch(e) {
-        const modalBody = document.querySelector('#dhnqlxActionModal div div:nth-child(2)');
-        if (modalBody) {
-            modalBody.innerHTML = `<div style="color:#dc2626;text-align:center;padding:20px 0;">Lỗi tải lịch sử: ${e.message}</div>`;
-        }
-    }
-}
-
-async function _dhnqlxToggleDetail(id) {
-    const clickedRow = document.getElementById('dhnqlxRow' + id);
-    if (!clickedRow) return;
-
-    const existingDetailRow = document.getElementById('dhnqlxDetailRow' + id);
-    if (existingDetailRow) {
-        existingDetailRow.remove();
-        return;
-    }
-
-    // Close any other open details to keep the UI clean
-    const openRows = document.querySelectorAll('[id^="dhnqlxDetailRow"]');
-    openRows.forEach(row => row.remove());
-
-    const detailRow = document.createElement('tr');
-    detailRow.id = 'dhnqlxDetailRow' + id;
-    detailRow.innerHTML = `<td colspan="8" style="padding:0"><div class="ts-detail" id="dhnqlxDetail${id}"><div style="text-align:center;color:#9ca3af;padding:16px;">⏳ Đang tải...</div></div></td>`;
-    clickedRow.parentNode.insertBefore(detailRow, clickedRow.nextSibling);
-
-    try {
-        const res = await apiCall('/api/trasoat/orders/' + id + '/detail');
-        const el = document.getElementById('dhnqlxDetail' + id);
-        if (el) {
-            el.innerHTML = _qlxRenderTimeline(res);
-        }
-    } catch (e) {
-        const el = document.getElementById('dhnqlxDetail' + id);
-        if (el) el.innerHTML = '<div style="color:#ef4444;padding:16px;">❌ Lỗi tải chi tiết</div>';
-    }
-}
-
-function _qlxRenderTimeline(res) {
-    if (!document.getElementById('_tsTimelineStyles')) {
-        const style = document.createElement('style');
-        style.id = '_tsTimelineStyles';
-        style.textContent = `
-            .ts-detail{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin:8px 12px 16px;padding:20px;animation:tsSlide .25s ease}
-            @keyframes tsSlide{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-            .ts-timeline{display:flex;gap:0;align-items:flex-start;flex-wrap:wrap;margin:16px 0}
-            .ts-step{flex:1;min-width:100px;text-align:center;position:relative;padding:0 8px}
-            .ts-step-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:16px;font-weight:800;border:3px solid #e5e7eb}
-            .ts-step-icon.done{background:#10b981;border-color:#10b981;color:white}
-            .ts-step-icon.active{background:#f59e0b;border-color:#f59e0b;color:white;animation:tsPulse 1.5s infinite}
-            .ts-step-icon.pending{background:white;border-color:#d1d5db;color:#9ca3af}
-            @keyframes tsPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}50%{box-shadow:0 0 0 8px rgba(245,158,11,0)}}
-            .ts-step-name{font-size:11px;font-weight:700;color:#374151}
-            .ts-step-time{font-size:10px;color:#6b7280;margin-top:2px}
-            .ts-step-line{position:absolute;top:18px;left:calc(50% + 18px);right:calc(-50% + 18px);height:3px;background:#e5e7eb}
-            .ts-step-line.done{background:#10b981}
-            .ts-ship-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0}
-            .ts-ship-item{font-size:12px;color:#475569}.ts-ship-item b{color:#1e1b4b}
-        `;
-        document.head.appendChild(style);
-    }
-
-    const { order: o, items } = res;
-    const fmtDT = d => { 
-        if (!d) return ''; 
-        const dt = new Date(d); 
-        return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); 
-    };
-
-    let html = `
-        <style>
-            .qlx-step-expected { font-size: 10px; font-weight: 700; color: #4338ca; margin-top: 4px; background: #e0e7ff; padding: 2px 4px; border-radius: 4px; display: inline-block; }
-            .qlx-step-history-btn { font-size: 9px; font-weight: 700; color: #4b5563; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 4px; padding: 1px 4px; cursor: pointer; margin-top: 4px; }
-            .qlx-step-history-btn:hover { background: #e5e7eb; }
-        </style>
-        <div style="font-weight:800;font-size:14px;color:#1e1b4b;margin-bottom:12px;padding: 4px 8px;border-left:4px solid #4f46e5;background:#f3f4f6;border-radius:0 4px 4px 0;display:flex;justify-content:space-between;align-items:center;">
-            <span>📋 ${o.order_code} — ${o.customer_name||''}</span>
-        </div>
-    `;
-    
-    if (!items || !items.length) {
-        html += '<div style="text-align:center;padding:12px;color:#9ca3af">Không có sản phẩm nào</div>';
-    } else {
-        items.forEach((item, itemIdx) => {
-            html += `<div class="ts-item-timeline-section" style="margin-bottom: 24px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 12px; background:#fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">`;
-            html += `<div style="font-weight:700;font-size:13px;color:#4338ca;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                <span>🏷️ Phiếu ${itemIdx + 1}: ${item.product_name || 'Sản phẩm'} ${item.description ? `(${item.description})` : ''}</span>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="background:#e0e7ff;color:#3730a3;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;">SL: ${item.quantity || 0}</span>
-                    <button type="button" onclick="event.stopPropagation(); _qlxShowSetupScheduleModal(${o.id}, ${item.id}, '${o.order_code}', '${encodeURIComponent(JSON.stringify(item.qlx_schedule || {}))}', '${encodeURIComponent(JSON.stringify(item.timeline || []))}')" style="background:#4f46e5;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(79,70,229,0.2);">📢 Báo cáo tiến trình đơn hàng</button>
-                </div>
-            </div>`;
-            
-            html += '<div class="ts-timeline" style="margin-top: 20px;">';
-            const timeline = item.timeline || [];
-            timeline.forEach((s, i) => {
-                const cls = s.done ? 'done' : (i > 0 && timeline[i-1].done && !s.done) ? 'active' : (i === 0 && !s.done) ? 'active' : 'pending';
-                const icon = s.done ? '✓' : cls === 'active' ? '⏳' : (i+1);
-                const lineCls = s.done ? 'done' : '';
-                
-                let stepKey = null;
-                if (s.name === 'Cắt') stepKey = 'cat';
-                else if (s.name === 'In') stepKey = 'in';
-                else if (s.name === 'Ép') stepKey = 'ep';
-                else if (s.name === 'May') stepKey = 'may';
-                else if (s.name === 'Kiểm Tra CL') stepKey = 'qc';
-                else if (s.name === 'Hoàn Thiện') stepKey = 'ht';
-                else if (s.name === 'Gửi Hàng') stepKey = 'gui';
-
-                const escArg = str => (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-                const rawReports = encodeURIComponent(JSON.stringify(s.reports || []));
-                const workerEsc = escArg(s.worker);
-                const extraEsc = escArg(s.extra);
-                const progressEsc = escArg(s.progress);
-                const scheduleAtVal = s.schedule_at || '';
-                const timeVal = s.time || '';
-
-                let blockedByStepName = '';
-                for (let j = 0; j < i; j++) {
-                    const prevStep = timeline[j];
-                    if (!prevStep.done && !prevStep.schedule_at) {
-                        blockedByStepName = prevStep.name;
-                        break;
-                    }
-                }
-
-                html += `<div class="ts-step">`;
-                if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}"></div>`;
-                
-                html += `
-                    <div class="ts-step-icon ${cls}" onclick="event.stopPropagation(); _qlxShowStepReportModal(${o.id}, ${item.id}, '${o.order_code}', '${s.name}', '${stepKey}', '${workerEsc}', '${extraEsc}', '${progressEsc}', '${scheduleAtVal}', '${timeVal}', '${rawReports}', ${s.done ? 1 : 0}, '${blockedByStepName}', '${encodeURIComponent(JSON.stringify(item.qlx_schedule || {}))}')" style="cursor:pointer" title="Chi tiết chặng ${s.name}">${icon}</div>
-                    <div class="ts-step-name" style="font-weight:800;">${s.short || s.name}</div>
-                    ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
-                    
-                    ${s.schedule_at ? `<div class="qlx-step-expected" title="Giờ dự kiến hoàn thành chặng này">📅 ${fmtDT(s.schedule_at)}</div>` : (s.done ? '' : `<div style="font-size:10px;color:#94a3b8;margin-top:4px;font-style:italic;">Chưa lên lịch</div>`)}
-                    
-                    <div class="ts-step-time" style="color:#059669;font-weight:700;margin-top:2px;">${s.time ? 'Thực tế: ' + fmtDT(s.time) : ''}</div>
-                    <div class="ts-step-time" style="font-weight:600;">${s.worker || ''}</div>
-                    ${s.extra ? `<div style="font-size:9px;font-weight:700;color:#7c3aed;margin-top:2px">${s.extra}</div>` : ''}
-                    
-                    ${s.reports && s.reports.length > 0 ? `<button class="qlx-step-history-btn" onclick="event.stopPropagation(); _qlxShowStepReportsHistoryModal('${o.order_code}', '${s.name}', '${encodeURIComponent(JSON.stringify(s.reports))}')">💬 Báo cáo (${s.reports.length})</button>` : ''}
-                </div>`;
-            });
-            html += '</div>';
-            html += '</div>';
-        });
-    }
-
-    if (o.shipping_status === 'shipped') {
-        html += '<div class="ts-ship-info">';
-        html += `<div class="ts-ship-item">🚛 <b>NVC:</b> ${o.carrier_name||'-'}</div>`;
-        html += `<div class="ts-ship-item">📦 <b>Mã vận đơn:</b> ${o.tracking_code||'-'}</div>`;
-        html += `<div class="ts-ship-item">📱 <b>SĐT NX:</b> ${o.carrier_phone||'-'}</div>`;
-        html += `<div class="ts-ship-item">📅 <b>Ngày gửi:</b> ${fmtDT(o.shipped_at)}</div>`;
-        if (o.tracking_code && o.carrier_tracking_url) {
-            const url = o.carrier_tracking_url.replace('{code}', o.tracking_code);
-            html += `<div class="ts-ship-item">🔗 <a href="${url}" target="_blank" style="color:#4338ca;font-weight:700">Tra cứu vận đơn</a></div>`;
-        }
-        html += '</div>';
-    }
-    return html;
-}
-
-function _qlxActivatePasteCard(stepKey) {
-    window._qlxActivePasteStep = stepKey;
-    
-    // Highlight UI
-    document.querySelectorAll('.qlx-step-card').forEach(card => {
-        card.style.border = '1px solid #e2e8f0';
-        card.style.boxShadow = 'none';
-        card.style.background = '#f8fafc';
-    });
-    
-    const activeCard = document.getElementById(`card_${stepKey}`);
-    if (activeCard) {
-        activeCard.style.border = '2px solid #6366f1';
-        activeCard.style.boxShadow = '0 0 0 4px rgba(99, 102, 241, 0.1)';
-        activeCard.style.background = '#ffffff';
-    }
-
-    // Toggle badges
-    const steps = ['cut', 'in', 'ep', 'may_qc_ht', 'gui'];
-    steps.forEach(sk => {
-        const badge = document.querySelector(`.active-badge-${sk}`);
-        if (badge) {
-            badge.style.display = (sk === stepKey) ? 'inline-block' : 'none';
-        }
-    });
-
-    // Auto-focus the paste zone so pasting immediately works
-    const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
-    const pasteZone = document.getElementById(`setup${capStep}PasteZone`);
-    if (pasteZone) {
-        pasteZone.focus();
-    }
-}
-
-function _qlxClearMultiStepImage(stepKey) {
-    if (window._qlxUploadedImages) {
-        delete window._qlxUploadedImages[stepKey];
-    }
-    const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
-    const preview = document.getElementById(`setup${capStep}ImagePreview`);
-    if (preview) preview.style.display = 'none';
-    const zone = document.getElementById(`setup${capStep}PasteZone`);
-    if (zone) zone.innerText = `Bấm chọn chặng này rồi ấn Ctrl+V để dán ảnh`;
-}
-
-function _qlxUploadAndResizeMulti(file, stepKey) {
-    const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
-    const zone = document.getElementById(`setup${capStep}PasteZone`);
-    if (zone) zone.innerText = '⚙️ Đang xử lý & tải ảnh lên...';
-
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        const img = new Image();
-        img.onload = function() {
-            const canvas = document.createElement('canvas');
-            let width = img.width;
-            let height = img.height;
-            const maxDim = 1000;
-            if (width > maxDim || height > maxDim) {
-                if (width > height) {
-                    height = Math.round((height * maxDim) / width);
-                    width = maxDim;
-                } else {
-                    width = Math.round((width * maxDim) / height);
-                    height = maxDim;
-                }
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-
-            canvas.toBlob((blob) => {
-                if (!blob) {
-                    showToast('Lỗi nén ảnh', 'error');
-                    if (zone) zone.innerText = 'Lỗi nén ảnh. Thử lại.';
-                    return;
-                }
-                const formData = new FormData();
-                formData.append('file', blob, 'report_image.jpg');
-
-                fetch('/api/qlx/upload-image', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        if (!window._qlxUploadedImages) window._qlxUploadedImages = {};
-                        window._qlxUploadedImages[stepKey] = data.image_url;
-                        
-                        const preview = document.getElementById(`setup${capStep}ImagePreview`);
-                        const previewImg = document.getElementById(`setup${capStep}PreviewImg`);
-                        if (preview && previewImg) {
-                            previewImg.src = data.image_url;
-                            preview.style.display = 'block';
-                        }
-                        if (zone) zone.innerText = '✅ Tải ảnh thành công!';
-                    } else {
-                        showToast(data.error || 'Lỗi tải ảnh', 'error');
-                        if (zone) zone.innerText = 'Lỗi tải ảnh. Thử lại.';
-                    }
-                })
-                .catch(err => {
-                    showToast(err.message, 'error');
-                    if (zone) zone.innerText = 'Lỗi kết nối. Thử lại.';
-                });
-            }, 'image/jpeg', 0.7);
-        };
-        img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-
-window._qlxFormatDateTimeToShow = _qlxFormatDateTimeToShow;
-window._qlxOpenDateTimePicker = _qlxOpenDateTimePicker;
-
-function _qlxFormatDateTimeToShow(valStr) {
-    if (!valStr) return '';
-    const dt = new Date(valStr);
-    if (isNaN(dt.getTime())) return '';
-    
-    const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-    const dayName = days[dt.getDay()];
-    
-    const pad = n => String(n).padStart(2, '0');
-    return `${dayName} - ${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
-}
-
-function _qlxOpenDateTimePicker(hiddenInputId, minValStr) {
-    // Remove existing picker if any
-    const existing = document.getElementById('qlxCustomDateTimePicker');
-    if (existing) {
-        existing.remove();
-    }
-
-    const hiddenInput = document.getElementById(hiddenInputId);
-    const displayInput = document.getElementById(hiddenInputId + '_display');
-    if (!hiddenInput || !displayInput) return;
-
-    // Inject custom style if not present
-    if (!document.getElementById('_qlxDateTimePickerStyles')) {
-        const style = document.createElement('style');
-        style.id = '_qlxDateTimePickerStyles';
-        style.textContent = `
-            @keyframes qlxPickerFadeIn {
-                from { opacity: 0; transform: translateY(4px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            .qlx-picker-calendar {
-                width: 250px;
-                padding: 12px 14px;
-                border-right: 1px solid #e2e8f0;
-                background: #ffffff;
-            }
-            .qlx-picker-header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                margin-bottom: 12px;
-            }
-            .qlx-picker-month-title {
-                font-size: 13px;
-                font-weight: 800;
-                color: #1e293b;
-            }
-            .qlx-picker-nav-btn {
-                width: 24px;
-                height: 24px;
-                border-radius: 6px;
-                border: 1px solid #e2e8f0;
-                background: #ffffff;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 12px;
-                color: #475569;
-                transition: all 0.15s;
-            }
-            .qlx-picker-nav-btn:hover {
-                background: #f1f5f9;
-                border-color: #cbd5e1;
-                color: #1e293b;
-            }
-            .qlx-picker-weekdays {
-                display: grid;
-                grid-template-columns: repeat(7, 1fr);
-                gap: 2px;
-                margin-bottom: 6px;
-            }
-            .qlx-picker-weekday {
-                text-align: center;
-                font-size: 10px;
-                font-weight: 800;
-                color: #475569;
-                padding: 4px 0;
-            }
-            .qlx-picker-weekday.sunday {
-                color: #ef4444;
-            }
-            .qlx-picker-days {
-                display: grid;
-                grid-template-columns: repeat(7, 1fr);
-                gap: 2px;
-            }
-            .qlx-picker-day {
-                aspect-ratio: 1;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 11px;
-                font-weight: 600;
-                color: #1e293b;
-                border-radius: 6px;
-                cursor: pointer;
-                border: 1px solid transparent;
-                background: transparent;
-                transition: all 0.15s;
-            }
-            .qlx-picker-day:hover:not(.disabled) {
-                background: #eff6ff;
-                color: #2563eb;
-            }
-            .qlx-picker-day.other-month {
-                color: #94a3b8;
-                opacity: 0.5;
-            }
-            .qlx-picker-day.selected {
-                background: #f0f7ff;
-                border: 1.5px solid #3b82f6;
-                color: #1d4ed8;
-                font-weight: 800;
-            }
-            .qlx-picker-day.disabled {
-                color: #cbd5e1;
-                cursor: not-allowed;
-                opacity: 0.4;
-                background: #f8fafc;
-            }
-            .qlx-picker-day.today:not(.selected) {
-                border: 1.5px dashed #94a3b8;
-            }
-            .qlx-picker-time {
-                width: 170px;
-                padding: 12px 14px;
-                background: #f8fafc;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }
-            .qlx-picker-time-title {
-                font-size: 11px;
-                font-weight: 800;
-                color: #475569;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-            .qlx-picker-manual-time {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 8px;
-                margin-top: 12px;
-            }
-            .qlx-picker-time-col {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 4px;
-                flex: 1;
-            }
-            .qlx-picker-time-label {
-                font-size: 9px;
-                font-weight: 700;
-                color: #64748b;
-            }
-            .qlx-picker-time-select {
-                width: 100%;
-                padding: 5px;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
-                font-size: 12px;
-                font-weight: 700;
-                color: #1e293b;
-                background: #ffffff;
-                text-align: center;
-                cursor: pointer;
-            }
-            .qlx-picker-footer {
-                display: flex;
-                justify-content: flex-end;
-                gap: 6px;
-                margin-top: auto;
-                border-top: 1px solid #e2e8f0;
-                padding-top: 8px;
-            }
-            .qlx-picker-btn {
-                padding: 5px 12px;
-                font-size: 11px;
-                font-weight: 700;
-                border-radius: 6px;
-                cursor: pointer;
-                border: none;
-            }
-            .qlx-picker-btn-cancel {
-                background: #e2e8f0;
-                color: #475569;
-            }
-            .qlx-picker-btn-confirm {
-                background: #3b82f6;
-                color: #ffffff;
-            }
-            .qlx-picker-btn-confirm:hover {
-                background: #2563eb;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    // Initialize date/time values
-    const minDate = minValStr ? new Date(minValStr) : null;
-    let currentVal = hiddenInput.value;
-    let activeDate = currentVal ? new Date(currentVal) : new Date();
-    if (isNaN(activeDate.getTime())) {
-        activeDate = new Date();
-    }
-    if (minDate && activeDate < minDate) {
-        activeDate = new Date(minDate.getTime());
-    }
-
-    let selectYear = activeDate.getFullYear();
-    let selectMonth = activeDate.getMonth();
-    let selectDay = activeDate.getDate();
-    let selectHour = activeDate.getHours();
-    let selectMin = activeDate.getMinutes();
-
-    // Snap selectMin to nearest 15 mins (0, 15, 30, 45)
-    let snappedMin = Math.round(selectMin / 15) * 15;
-    if (snappedMin >= 60) {
-        snappedMin = 0;
-        selectHour = selectHour + 1;
-        if (selectHour >= 24) {
-            selectHour = 0;
-            const d = new Date(selectYear, selectMonth, selectDay + 1);
-            selectYear = d.getFullYear();
-            selectMonth = d.getMonth();
-            selectDay = d.getDate();
-        }
-    }
-    selectMin = snappedMin;
-
-    if (minDate) {
-        let checkDate = new Date(selectYear, selectMonth, selectDay, selectHour, selectMin);
-        if (checkDate < minDate) {
-            while (checkDate < minDate) {
-                selectMin += 15;
-                if (selectMin >= 60) {
-                    selectMin = 0;
-                    selectHour += 1;
-                    if (selectHour >= 24) {
-                        selectHour = 0;
-                        selectDay += 1;
-                    }
-                }
-                checkDate = new Date(selectYear, selectMonth, selectDay, selectHour, selectMin);
-            }
-            selectYear = checkDate.getFullYear();
-            selectMonth = checkDate.getMonth();
-            selectDay = checkDate.getDate();
-            selectHour = checkDate.getHours();
-            selectMin = checkDate.getMinutes();
-        }
-    }
-
-    // Calculate position relative to container or body
-    const rect = displayInput.getBoundingClientRect();
-    const pickerWidth = 420;
-    const pickerHeight = 285;
-    let top = rect.bottom + window.scrollY + 6;
-    let left = rect.left + window.scrollX;
-
-    if (rect.bottom + pickerHeight > window.innerHeight && rect.top - pickerHeight > 0) {
-        top = rect.top + window.scrollY - pickerHeight - 6;
-    }
-    if (rect.left + pickerWidth > window.innerWidth) {
-        left = window.innerWidth - pickerWidth - 16;
-    }
-    if (left < 10) left = 10;
-
-    const picker = document.createElement('div');
-    picker.id = 'qlxCustomDateTimePicker';
-    picker.style.cssText = `
-        position: absolute;
-        top: ${top}px;
-        left: ${left}px;
-        z-index: 100005;
-        background: #ffffff;
-        border: 1px solid #cbd5e1;
-        border-radius: 12px;
-        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
-        display: flex;
-        font-family: 'Inter', sans-serif;
-        user-select: none;
-        overflow: hidden;
-        width: ${pickerWidth}px;
-        height: ${pickerHeight}px;
-        animation: qlxPickerFadeIn 0.15s ease-out;
-    `;
-
-    picker.innerHTML = `
-        <div class="qlx-picker-calendar">
-            <div class="qlx-picker-header">
-                <button type="button" class="qlx-picker-nav-btn" id="qlxPrevMonth">◀</button>
-                <div class="qlx-picker-month-title" id="qlxMonthTitle">Tháng 6 2026</div>
-                <button type="button" class="qlx-picker-nav-btn" id="qlxNextMonth">▶</button>
-            </div>
-            <div class="qlx-picker-weekdays">
-                <div class="qlx-picker-weekday">H</div>
-                <div class="qlx-picker-weekday">B</div>
-                <div class="qlx-picker-weekday">T</div>
-                <div class="qlx-picker-weekday">N</div>
-                <div class="qlx-picker-weekday">S</div>
-                <div class="qlx-picker-weekday">B</div>
-                <div class="qlx-picker-weekday sunday">C</div>
-            </div>
-            <div class="qlx-picker-days" id="qlxCalendarDays"></div>
-        </div>
-        <div class="qlx-picker-time">
-            <div class="qlx-picker-time-title">Chọn Giờ</div>
-            <div class="qlx-picker-manual-time">
-                <div class="qlx-picker-time-col">
-                    <span class="qlx-picker-time-label">Giờ</span>
-                    <select id="qlxTimeHour" class="qlx-picker-time-select"></select>
-                </div>
-                <div class="qlx-picker-time-col">
-                    <span class="qlx-picker-time-label">Phút</span>
-                    <select id="qlxTimeMin" class="qlx-picker-time-select"></select>
-                </div>
-            </div>
-            <div class="qlx-picker-footer">
-                <button type="button" class="qlx-picker-btn qlx-picker-btn-cancel" id="qlxPickerCancel">Hủy</button>
-                <button type="button" class="qlx-picker-btn qlx-picker-btn-confirm" id="qlxPickerConfirm">Xác nhận</button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(picker);
-
-    const hourSelect = picker.querySelector('#qlxTimeHour');
-    const minSelect = picker.querySelector('#qlxTimeMin');
-
-    for (let h = 0; h < 24; h++) {
-        const opt = document.createElement('option');
-        opt.value = h;
-        opt.textContent = String(h).padStart(2, '0');
-        hourSelect.appendChild(opt);
-    }
-    hourSelect.value = selectHour;
-
-    const allowedMins = [0, 15, 30, 45];
-    for (const m of allowedMins) {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = String(m).padStart(2, '0');
-        minSelect.appendChild(opt);
-    }
-    minSelect.value = selectMin;
-
-    let viewYear = selectYear;
-    let viewMonth = selectMonth;
-
-    function renderCalendar() {
-        const monthTitle = picker.querySelector('#qlxMonthTitle');
-        const daysContainer = picker.querySelector('#qlxCalendarDays');
-        
-        monthTitle.textContent = `Tháng ${viewMonth + 1} ${viewYear}`;
-        daysContainer.innerHTML = '';
-
-        const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay();
-        const startPadding = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
-        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
-
-        const pad2 = n => String(n).padStart(2, '0');
-        const minDateOnly = minDate ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) : null;
-
-        // Render padding days of prev month
-        for (let i = startPadding - 1; i >= 0; i--) {
-            const d = daysInPrevMonth - i;
-            const pmYear = viewMonth === 0 ? viewYear - 1 : viewYear;
-            const pmMonth = viewMonth === 0 ? 11 : viewMonth - 1;
-            const cellDate = new Date(pmYear, pmMonth, d);
-            
-            const cellDateStr = `${pmYear}-${pad2(pmMonth + 1)}-${pad2(d)}`;
-            const isHoliday = _qlxHolidaysSet.has(cellDateStr);
-            const isDisabled = (minDateOnly && cellDate < minDateOnly) || isHoliday;
-            const isSelected = selectYear === pmYear && selectMonth === pmMonth && selectDay === d;
-            
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = `qlx-picker-day other-month ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`;
-            btn.disabled = isDisabled;
-            btn.textContent = d;
-
-            const isSunday = cellDate.getDay() === 0;
-            if (isSunday) btn.style.color = '#ef4444';
-
-            if (isHoliday) {
-                btn.style.color = '#ef4444';
-                btn.style.fontWeight = '800';
-                btn.title = 'Ngày nghỉ lễ';
-                btn.style.textDecoration = 'line-through';
-            }
-
-            if (!isDisabled) {
-                btn.onclick = () => selectDate(pmYear, pmMonth, d);
-            }
-            daysContainer.appendChild(btn);
-        }
-
-        // Render current month days
-        const today = new Date();
-        for (let d = 1; d <= daysInMonth; d++) {
-            const cellDate = new Date(viewYear, viewMonth, d);
-            
-            const cellDateStr = `${viewYear}-${pad2(viewMonth + 1)}-${pad2(d)}`;
-            const isHoliday = _qlxHolidaysSet.has(cellDateStr);
-            const isDisabled = (minDateOnly && cellDate < minDateOnly) || isHoliday;
-            const isSelected = selectYear === viewYear && selectMonth === viewMonth && selectDay === d;
-            const isToday = today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === d;
-
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = `qlx-picker-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${isDisabled ? 'disabled' : ''}`;
-            btn.disabled = isDisabled;
-            btn.textContent = d;
-
-            const isSunday = cellDate.getDay() === 0;
-            if (isSunday) btn.style.color = '#ef4444';
-
-            if (isHoliday) {
-                btn.style.color = '#ef4444';
-                btn.style.fontWeight = '800';
-                btn.title = 'Ngày nghỉ lễ';
-                btn.style.textDecoration = 'line-through';
-            }
-
-            if (!isDisabled) {
-                btn.onclick = () => selectDate(viewYear, viewMonth, d);
-            }
-            daysContainer.appendChild(btn);
-        }
-
-        // Render padding days of next month
-        const totalRendered = startPadding + daysInMonth;
-        const totalCells = totalRendered > 35 ? 42 : 35;
-        const nextPadding = totalCells - totalRendered;
-        for (let d = 1; d <= nextPadding; d++) {
-            const nmYear = viewMonth === 11 ? viewYear + 1 : viewYear;
-            const nmMonth = viewMonth === 11 ? 0 : viewMonth + 1;
-            const cellDate = new Date(nmYear, nmMonth, d);
-            
-            const cellDateStr = `${nmYear}-${pad2(nmMonth + 1)}-${pad2(d)}`;
-            const isHoliday = _qlxHolidaysSet.has(cellDateStr);
-            const isDisabled = (minDateOnly && cellDate < minDateOnly) || isHoliday;
-            const isSelected = selectYear === nmYear && selectMonth === nmMonth && selectDay === d;
-
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = `qlx-picker-day other-month ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`;
-            btn.disabled = isDisabled;
-            btn.textContent = d;
-
-            const isSunday = cellDate.getDay() === 0;
-            if (isSunday) btn.style.color = '#ef4444';
-
-            if (isHoliday) {
-                btn.style.color = '#ef4444';
-                btn.style.fontWeight = '800';
-                btn.title = 'Ngày nghỉ lễ';
-                btn.style.textDecoration = 'line-through';
-            }
-
-            if (!isDisabled) {
-                btn.onclick = () => selectDate(nmYear, nmMonth, d);
-            }
-            daysContainer.appendChild(btn);
-        }
-    }
-
-    function selectDate(year, month, day) {
-        selectYear = year;
-        selectMonth = month;
-        selectDay = day;
-        renderCalendar();
-    }
-
-    picker.querySelector('#qlxPrevMonth').onclick = () => {
-        if (viewMonth === 0) {
-            viewMonth = 11;
-            viewYear--;
-        } else {
-            viewMonth--;
-        }
-        renderCalendar();
-    };
-
-    picker.querySelector('#qlxNextMonth').onclick = () => {
-        if (viewMonth === 11) {
-            viewMonth = 0;
-            viewYear++;
-        } else {
-            viewMonth++;
-        }
-        renderCalendar();
-    };
-
-    hourSelect.onchange = (e) => {
-        selectHour = parseInt(e.target.value);
-    };
-
-    minSelect.onchange = (e) => {
-        selectMin = parseInt(e.target.value);
-    };
-
-    const removePicker = () => {
-        picker.remove();
-        document.removeEventListener('mousedown', outsideClick);
-        document.removeEventListener('scroll', closeOnScroll, true);
-    };
-
-    picker.querySelector('#qlxPickerCancel').onclick = removePicker;
-
-    picker.querySelector('#qlxPickerConfirm').onclick = () => {
-        const selectedDateObj = new Date(selectYear, selectMonth, selectDay, selectHour, selectMin);
-        if (minDate && selectedDateObj < minDate) {
-            showToast('Thời gian chọn không được trước thời gian tối thiểu cho phép', 'error');
-            return;
-        }
-        
-        const pad = n => String(n).padStart(2, '0');
-        const formattedVal = `${selectYear}-${pad(selectMonth + 1)}-${pad(selectDay)}T${pad(selectHour)}:${pad(selectMin)}`;
-        
-        hiddenInput.value = formattedVal;
-        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
-        displayInput.value = _qlxFormatDateTimeToShow(formattedVal);
-        
-        removePicker();
-    };
-
-    const outsideClick = (e) => {
-        if (!picker.contains(e.target) && e.target !== displayInput && !displayInput.contains(e.target)) {
-            removePicker();
-        }
-    };
-
-    const closeOnScroll = (e) => {
-        if (!picker.contains(e.target)) {
-            removePicker();
-        }
-    };
-
-    setTimeout(() => {
-        document.addEventListener('mousedown', outsideClick);
-        document.addEventListener('scroll', closeOnScroll, true);
-    }, 50);
-
-    renderCalendar();
-}
-
-function _qlxShowSetupScheduleModal(orderId, itemId, orderCode, rawSchedule, rawTimeline) {
-    const schedule = JSON.parse(decodeURIComponent(rawSchedule) || '{}');
-    window._qlxCurrentSchedule = schedule;
-    window._qlxUploadedImages = {};
-
-    const timeline = JSON.parse(decodeURIComponent(rawTimeline || '') || '[]');
-    const isCutDone = timeline.some(s => s.name === 'Cắt' && s.done);
-    const isInDone = timeline.some(s => s.name === 'In' && s.done);
-    const isEpDone = timeline.some(s => s.name === 'Ép' && s.done);
-    
-    const isMayDone = timeline.some(s => s.name === 'May' && s.done);
-    const isQcDone = timeline.some(s => s.name === 'Kiểm Tra CL' && s.done);
-    const isHtDone = timeline.some(s => s.name === 'Hoàn Thiện' && s.done);
-    const isMayQcHtDone = isMayDone && isQcDone && isHtDone;
-    
-    const isGuiDone = timeline.some(s => s.name === 'Gửi Hàng' && s.done);
-    
-    const toInputVal = d => {
-        if (!d) return '';
-        const date = new Date(d);
-        const tzOffset = 7 * 60; 
-        const localTime = new Date(date.getTime() + tzOffset * 60 * 1000);
-        return localTime.toISOString().slice(0, 16);
-    };
-
-    const getMinForStep = (stepKey) => {
-        let minTime = new Date(); // default to now
-        const tzOffset = 7 * 60; // UTC+7
-        
-        const parseDate = (dStr) => {
-            if (!dStr || dStr === 'null' || dStr === 'undefined') return null;
-            return new Date(dStr);
-        };
-
-        const getActualOrScheduled = (stepName, scheduleField) => {
-            const step = timeline.find(s => s.name === stepName);
-            if (step && step.done && step.time) return parseDate(step.time);
-            return parseDate(schedule[scheduleField]);
-        };
-
-        let depTime = null;
-        if (stepKey === 'ep') {
-            const cut = getActualOrScheduled('Cắt', 'cut_expected_at');
-            const inn = getActualOrScheduled('In', 'in_expected_at');
-            const times = [];
-            if (cut) times.push(cut.getTime() + 15 * 60 * 1000);
-            if (inn) times.push(inn.getTime() + 15 * 60 * 1000);
-            if (times.length > 0) depTime = new Date(Math.max(...times));
-        } else if (stepKey === 'may_qc_ht') {
-            const ep = getActualOrScheduled('Ép', 'ep_expected_at');
-            if (ep) depTime = new Date(ep.getTime() + 15 * 60 * 1000);
-        } else if (stepKey === 'gui') {
-            const m = getActualOrScheduled('May', 'may_qc_ht_expected_at');
-            const q = getActualOrScheduled('Kiểm Tra CL', 'may_qc_ht_expected_at');
-            const h = getActualOrScheduled('Hoàn Thiện', 'may_qc_ht_expected_at');
-            const times = [];
-            if (m) times.push(m.getTime() + 15 * 60 * 1000);
-            if (q) times.push(q.getTime() + 15 * 60 * 1000);
-            if (h) times.push(h.getTime() + 15 * 60 * 1000);
-            
-            if (times.length > 0) {
-                depTime = new Date(Math.max(...times));
-            } else {
-                const mayQcHt = parseDate(schedule.may_qc_ht_expected_at);
-                if (mayQcHt) depTime = new Date(mayQcHt.getTime() + 15 * 60 * 1000);
-            }
-        }
-
-        if (depTime && depTime > minTime) {
-            minTime = depTime;
-        }
-
-        const localTime = new Date(minTime.getTime() + tzOffset * 60 * 1000);
-        return localTime.toISOString().slice(0, 16);
-    };
-
-    const _qlxRecalculateSetupLimits = () => {
-        const parseDate = (dStr) => {
-            if (!dStr || dStr === 'null' || dStr === 'undefined') return null;
-            return new Date(dStr);
-        };
-
-        const getStepDateVal = (inputId, scheduleField, timelineName) => {
-            const el = document.getElementById(inputId);
-            if (el) {
-                return el.value ? new Date(el.value) : null;
-            }
-            const step = timeline.find(s => s.name === timelineName);
-            if (step && step.done && step.time) return parseDate(step.time);
-            return parseDate(schedule[scheduleField]);
-        };
-
-        const cutVal = getStepDateVal('setupCut', 'cut_expected_at', 'Cắt');
-        const inVal = getStepDateVal('setupIn', 'in_expected_at', 'In');
-        const epVal = getStepDateVal('setupEp', 'ep_expected_at', 'Ép');
-        const mayVal = getStepDateVal('setupMayQcHt', 'may_qc_ht_expected_at', 'May');
-
-        const baseMin = new Date();
-        const tzOffset = 7 * 60;
-        
-        const toISO = (dateObj) => {
-            const localTime = new Date(dateObj.getTime() + tzOffset * 60 * 1000);
-            return localTime.toISOString().slice(0, 16);
-        };
-
-        const updateMinAttr = (inputId, minDateObj) => {
-            const displayEl = document.getElementById(inputId + '_display');
-            if (displayEl) {
-                displayEl.setAttribute('data-min-val', toISO(minDateObj));
-            }
-        };
-
-        const checkAndAdjust = (inputId, minDateObj) => {
-            const el = document.getElementById(inputId);
-            if (el && el.value) {
-                const currentVal = new Date(el.value);
-                if (currentVal < minDateObj) {
-                    const newISO = toISO(minDateObj);
-                    el.value = newISO;
-                    
-                    const displayEl = document.getElementById(inputId + '_display');
-                    if (displayEl) {
-                        displayEl.value = _qlxFormatDateTimeToShow(newISO);
-                        
-                        // Visual cue: orange highlight
-                        displayEl.style.borderColor = '#f97316';
-                        displayEl.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.2)';
-                        setTimeout(() => {
-                            displayEl.style.borderColor = '#cbd5e1';
-                            displayEl.style.boxShadow = 'none';
-                        }, 1500);
-                    }
-                    return true;
-                }
-            }
-            return false;
-        };
-
-        // 1. Recalculate and adjust Chặng Ép
-        const epDeps = [];
-        if (cutVal) epDeps.push(cutVal.getTime() + 15 * 60 * 1000);
-        if (inVal) epDeps.push(inVal.getTime() + 15 * 60 * 1000);
-        let minEp = epDeps.length > 0 ? new Date(Math.max(...epDeps)) : baseMin;
-        if (minEp < baseMin) minEp = baseMin;
-        
-        updateMinAttr('setupEp', minEp);
-        const epAdjusted = checkAndAdjust('setupEp', minEp);
-        const finalEpVal = epAdjusted ? minEp : epVal;
-
-        // 2. Recalculate and adjust Chặng May/QC/HT
-        const mayDeps = [];
-        if (finalEpVal) mayDeps.push(finalEpVal.getTime() + 15 * 60 * 1000);
-        if (cutVal) mayDeps.push(cutVal.getTime() + 15 * 60 * 1000);
-        if (inVal) mayDeps.push(inVal.getTime() + 15 * 60 * 1000);
-        let minMay = mayDeps.length > 0 ? new Date(Math.max(...mayDeps)) : baseMin;
-        if (minMay < baseMin) minMay = baseMin;
-
-        updateMinAttr('setupMayQcHt', minMay);
-        const mayAdjusted = checkAndAdjust('setupMayQcHt', minMay);
-        const finalMayVal = mayAdjusted ? minMay : mayVal;
-
-        // 3. Recalculate and adjust Chặng Gửi
-        let minGui = finalMayVal ? new Date(finalMayVal.getTime() + 15 * 60 * 1000) : baseMin;
-        if (minGui < baseMin) minGui = baseMin;
-
-        updateMinAttr('setupGui', minGui);
-        checkAndAdjust('setupGui', minGui);
-    };
-
-    const renderStepCard = (stepKey, label, isDone, scheduleVal, minVal) => {
-        if (isDone) {
-            return `
-                <div id="card_${stepKey}" style="border:1px solid #e2d8f0;border-radius:10px;padding:12px;background:#f0fdf4;margin-bottom:12px;user-select:none;" data-no-debounce="true">
-                    <div style="font-weight:800;font-size:13px;color:#166534;margin-bottom:6px;border-bottom:1px solid #bbf7d0;padding-bottom:6px;display:flex;align-items:center;gap:6px;" data-no-debounce="true">
-                        ✅ Chặng ${label}
-                    </div>
-                    <div style="color:#065f46;font-weight:700;font-size:12px;text-align:center;padding:4px;" data-no-debounce="true">
-                        🟢 Đã hoàn thành
-                    </div>
-                </div>
-            `;
-        }
-
-        const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
-        const valISO = toInputVal(scheduleVal);
-        
-        return `
-            <div id="card_${stepKey}" class="qlx-step-card" onclick="_qlxActivatePasteCard('${stepKey}')" onfocusin="_qlxActivatePasteCard('${stepKey}')" data-no-debounce="true" style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#f8fafc;margin-bottom:12px;cursor:pointer;transition:all 0.2s ease;">
-                <div style="font-weight:800;font-size:13px;color:#1e293b;margin-bottom:8px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;" data-no-debounce="true">
-                    <span data-no-debounce="true">⚙️ Chặng ${label}</span>
-                    <span class="active-badge-${stepKey}" style="display:none;font-size:10px;background:#6366f1;color:white;padding:2px 6px;border-radius:4px;font-weight:700;" data-no-debounce="true">👉 Đang chọn để dán ảnh</span>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:8px;" data-no-debounce="true">
-                    <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Thời gian dự kiến xong:</label>
-                        <div class="qlx-datetime-picker-wrap" style="position:relative;">
-                            <input type="hidden" id="setup${capStep}" value="${valISO}">
-                            <input type="text" id="setup${capStep}_display" class="modal-input qlx-custom-datetime-input" style="width:100%;padding:6px 10px;border:2px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;cursor:pointer;font-weight:600;transition:all 0.3s;" readonly value="${_qlxFormatDateTimeToShow(valISO)}" data-min-val="${minVal}" onclick="_qlxOpenDateTimePicker('setup${capStep}', this.getAttribute('data-min-val'))">
-                            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#64748b;font-size:12px;">📅</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Nội dung báo cáo:</label>
-                        <textarea id="setup${capStep}Notes" style="width:100%;padding:6px 10px;border:2px solid #cbd5e1;border-radius:6px;height:45px;font-size:12px;resize:none;" placeholder="Nhập ghi chú hoặc báo cáo tiến trình..."></textarea>
-                    </div>
-                    <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;font-size:11px;color:#475569;">Hình ảnh báo cáo <span style="color:#ef4444">*</span>:</label>
-                        <div id="setup${capStep}PasteZone" tabindex="0" class="qlx-paste-zone" style="border:2px dashed #cbd5e1;padding:12px;text-align:center;border-radius:6px;background:#fff;color:#64748b;font-weight:700;font-size:11px;user-select:none;cursor:pointer;outline:none;" onclick="event.stopPropagation(); _qlxActivatePasteCard('${stepKey}')">
-                            Bấm chọn chặng này rồi ấn Ctrl+V để dán ảnh
-                        </div>
-                        <div id="setup${capStep}ImagePreview" style="margin-top:8px;text-align:center;display:none;">
-                            <img id="setup${capStep}PreviewImg" style="max-height:100px;border-radius:4px;box-shadow:0 2px 4px rgba(0,0,0,0.05);"><br/>
-                            <button type="button" onclick="event.stopPropagation(); _qlxClearMultiStepImage('${stepKey}')" style="margin-top:4px;color:#ef4444;border:none;background:none;font-weight:700;cursor:pointer;font-size:10px;">Xóa ảnh</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    };
-
-    const contentHtml = `
-        <style>
-            .qlx-paste-zone:focus {
-                border-color: #6366f1 !important;
-                background-color: #f5f3ff !important;
-                color: #4f46e5 !important;
-                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-            }
-        </style>
-        <div style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;padding-right:4px;">
-            <div style="font-size:12px;color:#475569;margin-bottom:8px;background:#f1f5f9;padding:8px;border-radius:6px;">
-                💡 <b>Nguyên tắc:</b> Thời gian chặng sau không được bắt đầu trước chặng sản xuất trước đó. Lịch trình sẽ tự động tránh <b>Chủ nhật</b> và <b>Ngày lễ</b>.
-                <br/>👉 <b>Mẹo:</b> Click chọn thẻ của chặng cần báo cáo để hiển thị badge màu tím rồi ấn <b>Ctrl + V</b> để dán hình ảnh chặng đó.
-            </div>
-            ${renderStepCard('cut', 'Cắt', isCutDone, schedule.cut_expected_at, getMinForStep('cut'))}
-            ${renderStepCard('in', 'In', isInDone, schedule.in_expected_at, getMinForStep('in'))}
-            ${renderStepCard('ep', 'Ép', isEpDone, schedule.ep_expected_at, getMinForStep('ep'))}
-            ${renderStepCard('may_qc_ht', 'May/QC/HT', isMayQcHtDone, schedule.may_qc_ht_expected_at, getMinForStep('may_qc_ht'))}
-            ${renderStepCard('gui', 'Gửi', isGuiDone, schedule.gui_expected_at, getMinForStep('gui'))}
-        </div>
-    `;
-
-    const footerHtml = `
-        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Hủy</button>
-        <button onclick="_qlxSubmitSetupSchedule(${orderId}, ${itemId})" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">Lưu lịch trình & Báo cáo</button>
-    `;
-
-    _dhnqlxCreateModal(`Báo cáo tiến trình đơn hàng — ${orderCode}`, contentHtml, footerHtml, '500px');
-
-    // Bind change listeners to trigger cascading auto-recalculation
-    ['setupCut', 'setupIn', 'setupEp', 'setupMayQcHt', 'setupGui'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', () => {
-                _qlxRecalculateSetupLimits();
-            });
-        }
-    });
-
-    // Register active step and paste listener
-    let defaultActive = null;
-    if (!isCutDone) defaultActive = 'cut';
-    else if (!isInDone) defaultActive = 'in';
-    else if (!isEpDone) defaultActive = 'ep';
-    else if (!isMayQcHtDone) defaultActive = 'may_qc_ht';
-    else if (!isGuiDone) defaultActive = 'gui';
-
-    if (defaultActive) {
-        setTimeout(() => {
-            _qlxActivatePasteCard(defaultActive);
-        }, 80);
-    }
-
-    const modalEl = document.getElementById('dhnqlxActionModal');
-    if (modalEl) {
-        const pasteHandler = async (e) => {
-            if (window._qlxActivePasteStep) {
-                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-                for (let item of items) {
-                    if (item.type.indexOf('image') === 0) {
-                        const file = item.getAsFile();
-                        _qlxUploadAndResizeMulti(file, window._qlxActivePasteStep);
-                        break;
-                    }
-                }
-            }
-        };
-        document.addEventListener('paste', pasteHandler);
-        
-        const originalRemove = modalEl.remove;
-        modalEl.remove = function() {
-            document.removeEventListener('paste', pasteHandler);
-            originalRemove.apply(modalEl);
-        };
-    }
-}
-
-async function _qlxSubmitSetupSchedule(orderId, itemId) {
-    const validateField = (id, label) => {
-        const el = document.getElementById(id);
-        if (!el) return true;
-        const val = el.value;
-        if (!val) return true;
-        const expDate = new Date(val);
-        if (isNaN(expDate.getTime())) {
-            showToast(`Thời gian chặng ${label} không hợp lệ`, 'error');
-            return false;
-        }
-        if (expDate.getTime() < Date.now() - 60000) {
-            showToast(`Thời gian chặng ${label} không được ở trong quá khứ`, 'error');
-            return false;
-        }
-        const vnDateStr = val.slice(0, 10);
-        if (_qlxHolidaysSet.has(vnDateStr)) {
-            showToast(`Chặng ${label}: Không được hẹn lịch vào ngày lễ (${vnDateStr})`, 'error');
-            return false;
-        }
-        return true;
-    };
-
-    if (!validateField('setupCut', 'Cắt')) return;
-    if (!validateField('setupIn', 'In')) return;
-    if (!validateField('setupEp', 'Ép')) return;
-    if (!validateField('setupMayQcHt', 'May/QC/HT')) return;
-    if (!validateField('setupGui', 'Gửi')) return;
-
-    // Image validation for reported/rescheduled steps
-    const stepKeys = ['cut', 'in', 'ep', 'may_qc_ht', 'gui'];
-    const stepLabels = { cut: 'Cắt', in: 'In', ep: 'Ép', may_qc_ht: 'May/QC/HT', gui: 'Gửi' };
-    const fieldNames = { cut: 'cut_expected_at', in: 'in_expected_at', ep: 'ep_expected_at', may_qc_ht: 'may_qc_ht_expected_at', gui: 'gui_expected_at' };
-    const inputIds = { cut: 'setupCut', in: 'setupIn', ep: 'setupEp', may_qc_ht: 'setupMayQcHt', gui: 'setupGui' };
-
-    for (const key of stepKeys) {
-        const capStep = key === 'may_qc_ht' ? 'MayQcHt' : (key.charAt(0).toUpperCase() + key.slice(1));
-        const notesEl = document.getElementById(`setup${capStep}Notes`);
-        const notes = notesEl ? notesEl.value.trim() : '';
-        const image_url = window._qlxUploadedImages ? window._qlxUploadedImages[key] : null;
-
-        const inputEl = document.getElementById(inputIds[key]);
-        const currentVal = inputEl ? inputEl.value : '';
-        const previousVal = (window._qlxCurrentSchedule && window._qlxCurrentSchedule[fieldNames[key]]) ? window._qlxCurrentSchedule[fieldNames[key]] : '';
-
-        const getVNTimeMs = (dVal) => {
-            if (!dVal) return 0;
-            const date = new Date(dVal);
-            if (isNaN(date.getTime())) return 0;
-            if (typeof dVal === 'string' && dVal.includes('T') && !dVal.endsWith('Z')) {
-                const parts = dVal.split('T');
-                const dateParts = parts[0].split('-');
-                const timeParts = parts[1].split(':');
-                const Y = parseInt(dateParts[0]);
-                const M = parseInt(dateParts[1]) - 1;
-                const D = parseInt(dateParts[2]);
-                const h = parseInt(timeParts[0]);
-                const m = parseInt(timeParts[1]);
-                return Date.UTC(Y, M, D, h - 7, m);
-            }
-            return date.getTime();
-        };
-
-        const prevTime = getVNTimeMs(previousVal);
-        const currTime = getVNTimeMs(currentVal);
-        const isDateChanged = prevTime !== currTime;
-
-        if (notes || isDateChanged) {
-            if (!image_url) {
-                if (notes) {
-                    showToast(`Chặng ${stepLabels[key]}: Khi có nội dung báo cáo, bắt buộc phải dán hình ảnh báo cáo`, 'error');
-                } else if (!previousVal) {
-                    showToast(`Chặng ${stepLabels[key]}: Khi đặt lịch dự kiến xong, bắt buộc phải dán hình ảnh báo cáo`, 'error');
-                } else {
-                    showToast(`Chặng ${stepLabels[key]}: Khi thay đổi ngày hẹn, bắt buộc phải dán hình ảnh báo cáo`, 'error');
-                }
-                return;
-            }
-        }
-    }
-
-    // Final client-side dependency validation
-    const parseDate = (dStr) => {
-        if (!dStr || dStr === 'null' || dStr === 'undefined') return null;
-        return new Date(dStr);
-    };
-
-    const getVal = (id, fieldName) => {
-        const el = document.getElementById(id);
-        if (el) return el.value ? new Date(el.value) : null;
-        return (window._qlxCurrentSchedule && window._qlxCurrentSchedule[fieldName]) ? new Date(window._qlxCurrentSchedule[fieldName]) : null;
-    };
-
-    const cutVal = getVal('setupCut', 'cut_expected_at');
-    const inVal = getVal('setupIn', 'in_expected_at');
-    const epVal = getVal('setupEp', 'ep_expected_at');
-    const mayVal = getVal('setupMayQcHt', 'may_qc_ht_expected_at');
-    const guiVal = getVal('setupGui', 'gui_expected_at');
-
-    if (epVal) {
-        if (cutVal && epVal.getTime() < cutVal.getTime() + 15 * 60 * 1000) {
-            showToast('Chặng Ép phải cách chặng Cắt ít nhất 15 phút', 'error');
-            return;
-        }
-        if (inVal && epVal.getTime() < inVal.getTime() + 15 * 60 * 1000) {
-            showToast('Chặng Ép phải cách chặng In ít nhất 15 phút', 'error');
-            return;
-        }
-    }
-    if (mayVal) {
-        if (epVal && mayVal.getTime() < epVal.getTime() + 15 * 60 * 1000) {
-            showToast('Chặng May/QC/HT phải cách chặng Ép ít nhất 15 phút', 'error');
-            return;
-        }
-        if (cutVal && mayVal.getTime() < cutVal.getTime() + 15 * 60 * 1000) {
-            showToast('Chặng May/QC/HT phải cách chặng Cắt ít nhất 15 phút', 'error');
-            return;
-        }
-        if (inVal && mayVal.getTime() < inVal.getTime() + 15 * 60 * 1000) {
-            showToast('Chặng May/QC/HT phải cách chặng In ít nhất 15 phút', 'error');
-            return;
-        }
-    }
-    if (guiVal) {
-        if (mayVal && guiVal.getTime() < mayVal.getTime() + 15 * 60 * 1000) {
-            showToast('Chặng Gửi phải cách chặng May/QC/HT ít nhất 15 phút', 'error');
-            return;
-        }
-    }
-
-    const getISOVal = (id, fieldName) => {
-        const el = document.getElementById(id);
-        if (!el) {
-            return window._qlxCurrentSchedule ? window._qlxCurrentSchedule[fieldName] : null;
-        }
-        const val = el.value;
-        return val ? new Date(val).toISOString() : null;
-    };
-
-    const getReportForStep = (stepKey) => {
-        const capStep = stepKey === 'may_qc_ht' ? 'MayQcHt' : (stepKey.charAt(0).toUpperCase() + stepKey.slice(1));
-        const notesEl = document.getElementById(`setup${capStep}Notes`);
-        const notes = notesEl ? notesEl.value.trim() : '';
-        const image_url = window._qlxUploadedImages ? window._qlxUploadedImages[stepKey] : null;
-        
-        if (notes || image_url) {
-            return { notes, image_url };
-        }
-        return null;
-    };
-
-    const payload = {
-        dht_order_id: orderId,
-        order_item_id: itemId,
-        cut_expected_at: getISOVal('setupCut', 'cut_expected_at'),
-        in_expected_at: getISOVal('setupIn', 'in_expected_at'),
-        ep_expected_at: getISOVal('setupEp', 'ep_expected_at'),
-        may_qc_ht_expected_at: getISOVal('setupMayQcHt', 'may_qc_ht_expected_at'),
-        gui_expected_at: getISOVal('setupGui', 'gui_expected_at'),
-        reports: {
-            cat: getReportForStep('cut'),
-            in: getReportForStep('in'),
-            ep: getReportForStep('ep'),
-            may_qc_ht: getReportForStep('may_qc_ht'),
-            gui: getReportForStep('gui')
-        }
-    };
-
-    try {
-        const res = await apiCall('/api/qlx-orders/schedule', 'POST', payload);
-        if (res.success) {
-            showToast('Lưu lịch trình sản xuất và gửi báo cáo thành công!');
-            document.getElementById('dhnqlxActionModal')?.remove();
-            
-            _dhnqlxLoadData();
-            setTimeout(() => {
-                _dhnqlxToggleDetail(orderId);
-            }, 600);
-        } else {
-            showToast(res.error || 'Lỗi lưu lịch trình', 'error');
-        }
-    } catch (e) {
-        showToast(e.message, 'error');
-    }
-}
-
-let _qlxUploadedImageUrl = null;
-
-function _qlxClearStepImage() {
-    _qlxUploadedImageUrl = null;
-    const preview = document.getElementById('qlxStepImagePreview');
-    if (preview) preview.style.display = 'none';
-    const zone = document.getElementById('qlxStepPasteZone');
-    if (zone) zone.innerText = 'Nhấn Ctrl+V để dán hình ảnh báo cáo vào đây (Bắt buộc)';
-}
-
-async function _qlxShowStepReportModal(orderId, itemId, orderCode, stepName, stepKey, worker, extra, progress, scheduleAt, time, rawReports, isDone, blockedBy, rawSchedule) {
-    _qlxUploadedImageUrl = null;
-    const isUnscheduled = !scheduleAt || scheduleAt === 'null' || scheduleAt === 'undefined' || scheduleAt === '';
-    const schedule = JSON.parse(decodeURIComponent(rawSchedule || '{}'));
-
-    const getMinForStep = () => {
-        let minTime = new Date(); // default to now
-        const tzOffset = 7 * 60; // UTC+7
-        
-        const parseDate = (dStr) => {
-            if (!dStr || dStr === 'null' || dStr === 'undefined') return null;
-            return new Date(dStr);
-        };
-
-        if (schedule) {
-            let depTime = null;
-            if (stepKey === 'ep') {
-                const cut = parseDate(schedule.cut_expected_at);
-                const inn = parseDate(schedule.in_expected_at);
-                const times = [];
-                if (cut) times.push(cut.getTime() + 15 * 60 * 1000);
-                if (inn) times.push(inn.getTime() + 15 * 60 * 1000);
-                if (times.length > 0) depTime = new Date(Math.max(...times));
-            } else if (stepKey === 'may' || stepKey === 'qc' || stepKey === 'ht') {
-                const ep = parseDate(schedule.ep_expected_at);
-                if (ep) depTime = new Date(ep.getTime() + 15 * 60 * 1000);
-            } else if (stepKey === 'gui') {
-                const may = parseDate(schedule.may_qc_ht_expected_at);
-                if (may) depTime = new Date(may.getTime() + 15 * 60 * 1000);
-            }
-
-            if (depTime && depTime > minTime) {
-                minTime = depTime;
-            }
-        }
-
-        const localTime = new Date(minTime.getTime() + tzOffset * 60 * 1000);
-        return localTime.toISOString().slice(0, 16);
-    };
-
-    // Show initial loading modal
-    _dhnqlxCreateModal(`Chi tiết Chặng ${stepName} — ${orderCode}`, `
-        <div style="text-align:center;padding:30px;color:#64748b;font-weight:700;">
-            <div style="font-size:24px;margin-bottom:8px;animation:spin 1s linear infinite;">⏳</div>
-            Đang tải chi tiết bộ phận...
-        </div>
-    `, '', '450px');
-
-    let resData = null;
-    try {
-        const url = `/api/trasoat/orders/${orderId}/step/${stepKey}${itemId ? '?item_id=' + itemId : ''}`;
-        resData = await apiCall(url);
-    } catch(err) {
-        console.error('Lỗi tải dữ liệu trasoat:', err);
-    }
-
-    // Override _tsCloseModal temporarily to close our custom modal instead of the global one
-    window._tsCloseModal = function() {
-        document.getElementById('dhnqlxActionModal')?.remove();
-    };
-
-    let detailHtml = '';
-    let hasNativeDetail = false;
-
-    if (resData && typeof _tsRenderStepModal === 'function') {
-        try {
-            detailHtml = _tsRenderStepModal(stepKey, resData);
-            // Strip the trailing "Đóng" button footer container
-            const closeBtnTag = '<div style="padding:16px 24px;text-align:center;border-top:1px solid #e5e7eb">';
-            const lastIdx = detailHtml.lastIndexOf(closeBtnTag);
-            if (lastIdx !== -1) {
-                detailHtml = detailHtml.substring(0, lastIdx);
-            }
-            hasNativeDetail = true;
-        } catch(e) {
-            console.error('Lỗi render _tsRenderStepModal:', e);
-        }
-    }
-
-    if (!hasNativeDetail) {
-        // Fallback to our clean table detail
-        const fmtDT = d => { 
-            if (!d) return ''; 
-            const dt = new Date(d); 
-            return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); 
-        };
-        const reports = JSON.parse(decodeURIComponent(rawReports || '') || '[]');
-
-        detailHtml = `
-            <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 24px;color:white;display:flex;align-items:center;justify-content:between;">
-                <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">📋 Chi tiết Chặng ${stepName} — ${orderCode}</div>
-                <span onclick="document.getElementById('dhnqlxActionModal').remove()" style="cursor:pointer;color:white;font-size:20px;font-weight:700;opacity:0.8;margin-left:auto;">✕</span>
-            </div>
-            <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
-                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; font-size:13px; line-height: 1.6;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:6px;">
-                        <span style="color:#64748b; font-weight:600;">Chặng sản xuất:</span>
-                        <span style="color:#1e1b4b; font-weight:800; font-size:14px;">${stepName}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; gap:8px;">
-                        <span style="color:#64748b; font-weight:600; flex-shrink:0;">Bộ phận đảm nhận:</span>
-                        <span style="color:#0f172a; font-weight:700; text-align:right; word-break:break-word;">${worker || 'Chưa phân công'}</span>
-                    </div>
-                    ${extra ? `
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; gap:8px;">
-                        <span style="color:#64748b; font-weight:600; flex-shrink:0;">Chi tiết triển khai:</span>
-                        <span style="color:#7c3aed; font-weight:700; text-align:right; word-break:break-word;">${extra}</span>
-                    </div>` : ''}
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                        <span style="color:#64748b; font-weight:600;">Tiến độ hoàn thành:</span>
-                        <span style="color:#059669; font-weight:700; background:#d1fae5; padding:2px 8px; border-radius:12px; font-size:11px;">${progress ? progress + ' xong' : '0 xong'}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                        <span style="color:#64748b; font-weight:600;">Lịch dự kiến QLX:</span>
-                        <span style="color:#2563eb; font-weight:700;">${scheduleAt ? fmtDT(scheduleAt) : 'Chưa lên lịch'}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    const modalEl = document.getElementById('dhnqlxActionModal');
-    if (!modalEl) return;
-
-    modalEl.innerHTML = `
-    <div style="background:white;border-radius:16px;width:600px;max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);overflow:hidden;animation:dhnqlxModalSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
-        <!-- View 1: Step Detail View -->
-        <div id="qlxStepDetailView" style="display:flex; flex-direction:column; max-height:85vh; overflow-y:auto;">
-            ${detailHtml}
-            <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">
-                <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Đóng</button>
-                ${isDone ? '' : `<button onclick="_qlxSwitchToReportForm('${scheduleAt ? 'scheduled' : 'unscheduled'}', '${blockedBy || ''}')" style="padding:8px 20px;border:none;border-radius:8px;background:#4f46e5;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(79,70,229,0.2);">📢 Báo cáo tiến trình đơn hàng</button>`}
-            </div>
-        </div>
-
-        <!-- View 2: Step Report Form View (Hidden by default) -->
-        <div id="qlxStepReportFormView" style="display:none; flex-direction:column;">
-            <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 24px;color:white;display:flex;align-items:center;justify-content:between;">
-                <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">📢 Báo Cáo Tiến Độ Chặng ${stepName} — ${orderCode}</div>
-                <span onclick="document.getElementById('dhnqlxActionModal').remove()" style="cursor:pointer;color:white;font-size:20px;font-weight:700;opacity:0.8;margin-left:auto;">✕</span>
-            </div>
-            
-            <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
+        title = `Đơn hàng chưa đủ điều kiện gửi — ${o.order_code}`;
+        headerStyle = 'background:linear-gradient(135deg,#ef4444,#dc2626);';
+        icon = '⚠️';
+
+        const subtitleText = `Đơn hàng <b style="color:#1e293b;font-size:14px;">${o.order_code}</b> chưa đủ điều kiện gửi vì có phiếu sản phẩm chưa hoàn thành sản xuất:`;
+
+        html = `
+            <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <div>${subtitleText}</div>
                 <div>
-                    <label style="display:block;font-weight:700;margin-bottom:4px;">Trạng thái tiến độ:</label>
-                    <select id="qlxStepStatus" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;" onchange="_qlxOnStepStatusChange()">
-                        ${isUnscheduled ? '' : '<option value="on_track">🟢 Đúng tiến độ (Không bị trễ)</option>'}
-                        <option value="delayed">${isUnscheduled ? '📅 Hẹn giờ dự kiến hoàn thành (Bắt buộc)' : '🔴 Chậm tiến độ (Cần hẹn lại giờ xong)'}</option>
-                    </select>
-                </div>
-                
-                <div id="qlxDelayInputs" style="display:${isUnscheduled ? 'flex' : 'none'};flex-direction:column;gap:12px;">
-                    <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;">${isUnscheduled ? 'Giờ dự kiến hoàn thành (Bắt buộc):' : 'Giờ dự kiến hoàn thành mới (Bắt buộc):'}</label>
-                        <div class="qlx-datetime-picker-wrap" style="position:relative;">
-                            <input type="hidden" id="qlxStepExpectedAt" value="">
-                            <input type="text" id="qlxStepExpectedAt_display" class="modal-input qlx-custom-datetime-input" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-weight:600;" readonly value="" placeholder="Chọn giờ dự kiến hoàn thành..." onclick="_qlxOpenDateTimePicker('qlxStepExpectedAt', '${getMinForStep()}')">
-                            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#64748b;font-size:14px;">📅</span>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;">${isUnscheduled ? 'Nội dung/Lý do hẹn lịch (Bắt buộc):' : 'Lý do chậm trễ (Bắt buộc):'}</label>
-                        <textarea id="qlxStepNotes" style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;height:60px;" placeholder="${isUnscheduled ? 'Nhập lý do hẹn lịch...' : 'Nhập lý do chậm trễ chi tiết...'}"></textarea>
-                    </div>
-                    
-                    <div>
-                        <label style="display:block;font-weight:700;margin-bottom:4px;">Hình ảnh báo cáo <span style="color:#ef4444">*</span>:</label>
-                        <div id="qlxStepPasteZone" style="border:2px dashed #cbd5e1;padding:20px;text-align:center;border-radius:8px;background:#f8fafc;cursor:default;color:#64748b;font-weight:700;font-size:12px;">
-                            Nhấn Ctrl+V để dán hình ảnh báo cáo vào đây (Bắt buộc)
-                        </div>
-                        
-                        <div id="qlxStepImagePreview" style="margin-top:10px;text-align:center;display:none;">
-                            <img id="qlxStepPreviewImg" style="max-height:150px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);"><br/>
-                            <button type="button" onclick="_qlxClearStepImage()" style="margin-top:4px;color:#ef4444;border:none;background:none;font-weight:700;cursor:pointer;font-size:11px;">Xóa ảnh</button>
-                        </div>
-                    </div>
+                    ${String(o.id).startsWith('sample_') ? '' : `<a href="/trasoatdonhang?search=${o.order_code}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 2px 4px rgba(79,70,229,0.15)">🔍 Tra Soát Đơn</a>`}
                 </div>
             </div>
             
-            <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">
-                <button onclick="_qlxSwitchToDetailView()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer;font-weight:700;color:#475569;">Quay lại</button>
-                <button onclick="_qlxSubmitStepReport(${orderId}, ${itemId}, '${stepKey}')" style="padding:8px 20px;border:none;border-radius:8px;background:#059669;color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(5,150,105,0.2);">Gửi báo cáo</button>
+            <div style="margin-bottom:14px;">
+                ${_qlxdhBuildItemsTable(o)}
             </div>
+        `;
+    }
+
+    _qlxdhShowAlert(title, html, '850px', '', headerStyle, icon);
+}
+
+// ===== RESCHEDULE MODAL =====
+async function _qlxdhShowReschedule(id, code) {
+    document.getElementById('qlxdhRescheduleModal')?.remove();
+    await _qlxdhLoadHolidays();
+    
+    let limitVal = null;
+    try {
+        const configRes = await apiCall('/api/app-config/reschedule_limit_days');
+        if (configRes && configRes.value) {
+            limitVal = parseInt(configRes.value, 10);
+        }
+    } catch(e) { console.error(e); }
+
+    const _today = vnDateStr();
+    let dateInputHtml = '';
+    
+    if (limitVal && limitVal > 0) {
+        const validDates = [];
+        let checkDate = new Date(_today + 'T00:00:00+07:00');
+        let safetyCounter = 0;
+        while (validDates.length < limitVal && safetyCounter < 100) {
+            safetyCounter++;
+            checkDate.setDate(checkDate.getDate() + 1);
+            const y = checkDate.getFullYear();
+            const m = String(checkDate.getMonth() + 1).padStart(2, '0');
+            const d = String(checkDate.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${d}`;
+            const dayOfWeek = checkDate.getDay();
+            const isSunday = dayOfWeek === 0;
+            const isHoliday = !!_qlxdhHolidayMap[dateStr];
+            if (!isSunday && !isHoliday) {
+                const dayName = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][dayOfWeek];
+                validDates.push({ dateStr, label: `${dayName} - ${d}/${m}/${y}` });
+            }
+        }
+        
+        dateInputHtml = `
+            <select id="qlxdhNewDate" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;font-weight:700;color:#1e293b;background:white;cursor:pointer;">
+                ${validDates.map(vd => `<option value="${vd.dateStr}">${vd.label}</option>`).join('')}
+            </select>
+        `;
+    } else {
+        const _tomorrow = new Date(_today);
+        _tomorrow.setUTCDate(_tomorrow.getUTCDate() + 1);
+        const _minDate = _tomorrow.toISOString().split('T')[0];
+        dateInputHtml = `
+            <input type="date" id="qlxdhNewDate" min="${_minDate}" onchange="_qlxdhCheckHoliday()" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;">
+            <div id="qlxdhHolidayWarn" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fca5a5;font-size:12px;color:#dc2626;font-weight:700;"></div>
+        `;
+    }
+
+    const m = document.createElement('div');
+    m.id = 'qlxdhRescheduleModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    m.innerHTML = `<div style="background:white;border-radius:16px;width:420px;max-width:95vw;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,.3);">
+        <div style="font-size:16px;font-weight:800;color:#122546;margin-bottom:16px;">📅 Hẹn Lại — ${code}</div>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Ngày gửi mới <span style="color:#dc2626">*</span></label>
+            ${dateInputHtml}
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Lý do <span style="color:#dc2626">*</span></label>
+            <textarea id="qlxdhReason" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;resize:vertical;" placeholder="Nhập lý do hẹn lại..."></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="document.getElementById('qlxdhRescheduleModal')?.remove()" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
+            <button id="qlxdhRescheduleBtn" onclick="_qlxdhDoReschedule('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:700;font-size:13px;">📅 Hẹn lại</button>
         </div>
     </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+}
 
-    const pasteHandler = async (e) => {
-        const formView = document.getElementById('qlxStepReportFormView');
-        if (formView && formView.style.display !== 'none') {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let item of items) {
-                if (item.type.indexOf('image') === 0) {
-                    const file = item.getAsFile();
-                    _qlxUploadAndResize(file);
-                    break;
+async function _qlxdhLoadHolidays() {
+    try {
+        const year = new Date().getFullYear();
+        const res = await apiCall('/api/holidays?year=' + year);
+        const res2 = await apiCall('/api/holidays?year=' + (year + 1));
+        _qlxdhHolidayMap = {};
+        (res.holidays || []).concat(res2.holidays || []).forEach(h => {
+            const d = h.holiday_date ? h.holiday_date.split('T')[0] : '';
+            if (d) _qlxdhHolidayMap[d] = h.holiday_name;
+        });
+    } catch(e) { console.error('[Holidays]', e); }
+}
+
+function _qlxdhCheckHoliday() {
+    const dateVal = document.getElementById('qlxdhNewDate')?.value;
+    const warnEl = document.getElementById('qlxdhHolidayWarn');
+    const btn = document.getElementById('qlxdhRescheduleBtn');
+    if (!dateVal || !warnEl || !btn) return;
+    
+    const d = new Date(dateVal + 'T00:00:00+07:00');
+    const isSunday = d.getDay() === 0;
+    const holidayName = _qlxdhHolidayMap[dateVal];
+    
+    if (isSunday) {
+        warnEl.style.display = 'block';
+        warnEl.innerHTML = '⚠️ Ngày ' + dateVal.split('-').reverse().join('/') + ' là <b>Chủ Nhật</b> — Theo quy định không được hẹn vào ngày Chủ Nhật!';
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+    } else if (holidayName) {
+        warnEl.style.display = 'block';
+        warnEl.innerHTML = '⚠️ Ngày ' + dateVal.split('-').reverse().join('/') + ' là <b>' + holidayName + '</b> — Không được hẹn vào ngày lễ!';
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+    } else {
+        warnEl.style.display = 'none';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    }
+}
+
+async function _qlxdhDoReschedule(id) {
+    const newDate = document.getElementById('qlxdhNewDate')?.value;
+    const reason = document.getElementById('qlxdhReason')?.value;
+    if (!newDate) { alert('Chọn ngày gửi mới'); return; }
+    if (!reason?.trim()) { alert('Nhập lý do'); return; }
+    
+    const d = new Date(newDate + 'T00:00:00+07:00');
+    if (d.getDay() === 0) { alert('⚠️ Không được hẹn vào ngày Chủ Nhật'); return; }
+    if (_qlxdhHolidayMap[newDate]) { alert('⚠️ Không được hẹn vào ngày lễ: ' + _qlxdhHolidayMap[newDate]); return; }
+    
+    try {
+        const r = await apiCall(`/api/shipping/orders/${id}/reschedule`, 'POST', { new_date: newDate, reason: reason.trim() });
+        if (r.error) { alert(r.error); return; }
+        showToast(r.message || '✅ Đã hẹn lại');
+        document.getElementById('qlxdhRescheduleModal')?.remove();
+        _qlxdhLoadOrders();
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+async function _qlxdhShowHistory(id, code) {
+    document.getElementById('qlxdhHistoryModal')?.remove();
+    try {
+        const data = await apiCall(`/api/shipping/orders/${id}/history`);
+        const rows = data.history || [];
+        const m = document.createElement('div');
+        m.id = 'qlxdhHistoryModal';
+        m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+        m.innerHTML = `<div style="background:white;border-radius:16px;width:500px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.3);">
+            <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">
+                <div style="color:white;font-weight:800;font-size:15px;">📋 Lịch Sử Hẹn Lại — ${code}</div>
+            </div>
+            <div style="padding:16px 24px;">
+                ${rows.length === 0 ? '<div style="text-align:center;color:#9ca3af;padding:20px;">Chưa có lần hẹn lại nào</div>' :
+                rows.map((r, i) => `<div style="display:flex;gap:12px;padding:12px 0;${i < rows.length-1 ? 'border-bottom:1px solid #f1f5f9;' : ''}">
+                    <div style="width:28px;height:28px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#2563eb;flex-shrink:0;">${rows.length - i}</div>
+                    <div style="flex:1;">
+                        <div style="font-size:12px;font-weight:700;color:#1e293b;">${fmt(r.old_date)} → ${fmt(r.new_date)}</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.reason || '—'}</div>
+                        <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Bởi: ${r.rescheduled_by_name || '—'} • ${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}) : '—'}</div>
+                    </div>
+                </div>`).join('')}
+            </div>
+            <div style="padding:12px 24px;border-top:1px solid #e2e8f0;text-align:right;">
+                <button onclick="document.getElementById('qlxdhHistoryModal')?.remove()" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Đóng</button>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+async function _qlxdhShowShippingDetailOnly(orderId) {
+    try {
+        const data = await apiCall(`/api/dht/orders/${orderId}/detail`);
+        if (!data || !data.order) {
+            showToast('Không tìm thấy thông tin đơn hàng', 'error');
+            return;
+        }
+        const o = data.order;
+        const items = data.items || [];
+        const payments = data.payments || [];
+        
+        const shippedItems = items.filter(it => it.shipping_status === 'shipped');
+        const totalItemsCount = items.length;
+        
+        let shipHTML = `<div style="background:#fff;border-radius:12px;padding:4px;font-family:sans-serif;">`;
+        
+        if (totalItemsCount > 0) {
+            let summaryText = '';
+            let summaryBg = '#f1f5f9';
+            let summaryColor = '#475569';
+            if (shippedItems.length === 0) {
+                summaryText = `📭 Chưa gửi phiếu nào (0/${totalItemsCount} phiếu)`;
+            } else if (shippedItems.length < totalItemsCount) {
+                summaryText = `🚚 Đang giao hàng (Đã gửi ${shippedItems.length}/${totalItemsCount} phiếu)`;
+                summaryBg = '#fff7ed';
+                summaryColor = '#c2410c';
+            } else {
+                summaryText = `✅ Đã giao hàng thành công (${totalItemsCount}/${totalItemsCount} phiếu)`;
+                summaryBg = '#f0fdf4';
+                summaryColor = '#15803d';
+            }
+            
+            shipHTML += `<div style="background:${summaryBg};color:${summaryColor};padding:10px 14px;border-radius:8px;font-weight:800;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <span>${summaryText}</span>
+            </div>`;
+            
+            const shippedBatches = {};
+            const pendingItems = [];
+
+            if (data.shipments && data.shipments.length > 0) {
+                for (const s of data.shipments) {
+                    let labels = [];
+                    try {
+                        labels = typeof s.item_labels === 'string' ? JSON.parse(s.item_labels) : (s.item_labels || []);
+                    } catch(e) { console.warn('Parse item_labels error:', e); }
+
+                    const batchKey = `shipment_${s.id}`;
+                    shippedBatches[batchKey] = {
+                        details: {
+                            id: s.id,
+                            shipped_at: s.shipped_at || s.actual_ship_datetime,
+                            actual_ship_datetime: s.actual_ship_datetime || s.shipped_at,
+                            actual_carrier_name: s.actual_carrier_name,
+                            actual_carrier_tracking_url: s.actual_carrier_tracking_url,
+                            tracking_code: s.tracking_code,
+                            shipping_bill_link: s.shipping_bill_link,
+                            carrier_phone: s.carrier_phone,
+                            receiver_name: s.receiver_name,
+                            shipping_fee: s.shipping_fee,
+                            shipping_fee_payer: s.shipping_fee_payer,
+                            shipping_fee_method: s.shipping_fee_method,
+                            shipping_payment_code: s.shipping_payment_code,
+                            shipping_payment_amount: s.shipping_payment_amount,
+                            shipping_cashflow_code: s.shipping_cashflow_code,
+                            shipped_by_name: s.shipped_by_name
+                        },
+                        labels: labels
+                    };
                 }
+                
+                for (let i = 0; i < items.length; i++) {
+                    const it = items[i];
+                    const phieuLabel = `Phiếu ${i + 1}`;
+                    if (it.shipping_status !== 'shipped') {
+                        pendingItems.push({
+                            label: phieuLabel,
+                            name: it.product_name || it.description || 'Sản phẩm',
+                            qty: it.quantity || 0
+                        });
+                    }
+                }
+            } else {
+                for (let i = 0; i < items.length; i++) {
+                    const it = items[i];
+                    const phieuLabel = `Phiếu ${i + 1}`;
+                    if (it.shipping_status === 'shipped') {
+                        const batchKey = [
+                            it.shipped_at || '',
+                            it.actual_carrier_id || '',
+                            it.tracking_code || '',
+                            it.shipping_bill_link || '',
+                            it.shipping_fee || '0',
+                            it.shipping_fee_payer || '',
+                            it.shipping_fee_method || '',
+                            it.shipping_payment_code || '',
+                            it.shipping_payment_amount || '',
+                            it.shipping_cashflow_code || ''
+                        ].join('|');
+                        
+                        if (!shippedBatches[batchKey]) {
+                            shippedBatches[batchKey] = {
+                                details: it,
+                                labels: []
+                            };
+                        }
+                        shippedBatches[batchKey].labels.push({
+                            label: phieuLabel,
+                            name: it.product_name || it.description || 'Sản phẩm',
+                            qty: it.quantity || 0
+                        });
+                    } else {
+                        pendingItems.push({
+                            label: phieuLabel,
+                            name: it.product_name || it.description || 'Sản phẩm',
+                            qty: it.quantity || 0
+                        });
+                    }
+                }
+            }
+            
+            let countLanGui = 0;
+            let batchIdx = 0;
+            for (const batchKey in shippedBatches) {
+                const batch = shippedBatches[batchKey];
+                const it = batch.details;
+                const isReship = batchIdx > 0;
+                batchIdx++;
+                countLanGui++;
+                
+                const carrierName = it.actual_carrier_name || '—';
+                let trackingDisplay = it.tracking_code || '—';
+                if (it.tracking_code && it.actual_carrier_tracking_url) {
+                    const trackingUrl = it.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(it.tracking_code));
+                    trackingDisplay = `<a href="${trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${it.tracking_code} 🔗</a>`;
+                }
+                
+                const payerLabel = it.shipping_fee_payer === 'hv' ? ((it.tracking_code && it.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (it.shipping_fee_method === 'ck' ? 'HV trả CK' : (it.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : it.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const methodLabel = it.shipping_fee_method === 'ck' ? 'Chuyển Khoản' : it.shipping_fee_method === 'tm' ? 'Tiền Mặt' : '—';
+                const payerColor = it.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
+                const feeAmt = Number(it.shipping_fee || 0);
+                
+                let billHtml = '—';
+                if (it.shipping_bill_link) {
+                    const itBillCid = `_qlxdhitBillImgModal_${o.id}_${it.id}`;
+                    billHtml = `<span id="${itBillCid}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                    
+                    (function(_cid, _origUrl) {
+                        setTimeout(async function() {
+                            const el = document.getElementById(_cid);
+                            if (!el) return;
+                            let imgSrc = _origUrl;
+                            try {
+                                if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                    const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                    if (r && r.direct_url) imgSrc = r.direct_url;
+                                } else {
+                                    const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                    if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                    const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                    if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                                }
+                            } catch(e) { console.warn('[BillResolve]', e); }
+                            
+                            if (imgSrc && imgSrc.includes('/uploads/')) {
+                                imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                            }
+                            let linkHref = _origUrl;
+                            if (linkHref && linkHref.includes('/uploads/')) {
+                                linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                            }
+                            
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                            img.onerror = function() {
+                                el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                            };
+                            img.onclick = function() {
+                                showShippingBillLightbox(imgSrc);
+                            };
+                            el.innerHTML = '';
+                            el.appendChild(img);
+                        }, 100);
+                    })(itBillCid, it.shipping_bill_link);
+                }
+                
+                const timeValue = it.actual_ship_datetime ? vnFormat(it.actual_ship_datetime) : (it.shipped_at ? vnFormat(it.shipped_at) : '—');
+                
+                let headerHtml = '';
+                if (batch.labels.length === 1) {
+                    const l = batch.labels[0];
+                    if (isReship) {
+                        headerHtml = `GỬI LẦN ${countLanGui} - 📦 GỬI THÊM/HOÀN: ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                    } else {
+                        headerHtml = `GỬI LẦN ${countLanGui} - 📦 ${l.label.toUpperCase()} — ${l.name.toUpperCase()} <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">SL: ${l.qty}</span>`;
+                    }
+                } else {
+                    if (isReship) {
+                        const itemsHeader = batch.labels.map(l => `
+                            <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
+                                ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
+                            </span>
+                        `).join(' ');
+                        headerHtml = `<span style="font-weight:800;color:#c2410c;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">GỬI LẦN ${countLanGui} - 🚛 GỬI THÊM/HOÀN: ${itemsHeader}</span>`;
+                    } else {
+                        const itemsHeader = batch.labels.map(l => `
+                            <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:2px;">
+                                ${l.label.toUpperCase()}: ${l.name} (SL: ${l.qty})
+                            </span>
+                        `).join(' ');
+                        headerHtml = `<span style="font-weight:800;color:#166534;font-size:13px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">GỬI LẦN ${countLanGui} - 🚛 GỬI CHUNG: ${itemsHeader}</span>`;
+                    }
+                }
+                
+                const boxBg = isReship ? '#fff7ed' : '#f0fdf4';
+                const boxBorder = isReship ? '1.5px solid #fed7aa' : '1.5px solid #bbf7d0';
+                const boxHeaderBorder = isReship ? '1.5px solid #ffedd5' : '1.5px solid #dcfce7';
+                const boxShadow = isReship ? '0 2px 4px rgba(234,88,12,0.03)' : '0 2px 4px rgba(22,163,74,0.03)';
+                const badgeHtml = isReship 
+                    ? `<span style="background:#ea580c;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟠 GỬI THÊM/HOÀN</span>`
+                    : `<span style="background:#16a34a;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">🟢 ĐÃ GỬI</span>`;
+                
+                shipHTML += `
+                <div style="background:${boxBg};border:${boxBorder};border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:${boxShadow}">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:${boxHeaderBorder};padding-bottom:8px;flex-wrap:wrap;gap:6px;">
+                        ${headerHtml}
+                        ${badgeHtml}
+                    </div>
+                    <div style="font-size:12px;color:#1e293b;display:grid;grid-template-columns:140px 1fr;gap:6px 12px;align-items:start;">
+                        <span style="color:#64748b;font-weight:600;">👤 Người gửi:</span> <span style="font-weight:700;color:#1e293b">${(it.shipped_by_name && it.shipped_by_name !== '—') ? it.shipped_by_name : 'Kế Toán'}</span>
+                        <span style="color:#64748b;font-weight:600;">📅 Thời gian gửi:</span> <span style="font-weight:700;color:#1e293b">${timeValue}</span>
+                        <span style="color:#64748b;font-weight:600;">🚛 Đơn vị vận chuyển:</span> <span style="font-weight:700;color:#1e293b">${carrierName}</span>
+                        ${it.tracking_code ? `<span style="color:#64748b;font-weight:600;">📦 Mã vận đơn:</span> <span>${trackingDisplay}</span>` : ''}
+                        ${it.carrier_phone ? `<span style="color:#64748b;font-weight:600;">📞 SĐT Nhà Xe:</span> <span><a href="tel:${it.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${it.carrier_phone}</a></span>` : ''}
+                        ${it.receiver_name ? `<span style="color:#64748b;font-weight:600;">🤝 Người nhận:</span> <span style="font-weight:700;color:#1e293b">${it.receiver_name}</span>` : ''}
+                        <span style="color:#64748b;font-weight:600;">💳 Người trả ship:</span> <span><span style="font-weight:800;color:${payerColor}">${payerLabel}</span></span>
+                        ${(it.shipping_fee_payer === 'hv' && it.shipping_fee_method === 'tm') ? `
+                            <span style="color:#64748b;font-weight:600;">💵 Mã Tiền Chi TM:</span> 
+                            <span style="font-weight:700;color:#d97706">${it.shipping_cashflow_code || '—'}</span>
+                        ` : ''}
+                        <span style="color:#64748b;font-weight:600;">💰 Cước Vận Chuyển:</span> <span style="font-weight:800;color:#dc2626">${feeAmt.toLocaleString('vi-VN')}đ</span>
+                        ${(() => {
+                            if (!it.tracking_code) return '';
+                            const cleanCode = it.tracking_code.trim().toLowerCase();
+                            let totalPaid = 0;
+                            let found = false;
+                            for (const p of payments) {
+                                const note = (p.transfer_note || '').toLowerCase();
+                                if (note.includes(cleanCode)) {
+                                    totalPaid += Number(p.amount) || 0;
+                                    found = true;
+                                }
+                            }
+                            if (found && totalPaid > 0) {
+                                return `<span style="color:#64748b;font-weight:600;">💸 Tiền Thanh Toán Vận Chuyển Này:</span> <span style="font-weight:800;color:#10b981">${totalPaid.toLocaleString('vi-VN')}đ</span>`;
+                            }
+                            return '';
+                        })()}
+                        ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
+                        ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💵 Số tiền thanh toán:</span> <span style="font-weight:700;color:#0284c7">${(Number(it.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>` : ''}
+                        ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
+                    </div>
+                </div>`;
+            }
+            
+            for (let i = 0; i < pendingItems.length; i++) {
+                const pit = pendingItems[i];
+                countLanGui++;
+                shipHTML += `
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:10px;opacity:0.85;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;color:#475569;font-size:12.5px;display:flex;align-items:center;gap:6px;">
+                        GỬI LẦN ${countLanGui} - 📦 ${pit.label.toUpperCase()} — ${pit.name.toUpperCase()} <span style="background:#e2e8f0;color:#475569;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;">SL: ${pit.qty}</span>
+                    </span>
+                    <span style="background:#e2e8f0;color:#475569;padding:3px 10px;border-radius:20px;font-weight:800;font-size:10px;letter-spacing:0.5px;">⏳ CHỜ GỬI</span>
+                </div>`;
+            }
+        } else {
+            if (o.shipping_status === 'shipped' || o.shipped_at) {
+                const row = (label, val) => `<tr><td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;width:180px">${label}</td><td style="padding:8px 12px;font-size:13px;font-weight:700;color:#1e293b;word-break:break-word">${val}</td></tr>`;
+                shipHTML += `<table style="width:100%;border-collapse:collapse">`;
+                const senderNameFallback = (o.shipped_by_name && o.shipped_by_name !== '—') ? o.shipped_by_name : 'Kế Toán';
+                shipHTML += row('👤 Người Gửi', `<span style="color:#2563eb;font-weight:800">${senderNameFallback}</span>`);
+                shipHTML += row('📅 Ngày giờ gửi hàng', o.actual_ship_datetime ? vnFormat(o.actual_ship_datetime) : '<span style="color:#94a3b8;font-style:italic">—</span>');
+                shipHTML += row('🚛 Vận Chuyển Thực Tế', o.actual_carrier_name ? `<span style="font-weight:800;color:#1e293b">${o.actual_carrier_name}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>');
+                if (o.tracking_code) {
+                    let _trackingDisplay = `<span style="font-weight:700;color:#1e40af;letter-spacing:0.5px">${o.tracking_code}</span>`;
+                    if (o.actual_carrier_tracking_url) {
+                        const _trackingUrl = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.tracking_code));
+                        _trackingDisplay = `<a href="${_trackingUrl}" target="_blank" rel="noopener" style="font-weight:700;color:#1e40af;letter-spacing:0.5px;text-decoration:underline;cursor:pointer" title="Tra cứu vận đơn">${o.tracking_code} 🔗</a>`;
+                    }
+                    shipHTML += row('📦 Mã vận đơn', _trackingDisplay);
+                }
+                
+                let billHtml = '—';
+                if (o.shipping_bill_link) {
+                    const _billCid = `_qlxdhbillImgModal_${o.id}`;
+                    billHtml = `<span id="${_billCid}" style="color:#64748b;font-size:11px">⏳ Đang tải bill...</span>`;
+                    
+                    (function(_cid, _origUrl) {
+                        setTimeout(async function() {
+                            const el = document.getElementById(_cid);
+                            if (!el) return;
+                            let imgSrc = _origUrl;
+                            try {
+                                if (_origUrl.includes('prnt.sc') || _origUrl.includes('prntscr.com')) {
+                                    const r = await apiCall('/api/shipping/resolve-image?url=' + encodeURIComponent(_origUrl));
+                                    if (r && r.direct_url) imgSrc = r.direct_url;
+                                } else {
+                                    const dm = _origUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+                                    if (dm) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm[1];
+                                    const dm2 = _origUrl.match(/drive\.google\.com\/open\?id=([^&]+)/);
+                                    if (dm2) imgSrc = 'https://drive.google.com/uc?export=view&id=' + dm2[1];
+                                }
+                            } catch(e) { console.warn('[BillResolve]', e); }
+                            
+                            if (imgSrc && imgSrc.includes('/uploads/')) {
+                                imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                            }
+                            let linkHref = _origUrl;
+                            if (linkHref && linkHref.includes('/uploads/')) {
+                                linkHref = linkHref.substring(linkHref.indexOf('/uploads/'));
+                            }
+                            
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                            img.onerror = function() {
+                                el.innerHTML = '<a href="' + linkHref + '" target="_blank" style="color:#3b82f6;font-weight:700">📷 Xem bill (link)</a>';
+                            };
+                            img.onclick = function() {
+                                showShippingBillLightbox(imgSrc);
+                            };
+                            el.innerHTML = '';
+                            el.appendChild(img);
+                        }, 100);
+                    })(_billCid, o.shipping_bill_link);
+                }
+                shipHTML += row('📷 Bill gửi hàng', billHtml);
+                const _payerLabel = o.shipping_fee_payer === 'hv' ? ((o.tracking_code && o.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
+                const _payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
+                shipHTML += row('💳 Người Trả', `<span style="font-weight:800;color:${_payerColor}">${_payerLabel}</span>`);
+                if (o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'tm') {
+                    shipHTML += row('💵 Mã Tiền Chi TM', `<span style="font-weight:700;color:#d97706">${o.shipping_cashflow_code || '—'}</span>`);
+                }
+                const _sfee = Number(o.shipping_fee) || 0;
+                shipHTML += row('💰 Cước Vận Chuyển', `<span style="font-weight:800;color:#dc2626">${_sfee.toLocaleString('vi-VN')}đ</span>`);
+                
+                let carrierPaidHtml = '';
+                if (o.tracking_code) {
+                    const cleanCode = o.tracking_code.trim().toLowerCase();
+                    let totalPaid = 0;
+                    let found = false;
+                    for (const p of payments) {
+                        const note = (p.transfer_note || '').toLowerCase();
+                        if (note.includes(cleanCode)) {
+                            totalPaid += Number(p.amount) || 0;
+                            found = true;
+                        }
+                    }
+                    if (found && totalPaid > 0) {
+                        carrierPaidHtml = `<span style="font-weight:800;color:#10b981">${totalPaid.toLocaleString('vi-VN')}đ</span>`;
+                    }
+                }
+                if (carrierPaidHtml) {
+                    shipHTML += row('💸 Tiền Thanh Toán Vận Chuyển Này', carrierPaidHtml);
+                }
+                
+                if (o.shipping_payment_code) {
+                    shipHTML += row('💳 Mã thanh toán', `<span style="font-weight:700;color:#059669">${o.shipping_payment_code}</span>`);
+                    shipHTML += row('💵 Số tiền thanh toán', `<span style="font-weight:700;color:#0284c7">${(Number(o.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>`);
+                }
+                shipHTML += `</table>`;
+            } else {
+                shipHTML += `<div style="text-align:center;padding:20px;color:#64748b;font-size:13px;font-weight:600;">📭 Đơn hàng chưa có thông tin vận chuyển.</div>`;
             }
         }
-    };
-    
-    document.addEventListener('paste', pasteHandler);
-    
-    const originalRemove = modalEl.remove;
-    modalEl.remove = function() {
-        document.removeEventListener('paste', pasteHandler);
-        originalRemove.apply(modalEl);
-    };
+        
+        shipHTML += `</div>`;
+        
+        const footer = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:8px 24px;font-weight:bold;">Đóng</button>`;
+        openModal(`🚚 Thông tin vận chuyển — ${o.order_code}`, shipHTML, footer);
+    } catch(err) {
+        showToast('Lỗi khi lấy thông tin vận chuyển: ' + err.message, 'error');
+    }
 }
 
-function _qlxSwitchToReportForm(scheduleState, blockedBy) {
-    if (blockedBy && blockedBy !== 'undefined' && blockedBy !== 'null' && blockedBy !== '') {
-        showToast(`Vui lòng thiết lập lịch trình cho chặng ${blockedBy} trước.`, 'error');
+function showShippingBillLightbox(url) {
+    const existing = document.getElementById('shippingBillLightbox');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'shippingBillLightbox';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:sbFadeIn .2s ease';
+    overlay.onclick = function() { overlay.remove(); };
+
+    if (!document.getElementById('shippingLightboxStyles')) {
+        const style = document.createElement('style');
+        style.id = 'shippingLightboxStyles';
+        style.textContent = `
+            @keyframes sbFadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.5);object-fit:contain';
+    img.onclick = function(e) { e.stopPropagation(); };
+    overlay.appendChild(img);
+
+    const closeBtn = document.createElement('div');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;cursor:pointer;font-weight:700';
+    closeBtn.onclick = function() { overlay.remove(); };
+    overlay.appendChild(closeBtn);
+
+    document.body.appendChild(overlay);
+
+    const escHandler = function(e) {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+// ========== BAO LOI MODAL (QLX) ==========
+window._qlxdhErrorImages = [];
+window._qlxdhErrorVideo = null;
+window._qlxdhSubmitBusy = false;
+window._qlxdhBusy = false;
+window._qlxdhPasteHandler = null;
+
+function _qlxdhDataURLtoBlob(dataurl) {
+    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+}
+
+async function _qlxdhOpenErrorModal(orderId) {
+    if (window._qlxdhBusy) return;
+    window._qlxdhBusy = true;
+
+    try {
+        var o = _qlxdhOrders.find(function(x) { return String(x.id) === String(orderId); });
+        if (!o) { showToast('Không tìm thấy đơn hàng', 'error'); window._qlxdhBusy = false; return; }
+
+        var commonErrors = [];
+        try {
+            var ce = await apiCall('/api/common-errors-tpl');
+            commonErrors = ce.items || [];
+        } catch(e) { console.error(e); }
+
+        var old = document.getElementById('_qlxdhErrorModal'); if (old) old.remove();
+
+        var reporterName = 'Người Báo Lỗi: QLX - ' + (window.currentUser ? window.currentUser.full_name : 'Quản lý xưởng');
+        var saleName = o.cskh_name || '—';
+        var prodQty = o.items ? o.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) : 0;
+
+        window._qlxdhErrorImages = [];
+        window._qlxdhErrorVideo = null;
+
+        var h = '<div class="bpc-modal-overlay show" id="_qlxdhErrorModal" onclick="if(event.target===this)_qlxdhCloseErrorModal()" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;overflow-y:auto">';
+        h += '<div class="bpc-modal" style="width:520px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;animation:qlxSlideUp .3s;margin-bottom:40px;">';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px;"><div class="m-icon" style="font-size:24px">🚨</div><div><div class="m-title" style="font-weight:800;font-size:16px;line-height:1.2">BÁO ĐƠN LỖI</div><div class="m-sub" style="font-size:12px;opacity:0.9;margin-top:2px">' + (o.order_code || '') + '</div></div></div>';
+        h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1;padding:20px;display:flex;flex-direction:column;gap:14px;color:#334155">';
+
+        h += '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;">';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">📋 Mã Đơn</span><span style="font-weight:700;color:#1e3a8a">' + (o.order_code || '—') + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">👤 Khách Hàng</span><span style="font-weight:700;color:#1e293b">' + (o.customer_name || '—') + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">💼 CSKH</span><span style="font-weight:700;color:#1e293b">' + saleName + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#64748b;font-weight:600;">📦 SL Sản Xuất</span><span style="font-weight:700;color:#059669">' + prodQty + '</span></div>';
+        h += '  <div style="display:flex;justify-content:space-between;font-size:13px;border-top:1px dashed #e2e8f0;padding-top:8px;margin-top:4px;"><span style="color:#64748b;font-weight:600;">✍️ Người Báo Lỗi</span><span style="font-weight:700;color:#7c3aed">' + reporterName + '</span></div>';
+        h += '</div>';
+
+        h += '<div style="display:none"><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">Lỗi Thường Gặp (Nếu có)</label>';
+        h += '<select id="qlxdhE_common" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;outline:none;">';
+        h += '<option value="">-- Chọn loại lỗi (nếu có) --</option>';
+        commonErrors.forEach(function(ce){
+            h += '<option value="' + ce.error_name + '">' + ce.error_name + '</option>';
+        });
+        h += '</select></div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px;color:#ef4444;">Số Lượng Lỗi <span style="color:#ef4444">*</span></label>';
+        h += '<input type="number" id="qlxdhE_qty" min="1" max="' + (prodQty || 9999) + '" value="" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:800;color:#dc2626;outline:none;" placeholder="Nhập số lượng lỗi...">';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px;color:#ef4444;">Nội Dung Chi Tiết <span style="color:#ef4444">*</span></label>';
+        h += '<textarea id="qlxdhE_content" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit;outline:none;" placeholder="Mô tả chi tiết lỗi..."></textarea>';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px;color:#ef4444;">📷 Hình Ảnh Minh Họa <span style="color:#ef4444">*</span></label>';
+        h += '<div style="border:1.5px dashed #7c3aed;border-radius:10px;padding:16px 20px;text-align:center;background:rgba(124,58,237,0.03);color:#7c3aed;font-size:13px;font-weight:700;">';
+        h += '    Bấm <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;font-weight:800">Ctrl + V</span> tại bất kỳ đâu trên trang này để dán ảnh';
+        h += '</div>';
+        h += '<div id="qlxdhE_previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>';
+        h += '</div>';
+
+        h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px">🎥 Video Minh Họa (Không bắt buộc)</label>';
+        h += '<input type="file" id="qlxdhE_video" accept="video/*" style="font-size:11px;width:100%" onchange="_qlxdhUploadErrorVideo(event)">';
+        h += '</div>';
+
+        h += '</div>';
+
+        h += '<div class="bpc-modal-actions" style="margin-top:0;padding:16px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;border-radius:0 0 16px 16px;">';
+        h += '<button class="bpc-modal-btn cancel" onclick="_qlxdhCloseErrorModal()" style="padding:10px 20px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">Hủy</button>';
+        h += '<button class="bpc-modal-btn confirm" id="_qlxdhErrorSubmitBtn" style="padding:10px 24px;border:none;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;" onclick="_qlxdhSubmitError(\'' + orderId + '\')">🚨 BÁO LỖI</button>';
+        h += '</div>';
+
+        h += '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', h);
+
+        _qlxdhSetupPasteListener();
+        window._qlxdhBusy = false;
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        window._qlxdhBusy = false;
+    }
+}
+
+function _qlxdhCloseErrorModal() {
+    var m = document.getElementById('_qlxdhErrorModal');
+    if (m) { m.remove(); }
+    if (window._qlxdhPasteHandler) {
+        window.removeEventListener('paste', window._qlxdhPasteHandler);
+        window._qlxdhPasteHandler = null;
+    }
+}
+
+function _qlxdhCompressImage(file, callback) {
+    if (!file.type.startsWith('image/')) {
+        callback(null);
         return;
     }
-    const detailView = document.getElementById('qlxStepDetailView');
-    const reportView = document.getElementById('qlxStepReportFormView');
-    
-    if (detailView && reportView) {
-        detailView.style.display = 'none';
-        reportView.style.display = 'flex';
-    }
-}
-
-function _qlxSwitchToDetailView() {
-    const detailView = document.getElementById('qlxStepDetailView');
-    const reportView = document.getElementById('qlxStepReportFormView');
-    
-    if (detailView && reportView) {
-        detailView.style.display = 'flex';
-        reportView.style.display = 'none';
-    }
-}
-
-function _qlxOnStepStatusChange() {
-    const status = document.getElementById('qlxStepStatus').value;
-    const delayDiv = document.getElementById('qlxDelayInputs');
-    if (status === 'delayed') {
-        delayDiv.style.display = 'flex';
-    } else {
-        delayDiv.style.display = 'none';
-    }
-}
-
-function _qlxHandleStepFileSelect(input) {
-    if (input.files && input.files[0]) {
-        _qlxUploadAndResize(input.files[0]);
-    }
-}
-
-function _qlxUploadAndResize(file) {
-    const zone = document.getElementById('qlxStepPasteZone');
-    if (zone) zone.innerText = '⚙️ Đang xử lý & tải ảnh lên...';
-
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        const img = new Image();
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
         img.onload = function() {
-            const canvas = document.createElement('canvas');
-            let width = img.width;
-            let height = img.height;
-            const maxDim = 1000;
-            if (width > maxDim || height > maxDim) {
-                if (width > height) {
-                    height = Math.round((height * maxDim) / width);
-                    width = maxDim;
-                } else {
-                    width = Math.round((width * maxDim) / height);
-                    height = maxDim;
-                }
+            var canvas = document.createElement('canvas');
+            var maxW = 800, maxH = 800;
+            var w = img.width, h = img.height;
+            if (w > h) {
+                if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+            } else {
+                if (h > maxH) { w = Math.round((w * maxH) / h); h = maxH; }
             }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-
-            canvas.toBlob((blob) => {
-                if (!blob) {
-                    showToast('Lỗi nén ảnh', 'error');
-                    if (zone) zone.innerText = 'Lỗi nén ảnh. Thử lại.';
-                    return;
-                }
-                const formData = new FormData();
-                formData.append('file', blob, 'report_image.jpg');
-
-                fetch('/api/qlx/upload-image', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        _qlxUploadedImageUrl = data.image_url;
-                        
-                        const preview = document.getElementById('qlxStepImagePreview');
-                        const previewImg = document.getElementById('qlxStepPreviewImg');
-                        if (preview && previewImg) {
-                            previewImg.src = data.image_url;
-                            preview.style.display = 'block';
-                        }
-                        if (zone) zone.innerText = '✅ Tải ảnh thành công!';
-                    } else {
-                        showToast(data.error || 'Lỗi tải ảnh', 'error');
-                        if (zone) zone.innerText = 'Lỗi tải ảnh. Thử lại.';
-                    }
-                })
-                .catch(err => {
-                    showToast(err.message, 'error');
-                    if (zone) zone.innerText = 'Lỗi kết nối. Thử lại.';
-                });
-            }, 'image/jpeg', 0.7);
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            callback(canvas.toDataURL('image/jpeg', 0.6));
         };
-        img.src = event.target.result;
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }
 
-async function _qlxSubmitStepReport(orderId, itemId, stepKey) {
-    let reportStepKey = stepKey;
-    if (stepKey === 'may' || stepKey === 'qc' || stepKey === 'ht') {
-        reportStepKey = 'may_qc_ht';
+function _qlxdhAddErrorImage(file) {
+    _qlxdhCompressImage(file, function(compressed) {
+        if (!compressed) return;
+        window._qlxdhErrorImages.push(compressed);
+        _qlxdhRenderErrorImagePreviews();
+    });
+}
+
+function _qlxdhRenderErrorImagePreviews() {
+    var area = document.getElementById('qlxdhE_previews');
+    if (!area) return;
+    var h = '';
+    window._qlxdhErrorImages.forEach(function(imgData, index) {
+        h += '<div style="position:relative;display:inline-block">';
+        h += '<img src="' + imgData + '" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1">';
+        h += '<span onclick="_qlxdhRemoveErrorImage(' + index + ')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;text-align:center;line-height:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2)">×</span>';
+        h += '</div>';
+    });
+    area.innerHTML = h;
+}
+
+function _qlxdhRemoveErrorImage(index) {
+    window._qlxdhErrorImages.splice(index, 1);
+    _qlxdhRenderErrorImagePreviews();
+}
+
+function _qlxdhSetupPasteListener() {
+    if (window._qlxdhPasteHandler) {
+        window.removeEventListener('paste', window._qlxdhPasteHandler);
     }
-    const status = document.getElementById('qlxStepStatus').value;
-    const payload = {
-        dht_order_id: orderId,
-        order_item_id: itemId,
-        step_name: status === 'on_track' ? 'on_track' : reportStepKey
+    window._qlxdhPasteHandler = function(e) {
+        if (!document.getElementById('_qlxdhErrorModal')) return;
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') === 0) {
+                var blob = items[i].getAsFile();
+                _qlxdhAddErrorImage(blob);
+            }
+        }
     };
+    window.addEventListener('paste', window._qlxdhPasteHandler);
+}
 
-    if (status === 'delayed') {
-        const expected_at = document.getElementById('qlxStepExpectedAt').value;
-        const notes = document.getElementById('qlxStepNotes').value.trim();
-        
-        if (!expected_at) {
-            showToast('Vui lòng chọn giờ dự kiến hoàn thành mới', 'error');
-            return;
-        }
-        const expDate = new Date(expected_at);
-        if (isNaN(expDate.getTime())) {
-            showToast('Thời gian dự kiến không hợp lệ', 'error');
-            return;
-        }
-        if (expDate.getTime() < Date.now() - 60000) {
-            showToast('Thời gian dự kiến không được ở trong quá khứ', 'error');
-            return;
-        }
-        const vnDateStr = expected_at.slice(0, 10);
-        if (_qlxHolidaysSet.has(vnDateStr)) {
-            showToast(`Không được hẹn lịch vào ngày lễ (${vnDateStr})`, 'error');
-            return;
-        }
-        if (!notes) {
-            showToast('Vui lòng nhập lý do chậm trễ', 'error');
-            return;
-        }
-        if (!_qlxUploadedImageUrl) {
-            showToast('Vui lòng dán hoặc tải lên hình ảnh báo cáo', 'error');
-            return;
-        }
-
-        payload.expected_at = new Date(expected_at).toISOString();
-        payload.notes = notes;
-        payload.image_url = _qlxUploadedImageUrl;
+function _qlxdhUploadErrorVideo(event) {
+    const file = event.target.files[0];
+    if (file) {
+        window._qlxdhErrorVideo = file;
+    } else {
+        window._qlxdhErrorVideo = null;
     }
+}
+
+async function _qlxdhSubmitError(orderId) {
+    if (window._qlxdhSubmitBusy) return;
+
+    var qtyEl = document.getElementById('qlxdhE_qty');
+    var qty = Number(qtyEl.value) || 0;
+    if (qty <= 0) { showToast('Vui lòng nhập số lượng lỗi hợp lệ!', 'error'); return; }
+
+    var contentEl = document.getElementById('qlxdhE_content');
+    var content = contentEl.value.trim();
+    if (!content) { showToast('Vui lòng nhập chi tiết nội dung lỗi!', 'error'); return; }
+
+    if (!window._qlxdhErrorImages || window._qlxdhErrorImages.length === 0) {
+        showToast('Vui lòng dán hoặc chọn ít nhất 1 hình ảnh minh họa bắt buộc!', 'error');
+        return;
+    }
+
+    window._qlxdhSubmitBusy = true;
+    var btn = document.getElementById('_qlxdhErrorSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
 
     try {
-        const res = await apiCall('/api/qlx-orders/step-report', 'POST', payload);
-        if (res.success) {
-            showToast('Gửi báo cáo tiến độ thành công!');
-            document.getElementById('dhnqlxActionModal')?.remove();
-            
-            _dhnqlxLoadData();
-            setTimeout(() => {
-                _dhnqlxToggleDetail(orderId);
-            }, 600);
-        } else {
-            showToast(res.error || 'Lỗi gửi báo cáo', 'error');
+        var o = _qlxdhOrders.find(function(x) { return String(x.id) === String(orderId); });
+        if (!o) { throw new Error('Không tìm thấy đơn hàng'); }
+
+        var prodQty = o.items ? o.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) : 0;
+
+        var today = new Date().toISOString().split('T')[0];
+        if (typeof vnNow === 'function') {
+            var n = vnNow();
+            today = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
         }
-    } catch (e) {
-        showToast(e.message, 'error');
+
+        var body = {
+            report_date: today,
+            common_error_type: document.getElementById('qlxdhE_common') ? document.getElementById('qlxdhE_common').value : '',
+            order_code: o.order_code,
+            cskh_name: o.cskh_name || '',
+            error_quantity: qty,
+            error_content: content,
+            dht_order_id: o.id,
+            customer_name: o.customer_name,
+            production_quantity: prodQty,
+            error_department: null,
+            error_type: 'Nội Bộ'
+        };
+
+        var result = await apiCall('/api/customer-errors', 'POST', body);
+        if (result.error) { throw new Error(result.error); }
+
+        if (window._qlxdhErrorImages && window._qlxdhErrorImages.length > 0 && result.id) {
+            var fd = new FormData();
+            window._qlxdhErrorImages.forEach(function(imgData, index) {
+                var blob = _qlxdhDataURLtoBlob(imgData);
+                fd.append('file_' + index, blob, 'image_' + index + '.jpeg');
+            });
+            await fetch('/api/customer-errors/' + result.id + '/images', { method: 'POST', body: fd });
+        }
+
+        if (window._qlxdhErrorVideo && result.id) {
+            var fdv = new FormData();
+            fdv.append('video', window._qlxdhErrorVideo);
+            await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv });
+        }
+
+        showToast('✅ Đã báo đơn lỗi thành công!');
+        _qlxdhCloseErrorModal();
+        await _qlxdhLoadOrders();
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🚨 BÁO LỖI'; }
+    } finally {
+        window._qlxdhSubmitBusy = false;
     }
 }
 
-function _qlxShowStepReportsHistoryModal(orderCode, stepName, rawReports) {
-    const reports = JSON.parse(decodeURIComponent(rawReports) || '[]');
-    const fmtDT = d => { if (!d) return ''; const dt = new Date(d); return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); };
-
-    let html = '<div style="display:flex;flex-direction:column;gap:12px;max-height:450px;overflow-y:auto;padding-right:4px;">';
-    reports.forEach((r, idx) => {
-        html += `
-            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc; font-size:12px;">
-                <div style="display:flex; justify-content:space-between; font-weight:700; color:#1e293b; margin-bottom:4px;">
-                    <span>Báo cáo #${idx + 1}</span>
-                    <span style="font-weight:normal; color:#64748b; font-size:10px;">${fmtDT(r.created_at)}</span>
-                </div>
-                <div style="margin-top:2px;">• Người báo cáo: <b>${r.reporter_name || 'Hệ thống'}</b></div>
-                ${r.expected_at ? `<div style="margin-top:2px;">• Giờ hẹn mới: <b style="color:#2563eb;">${fmtDT(r.expected_at)}</b></div>` : ''}
-                <div style="margin-top:4px; font-style:italic; background:white; padding:6px; border-radius:4px; border:1px solid #e2e8f0; color:#475569;">
-                    "${r.notes || 'Không có ghi chú'}"
-                </div>
-                ${r.image_url ? `
-                    <div style="margin-top:8px;">
-                        <a href="${r.image_url}" target="_blank">
-                            <img src="${r.image_url}" style="max-width:100%; max-height:200px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); cursor:zoom-in;">
-                        </a>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    });
-    html += '</div>';
-
-    const footerHtml = `
-        <button onclick="document.getElementById('dhnqlxActionModal').remove()" style="padding:8px 20px;border:none;border-radius:8px;background:#374151;color:white;cursor:pointer;font-weight:700;">Đóng</button>
-    `;
-
-    _dhnqlxCreateModal(`Báo cáo chặng ${stepName} — ${orderCode}`, html, footerHtml, '450px');
+async function _dhtShowTraSoatModal(orderId, orderCode) {
+    const container = document.getElementById('modalContainer');
+    if (container) {
+        container.style.maxWidth = '900px';
+        container.style.width = '95%';
+    }
+    
+    const initialBody = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:12px;color:#6b7280;">
+        <div style="width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:#ea580c;border-radius:50%;animation:dhtSpin 1s linear infinite;"></div>
+        <div style="font-size:13px;font-weight:600;">Đang tải dữ liệu tra soát đơn hàng...</div>
+    </div>
+    <style>
+        @keyframes dhtSpin { to { transform: rotate(360deg); } }
+    </style>`;
+    
+    openModal(`🔍 Tra Soát Đơn Hàng — ${orderCode}`, initialBody, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`);
+    
+    try {
+        const res = await apiCall('/api/trasoat/orders/' + orderId + '/detail');
+        if (typeof _tsRenderTimeline === 'function') {
+            const html = _tsRenderTimeline(res);
+            document.getElementById('modalBody').innerHTML = html;
+        } else {
+            document.getElementById('modalBody').innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">
+                <span style="font-size:24px;">⚠️</span>
+                <div style="font-weight:700;margin-top:8px;">Lỗi: Thư viện Tra Soát Đơn Hàng chưa được tải</div>
+            </div>`;
+        }
+    } catch(err) {
+        document.getElementById('modalBody').innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">
+            <span style="font-size:24px;">❌</span>
+            <div style="font-weight:700;margin-top:8px;">Lỗi khi lấy dữ liệu: ${err.message || err}</div>
+        </div>`;
+    }
 }
 
+// Bind to window to allow HTML onclick access
+window.renderDonhanghomnayqlxPage = renderDonhanghomnayqlxPage;
+window._qlxdhSetFilter = _qlxdhSetFilter;
+window._qlxdhOnCskhChange = _qlxdhOnCskhChange;
+window._qlxdhOnSearch = _qlxdhOnSearch;
+window._qlxdhSelectYearMonth = _qlxdhSelectYearMonth;
+window._qlxdhToggleOrderItems = _qlxdhToggleOrderItems;
+window._qlxdhAlertCannotShip = _qlxdhAlertCannotShip;
+window._qlxdhAlertCannotShipOrder = _qlxdhAlertCannotShipOrder;
+window._qlxdhShowOrderSlipsModal = _qlxdhShowOrderSlipsModal;
+window._qlxdhShowReschedule = _qlxdhShowReschedule;
+window._qlxdhCheckHoliday = _qlxdhCheckHoliday;
+window._qlxdhDoReschedule = _qlxdhDoReschedule;
+window._qlxdhShowHistory = _qlxdhShowHistory;
+window._qlxdhShowShippingDetailOnly = _qlxdhShowShippingDetailOnly;
+window._qlxdhOpenErrorModal = _qlxdhOpenErrorModal;
+window._qlxdhCloseErrorModal = _qlxdhCloseErrorModal;
+window._qlxdhRemoveErrorImage = _qlxdhRemoveErrorImage;
+window._qlxdhUploadErrorVideo = _qlxdhUploadErrorVideo;
+window._qlxdhSubmitError = _qlxdhSubmitError;
+window._dhtShowTraSoatModal = _dhtShowTraSoatModal;

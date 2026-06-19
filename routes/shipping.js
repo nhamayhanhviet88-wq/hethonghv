@@ -337,11 +337,7 @@ module.exports = async function(fastify) {
 
         if (!FULL_VIEW_ROLES.includes(userRole)) {
             const kt = await isKeToan(userId);
-            if (!kt && page_type === 'ketoan') {
-                visibilityFilter = ` AND (o.created_by = $${idx} OR o.cskh_user_id = $${idx})`;
-                params.push(userId);
-                idx++;
-            } else if (!kt) {
+            if (!kt && page_type !== 'qlx') {
                 visibilityFilter = ` AND (o.created_by = $${idx} OR o.cskh_user_id = $${idx})`;
                 params.push(userId);
                 idx++;
@@ -453,7 +449,7 @@ module.exports = async function(fastify) {
 
         if (!FULL_VIEW_ROLES.includes(userRole)) {
             const kt = await isKeToan(userId);
-            if (!kt) {
+            if (!kt && page_type !== 'qlx') {
                 sampleWhere += ` AND d.created_by = $1`;
                 sampleParams.push(userId);
             }
