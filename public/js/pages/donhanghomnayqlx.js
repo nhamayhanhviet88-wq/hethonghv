@@ -771,24 +771,99 @@ async function _qlxdhShowReschedule(id, code) {
         `;
     }
 
+    window._qlxdhRescheduleImageBase64 = null;
+    window._qlxdhClearRescheduleImage = function() {
+        window._qlxdhRescheduleImageBase64 = null;
+        const preview = document.getElementById('qlxdhImagePreview');
+        const previewImg = document.getElementById('qlxdhPreviewImg');
+        const pasteArea = document.getElementById('qlxdhPasteArea');
+        if (preview && previewImg && pasteArea) {
+            preview.style.display = 'none';
+            previewImg.src = '';
+            pasteArea.style.display = 'block';
+        }
+    };
+
+    function _qlxdhCompressImage(file, callback) {
+        if (!file.type.startsWith('image/')) {
+            callback(null);
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const maxW = 800, maxH = 800;
+                let w = img.width, h = img.height;
+                if (w > h) {
+                    if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+                } else {
+                    if (h > maxH) { w = Math.round((w * maxH) / h); h = maxH; }
+                }
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                callback(canvas.toDataURL('image/jpeg', 0.6));
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
     const m = document.createElement('div');
     m.id = 'qlxdhRescheduleModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    m.innerHTML = `<div style="background:white;border-radius:16px;width:420px;max-width:95vw;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,.3);">
+    m.innerHTML = `<div style="background:white;border-radius:16px;width:420px;max-width:95vw;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto;">
         <div style="font-size:16px;font-weight:800;color:#122546;margin-bottom:16px;">📅 Hẹn Lại — ${code}</div>
         <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:700;color:#374151;">Ngày gửi mới <span style="color:#dc2626">*</span></label>
             ${dateInputHtml}
         </div>
-        <div style="margin-bottom:16px;">
+        <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:700;color:#374151;">Lý do <span style="color:#dc2626">*</span></label>
             <textarea id="qlxdhReason" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;resize:vertical;" placeholder="Nhập lý do hẹn lại..."></textarea>
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Hình Ảnh Thúc Giục Nhân Sự Ra Hàng <span style="color:#dc2626">*</span></label>
+            <div id="qlxdhPasteArea" style="border:1.5px dashed #cbd5e1;border-radius:8px;padding:14px;text-align:center;background:#f8fafc;color:#64748b;font-size:12.5px;font-weight:700;margin-top:4px;cursor:pointer;position:relative;" tabindex="0">
+                📋 Click vào đây rồi nhấn Ctrl+V để dán ảnh
+            </div>
+            <div id="qlxdhImagePreview" style="margin-top:8px;display:none;position:relative;width:120px;height:120px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">
+                <img id="qlxdhPreviewImg" src="" style="width:100%;height:100%;object-fit:cover;">
+                <button type="button" onclick="window._qlxdhClearRescheduleImage()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;">✕</button>
+            </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button onclick="document.getElementById('qlxdhRescheduleModal')?.remove()" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
             <button id="qlxdhRescheduleBtn" onclick="_qlxdhDoReschedule('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:700;font-size:13px;">📅 Hẹn lại</button>
         </div>
     </div>`;
+
+    const pasteHandler = function(e) {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') === 0) {
+                const blob = items[i].getAsFile();
+                _qlxdhCompressImage(blob, function(compressed) {
+                    if (compressed) {
+                        window._qlxdhRescheduleImageBase64 = compressed;
+                        const preview = document.getElementById('qlxdhImagePreview');
+                        const previewImg = document.getElementById('qlxdhPreviewImg');
+                        const pasteArea = document.getElementById('qlxdhPasteArea');
+                        if (preview && previewImg && pasteArea) {
+                            previewImg.src = compressed;
+                            preview.style.display = 'block';
+                            pasteArea.style.display = 'none';
+                        }
+                    }
+                });
+                break;
+            }
+        }
+    };
+    m.addEventListener('paste', pasteHandler);
+
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
 }
@@ -841,13 +916,22 @@ async function _qlxdhDoReschedule(id) {
     const reason = document.getElementById('qlxdhReason')?.value;
     if (!newDate) { alert('Chọn ngày gửi mới'); return; }
     if (!reason?.trim()) { alert('Nhập lý do'); return; }
+    if (!window._qlxdhRescheduleImageBase64) {
+        alert('⚠️ Hình Ảnh Thúc Giục Nhân Sự Ra Hàng là bắt buộc!');
+        return;
+    }
     
     const d = new Date(newDate + 'T00:00:00+07:00');
     if (d.getDay() === 0) { alert('⚠️ Không được hẹn vào ngày Chủ Nhật'); return; }
     if (_qlxdhHolidayMap[newDate]) { alert('⚠️ Không được hẹn vào ngày lễ: ' + _qlxdhHolidayMap[newDate]); return; }
     
     try {
-        const r = await apiCall(`/api/shipping/orders/${id}/reschedule`, 'POST', { new_date: newDate, reason: reason.trim(), page_type: 'qlx' });
+        const r = await apiCall(`/api/shipping/orders/${id}/reschedule`, 'POST', {
+            new_date: newDate,
+            reason: reason.trim(),
+            page_type: 'qlx',
+            image_base64: window._qlxdhRescheduleImageBase64
+        });
         if (r.error) { alert(r.error); return; }
         showToast(r.message || '✅ Đã hẹn lại');
         document.getElementById('qlxdhRescheduleModal')?.remove();
@@ -875,6 +959,7 @@ async function _qlxdhShowHistory(id, code) {
                     <div style="flex:1;">
                         <div style="font-size:12px;font-weight:700;color:#1e293b;">${fmt(r.old_date)} → ${fmt(r.new_date)}</div>
                         <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.reason || '—'}</div>
+                        ${r.image_url ? `<div style="margin-top:6px;"><img src="${r.image_url}" style="max-width:150px;max-height:150px;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;" onclick="window.open('${r.image_url}', '_blank')"></div>` : ''}
                         <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Bởi: ${r.rescheduled_by_name || '—'} • ${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}) : '—'}</div>
                     </div>
                 </div>`).join('')}

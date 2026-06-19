@@ -1968,9 +1968,13 @@ module.exports = async function(fastify) {
         const userId = request.user.id;
         const userRole = request.user.role;
 
-        const { new_date, reason, page_type } = request.body || {};
+        const { new_date, reason, page_type, image_base64 } = request.body || {};
         if (!new_date) return reply.code(400).send({ error: 'Vui lòng chọn ngày gửi mới' });
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do hẹn lại' });
+
+        if (page_type === 'qlx' && !image_base64) {
+            return reply.code(400).send({ error: '⚠️ Hình Ảnh Thúc Giục Nhân Sự Ra Hàng là bắt buộc' });
+        }
 
         if (userRole !== 'giam_doc') {
             const kt = await isKeToan(userId);
@@ -2071,11 +2075,31 @@ module.exports = async function(fastify) {
 
         const oldDate = order.rescheduled_ship_date || order.expected_ship_date;
 
+        let image_url = null;
+        if (image_base64) {
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'reschedule');
+                if (!fs.existsSync(uploadDir)) {
+                    fs.mkdirSync(uploadDir, { recursive: true });
+                }
+                const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, "");
+                const buffer = Buffer.from(base64Data, 'base64');
+                const filename = `resched_${Date.now()}_${Math.random().toString(36).substring(2,8)}.jpg`;
+                const filePath = path.join(uploadDir, filename);
+                fs.writeFileSync(filePath, buffer);
+                image_url = `/uploads/reschedule/${filename}`;
+            } catch(imgErr) {
+                console.error('[Reschedule image upload error]', imgErr);
+            }
+        }
+
         // Save history
         await db.run(`
-            INSERT INTO dht_shipping_reschedules (dht_order_id, old_date, new_date, reason, rescheduled_by)
-            VALUES ($1, $2, $3, $4, $5)
-        `, [orderId, oldDate, new_date, reason.trim(), userId]);
+            INSERT INTO dht_shipping_reschedules (dht_order_id, old_date, new_date, reason, rescheduled_by, image_url)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        `, [orderId, oldDate, new_date, reason.trim(), userId, image_url]);
 
         // Update order
         await db.run(`
