@@ -336,6 +336,38 @@ function _qlxdhGetOrderMenu(o) {
     return { key: 'unknown', label: 'Khác', color: '#6b7280', bg: '#f3f4f6' };
 }
 
+function _qlxdhFormatRescheduleStatus(o) {
+    if (o.shipping_status === 'shipped') {
+        return { label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5' };
+    }
+    if (!o.last_rescheduled_at) {
+        return { label: 'Chưa Hẹn', color: '#64748b', bg: '#f1f5f9' };
+    }
+    try {
+        const reschedDateStr = vnDateStr(o.last_rescheduled_at);
+        const todayStr = vnDateStr();
+        const d1 = new Date(reschedDateStr + 'T00:00:00+07:00');
+        const d2 = new Date(todayStr + 'T00:00:00+07:00');
+        const diffDays = Math.round((d2.getTime() - d1.getTime()) / 86400000);
+        
+        if (diffDays === 0) {
+            return { label: 'QLX Hẹn Hôm Nay', color: '#dc2626', bg: '#fef2f2' };
+        } else if (diffDays === 1) {
+            return { label: 'QLX Hẹn Hôm Qua', color: '#d97706', bg: '#fffbeb' };
+        } else if (diffDays === 2) {
+            return { label: 'QLX Hẹn Hôm Kia', color: '#7c3aed', bg: '#f5f3ff' };
+        } else if (diffDays === 3) {
+            return { label: 'QLX Hẹn Hôm Kìa', color: '#2563eb', bg: '#eff6ff' };
+        } else {
+            const day = d1.getDate();
+            const month = d1.getMonth() + 1;
+            return { label: `QLX Hẹn ${day}/${month}`, color: '#4b5563', bg: '#f3f4f6' };
+        }
+    } catch (e) {
+        return { label: 'QLX Đã Hẹn', color: '#d97706', bg: '#fffbeb' };
+    }
+}
+
 function _qlxdhPaginationHTML(total, page, perPage) {
     const totalPages = Math.ceil(total / perPage) || 1;
     if (totalPages <= 1) return '';
@@ -485,8 +517,8 @@ function _qlxdhBuildTable(orders) {
             <span id="qlxdhChevron_${o.id}" style="font-size:14px;cursor:pointer;user-select:none;color:#64748b;font-weight:bold;padding:4px;">▶</span>
         </td>`;
 
-        const menu = _qlxdhGetOrderMenu(o);
-        const statusBadge = `<span style="background:${menu.bg};color:${menu.color};border:1px solid ${menu.color}40;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block;">${menu.label}</span>`;
+        const statusData = _qlxdhFormatRescheduleStatus(o);
+        const statusBadge = `<span style="background:${statusData.bg};color:${statusData.color};border:1px solid ${statusData.color}40;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block;">${statusData.label}</span>`;
         html += `<td style="padding:8px 6px;text-align:center;vertical-align:middle;">${statusBadge}</td>`;
 
         html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
