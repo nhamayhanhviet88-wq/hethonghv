@@ -2972,10 +2972,12 @@ module.exports = async function(fastify) {
         }
 
         let proofImage = null;
+        let isUploadAction = false;
         let contractReceived = true;
         let storageLocation = null;
 
         if (request.headers['content-type']?.includes('multipart')) {
+            isUploadAction = true;
             const data = await request.file();
             if (data) {
                 const path = require('path');
@@ -2998,7 +3000,17 @@ module.exports = async function(fastify) {
         const oldProof = order.vat_contract_proof;
         const oldStorage = order.vat_contract_storage;
 
-        if (!contractReceived) {
+        if (isUploadAction) {
+            await db.run(
+                `UPDATE dht_orders 
+                 SET vat_contract_received = false, 
+                     vat_contract_proof = $1, 
+                     last_updated_at = NOW(),
+                     last_updated_by = $2
+                 WHERE id = $3`,
+                [proofImage, request.user.id, orderId]
+            );
+        } else if (!contractReceived) {
             await db.run(
                 `UPDATE dht_orders 
                  SET vat_contract_received = false, 
@@ -3072,10 +3084,12 @@ module.exports = async function(fastify) {
         }
 
         let proofImage = null;
+        let isUploadAction = false;
         let handoverReceived = true;
         let storageLocation = null;
 
         if (request.headers['content-type']?.includes('multipart')) {
+            isUploadAction = true;
             const data = await request.file();
             if (data) {
                 const path = require('path');
@@ -3098,7 +3112,17 @@ module.exports = async function(fastify) {
         const oldProof = order.vat_handover_proof;
         const oldStorage = order.vat_handover_storage;
 
-        if (!handoverReceived) {
+        if (isUploadAction) {
+            await db.run(
+                `UPDATE dht_orders 
+                 SET vat_handover_received = false, 
+                     vat_handover_proof = $1, 
+                     last_updated_at = NOW(),
+                     last_updated_by = $2
+                 WHERE id = $3`,
+                [proofImage, request.user.id, orderId]
+            );
+        } else if (!handoverReceived) {
             await db.run(
                 `UPDATE dht_orders 
                  SET vat_handover_received = false, 
