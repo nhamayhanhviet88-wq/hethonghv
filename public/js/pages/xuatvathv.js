@@ -669,19 +669,21 @@ function _vatShowExportModal(id) {
             
             ${editable ? `
                 <div class="vat-modal-field" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-                    <input type="checkbox" id="vatModalExportToggle" style="width:20px;height:20px;cursor:pointer;" ${o.vat_exported ? 'checked' : ''} onchange="_vatOnExportCheckboxToggle(this.checked)">
+                    <input type="checkbox" id="vatModalExportToggle" style="width:20px;height:20px;cursor:pointer;" ${o.vat_exported ? 'checked' : ''}>
                     <label for="vatModalExportToggle" style="margin:0;cursor:pointer;font-weight:800;color:#1e293b;">Đã Xuất Hóa Đơn VAT</label>
                 </div>
             ` : ''}
 
             <!-- Proof Image Area -->
             <div id="vatModalExportUploadWrapper" style="display:${o.vat_exported || editable ? 'block' : 'none'};">
-                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Bằng Chứng / Ảnh Hóa Đơn</label>
+                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Bằng Chứng / Ảnh Hóa Đơn <span style="color:#ef4444;">* (Bắt buộc khi chọn đã xuất)</span></label>
                 ${editable ? `
-                    <div class="vat-upload-area" onclick="document.getElementById('vatModalExportFile').click()">
+                    <div class="vat-upload-area" tabindex="0" onclick="this.focus()" onpaste="_vatOnAreaPaste(event, ${o.id}, 'export')" style="border:2px dashed #0284c7;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;outline:none;transition:all 0.2s;" onfocus="this.style.borderColor='#0369a1';this.style.background='#f0f9ff';this.style.boxShadow='0 0 0 3px rgba(2, 132, 199, 0.3)';" onblur="this.style.borderColor='#0284c7';this.style.background='#f8fafc';this.style.boxShadow='none';">
                         <div style="font-size:24px;margin-bottom:6px;">📤</div>
-                        <div style="font-weight:700;font-size:13px;color:#0284c7;">Click hoặc thả ảnh vào đây để tải lên</div>
-                        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Hỗ trợ JPG, PNG, WEBP</div>
+                        <div style="font-weight:700;font-size:13px;color:#0284c7;line-height:1.4;">
+                            Nhấp vào đây rồi nhấn Ctrl+V để dán ảnh nhanh<br>hoặc <span onclick="event.stopPropagation(); document.getElementById('vatModalExportFile').click()" style="text-decoration:underline;color:#0369a1;">click vào đây để chọn file</span>
+                        </div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Hỗ trợ JPG, PNG, WEBP</div>
                         <input type="file" id="vatModalExportFile" style="display:none;" accept="image/*" onchange="_vatOnExportFileSelected(this, ${id})">
                     </div>
                 ` : ''}
@@ -696,29 +698,10 @@ function _vatShowExportModal(id) {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;">Đóng</button>
+        ${editable ? `<button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'export')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#0284c7;border:none;color:#fff;">Xác nhận</button>` : ''}
     `;
 
     openModal(`🧾 Xuất Hóa Đơn VAT: Đơn ${o.order_code}`, bodyHTML, footerHTML);
-}
-
-// When checkbox toggles, save right away to keep UI perfectly synced
-async function _vatOnExportCheckboxToggle(checked) {
-    const modalTitle = document.getElementById('modalTitle');
-    const orderCode = modalTitle ? modalTitle.textContent.split('Đơn ')[1] : '';
-    const o = _vatState.orders.find(item => item.order_code === orderCode);
-    if (!o) return;
-
-    try {
-        await apiCall(`/api/dht/orders/${o.id}/vat-export-toggle`, 'POST', { exported: checked });
-        showToast('Thay đổi trạng thái xuất VAT thành công!');
-        
-        // Refresh modal content
-        await _vatLoadData();
-        _vatShowExportModal(o.id);
-    } catch(e) {
-        alert('Cập nhật thất bại: ' + e.message);
-        document.getElementById('vatModalExportToggle').checked = !checked;
-    }
 }
 
 // File selected for export proof
@@ -747,19 +730,21 @@ function _vatShowContractModal(id) {
             
             ${editable ? `
                 <div class="vat-modal-field" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-                    <input type="checkbox" id="vatModalContractToggle" style="width:20px;height:20px;cursor:pointer;" ${o.vat_contract_received ? 'checked' : ''} onchange="_vatOnContractCheckboxToggle(this.checked)">
+                    <input type="checkbox" id="vatModalContractToggle" style="width:20px;height:20px;cursor:pointer;" ${o.vat_contract_received ? 'checked' : ''}>
                     <label for="vatModalContractToggle" style="margin:0;cursor:pointer;font-weight:800;color:#1e293b;">Đã Thu Nhận Hợp Đồng</label>
                 </div>
             ` : ''}
 
             <!-- Contract proof image area -->
             <div id="vatModalContractUploadWrapper" style="display:${o.vat_contract_received || editable ? 'block' : 'none'};">
-                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Ảnh Scan/Hình Chụp Hợp Đồng</label>
+                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Ảnh Scan/Hình Chụp Hợp Đồng <span style="color:#ef4444;">* (Bắt buộc khi chọn đã nhận)</span></label>
                 ${editable ? `
-                    <div class="vat-upload-area" onclick="document.getElementById('vatModalContractFile').click()">
+                    <div class="vat-upload-area" tabindex="0" onclick="this.focus()" onpaste="_vatOnAreaPaste(event, ${o.id}, 'contract')" style="border:2px dashed #8b5cf6;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;outline:none;transition:all 0.2s;" onfocus="this.style.borderColor='#6d28d9';this.style.background='#faf5ff';this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.3)';" onblur="this.style.borderColor='#8b5cf6';this.style.background='#f8fafc';this.style.boxShadow='none';">
                         <div style="font-size:24px;margin-bottom:6px;">📤</div>
-                        <div style="font-weight:700;font-size:13px;color:#8b5cf6;">Click hoặc thả ảnh vào đây để tải lên</div>
-                        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Hỗ trợ JPG, PNG, WEBP</div>
+                        <div style="font-weight:700;font-size:13px;color:#8b5cf6;line-height:1.4;">
+                            Nhấp vào đây rồi nhấn Ctrl+V để dán ảnh nhanh<br>hoặc <span onclick="event.stopPropagation(); document.getElementById('vatModalContractFile').click()" style="text-decoration:underline;color:#6d28d9;">click vào đây để chọn file</span>
+                        </div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Hỗ trợ JPG, PNG, WEBP</div>
                         <input type="file" id="vatModalContractFile" style="display:none;" accept="image/*" onchange="_vatOnContractFileSelected(this, ${id})">
                     </div>
                 ` : ''}
@@ -774,28 +759,10 @@ function _vatShowContractModal(id) {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;">Đóng</button>
+        ${editable ? `<button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'contract')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#8b5cf6;border:none;color:#fff;">Xác nhận</button>` : ''}
     `;
 
     openModal(`📜 Nhận Hợp Đồng VAT: Đơn ${o.order_code}`, bodyHTML, footerHTML);
-}
-
-// When contract checkbox toggles
-async function _vatOnContractCheckboxToggle(checked) {
-    const modalTitle = document.getElementById('modalTitle');
-    const orderCode = modalTitle ? modalTitle.textContent.split('Đơn ')[1] : '';
-    const o = _vatState.orders.find(item => item.order_code === orderCode);
-    if (!o) return;
-
-    try {
-        await apiCall(`/api/dht/orders/${o.id}/vat-contract`, 'POST', { received: checked });
-        showToast('Thay đổi trạng thái nhận hợp đồng thành công!');
-        
-        await _vatLoadData();
-        _vatShowContractModal(o.id);
-    } catch(e) {
-        alert('Cập nhật thất bại: ' + e.message);
-        document.getElementById('vatModalContractToggle').checked = !checked;
-    }
 }
 
 // Upload contract proof image
@@ -824,19 +791,21 @@ function _vatShowHandoverModal(id) {
             
             ${editable ? `
                 <div class="vat-modal-field" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-                    <input type="checkbox" id="vatModalHandoverToggle" style="width:20px;height:20px;cursor:pointer;" ${o.vat_handover_received ? 'checked' : ''} onchange="_vatOnHandoverCheckboxToggle(this.checked)">
+                    <input type="checkbox" id="vatModalHandoverToggle" style="width:20px;height:20px;cursor:pointer;" ${o.vat_handover_received ? 'checked' : ''}>
                     <label for="vatModalHandoverToggle" style="margin:0;cursor:pointer;font-weight:800;color:#1e293b;">Đã Thu Nhận Biên Bản Bàn Giao</label>
                 </div>
             ` : ''}
 
             <!-- Handover proof image area -->
             <div id="vatModalHandoverUploadWrapper" style="display:${o.vat_handover_received || editable ? 'block' : 'none'};">
-                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Ảnh Scan/Hình Chụp Biên Bản Bàn Giao</label>
+                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Ảnh Scan/Hình Chụp Biên Bản Bàn Giao <span style="color:#ef4444;">* (Bắt buộc khi chọn đã nhận)</span></label>
                 ${editable ? `
-                    <div class="vat-upload-area" onclick="document.getElementById('vatModalHandoverFile').click()">
+                    <div class="vat-upload-area" tabindex="0" onclick="this.focus()" onpaste="_vatOnAreaPaste(event, ${o.id}, 'handover')" style="border:2px dashed #f97316;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;outline:none;transition:all 0.2s;" onfocus="this.style.borderColor='#ea580c';this.style.background='#fff7ed';this.style.boxShadow='0 0 0 3px rgba(249, 115, 22, 0.3)';" onblur="this.style.borderColor='#f97316';this.style.background='#f8fafc';this.style.boxShadow='none';">
                         <div style="font-size:24px;margin-bottom:6px;">📤</div>
-                        <div style="font-weight:700;font-size:13px;color:#f97316;">Click hoặc thả ảnh vào đây để tải lên</div>
-                        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Hỗ trợ JPG, PNG, WEBP</div>
+                        <div style="font-weight:700;font-size:13px;color:#f97316;line-height:1.4;">
+                            Nhấp vào đây rồi nhấn Ctrl+V để dán ảnh nhanh<br>hoặc <span onclick="event.stopPropagation(); document.getElementById('vatModalHandoverFile').click()" style="text-decoration:underline;color:#ea580c;">click vào đây để chọn file</span>
+                        </div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Hỗ trợ JPG, PNG, WEBP</div>
                         <input type="file" id="vatModalHandoverFile" style="display:none;" accept="image/*" onchange="_vatOnHandoverFileSelected(this, ${id})">
                     </div>
                 ` : ''}
@@ -851,28 +820,10 @@ function _vatShowHandoverModal(id) {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;">Đóng</button>
+        ${editable ? `<button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'handover')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#f97316;border:none;color:#fff;">Xác nhận</button>` : ''}
     `;
 
     openModal(`📦 Nhận Biên Bản Bàn Giao: Đơn ${o.order_code}`, bodyHTML, footerHTML);
-}
-
-// When handover checkbox toggles
-async function _vatOnHandoverCheckboxToggle(checked) {
-    const modalTitle = document.getElementById('modalTitle');
-    const orderCode = modalTitle ? modalTitle.textContent.split('Đơn ')[1] : '';
-    const o = _vatState.orders.find(item => item.order_code === orderCode);
-    if (!o) return;
-
-    try {
-        await apiCall(`/api/dht/orders/${o.id}/vat-handover`, 'POST', { received: checked });
-        showToast('Thay đổi trạng thái nhận biên bản bàn giao thành công!');
-        
-        await _vatLoadData();
-        _vatShowHandoverModal(o.id);
-    } catch(e) {
-        alert('Cập nhật thất bại: ' + e.message);
-        document.getElementById('vatModalHandoverToggle').checked = !checked;
-    }
 }
 
 // Upload handover proof image
@@ -880,6 +831,81 @@ async function _vatOnHandoverFileSelected(input, id) {
     const file = input.files[0];
     if (!file) return;
     await _vatUploadProofImage(file, id, 'handover');
+}
+
+// Unified confirm & save function for all three modals with mandatory image validation
+async function _vatConfirmModal(id, type) {
+    const o = _vatState.orders.find(item => item.id === id);
+    if (!o) return;
+
+    if (type === 'export') {
+        const checked = document.getElementById('vatModalExportToggle')?.checked || false;
+        if (checked && !o.vat_proof_image) {
+            showToast('⚠️ Vui lòng tải lên ảnh bằng chứng xuất hóa đơn VAT!', 'error');
+            return;
+        }
+        try {
+            await apiCall(`/api/dht/orders/${id}/vat-export-toggle`, 'POST', { exported: checked });
+            showToast('Lưu trạng thái xuất VAT thành công!');
+            closeModal();
+            await _vatLoadData();
+            _vatRenderTable();
+        } catch(e) {
+            alert('Cập nhật thất bại: ' + e.message);
+        }
+    } else if (type === 'contract') {
+        const checked = document.getElementById('vatModalContractToggle')?.checked || false;
+        if (checked && !o.vat_contract_proof) {
+            showToast('⚠️ Vui lòng tải lên ảnh bằng chứng nhận hợp đồng!', 'error');
+            return;
+        }
+        try {
+            await apiCall(`/api/dht/orders/${id}/vat-contract`, 'POST', { received: checked });
+            showToast('Lưu trạng thái nhận hợp đồng thành công!');
+            closeModal();
+            await _vatLoadData();
+            _vatRenderTable();
+        } catch(e) {
+            alert('Cập nhật thất bại: ' + e.message);
+        }
+    } else if (type === 'handover') {
+        const checked = document.getElementById('vatModalHandoverToggle')?.checked || false;
+        if (checked && !o.vat_handover_proof) {
+            showToast('⚠️ Vui lòng tải lên ảnh bằng chứng biên bản bàn giao!', 'error');
+            return;
+        }
+        try {
+            await apiCall(`/api/dht/orders/${id}/vat-handover`, 'POST', { received: checked });
+            showToast('Lưu trạng thái nhận biên bản bàn giao thành công!');
+            closeModal();
+            await _vatLoadData();
+            _vatRenderTable();
+        } catch(e) {
+            alert('Cập nhật thất bại: ' + e.message);
+        }
+    }
+}
+
+// Paste handler specifically for focusable paste zone
+async function _vatOnAreaPaste(e, orderId, modalType) {
+    console.log('[VAT Paste] Area paste triggered', orderId, modalType);
+    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) {
+        console.log('[VAT Paste] Area paste: no items');
+        return;
+    }
+    for (let i = 0; i < items.length; i++) {
+        console.log(`[VAT Paste] Area paste item ${i} type:`, items[i].type);
+        if (items[i].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            const file = items[i].getAsFile();
+            if (file) {
+                console.log('[VAT Paste] Area paste retrieved file, starting upload...');
+                await _vatUploadProofImage(file, orderId, modalType);
+            }
+            return;
+        }
+    }
 }
 
 // ==================== IMAGE RESIZING, COMPRESSION & PASTE HELPERS ====================
