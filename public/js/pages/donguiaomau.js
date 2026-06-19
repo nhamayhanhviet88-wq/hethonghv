@@ -2073,18 +2073,37 @@ async function _dgamShowActionDetail(id, type) {
             `;
         } else if (type === 'kiem_tra') {
             title = 'Thông Tin Kiểm Tra';
+            const fmt = n => Number(n || 0).toLocaleString('vi-VN');
             const log = logs.find(l => l.action === 'status' && l.summary && l.summary.includes('kiểm tra') && l.summary.includes('Bật'));
-            const performer = log ? log.performer_name : 'Quản lý cấp cao Lê Việt Trinh';
-            const timeStr = log ? new Date(log.created_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '—';
-            
+            const performer = log ? log.performer_name : 'Lê Việt Trinh';
+            const inspector = o.inspect_by_name || performer;
+            const timeInspectStr = o.kiem_tra_at 
+                ? new Date(o.kiem_tra_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(',', '') 
+                : (log ? new Date(log.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(',', '') : '—');
+            const refundStr = o.hoan_tien_amount ? fmt(o.hoan_tien_amount) + 'đ' : '0đ';
+
             body = `
-                <div style="text-align:center;padding:20px 10px;">
-                    <div style="font-size:48px;margin-bottom:15px;">🔍</div>
-                    <h3 style="color:#0f172a;font-size:18px;font-weight:800;margin-bottom:8px;">Đơn hàng đã được kiểm tra</h3>
-                    <p style="color:#64748b;font-size:14px;margin-bottom:20px;">Thông tin chi tiết về việc kiểm tra mẫu áo:</p>
-                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:15px;max-width:400px;margin:0 auto;text-align:left;">
-                        <div style="margin-bottom:8px;font-size:13px;color:#334155;"><span style="font-weight:700;">Người kiểm tra:</span> <span style="color:#7e22ce;font-weight:700;">${performer}</span></div>
-                        <div style="font-size:13px;color:#334155;"><span style="font-weight:700;">Thời gian kiểm tra:</span> <span>${timeStr}</span></div>
+                <div style="padding: 10px 0;">
+                    <div style="background:#f0fdf4; border:1.5px solid #22c55e; border-radius:16px; padding:20px 24px; text-align:left; box-shadow:0 4px 12px rgba(34,197,94,0.05);">
+                        <div style="display:flex; align-items:center; gap:10px; font-size:15px; font-weight:700; color:#15803d; margin-bottom:8px;">
+                            <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background:#cbd5e1; border:1.5px solid #cbd5e1; border-radius:4px; color:#fff; font-size:13px; font-weight:900; flex-shrink:0;">✓</span>
+                            <span>Đã xác nhận mẫu áo đã về công ty để hoàn tiền</span>
+                        </div>
+                        <div style="height:1px; background:#bbf7d0; margin:16px 0;"></div>
+                        <div style="display:flex; flex-direction:column; gap:12px; font-size:14.5px; color:#166534; font-weight:600;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:18px;">💰</span>
+                                <span>Số tiền hoàn: <strong style="font-weight:800; color:#15803d;">${refundStr}</strong></span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:18px;">👤</span>
+                                <span>Người kiểm tra: <strong style="font-weight:800; color:#15803d;">${inspector}</strong></span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:18px;">⏰</span>
+                                <span>Thời gian kiểm tra: <strong style="font-weight:800; color:#15803d;">${timeInspectStr}</strong></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
