@@ -183,9 +183,9 @@ function _dhcttGetOrderCarriers(o) {
             var label = '';
             if (cid > 0) {
                 if (isReconciled) {
-                    label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(Đã thu - Gửi tiếp)</small></span>';
+                    label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(TT 1 Phần - Chưa Thu Đủ)</small></span>';
                 } else {
-                    label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Đang giao)</small></span>';
+                    label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Tiền Chưa Về)</small></span>';
                 }
             } else {
                 label = '<span class="dhctt-carrier-badge pending" title="Chưa gửi hàng lần nào hoặc phần chưa gửi">' + cname + '</span>';
@@ -212,9 +212,9 @@ function _dhcttGetOrderCarriers(o) {
         var label = '';
         if (cid > 0) {
             if (isReconciled) {
-                label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(Đã thu - Gửi tiếp)</small></span>';
+                label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(TT 1 Phần - Chưa Thu Đủ)</small></span>';
             } else {
-                label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Đang giao)</small></span>';
+                label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Tiền Chưa Về)</small></span>';
             }
         } else {
             label = '<span class="dhctt-carrier-badge pending" title="Chưa gửi hàng lần nào hoặc phần chưa gửi">' + cname + '</span>';
