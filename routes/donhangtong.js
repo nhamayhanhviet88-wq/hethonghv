@@ -2839,18 +2839,25 @@ module.exports = async function(fastify) {
         const params = [];
         let idx = 1;
 
-        // ★ ORDER VISIBILITY: Only GĐ, QLCC, and Phòng Kế Toán see all orders. Sales only see their own.
+        // ★ ORDER VISIBILITY: Only GĐ, QLCC, Lê Việt Trinh, and Phòng Kế Toán see all orders. Sales only see their own.
         const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
-        if (!FULL_VIEW_ROLES.includes(request.user.role)) {
+        const isTrinh = request.user.full_name && (request.user.full_name.includes('Lê Việt Trinh') || request.user.full_name.includes('Le Viet Trinh')) || request.user.username === 'leviettrinh';
+        
+        let allowedAll = FULL_VIEW_ROLES.includes(request.user.role) || isTrinh;
+        if (!allowedAll) {
             const userDept = await db.get(
                 'SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
                 [request.user.id]
             );
             const isKeToan = userDept && userDept.name && (userDept.name.toLowerCase().includes('kế toán') || userDept.name.toLowerCase().includes('ke toan'));
-            if (!isKeToan) {
-                where += ` AND o.created_by = $${idx++}`;
-                params.push(request.user.id);
+            if (isKeToan) {
+                allowedAll = true;
             }
+        }
+
+        if (!allowedAll) {
+            where += ` AND o.created_by = $${idx++}`;
+            params.push(request.user.id);
         }
 
         const queryStr = `
