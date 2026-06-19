@@ -448,7 +448,7 @@ function _vatRenderTable() {
                 </td>
                 <!-- Icon 2: Export Invoice -->
                 <td style="padding:10px 8px;text-align:center;">
-                    ${hasInvInfo ? `
+                    ${(hasInvInfo || o.vat_exported) ? `
                         <button class="vat-action-btn vat-tooltip vat-btn-export ${o.vat_exported ? 'done' : 'pending'}" data-tooltip="${expTooltip}" onclick="_vatShowExportModal(${o.id})">
                             🧾
                         </button>
