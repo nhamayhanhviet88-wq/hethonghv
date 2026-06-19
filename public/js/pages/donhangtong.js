@@ -1177,6 +1177,7 @@ async function _dhtShowDetail(id) {
             }
         }
         if (calcVat < 0) calcVat = 0;
+        calcVat += Number(o.additional_vat_amount || 0);
         const deposit = Number(o.deposit_amount) || 0;
         const vat = calcVat;
         const discount = Number(o.discount_amount) || 0;
@@ -1396,7 +1397,7 @@ async function _dhtShowDetail(id) {
             finRows = [
                 ['Tổng tiền hàng (trước VAT)', fmt(calcBase) + 'đ', '#1e293b', false],
                 ['Phụ phí', fmt(surchargeTotal) + 'đ', '#f59e0b', false],
-                ['VAT', fmt(vat) + 'đ', '#6366f1', false],
+                [Number(o.additional_vat_amount || 0) > 0 ? `VAT (gồm thêm ${fmt(o.additional_vat_amount)}đ)` : 'VAT', fmt(vat) + 'đ', '#6366f1', false],
                 ['Ưu đãi / Giảm giá', '-' + fmt(discount) + 'đ', '#059669', false],
             ];
             if (o.discount_reason) {

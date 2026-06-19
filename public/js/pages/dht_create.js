@@ -134,12 +134,16 @@ async function _dhtShowCreateFree() {
         +'<div class="form-group"><label>Tổng Tiền Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
         +'<div class="form-group"><label>Tiền Phụ Phí Thêm</label><input id="_co_surTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#d97706"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
         +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
-        +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div></div>'
-        +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div></div>'
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
+        +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div>'
+        +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr;gap:10px">'
-        +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div></div></div>'
+        +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div>'
+        +'</div></div>'
         // Vận chuyển
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">'
         +'<div class="form-group"><label>Ngày Gửi Hàng <span style="color:red">*</span></label><input type="date" id="_co_shipDate" class="form-control" min="'+vnDateStr()+'" onchange="_dhtValidateShipDate()"></div>'
@@ -599,10 +603,11 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Tiền Phụ Phí Thêm</label><input id="_co_surTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#d97706"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
         +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
-        +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
         +'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:8px">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
         +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr;gap:10px">'
@@ -732,6 +737,9 @@ async function _dhtGoStep2() {
         // Render existing phieus and surcharges
         _dhtRenderPhieuRows();
         _dhtRenderSurcharges();
+        if (document.getElementById('_co_additionalVat')) {
+            document.getElementById('_co_additionalVat').value = Number(o.additional_vat_amount) || 0;
+        }
         _dhtCalcTotal();
 
         // ★ EDIT RESTRICTIONS: Non-GĐ users cannot modify critical fields
@@ -1654,14 +1662,16 @@ function _dhtCalcTotal() {
     var surTotal=0;
     (_dhtCreate.surcharges||[]).forEach(function(s){surTotal+=Number(s.amount)||0;});
     gRaw+=surTotal;
+    var addVat = Number(document.getElementById('_co_additionalVat')?.value) || 0;
+    var finalVat = gVat + addVat;
     var depAmt = _dhtCreate.depositAmount || 0;
-    var gTotal=gRaw+gVat, remain=gTotal-depAmt;
+    var gTotal=gRaw+finalVat, remain=gTotal-depAmt;
     var depEl = document.getElementById('_co_deposit');
     if (depEl) depEl.value = depAmt.toLocaleString('vi-VN') + 'đ';
     document.getElementById('_co_total').value=(gRaw-surTotal).toLocaleString('vi-VN')+'đ';
     var surEl=document.getElementById('_co_surTotal');
     if(surEl) surEl.value=surTotal.toLocaleString('vi-VN')+'đ';
-    document.getElementById('_co_totalVatAmt').value=gVat.toLocaleString('vi-VN')+'đ';
+    document.getElementById('_co_totalVatAmt').value=finalVat.toLocaleString('vi-VN')+'đ';
     document.getElementById('_co_totalVat').value=gTotal.toLocaleString('vi-VN')+'đ';
     var remainEl = document.getElementById('_co_remain');
     if (remainEl) {
@@ -1802,16 +1812,17 @@ async function _dhtSubmitCreateV2() {
         }
     }
 
+    var additionalVat = Number(document.getElementById('_co_additionalVat')?.value) || 0;
     var _totalAmt = 0, _totalVat = 0;
     items.forEach(function(p) { _totalAmt += p.raw_total || 0; _totalVat += p.vat_amount || 0; });
     (_dhtCreate.surcharges||[]).forEach(function(s) { _totalAmt += Number(s.amount) || 0; });
     var _depAmt = _dhtCreate.depositAmount || 0;
-    var _remain = (_totalAmt + _totalVat) - _depAmt;
-    if (_remain < 0) { showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn (' + (_totalAmt + _totalVat).toLocaleString('vi-VN') + 'đ) nhỏ hơn tiền cọc (' + _depAmt.toLocaleString('vi-VN') + 'đ)', 'error'); return; }
+    var _remain = (_totalAmt + _totalVat + additionalVat) - _depAmt;
+    if (_remain < 0) { showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn (' + (_totalAmt + _totalVat + additionalVat).toLocaleString('vi-VN') + 'đ) nhỏ hơn tiền cọc (' + _depAmt.toLocaleString('vi-VN') + 'đ)', 'error'); return; }
     var totalAmt = 0, totalVatAmt = 0;
     items.forEach(function(p) { totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
-    var hasVat = totalVatAmt > 0;
-    var vatAmt = totalVatAmt;
+    var hasVat = (totalVatAmt > 0 || additionalVat > 0);
+    var vatAmt = totalVatAmt + additionalVat;
     var desVal2 = _dhtRepairData ? 'old_design' : (document.getElementById('_co_designer')?.value);
     var desType = desVal2 === 'old_design' ? 'old_design' : 'staff';
     var desId = desVal2 === 'old_design' ? null : (desVal2 || null);
@@ -1838,6 +1849,7 @@ async function _dhtSubmitCreateV2() {
         surcharges: _dhtCreate.surcharges || [],
         has_vat: hasVat,
         vat_amount: vatAmt,
+        additional_vat_amount: additionalVat,
         deposit_payment_id: _dhtCreate.depositId,
         deposit_amount: _dhtCreate.depositAmount || 0,
         designer_user_id: desId,
@@ -2335,12 +2347,16 @@ async function _dhtEditOrderFree(o) {
         +'<div class="form-group"><label>Tổng Tiền Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
         +'<div class="form-group"><label>Tiền Phụ Phí Thêm</label><input id="_co_surTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#d97706"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
         +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
-        +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div></div>'
-        +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div></div>'
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
+        +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div>'
+        +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr;gap:10px">'
-        +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div></div></div>'
+        +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div>'
+        +'</div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">'
         +'<div class="form-group"><label>Ngày Gửi Hàng <span style="color:red">*</span></label><input type="date" id="_co_shipDate" class="form-control" min="'+vnDateStr()+'" onchange="_dhtValidateShipDate()"></div>'
         +'<div class="form-group"><label>Tiêu Chuẩn Gửi</label><select id="_co_pri" class="form-control"><option selected>GẤP</option><option>GỬI</option></select></div></div>'
@@ -2474,6 +2490,9 @@ async function _dhtEditOrderFree(o) {
     // Render existing phieus and surcharges
     _dhtRenderPhieuRows();
     _dhtRenderSurcharges();
+    if (document.getElementById('_co_additionalVat')) {
+        document.getElementById('_co_additionalVat').value = Number(o.additional_vat_amount) || 0;
+    }
     _dhtCalcTotal();
 
     // ★ EDIT RESTRICTIONS for non-GĐ users
@@ -2527,6 +2546,7 @@ async function _dhtSubmitEditV2() {
     items.forEach(function(p) { if(!p)return; totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
     var surTotal = 0;
     (_dhtCreate.surcharges||[]).forEach(function(s) { surTotal += Number(s.amount) || 0; });
+    var additionalVat = Number(document.getElementById('_co_additionalVat')?.value) || 0;
 
     // Validate that remaining amount is not negative
     var discountAmt = Number(_dhtCreate.editData?.order?.discount_amount) || 0;
@@ -2535,13 +2555,14 @@ async function _dhtSubmitEditV2() {
     var shipPayer = _dhtCreate.editData?.order?.shipping_fee_payer || '';
     var shipMethod = _dhtCreate.editData?.order?.shipping_fee_method || '';
     var shipCK = 0;
-    var remain = (totalAmt + totalVatAmt + surTotal) - discountAmt - depAmt;
+    var remain = (totalAmt + totalVatAmt + additionalVat + surTotal) - discountAmt - depAmt;
     if (remain < 0) {
-        showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn mới (' + (totalAmt + totalVatAmt + surTotal).toLocaleString('vi-VN') + 'đ) nhỏ hơn cọc (' + depAmt.toLocaleString('vi-VN') + 'đ) và chiết khấu (' + discountAmt.toLocaleString('vi-VN') + 'đ)', 'error');
+        showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn mới (' + (totalAmt + totalVatAmt + additionalVat + surTotal).toLocaleString('vi-VN') + 'đ) nhỏ hơn cọc (' + depAmt.toLocaleString('vi-VN') + 'đ) và chiết khấu (' + discountAmt.toLocaleString('vi-VN') + 'đ)', 'error');
         return;
     }
 
-    var hasVat = totalVatAmt > 0;
+    var hasVat = (totalVatAmt > 0 || additionalVat > 0);
+    var vatAmt = totalVatAmt + additionalVat;
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
     // Handle proof image for CHUẨN and validate time + image
     var proofImg = undefined;
@@ -2566,10 +2587,11 @@ async function _dhtSubmitEditV2() {
         address: addr,
         province: prov || null,
         total_quantity: items.reduce(function(s, x) { return s + (x ? x.quantity : 0); }, 0),
-        total_amount: totalAmt + totalVatAmt + surTotal,
+        total_amount: totalAmt + vatAmt + surTotal,
         surcharges: (_dhtCreate.surcharges || []).map(function(s) { return { name: s.description, amount: Number(s.amount) || 0 }; }),
         has_vat: hasVat,
-        vat_amount: totalVatAmt,
+        vat_amount: vatAmt,
+        additional_vat_amount: additionalVat,
         deposit_amount_cache: _dhtCreate.depositAmount || 0,
         designer_user_id: desId,
         designer_type: desType,

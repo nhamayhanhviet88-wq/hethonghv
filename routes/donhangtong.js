@@ -1615,13 +1615,13 @@ module.exports = async function(fastify) {
                 order_code, order_date, category_id,
                 customer_name, customer_phone, source, province, address,
                 cskh_user_id, total_quantity, total_amount, discount_amount,
-                has_vat, vat_amount, deposit_payment_id, deposit_amount_cache,
+                has_vat, vat_amount, additional_vat_amount, deposit_payment_id, deposit_amount_cache,
                 designer_user_id, designer_type, carrier_id, carrier_extra,
                 expected_ship_date, shipping_priority, standard_proof_image, standard_delivery_time, zalo_oa_sent,
                 sale_note_for_accountant, department_id, notes, surcharges, free_customer_id,
                 parent_order_id, repair_source_code,
                 created_by, last_updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$33)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34)
             RETURNING *
         `, [
             orderCode,
@@ -1638,6 +1638,7 @@ module.exports = async function(fastify) {
             Number(b.discount_amount) || 0,
             b.has_vat === true || b.has_vat === 'true',
             Number(b.vat_amount) || 0,
+            Number(b.additional_vat_amount) || 0,
             b.deposit_payment_id ? Number(b.deposit_payment_id) : null,
             Number(b.deposit_amount) || 0,
             b.designer_user_id ? Number(b.designer_user_id) : null,
@@ -3401,7 +3402,7 @@ module.exports = async function(fastify) {
             'customer_name', 'customer_phone', 'source', 'province', 'address',
             'cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount',
             'shipping_status', 'shipping_priority', 'shipping_date', 'notes', 'category_id', 'order_date',
-            'has_vat', 'vat_amount', 'designer_user_id', 'designer_type', 'carrier_id',
+            'has_vat', 'vat_amount', 'additional_vat_amount', 'designer_user_id', 'designer_type', 'carrier_id',
             'expected_ship_date', 'zalo_oa_sent',
             'tracking_code', 'actual_carrier_id', 'actual_ship_datetime', 'delivery_progress',
             'deposit_amount_cache', 'standard_delivery_time', 'sale_note_for_accountant',
@@ -3415,7 +3416,11 @@ module.exports = async function(fastify) {
 
         for (const key of allowed) {
             if (b[key] !== undefined) {
-                const numericFields = ['cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 'category_id', 'vat_amount', 'designer_user_id', 'carrier_id', 'actual_carrier_id', 'deposit_amount_cache'];
+                const numericFields = [
+                    'cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 
+                    'category_id', 'vat_amount', 'additional_vat_amount', 'designer_user_id', 
+                    'carrier_id', 'actual_carrier_id', 'deposit_amount_cache'
+                ];
                 const boolFields = ['has_vat', 'zalo_oa_sent', 'sx_print_confirmed'];
                 if (numericFields.includes(key)) {
                     sets.push(`${key} = $${idx++}`);

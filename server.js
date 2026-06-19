@@ -341,6 +341,7 @@ async function start() {
             shipping_priority TEXT DEFAULT 'CHUẨN' CHECK (shipping_priority IN ('GỬI','GẤP','CHUẨN')),
             shipping_date   DATE,
             customer_id     INTEGER,
+            additional_vat_amount NUMERIC DEFAULT 0,
             notes           TEXT,
             created_by      INTEGER REFERENCES users(id),
             last_updated_at TIMESTAMP DEFAULT NOW(),
@@ -657,6 +658,7 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_rescheduled_reason TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_updated_by INTEGER REFERENCES users(id)`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS qlx_updated_at TIMESTAMPTZ`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS additional_vat_amount NUMERIC DEFAULT 0`); } catch(e) {}
     try {
         await db.run(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('phat_qlx_tre_don_hom_nay', 'Quản Lý Xưởng Xử Lý Đơn Hàng Hôm Nay', 100000) ON CONFLICT (key) DO NOTHING`);
         await db.run(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('qlx_cutoff_time', 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng', 1080) ON CONFLICT (key) DO NOTHING`);
