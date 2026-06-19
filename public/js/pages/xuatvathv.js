@@ -197,6 +197,7 @@ async function renderXuatvathvPage(content) {
 
     // 4. Load order data from backend API
     await _vatLoadData();
+    _vatSetupGlobalPasteListener();
 }
 
 // Load data & rebuild everything
@@ -724,34 +725,7 @@ async function _vatOnExportCheckboxToggle(checked) {
 async function _vatOnExportFileSelected(input, id) {
     const file = input.files[0];
     if (!file) return;
-
-    const fd = new FormData();
-    fd.append('file', file);
-
-    const uploadArea = document.querySelector('.vat-upload-area');
-    const oldHtml = uploadArea ? uploadArea.innerHTML : '';
-    if (uploadArea) uploadArea.innerHTML = '<div style="font-weight:700;color:#0284c7;padding:10px;">⏳ Đang nén và tải lên ảnh...</div>';
-
-    try {
-        const res = await fetch(`/api/dht/orders/${id}/export-vat`, {
-            method: 'POST',
-            body: fd,
-            headers: {
-                // Must not set content-type for FormData, fetch does it automatically with boundary
-            }
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Lỗi upload ảnh');
-
-        showToast('Đã tải ảnh hóa đơn VAT lên thành công!');
-        
-        // Refresh & redraw
-        await _vatLoadData();
-        _vatShowExportModal(id);
-    } catch(e) {
-        alert('Tải ảnh thất bại: ' + e.message);
-        if (uploadArea) uploadArea.innerHTML = oldHtml;
-    }
+    await _vatUploadProofImage(file, id, 'export');
 }
 
 
@@ -828,29 +802,7 @@ async function _vatOnContractCheckboxToggle(checked) {
 async function _vatOnContractFileSelected(input, id) {
     const file = input.files[0];
     if (!file) return;
-
-    const fd = new FormData();
-    fd.append('file', file);
-
-    const uploadArea = document.querySelector('.vat-upload-area');
-    const oldHtml = uploadArea ? uploadArea.innerHTML : '';
-    if (uploadArea) uploadArea.innerHTML = '<div style="font-weight:700;color:#8b5cf6;padding:10px;">⏳ Đang tải lên ảnh hợp đồng...</div>';
-
-    try {
-        const res = await fetch(`/api/dht/orders/${id}/vat-contract`, {
-            method: 'POST',
-            body: fd
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Lỗi upload hợp đồng');
-
-        showToast('Đã tải ảnh hợp đồng thành công!');
-        await _vatLoadData();
-        _vatShowContractModal(id);
-    } catch(e) {
-        alert('Tải ảnh thất bại: ' + e.message);
-        if (uploadArea) uploadArea.innerHTML = oldHtml;
-    }
+    await _vatUploadProofImage(file, id, 'contract');
 }
 
 
@@ -927,27 +879,157 @@ async function _vatOnHandoverCheckboxToggle(checked) {
 async function _vatOnHandoverFileSelected(input, id) {
     const file = input.files[0];
     if (!file) return;
+    await _vatUploadProofImage(file, id, 'handover');
+}
 
-    const fd = new FormData();
-    fd.append('file', file);
+// ==================== IMAGE RESIZING, COMPRESSION & PASTE HELPERS ====================
 
+// Helper to resize/compress images
+function _vatResizeImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 800;
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(compressedBase64);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Convert base64 to Blob
+function _vatBase64ToBlob(base64, mimeType) {
+    const byteString = atob(base64.split(',')[1]);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeType });
+}
+
+// Shared image uploader function with auto compression
+async function _vatUploadProofImage(file, orderId, modalType) {
+    let uploadUrl = '';
+    let successMessage = '';
+    let callback = null;
+    let loadingColor = '#0284c7';
+    
+    if (modalType === 'export') {
+        uploadUrl = `/api/dht/orders/${orderId}/export-vat`;
+        successMessage = 'Đã tải ảnh hóa đơn VAT lên thành công!';
+        callback = _vatShowExportModal;
+        loadingColor = '#0284c7';
+    } else if (modalType === 'contract') {
+        uploadUrl = `/api/dht/orders/${orderId}/vat-contract`;
+        successMessage = 'Đã tải ảnh hợp đồng thành công!';
+        callback = _vatShowContractModal;
+        loadingColor = '#8b5cf6';
+    } else if (modalType === 'handover') {
+        uploadUrl = `/api/dht/orders/${orderId}/vat-handover`;
+        successMessage = 'Đã tải ảnh biên bản bàn giao thành công!';
+        callback = _vatShowHandoverModal;
+        loadingColor = '#f97316';
+    }
+    
     const uploadArea = document.querySelector('.vat-upload-area');
     const oldHtml = uploadArea ? uploadArea.innerHTML : '';
-    if (uploadArea) uploadArea.innerHTML = '<div style="font-weight:700;color:#f97316;padding:10px;">⏳ Đang tải lên ảnh BB bàn giao...</div>';
-
+    if (uploadArea) {
+        uploadArea.innerHTML = `<div style="font-weight:700;color:${loadingColor};padding:10px;">⏳ Đang nén ảnh & tải lên...</div>`;
+    }
+    
     try {
-        const res = await fetch(`/api/dht/orders/${id}/vat-handover`, {
+        const compressedBase64 = await _vatResizeImage(file);
+        const blob = _vatBase64ToBlob(compressedBase64, 'image/jpeg');
+        const fd = new FormData();
+        fd.append('file', blob, 'proof_image.jpg');
+        
+        const res = await fetch(uploadUrl, {
             method: 'POST',
             body: fd
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Lỗi upload biên bản bàn giao');
-
-        showToast('Đã tải ảnh biên bản bàn giao thành công!');
+        if (!res.ok) throw new Error(data.error || 'Lỗi upload ảnh');
+        
+        showToast(successMessage);
         await _vatLoadData();
-        _vatShowHandoverModal(id);
-    } catch(e) {
-        alert('Tải ảnh thất bại: ' + e.message);
+        if (callback) callback(orderId);
+    } catch (err) {
+        alert('Tải ảnh thất bại: ' + err.message);
         if (uploadArea) uploadArea.innerHTML = oldHtml;
     }
+}
+
+// Global paste handler to support Ctrl+V for proof images in active modal
+function _vatSetupGlobalPasteListener() {
+    if (window._vatGlobalPasteHandler) {
+        document.removeEventListener('paste', window._vatGlobalPasteHandler);
+    }
+    
+    window._vatGlobalPasteHandler = async function(e) {
+        const modalTitleEl = document.querySelector('.modal-title');
+        if (!modalTitleEl) return;
+        
+        const titleText = modalTitleEl.textContent || '';
+        let modalType = '';
+        let orderCode = '';
+        
+        if (titleText.includes('Xuất Hóa Đơn VAT: Đơn')) {
+            modalType = 'export';
+            orderCode = titleText.split('Đơn ')[1]?.trim();
+        } else if (titleText.includes('Nhận Hợp Đồng VAT: Đơn')) {
+            modalType = 'contract';
+            orderCode = titleText.split('Đơn ')[1]?.trim();
+        } else if (titleText.includes('Nhận Biên Bản Bàn Giao: Đơn')) {
+            modalType = 'handover';
+            orderCode = titleText.split('Đơn ')[1]?.trim();
+        }
+        
+        if (!modalType || !orderCode) return;
+        
+        // Verify user permission
+        if (!_vatCanEdit()) {
+            showToast('Bạn không có quyền thực hiện thao tác này!', 'error');
+            return;
+        }
+        
+        const o = _vatState.orders.find(item => item.order_code === orderCode);
+        if (!o) return;
+        
+        const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+        if (!items) return;
+        
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault();
+                const file = items[i].getAsFile();
+                if (file) {
+                    await _vatUploadProofImage(file, o.id, modalType);
+                }
+                return;
+            }
+        }
+    };
+    
+    document.addEventListener('paste', window._vatGlobalPasteHandler);
 }
