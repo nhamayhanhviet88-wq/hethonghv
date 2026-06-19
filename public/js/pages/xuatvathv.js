@@ -713,17 +713,164 @@ function _vatShowExportModal(id, forceEditMode = false) {
 }
 
 
+// Helper function to build HTML for Order Items (ảnh 1) and Payment Records (ảnh 2) inside modals
+function _vatGetOrderDetailsHTML(o, items, payments) {
+    const fmt = n => Number(n || 0).toLocaleString('vi-VN');
+    const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; };
+
+    let itemsHTML = '';
+    if (items.length > 0) {
+        if (String(o.id).startsWith('sample_')) {
+            itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px;margin-bottom:16px;overflow:hidden">`;
+            itemsHTML += `<div style="font-weight:800;font-size:14px;color:#059669;margin-bottom:12px">👕 Chi Tiết Sản Phẩm Gửi</div>`;
+            itemsHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">`;
+            itemsHTML += `<thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:6px;text-align:left;font-size:10px">PHÂN LOẠI</th><th style="padding:6px;text-align:left;font-size:10px">LĨNH VỰC</th><th style="padding:6px;text-align:left;font-size:10px">SẢN PHẨM / NỘI DUNG</th><th style="padding:6px;text-align:center;font-size:10px">SL</th><th style="padding:6px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:6px;text-align:right;font-size:10px;white-space:nowrap">TỔNG TIẾN</th></tr></thead><tbody>`;
+            for (let idx = 0; idx < items.length; idx++) {
+                const it = items[idx];
+                const typeText = it.category || 'Gửi mẫu áo';
+                const lvText = it.linh_vuc || '—';
+                const lvBadge = lvText !== '—' ? `<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">${lvText}</span>` : '—';
+                
+                itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;">`;
+                itemsHTML += `<td style="padding:8px 6px;font-weight:700;color:#1e293b">${typeText}</td>`;
+                itemsHTML += `<td style="padding:8px 6px">${lvBadge}</td>`;
+                itemsHTML += `<td style="padding:8px 6px;font-weight:700;color:#1e3a8a">${it.product_name || '—'}</td>`;
+                itemsHTML += `<td style="padding:8px 6px;text-align:center;font-weight:700">${it.quantity || 0}</td>`;
+                itemsHTML += `<td style="padding:8px 6px;text-align:right;white-space:nowrap">${fmt(it.price_per_item || 0)}đ</td>`;
+                itemsHTML += `<td style="padding:8px 6px;text-align:right;font-weight:800;color:#059669;white-space:nowrap">${fmt(it.total_amount || 0)}đ</td>`;
+                itemsHTML += `</tr>`;
+            }
+            itemsHTML += `</tbody></table></div></div>`;
+        } else {
+            itemsHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:8px;margin-bottom:16px;overflow:hidden">`;
+            itemsHTML += `<div style="font-weight:800;font-size:14px;color:#1e3a8a;margin-bottom:12px">📦 Chi tiết đơn hàng <span style="background:#d97706;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${items.length}</span></div>`;
+            itemsHTML += `<div><table style="width:100%;border-collapse:collapse;font-size:11px">`;
+            itemsHTML += `<thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:6px;text-align:left;font-size:10px">PHỐI</th><th style="padding:6px;text-align:left;font-size:10px">SẢN PHẨM</th><th style="padding:6px;text-align:left;font-size:10px">CHẤT LIỆU</th><th style="padding:6px;text-align:left;font-size:10px">MÀU</th><th style="padding:6px;text-align:center;font-size:10px">SL</th><th style="padding:6px;text-align:right;font-size:10px">ĐƠN GIÁ</th><th style="padding:6px;text-align:center;font-size:10px">VAT</th><th style="padding:6px;text-align:right;font-size:10px;white-space:nowrap">THÀNH TIỀN</th></tr></thead><tbody>`;
+            const _phoiColors = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626'];
+            const _phoiBgs = ['#f5f3ff','#eff6ff','#ecfdf5','#fffbeb','#fef2f2'];
+            for (let idx = 0; idx < items.length; idx++) {
+                const it = items[idx];
+                const saleText = (it.sale_type || '').toLowerCase();
+                const isBan = saleText === 'bán' || saleText === 'ban';
+                const saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
+                let itVat = 0;
+                try { const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]); const base = qs.reduce((s,x)=>s+(Number(x.qty)||0)*(Number(x.price)||0),0); if(base>0 && Number(it.item_total)>base) itVat=Math.round((Number(it.item_total)-base)/base*100); } catch(e){}
+                let matPairs = [];
+                try { matPairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e){}
+                if (matPairs.length === 0) {
+                    matPairs = [{ material_name: it.material_name || '—', color_name: it.color_name || '—' }];
+                }
+                const totalQty = it.quantity || 0;
+                for (let pi = 0; pi < matPairs.length; pi++) {
+                    const mp = matPairs[pi];
+                    const isFirst = pi === 0;
+                    const pColor = _phoiColors[idx % _phoiColors.length];
+                    const pBg = _phoiBgs[idx % _phoiBgs.length];
+                    const pLabel = matPairs.length > 1 ? `PHỐI ${pi+1}` : '';
+                    const phieuLabel = `Phiếu ${idx+1}`;
+                    const labelText = pLabel ? `${pLabel} — ${phieuLabel}` : phieuLabel;
+                    itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;border-left:4px solid ${pColor};background:${isFirst ? '' : pBg}">`;
+                    itemsHTML += `<td style="padding:6px"><div style="font-size:10px;font-weight:800;color:${pColor}">${labelText}</div>${isFirst ? '<div style="margin-top:3px">'+saleBadge+'</div>' : ''}</td>`;
+                    itemsHTML += `<td style="padding:6px;font-weight:700;color:#1e3a8a">${isFirst ? (it.product_name || it.description || '—') : '<span style="color:#94a3b8;font-size:11px">↳ '+( it.product_name || '')+'</span>'}</td>`;
+                    itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.material_name || '—'}</td>`;
+                    itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.color_name || '—'}</td>`;
+                    if (isFirst) {
+                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700">${totalQty}</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:right;white-space:nowrap">${fmt(it.unit_price)}đ</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700;color:#6366f1">${itVat > 0 ? itVat+'%' : '0%'}</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:right;font-weight:800;color:#dc2626;white-space:nowrap">${fmt(it.item_total || it.total)}đ</td>`;
+                    } else {
+                        itemsHTML += `<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">${totalQty}</td>`;
+                        itemsHTML += `<td colspan="3" style="padding:6px;text-align:center;color:#94a3b8;font-size:10px;font-style:italic">Cùng giá với Phối 1</td>`;
+                    }
+                    itemsHTML += `</tr>`;
+                }
+            }
+            itemsHTML += `</tbody></table></div></div>`;
+        }
+    }
+
+    const deposit = Number(o.deposit_amount) || 0;
+    var displayPayments = payments.slice();
+    if (displayPayments.length === 0 && deposit > 0) {
+        displayPayments.push({
+            payment_code: '—',
+            total_order_codes: o.order_code,
+            amount: deposit,
+            payment_date: o.order_date || o.created_at,
+            payment_type: 'dat_coc',
+            payment_method: null,
+            transfer_note: 'Đặt cọc khi tạo đơn',
+            _synthetic: true
+        });
+    }
+    const typeLabels = { thanh_toan: 'Thanh Toán', dat_coc: 'Cọc', tt_sll: 'TT SLL', pending: '⏳ Chờ', tra_lai_coc: 'Trả Lại Cọc' };
+
+    var payHTML = `<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px">`;
+    payHTML += `<div style="font-weight:800;font-size:14px;color:#1e3a8a;margin-bottom:12px">💳 Chi tiết cọc / thanh toán <span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">${displayPayments.length}</span></div>`;
+    if (displayPayments.length > 0) {
+        payHTML += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
+        payHTML += `<thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">MÃ THANH TOÁN</th><th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700">SỐ TIỀN</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">NGÀY TT</th><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700">LOẠI</th><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700">NỘI DUNG</th></tr></thead><tbody>`;
+        for (const p of displayPayments) {
+            payHTML += `<tr style="border-bottom:1px solid #f1f5f9${p._synthetic ? ';background:#fffbeb' : ''}">`;
+            payHTML += `<td style="padding:8px 10px;font-weight:700;color:#1e40af">${p.payment_code || '—'}</td>`;
+            payHTML += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(p.amount)}đ</td>`;
+            payHTML += `<td style="padding:8px 10px;text-align:center">${fmtD(p.payment_date)}</td>`;
+            
+            let badgeStyle = 'background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+            let typeText = typeLabels[p.payment_type] || p.payment_type || '—';
+            
+            if (p.money_source === 'nha_van_chuyen') {
+                badgeStyle = 'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                typeText = 'NVC';
+            } else if (p.money_source === 'khach_hang_sll' || p.payment_type === 'tt_sll' || p.payment_type === 'child_sll') {
+                badgeStyle = 'background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;';
+                typeText = 'KH SLL';
+            } else if (p.payment_type === 'dat_coc') {
+                badgeStyle = 'background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;text-shadow:0 1px 2px rgba(0,0,0,.15);';
+                typeText = 'Đặt Cọc';
+            } else if (p.payment_type === 'thanh_toan') {
+                badgeStyle = 'background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block;';
+                typeText = 'Thanh Toán';
+            }
+            payHTML += `<td style="padding:8px 10px;text-align:center"><span style="${badgeStyle}">${typeText}</span></td>`;
+            payHTML += `<td style="padding:8px 10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.transfer_note||'').replace(/"/g,'&quot;')}">${p.transfer_note || '—'}</td>`;
+            payHTML += `</tr>`;
+        }
+        payHTML += `</tbody></table></div>`;
+    } else {
+        payHTML += `<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px">Chưa có thanh toán / cọc nào được ghi nhận</div>`;
+    }
+    payHTML += `</div>`;
+
+    return itemsHTML + payHTML;
+}
+
 // 3. MODAL: Nhận Hợp Đồng
-function _vatShowContractModal(id, forceEditMode = false) {
+async function _vatShowContractModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
+
+    // Fetch details
+    let items = [];
+    let payments = [];
+    try {
+        const data = await apiCall(`/api/dht/orders/${id}/detail`);
+        items = data.items || [];
+        payments = data.payments || [];
+    } catch (err) {
+        console.error('Error fetching order details:', err);
+    }
 
     const editable = _vatCanEdit();
     const isConfirmed = !!o.vat_contract_received;
     const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
 
     const bodyHTML = `
-        <div class="vat-modal-content" style="padding:4px;">
+        <div class="vat-modal-content" style="padding:4px; max-height: 70vh; overflow-y: auto;">
+            <!-- Order Details (ảnh 1 và ảnh 2) -->
+            ${_vatGetOrderDetailsHTML(o, items, payments)}
+
             <div style="margin-bottom:16px;padding:12px;background:#f3e8ff;border-radius:8px;border:1px solid #d8b4fe;">
                 <span style="font-weight:800;color:#6b21a8;">Hợp Đồng:</span> 
                 ${o.vat_contract_received 
@@ -754,6 +901,18 @@ function _vatShowContractModal(id, forceEditMode = false) {
                         : '<div style="font-style:italic;color:#94a3b8;font-size:12px;margin:10px 0;">Chưa tải lên ảnh bằng chứng</div>'}
                 </div>
             </div>
+
+            <!-- Storage Location Input -->
+            <div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:16px;">
+                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">
+                    Lưu trữ Giấy Tờ Hợp Đồng ở đâu ? <span style="color:#ef4444;">*</span>
+                </label>
+                ${isEditMode 
+                    ? `<input type="text" id="vatModalContractStorage" class="form-control" style="width:100%;border-radius:8px;padding:8px 12px;border:1px solid #cbd5e1;" value="${o.vat_contract_storage || ''}" placeholder="Ví dụ: Tủ A1, Kệ 2...">` 
+                    : `<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #cbd5e1;font-weight:600;color:#1e293b;">${o.vat_contract_storage || '<span style="color:#ef4444;font-style:italic;">Chưa khai báo vị trí lưu trữ</span>'}</div>`
+                }
+            </div>
+
             ${isEditMode ? '<input type="hidden" id="vatModalContractFile">' : ''}
         </div>
     `;
@@ -776,16 +935,30 @@ function _vatShowContractModal(id, forceEditMode = false) {
 
 
 // 4. MODAL: Biên Bản Bàn Giao
-function _vatShowHandoverModal(id, forceEditMode = false) {
+async function _vatShowHandoverModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
+
+    // Fetch details
+    let items = [];
+    let payments = [];
+    try {
+        const data = await apiCall(`/api/dht/orders/${id}/detail`);
+        items = data.items || [];
+        payments = data.payments || [];
+    } catch (err) {
+        console.error('Error fetching order details:', err);
+    }
 
     const editable = _vatCanEdit();
     const isConfirmed = !!o.vat_handover_received;
     const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
 
     const bodyHTML = `
-        <div class="vat-modal-content" style="padding:4px;">
+        <div class="vat-modal-content" style="padding:4px; max-height: 70vh; overflow-y: auto;">
+            <!-- Order Details (ảnh 1 và ảnh 2) -->
+            ${_vatGetOrderDetailsHTML(o, items, payments)}
+
             <div style="margin-bottom:16px;padding:12px;background:#fff7ed;border-radius:8px;border:1px solid #fed7aa;">
                 <span style="font-weight:800;color:#c2410c;">Biên Bản Bàn Giao:</span> 
                 ${o.vat_handover_received 
@@ -816,6 +989,18 @@ function _vatShowHandoverModal(id, forceEditMode = false) {
                         : '<div style="font-style:italic;color:#94a3b8;font-size:12px;margin:10px 0;">Chưa tải lên ảnh bằng chứng</div>'}
                 </div>
             </div>
+
+            <!-- Storage Location Input -->
+            <div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:16px;">
+                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">
+                    Lưu trữ Biên Bản Bàn Giao ở đâu ? <span style="color:#ef4444;">*</span>
+                </label>
+                ${isEditMode 
+                    ? `<input type="text" id="vatModalHandoverStorage" class="form-control" style="width:100%;border-radius:8px;padding:8px 12px;border:1px solid #cbd5e1;" value="${o.vat_handover_storage || ''}" placeholder="Ví dụ: Tủ B2, Ngăn 3...">` 
+                    : `<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #cbd5e1;font-weight:600;color:#1e293b;">${o.vat_handover_storage || '<span style="color:#ef4444;font-style:italic;">Chưa khai báo vị trí lưu trữ</span>'}</div>`
+                }
+            </div>
+
             ${isEditMode ? '<input type="hidden" id="vatModalHandoverFile">' : ''}
         </div>
     `;
@@ -836,7 +1021,7 @@ function _vatShowHandoverModal(id, forceEditMode = false) {
     openModal(`📦 Nhận Biên Bản Bàn Giao: Đơn ${o.order_code}`, bodyHTML, footerHTML);
 }
 
-// Unified confirm & save function for all three modals with mandatory image validation
+// Unified confirm & save function for all three modals with mandatory image & storage validation
 async function _vatConfirmModal(id, type) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
@@ -846,21 +1031,48 @@ async function _vatConfirmModal(id, type) {
             showToast('⚠️ Vui lòng dán ảnh bằng chứng xuất hóa đơn VAT!', 'error');
             return;
         }
+        closeModal();
+        await _vatLoadData();
+        _vatRenderTable();
     } else if (type === 'contract') {
         if (!o.vat_contract_proof) {
             showToast('⚠️ Vui lòng dán ảnh bằng chứng nhận hợp đồng!', 'error');
             return;
+        }
+        const storageVal = document.getElementById('vatModalContractStorage')?.value || '';
+        if (!storageVal.trim()) {
+            showToast('⚠️ Vui lòng điền nơi lưu trữ Giấy Tờ Hợp Đồng!', 'error');
+            return;
+        }
+        try {
+            await apiCall(`/api/dht/orders/${id}/vat-contract`, 'POST', { received: true, storage_location: storageVal });
+            showToast('Đã lưu thông tin hợp đồng thành công!');
+            closeModal();
+            await _vatLoadData();
+            _vatRenderTable();
+        } catch (e) {
+            alert('Lỗi lưu thông tin: ' + e.message);
         }
     } else if (type === 'handover') {
         if (!o.vat_handover_proof) {
             showToast('⚠️ Vui lòng dán ảnh bằng chứng biên bản bàn giao!', 'error');
             return;
         }
+        const storageVal = document.getElementById('vatModalHandoverStorage')?.value || '';
+        if (!storageVal.trim()) {
+            showToast('⚠️ Vui lòng điền nơi lưu trữ Biên Bản Bàn Giao!', 'error');
+            return;
+        }
+        try {
+            await apiCall(`/api/dht/orders/${id}/vat-handover`, 'POST', { received: true, storage_location: storageVal });
+            showToast('Đã lưu thông tin biên bản bàn giao thành công!');
+            closeModal();
+            await _vatLoadData();
+            _vatRenderTable();
+        } catch (e) {
+            alert('Lỗi lưu thông tin: ' + e.message);
+        }
     }
-    
-    closeModal();
-    await _vatLoadData();
-    _vatRenderTable();
 }
 
 // Unified delete function to clear proof image and reset status

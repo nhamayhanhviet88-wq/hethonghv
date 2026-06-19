@@ -113,10 +113,12 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_contract_proof TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_contract_received_at TIMESTAMPTZ DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_contract_received_by INTEGER DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_contract_storage TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_handover_received BOOLEAN DEFAULT FALSE`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_handover_proof TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_handover_received_at TIMESTAMPTZ DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_handover_received_by INTEGER DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_handover_storage TEXT DEFAULT NULL`); } catch(e) {}
     // ★ Repair Order: link repair order back to parent order
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS parent_order_id INTEGER DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS repair_source_code TEXT DEFAULT NULL`); } catch(e) {}
@@ -2954,11 +2956,12 @@ module.exports = async function(fastify) {
         }
         if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ, QLCC hoặc Phòng Kế Toán mới được cập nhật hợp đồng' });
 
-        const order = await db.get('SELECT vat_contract_received, vat_contract_proof FROM dht_orders WHERE id = $1', [orderId]);
+        const order = await db.get('SELECT vat_contract_received, vat_contract_proof, vat_contract_storage FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
 
         let proofImage = null;
         let contractReceived = true;
+        let storageLocation = null;
 
         if (request.headers['content-type']?.includes('multipart')) {
             const data = await request.file();
@@ -2976,16 +2979,19 @@ module.exports = async function(fastify) {
             const b = request.body || {};
             contractReceived = b.received === true || b.received === 'true';
             proofImage = b.proof_image || null;
+            storageLocation = b.storage_location || null;
         }
 
         const oldReceived = order.vat_contract_received;
         const oldProof = order.vat_contract_proof;
+        const oldStorage = order.vat_contract_storage;
 
         if (!contractReceived) {
             await db.run(
                 `UPDATE dht_orders 
                  SET vat_contract_received = false, 
                      vat_contract_proof = null, 
+                     vat_contract_storage = null, 
                      vat_contract_received_at = null, 
                      vat_contract_received_by = null,
                      last_updated_at = NOW(),
@@ -2998,12 +3004,13 @@ module.exports = async function(fastify) {
                 `UPDATE dht_orders 
                  SET vat_contract_received = true, 
                      vat_contract_proof = COALESCE($1, vat_contract_proof), 
+                     vat_contract_storage = COALESCE($2, vat_contract_storage), 
                      vat_contract_received_at = COALESCE(vat_contract_received_at, NOW()), 
-                     vat_contract_received_by = COALESCE(vat_contract_received_by, $2),
+                     vat_contract_received_by = COALESCE(vat_contract_received_by, $3),
                      last_updated_at = NOW(),
-                     last_updated_by = $2
-                 WHERE id = $3`,
-                [proofImage, request.user.id, orderId]
+                     last_updated_by = $3
+                 WHERE id = $4`,
+                [proofImage, storageLocation, request.user.id, orderId]
             );
         }
 
@@ -3017,14 +3024,15 @@ module.exports = async function(fastify) {
                     '📜 Cập nhật Hợp đồng VAT',
                     JSON.stringify([
                         { field: 'vat_contract_received', label: 'Nhận hợp đồng', old: oldReceived ? 'true' : 'false', new: contractReceived ? 'true' : 'false' },
-                        { field: 'vat_contract_proof', label: 'Ảnh/File hợp đồng', old: oldProof || 'null', new: proofImage || oldProof || 'null' }
+                        { field: 'vat_contract_proof', label: 'Ảnh/File hợp đồng', old: oldProof || 'null', new: proofImage || oldProof || 'null' },
+                        { field: 'vat_contract_storage', label: 'Nơi lưu trữ hợp đồng', old: oldStorage || 'null', new: storageLocation || oldStorage || 'null' }
                     ]),
                     request.user.id
                 ]
             );
         } catch(e) { console.error('[Audit Log VAT Contract Error]:', e.message); }
 
-        const updatedOrder = await db.get('SELECT vat_contract_received, vat_contract_proof, vat_contract_received_at, vat_contract_received_by FROM dht_orders WHERE id = $1', [orderId]);
+        const updatedOrder = await db.get('SELECT vat_contract_received, vat_contract_proof, vat_contract_storage, vat_contract_received_at, vat_contract_received_by FROM dht_orders WHERE id = $1', [orderId]);
         return { success: true, order: updatedOrder };
     });
 
@@ -3042,11 +3050,12 @@ module.exports = async function(fastify) {
         }
         if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ, QLCC hoặc Phòng Kế Toán mới được cập nhật biên bản bàn giao' });
 
-        const order = await db.get('SELECT vat_handover_received, vat_handover_proof FROM dht_orders WHERE id = $1', [orderId]);
+        const order = await db.get('SELECT vat_handover_received, vat_handover_proof, vat_handover_storage FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
 
         let proofImage = null;
         let handoverReceived = true;
+        let storageLocation = null;
 
         if (request.headers['content-type']?.includes('multipart')) {
             const data = await request.file();
@@ -3064,16 +3073,19 @@ module.exports = async function(fastify) {
             const b = request.body || {};
             handoverReceived = b.received === true || b.received === 'true';
             proofImage = b.proof_image || null;
+            storageLocation = b.storage_location || null;
         }
 
         const oldReceived = order.vat_handover_received;
         const oldProof = order.vat_handover_proof;
+        const oldStorage = order.vat_handover_storage;
 
         if (!handoverReceived) {
             await db.run(
                 `UPDATE dht_orders 
                  SET vat_handover_received = false, 
                      vat_handover_proof = null, 
+                     vat_handover_storage = null, 
                      vat_handover_received_at = null, 
                      vat_handover_received_by = null,
                      last_updated_at = NOW(),
@@ -3086,12 +3098,13 @@ module.exports = async function(fastify) {
                 `UPDATE dht_orders 
                  SET vat_handover_received = true, 
                      vat_handover_proof = COALESCE($1, vat_handover_proof), 
+                     vat_handover_storage = COALESCE($2, vat_handover_storage), 
                      vat_handover_received_at = COALESCE(vat_handover_received_at, NOW()), 
-                     vat_handover_received_by = COALESCE(vat_handover_received_by, $2),
+                     vat_handover_received_by = COALESCE(vat_handover_received_by, $3),
                      last_updated_at = NOW(),
-                     last_updated_by = $2
-                 WHERE id = $3`,
-                [proofImage, request.user.id, orderId]
+                     last_updated_by = $3
+                 WHERE id = $4`,
+                [proofImage, storageLocation, request.user.id, orderId]
             );
         }
 
@@ -3105,14 +3118,15 @@ module.exports = async function(fastify) {
                     '📦 Cập nhật Biên bản bàn giao VAT',
                     JSON.stringify([
                         { field: 'vat_handover_received', label: 'Nhận BB bàn giao', old: oldReceived ? 'true' : 'false', new: handoverReceived ? 'true' : 'false' },
-                        { field: 'vat_handover_proof', label: 'Ảnh/File BB bàn giao', old: oldProof || 'null', new: proofImage || oldProof || 'null' }
+                        { field: 'vat_handover_proof', label: 'Ảnh/File BB bàn giao', old: oldProof || 'null', new: proofImage || oldProof || 'null' },
+                        { field: 'vat_handover_storage', label: 'Nơi lưu trữ BB bàn giao', old: oldStorage || 'null', new: storageLocation || oldStorage || 'null' }
                     ]),
                     request.user.id
                 ]
             );
         } catch(e) { console.error('[Audit Log VAT Handover Error]:', e.message); }
 
-        const updatedOrder = await db.get('SELECT vat_handover_received, vat_handover_proof, vat_handover_received_at, vat_handover_received_by FROM dht_orders WHERE id = $1', [orderId]);
+        const updatedOrder = await db.get('SELECT vat_handover_received, vat_handover_proof, vat_handover_storage, vat_handover_received_at, vat_handover_received_by FROM dht_orders WHERE id = $1', [orderId]);
         return { success: true, order: updatedOrder };
     });
 
