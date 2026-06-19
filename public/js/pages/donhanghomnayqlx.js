@@ -14,6 +14,7 @@ let _qlxdhSelectedYear = 'all';
 let _qlxdhSelectedMonth = 'all';
 let _qlxdhHolidayMap = {};
 let _qlxdhMaxDate = null;
+let _qlxdhSortVal = 'default';
 
 function _isQLXUser() {
     return window._currentUser && (
@@ -228,12 +229,25 @@ function _qlxdhRenderSearchBar() {
     if (!sb) return;
     const isQLX = _isQLXUser();
     const placeholderText = isQLX ? "Tìm mã đơn hàng, tên khách..." : "Tìm mã đơn hàng, SĐT, tên khách...";
-    sb.innerHTML = `<div style="display:flex;gap:8px;align-items:center;">
-        <div style="flex:1;max-width:420px;position:relative;">
+    sb.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <div style="flex:1;max-width:420px;position:relative;min-width:250px;">
             <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;">🔍</span>
             <input type="text" id="qlxdhSearchInput" value="${_qlxdhSearchVal}" oninput="_qlxdhOnSearch(this.value)" placeholder="${placeholderText}" style="width:100%;padding:9px 12px 9px 36px;border:2px solid #fbbf24;border-radius:10px;font-size:13px;font-weight:600;background:#fffef5;outline:none;transition:border .2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fbbf24'">
         </div>
+        <select onchange="_qlxdhOnSortChange(this.value)" style="padding:9px 12px;border:2px solid #fbbf24;border-radius:10px;font-size:13px;font-weight:600;background:#fffef5;color:#334155;outline:none;cursor:pointer;transition:border .2s;height:38px;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fbbf24'">
+            <option value="default" ${_qlxdhSortVal === 'default' ? 'selected' : ''}>Sắp xếp: Mặc định</option>
+            <option value="remaining_desc" ${_qlxdhSortVal === 'remaining_desc' ? 'selected' : ''}>Số tiền còn lại: Lớn nhất</option>
+            <option value="remaining_asc" ${_qlxdhSortVal === 'remaining_asc' ? 'selected' : ''}>Số tiền còn lại: Nhỏ nhất</option>
+            <option value="total_desc" ${_qlxdhSortVal === 'total_desc' ? 'selected' : ''}>Tổng tiền: Lớn nhất</option>
+            <option value="total_asc" ${_qlxdhSortVal === 'total_asc' ? 'selected' : ''}>Tổng tiền: Nhỏ nhất</option>
+        </select>
     </div>`;
+}
+
+function _qlxdhOnSortChange(val) {
+    _qlxdhSortVal = val;
+    _qlxdhApplySearch();
+    _qlxdhRenderContent();
 }
 
 async function _qlxdhOnSearch(val) {
@@ -319,6 +333,14 @@ function _qlxdhApplySearch() {
             }
             return true;
         });
+    if (_qlxdhSortVal === 'remaining_asc') {
+        list.sort((a, b) => (Number(a.remaining_amount) || 0) - (Number(b.remaining_amount) || 0));
+    } else if (_qlxdhSortVal === 'remaining_desc') {
+        list.sort((a, b) => (Number(b.remaining_amount) || 0) - (Number(a.remaining_amount) || 0));
+    } else if (_qlxdhSortVal === 'total_asc') {
+        list.sort((a, b) => (Number(a.total_amount) || 0) - (Number(b.total_amount) || 0));
+    } else if (_qlxdhSortVal === 'total_desc') {
+        list.sort((a, b) => (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0));
     }
     _qlxdhSearched = list;
 }
