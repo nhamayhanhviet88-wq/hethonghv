@@ -1,5 +1,5 @@
 // ========== CHUẨN BỊ QLX — White Sidebar + Blue Theme ==========
-var _qlx = { orders: [], tree: null, filter: { status: 'incomplete', year: null, month: null, category_id: null }, search: '', sidebarSearch: '', page: 1, pageSize: 200, stableOrderIds: null };
+var _qlx = { orders: [], tree: null, filter: { status: 'incomplete', year: null, month: null, category_id: null }, search: '', sidebarSearch: '', page: 1, pageSize: 200, stableOrderIds: null, currentVisibleIds: null };
 var _qlxOpen = { inc: true };
 function _qlxFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
 function _qlxFmtDate(v) { if (!v) return '—'; try { var d = new Date(v); if (isNaN(d.getTime())) return '—'; return d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }); } catch(e) { return '—'; } }
@@ -79,6 +79,7 @@ function renderQuanlyxuongqlxPage(content) {
         +'<div id="qlxFilterInfo" style="font-size:12px"></div>'
         +'<div id="qlxStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +'<input id="qlxSearch" autocomplete="off" placeholder="🔍 Tìm mã đơn, tên KH..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none">'
+        +'<button onclick="_qlxReloadActive()" title="Làm mới danh sách đơn hàng" style="padding:6px 10px;background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .2s;margin-left:2px" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🔄</button>'
         +(currentUser && currentUser.role === 'giam_doc' ? '<button onclick="_qlxChecklistSetup()" style="padding:6px 14px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Setup Checklist</button>' : '')
         +'</div>'
         +'<div id="qlxPaginationTop" style="margin:8px 0"></div>'
@@ -97,11 +98,12 @@ function renderQuanlyxuongqlxPage(content) {
     _qlx.search = '';
     _qlx.sidebarSearch = '';
     _qlx.stableOrderIds = null;
+    _qlx.currentVisibleIds = null;
     var searchEl = document.getElementById('qlxSearch');
     if (searchEl) searchEl.value = '';
 
     var _st; document.getElementById('qlxSearch').addEventListener('input', function() {
-        clearTimeout(_st); _st = setTimeout(function() { _qlx.search = document.getElementById('qlxSearch').value || ''; _qlx.page = 1; _qlxRenderTable(); }, 300);
+        clearTimeout(_st); _st = setTimeout(function() { _qlx.search = document.getElementById('qlxSearch').value || ''; _qlx.page = 1; _qlx.currentVisibleIds = null; _qlxRenderTable(); }, 300);
     });
     _qlxLoadAll();
 }
@@ -187,12 +189,14 @@ function _qlxPendingKTFilter() {
     }
     _qlx.page = 1;
     _qlx.stableOrderIds = null;
+    _qlx.currentVisibleIds = null;
     _qlxRenderTable();
     _qlxRenderSidebar();
 }
 function _qlxSidebarSearchInput(val) {
     _qlx.sidebarSearch = val || '';
     _qlx.page = 1;
+    _qlx.currentVisibleIds = null;
     _qlxRenderTable();
     _qlxRenderSidebar();
     var newInp = document.getElementById('qlxSidebarSearch');
@@ -206,8 +210,15 @@ function _qlxFilter(status, catId, year, month) {
     _qlx.filter = { status: status || 'all', category_id: catId || null, year: year || null, month: month || null };
     _qlx.page = 1;
     _qlx.stableOrderIds = null;
+    _qlx.currentVisibleIds = null;
     _qlxRenderSidebar();
     _qlxLoadOrders();
+}
+
+function _qlxReloadActive() {
+    _qlx.currentVisibleIds = null;
+    _qlx.stableOrderIds = null;
+    _qlxLoadAll();
 }
 
 async function _qlxLoadOrders() {
@@ -279,19 +290,28 @@ function _qlxRenderTable() {
             return code.indexOf(sq) >= 0 || cust.indexOf(sq) >= 0 || sale.indexOf(sq) >= 0;
         });
     }
-    // Apply active filter button
-    if (_qlx.activeFilter) {
-        var af = _qlx.activeFilter;
-        all = all.filter(function(o) {
-            if (af === 'no_print') return !o.sx_print_confirmed;
-            if (af === 'no_receive') return o.sx_print_confirmed && !(o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1');
-            if (af === 'no_fabric') return !o.fabric_called;
-            if (af === 'no_material') return !o.material_called;
-            if (af === 'no_pc_in') return !o.nguoi_in;
-            if (af === 'no_pc_may') return !o.nguoi_may;
-            return true;
-        });
+    
+    // Apply active filter button or freeze visible list
+    if (_qlx.currentVisibleIds === null) {
+        if (_qlx.activeFilter) {
+            var af = _qlx.activeFilter;
+            all = all.filter(function(o) {
+                if (af === 'no_print') return !o.sx_print_confirmed;
+                if (af === 'no_receive') return o.sx_print_confirmed && !(o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1');
+                if (af === 'no_fabric') return !o.fabric_called;
+                if (af === 'no_material') return !o.material_called;
+                if (af === 'no_pc_in') return !o.nguoi_in;
+                if (af === 'no_pc_may') return !o.nguoi_may;
+                return true;
+            });
+        }
+        _qlx.currentVisibleIds = all.map(function(o) { return o.id; });
+    } else {
+        var idMap = {};
+        _qlx.currentVisibleIds.forEach(function(id) { idMap[id] = true; });
+        all = all.filter(function(o) { return !!idMap[o.id]; });
     }
+
     _qlxApplyStableSort(all);
     var total = all.length, totalPages = Math.ceil(total / _qlx.pageSize) || 1;
     if (_qlx.page > totalPages) _qlx.page = totalPages;
@@ -620,6 +640,8 @@ function _qlxStatFilter(key) {
         _qlx.activeFilter = key;
     }
     _qlx.page = 1;
+    _qlx.stableOrderIds = null;
+    _qlx.currentVisibleIds = null;
     _qlxRenderTable();
     _qlxRenderSidebar();
 }
