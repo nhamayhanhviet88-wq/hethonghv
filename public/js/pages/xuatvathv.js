@@ -509,19 +509,19 @@ function _vatShowInvoiceModal(id) {
     const bodyHTML = `
         <div class="vat-modal-content" style="padding:4px;">
             <div class="vat-modal-field">
-                <label>Tên Công Ty (Xuất Hóa Đơn)</label>
+                <label>Tên Công Ty (Xuất Hóa Đơn) <span style="color:#ef4444;">*</span></label>
                 <input type="text" id="vatModalCompanyName" value="${info.company_name || ''}" placeholder="Nhập tên công ty..." ${!editable ? 'disabled' : ''}>
             </div>
             <div class="vat-modal-field">
-                <label>Mã Số Thuế (MST)</label>
+                <label>Mã Số Thuế (MST) <span style="color:#ef4444;">*</span></label>
                 <input type="text" id="vatModalTaxCode" value="${info.tax_code || ''}" placeholder="Nhập mã số thuế..." ${!editable ? 'disabled' : ''}>
             </div>
             <div class="vat-modal-field">
-                <label>Địa Chỉ Công Ty</label>
+                <label>Địa Chỉ Công Ty <span style="color:#ef4444;">*</span></label>
                 <textarea id="vatModalCompanyAddress" rows="2" placeholder="Nhập địa chỉ công ty..." ${!editable ? 'disabled' : ''}>${info.company_address || ''}</textarea>
             </div>
             <div class="vat-modal-field">
-                <label>Email Nhận Hóa Đơn</label>
+                <label>Email Nhận Hóa Đơn <span style="color:#ef4444;">*</span></label>
                 <input type="email" id="vatModalCompanyEmail" value="${info.company_email || ''}" placeholder="Nhập email nhận hóa đơn..." ${!editable ? 'disabled' : ''}>
             </div>
             <div class="vat-modal-field">
@@ -529,7 +529,7 @@ function _vatShowInvoiceModal(id) {
                 <input type="text" id="vatModalCompanyPhone" value="${info.company_phone || ''}" placeholder="Nhập số điện thoại liên hệ..." ${!editable ? 'disabled' : ''}>
             </div>
             <div class="vat-modal-field">
-                <label>Ghi Chú</label>
+                <label>Ghi Chú nếu nhập số lượng và giá khác</label>
                 <textarea id="vatModalCompanyNote" rows="2" placeholder="Nhập ghi chú thêm..." ${!editable ? 'disabled' : ''}>${info.company_note || ''}</textarea>
             </div>
         </div>
@@ -544,13 +544,41 @@ function _vatShowInvoiceModal(id) {
 }
 
 async function _vatSaveInvoice(id) {
+    const company_name = document.getElementById('vatModalCompanyName').value.trim();
+    const tax_code = document.getElementById('vatModalTaxCode').value.trim();
+    const company_address = document.getElementById('vatModalCompanyAddress').value.trim();
+    const company_email = document.getElementById('vatModalCompanyEmail').value.trim();
+    const company_phone = document.getElementById('vatModalCompanyPhone').value.trim();
+    const company_note = document.getElementById('vatModalCompanyNote').value.trim();
+
+    if (!company_name) {
+        showToast('Vui lòng nhập Tên Công Ty!', 'error');
+        document.getElementById('vatModalCompanyName').focus();
+        return;
+    }
+    if (!tax_code) {
+        showToast('Vui lòng nhập Mã Số Thuế (MST)!', 'error');
+        document.getElementById('vatModalTaxCode').focus();
+        return;
+    }
+    if (!company_address) {
+        showToast('Vui lòng nhập Địa Chỉ Công Ty!', 'error');
+        document.getElementById('vatModalCompanyAddress').focus();
+        return;
+    }
+    if (!company_email) {
+        showToast('Vui lòng nhập Email Nhận Hóa Đơn!', 'error');
+        document.getElementById('vatModalCompanyEmail').focus();
+        return;
+    }
+
     const payload = {
-        company_name: document.getElementById('vatModalCompanyName').value.trim(),
-        tax_code: document.getElementById('vatModalTaxCode').value.trim(),
-        company_address: document.getElementById('vatModalCompanyAddress').value.trim(),
-        company_email: document.getElementById('vatModalCompanyEmail').value.trim(),
-        company_phone: document.getElementById('vatModalCompanyPhone').value.trim(),
-        company_note: document.getElementById('vatModalCompanyNote').value.trim()
+        company_name,
+        tax_code,
+        company_address,
+        company_email,
+        company_phone,
+        company_note
     };
 
     try {

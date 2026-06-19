@@ -2883,6 +2883,19 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.id);
         const info = request.body || {};
 
+        if (!info.company_name || !String(info.company_name).trim()) {
+            return reply.code(400).send({ error: 'Tên Công Ty (Xuất Hóa Đơn) là bắt buộc!' });
+        }
+        if (!info.tax_code || !String(info.tax_code).trim()) {
+            return reply.code(400).send({ error: 'Mã Số Thuế (MST) là bắt buộc!' });
+        }
+        if (!info.company_address || !String(info.company_address).trim()) {
+            return reply.code(400).send({ error: 'Địa Chỉ Công Ty là bắt buộc!' });
+        }
+        if (!info.company_email || !String(info.company_email).trim()) {
+            return reply.code(400).send({ error: 'Email Nhận Hóa Đơn là bắt buộc!' });
+        }
+
         // Only GĐ, QLCC, or Kế Toán can update
         let allowed = request.user.role === 'giam_doc' || request.user.role === 'quan_ly_cap_cao';
         if (!allowed) {
