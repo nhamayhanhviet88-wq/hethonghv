@@ -2013,7 +2013,7 @@ module.exports = async function(fastify) {
 
         if (page_type === 'qlx') {
             if (!image_base64) {
-                return reply.code(400).send({ error: '⚠️ Hình Ảnh Thúc Giục Nhân Sự Ra Hàng là bắt buộc' });
+                return reply.code(400).send({ error: '⚠️ Hình Ảnh Nhắn Sale báo thời gian lùi đơn là bắt buộc' });
             }
             if (reschedule_hour === undefined || reschedule_hour === null || reschedule_hour === '') {
                 return reply.code(400).send({ error: '⚠️ Vui lòng chọn giờ hẹn' });

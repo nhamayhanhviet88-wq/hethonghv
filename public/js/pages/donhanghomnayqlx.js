@@ -901,9 +901,9 @@ async function _qlxdhShowReschedule(id, code) {
                 <textarea id="qlxdhReason" rows="3" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;resize:none;outline:none;transition:border-color 0.2s;" placeholder="Nhập lý do chi tiết..." onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
             </div>
 
-            <!-- Ảnh thúc giục -->
+            <!-- Ảnh nhắn Sale báo lùi đơn -->
             <div>
-                <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">📸 Hình Ảnh Thúc Giục Nhân Sự Ra Hàng <span style="color:#ef4444">*</span></label>
+                <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">📸 Hình Ảnh Nhắn Sale báo thời gian lùi đơn <span style="color:#ef4444">*</span></label>
                 <div id="qlxdhPasteArea" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;background:#f8fafc;color:#64748b;font-size:13px;font-weight:600;margin-top:6px;cursor:pointer;position:relative;transition:all 0.2s;" tabindex="0">
                     <div style="font-size:24px;margin-bottom:6px;">📋</div>
                     Nhấp chuột vào đây rồi nhấn <b>Ctrl + V</b> để dán hình ảnh chụp màn hình
@@ -1004,7 +1004,7 @@ async function _qlxdhDoReschedule(id) {
     if (minute === undefined || minute === null || minute === '') { alert('⚠️ Vui lòng chọn phút hẹn'); return; }
     if (!reason?.trim()) { alert('Nhập lý do không ra đơn đúng ngày được'); return; }
     if (!window._qlxdhRescheduleImageBase64) {
-        alert('⚠️ Hình Ảnh Thúc Giục Nhân Sự Ra Hàng là bắt buộc!');
+        alert('⚠️ Hình Ảnh Nhắn Sale báo thời gian lùi đơn là bắt buộc!');
         return;
     }
     
@@ -1184,7 +1184,7 @@ async function _qlxdhShowHistory(id, code) {
                             <!-- Card Image -->
                             ${r.image_url ? `
                             <div style="margin-bottom:12px;">
-                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">📸 Ảnh minh chứng thúc giục:</div>
+                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">📸 Ảnh nhắn Sale báo thời gian lùi đơn:</div>
                                 <div class="qlxdh-history-img" style="position:relative;display:inline-block;overflow:hidden;border-radius:8px;border:1px solid #e2e8f0;width:100%;max-width:240px;aspect-ratio:16/10;background:#f1f5f9;cursor:pointer;transition:all 0.2s;"
                                      onclick="showShippingBillLightbox('${r.image_url}')">
                                     <img src="${r.image_url}" style="width:100%;height:100%;object-fit:cover;">
