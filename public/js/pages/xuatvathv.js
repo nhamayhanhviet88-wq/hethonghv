@@ -640,6 +640,11 @@ async function _vatSaveInvoice(id) {
         document.getElementById('vatModalCompanyEmail').focus();
         return;
     }
+    if (!company_email.includes('@')) {
+        showToast('Email Nhận Hóa Đơn không đúng định dạng (phải chứa ký tự @)!', 'error');
+        document.getElementById('vatModalCompanyEmail').focus();
+        return;
+    }
 
     const payload = {
         company_name,

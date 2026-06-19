@@ -2903,6 +2903,9 @@ module.exports = async function(fastify) {
         if (!info.company_email || !String(info.company_email).trim()) {
             return reply.code(400).send({ error: 'Email Nhận Hóa Đơn là bắt buộc!' });
         }
+        if (!String(info.company_email).includes('@')) {
+            return reply.code(400).send({ error: 'Email Nhận Hóa Đơn không đúng định dạng (phải chứa ký tự @)!' });
+        }
 
         const order = await db.get('SELECT vat_exported, vat_invoice_info FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
