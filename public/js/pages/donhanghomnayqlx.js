@@ -1011,29 +1011,128 @@ async function _qlxdhShowHistory(id, code) {
         const rows = data.history || [];
         const m = document.createElement('div');
         m.id = 'qlxdhHistoryModal';
-        m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-        const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
-        m.innerHTML = `<div style="background:white;border-radius:16px;width:500px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.3);">
-            <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 24px;border-radius:16px 16px 0 0;">
-                <div style="color:white;font-weight:800;font-size:15px;">📋 Lịch Sử Hẹn Lại — ${code}</div>
+        m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        
+        const fmt = d => {
+            if (!d) return '—';
+            if (typeof d === 'string' && d.includes('T')) d = d.split('T')[0];
+            const parts = d.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return new Date(d).toLocaleDateString('vi-VN');
+        };
+
+        const formatCreatedTime = (dtStr) => {
+            if (!dtStr) return '—';
+            const date = new Date(dtStr);
+            return date.toLocaleString('vi-VN', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        };
+
+        m.innerHTML = `<style>
+            @keyframes qlxdhHistorySlideUp {
+                from { transform: translateY(20px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            .qlxdh-history-card:hover {
+                border-color: #3b82f6 !important;
+                box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.05) !important;
+            }
+            .qlxdh-history-img:hover {
+                transform: scale(1.02);
+                border-color: #3b82f6 !important;
+            }
+        </style>
+        <div style="background:white;border-radius:16px;width:550px;max-width:95vw;max-height:85vh;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;border:1px solid #e2e8f0;display:flex;flex-direction:column;animation:qlxdhHistorySlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
+            <!-- Header -->
+            <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:18px 24px;display:flex;align-items:center;gap:12px;color:white;flex-shrink:0;">
+                <span style="font-size:22px;">📋</span>
+                <div>
+                    <div style="font-weight:800;font-size:16px;letter-spacing:-0.025em;">Lịch Sử Hẹn Lại</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Mã đơn: <span style="color:#38bdf8;font-weight:700;">${code}</span></div>
+                </div>
             </div>
-            <div style="padding:16px 24px;">
-                ${rows.length === 0 ? '<div style="text-align:center;color:#9ca3af;padding:20px;">Chưa có lần hẹn lại nào</div>' :
-                rows.map((r, i) => `<div style="display:flex;gap:12px;padding:12px 0;${i < rows.length-1 ? 'border-bottom:1px solid #f1f5f9;' : ''}">
-                    <div style="width:28px;height:28px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#2563eb;flex-shrink:0;">${rows.length - i}</div>
-                    <div style="flex:1;">
-                        <div style="font-size:12px;font-weight:700;color:#1e293b;">
-                            ${fmt(r.old_date)} → ${fmt(r.new_date)}
-                            ${r.reschedule_hour !== null && r.reschedule_minute !== null ? ` (${String(r.reschedule_hour).padStart(2, '0')}:${String(r.reschedule_minute).padStart(2, '0')})` : ''}
+            
+            <!-- Timeline Body -->
+            <div style="padding:24px;overflow-y:auto;flex:1;background:#f8fafc;display:flex;flex-direction:column;gap:20px;">
+                ${rows.length === 0 ? `
+                <div style="text-align:center;color:#64748b;padding:40px 20px;">
+                    <div style="font-size:40px;margin-bottom:12px;">📅</div>
+                    <div style="font-weight:600;font-size:14px;">Chưa có lịch sử hẹn lại cho đơn hàng này</div>
+                </div>` :
+                rows.map((r, i) => {
+                    const isLast = i === rows.length - 1;
+                    return `
+                    <div style="display:flex;gap:16px;position:relative;">
+                        <!-- Timeline Connector Line -->
+                        ${!isLast ? `<div style="position:absolute;left:15px;top:32px;bottom:-20px;width:2px;background:#cbd5e1;z-index:1;"></div>` : ''}
+                        
+                        <!-- Step Indicator Circle -->
+                        <div style="width:32px;height:32px;border-radius:50%;background:#eff6ff;border:2px solid #3b82f6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#1d4ed8;z-index:2;flex-shrink:0;box-shadow:0 2px 4px rgba(59,130,246,0.15);">
+                            ${rows.length - i}
                         </div>
-                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.reason || '—'}</div>
-                        ${r.image_url ? `<div style="margin-top:6px;"><img src="${r.image_url}" style="max-width:150px;max-height:150px;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;" onclick="window.open('${r.image_url}', '_blank')"></div>` : ''}
-                        <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Bởi: ${r.rescheduled_by_name || '—'} • ${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}) : '—'}</div>
-                    </div>
-                </div>`).join('')}
+                        
+                        <!-- Card Content Box -->
+                        <div class="qlxdh-history-card" style="flex:1;background:white;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);transition:all 0.2s;">
+                            
+                            <!-- Card Header: Old Date -> New Date -->
+                            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:8px;">
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span style="background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:700;border:1px solid #e2e8f0;">
+                                        ${fmt(r.old_date)}
+                                    </span>
+                                    <span style="color:#94a3b8;font-weight:bold;font-size:12px;">➔</span>
+                                    <span style="background:#fffbeb;color:#b45309;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:800;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:4px;">
+                                        📅 ${fmt(r.new_date)}
+                                    </span>
+                                </div>
+                                
+                                ${r.reschedule_hour !== null && r.reschedule_minute !== null ? `
+                                <span style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:800;display:inline-flex;align-items:center;gap:4px;">
+                                    🕐 ${String(r.reschedule_hour).padStart(2, '0')}:${String(r.reschedule_minute).padStart(2, '0')}
+                                </span>
+                                ` : ''}
+                            </div>
+                            
+                            <!-- Card Reason Body -->
+                            <div style="font-size:13px;color:#334155;line-height:1.5;background:#f8fafc;border-left:3px solid #cbd5e1;padding:8px 12px;border-radius:0 8px 8px 0;margin-bottom:12px;font-style:italic;">
+                                "${r.reason || 'Không có lý do'}"
+                            </div>
+                            
+                            <!-- Card Image -->
+                            ${r.image_url ? `
+                            <div style="margin-bottom:12px;">
+                                <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;display:flex;align-items:center;gap:4px;">📸 Ảnh minh chứng thúc giục:</div>
+                                <div class="qlxdh-history-img" style="position:relative;display:inline-block;overflow:hidden;border-radius:8px;border:1px solid #e2e8f0;width:100%;max-width:240px;aspect-ratio:16/10;background:#f1f5f9;cursor:pointer;transition:all 0.2s;"
+                                     onclick="showShippingBillLightbox('${r.image_url}')">
+                                    <img src="${r.image_url}" style="width:100%;height:100%;object-fit:cover;">
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <!-- Card Footer: Sender and Date -->
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#64748b;flex-wrap:wrap;gap:8px;border-top:1px dashed #e2e8f0;padding-top:8px;margin-top:8px;">
+                                <span style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;padding:2px 6px;border-radius:4px;font-weight:600;color:#475569;">
+                                    👤 Bởi: <span style="color:#0f172a;font-weight:700;">${r.rescheduled_by_name || '—'}</span>
+                                </span>
+                                <span style="color:#94a3b8;font-weight:500;">
+                                    ⏱️ ${formatCreatedTime(r.created_at)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('')}
             </div>
-            <div style="padding:12px 24px;border-top:1px solid #e2e8f0;text-align:right;">
-                <button onclick="document.getElementById('qlxdhHistoryModal')?.remove()" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Đóng</button>
+            
+            <!-- Footer -->
+            <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:right;flex-shrink:0;">
+                <button onclick="document.getElementById('qlxdhHistoryModal')?.remove()" style="padding:8px 20px;border:1px solid #cbd5e1;border-radius:8px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">Đóng</button>
             </div>
         </div>`;
         document.body.appendChild(m);
