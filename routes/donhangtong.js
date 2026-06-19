@@ -1047,7 +1047,15 @@ module.exports = async function(fastify) {
                     d.status_gui_don_hoan,
                     d.hoan_hang_shipped_at,
                     d.hoan_hang_ship_date,
-                    d.hoan_hang_actual_carrier_id
+                    d.hoan_hang_actual_carrier_id,
+                    d.tracking_code,
+                    CASE 
+                        WHEN d.tracking_code IS NOT NULL AND d.tracking_code != '' AND EXISTS (
+                            SELECT 1 FROM payment_records pr 
+                            WHERE pr.reconciled_waybills LIKE '%"' || d.tracking_code || '"%' 
+                               OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || d.tracking_code || '%')
+                               OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || d.tracking_code || '%')
+                        ) THEN true ELSE false END AS is_reconciled
                 FROM don_gui_ao_mau d
                 LEFT JOIN users u_created ON d.created_by = u_created.id
                 LEFT JOIN users u_updated ON d.updated_by = u_updated.id
@@ -1068,7 +1076,9 @@ module.exports = async function(fastify) {
                         quantity: row.quantity || 1,
                         actual_carrier_id: row.actual_carrier_id,
                         shipping_status: row.shipping_status,
-                        shipping_date: row.shipped_at || row.expected_ship_date
+                        shipping_date: row.shipped_at || row.expected_ship_date,
+                        tracking_code: row.tracking_code,
+                        is_reconciled: !!row.is_reconciled
                     }
                 ];
                 if (row.status_gui_don_hoan || row.hoan_hang_shipped_at) {
@@ -1112,6 +1122,7 @@ module.exports = async function(fastify) {
                     deposit_amount: row.deposit_amount,
                     ship_ck_deduct: row.ship_ck_deduct || 0,
                     remaining_amount: row.remaining_amount,
+                    is_reconciled: !!row.is_reconciled,
                     order_type: 'ao_mau',
                     ship_count: (row.status_gui_don_hoan || row.hoan_hang_shipped_at) ? 2 : 1,
                     is_print_done: false,
@@ -1133,6 +1144,13 @@ module.exports = async function(fastify) {
 
         const orders = await db.all(`
             SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count, COALESCE(o.is_edited, FALSE) AS is_edited,
+                CASE 
+                    WHEN o.tracking_code IS NOT NULL AND o.tracking_code != '' AND EXISTS (
+                        SELECT 1 FROM payment_records pr 
+                        WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
+                           OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
+                           OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
+                    ) THEN true ELSE false END AS is_reconciled,
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
@@ -1194,7 +1212,15 @@ module.exports = async function(fastify) {
                     'actual_carrier_id', i.actual_carrier_id,
                     'shipping_status', COALESCE(i.shipping_status, 'pending'),
                     'shipping_date', i.shipping_date,
-                    'cutting_category_name', cc.name
+                    'cutting_category_name', cc.name,
+                    'tracking_code', i.tracking_code,
+                    'is_reconciled', CASE 
+                        WHEN i.tracking_code IS NOT NULL AND i.tracking_code != '' AND EXISTS (
+                            SELECT 1 FROM payment_records pr 
+                            WHERE pr.reconciled_waybills LIKE '%"' || i.tracking_code || '"%' 
+                               OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || i.tracking_code || '%')
+                               OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || i.tracking_code || '%')
+                        ) THEN true ELSE false END
                 )) AS items
                 FROM dht_order_items i
                 LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(i.product_name, i.description)) AND p.is_active = true

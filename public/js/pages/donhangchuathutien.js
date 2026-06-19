@@ -178,8 +178,21 @@ function _dhcttGetOrderCarriers(o) {
                 var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
                 cname = found ? found.name : ('NVC #' + cid);
             }
-            if (carriers.indexOf(cname) === -1) {
-                carriers.push(cname);
+            
+            var isReconciled = !!item.is_reconciled;
+            var label = '';
+            if (cid > 0) {
+                if (isReconciled) {
+                    label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(Đã thu - Gửi tiếp)</small></span>';
+                } else {
+                    label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Đang giao)</small></span>';
+                }
+            } else {
+                label = '<span class="dhctt-carrier-badge pending" title="Chưa gửi hàng lần nào hoặc phần chưa gửi">' + cname + '</span>';
+            }
+            
+            if (carriers.indexOf(label) === -1) {
+                carriers.push(label);
             }
         });
     } else {
@@ -194,9 +207,21 @@ function _dhcttGetOrderCarriers(o) {
             var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
             cname = found ? found.name : ('NVC #' + cid);
         }
-        carriers.push(cname);
+        
+        var isReconciled = !!o.is_reconciled;
+        var label = '';
+        if (cid > 0) {
+            if (isReconciled) {
+                label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(Đã thu - Gửi tiếp)</small></span>';
+            } else {
+                label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Đang giao)</small></span>';
+            }
+        } else {
+            label = '<span class="dhctt-carrier-badge pending" title="Chưa gửi hàng lần nào hoặc phần chưa gửi">' + cname + '</span>';
+        }
+        carriers.push(label);
     }
-    return carriers.join(', ');
+    return carriers.join(' ');
 }
 
 // ========== FILTER CHIPS ==========
@@ -944,7 +969,13 @@ async function renderDonhangchuathutienPage(content) {
             +'.dhctt-tiendo-green{background-color:#dcfce7;color:#15803d;border-color:rgba(21,128,61,0.2)}'
             +'.dhctt-tiendo-red{background-color:#fee2e2;color:#b91c1c;border-color:rgba(185,28,28,0.2)}'
             +'.dhctt-tiendo-blue{background-color:#dbeafe;color:#1d4ed8;border-color:rgba(29,78,216,0.2)}'
-            +'.dhctt-tiendo-yellow{background-color:#fef3c7;color:#b45309;border-color:rgba(180,83,9,0.2)}';
+            +'.dhctt-tiendo-yellow{background-color:#fef3c7;color:#b45309;border-color:rgba(180,83,9,0.2)}'
+            +'.dhctt-carrier-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;margin-right:4px;border:1px solid transparent;box-shadow:0 1px 2px rgba(0,0,0,0.05)}'
+            +'.dhctt-carrier-badge.reconciled{background-color:#dcfce7;color:#15803d;border-color:#bbf7d0}'
+            +'.dhctt-carrier-badge.reconciled small{margin-left:4px;color:#16a34a;font-weight:800;font-size:9.5px}'
+            +'.dhctt-carrier-badge.shipping{background-color:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}'
+            +'.dhctt-carrier-badge.shipping small{margin-left:4px;color:#2563eb;font-weight:800;font-size:9.5px}'
+            +'.dhctt-carrier-badge.pending{background-color:#f1f5f9;color:#475569;border-color:#cbd5e1}';
         document.head.appendChild(st);
     }
 
