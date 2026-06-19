@@ -2080,7 +2080,7 @@ module.exports = async function(fastify) {
             try {
                 const fs = require('fs');
                 const path = require('path');
-                const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'reschedule');
+                const uploadDir = path.join(__dirname, '..', 'uploads', 'reschedule');
                 if (!fs.existsSync(uploadDir)) {
                     fs.mkdirSync(uploadDir, { recursive: true });
                 }
