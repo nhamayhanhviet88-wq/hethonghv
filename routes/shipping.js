@@ -894,12 +894,12 @@ module.exports = async function(fastify) {
 
         let counts;
         if (page_type === 'qlx') {
-            const paramsList = [countTargetDate, todayParam];
+            const paramsList = [countTargetDate];
             let qlxVisibilityFilter = '';
             if (!FULL_VIEW_ROLES.includes(userRole)) {
                 const kt = await isKeToan(userId);
                 if (!kt) {
-                    qlxVisibilityFilter = ` AND (created_by = $3 OR cskh_user_id = $3)`;
+                    qlxVisibilityFilter = ` AND (created_by = $2 OR cskh_user_id = $2)`;
                     paramsList.push(userId);
                 }
             }
