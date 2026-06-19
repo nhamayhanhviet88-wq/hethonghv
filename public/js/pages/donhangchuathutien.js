@@ -204,27 +204,54 @@ function _dhcttGetOrderCarriers(o) {
             return item.shipping_status === 'pending';
         });
 
+        // Collect unique shipped carriers from both shipments history and items
+        var shippedCarriers = [];
+        var addShippedCarrier = function(cid, isReconciled) {
+            cid = Number(cid || 0);
+            if (cid <= 0) return;
+            var exists = shippedCarriers.some(function(sc) {
+                return sc.cid === cid && sc.isReconciled === isReconciled;
+            });
+            if (!exists) {
+                shippedCarriers.push({ cid: cid, isReconciled: !!isReconciled });
+            }
+        };
+
         if (o.shipments && o.shipments.length > 0) {
             o.shipments.forEach(function(s) {
                 var cid = Number(s.actual_carrier_id || o.actual_carrier_id || 0);
-                if (cid > 0) {
-                    var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
-                    var cname = found ? found.name : ('NVC #' + cid);
-                    var isReconciled = !!s.is_reconciled;
-                    var label = '';
-                    if (isReconciled) {
-                        label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(TT 1 Phần - Chưa Thu Đủ)</small></span>';
-                    } else {
-                        label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Tiền Chưa Về)</small></span>';
-                    }
-                    if (carriers.indexOf(label) === -1) {
-                        carriers.push(label);
-                    }
+                addShippedCarrier(cid, s.is_reconciled);
+            });
+        }
+
+        // Fallback for legacy orders where shipments is empty but items are shipped
+        if (o.items && o.items.length > 0) {
+            o.items.forEach(function(item) {
+                var nameLower = (item.product_name || item.description || '').toLowerCase();
+                if (nameLower.indexOf('thiết kế') >= 0 || nameLower.indexOf('thiet ke') >= 0) return;
+                if (item.shipping_status === 'shipped') {
+                    var cid = Number(item.actual_carrier_id || 0);
+                    addShippedCarrier(cid, item.is_reconciled);
                 }
             });
         }
 
-        if (hasPendingItems || !o.shipments || o.shipments.length === 0) {
+        // Build badges for each shipped carrier
+        shippedCarriers.forEach(function(sc) {
+            var found = (_dhctt.carriers || []).find(function(c){ return c.id === sc.cid; });
+            var cname = found ? found.name : ('NVC #' + sc.cid);
+            var label = '';
+            if (sc.isReconciled) {
+                label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(TT 1 Phần - Chưa Thu Đủ)</small></span>';
+            } else {
+                label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Tiền Chưa Về)</small></span>';
+            }
+            if (carriers.indexOf(label) === -1) {
+                carriers.push(label);
+            }
+        });
+
+        if (hasPendingItems || shippedCarriers.length === 0) {
             var label = '<span class="dhctt-carrier-badge pending" title="Chưa gửi hàng lần nào hoặc phần chưa gửi">Chưa Gửi Đơn</span>';
             if (carriers.indexOf(label) === -1) {
                 carriers.unshift(label);

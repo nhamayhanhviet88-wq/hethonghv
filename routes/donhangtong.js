@@ -312,7 +312,29 @@ module.exports = async function(fastify) {
 
                     UNION
 
-                    -- 2. Pending / Chưa Gửi Đơn state: if no shipments, or if there is any pending item.
+                    -- 1b. Shipped carriers from items (fallback for legacy)
+                    SELECT DISTINCT
+                        o.id AS order_id,
+                        oi.actual_carrier_id AS carrier_id,
+                        o.order_date AS assoc_date,
+                        o.remaining_amount
+                    FROM filtered_unpaid o
+                    JOIN dht_order_items oi ON oi.dht_order_id = CAST(o.id AS integer)
+                    WHERE o.order_type = 'dht_order'
+                      AND o.remaining_amount > 0
+                      AND oi.shipping_status = 'shipped'
+                      AND oi.actual_carrier_id IS NOT NULL AND oi.actual_carrier_id > 0
+                      AND NOT EXISTS (
+                          SELECT 1 FROM payment_records pr 
+                          WHERE oi.tracking_code IS NOT NULL AND oi.tracking_code != '' 
+                            AND (pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
+                                 OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
+                                 OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%'))
+                      )
+
+                    UNION
+
+                    -- 2. Pending / Chưa Gửi Đơn state: if no shipments and no shipped items, or if there is any pending item.
                     SELECT DISTINCT
                         o.id AS order_id,
                         0 AS carrier_id,
@@ -322,7 +344,11 @@ module.exports = async function(fastify) {
                     WHERE o.order_type = 'dht_order'
                       AND o.remaining_amount > 0
                       AND (
-                          NOT EXISTS (SELECT 1 FROM dht_order_shipments s WHERE s.dht_order_id = CAST(o.id AS integer))
+                          (
+                              NOT EXISTS (SELECT 1 FROM dht_order_shipments s WHERE s.dht_order_id = CAST(o.id AS integer))
+                              AND
+                              NOT EXISTS (SELECT 1 FROM dht_order_items oi WHERE oi.dht_order_id = CAST(o.id AS integer) AND oi.shipping_status = 'shipped')
+                          )
                           OR
                           EXISTS (
                               SELECT 1 FROM dht_order_items oi
