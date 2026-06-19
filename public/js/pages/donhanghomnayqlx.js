@@ -62,20 +62,19 @@ async function renderDonhanghomnayqlxPage(container) {
         @keyframes dhtBlink{0%,100%{opacity:1}50%{opacity:0.4}}
         @keyframes qlxdhPulseBlink {
             0%, 100% {
-                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+                box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7);
                 filter: brightness(1);
                 transform: scale(1);
             }
             50% {
-                box-shadow: 0 0 8px 3px rgba(220, 38, 38, 0.4);
-                filter: brightness(1.2);
+                box-shadow: 0 0 8px 3px rgba(168, 85, 247, 0.4);
+                filter: brightness(1.15);
                 transform: scale(1.03);
             }
         }
         .qlxdh-hen-homnay {
             animation: qlxdhPulseBlink 1.2s infinite ease-in-out;
-            border: 1px solid #fca5a5 !important;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+            border: 1px solid #d8b4fe !important;
         }
     </style>
     <div style="max-width:1600px;margin:0 auto;padding:16px;">
@@ -398,7 +397,7 @@ function _qlxdhFormatRescheduleStatus(o) {
         const diffDays = Math.round((d2.getTime() - d1.getTime()) / 86400000);
         
         if (diffDays === 0) {
-            return { label: 'QLX Hẹn Hôm Nay', color: '#ffffff', bg: 'linear-gradient(135deg, #dc2626, #ef4444)', class: 'qlxdh-hen-homnay' };
+            return { label: 'QLX Hẹn Hôm Nay', color: '#581c87', bg: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)', class: 'qlxdh-hen-homnay' };
         } else if (diffDays === 1) {
             return { label: 'QLX Hẹn Hôm Qua', color: '#d97706', bg: '#fffbeb', class: '' };
         } else if (diffDays === 2) {
