@@ -409,14 +409,14 @@ function _qlxdhBuildTable(orders) {
         return `<span class="shimmer-sparkle">${hh}:${mm} ${dayName} - ${day}/${month}</span>`;
     };
 
-    const headers = ['','Phiếu Gửi','Gửi Dự Kiến','Hẹn Lại','🚛 Ngày Gửi','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'];
+    const headers = ['','Tình Trạng','Phiếu Gửi','Gửi Dự Kiến','Hẹn Lại','🚛 Ngày Gửi','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'];
     const filteredHeaders = isQLX ? headers.filter(h => h !== 'SĐT') : headers;
 
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
         ${filteredHeaders.map(h => {
-            const align = (h === 'Phiếu Gửi' || h === '') ? 'center' : 'left';
+            const align = (h === 'Phiếu Gửi' || h === 'Tình Trạng' || h === '') ? 'center' : 'left';
             return `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">${h}</th>`;
         }).join('')}
     </tr></thead><tbody>`;
@@ -485,6 +485,10 @@ function _qlxdhBuildTable(orders) {
             <span id="qlxdhChevron_${o.id}" style="font-size:14px;cursor:pointer;user-select:none;color:#64748b;font-weight:bold;padding:4px;">▶</span>
         </td>`;
 
+        const menu = _qlxdhGetOrderMenu(o);
+        const statusBadge = `<span style="background:${menu.bg};color:${menu.color};border:1px solid ${menu.color}40;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block;">${menu.label}</span>`;
+        html += `<td style="padding:8px 6px;text-align:center;vertical-align:middle;">${statusBadge}</td>`;
+
         html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
         html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;white-space:nowrap;">${formatExpectedShipDateWithDay(o.expected_ship_date)}</td>`;
         
@@ -550,7 +554,7 @@ function _qlxdhBuildTable(orders) {
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.cskh_name || '—'}</td>`;
         html += '</tr>';
 
-        const colCount = isQLX ? 11 : 12;
+        const colCount = isQLX ? 12 : 13;
         const itemsTableHtml = _qlxdhBuildItemsTable(o);
         html += `<tr id="qlxdhItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
             <td colspan="${colCount}" style="padding:12px 16px;">
