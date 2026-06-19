@@ -201,10 +201,12 @@ function _qlxdhOnCskhChange(val) {
 function _qlxdhRenderSearchBar() {
     const sb = document.getElementById('qlxdhSearchBar');
     if (!sb) return;
+    const isQLX = window._currentUser && window._currentUser.role === 'quan_ly_xuong';
+    const placeholderText = isQLX ? "Tìm mã đơn hàng, tên khách..." : "Tìm mã đơn hàng, SĐT, tên khách...";
     sb.innerHTML = `<div style="display:flex;gap:8px;align-items:center;">
         <div style="flex:1;max-width:420px;position:relative;">
             <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;">🔍</span>
-            <input type="text" id="qlxdhSearchInput" value="${_qlxdhSearchVal}" oninput="_qlxdhOnSearch(this.value)" placeholder="Tìm mã đơn hàng, SĐT, tên khách..." style="width:100%;padding:9px 12px 9px 36px;border:2px solid #fbbf24;border-radius:10px;font-size:13px;font-weight:600;background:#fffef5;outline:none;transition:border .2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fbbf24'">
+            <input type="text" id="qlxdhSearchInput" value="${_qlxdhSearchVal}" oninput="_qlxdhOnSearch(this.value)" placeholder="${placeholderText}" style="width:100%;padding:9px 12px 9px 36px;border:2px solid #fbbf24;border-radius:10px;font-size:13px;font-weight:600;background:#fffef5;outline:none;transition:border .2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fbbf24'">
         </div>
     </div>`;
 }
@@ -261,10 +263,11 @@ async function _qlxdhLoadOrders() {
 function _qlxdhApplySearch() {
     let list = _qlxdhOrders.slice();
     const q = (_qlxdhSearchVal || '').toLowerCase().trim();
+    const isQLX = window._currentUser && window._currentUser.role === 'quan_ly_xuong';
     if (q) {
         list = list.filter(o => {
             return (o.order_code || '').toLowerCase().includes(q)
-                || (o.customer_phone || '').toLowerCase().includes(q)
+                || (!isQLX && (o.customer_phone || '').toLowerCase().includes(q))
                 || (o.customer_name || '').toLowerCase().includes(q);
         });
     } else {
@@ -372,6 +375,7 @@ function _qlxdhRenderContent() {
 function _qlxdhBuildTable(orders) {
     const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
     const today = vnDateStr();
+    const isQLX = window._currentUser && window._currentUser.role === 'quan_ly_xuong';
 
     const formatExpectedShipDateWithDay = (dateVal) => {
         if (!dateVal) return '—';
@@ -397,10 +401,13 @@ function _qlxdhBuildTable(orders) {
         return `<span class="shimmer-sparkle">${hh}:${mm} ${dayName} - ${day}/${month}</span>`;
     };
 
+    const headers = ['','Phiếu Gửi','Gửi Dự Kiến','Hẹn Lại','🚛 Ngày Gửi','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'];
+    const filteredHeaders = isQLX ? headers.filter(h => h !== 'SĐT') : headers;
+
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','Phiếu Gửi','Gửi Dự Kiến','Hẹn Lại','🚛 Ngày Gửi','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'].map(h => {
+        ${filteredHeaders.map(h => {
             const align = (h === 'Phiếu Gửi' || h === '') ? 'center' : 'left';
             return `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">${h}</th>`;
         }).join('')}
@@ -458,7 +465,13 @@ function _qlxdhBuildTable(orders) {
             progressBadge = `<span style="color:#94a3b8;font-style:italic">—</span>`;
         }
 
-        html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};cursor:pointer;" onclick="window._dhtDetailSource='shipping';_dhtShowDetail('${o.id}')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'" title="Xem chi tiết đơn hàng">`;
+        let trAttrs = '';
+        if (isQLX) {
+            trAttrs = `style="border-bottom:1px solid #f1f5f9;background:${rowBg};" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'"`;
+        } else {
+            trAttrs = `style="border-bottom:1px solid #f1f5f9;background:${rowBg};cursor:pointer;" onclick="window._dhtDetailSource='shipping';_dhtShowDetail('${o.id}')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'" title="Xem chi tiết đơn hàng"`;
+        }
+        html += `<tr ${trAttrs}>`;
         
         html += `<td style="padding:8px 6px;text-align:center;" onclick="event.stopPropagation();_qlxdhToggleOrderItems('${o.id}')">
             <span id="qlxdhChevron_${o.id}" style="font-size:14px;cursor:pointer;user-select:none;color:#64748b;font-weight:bold;padding:4px;">▶</span>
@@ -523,13 +536,16 @@ function _qlxdhBuildTable(orders) {
         </td>`;
 
         html += `<td style="padding:8px 6px;font-size:11px;color:#334155;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${o.customer_name||''}">${o.customer_name || '—'}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '—'}</td>`;
+        if (!isQLX) {
+            html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '—'}</td>`;
+        }
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.cskh_name || '—'}</td>`;
         html += '</tr>';
 
+        const colCount = isQLX ? 11 : 12;
         const itemsTableHtml = _qlxdhBuildItemsTable(o);
         html += `<tr id="qlxdhItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
-            <td colspan="12" style="padding:12px 16px;">
+            <td colspan="${colCount}" style="padding:12px 16px;">
                 <div style="font-size:12px;font-weight:800;color:#1e3a5f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                     <span>📋 Danh sách phiếu sản phẩm của đơn ${o.order_code}</span>
                 </div>

@@ -74,7 +74,7 @@ body{font-family:Inter,system-ui,sans-serif;background:#f1f5f9;color:#1e293b;-we
     <h1>🏭 ĐƠN HÀNG HÔM NAY QLX</h1>
     <div class="search-box">
         <span class="icon">🔎</span>
-        <input id="mSearch" placeholder="Mã đơn, SĐT, tên KH..." autocomplete="off">
+        <input id="mSearch" placeholder="Mã đơn, tên KH..." autocomplete="off">
     </div>
 </div>
 
@@ -183,8 +183,7 @@ function updateTabsUI() {
         if (_search) {
             cnt = list.filter(o => 
                 (o.order_code || '').toLowerCase().includes(_search) ||
-                (o.customer_name || '').toLowerCase().includes(_search) ||
-                (o.customer_phone || '').toLowerCase().includes(_search)
+                (o.customer_name || '').toLowerCase().includes(_search)
             ).length;
         } else {
             cnt = list.length;
@@ -234,8 +233,7 @@ function render() {
                 if (_search) {
                     filteredOrders = ordersList.filter(o => 
                         (o.order_code || '').toLowerCase().includes(_search) ||
-                        (o.customer_name || '').toLowerCase().includes(_search) ||
-                        (o.customer_phone || '').toLowerCase().includes(_search)
+                        (o.customer_name || '').toLowerCase().includes(_search)
                     );
                 }
 
@@ -279,8 +277,7 @@ function render() {
     if (_search) {
         orders = orders.filter(o => 
             (o.order_code || '').toLowerCase().includes(_search) ||
-            (o.customer_name || '').toLowerCase().includes(_search) ||
-            (o.customer_phone || '').toLowerCase().includes(_search)
+            (o.customer_name || '').toLowerCase().includes(_search)
         );
     }
 
@@ -343,7 +340,6 @@ function buildCardsHTML(orders) {
                     <span style="font-size:11px;color:#94a3b8;font-weight:700;">${o.category_name || '—'}</span>
                 </div>
                 <div class="oc-customer">${o.customer_name || '—'}</div>
-                <div class="oc-phone">${o.customer_phone || '—'}</div>
                 <div class="oc-details">
                     <span>Số lượng: <b>${o.total_quantity || 0}</b></span>
                 </div>
@@ -557,8 +553,7 @@ document.getElementById('mSearch').addEventListener('input', e => {
                 const list = _data[t] || [];
                 counts[t] = list.filter(o => 
                     (o.order_code || '').toLowerCase().includes(_search) ||
-                    (o.customer_name || '').toLowerCase().includes(_search) ||
-                    (o.customer_phone || '').toLowerCase().includes(_search)
+                    (o.customer_name || '').toLowerCase().includes(_search)
                 ).length;
             });
             
