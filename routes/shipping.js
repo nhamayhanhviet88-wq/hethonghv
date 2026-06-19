@@ -441,7 +441,7 @@ module.exports = async function(fastify) {
 
         const orders = await db.all(`
             SELECT o.id, o.order_code, o.order_date, o.expected_ship_date,
-                o.rescheduled_ship_date, o.reschedule_reason,
+                o.rescheduled_ship_date, o.rescheduled_ship_hour, o.rescheduled_ship_minute, o.reschedule_reason,
                 o.shipping_status, o.shipping_priority, o.delivery_progress,
                 o.customer_name, o.customer_phone, o.province, o.address,
                 o.tracking_code, o.carrier_phone, o.shipping_bill_link,

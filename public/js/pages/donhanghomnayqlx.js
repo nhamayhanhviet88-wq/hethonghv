@@ -397,7 +397,7 @@ function _qlxdhBuildTable(orders) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','Phiếu Gửi','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'].map(h => {
+        ${['','Phiếu Gửi','Gửi Dự Kiến','Hẹn Lại','🚛 Ngày Gửi','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'].map(h => {
             const align = (h === 'Phiếu Gửi' || h === '') ? 'center' : 'left';
             return `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">${h}</th>`;
         }).join('')}
@@ -463,9 +463,24 @@ function _qlxdhBuildTable(orders) {
 
         html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
         html += `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#1e293b;white-space:nowrap;">${formatExpectedShipDateWithDay(o.expected_ship_date)}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;white-space:nowrap;">${formatActualShipDateWithDay(o.shipped_at)}</td>`;
         
-        html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span onclick="event.stopPropagation(); _qlxdhShowHistory('${o.id}', '${o.order_code}')" style="color:#d97706;font-weight:700;cursor:pointer;text-decoration:underline;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">—</span>'}</td>`;
+        let rescheduleCell = '<span style="color:#d1d5db;">—</span>';
+        if (o.rescheduled_ship_date) {
+            const rDate = new Date(o.rescheduled_ship_date + 'T00:00:00+07:00');
+            const dayNum = rDate.getDate();
+            const monthNum = rDate.getMonth() + 1;
+            const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            const dayOfWeekName = daysOfWeek[rDate.getDay()];
+            
+            let timePrefix = '';
+            if (o.rescheduled_ship_hour !== null && o.rescheduled_ship_hour !== undefined &&
+                o.rescheduled_ship_minute !== null && o.rescheduled_ship_minute !== undefined) {
+                timePrefix = `${String(o.rescheduled_ship_hour).padStart(2, '0')}:${String(o.rescheduled_ship_minute).padStart(2, '0')} `;
+            }
+            rescheduleCell = `<span onclick="event.stopPropagation(); _qlxdhShowHistory('${o.id}', '${o.order_code}')" style="color:#d97706;font-weight:700;cursor:pointer;text-decoration:underline;white-space:nowrap;">📅 ${timePrefix}${dayOfWeekName} ${dayNum}/${monthNum}</span>`;
+        }
+        html += `<td style="padding:8px 6px;font-size:11px;">${rescheduleCell}</td>`;
+        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;white-space:nowrap;">${formatActualShipDateWithDay(o.shipped_at)}</td>`;
         
         html += `<td style="padding:8px 6px;" ${tienDoClick}>${progressBadge}</td>`;
 
