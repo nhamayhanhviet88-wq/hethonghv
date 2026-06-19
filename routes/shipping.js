@@ -896,13 +896,6 @@ module.exports = async function(fastify) {
         if (page_type === 'qlx') {
             const paramsList = [countTargetDate];
             let qlxVisibilityFilter = '';
-            if (!FULL_VIEW_ROLES.includes(userRole)) {
-                const kt = await isKeToan(userId);
-                if (!kt) {
-                    qlxVisibilityFilter = ` AND (created_by = $2 OR cskh_user_id = $2)`;
-                    paramsList.push(userId);
-                }
-            }
             counts = await db.get(`
                 SELECT
                     COUNT(*) FILTER (WHERE shipping_status = 'pending' AND expected_ship_date > $1::date) AS early_count,
