@@ -54,6 +54,13 @@ async function renderDonhanghomnayqlxPage(container) {
     <div style="max-width:1600px;margin:0 auto;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
             <h2 style="margin:0;font-size:22px;color:#122546;font-weight:800;display:flex;align-items:center;gap:8px;">📦 Đơn Hàng Hôm Nay QLX</h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+                ${currentUser && currentUser.role === 'giam_doc' ? `
+                <button onclick="_qlxdhOpenRescheduleLimitModal()" style="padding:8px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:800;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 10px rgba(217,119,6,0.25);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
+                    📅 Giới Hạn Hẹn Lại
+                </button>
+                ` : ''}
+            </div>
         </div>
         <div style="display:flex;gap:16px;align-items:flex-start;">
             <div id="qlxdhSidebar" style="width:220px;flex-shrink:0;"></div>
@@ -714,7 +721,7 @@ async function _qlxdhShowReschedule(id, code) {
     
     let limitVal = null;
     try {
-        const configRes = await apiCall('/api/app-config/reschedule_limit_days');
+        const configRes = await apiCall('/api/app-config/reschedule_limit_days_qlx');
         if (configRes && configRes.value) {
             limitVal = parseInt(configRes.value, 10);
         }
@@ -834,7 +841,7 @@ async function _qlxdhDoReschedule(id) {
     if (_qlxdhHolidayMap[newDate]) { alert('⚠️ Không được hẹn vào ngày lễ: ' + _qlxdhHolidayMap[newDate]); return; }
     
     try {
-        const r = await apiCall(`/api/shipping/orders/${id}/reschedule`, 'POST', { new_date: newDate, reason: reason.trim() });
+        const r = await apiCall(`/api/shipping/orders/${id}/reschedule`, 'POST', { new_date: newDate, reason: reason.trim(), page_type: 'qlx' });
         if (r.error) { alert(r.error); return; }
         showToast(r.message || '✅ Đã hẹn lại');
         document.getElementById('qlxdhRescheduleModal')?.remove();
@@ -1601,6 +1608,83 @@ async function _dhtShowTraSoatModal(orderId, orderCode) {
     }
 }
 
+async function _qlxdhOpenRescheduleLimitModal() {
+    document.getElementById('qlxdhRescheduleLimitModal')?.remove();
+    
+    const m = document.createElement('div');
+    m.id = 'qlxdhRescheduleLimitModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    
+    m.innerHTML = `<div style="background:white;border-radius:16px;width:450px;max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;display:flex;flex-direction:column;">
+        <div style="background:linear-gradient(135deg,#d97706,#f59e0b);padding:18px 24px;color:white;display:flex;align-items:center;justify-content:between;">
+            <div style="font-weight:800;font-size:16px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">📅 Giới Hạn Hẹn Lại (Hôm Nay QLX)</div>
+            <button onclick="document.getElementById('qlxdhRescheduleLimitModal')?.remove()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;font-weight:bold;margin-left:auto;">×</button>
+        </div>
+        <div style="padding:24px;font-size:13px;color:#334155;" id="qlxdhRescheduleLimitBody">
+            <div style="display:flex;justify-content:center;padding:20px 0;">
+                <div style="display:inline-block;width:24px;height:24px;border:3px solid #f3f3f3;border-top:3px solid #d97706;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            </div>
+        </div>
+        <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:12px;justify-content:flex-end;">
+            <button onclick="document.getElementById('qlxdhRescheduleLimitModal')?.remove()" style="padding:9px 18px;border:1px solid #cbd5e1;border-radius:10px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13px;transition:all 0.2s;">Hủy bỏ</button>
+            <button id="qlxdhSaveRescheduleLimitBtn" onclick="_qlxdhSaveRescheduleLimitSettings()" style="padding:9px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 4px 10px rgba(5,150,105,0.25);transition:all 0.2s;" disabled>Lưu Cài Đặt</button>
+        </div>
+    </div>`;
+    
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    
+    try {
+        const res = await apiCall('/api/app-config/reschedule_limit_days_qlx');
+        const limitVal = res && res.value ? res.value : '';
+        const bodyEl = document.getElementById('qlxdhRescheduleLimitBody');
+        if (!bodyEl) return;
+        
+        bodyEl.innerHTML = `
+            <div style="margin-bottom:12px;font-weight:700;color:#1e293b;">Số ngày giới hạn hẹn lại tối đa cho QLX:</div>
+            <input type="number" id="qlxdhRescheduleLimitInput" value="${limitVal}" placeholder="Nhập số ngày (VD: 3)..." style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:14px;font-weight:600;color:#1e293b;">
+            <div style="margin-top:8px;font-size:11px;color:#64748b;line-height:1.4;">
+                * Thiết lập số ngày tối đa mà QLX có thể chọn khi hẹn lại đơn hàng gửi. Hệ thống sẽ tự động bỏ qua ngày Chủ Nhật và các ngày Lễ khi tính các ngày gần nhất.
+                <br>
+                * Để trống hoặc nhập 0 để tắt giới hạn (QLX có thể chọn ngày bất kỳ, ngoại trừ Chủ Nhật và Lễ).
+            </div>
+        `;
+        document.getElementById('qlxdhSaveRescheduleLimitBtn').disabled = false;
+    } catch (err) {
+        const bodyEl = document.getElementById('qlxdhRescheduleLimitBody');
+        if (bodyEl) bodyEl.innerHTML = `<div style="text-align:center;color:#dc2626;font-weight:700;padding:20px;">Lỗi tải dữ liệu: ${err.message}</div>`;
+    }
+}
+
+async function _qlxdhSaveRescheduleLimitSettings() {
+    const btn = document.getElementById('qlxdhSaveRescheduleLimitBtn');
+    const input = document.getElementById('qlxdhRescheduleLimitInput');
+    if (!input) return;
+    
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Đang lưu...';
+    }
+    
+    try {
+        const val = input.value.trim();
+        const r = await apiCall('/api/app-config/reschedule_limit_days_qlx', 'PUT', { value: val });
+        if (r.error) {
+            alert(r.error);
+        } else {
+            showToast('✅ Đã lưu cài đặt Giới Hạn Hẹn Lại QLX');
+            document.getElementById('qlxdhRescheduleLimitModal')?.remove();
+        }
+    } catch (err) {
+        alert('Lỗi khi lưu cài đặt: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Lưu Cài Đặt';
+        }
+    }
+}
+
 // Bind to window to allow HTML onclick access
 window.renderDonhanghomnayqlxPage = renderDonhanghomnayqlxPage;
 window._qlxdhSetFilter = _qlxdhSetFilter;
@@ -1622,3 +1706,5 @@ window._qlxdhRemoveErrorImage = _qlxdhRemoveErrorImage;
 window._qlxdhUploadErrorVideo = _qlxdhUploadErrorVideo;
 window._qlxdhSubmitError = _qlxdhSubmitError;
 window._dhtShowTraSoatModal = _dhtShowTraSoatModal;
+window._qlxdhOpenRescheduleLimitModal = _qlxdhOpenRescheduleLimitModal;
+window._qlxdhSaveRescheduleLimitSettings = _qlxdhSaveRescheduleLimitSettings;

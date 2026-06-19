@@ -1912,14 +1912,41 @@ module.exports = async function(fastify) {
         const userId = request.user.id;
         const userRole = request.user.role;
 
-        if (userRole !== 'giam_doc') {
-            const kt = await isKeToan(userId);
-            if (!kt) return reply.code(403).send({ error: '🔒 Chỉ Kế Toán mới được hẹn lại ngày gửi' });
-        }
-
-        const { new_date, reason } = request.body || {};
+        const { new_date, reason, page_type } = request.body || {};
         if (!new_date) return reply.code(400).send({ error: 'Vui lòng chọn ngày gửi mới' });
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do hẹn lại' });
+
+        if (userRole !== 'giam_doc') {
+            const kt = await isKeToan(userId);
+            if (!kt) {
+                if (page_type === 'qlx') {
+                    // Check if they have don_hang_hom_nay_qlx permission
+                    let hasAccess = false;
+                    const userPerm = await db.get(
+                        `SELECT can_view FROM user_permissions WHERE user_id = $1 AND feature_key = 'don_hang_hom_nay_qlx'`,
+                        [userId]
+                    );
+                    if (userPerm) {
+                        if (userPerm.can_view === 1) hasAccess = true;
+                        else if (userPerm.can_view === -1) hasAccess = false;
+                    }
+                    if (!hasAccess && (!userPerm || userPerm.can_view === 0)) {
+                        const deptPerm = await db.get(
+                            `SELECT dp.can_view FROM department_permissions dp
+                             JOIN users u ON u.department_id = dp.department_id
+                             WHERE u.id = $1 AND dp.feature_key = 'don_hang_hom_nay_qlx'`,
+                            [userId]
+                        );
+                        if (deptPerm && deptPerm.can_view > 0) hasAccess = true;
+                    }
+                    if (!hasAccess) {
+                        return reply.code(403).send({ error: '🔒 Bạn không có quyền thực hiện thao tác này' });
+                    }
+                } else {
+                    return reply.code(403).send({ error: '🔒 Chỉ Kế Toán mới được hẹn lại ngày gửi' });
+                }
+            }
+        }
 
         const todayStr = vnDateStr(vnNow());
         if (new_date <= todayStr) return reply.code(400).send({ error: 'Ngày gửi mới phải sau hôm nay' });
@@ -1940,7 +1967,8 @@ module.exports = async function(fastify) {
 
         // Limit days check
         try {
-            const limitRow = await db.get("SELECT value FROM app_config WHERE key = 'reschedule_limit_days'");
+            const configKey = page_type === 'qlx' ? 'reschedule_limit_days_qlx' : 'reschedule_limit_days';
+            const limitRow = await db.get("SELECT value FROM app_config WHERE key = ?", [configKey]);
             if (limitRow && limitRow.value) {
                 const limitVal = parseInt(limitRow.value, 10);
                 if (limitVal > 0) {
