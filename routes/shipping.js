@@ -1968,12 +1968,20 @@ module.exports = async function(fastify) {
         const userId = request.user.id;
         const userRole = request.user.role;
 
-        const { new_date, reason, page_type, image_base64 } = request.body || {};
+        const { new_date, reason, page_type, image_base64, reschedule_hour, reschedule_minute } = request.body || {};
         if (!new_date) return reply.code(400).send({ error: 'Vui lòng chọn ngày gửi mới' });
-        if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do hẹn lại' });
+        if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do' });
 
-        if (page_type === 'qlx' && !image_base64) {
-            return reply.code(400).send({ error: '⚠️ Hình Ảnh Thúc Giục Nhân Sự Ra Hàng là bắt buộc' });
+        if (page_type === 'qlx') {
+            if (!image_base64) {
+                return reply.code(400).send({ error: '⚠️ Hình Ảnh Thúc Giục Nhân Sự Ra Hàng là bắt buộc' });
+            }
+            if (reschedule_hour === undefined || reschedule_hour === null || reschedule_hour === '') {
+                return reply.code(400).send({ error: '⚠️ Vui lòng chọn giờ hẹn' });
+            }
+            if (reschedule_minute === undefined || reschedule_minute === null || reschedule_minute === '') {
+                return reply.code(400).send({ error: '⚠️ Vui lòng chọn phút hẹn' });
+            }
         }
 
         if (userRole !== 'giam_doc') {
@@ -2097,9 +2105,9 @@ module.exports = async function(fastify) {
 
         // Save history
         await db.run(`
-            INSERT INTO dht_shipping_reschedules (dht_order_id, old_date, new_date, reason, rescheduled_by, image_url)
-            VALUES ($1, $2, $3, $4, $5, $6)
-        `, [orderId, oldDate, new_date, reason.trim(), userId, image_url]);
+            INSERT INTO dht_shipping_reschedules (dht_order_id, old_date, new_date, reason, rescheduled_by, image_url, reschedule_hour, reschedule_minute)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [orderId, oldDate, new_date, reason.trim(), userId, image_url, reschedule_hour !== undefined ? Number(reschedule_hour) : null, reschedule_minute !== undefined ? Number(reschedule_minute) : null]);
 
         // Update order
         await db.run(`
@@ -2108,9 +2116,11 @@ module.exports = async function(fastify) {
                 rescheduled_ship_date = $1,
                 reschedule_reason = $2,
                 last_updated_by = $3,
-                last_updated_at = NOW()
-            WHERE id = $4
-        `, [new_date, reason.trim(), userId, orderId]);
+                last_updated_at = NOW(),
+                rescheduled_ship_hour = $4,
+                rescheduled_ship_minute = $5
+            WHERE id = $6
+        `, [new_date, reason.trim(), userId, reschedule_hour !== undefined ? Number(reschedule_hour) : null, reschedule_minute !== undefined ? Number(reschedule_minute) : null, orderId]);
 
         return { success: true, message: `📅 Đã hẹn lại đơn ${order.order_code} sang ${new_date}` };
     });

@@ -676,7 +676,12 @@ async function start() {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_sr_order ON dht_shipping_reschedules(dht_order_id)`);
         try { await db.exec(`ALTER TABLE dht_shipping_reschedules ADD COLUMN image_url TEXT`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE dht_shipping_reschedules ADD COLUMN IF NOT EXISTS reschedule_hour INTEGER`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE dht_shipping_reschedules ADD COLUMN IF NOT EXISTS reschedule_minute INTEGER`); } catch(e) {}
     } catch(e) { console.error('[Shipping v8] Reschedules:', e.message); }
+
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS rescheduled_ship_hour INTEGER`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS rescheduled_ship_minute INTEGER`); } catch(e) {}
 
     // Shipping history table
     try {

@@ -2262,8 +2262,12 @@ async function _shShowHistory(id, code) {
                 rows.map((r, i) => `<div style="display:flex;gap:12px;padding:12px 0;${i < rows.length-1 ? 'border-bottom:1px solid #f1f5f9;' : ''}">
                     <div style="width:28px;height:28px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#2563eb;flex-shrink:0;">${rows.length - i}</div>
                     <div style="flex:1;">
-                        <div style="font-size:12px;font-weight:700;color:#1e293b;">${fmt(r.old_date)} → ${fmt(r.new_date)}</div>
+                        <div style="font-size:12px;font-weight:700;color:#1e293b;">
+                            ${fmt(r.old_date)} → ${fmt(r.new_date)}
+                            ${r.reschedule_hour !== null && r.reschedule_minute !== null ? ` (${String(r.reschedule_hour).padStart(2, '0')}:${String(r.reschedule_minute).padStart(2, '0')})` : ''}
+                        </div>
                         <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.reason || '\u2014'}</div>
+                        ${r.image_url ? `<div style="margin-top:6px;"><img src="${r.image_url}" style="max-width:150px;max-height:150px;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;" onclick="window.open('${r.image_url}', '_blank')"></div>` : ''}
                         <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Bởi: ${r.rescheduled_by_name || '\u2014'} • ${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}) : '\u2014'}</div>
                     </div>
                 </div>`).join('')}

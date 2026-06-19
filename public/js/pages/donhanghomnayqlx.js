@@ -814,29 +814,69 @@ async function _qlxdhShowReschedule(id, code) {
     const m = document.createElement('div');
     m.id = 'qlxdhRescheduleModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    m.innerHTML = `<div style="background:white;border-radius:16px;width:420px;max-width:95vw;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto;">
-        <div style="font-size:16px;font-weight:800;color:#122546;margin-bottom:16px;">📅 Hẹn Lại — ${code}</div>
-        <div style="margin-bottom:12px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">Ngày gửi mới <span style="color:#dc2626">*</span></label>
-            ${dateInputHtml}
-        </div>
-        <div style="margin-bottom:12px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">Lý do <span style="color:#dc2626">*</span></label>
-            <textarea id="qlxdhReason" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;resize:vertical;" placeholder="Nhập lý do hẹn lại..."></textarea>
-        </div>
-        <div style="margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">Hình Ảnh Thúc Giục Nhân Sự Ra Hàng <span style="color:#dc2626">*</span></label>
-            <div id="qlxdhPasteArea" style="border:1.5px dashed #cbd5e1;border-radius:8px;padding:14px;text-align:center;background:#f8fafc;color:#64748b;font-size:12.5px;font-weight:700;margin-top:4px;cursor:pointer;position:relative;" tabindex="0">
-                📋 Click vào đây rồi nhấn Ctrl+V để dán ảnh
-            </div>
-            <div id="qlxdhImagePreview" style="margin-top:8px;display:none;position:relative;width:120px;height:120px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">
-                <img id="qlxdhPreviewImg" src="" style="width:100%;height:100%;object-fit:cover;">
-                <button type="button" onclick="window._qlxdhClearRescheduleImage()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;">✕</button>
+    m.innerHTML = `<div style="background:white;border-radius:20px;width:440px;max-width:95vw;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;border:1px solid #e2e8f0;max-height:90vh;display:flex;flex-direction:column;">
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:20px 24px;display:flex;align-items:center;gap:10px;color:white;flex-shrink:0;">
+            <span style="font-size:20px;">📅</span>
+            <div>
+                <div style="font-size:16px;font-weight:800;letter-spacing:-0.025em;">Hẹn Lịch Gửi Mới</div>
+                <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Mã đơn: <span style="color:#38bdf8;font-weight:700;">${code}</span></div>
             </div>
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="document.getElementById('qlxdhRescheduleModal')?.remove()" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
-            <button id="qlxdhRescheduleBtn" onclick="_qlxdhDoReschedule('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:700;font-size:13px;">📅 Hẹn lại</button>
+        
+        <!-- Body -->
+        <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;flex:1;">
+            <!-- Ngày gửi mới -->
+            <div>
+                <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">📅 Ngày gửi mới <span style="color:#ef4444">*</span></label>
+                ${dateInputHtml}
+            </div>
+            
+            <!-- Giờ & Phút (chia 2 cột) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">🕐 Giờ hẹn <span style="color:#ef4444">*</span></label>
+                    <select id="qlxdhRescheduleHour" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;font-weight:600;color:#1e293b;background:white;cursor:pointer;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                        <option value="" disabled selected>-- Chọn giờ --</option>
+                        ${Array.from({length: 24}, (_, i) => `<option value="${i}">${String(i).padStart(2, '0')} giờ</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">⏱️ Phút hẹn <span style="color:#ef4444">*</span></label>
+                    <select id="qlxdhRescheduleMinute" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;font-weight:600;color:#1e293b;background:white;cursor:pointer;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                        <option value="" disabled selected>-- Chọn phút --</option>
+                        <option value="0">00 phút</option>
+                        <option value="15">15 phút</option>
+                        <option value="30">30 phút</option>
+                        <option value="45">45 phút</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Lý do -->
+            <div>
+                <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">📝 Lý do không ra đơn đúng ngày được <span style="color:#ef4444">*</span></label>
+                <textarea id="qlxdhReason" rows="3" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;resize:none;outline:none;transition:border-color 0.2s;" placeholder="Nhập lý do chi tiết..." onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+            </div>
+
+            <!-- Ảnh thúc giục -->
+            <div>
+                <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">📸 Hình Ảnh Thúc Giục Nhân Sự Ra Hàng <span style="color:#ef4444">*</span></label>
+                <div id="qlxdhPasteArea" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;background:#f8fafc;color:#64748b;font-size:13px;font-weight:600;margin-top:6px;cursor:pointer;position:relative;transition:all 0.2s;" tabindex="0">
+                    <div style="font-size:24px;margin-bottom:6px;">📋</div>
+                    Nhấp chuột vào đây rồi nhấn <b>Ctrl + V</b> để dán hình ảnh chụp màn hình
+                </div>
+                <div id="qlxdhImagePreview" style="margin-top:6px;display:none;position:relative;width:100%;height:140px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">
+                    <img id="qlxdhPreviewImg" src="" style="width:100%;height:100%;object-fit:contain;background:#f8fafc;">
+                    <button type="button" onclick="window._qlxdhClearRescheduleImage()" style="position:absolute;top:8px;right:8px;background:rgba(15,23,42,0.8);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:background 0.2s;">✕</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid #f1f5f9;display:flex;gap:12px;justify-content:flex-end;flex-shrink:0;">
+            <button onclick="document.getElementById('qlxdhRescheduleModal')?.remove()" style="padding:10px 20px;border:1.5px solid #cbd5e1;border-radius:8px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13.5px;transition:all 0.2s;">Hủy bộ</button>
+            <button id="qlxdhRescheduleBtn" onclick="_qlxdhDoReschedule('${id}')" style="padding:10px 24px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:800;font-size:13.5px;box-shadow:0 4px 6px -1px rgba(245,158,11,0.3);transition:all 0.2s;">📅 Xác nhận hẹn</button>
         </div>
     </div>`;
 
@@ -913,9 +953,14 @@ function _qlxdhCheckHoliday() {
 
 async function _qlxdhDoReschedule(id) {
     const newDate = document.getElementById('qlxdhNewDate')?.value;
+    const hour = document.getElementById('qlxdhRescheduleHour')?.value;
+    const minute = document.getElementById('qlxdhRescheduleMinute')?.value;
     const reason = document.getElementById('qlxdhReason')?.value;
+    
     if (!newDate) { alert('Chọn ngày gửi mới'); return; }
-    if (!reason?.trim()) { alert('Nhập lý do'); return; }
+    if (hour === undefined || hour === null || hour === '') { alert('⚠️ Vui lòng chọn giờ hẹn'); return; }
+    if (minute === undefined || minute === null || minute === '') { alert('⚠️ Vui lòng chọn phút hẹn'); return; }
+    if (!reason?.trim()) { alert('Nhập lý do không ra đơn đúng ngày được'); return; }
     if (!window._qlxdhRescheduleImageBase64) {
         alert('⚠️ Hình Ảnh Thúc Giục Nhân Sự Ra Hàng là bắt buộc!');
         return;
@@ -930,7 +975,9 @@ async function _qlxdhDoReschedule(id) {
             new_date: newDate,
             reason: reason.trim(),
             page_type: 'qlx',
-            image_base64: window._qlxdhRescheduleImageBase64
+            image_base64: window._qlxdhRescheduleImageBase64,
+            reschedule_hour: hour,
+            reschedule_minute: minute
         });
         if (r.error) { alert(r.error); return; }
         showToast(r.message || '✅ Đã hẹn lại');
@@ -957,7 +1004,10 @@ async function _qlxdhShowHistory(id, code) {
                 rows.map((r, i) => `<div style="display:flex;gap:12px;padding:12px 0;${i < rows.length-1 ? 'border-bottom:1px solid #f1f5f9;' : ''}">
                     <div style="width:28px;height:28px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#2563eb;flex-shrink:0;">${rows.length - i}</div>
                     <div style="flex:1;">
-                        <div style="font-size:12px;font-weight:700;color:#1e293b;">${fmt(r.old_date)} → ${fmt(r.new_date)}</div>
+                        <div style="font-size:12px;font-weight:700;color:#1e293b;">
+                            ${fmt(r.old_date)} → ${fmt(r.new_date)}
+                            ${r.reschedule_hour !== null && r.reschedule_minute !== null ? ` (${String(r.reschedule_hour).padStart(2, '0')}:${String(r.reschedule_minute).padStart(2, '0')})` : ''}
+                        </div>
                         <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.reason || '—'}</div>
                         ${r.image_url ? `<div style="margin-top:6px;"><img src="${r.image_url}" style="max-width:150px;max-height:150px;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;" onclick="window.open('${r.image_url}', '_blank')"></div>` : ''}
                         <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Bởi: ${r.rescheduled_by_name || '—'} • ${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}) : '—'}</div>
