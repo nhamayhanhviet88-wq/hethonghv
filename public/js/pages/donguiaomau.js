@@ -325,7 +325,8 @@ var _dgamStatusMap = {
     'hoan_hang': { label: 'Yêu Cầu Hoàn Mẫu', bg: '#fee2e2', color: '#991b1b' },
     'hoan_mau_xong': { label: 'Mẫu Áo Đã Hoàn', bg: '#f3e8ff', color: '#7e22ce' },
     'hoan_thanh': { label: 'Đã Gửi Mẫu', bg: '#dbeafe', color: '#1e40af' },
-    'da_chup_anh_mau_hoan': { label: 'Đã Chụp Ảnh Mẫu Hoàn', bg: '#ede9fe', color: '#6d28d9' }
+    'da_chup_anh_mau_hoan': { label: 'Đã Chụp Ảnh Mẫu Hoàn', bg: '#ede9fe', color: '#6d28d9' },
+    'trinh_da_kiem_tra': { label: 'Chị Trinh Đã Kiểm Tra', bg: '#ccfbf1', color: '#0f766e' }
 };
 
 function _dgamRenderRows(paged) {
@@ -347,7 +348,9 @@ function _dgamRenderRows(paged) {
     tbody.innerHTML = paged.map(function(o) {
         var st = o.status_hoan_hang 
             ? (o.status_gui_don_hoan 
-                ? (o.hoan_hang_received_proof_image ? _dgamStatusMap['da_chup_anh_mau_hoan'] : _dgamStatusMap['hoan_mau_xong']) 
+                ? (o.status_kiem_tra 
+                    ? _dgamStatusMap['trinh_da_kiem_tra'] 
+                    : (o.hoan_hang_received_proof_image ? _dgamStatusMap['da_chup_anh_mau_hoan'] : _dgamStatusMap['hoan_mau_xong'])) 
                 : _dgamStatusMap['hoan_hang']) 
             : (_dgamStatusMap[o.order_status] || { label: o.order_status || '—', bg: '#f1f5f9', color: '#475569' });
         var remaining = Number(o.remaining_amount) || 0;
