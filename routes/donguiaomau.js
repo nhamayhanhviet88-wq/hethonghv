@@ -180,10 +180,12 @@ module.exports = async function(fastify) {
                 GREATEST(0, COALESCE(d.total_amount, 0) - COALESCE(pr_all.paid_total, 0) - CASE WHEN d.shipping_fee_payer = 'hv' AND d.shipping_fee_method = 'ck' AND (d.tracking_code IS NULL OR d.tracking_code = '') AND NOT EXISTS (SELECT 1 FROM payment_records pr WHERE pr.order_ao_mau = d.sample_order_code AND pr.money_source = 'nha_van_chuyen') THEN COALESCE(d.shipping_fee, 0) ELSE 0 END) AS remaining_amount,
                 u.full_name AS created_by_name,
                 uu.full_name AS updated_by_name,
+                u_inspect.full_name AS inspect_by_name,
                 o_codes.closed_order_codes
             FROM don_gui_ao_mau d
             LEFT JOIN users u ON d.created_by = u.id
             LEFT JOIN users uu ON d.updated_by = uu.id
+            LEFT JOIN users u_inspect ON d.kiem_tra_by = u_inspect.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS deposit_total
                 FROM payment_records
@@ -266,8 +268,32 @@ module.exports = async function(fastify) {
                 if (order && isTargetCategory && !order.hoan_hang_received_proof_image) {
                     return reply.code(400).send({ error: '🔒 Mẫu áo chưa về nên chưa được kiểm tra!' });
                 }
+
+                const { hoan_tien_amount } = request.body;
+                await db.run(
+                    `UPDATE don_gui_ao_mau 
+                     SET status_kiem_tra = $1, 
+                         kiem_tra_at = NOW(), 
+                         kiem_tra_by = $2, 
+                         hoan_tien_amount = $3, 
+                         updated_at = NOW(), 
+                         updated_by = $2 
+                     WHERE id = $4`,
+                    [value, request.user.id, hoan_tien_amount !== undefined ? hoan_tien_amount : null, id]
+                );
+            } else {
+                await db.run(
+                    `UPDATE don_gui_ao_mau 
+                     SET status_kiem_tra = $1, 
+                         kiem_tra_at = NULL, 
+                         kiem_tra_by = NULL, 
+                         hoan_tien_amount = NULL, 
+                         updated_at = NOW(), 
+                         updated_by = $2 
+                     WHERE id = $3`,
+                    [value, request.user.id, id]
+                );
             }
-            await db.run(`UPDATE don_gui_ao_mau SET status_kiem_tra = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3`, [value, request.user.id, id]);
         } else {
             await db.run(`UPDATE don_gui_ao_mau SET ${field} = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3`, [value, request.user.id, id]);
         }
@@ -299,6 +325,7 @@ module.exports = async function(fastify) {
                 uu.full_name AS updated_by_name,
                 u_shipped.full_name AS shipped_by_name,
                 u_shipped_hoan.full_name AS hoan_shipped_by_name,
+                u_inspect.full_name AS inspect_by_name,
                 cr.name AS actual_carrier_name,
                 cr_hoan.name AS hoan_actual_carrier_name,
                 cr.tracking_url_template AS actual_carrier_tracking_url,
@@ -311,6 +338,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users uu ON d.updated_by = uu.id
             LEFT JOIN users u_shipped ON d.shipped_by = u_shipped.id
             LEFT JOIN users u_shipped_hoan ON d.hoan_hang_shipped_by = u_shipped_hoan.id
+            LEFT JOIN users u_inspect ON d.kiem_tra_by = u_inspect.id
             LEFT JOIN dht_carriers cr ON d.actual_carrier_id = cr.id
             LEFT JOIN dht_carriers cr_hoan ON d.hoan_hang_actual_carrier_id = cr_hoan.id
             LEFT JOIN cashflow_records cf_ship ON d.shipping_cashflow_id = cf_ship.id

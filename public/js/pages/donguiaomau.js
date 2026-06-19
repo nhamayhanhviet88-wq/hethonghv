@@ -2411,16 +2411,26 @@ async function _dgamShowInspectConfirmModal(id) {
         // 6. Checkbox xác nhận (bắt buộc tích mới cho ấn)
         let confirmCheckHTML = '';
         if (o.status_kiem_tra) {
+            const timeInspectVal = o.kiem_tra_at ? new Date(o.kiem_tra_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(',', '') : '—';
             confirmCheckHTML = `
-            <div style="background:#f0fdf4;border:1.5px solid #22c55e;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;">
-                <label style="display:inline-flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:#15803d;cursor:pointer;">
+            <div style="background:#f0fdf4;border:1.5px solid #22c55e;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left;">
+                <label style="display:inline-flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:#15803d;cursor:pointer;margin-bottom:8px;">
                     <input type="checkbox" id="dgamInspectCheckbox" checked disabled style="width:18px;height:18px;cursor:pointer;">
                     Đã xác nhận mẫu áo đã về công ty để hoàn tiền
                 </label>
+                <div style="border-top:1px solid #bbf7d0;padding-top:8px;font-size:12.5px;color:#166534;font-weight:600;display:flex;flex-direction:column;gap:4px;">
+                    <div>💰 Số tiền hoàn: <span style="font-weight:800;color:#15803d;">${o.hoan_tien_amount ? fmt(o.hoan_tien_amount) + 'đ' : '— (Không có)'}</span></div>
+                    <div>👤 Người kiểm tra: <span style="font-weight:800;color:#15803d;">${o.inspect_by_name || '—'}</span></div>
+                    <div>⏰ Thời gian kiểm tra: <span style="font-weight:800;color:#15803d;">${timeInspectVal}</span></div>
+                </div>
             </div>
             `;
         } else {
             confirmCheckHTML = `
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:14px;text-align:left;">
+                <label style="font-size:13.5px;font-weight:800;color:#334155;margin-bottom:6px;display:block;">Số Tiền Hoàn : không bắt buộc</label>
+                <input type="number" id="dgamRefundAmountInput" placeholder="Nhập số tiền hoàn (nếu có)..." style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-weight:700;color:#1e293b;outline:none;transition:border-color 0.15s;" onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='#cbd5e1'">
+            </div>
             <div style="background:#faf5ff;border:1.5px dashed #8b5cf6;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;">
                 <label style="display:inline-flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:#6b21a8;cursor:pointer;">
                     <input type="checkbox" id="dgamInspectCheckbox" onchange="_dgamToggleConfirmBtn()" style="width:18px;height:18px;cursor:pointer;">
@@ -2480,11 +2490,28 @@ function _dgamToggleConfirmBtn() {
 
 async function _dgamSaveInspectStatus(id, value) {
     try {
+        let hoanTienVal = null;
+        if (value) {
+            const input = document.getElementById('dgamRefundAmountInput');
+            if (input && input.value !== '') {
+                hoanTienVal = parseFloat(input.value) || 0;
+            }
+        }
         closeModal();
-        await _dgamTogSt(id, 'status_kiem_tra', value);
+        await apiCall('/api/don-gui-ao-mau/' + id + '/status', 'PATCH', { 
+            field: 'status_kiem_tra', 
+            value: value,
+            hoan_tien_amount: hoanTienVal
+        });
+        if (typeof showToast === 'function') {
+            showToast('✅ Đã cập nhật trạng thái thành công!');
+        }
+        await _dgamLoadOrders();
     } catch (e) {
         console.error(e);
-        showToast('Lỗi cập nhật trạng thái kiểm tra', 'error');
+        if (typeof showToast === 'function') {
+            showToast(e.message || 'Lỗi cập nhật trạng thái kiểm tra', 'error');
+        }
     }
 }
 
