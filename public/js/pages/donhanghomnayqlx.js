@@ -15,6 +15,14 @@ let _qlxdhSelectedMonth = 'all';
 let _qlxdhHolidayMap = {};
 let _qlxdhMaxDate = null;
 
+function _isQLXUser() {
+    return window._currentUser && (
+        window._currentUser.role === 'quan_ly_xuong' || 
+        window._currentUser.username === 'quanlyxuong' || 
+        window._currentUser.full_name === 'Lê Công Thực'
+    );
+}
+
 async function renderDonhanghomnayqlxPage(container) {
     _qlxdhFilter = 'today'; _qlxdhSearchVal = ''; _qlxdhCskhVal = ''; _qlxdhPage = 1;
     _qlxdhSelectedYear = 'all'; _qlxdhSelectedMonth = 'all';
@@ -201,7 +209,7 @@ function _qlxdhOnCskhChange(val) {
 function _qlxdhRenderSearchBar() {
     const sb = document.getElementById('qlxdhSearchBar');
     if (!sb) return;
-    const isQLX = window._currentUser && window._currentUser.role === 'quan_ly_xuong';
+    const isQLX = _isQLXUser();
     const placeholderText = isQLX ? "Tìm mã đơn hàng, tên khách..." : "Tìm mã đơn hàng, SĐT, tên khách...";
     sb.innerHTML = `<div style="display:flex;gap:8px;align-items:center;">
         <div style="flex:1;max-width:420px;position:relative;">
@@ -263,7 +271,7 @@ async function _qlxdhLoadOrders() {
 function _qlxdhApplySearch() {
     let list = _qlxdhOrders.slice();
     const q = (_qlxdhSearchVal || '').toLowerCase().trim();
-    const isQLX = window._currentUser && window._currentUser.role === 'quan_ly_xuong';
+    const isQLX = _isQLXUser();
     if (q) {
         list = list.filter(o => {
             return (o.order_code || '').toLowerCase().includes(q)
@@ -375,7 +383,7 @@ function _qlxdhRenderContent() {
 function _qlxdhBuildTable(orders) {
     const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
     const today = vnDateStr();
-    const isQLX = window._currentUser && window._currentUser.role === 'quan_ly_xuong';
+    const isQLX = _isQLXUser();
 
     const formatExpectedShipDateWithDay = (dateVal) => {
         if (!dateVal) return '—';

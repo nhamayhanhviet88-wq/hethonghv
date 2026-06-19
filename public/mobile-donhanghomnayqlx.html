@@ -138,6 +138,25 @@ function showToast(msg, type = 'success') {
 
 async function load() {
     try {
+        try {
+            const authRes = await api('/api/auth/me');
+            if (authRes && authRes.user) {
+                window._currentUser = authRes.user;
+            }
+        } catch (authError) {
+            console.error('Failed to load auth', authError);
+        }
+        
+        const isQLX = window._currentUser && (
+            window._currentUser.role === 'quan_ly_xuong' || 
+            window._currentUser.username === 'quanlyxuong' || 
+            window._currentUser.full_name === 'Lê Công Thực'
+        );
+        const searchInput = document.getElementById('mSearch');
+        if (searchInput) {
+            searchInput.placeholder = isQLX ? "Mã đơn, tên KH..." : "Mã đơn, SĐT, tên KH...";
+        }
+
         const res = await api('/api/qlx-orders/today-summary');
         if (res && res.tabs) {
             _data.som = res.tabs.som.orders || [];
@@ -173,6 +192,11 @@ async function load() {
 function updateTabsUI() {
     const tabs = ['xu_ly', 'som', 'hen_lai', 'hoan_thanh'];
     const colors = { xu_ly: '#dc2626', som: '#3b82f6', hen_lai: '#d97706', hoan_thanh: '#059669' };
+    const isQLX = window._currentUser && (
+        window._currentUser.role === 'quan_ly_xuong' || 
+        window._currentUser.username === 'quanlyxuong' || 
+        window._currentUser.full_name === 'Lê Công Thực'
+    );
     
     tabs.forEach(t => {
         const card = document.getElementById('tab_' + t);
@@ -183,7 +207,8 @@ function updateTabsUI() {
         if (_search) {
             cnt = list.filter(o => 
                 (o.order_code || '').toLowerCase().includes(_search) ||
-                (o.customer_name || '').toLowerCase().includes(_search)
+                (o.customer_name || '').toLowerCase().includes(_search) ||
+                (!isQLX && (o.customer_phone || '').toLowerCase().includes(_search))
             ).length;
         } else {
             cnt = list.length;
@@ -208,6 +233,11 @@ function setFilter(key) {
 
 function render() {
     const container = document.getElementById('mResults');
+    const isQLX = window._currentUser && (
+        window._currentUser.role === 'quan_ly_xuong' || 
+        window._currentUser.username === 'quanlyxuong' || 
+        window._currentUser.full_name === 'Lê Công Thực'
+    );
 
     if (_filter === 'hoan_thanh' && _config.hoan_thanh_mode === 'all') {
         if (_completedMonths.length === 0) {
@@ -233,7 +263,8 @@ function render() {
                 if (_search) {
                     filteredOrders = ordersList.filter(o => 
                         (o.order_code || '').toLowerCase().includes(_search) ||
-                        (o.customer_name || '').toLowerCase().includes(_search)
+                        (o.customer_name || '').toLowerCase().includes(_search) ||
+                        (!isQLX && (o.customer_phone || '').toLowerCase().includes(_search))
                     );
                 }
 
@@ -277,7 +308,8 @@ function render() {
     if (_search) {
         orders = orders.filter(o => 
             (o.order_code || '').toLowerCase().includes(_search) ||
-            (o.customer_name || '').toLowerCase().includes(_search)
+            (o.customer_name || '').toLowerCase().includes(_search) ||
+            (!isQLX && (o.customer_phone || '').toLowerCase().includes(_search))
         );
     }
 
@@ -302,6 +334,11 @@ function formatExpectedShipDateWithDay(dateVal) {
 
 function buildCardsHTML(orders) {
     let html = '';
+    const isQLX = window._currentUser && (
+        window._currentUser.role === 'quan_ly_xuong' || 
+        window._currentUser.username === 'quanlyxuong' || 
+        window._currentUser.full_name === 'Lê Công Thực'
+    );
     orders.forEach(o => {
         const prio = (o.shipping_priority || 'CHUẨN').toUpperCase();
         let prioClass = 'oc-prio-chuan';
@@ -333,6 +370,8 @@ function buildCardsHTML(orders) {
             </div>`;
         }
 
+        const phoneHtml = isQLX ? '' : `<div class="oc-phone" style="font-size:11px;color:#6b7280;font-family:monospace;margin-top:2px;">${o.customer_phone || '—'}</div>`;
+
         html += `
             <div class="order-card">
                 <div class="oc-top">
@@ -340,6 +379,7 @@ function buildCardsHTML(orders) {
                     <span style="font-size:11px;color:#94a3b8;font-weight:700;">${o.category_name || '—'}</span>
                 </div>
                 <div class="oc-customer">${o.customer_name || '—'}</div>
+                ${phoneHtml}
                 <div class="oc-details">
                     <span>Số lượng: <b>${o.total_quantity || 0}</b></span>
                 </div>
@@ -549,11 +589,17 @@ document.getElementById('mSearch').addEventListener('input', e => {
         if (_search) {
             const tabs = ['xu_ly', 'som', 'hen_lai', 'hoan_thanh'];
             const counts = {};
+            const isQLX = window._currentUser && (
+                window._currentUser.role === 'quan_ly_xuong' || 
+                window._currentUser.username === 'quanlyxuong' || 
+                window._currentUser.full_name === 'Lê Công Thực'
+            );
             tabs.forEach(t => {
                 const list = _data[t] || [];
                 counts[t] = list.filter(o => 
                     (o.order_code || '').toLowerCase().includes(_search) ||
-                    (o.customer_name || '').toLowerCase().includes(_search)
+                    (o.customer_name || '').toLowerCase().includes(_search) ||
+                    (!isQLX && (o.customer_phone || '').toLowerCase().includes(_search))
                 ).length;
             });
             
