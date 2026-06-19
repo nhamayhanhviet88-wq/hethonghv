@@ -1157,7 +1157,33 @@ module.exports = async function(fastify) {
                         COALESCE((SELECT op_in.is_completed FROM dht_order_production op_in WHERE op_in.dht_order_id = o.id AND op_in.step_id = 3), false)
                 END AS is_print_done,
                 order_items.items AS items,
-                COALESCE(order_shipments.shipments, '[]'::json) AS shipments
+                COALESCE(order_shipments.shipments, '[]'::json) AS shipments,
+                qlx.cut_done,
+                qlx.press_done,
+                qlx.sew_done,
+                qlx.finish_done,
+                qlx.required_steps,
+                (
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE qa.dht_order_id = o.id
+                          AND pf.name IN ('IN PET', 'IN DECAL')
+                    ) OR EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE pr.dht_order_id = o.id
+                          AND pr.print_field IN ('IN PET', 'IN DECAL')
+                    )
+                ) AS has_press_printing,
+                (
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qa
+                        WHERE qa.dht_order_id = o.id
+                    ) OR EXISTS (
+                        SELECT 1 FROM printing_records pr
+                        WHERE pr.dht_order_id = o.id
+                    )
+                ) AS has_any_printing
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -1233,6 +1259,98 @@ module.exports = async function(fastify) {
                 FROM dht_order_shipments s
                 WHERE s.dht_order_id = o.id
             ) order_shipments ON true
+            LEFT JOIN LATERAL (
+                SELECT 
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) 
+                            THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id AND is_cut_done = false)
+                            ELSE false
+                        END,
+                        false
+                    ) AS cut_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = o.id) 
+                            THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = o.id AND is_reported = false)
+                            ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 4 LIMIT 1)
+                        END,
+                        false
+                    ) AS press_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id) 
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM sewing_records sr
+                                WHERE sr.dht_order_id = o.id
+                                  AND (
+                                      (sr.contractor_id IS NULL AND NOT EXISTS (
+                                          SELECT 1 FROM finishing_records fr 
+                                          WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                                      ))
+                                      OR
+                                      (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                          SELECT 1 FROM qc_checklist_answers qca 
+                                          WHERE qca.sewing_record_id = sr.id
+                                      ))
+                                  )
+                            )
+                            ELSE false
+                        END,
+                        false
+                    ) AS sew_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = o.id) 
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM finishing_records fr 
+                                JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
+                                WHERE fr.dht_order_id = o.id
+                                  AND (
+                                      NOT EXISTS (
+                                          SELECT 1 FROM qc_checklist_answers qca 
+                                          WHERE qca.sewing_record_id = fr.sewing_record_id
+                                      )
+                                      OR
+                                      (sr.contractor_id IS NULL AND fr.is_completed = false)
+                                  )
+                            )
+                            ELSE (
+                                CASE 
+                                    WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id)
+                                    THEN NOT EXISTS (
+                                        SELECT 1 FROM sewing_records sr
+                                        WHERE sr.dht_order_id = o.id
+                                          AND (
+                                              (sr.contractor_id IS NULL AND NOT EXISTS (
+                                                  SELECT 1 FROM finishing_records fr 
+                                                  WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                                              ))
+                                              OR
+                                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                                  SELECT 1 FROM qc_checklist_answers qca 
+                                                  WHERE qca.sewing_record_id = sr.id
+                                              ))
+                                          )
+                                    )
+                                    ELSE false
+                                END
+                            )
+                        END,
+                        false
+                    ) AS finish_done,
+                    (
+                        SELECT string_agg(pp.step_id::text, ',')
+                        FROM dht_order_items oi
+                        JOIN dht_products p ON (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
+                        JOIN dht_product_process pp ON pp.product_id = p.id
+                        WHERE oi.dht_order_id = o.id AND pp.is_active = true
+                          AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+                          AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+                          AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+                          AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
+                    ) AS required_steps
+            ) qlx ON true
             ${where}
             ORDER BY ${orderBy}
         `,params);
@@ -1242,6 +1360,48 @@ module.exports = async function(fastify) {
             const catName = (o.category_name || '').toUpperCase();
             const isPetTem = catName === 'PET' || catName === 'TEM' ||
                              code.includes('PET') || code.includes('TEM');
+
+            // Calculate is_ready_to_ship flag for regular/PET/TEM orders
+            const hasUnsent = !o.shipped_at && o.shipping_status !== 'shipped' && (
+                !o.shipments || o.shipments.length === 0 ||
+                (o.items && o.items.some(item => !item.shipping_status || item.shipping_status === 'pending'))
+            );
+            
+            o.is_ready_to_ship = false;
+            if (hasUnsent) {
+                if (isPetTem) {
+                    o.is_ready_to_ship = !!o.is_print_done;
+                } else {
+                    const hasQlxProduction = o.cut_done || o.is_print_done || o.press_done || o.sew_done || o.finish_done;
+                    if (hasQlxProduction) {
+                        let requiredStepIds = null;
+                        if (o.required_steps) {
+                            requiredStepIds = new Set(o.required_steps.split(',').map(Number));
+                        } else {
+                            requiredStepIds = new Set([1, 2, 3, 4, 5, 6, 7]);
+                        }
+                        const needsCut = requiredStepIds.has(2);
+                        const needsPrint = requiredStepIds.has(3);
+                        let needsPress = requiredStepIds.has(4);
+                        if (o.has_any_printing && !isPetTem) {
+                            needsPress = !!o.has_press_printing;
+                        }
+                        const needsSew = requiredStepIds.has(5);
+                        const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+
+                        const cutOk = !needsCut || o.cut_done;
+                        const printOk = !needsPrint || o.is_print_done;
+                        const pressOk = !needsPress || o.press_done;
+                        const sewOk = !needsSew || o.sew_done;
+                        const finishOk = !needsFinishing || o.finish_done;
+
+                        o.is_ready_to_ship = cutOk && printOk && pressOk && sewOk && finishOk;
+                    } else {
+                        o.is_ready_to_ship = o.prod_total > 0 && o.prod_done === o.prod_total;
+                    }
+                }
+            }
+
             if (isPetTem) {
                 const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
                 o.prod_total = 2;
@@ -1256,23 +1416,10 @@ module.exports = async function(fastify) {
                     o.next_step_name = 'Chờ in';
                 }
             } else {
-                if (!o.shipped_at && o.shipping_status !== 'shipped' && o.prod_total > 0 && o.prod_done === o.prod_total) {
+                if (o.is_ready_to_ship) {
                     o.next_step_name = 'Kế toán gửi hàng';
-                }
-            }
-
-            // Calculate is_ready_to_ship flag for regular/PET/TEM orders
-            const hasUnsent = !o.shipped_at && o.shipping_status !== 'shipped' && (
-                !o.shipments || o.shipments.length === 0 ||
-                (o.items && o.items.some(item => !item.shipping_status || item.shipping_status === 'pending'))
-            );
-            
-            o.is_ready_to_ship = false;
-            if (hasUnsent) {
-                if (isPetTem) {
-                    o.is_ready_to_ship = !!o.is_print_done;
-                } else {
-                    o.is_ready_to_ship = o.prod_total > 0 && o.prod_done === o.prod_total;
+                } else if (o.prod_total > 0 && o.prod_done === o.prod_total) {
+                    o.next_step_name = 'Kế toán gửi hàng';
                 }
             }
 
