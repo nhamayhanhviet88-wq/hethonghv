@@ -442,18 +442,20 @@ module.exports = async function(fastify) {
             o.items = _processShippingOrderItems(o, itemsList, isPetTem);
         }
 
-        // ------------------ SAMPLE ORDERS (don_gui_ao_mau) MERGING ------------------
-        let sampleWhere = '';
-        const sampleParams = [];
         const todayParam = todayStr;
+        // ------------------ SAMPLE ORDERS (don_gui_ao_mau) MERGING ------------------
+        let mappedSampleOrders = [];
+        if (page_type !== 'qlx') {
+            let sampleWhere = '';
+            const sampleParams = [];
 
-        if (!FULL_VIEW_ROLES.includes(userRole)) {
-            const kt = await isKeToan(userId);
-            if (!kt && page_type !== 'qlx') {
-                sampleWhere += ` AND d.created_by = $1`;
-                sampleParams.push(userId);
+            if (!FULL_VIEW_ROLES.includes(userRole)) {
+                const kt = await isKeToan(userId);
+                if (!kt) {
+                    sampleWhere += ` AND d.created_by = $1`;
+                    sampleParams.push(userId);
+                }
             }
-        }
 
         let todayIdx = sampleParams.length + 1;
         if (filter === 'early') {
@@ -611,17 +613,20 @@ module.exports = async function(fastify) {
                  }]
              };
          });
+        }
 
          // ------------------ RETURN SAMPLE ORDERS ------------------
-         let hoanWhere = '';
-         const hoanParams = [];
-         if (!FULL_VIEW_ROLES.includes(userRole)) {
-             const kt = await isKeToan(userId);
-             if (!kt) {
-                 hoanWhere += ` AND d.created_by = $1`;
-                 hoanParams.push(userId);
+         let mappedHoanSampleOrders = [];
+         if (page_type !== 'qlx') {
+             let hoanWhere = '';
+             const hoanParams = [];
+             if (!FULL_VIEW_ROLES.includes(userRole)) {
+                 const kt = await isKeToan(userId);
+                 if (!kt) {
+                     hoanWhere += ` AND d.created_by = $1`;
+                     hoanParams.push(userId);
+                 }
              }
-         }
          let hoanTodayIdx = hoanParams.length + 1;
          if (filter === 'early') {
              hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $${hoanTodayIdx}::date < d.hoan_hang_ship_date`;
@@ -783,6 +788,7 @@ module.exports = async function(fastify) {
                  }]
              };
          });
+         }
  
          const combinedOrders = [...orders, ...mappedSampleOrders, ...mappedHoanSampleOrders];
 
@@ -823,47 +829,52 @@ module.exports = async function(fastify) {
             ${countVisibilityFilterDht}
         `, countParamsDht);
 
-        let countVisibilityFilter = '';
-        const countParams = [todayParam];
-        if (!FULL_VIEW_ROLES.includes(userRole)) {
-            const kt = await isKeToan(userId);
-            if (!kt) {
-                countVisibilityFilter = ` AND d.created_by = $2`;
-                countParams.push(userId);
+                let sampleCounts = null;
+        let sampleHoanCounts = null;
+        let sampleOverdueCount = null;
+
+        if (page_type !== 'qlx') {
+            let countVisibilityFilter = '';
+            const countParams = [todayParam];
+            if (!FULL_VIEW_ROLES.includes(userRole)) {
+                const kt = await isKeToan(userId);
+                if (!kt) {
+                    countVisibilityFilter = ` AND d.created_by = $2`;
+                    countParams.push(userId);
+                }
             }
+            
+            sampleCounts = await db.get(`
+                SELECT
+                    COUNT(*) FILTER (WHERE d.status_gui_don = false AND d.approval_date < d.ship_date AND $1::date < d.ship_date) AS early_count,
+                    COUNT(*) FILTER (WHERE d.status_gui_don = false AND (d.approval_date >= d.ship_date OR $1::date >= d.ship_date)) AS today_count,
+                    COUNT(*) FILTER (WHERE d.status_gui_don = true) AS shipped_count
+                FROM don_gui_ao_mau d
+                WHERE d.status_duyet = true AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
+                ${countVisibilityFilter}
+            `, countParams);
+
+            sampleHoanCounts = await db.get(`
+                SELECT
+                    COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $1::date < d.hoan_hang_ship_date) AS early_count,
+                    COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $1::date >= d.hoan_hang_ship_date) AS today_count,
+                    COUNT(*) FILTER (WHERE d.status_gui_don_hoan = true) AS shipped_count
+                FROM don_gui_ao_mau d
+                WHERE d.status_hoan_hang = true
+                ${countVisibilityFilter}
+            `, countParams);
+
+            sampleOverdueCount = await db.get(`
+                SELECT COUNT(*) AS cnt FROM don_gui_ao_mau d
+                WHERE (
+                    (d.status_duyet = true AND d.status_gui_don = false AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND d.ship_date < $1::date)
+                    OR
+                    (d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.hoan_hang_ship_date < $1::date)
+                )
+                ${countVisibilityFilter}
+            `, countParams);
         }
         
-        const sampleCounts = await db.get(`
-            SELECT
-                COUNT(*) FILTER (WHERE d.status_gui_don = false AND d.approval_date < d.ship_date AND $1::date < d.ship_date) AS early_count,
-                COUNT(*) FILTER (WHERE d.status_gui_don = false AND (d.approval_date >= d.ship_date OR $1::date >= d.ship_date)) AS today_count,
-                COUNT(*) FILTER (WHERE d.status_gui_don = true) AS shipped_count
-            FROM don_gui_ao_mau d
-            WHERE d.status_duyet = true AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
-            ${countVisibilityFilter}
-        `, countParams);
-
-        const sampleHoanCounts = await db.get(`
-            SELECT
-                COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $1::date < d.hoan_hang_ship_date) AS early_count,
-                COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $1::date >= d.hoan_hang_ship_date) AS today_count,
-                COUNT(*) FILTER (WHERE d.status_gui_don_hoan = true) AS shipped_count
-            FROM don_gui_ao_mau d
-            WHERE d.status_hoan_hang = true
-            ${countVisibilityFilter}
-        `, countParams);
-
-        const sampleOverdueCount = await db.get(`
-            SELECT COUNT(*) AS cnt FROM don_gui_ao_mau d
-            WHERE (
-                (d.status_duyet = true AND d.status_gui_don = false AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND d.ship_date < $1::date)
-                OR
-                (d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.hoan_hang_ship_date < $1::date)
-            )
-            ${countVisibilityFilter}
-        `, countParams);
-
-        // Overdue count
         const overdueCount = await db.get(`
             SELECT COUNT(*) AS cnt FROM dht_orders
             WHERE shipping_status IN ('pending','rescheduled')
