@@ -331,6 +331,23 @@ function _vatSelectMonth(yr, m) {
     _vatRenderTable();
 }
 
+// Helper to get category for a given order
+function _vatGetOrderCategory(o) {
+    if (!o.vat_exported) {
+        return { filter: 'chua_xuat', year: null, month: null };
+    } else if (!o.vat_contract_received || !o.vat_handover_received) {
+        return { filter: 'chua_thu_giay_to', year: null, month: null };
+    } else {
+        const dateVal = o.vat_exported_at || o.order_date;
+        if (dateVal) {
+            const date = new Date(dateVal);
+            const tzDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            return { filter: 'hoan_thanh', year: tzDate.getFullYear(), month: tzDate.getMonth() + 1 };
+        }
+        return { filter: 'hoan_thanh', year: null, month: null };
+    }
+}
+
 // Handle search input
 function _vatOnSearch(val) {
     _vatState.searchQuery = String(val || '').trim().toLowerCase();
@@ -340,6 +357,49 @@ function _vatOnSearch(val) {
     if (clearBtn) {
         clearBtn.style.display = _vatState.searchQuery ? 'block' : 'none';
     }
+
+    if (_vatState.searchQuery) {
+        // Find matches across all orders
+        const matches = _vatState.orders.filter(o => {
+            return String(o.order_code || '').toLowerCase().includes(_vatState.searchQuery) ||
+                   String(o.customer_name || '').toLowerCase().includes(_vatState.searchQuery) ||
+                   String(o.customer_phone || '').toLowerCase().includes(_vatState.searchQuery);
+        });
+
+        if (matches.length > 0) {
+            // Check if any match is in the current active filter
+            const hasMatchInCurrentTab = matches.some(o => {
+                const cat = _vatGetOrderCategory(o);
+                if (cat.filter !== _vatState.activeFilter) return false;
+                if (cat.filter === 'hoan_thanh') {
+                    return cat.year === _vatState.activeYear && cat.month === _vatState.activeMonth;
+                }
+                return true;
+            });
+
+            if (!hasMatchInCurrentTab) {
+                // Jump to the tab of the first match
+                const firstMatch = matches[0];
+                const cat = _vatGetOrderCategory(firstMatch);
+                
+                _vatState.activeFilter = cat.filter;
+                _vatState.activeYear = cat.year;
+                _vatState.activeMonth = cat.month;
+                if (cat.filter === 'hoan_thanh' && cat.year) {
+                    _vatState.openYears[cat.year] = true;
+                }
+
+                // Update sidebar active classes
+                const itemChuaXuat = document.getElementById('vatSbChuaXuat');
+                const itemChuaThuGiayTo = document.getElementById('vatSbChuaThuGiayTo');
+                if (itemChuaXuat) itemChuaXuat.classList.toggle('active', cat.filter === 'chua_xuat');
+                if (itemChuaThuGiayTo) itemChuaThuGiayTo.classList.toggle('active', cat.filter === 'chua_thu_giay_to');
+
+                _vatRenderSidebar(); // Redraw sidebar tree to update active class and expand year
+            }
+        }
+    }
+
     _vatRenderTable();
 }
 
