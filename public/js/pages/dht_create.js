@@ -134,7 +134,7 @@ async function _dhtShowCreateFree() {
         +'<div class="form-group"><label>Tổng Tiền Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
         +'<div class="form-group"><label>Tiền Phụ Phí Thêm</label><input id="_co_surTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#d97706"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
+        +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="" placeholder="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
         +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
@@ -603,7 +603,7 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Tiền Phụ Phí Thêm</label><input id="_co_surTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#d97706"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
+        +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="" placeholder="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
         +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
@@ -738,7 +738,8 @@ async function _dhtGoStep2() {
         _dhtRenderPhieuRows();
         _dhtRenderSurcharges();
         if (document.getElementById('_co_additionalVat')) {
-            document.getElementById('_co_additionalVat').value = Number(o.additional_vat_amount) || 0;
+            var val = Number(o.additional_vat_amount) || 0;
+            document.getElementById('_co_additionalVat').value = val > 0 ? val : '';
         }
         _dhtCalcTotal();
 
@@ -2347,7 +2348,7 @@ async function _dhtEditOrderFree(o) {
         +'<div class="form-group"><label>Tổng Tiền Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
         +'<div class="form-group"><label>Tiền Phụ Phí Thêm</label><input id="_co_surTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#d97706"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
+        +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="" placeholder="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
         +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
@@ -2491,7 +2492,8 @@ async function _dhtEditOrderFree(o) {
     _dhtRenderPhieuRows();
     _dhtRenderSurcharges();
     if (document.getElementById('_co_additionalVat')) {
-        document.getElementById('_co_additionalVat').value = Number(o.additional_vat_amount) || 0;
+        var val = Number(o.additional_vat_amount) || 0;
+        document.getElementById('_co_additionalVat').value = val > 0 ? val : '';
     }
     _dhtCalcTotal();
 
