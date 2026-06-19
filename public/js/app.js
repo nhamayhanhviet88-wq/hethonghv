@@ -147,6 +147,7 @@ const MENU_CONFIG = [
 
     // ========== BỘ PHẬN VĂN PHÒNG ==========
     { id: 'don-hang-tong', label: 'Đơn Hàng Tổng', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donhangtong', permKey: 'don_hang_tong' },
+    { id: 'xuatvathv', label: 'Xuất Hóa Đơn VAT', icon: '🧾', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/xuatvathv', permKey: 'don_hang_tong' },
     // { id: 'lich-ra-don-hang', label: 'Lịch Ra Đơn Hàng', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', permKey: 'lich_ra_don_hang' },
     // [Moved to Cài Đặt Sản Xuất tab] { id: 'cai-dat-sp-qt', label: 'Cài Đặt SP & QT', icon: '⚙️', roles: ['giam_doc'], section: 'VĂN PHÒNG QUẢN LÝ', permKey: 'cai_dat_sp_qt' },
     { id: 'don-gui-ao-mau', label: 'Đơn Gửi Áo Mẫu', icon: '👕', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donguiaomau', permKey: 'don_gui_ao_mau' },
