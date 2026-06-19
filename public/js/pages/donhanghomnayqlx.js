@@ -296,7 +296,8 @@ function _qlxdhApplySearch() {
 }
 
 function _qlxdhGetOrderMenu(o) {
-    const today = _qlxdhMaxDate || vnDateStr();
+    const maxDate = _qlxdhMaxDate || vnDateStr();
+    const todayStr = vnDateStr();
     let effDate = o.rescheduled_ship_date || o.expected_ship_date;
     if (effDate) {
         try {
@@ -309,14 +310,16 @@ function _qlxdhGetOrderMenu(o) {
     if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
         let reschedDate = o.rescheduled_ship_date;
         try { reschedDate = vnDateStr(reschedDate); } catch(e){}
-        if (reschedDate > today) {
+        if (reschedDate > todayStr) {
             return { key: 'rescheduled', label: 'Hẹn Lại Lịch', color: '#d97706', bg: '#fffbeb' };
+        } else {
+            return { key: 'today', label: 'Hôm Nay Xử Lý', color: '#dc2626', bg: '#fef2f2' };
         }
     }
-    if (o.shipping_status === 'pending' && effDate && effDate > today) {
+    if (o.shipping_status === 'pending' && effDate && effDate > maxDate) {
         return { key: 'early', label: 'Gửi Sớm', color: '#3b82f6', bg: '#eff6ff' };
     }
-    if (['pending', 'rescheduled'].includes(o.shipping_status) && effDate && effDate <= today) {
+    if (o.shipping_status === 'pending' && effDate && effDate <= maxDate) {
         return { key: 'today', label: 'Hôm Nay Xử Lý', color: '#dc2626', bg: '#fef2f2' };
     }
     return { key: 'unknown', label: 'Khác', color: '#6b7280', bg: '#f3f4f6' };

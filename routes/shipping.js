@@ -403,22 +403,41 @@ module.exports = async function(fastify) {
 
         switch (filter) {
             case 'early':
-                filterWhere = ` AND o.shipping_status = 'pending' AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) > $${idx}::date`;
+                if (page_type === 'qlx') {
+                    filterWhere = ` AND o.shipping_status = 'pending' AND o.expected_ship_date IS NOT NULL AND o.expected_ship_date > $${idx}::date`;
+                } else {
+                    filterWhere = ` AND o.shipping_status = 'pending' AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) > $${idx}::date`;
+                }
                 params.push(targetDateStr);
                 idx++;
                 orderBy = 'COALESCE(o.rescheduled_ship_date, o.expected_ship_date) ASC';
                 break;
 
             case 'today':
-                filterWhere = ` AND o.shipping_status IN ('pending','rescheduled') AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) <= $${idx}::date`;
-                params.push(targetDateStr);
-                idx++;
+                if (page_type === 'qlx') {
+                    filterWhere = ` AND (
+                        (o.shipping_status = 'pending' AND o.expected_ship_date IS NOT NULL AND o.expected_ship_date <= $${idx}::date)
+                        OR
+                        (o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date IS NOT NULL AND o.rescheduled_ship_date <= $${idx+1}::date)
+                    )`;
+                    params.push(targetDateStr, todayStr);
+                    idx += 2;
+                } else {
+                    filterWhere = ` AND o.shipping_status IN ('pending','rescheduled') AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) <= $${idx}::date`;
+                    params.push(targetDateStr);
+                    idx++;
+                }
                 orderBy = 'COALESCE(o.rescheduled_ship_date, o.expected_ship_date) ASC';
                 break;
 
             case 'rescheduled':
-                filterWhere = ` AND o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date > $${idx}::date`;
-                params.push(targetDateStr);
+                if (page_type === 'qlx') {
+                    filterWhere = ` AND o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date > $${idx}::date`;
+                    params.push(todayStr);
+                } else {
+                    filterWhere = ` AND o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date > $${idx}::date`;
+                    params.push(targetDateStr);
+                }
                 idx++;
                 orderBy = 'o.rescheduled_ship_date ASC';
                 break;
@@ -873,16 +892,43 @@ module.exports = async function(fastify) {
             }
         }
 
-        const counts = await db.get(`
-            SELECT
-                COUNT(*) FILTER (WHERE shipping_status = 'pending' AND COALESCE(rescheduled_ship_date, expected_ship_date) > $1::date) AS early_count,
-                COUNT(*) FILTER (WHERE shipping_status IN ('pending','rescheduled') AND COALESCE(rescheduled_ship_date, expected_ship_date) <= $1::date) AS today_count,
-                COUNT(*) FILTER (WHERE shipping_status = 'rescheduled' AND rescheduled_ship_date > $1::date) AS rescheduled_count,
-                COUNT(*) FILTER (WHERE shipping_status = 'shipped') AS shipped_count
-            FROM dht_orders
-            WHERE expected_ship_date IS NOT NULL
-            ${countVisibilityFilterDht}
-        `, countParamsDht);
+        let counts;
+        if (page_type === 'qlx') {
+            const paramsList = [countTargetDate, todayParam];
+            let qlxVisibilityFilter = '';
+            if (!FULL_VIEW_ROLES.includes(userRole)) {
+                const kt = await isKeToan(userId);
+                if (!kt) {
+                    qlxVisibilityFilter = ` AND (created_by = $3 OR cskh_user_id = $3)`;
+                    paramsList.push(userId);
+                }
+            }
+            counts = await db.get(`
+                SELECT
+                    COUNT(*) FILTER (WHERE shipping_status = 'pending' AND expected_ship_date > $1::date) AS early_count,
+                    COUNT(*) FILTER (WHERE 
+                        (shipping_status = 'pending' AND expected_ship_date <= $1::date)
+                        OR
+                        (shipping_status = 'rescheduled' AND rescheduled_ship_date <= $2::date)
+                    ) AS today_count,
+                    COUNT(*) FILTER (WHERE shipping_status = 'rescheduled' AND rescheduled_ship_date > $2::date) AS rescheduled_count,
+                    COUNT(*) FILTER (WHERE shipping_status = 'shipped') AS shipped_count
+                FROM dht_orders
+                WHERE expected_ship_date IS NOT NULL
+                ${qlxVisibilityFilter}
+            `, paramsList);
+        } else {
+            counts = await db.get(`
+                SELECT
+                    COUNT(*) FILTER (WHERE shipping_status = 'pending' AND COALESCE(rescheduled_ship_date, expected_ship_date) > $1::date) AS early_count,
+                    COUNT(*) FILTER (WHERE shipping_status IN ('pending','rescheduled') AND COALESCE(rescheduled_ship_date, expected_ship_date) <= $1::date) AS today_count,
+                    COUNT(*) FILTER (WHERE shipping_status = 'rescheduled' AND rescheduled_ship_date > $1::date) AS rescheduled_count,
+                    COUNT(*) FILTER (WHERE shipping_status = 'shipped') AS shipped_count
+                FROM dht_orders
+                WHERE expected_ship_date IS NOT NULL
+                ${countVisibilityFilterDht}
+            `, countParamsDht);
+        }
 
         let sampleCounts = null;
         let sampleHoanCounts = null;
