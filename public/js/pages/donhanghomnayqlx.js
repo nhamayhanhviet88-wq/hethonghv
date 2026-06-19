@@ -81,8 +81,8 @@ function _qlxdhRenderSidebar() {
     if (!sb) return;
     const filters = [
         { key:'early', icon:'🔵', label:'Gửi Sớm', color:'#3b82f6', bg:'#eff6ff' },
-        { key:'today', icon:'🔴', label:'Hôm Nay Gửi', color:'#dc2626', bg:'#fef2f2' },
-        { key:'rescheduled', icon:'🟡', label:'Chưa Gửi', color:'#d97706', bg:'#fffbeb' },
+        { key:'today', icon:'🔴', label:'Hôm Nay Xử Lý', color:'#dc2626', bg:'#fef2f2' },
+        { key:'rescheduled', icon:'🟡', label:'Hẹn Lại Lịch', color:'#d97706', bg:'#fffbeb' },
         { key:'shipped', icon:'✅', label:'Đã Gửi', color:'#059669', bg:'#ecfdf5' }
     ];
     const cskhMap = {};
@@ -304,14 +304,14 @@ function _qlxdhGetOrderMenu(o) {
         let reschedDate = o.rescheduled_ship_date;
         try { reschedDate = vnDateStr(reschedDate); } catch(e){}
         if (reschedDate > today) {
-            return { key: 'rescheduled', label: 'Chưa Gửi', color: '#d97706', bg: '#fffbeb' };
+            return { key: 'rescheduled', label: 'Hẹn Lại Lịch', color: '#d97706', bg: '#fffbeb' };
         }
     }
     if (o.shipping_status === 'pending' && effDate && effDate > today) {
         return { key: 'early', label: 'Gửi Sớm', color: '#3b82f6', bg: '#eff6ff' };
     }
     if (['pending', 'rescheduled'].includes(o.shipping_status) && effDate && effDate <= today) {
-        return { key: 'today', label: 'Hôm Nay Gửi', color: '#dc2626', bg: '#fef2f2' };
+        return { key: 'today', label: 'Hôm Nay Xử Lý', color: '#dc2626', bg: '#fef2f2' };
     }
     return { key: 'unknown', label: 'Khác', color: '#6b7280', bg: '#f3f4f6' };
 }
