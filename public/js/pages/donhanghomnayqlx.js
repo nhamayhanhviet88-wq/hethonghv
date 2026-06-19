@@ -321,7 +321,7 @@ function _qlxdhGetOrderMenu(o) {
     if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
         let reschedDate = o.rescheduled_ship_date;
         try { reschedDate = vnDateStr(reschedDate); } catch(e){}
-        if (reschedDate > maxDate) {
+        if (reschedDate > todayStr) {
             return { key: 'rescheduled', label: 'Hẹn Lại Lịch', color: '#d97706', bg: '#fffbeb' };
         } else {
             return { key: 'today', label: 'Hôm Nay Xử Lý', color: '#dc2626', bg: '#fef2f2' };

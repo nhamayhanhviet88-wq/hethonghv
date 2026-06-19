@@ -420,7 +420,7 @@ module.exports = async function(fastify) {
                         OR
                         (o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date IS NOT NULL AND o.rescheduled_ship_date <= $${idx+1}::date)
                     )`;
-                    params.push(targetDateStr, targetDateStr);
+                    params.push(targetDateStr, todayStr);
                     idx += 2;
                 } else {
                     filterWhere = ` AND o.shipping_status IN ('pending','rescheduled') AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) <= $${idx}::date`;
@@ -433,7 +433,7 @@ module.exports = async function(fastify) {
             case 'rescheduled':
                 if (page_type === 'qlx') {
                     filterWhere = ` AND o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date > $${idx}::date`;
-                    params.push(targetDateStr);
+                    params.push(todayStr);
                 } else {
                     filterWhere = ` AND o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date > $${idx}::date`;
                     params.push(targetDateStr);
@@ -894,7 +894,7 @@ module.exports = async function(fastify) {
 
         let counts;
         if (page_type === 'qlx') {
-            const paramsList = [countTargetDate];
+            const paramsList = [countTargetDate, todayParam];
             let qlxVisibilityFilter = '';
             counts = await db.get(`
                 SELECT
@@ -902,9 +902,9 @@ module.exports = async function(fastify) {
                     COUNT(*) FILTER (WHERE 
                         (shipping_status = 'pending' AND expected_ship_date <= $1::date)
                         OR
-                        (shipping_status = 'rescheduled' AND rescheduled_ship_date <= $1::date)
+                        (shipping_status = 'rescheduled' AND rescheduled_ship_date <= $2::date)
                     ) AS today_count,
-                    COUNT(*) FILTER (WHERE shipping_status = 'rescheduled' AND rescheduled_ship_date > $1::date) AS rescheduled_count,
+                    COUNT(*) FILTER (WHERE shipping_status = 'rescheduled' AND rescheduled_ship_date > $2::date) AS rescheduled_count,
                     COUNT(*) FILTER (WHERE shipping_status = 'shipped') AS shipped_count
                 FROM dht_orders
                 WHERE expected_ship_date IS NOT NULL
