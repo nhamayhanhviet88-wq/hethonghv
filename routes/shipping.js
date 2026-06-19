@@ -344,30 +344,81 @@ module.exports = async function(fastify) {
             }
         }
 
+        // Helper: get the maxDate for QLX today processing orders based on limitVal
+        async function getQlxMaxDate(todayStr) {
+            let limitVal = 1; // Default is just "Hôm nay"
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'qlx_processing_days_limit'");
+            if (row && row.value) {
+                const parsed = parseInt(row.value, 10);
+                if (!isNaN(parsed) && parsed > 0) {
+                    limitVal = parsed;
+                }
+            }
+            
+            if (limitVal <= 1) return todayStr;
+            
+            // Fetch all holidays
+            const holidaysRows = await db.all("SELECT holiday_date FROM holidays");
+            const holidaysSet = new Set(holidaysRows.map(h => {
+                if (h.holiday_date instanceof Date) {
+                    return vnDateStr(h.holiday_date);
+                }
+                return String(h.holiday_date).split('T')[0].split(' ')[0];
+            }));
+            
+            const validDates = [];
+            let checkDate = new Date(todayStr + 'T00:00:00+07:00');
+            let safety = 0;
+            while (validDates.length < limitVal && safety < 100) {
+                safety++;
+                const y = checkDate.getFullYear();
+                const m = String(checkDate.getMonth() + 1).padStart(2, '0');
+                const d = String(checkDate.getDate()).padStart(2, '0');
+                const dateStr = `${y}-${m}-${d}`;
+                const dayOfWeek = checkDate.getDay();
+                const isSunday = dayOfWeek === 0;
+                const isHoliday = holidaysSet.has(dateStr);
+                
+                if (!isSunday && !isHoliday) {
+                    validDates.push(dateStr);
+                }
+                checkDate.setDate(checkDate.getDate() + 1);
+            }
+            
+            if (validDates.length > 0) {
+                return validDates[validDates.length - 1];
+            }
+            return todayStr;
+        }
+
         // Build filter condition using effective_ship_date
         let filterWhere = '';
         let orderBy = 'o.created_at DESC';
 
         const todayStr = vnDateStr(vnNow());
+        let targetDateStr = todayStr;
+        if (page_type === 'qlx') {
+            targetDateStr = await getQlxMaxDate(todayStr);
+        }
 
         switch (filter) {
             case 'early':
                 filterWhere = ` AND o.shipping_status = 'pending' AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) > $${idx}::date`;
-                params.push(todayStr);
+                params.push(targetDateStr);
                 idx++;
                 orderBy = 'COALESCE(o.rescheduled_ship_date, o.expected_ship_date) ASC';
                 break;
 
             case 'today':
                 filterWhere = ` AND o.shipping_status IN ('pending','rescheduled') AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) <= $${idx}::date`;
-                params.push(todayStr);
+                params.push(targetDateStr);
                 idx++;
                 orderBy = 'COALESCE(o.rescheduled_ship_date, o.expected_ship_date) ASC';
                 break;
 
             case 'rescheduled':
                 filterWhere = ` AND o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date > $${idx}::date`;
-                params.push(todayStr);
+                params.push(targetDateStr);
                 idx++;
                 orderBy = 'o.rescheduled_ship_date ASC';
                 break;
@@ -808,13 +859,17 @@ module.exports = async function(fastify) {
         }
 
         // Count for each filter (for sidebar badges)
+        const countTargetDate = page_type === 'qlx' ? targetDateStr : todayParam;
+        
         let countVisibilityFilterDht = '';
-        const countParamsDht = [todayParam];
+        const countParamsDht = [countTargetDate];
+        const countParamsOverdueDht = [todayParam];
         if (!FULL_VIEW_ROLES.includes(userRole)) {
             const kt = await isKeToan(userId);
             if (!kt) {
                 countVisibilityFilterDht = ` AND (created_by = $2 OR cskh_user_id = $2)`;
                 countParamsDht.push(userId);
+                countParamsOverdueDht.push(userId);
             }
         }
 
@@ -829,7 +884,7 @@ module.exports = async function(fastify) {
             ${countVisibilityFilterDht}
         `, countParamsDht);
 
-                let sampleCounts = null;
+        let sampleCounts = null;
         let sampleHoanCounts = null;
         let sampleOverdueCount = null;
 
@@ -881,7 +936,7 @@ module.exports = async function(fastify) {
               AND expected_ship_date IS NOT NULL
               AND COALESCE(rescheduled_ship_date, expected_ship_date) < $1::date
               ${countVisibilityFilterDht}
-        `, countParamsDht);
+        `, countParamsOverdueDht);
 
         return {
             orders: combinedOrders,
@@ -891,7 +946,8 @@ module.exports = async function(fastify) {
                 rescheduled: Number(counts?.rescheduled_count) || 0,
                 shipped: (Number(counts?.shipped_count) || 0) + (Number(sampleCounts?.shipped_count) || 0) + (Number(sampleHoanCounts?.shipped_count) || 0),
                 overdue: (Number(overdueCount?.cnt) || 0) + (Number(sampleOverdueCount?.cnt) || 0)
-            }
+            },
+            max_date: page_type === 'qlx' ? targetDateStr : todayStr
         };
     });
 

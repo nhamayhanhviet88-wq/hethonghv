@@ -13,6 +13,7 @@ let _qlxdhAllOrdersLoading = null;
 let _qlxdhSelectedYear = 'all';
 let _qlxdhSelectedMonth = 'all';
 let _qlxdhHolidayMap = {};
+let _qlxdhMaxDate = null;
 
 async function renderDonhanghomnayqlxPage(container) {
     _qlxdhFilter = 'today'; _qlxdhSearchVal = ''; _qlxdhCskhVal = ''; _qlxdhPage = 1;
@@ -56,6 +57,9 @@ async function renderDonhanghomnayqlxPage(container) {
             <h2 style="margin:0;font-size:22px;color:#122546;font-weight:800;display:flex;align-items:center;gap:8px;">📦 Đơn Hàng Hôm Nay QLX</h2>
             <div style="display:flex;gap:8px;align-items:center;">
                 ${currentUser && currentUser.role === 'giam_doc' ? `
+                <button onclick="_qlxdhOpenProcessingDaysModal()" style="padding:8px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#0284c7,#0ea5e9);color:white;cursor:pointer;font-weight:800;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 10px rgba(2,132,199,0.25);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
+                    ⚙️ Cấu Hình Ngày Xử Lý
+                </button>
                 <button onclick="_qlxdhOpenRescheduleLimitModal()" style="padding:8px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:800;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 10px rgba(217,119,6,0.25);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
                     📅 Giới Hạn Hẹn Lại
                 </button>
@@ -224,6 +228,7 @@ async function _qlxdhLoadAllOrders() {
         const data = await apiCall('/api/shipping/orders?filter=all&page_type=qlx');
         _qlxdhOrders = data.orders || [];
         _qlxdhCounts = data.counts || {};
+        _qlxdhMaxDate = data.max_date || null;
         _qlxdhAllOrdersLoaded = true;
         _qlxdhRenderSidebar();
     } catch(e) {
@@ -244,6 +249,7 @@ async function _qlxdhLoadOrders() {
         const data = await apiCall(`/api/shipping/orders?filter=${_qlxdhFilter}&page_type=qlx`);
         _qlxdhOrders = data.orders || [];
         _qlxdhCounts = data.counts || {};
+        _qlxdhMaxDate = data.max_date || null;
         _qlxdhRenderSidebar();
         _qlxdhApplySearch();
         _qlxdhRenderContent();
@@ -290,7 +296,7 @@ function _qlxdhApplySearch() {
 }
 
 function _qlxdhGetOrderMenu(o) {
-    const today = vnDateStr();
+    const today = _qlxdhMaxDate || vnDateStr();
     let effDate = o.rescheduled_ship_date || o.expected_ship_date;
     if (effDate) {
         try {
@@ -1685,6 +1691,119 @@ async function _qlxdhSaveRescheduleLimitSettings() {
     }
 }
 
+async function _qlxdhOpenProcessingDaysModal() {
+    document.getElementById('qlxdhProcessingDaysModal')?.remove();
+    
+    const m = document.createElement('div');
+    m.id = 'qlxdhProcessingDaysModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    
+    m.innerHTML = `<div style="background:white;border-radius:16px;width:480px;max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;display:flex;flex-direction:column;">
+        <div style="background:linear-gradient(135deg,#0284c7,#0ea5e9);padding:18px 24px;color:white;display:flex;align-items:center;justify-content:between;">
+            <div style="font-weight:800;font-size:16px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">⚙️ Cấu Hình Ngày Xử Lý (Hôm Nay QLX)</div>
+            <button onclick="document.getElementById('qlxdhProcessingDaysModal')?.remove()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;font-weight:bold;margin-left:auto;">×</button>
+        </div>
+        <div style="padding:24px;font-size:13px;color:#334155;" id="qlxdhProcessingDaysBody">
+            <div style="display:flex;justify-content:center;padding:20px 0;">
+                <div style="display:inline-block;width:24px;height:24px;border:3px solid #f3f3f3;border-top:3px solid #0284c7;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            </div>
+        </div>
+        <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:12px;justify-content:flex-end;">
+            <button onclick="document.getElementById('qlxdhProcessingDaysModal')?.remove()" style="padding:9px 18px;border:1px solid #cbd5e1;border-radius:10px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13px;transition:all 0.2s;">Hủy bỏ</button>
+            <button id="qlxdhSaveProcessingDaysBtn" onclick="_qlxdhSaveProcessingDaysSettings()" style="padding:9px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 4px 10px rgba(5,150,105,0.25);transition:all 0.2s;" disabled>Lưu Cấu Hình</button>
+        </div>
+    </div>`;
+    
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    
+    try {
+        const res = await apiCall('/api/app-config/qlx_processing_days_limit');
+        const configVal = res && res.value ? parseInt(res.value, 10) : 1;
+        const bodyEl = document.getElementById('qlxdhProcessingDaysBody');
+        if (!bodyEl) return;
+        
+        let isCustom = ![1, 2, 3].includes(configVal);
+        
+        bodyEl.innerHTML = `
+            <div style="margin-bottom:14px;font-weight:700;color:#1e293b;">Chọn phạm vi ngày gom đơn vào mục "Hôm Nay Xử Lý":</div>
+            <select id="qlxdhProcessingDaysPreset" onchange="_qlxdhOnProcessingDaysPresetChange(this.value)" style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:14px;font-weight:600;color:#1e293b;margin-bottom:12px;">
+                <option value="1" ${configVal === 1 ? 'selected' : ''}>Chỉ hôm nay (1 ngày làm việc)</option>
+                <option value="2" ${configVal === 2 ? 'selected' : ''}>Hôm nay và ngày mai (2 ngày làm việc)</option>
+                <option value="3" ${configVal === 3 ? 'selected' : ''}>Hôm nay, ngày mai và ngày kia (3 ngày làm việc)</option>
+                <option value="custom" ${isCustom ? 'selected' : ''}>Tùy chỉnh số ngày...</option>
+            </select>
+            
+            <div id="qlxdhCustomProcessingDaysContainer" style="display:${isCustom ? 'block' : 'none'};margin-bottom:12px;">
+                <div style="margin-bottom:6px;font-weight:700;color:#475569;">Số ngày làm việc xử lý:</div>
+                <input type="number" id="qlxdhProcessingDaysInput" value="${configVal}" min="1" max="30" style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:14px;font-weight:600;color:#1e293b;">
+            </div>
+            
+            <div style="margin-top:8px;font-size:11px;color:#64748b;line-height:1.4;">
+                * Hệ thống sẽ tự động bỏ qua ngày Chủ Nhật và các ngày Lễ khi tính các ngày làm việc kế tiếp.
+                <br>
+                * Toàn bộ đơn hàng nằm trong phạm vi ngày này (theo cột Gửi Dự Kiến hoặc Hẹn Lại) sẽ được gom vào mục <strong>Hôm Nay Xử Lý</strong> để quản lý xưởng chuẩn bị sản xuất trước.
+            </div>
+        `;
+        document.getElementById('qlxdhSaveProcessingDaysBtn').disabled = false;
+    } catch (err) {
+        const bodyEl = document.getElementById('qlxdhProcessingDaysBody');
+        if (bodyEl) bodyEl.innerHTML = `<div style="text-align:center;color:#dc2626;font-weight:700;padding:20px;">Lỗi tải dữ liệu: ${err.message}</div>`;
+    }
+}
+
+function _qlxdhOnProcessingDaysPresetChange(val) {
+    const container = document.getElementById('qlxdhCustomProcessingDaysContainer');
+    if (!container) return;
+    if (val === 'custom') {
+        container.style.display = 'block';
+    } else {
+        container.style.display = 'none';
+        const input = document.getElementById('qlxdhProcessingDaysInput');
+        if (input) input.value = val;
+    }
+}
+
+async function _qlxdhSaveProcessingDaysSettings() {
+    const btn = document.getElementById('qlxdhSaveProcessingDaysBtn');
+    const presetSelect = document.getElementById('qlxdhProcessingDaysPreset');
+    const input = document.getElementById('qlxdhProcessingDaysInput');
+    if (!presetSelect || !input) return;
+    
+    let val = input.value.trim();
+    if (presetSelect.value !== 'custom') {
+        val = presetSelect.value;
+    }
+    
+    if (!val || isNaN(parseInt(val, 10)) || parseInt(val, 10) < 1) {
+        alert('Vui lòng nhập số ngày làm việc hợp lệ (từ 1 trở lên).');
+        return;
+    }
+    
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Đang lưu...';
+    }
+    
+    try {
+        const r = await apiCall('/api/app-config/qlx_processing_days_limit', 'PUT', { value: val });
+        if (r.error) {
+            alert(r.error);
+        } else {
+            showToast('✅ Đã lưu cấu hình ngày xử lý');
+            document.getElementById('qlxdhProcessingDaysModal')?.remove();
+            _qlxdhLoadOrders();
+        }
+    } catch (err) {
+        alert('Lỗi khi lưu cấu hình: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Lưu Cấu Hình';
+        }
+    }
+}
+
 // Bind to window to allow HTML onclick access
 window.renderDonhanghomnayqlxPage = renderDonhanghomnayqlxPage;
 window._qlxdhSetFilter = _qlxdhSetFilter;
@@ -1708,3 +1827,6 @@ window._qlxdhSubmitError = _qlxdhSubmitError;
 window._dhtShowTraSoatModal = _dhtShowTraSoatModal;
 window._qlxdhOpenRescheduleLimitModal = _qlxdhOpenRescheduleLimitModal;
 window._qlxdhSaveRescheduleLimitSettings = _qlxdhSaveRescheduleLimitSettings;
+window._qlxdhOpenProcessingDaysModal = _qlxdhOpenProcessingDaysModal;
+window._qlxdhOnProcessingDaysPresetChange = _qlxdhOnProcessingDaysPresetChange;
+window._qlxdhSaveProcessingDaysSettings = _qlxdhSaveProcessingDaysSettings;
