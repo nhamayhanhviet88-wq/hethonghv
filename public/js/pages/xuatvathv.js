@@ -652,11 +652,13 @@ async function _vatSaveInvoice(id) {
 
 
 // 2. MODAL: Xuất Hóa Đơn VAT (Image upload & toggle)
-function _vatShowExportModal(id) {
+function _vatShowExportModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
 
     const editable = _vatCanEdit();
+    const isConfirmed = !!o.vat_exported;
+    const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
 
     const bodyHTML = `
         <div class="vat-modal-content" style="padding:4px;">
@@ -669,8 +671,8 @@ function _vatShowExportModal(id) {
 
             <!-- Proof Image Area -->
             <div id="vatModalExportUploadWrapper">
-                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Bằng Chứng / Ảnh Hóa Đơn <span style="color:#ef4444;">*</span></label>
-                ${editable ? `
+                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Bằng Chứng / Ảnh Hóa Đơn ${isEditMode ? '<span style="color:#ef4444;">*</span>' : ''}</label>
+                ${isEditMode ? `
                     <div class="vat-upload-area" tabindex="0" onclick="this.focus()" onpaste="_vatOnAreaPaste(event, ${o.id}, 'export')" style="border:2px dashed #0284c7;border-radius:8px;padding:25px 20px;text-align:center;cursor:pointer;background:#f8fafc;outline:none;transition:all 0.2s;" onfocus="this.style.borderColor='#0369a1';this.style.background='#f0f9ff';this.style.boxShadow='0 0 0 3px rgba(2, 132, 199, 0.3)';" onblur="this.style.borderColor='#0284c7';this.style.background='#f8fafc';this.style.boxShadow='none';">
                         <div style="font-size:28px;margin-bottom:8px;">📤</div>
                         <div style="font-weight:700;font-size:14px;color:#0284c7;line-height:1.4;">
@@ -684,30 +686,41 @@ function _vatShowExportModal(id) {
                         ? `
                             <div style="position:relative;display:inline-block;">
                                 <a href="${o.vat_proof_image}" target="_blank"><img class="vat-upload-preview" src="${o.vat_proof_image}" alt="Bằng chứng xuất VAT" style="max-width:100%;max-height:250px;border-radius:6px;border:1px solid #cbd5e1;"></a>
-                                ${editable ? `<div style="margin-top:8px;"><button class="btn btn-danger" onclick="_vatDeleteProof(${o.id}, 'export')" style="padding:6px 16px;font-size:12px;border-radius:6px;background:#ef4444;border:none;color:#fff;font-weight:600;cursor:pointer;">Xóa ảnh</button></div>` : ''}
+                                ${isEditMode ? `<div style="margin-top:8px;"><button class="btn btn-danger" onclick="_vatDeleteProof(${o.id}, 'export')" style="padding:6px 16px;font-size:12px;border-radius:6px;background:#ef4444;border:none;color:#fff;font-weight:600;cursor:pointer;">Xóa ảnh</button></div>` : ''}
                             </div>
                           ` 
                         : '<div style="font-style:italic;color:#94a3b8;font-size:12px;margin:10px 0;">Chưa tải lên ảnh bằng chứng</div>'}
                 </div>
             </div>
+            ${isEditMode ? '<input type="hidden" id="vatModalExportFile">' : ''}
         </div>
     `;
 
-    const footerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;">Đóng</button>
-        ${editable ? `<button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'export')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#0284c7;border:none;color:#fff;">Xác nhận</button>` : ''}
-    `;
+    let footerHTML = '';
+    if (isEditMode) {
+        footerHTML = `
+            ${isConfirmed ? `<button class="btn btn-secondary" onclick="_vatShowExportModal(${o.id}, false)" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Hủy</button>` : `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Đóng</button>`}
+            <button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'export')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#0284c7;border:none;color:#fff;">Xác nhận</button>
+        `;
+    } else {
+        footerHTML = `
+            <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Đóng</button>
+            ${editable ? `<button class="btn btn-warning" onclick="_vatShowExportModal(${o.id}, true)" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#eab308;border:none;color:#fff;">Sửa</button>` : ''}
+        `;
+    }
 
     openModal(`🧾 Xuất Hóa Đơn VAT: Đơn ${o.order_code}`, bodyHTML, footerHTML);
 }
 
 
 // 3. MODAL: Nhận Hợp Đồng
-function _vatShowContractModal(id) {
+function _vatShowContractModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
 
     const editable = _vatCanEdit();
+    const isConfirmed = !!o.vat_contract_received;
+    const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
 
     const bodyHTML = `
         <div class="vat-modal-content" style="padding:4px;">
@@ -720,8 +733,8 @@ function _vatShowContractModal(id) {
 
             <!-- Contract proof image area -->
             <div id="vatModalContractUploadWrapper">
-                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Ảnh Scan/Hình Chụp Hợp Đồng <span style="color:#ef4444;">*</span></label>
-                ${editable ? `
+                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Ảnh Scan/Hình Chụp Hợp Đồng ${isEditMode ? '<span style="color:#ef4444;">*</span>' : ''}</label>
+                ${isEditMode ? `
                     <div class="vat-upload-area" tabindex="0" onclick="this.focus()" onpaste="_vatOnAreaPaste(event, ${o.id}, 'contract')" style="border:2px dashed #8b5cf6;border-radius:8px;padding:25px 20px;text-align:center;cursor:pointer;background:#f8fafc;outline:none;transition:all 0.2s;" onfocus="this.style.borderColor='#6d28d9';this.style.background='#faf5ff';this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.3)';" onblur="this.style.borderColor='#8b5cf6';this.style.background='#f8fafc';this.style.boxShadow='none';">
                         <div style="font-size:28px;margin-bottom:8px;">📤</div>
                         <div style="font-weight:700;font-size:14px;color:#8b5cf6;line-height:1.4;">
@@ -735,30 +748,41 @@ function _vatShowContractModal(id) {
                         ? `
                             <div style="position:relative;display:inline-block;">
                                 <a href="${o.vat_contract_proof}" target="_blank"><img class="vat-upload-preview" src="${o.vat_contract_proof}" alt="Bằng chứng hợp đồng" style="max-width:100%;max-height:250px;border-radius:6px;border:1px solid #cbd5e1;"></a>
-                                ${editable ? `<div style="margin-top:8px;"><button class="btn btn-danger" onclick="_vatDeleteProof(${o.id}, 'contract')" style="padding:6px 16px;font-size:12px;border-radius:6px;background:#ef4444;border:none;color:#fff;font-weight:600;cursor:pointer;">Xóa ảnh</button></div>` : ''}
+                                ${isEditMode ? `<div style="margin-top:8px;"><button class="btn btn-danger" onclick="_vatDeleteProof(${o.id}, 'contract')" style="padding:6px 16px;font-size:12px;border-radius:6px;background:#ef4444;border:none;color:#fff;font-weight:600;cursor:pointer;">Xóa ảnh</button></div>` : ''}
                             </div>
                           ` 
                         : '<div style="font-style:italic;color:#94a3b8;font-size:12px;margin:10px 0;">Chưa tải lên ảnh bằng chứng</div>'}
                 </div>
             </div>
+            ${isEditMode ? '<input type="hidden" id="vatModalContractFile">' : ''}
         </div>
     `;
 
-    const footerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;">Đóng</button>
-        ${editable ? `<button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'contract')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#8b5cf6;border:none;color:#fff;">Xác nhận</button>` : ''}
-    `;
+    let footerHTML = '';
+    if (isEditMode) {
+        footerHTML = `
+            ${isConfirmed ? `<button class="btn btn-secondary" onclick="_vatShowContractModal(${o.id}, false)" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Hủy</button>` : `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Đóng</button>`}
+            <button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'contract')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#8b5cf6;border:none;color:#fff;">Xác nhận</button>
+        `;
+    } else {
+        footerHTML = `
+            <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Đóng</button>
+            ${editable ? `<button class="btn btn-warning" onclick="_vatShowContractModal(${o.id}, true)" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#eab308;border:none;color:#fff;">Sửa</button>` : ''}
+        `;
+    }
 
     openModal(`📜 Nhận Hợp Đồng VAT: Đơn ${o.order_code}`, bodyHTML, footerHTML);
 }
 
 
 // 4. MODAL: Biên Bản Bàn Giao
-function _vatShowHandoverModal(id) {
+function _vatShowHandoverModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
 
     const editable = _vatCanEdit();
+    const isConfirmed = !!o.vat_handover_received;
+    const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
 
     const bodyHTML = `
         <div class="vat-modal-content" style="padding:4px;">
@@ -771,8 +795,8 @@ function _vatShowHandoverModal(id) {
 
             <!-- Handover proof image area -->
             <div id="vatModalHandoverUploadWrapper">
-                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Ảnh Scan/Hình Chụp Biên Bản Bàn Giao <span style="color:#ef4444;">*</span></label>
-                ${editable ? `
+                <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Ảnh Scan/Hình Chụp Biên Bản Bàn Giao ${isEditMode ? '<span style="color:#ef4444;">*</span>' : ''}</label>
+                ${isEditMode ? `
                     <div class="vat-upload-area" tabindex="0" onclick="this.focus()" onpaste="_vatOnAreaPaste(event, ${o.id}, 'handover')" style="border:2px dashed #f97316;border-radius:8px;padding:25px 20px;text-align:center;cursor:pointer;background:#f8fafc;outline:none;transition:all 0.2s;" onfocus="this.style.borderColor='#ea580c';this.style.background='#fff7ed';this.style.boxShadow='0 0 0 3px rgba(249, 115, 22, 0.3)';" onblur="this.style.borderColor='#f97316';this.style.background='#f8fafc';this.style.boxShadow='none';">
                         <div style="font-size:28px;margin-bottom:8px;">📤</div>
                         <div style="font-weight:700;font-size:14px;color:#f97316;line-height:1.4;">
@@ -786,19 +810,28 @@ function _vatShowHandoverModal(id) {
                         ? `
                             <div style="position:relative;display:inline-block;">
                                 <a href="${o.vat_handover_proof}" target="_blank"><img class="vat-upload-preview" src="${o.vat_handover_proof}" alt="Bằng chứng BB bàn giao" style="max-width:100%;max-height:250px;border-radius:6px;border:1px solid #cbd5e1;"></a>
-                                ${editable ? `<div style="margin-top:8px;"><button class="btn btn-danger" onclick="_vatDeleteProof(${o.id}, 'handover')" style="padding:6px 16px;font-size:12px;border-radius:6px;background:#ef4444;border:none;color:#fff;font-weight:600;cursor:pointer;">Xóa ảnh</button></div>` : ''}
+                                ${isEditMode ? `<div style="margin-top:8px;"><button class="btn btn-danger" onclick="_vatDeleteProof(${o.id}, 'handover')" style="padding:6px 16px;font-size:12px;border-radius:6px;background:#ef4444;border:none;color:#fff;font-weight:600;cursor:pointer;">Xóa ảnh</button></div>` : ''}
                             </div>
                           ` 
                         : '<div style="font-style:italic;color:#94a3b8;font-size:12px;margin:10px 0;">Chưa tải lên ảnh bằng chứng</div>'}
                 </div>
             </div>
+            ${isEditMode ? '<input type="hidden" id="vatModalHandoverFile">' : ''}
         </div>
     `;
 
-    const footerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;">Đóng</button>
-        ${editable ? `<button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'handover')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#f97316;border:none;color:#fff;">Xác nhận</button>` : ''}
-    `;
+    let footerHTML = '';
+    if (isEditMode) {
+        footerHTML = `
+            ${isConfirmed ? `<button class="btn btn-secondary" onclick="_vatShowHandoverModal(${o.id}, false)" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Hủy</button>` : `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Đóng</button>`}
+            <button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'handover')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#f97316;border:none;color:#fff;">Xác nhận</button>
+        `;
+    } else {
+        footerHTML = `
+            <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Đóng</button>
+            ${editable ? `<button class="btn btn-warning" onclick="_vatShowHandoverModal(${o.id}, true)" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#f97316;border:none;color:#fff;">Sửa</button>` : ''}
+        `;
+    }
 
     openModal(`📦 Nhận Biên Bản Bàn Giao: Đơn ${o.order_code}`, bodyHTML, footerHTML);
 }
@@ -854,28 +887,6 @@ async function _vatDeleteProof(id, type) {
         _vatRenderTable();
     } catch (e) {
         alert('Xóa thất bại: ' + e.message);
-    }
-}
-
-// Paste handler specifically for focusable paste zone
-async function _vatOnAreaPaste(e, orderId, modalType) {
-    console.log('[VAT Paste] Area paste triggered', orderId, modalType);
-    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
-    if (!items) {
-        console.log('[VAT Paste] Area paste: no items');
-        return;
-    }
-    for (let i = 0; i < items.length; i++) {
-        console.log(`[VAT Paste] Area paste item ${i} type:`, items[i].type);
-        if (items[i].type.indexOf('image') !== -1) {
-            e.preventDefault();
-            const file = items[i].getAsFile();
-            if (file) {
-                console.log('[VAT Paste] Area paste retrieved file, starting upload...');
-                await _vatUploadProofImage(file, orderId, modalType);
-            }
-            return;
-        }
     }
 }
 
@@ -992,7 +1003,7 @@ async function _vatUploadProofImage(file, orderId, modalType) {
         
         showToast(successMessage);
         await _vatLoadData();
-        if (callback) callback(orderId);
+        if (callback) callback(orderId, true);
     } catch (err) {
         alert('Tải ảnh thất bại: ' + err.message);
         if (uploadArea) uploadArea.innerHTML = oldHtml;
