@@ -334,7 +334,14 @@ function _qlxdhApplySearch() {
             return true;
         });
     }
-    if (_qlxdhSortVal === 'remaining_asc') {
+    if (_qlxdhSortVal === 'default') {
+        list.sort((a, b) => {
+            const dA = a.expected_ship_date ? new Date(a.expected_ship_date + 'T00:00:00Z') : new Date('9999-12-31T00:00:00Z');
+            const dB = b.expected_ship_date ? new Date(b.expected_ship_date + 'T00:00:00Z') : new Date('9999-12-31T00:00:00Z');
+            if (dA - dB !== 0) return dA - dB;
+            return b.id - a.id;
+        });
+    } else if (_qlxdhSortVal === 'remaining_asc') {
         list.sort((a, b) => (Number(a.remaining_amount) || 0) - (Number(b.remaining_amount) || 0));
     } else if (_qlxdhSortVal === 'remaining_desc') {
         list.sort((a, b) => (Number(b.remaining_amount) || 0) - (Number(a.remaining_amount) || 0));
