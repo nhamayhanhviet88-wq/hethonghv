@@ -397,7 +397,7 @@ function _shBuildTable(orders) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','Phiếu Gửi','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH','NVC DK','NVC TT','Mã VĐ','SĐT NX'].map(h => {
+        ${['','Phiếu Gửi','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'].map(h => {
             const align = (h === 'Phiếu Gửi' || h === '') ? 'center' : 'left';
             return `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">${h}</th>`;
         }).join('')}
@@ -538,24 +538,12 @@ function _shBuildTable(orders) {
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.customer_phone || '—'}</td>`;
         // Col 11: CSKH
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.cskh_name || '—'}</td>`;
-        // Col 12-13: NVC
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_name || '—'}</td>`;
-        html += `<td style="padding:8px 6px;font-size:11px;font-weight:600;color:#1e293b;">${o.actual_carrier_name || '—'}</td>`;
-        // Col 14: Tracking
-        var _tcDisplay = o.tracking_code || '—';
-        if (o.tracking_code && o.actual_carrier_tracking_url) {
-            var _tcUrl = o.actual_carrier_tracking_url.replace('{code}', encodeURIComponent(o.tracking_code));
-            _tcDisplay = `<a href="${_tcUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#1e40af;font-weight:700;text-decoration:underline;" title="Tra cứu vận đơn">${o.tracking_code}</a>`;
-        }
-        html += `<td style="padding:8px 6px;font-size:11px;color:#334155;">${_tcDisplay}</td>`;
-        // Col 15: Carrier phone
-        html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;">${o.carrier_phone || '—'}</td>`;
         html += '</tr>';
 
         // Sub-row for items/slips
         const itemsTableHtml = _shBuildItemsTable(o);
         html += `<tr id="shItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
-            <td colspan="16" style="padding:12px 16px;">
+            <td colspan="12" style="padding:12px 16px;">
                 <div style="font-size:12px;font-weight:800;color:#1e3a5f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                     <span>📋 Danh sách phiếu sản phẩm của đơn ${o.order_code}</span>
                 </div>
