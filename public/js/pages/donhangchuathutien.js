@@ -231,7 +231,7 @@ function _dhcttGetOrderCarriers(o) {
             }
         }
     }
-    return carriers.join(' ');
+    return '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:2px 0;">' + carriers.join('') + '</div>';
 }
 
 // ========== FILTER CHIPS ==========
