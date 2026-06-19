@@ -241,7 +241,8 @@ var _dhcttFilterDefs = [
     { key: 'za',   label: 'Đã Zalo',     bg: '#dbeafe', color: '#1e40af', activeBg: '#2563eb', activeColor: '#fff' },
     { key: 'noza', label: 'Chưa Zalo',   bg: '#f1f5f9', color: '#64748b', activeBg: '#475569', activeColor: '#fff' },
     { key: 'loi',  label: 'Báo Lỗi',     bg: '#fee2e2', color: '#dc2626', activeBg: '#dc2626', activeColor: '#fff' },
-    { key: 'sua',  label: 'Lên Đơn Sửa', bg: '#ede9fe', color: '#6d28d9', activeBg: '#7c3aed', activeColor: '#fff' }
+    { key: 'sua',  label: 'Lên Đơn Sửa', bg: '#ede9fe', color: '#6d28d9', activeBg: '#7c3aed', activeColor: '#fff' },
+    { key: 'xongsx', label: 'Xong SX - Chờ Gửi 📤', bg: '#d1fae5', color: '#065f46', activeBg: '#059669', activeColor: '#fff' }
 ];
 
 function _dhcttRenderFilterChips() {
@@ -390,6 +391,7 @@ function _dhcttRenderTable() {
     if (af.noza) filtered = filtered.filter(function(o){ return !o.zalo_oa_sent; });
     if (af.loi) filtered = filtered.filter(function(o){ return o.has_error; });
     if (af.sua) filtered = filtered.filter(function(o){ return o.has_repair_order; });
+    if (af.xongsx) filtered = filtered.filter(function(o){ return o.is_ready_to_ship; });
 
     if (_dhctt.cskhFilter) {
         filtered = filtered.filter(function(o) { return Number(o.cskh_user_id) === _dhctt.cskhFilter; });
@@ -924,6 +926,8 @@ function _dhcttRenderOrderRows(filtered) {
             ? `<div onclick="event.stopPropagation(); _dhcttShowShippingDetail('${o.id}')" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #bfdbfe;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" title="Xem phiếu ship">📄</div>`
             : '—';
 
+        const readyShipBadge = o.is_ready_to_ship ? `<span class="dhctt-ready-ship-badge" title="Đã xong tất cả quy trình sản xuất, chờ kế toán gửi hàng">Chờ Gửi 📤</span>` : '';
+
         return `<tr data-id="${o.id}" onclick="${clickHandler}" style="cursor:pointer;" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
             <td style="text-align:center;">${phieuCell}</td>
@@ -932,7 +936,7 @@ function _dhcttRenderOrderRows(filtered) {
             <td style="font-weight:600;">${shipDateFmt}</td>
             <td ${tienDoClick}>${tienDo}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
-            <td>${o.has_error ? '<span class="dhctt-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
+            <td>${o.has_error ? '<span class="dhctt-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${readyShipBadge}${badgeRow}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.province || '—'}</td>
@@ -985,7 +989,9 @@ async function renderDonhangchuathutienPage(content) {
             +'.dhctt-carrier-badge.reconciled small{margin-left:4px;color:#16a34a;font-weight:800;font-size:9.5px}'
             +'.dhctt-carrier-badge.shipping{background-color:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}'
             +'.dhctt-carrier-badge.shipping small{margin-left:4px;color:#2563eb;font-weight:800;font-size:9.5px}'
-            +'.dhctt-carrier-badge.pending{background-color:#f1f5f9;color:#475569;border-color:#cbd5e1}';
+            +'.dhctt-carrier-badge.pending{background-color:#f1f5f9;color:#475569;border-color:#cbd5e1}'
+            +'.dhctt-ready-ship-badge{display:inline-flex;align-items:center;background-color:#d1fae5;color:#065f46;border:1px solid #34d399;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:6px;animation:dhcttPulseGreen 2s infinite;vertical-align:middle;line-height:1;box-shadow:0 1px 2px rgba(0,0,0,0.05)}'
+            +'@keyframes dhcttPulseGreen{0%{box-shadow:0 0 0 0 rgba(52,211,153,0.4)}70%{box-shadow:0 0 0 6px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}';
         document.head.appendChild(st);
     }
 
@@ -997,7 +1003,7 @@ async function renderDonhangchuathutienPage(content) {
     content.innerHTML = '<div class="dhctt-wrap"><div class="dhctt-sidebar" id="dhcttSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dhctt-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="dhcttSearchWrap" style="position:relative;display:flex;align-items:center;gap:0"><input type="text" id="dhcttSearch" class="form-control" placeholder="🔍 Tìm mã đơn, SĐT, tên khách..." style="width:320px;font-size:13px;padding:8px 36px 8px 14px;border-radius:10px 0 0 10px;border:2px solid #ea580c;border-right:none;transition:all .2s" onfocus="this.style.borderColor=&apos;#c2410c&apos;;this.style.boxShadow=&apos;0 0 0 3px rgba(194,65,12,0.15)&apos;" onblur="this.style.borderColor=&apos;#ea580c&apos;;this.style.boxShadow=&apos;none&apos;"><button onclick="_dhcttDoSearch()" style="background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;border:none;padding:8px 16px;border-radius:0 10px 10px 0;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;height:100%;transition:all .15s" onmouseover="this.style.filter=&apos;brightness(1.1)&apos;" onmouseout="this.style.filter=&apos;&apos;">Tìm</button><button id="dhcttSearchClear" onclick="_dhcttClearSearch()" style="display:none;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px;white-space:nowrap" title="Xóa tìm kiếm">✕</button></div><div id="dhcttSearchBadge" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;color:#92400e"></div><div id="dhcttFilterInfo" style="font-size:12px"></div>'
         +'<div id="dhcttStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +'</div>'
-        +'<div id="dhcttFilterChips" style="display:none"></div>'
+        +'<div id="dhcttFilterChips" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;"></div>'
         +'<div id="dhcttDateBar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fed7aa;border-radius:10px">'
         +'<button onclick="_dhcttDateFilterToday()" style="background:#ea580c;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Hôm Nay</button>'
         +'<button onclick="_dhcttDateFilterMonth(0)" style="background:#f97316;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Tháng Này</button>'

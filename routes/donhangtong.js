@@ -1084,6 +1084,7 @@ module.exports = async function(fastify) {
                     order_type: 'ao_mau',
                     ship_count: (row.status_gui_don_hoan || row.hoan_hang_shipped_at) ? 2 : 1,
                     is_print_done: false,
+                    is_ready_to_ship: (row.shipping_status !== 'shipped' || (row.status_gui_don_hoan === false && !row.hoan_hang_shipped_at)),
                     items: items,
                     prod_done: 0,
                     prod_total: 0,
@@ -1223,7 +1224,27 @@ module.exports = async function(fastify) {
                     o.prod_done = 0;
                     o.next_step_name = 'Chờ in';
                 }
+            } else {
+                if (!o.shipped_at && o.shipping_status !== 'shipped' && o.prod_total > 0 && o.prod_done === o.prod_total) {
+                    o.next_step_name = 'Kế toán gửi hàng';
+                }
             }
+
+            // Calculate is_ready_to_ship flag for regular/PET/TEM orders
+            const hasUnsent = !o.shipped_at && o.shipping_status !== 'shipped' && (
+                !o.shipments || o.shipments.length === 0 ||
+                (o.items && o.items.some(item => !item.shipping_status || item.shipping_status === 'pending'))
+            );
+            
+            o.is_ready_to_ship = false;
+            if (hasUnsent) {
+                if (isPetTem) {
+                    o.is_ready_to_ship = !!o.is_print_done;
+                } else {
+                    o.is_ready_to_ship = o.prod_total > 0 && o.prod_done === o.prod_total;
+                }
+            }
+
             return o;
         });
 
