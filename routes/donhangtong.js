@@ -1124,7 +1124,12 @@ module.exports = async function(fastify) {
                 prod_progress.next_step_name AS next_step_name,
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
                 COALESCE(repair_check.repair_count, 0) > 0 AS has_repair_order,
-                COALESCE((SELECT op_in.is_completed FROM dht_order_production op_in WHERE op_in.dht_order_id = o.id AND op_in.step_id = 3), false) AS is_print_done,
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id) THEN
+                        NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL)
+                    ELSE
+                        COALESCE((SELECT op_in.is_completed FROM dht_order_production op_in WHERE op_in.dht_order_id = o.id AND op_in.step_id = 3), false)
+                END AS is_print_done,
                 order_items.items AS items,
                 COALESCE(order_shipments.shipments, '[]'::json) AS shipments
             FROM dht_orders o
