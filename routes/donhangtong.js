@@ -2778,6 +2778,12 @@ module.exports = async function(fastify) {
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
         if (!order.has_vat) return reply.code(400).send({ error: 'Đơn hàng này không được đăng ký có VAT' });
 
+        // If already exported (reported), only GĐ and Lê Việt Trinh can edit
+        const isGDOrTrinh = request.user.role === 'giam_doc' || request.user.full_name === 'Lê Việt Trinh' || request.user.username === 'leviettrinh';
+        if (order.vat_exported && !isGDOrTrinh) {
+            return reply.code(403).send({ error: '🔒 Kế toán đã báo cáo rồi, không được sửa! Chỉ Giám Đốc hoặc Lê Việt Trinh mới có quyền sửa.' });
+        }
+
         const data = await request.file();
         if (!data) return reply.code(400).send({ error: 'Không có hình ảnh hóa đơn VAT' });
 
@@ -2959,6 +2965,12 @@ module.exports = async function(fastify) {
         const order = await db.get('SELECT vat_contract_received, vat_contract_proof, vat_contract_storage FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
 
+        // If already received (reported), only GĐ and Lê Việt Trinh can edit/delete
+        const isGDOrTrinh = request.user.role === 'giam_doc' || request.user.full_name === 'Lê Việt Trinh' || request.user.username === 'leviettrinh';
+        if (order.vat_contract_received && !isGDOrTrinh) {
+            return reply.code(403).send({ error: '🔒 Kế toán đã báo cáo rồi, không được sửa! Chỉ Giám Đốc hoặc Lê Việt Trinh mới có quyền sửa.' });
+        }
+
         let proofImage = null;
         let contractReceived = true;
         let storageLocation = null;
@@ -3052,6 +3064,12 @@ module.exports = async function(fastify) {
 
         const order = await db.get('SELECT vat_handover_received, vat_handover_proof, vat_handover_storage FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        // If already received (reported), only GĐ and Lê Việt Trinh can edit/delete
+        const isGDOrTrinh = request.user.role === 'giam_doc' || request.user.full_name === 'Lê Việt Trinh' || request.user.username === 'leviettrinh';
+        if (order.vat_handover_received && !isGDOrTrinh) {
+            return reply.code(403).send({ error: '🔒 Kế toán đã báo cáo rồi, không được sửa! Chỉ Giám Đốc hoặc Lê Việt Trinh mới có quyền sửa.' });
+        }
 
         let proofImage = null;
         let handoverReceived = true;
@@ -3147,6 +3165,12 @@ module.exports = async function(fastify) {
 
         const order = await db.get('SELECT vat_exported, vat_proof_image FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        // If already exported (reported), only GĐ and Lê Việt Trinh can edit/delete (i.e. toggle off)
+        const isGDOrTrinh = request.user.role === 'giam_doc' || request.user.full_name === 'Lê Việt Trinh' || request.user.username === 'leviettrinh';
+        if (order.vat_exported && !isGDOrTrinh) {
+            return reply.code(403).send({ error: '🔒 Kế toán đã báo cáo rồi, không được sửa! Chỉ Giám Đốc hoặc Lê Việt Trinh mới có quyền sửa.' });
+        }
 
         const oldExported = order.vat_exported;
 

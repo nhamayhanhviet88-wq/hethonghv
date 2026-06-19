@@ -656,9 +656,19 @@ function _vatShowExportModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
 
-    const editable = _vatCanEdit();
     const isConfirmed = !!o.vat_exported;
-    const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
+    const isGDOrTrinh = currentUser && (currentUser.role === 'giam_doc' || 
+                        currentUser.full_name === 'Lê Việt Trinh' || 
+                        currentUser.username === 'leviettrinh');
+
+    let isEditMode = false;
+    if (_vatCanEdit()) {
+        if (!isConfirmed) {
+            isEditMode = true;
+        } else {
+            isEditMode = isGDOrTrinh && !!forceEditMode;
+        }
+    }
 
     const bodyHTML = `
         <div class="vat-modal-content" style="padding:4px;">
@@ -703,9 +713,10 @@ function _vatShowExportModal(id, forceEditMode = false) {
             <button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'export')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#0284c7;border:none;color:#fff;">Xác nhận</button>
         `;
     } else {
+        const canShowEditBtn = isConfirmed && isGDOrTrinh;
         footerHTML = `
             <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Đóng</button>
-            ${editable ? `<button class="btn btn-warning" onclick="_vatShowExportModal(${o.id}, true)" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#eab308;border:none;color:#fff;">Sửa</button>` : ''}
+            ${canShowEditBtn ? `<button class="btn btn-warning" onclick="_vatShowExportModal(${o.id}, true)" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#eab308;border:none;color:#fff;">Sửa</button>` : ''}
         `;
     }
 
@@ -847,14 +858,23 @@ function _vatGetOrderDetailsHTML(o, items, payments) {
 }
 
 // 3. MODAL: Nhận Hợp Đồng
-// 3. MODAL: Nhận Hợp Đồng
 function _vatShowContractModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
 
-    const editable = _vatCanEdit();
     const isConfirmed = !!o.vat_contract_received;
-    const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
+    const isGDOrTrinh = currentUser && (currentUser.role === 'giam_doc' || 
+                        currentUser.full_name === 'Lê Việt Trinh' || 
+                        currentUser.username === 'leviettrinh');
+
+    let isEditMode = false;
+    if (_vatCanEdit()) {
+        if (!isConfirmed) {
+            isEditMode = true;
+        } else {
+            isEditMode = isGDOrTrinh && !!forceEditMode;
+        }
+    }
 
     const bodyHTML = `
         <div class="vat-modal-content" style="padding:4px;">
@@ -911,9 +931,10 @@ function _vatShowContractModal(id, forceEditMode = false) {
             <button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'contract')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#8b5cf6;border:none;color:#fff;">Xác nhận</button>
         `;
     } else {
+        const canShowEditBtn = isConfirmed && isGDOrTrinh;
         footerHTML = `
             <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Đóng</button>
-            ${editable ? `<button class="btn btn-warning" onclick="_vatShowContractModal(${o.id}, true)" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#eab308;border:none;color:#fff;">Sửa</button>` : ''}
+            ${canShowEditBtn ? `<button class="btn btn-warning" onclick="_vatShowContractModal(${o.id}, true)" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#eab308;border:none;color:#fff;">Sửa</button>` : ''}
         `;
     }
 
@@ -926,9 +947,19 @@ function _vatShowHandoverModal(id, forceEditMode = false) {
     const o = _vatState.orders.find(item => item.id === id);
     if (!o) return;
 
-    const editable = _vatCanEdit();
     const isConfirmed = !!o.vat_handover_received;
-    const isEditMode = editable && (isConfirmed ? !!forceEditMode : true);
+    const isGDOrTrinh = currentUser && (currentUser.role === 'giam_doc' || 
+                        currentUser.full_name === 'Lê Việt Trinh' || 
+                        currentUser.username === 'leviettrinh');
+
+    let isEditMode = false;
+    if (_vatCanEdit()) {
+        if (!isConfirmed) {
+            isEditMode = true;
+        } else {
+            isEditMode = isGDOrTrinh && !!forceEditMode;
+        }
+    }
 
     const bodyHTML = `
         <div class="vat-modal-content" style="padding:4px;">
@@ -943,7 +974,7 @@ function _vatShowHandoverModal(id, forceEditMode = false) {
             <div id="vatModalHandoverUploadWrapper">
                 <label style="font-weight:700;font-size:12.5px;color:#334155;display:block;margin-bottom:6px;">📸 Ảnh Scan/Hình Chụp Biên Bản Bàn Giao ${isEditMode ? '<span style="color:#ef4444;">*</span>' : ''}</label>
                 ${isEditMode ? `
-                    <div class="vat-upload-area" tabindex="0" onclick="this.focus()" onpaste="_vatOnAreaPaste(event, ${o.id}, 'handover')" style="border:2px dashed #f97316;border-radius:8px;padding:25px 20px;text-align:center;cursor:pointer;background:#f8fafc;outline:none;transition:all 0.2s;" onfocus="this.style.borderColor='#ea580c';this.style.background='#fff7ed';this.style.boxShadow='0 0 0 3px rgba(249, 115, 22, 0.3)';" onblur="this.style.borderColor='#f97316';this.style.background='#f8fafc';this.style.boxShadow='none';">
+                    <div class="vat-upload-area" tabindex="0" onclick="this.focus()" onpaste="_vatOnAreaPaste(event, ${o.id}, 'handover')" style="border:2px dashed #f97316;border-radius:8px;padding:25px 20px;text-align:center;cursor:pointer;background:#f8fafc;outline:none;transition:all 0.2s;" onfocus="this.style.borderColor='#ea580c';this.style.background='#fff7ed';this.style.boxShadow='0 0 0 3px rgba(249, 115, 22, 0.3)';" onblur="this.style.borderColor='#f97316';this.style.background:#f8fafc';this.style.boxShadow='none';">
                         <div style="font-size:28px;margin-bottom:8px;">📤</div>
                         <div style="font-weight:700;font-size:14px;color:#f97316;line-height:1.4;">
                             Nhấp vào đây rồi nhấn Ctrl+V để dán ảnh bằng chứng
@@ -985,9 +1016,10 @@ function _vatShowHandoverModal(id, forceEditMode = false) {
             <button class="btn btn-primary" onclick="_vatConfirmModal(${o.id}, 'handover')" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#f97316;border:none;color:#fff;">Xác nhận</button>
         `;
     } else {
+        const canShowEditBtn = isConfirmed && isGDOrTrinh;
         footerHTML = `
             <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;border-radius:8px;font-weight:600;margin-right:8px;">Đóng</button>
-            ${editable ? `<button class="btn btn-warning" onclick="_vatShowHandoverModal(${o.id}, true)" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#f97316;border:none;color:#fff;">Sửa</button>` : ''}
+            ${canShowEditBtn ? `<button class="btn btn-warning" onclick="_vatShowHandoverModal(${o.id}, true)" style="padding:10px 24px;border-radius:8px;font-weight:600;background:#f97316;border:none;color:#fff;">Sửa</button>` : ''}
         `;
     }
 
@@ -1246,6 +1278,25 @@ function _vatSetupGlobalPasteListener() {
         const o = _vatState.orders.find(item => item.order_code === orderCode);
         if (!o) {
             console.log('[VAT Paste] order not found in state for code:', orderCode);
+            return;
+        }
+
+        // Lock check if already confirmed
+        let isConfirmed = false;
+        if (modalType === 'export') {
+            isConfirmed = !!o.vat_exported;
+        } else if (modalType === 'contract') {
+            isConfirmed = !!o.vat_contract_received;
+        } else if (modalType === 'handover') {
+            isConfirmed = !!o.vat_handover_received;
+        }
+
+        const isGDOrTrinh = currentUser && (currentUser.role === 'giam_doc' || 
+                            currentUser.full_name === 'Lê Việt Trinh' || 
+                            currentUser.username === 'leviettrinh');
+
+        if (isConfirmed && !isGDOrTrinh) {
+            showToast('🔒 Kế toán đã báo cáo rồi, không được sửa ảnh bằng chứng!', 'error');
             return;
         }
         
