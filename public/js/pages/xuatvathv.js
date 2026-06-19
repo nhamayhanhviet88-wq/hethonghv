@@ -537,7 +537,17 @@ function _vatShowInvoiceModal(id) {
     }
 
     const isAcc = _vatIsAccountant();
-    const editable = _vatCanEdit() && !isAcc;
+    const isConfirmed = !!o.vat_exported;
+    const isGDOrTrinh = currentUser && (currentUser.role === 'giam_doc' || 
+                        currentUser.full_name === 'Lê Việt Trinh' || 
+                        currentUser.username === 'leviettrinh');
+    
+    let editable = false;
+    if (!isConfirmed) {
+        editable = !isAcc;
+    } else {
+        editable = isGDOrTrinh;
+    }
 
     function renderField(label, fieldId, val, type = 'text', required = false) {
         const reqStar = required ? `<span style="color:#ef4444;">*</span>` : '';

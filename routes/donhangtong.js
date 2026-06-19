@@ -2904,7 +2904,17 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Email Nhận Hóa Đơn là bắt buộc!' });
         }
 
-        // Accountants cannot update (only view)
+        const order = await db.get('SELECT vat_exported, vat_invoice_info FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        const isGDOrTrinh = request.user.role === 'giam_doc' || request.user.full_name === 'Lê Việt Trinh' || request.user.username === 'leviettrinh';
+
+        // 1. Lock check: if already exported (reported), only GĐ and Lê Việt Trinh can edit
+        if (order.vat_exported && !isGDOrTrinh) {
+            return reply.code(403).send({ error: '🔒 Kế toán đã báo cáo rồi, không được sửa! Chỉ Giám Đốc hoặc Lê Việt Trinh mới có quyền sửa.' });
+        }
+
+        // 2. Accountants cannot update (only view)
         let isAccountant = request.user.role === 'ke_toan';
         if (!isAccountant) {
             const dept = await db.get('SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1', [request.user.id]);
@@ -2913,12 +2923,9 @@ module.exports = async function(fastify) {
                 isAccountant = n.includes('kế toán') || n.includes('ke toan');
             }
         }
-        if (isAccountant) {
+        if (isAccountant && !isGDOrTrinh) {
             return reply.code(403).send({ error: '🔒 Tài khoản Kế Toán chỉ có quyền xem, không được chỉnh sửa thông tin hóa đơn!' });
         }
-
-        const order = await db.get('SELECT vat_invoice_info FROM dht_orders WHERE id = $1', [orderId]);
-        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
 
         await db.run(
             `UPDATE dht_orders 
