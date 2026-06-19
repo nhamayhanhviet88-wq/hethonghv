@@ -1140,7 +1140,7 @@ async function _qlxdhShowHistory(id, code) {
                                 <span style="color:#64748b;font-weight:600;">Ngày Gửi Dự Kiến (Sale) :</span> 
                                 <span style="font-weight:700;color:#334155;">${formatDayOfWeekAndDate(r.old_date)}</span>
                                 
-                                <span style="color:#64748b;font-weight:600;">Ngày Hẹn :</span> 
+                                <span style="color:#64748b;font-weight:600;">Ngày Hẹn Lại :</span> 
                                 <span style="font-weight:700;color:#b45309;">
                                     ${r.reschedule_hour !== null && r.reschedule_minute !== null ? `${String(r.reschedule_hour).padStart(2, '0')}:${String(r.reschedule_minute).padStart(2, '0')} ` : ''}${formatDayOfWeekAndDate(r.new_date)}
                                 </span>
