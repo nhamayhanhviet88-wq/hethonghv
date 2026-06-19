@@ -41,6 +41,14 @@ async function renderKetoanguihangPage(container) {
             display: inline-block;
             white-space: nowrap;
         }
+        .dht-tiendo-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s cubic-bezier(0.16,1,0.3,1);box-shadow:0 2px 4px rgba(0,0,0,0.03);border:1px solid transparent}
+        .dht-tiendo-badge:hover{transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,0.08);filter:brightness(1.05)}
+        .dht-tiendo-badge:active{transform:translateY(0)}
+        .dht-tiendo-green{background-color:#dcfce7;color:#15803d;border-color:rgba(21,128,61,0.2)}
+        .dht-tiendo-red{background-color:#fee2e2;color:#b91c1c;border-color:rgba(185,28,28,0.2)}
+        .dht-tiendo-blue{background-color:#dbeafe;color:#1d4ed8;border-color:rgba(29,78,216,0.2)}
+        .dht-tiendo-yellow{background-color:#fef3c7;color:#b45309;border-color:rgba(180,83,9,0.2)}
+        @keyframes dhtBlink{0%,100%{opacity:1}50%{opacity:0.4}}
     </style>
     <div style="max-width:1600px;margin:0 auto;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
@@ -437,23 +445,35 @@ function _shBuildTable(orders) {
             `;
         }
 
-        // Progress badge
-        let progressBadge = '<span style="color:#d1d5db;">—</span>';
+        // Progress badge (Tiến Độ)
+        let progressBadge = '';
+        let tienDoClick = '';
         if (o.expected_ship_date) {
-            const expectedDate = new Date(o.expected_ship_date); expectedDate.setHours(0,0,0,0);
-            if (o.shipped_at) {
-                const actualDate = new Date(o.shipped_at); actualDate.setHours(0,0,0,0);
-                const diffDays = Math.round((expectedDate - actualDate) / 86400000);
-                if (diffDays > 0) progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#ecfdf5;color:#059669;">🚀 Nhanh ${diffDays} ngày</span>`;
-                else if (diffDays < 0) progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Trễ ${Math.abs(diffDays)} ngày</span>`;
-                else progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📦 Đúng hạn</span>`;
+            const shipExpected = new Date(o.expected_ship_date); shipExpected.setHours(0,0,0,0);
+            const _todayVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })); _todayVN.setHours(0,0,0,0);
+            const diffDays = Math.round((_todayVN.getTime() - shipExpected.getTime()) / 86400000);
+            if (o.shipped_at || o.shipping_status === 'shipped') {
+                const shipActual = new Date(o.shipped_at || o.shipping_date || o.created_at); shipActual.setHours(0,0,0,0);
+                const shipDiff = Math.round((shipExpected.getTime() - shipActual.getTime()) / 86400000);
+                if (shipDiff > 0) {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-green">🚀 Nhanh ${shipDiff} ngày</span>`;
+                } else if (shipDiff === 0) {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-green">📦 Đúng hạn</span>`;
+                } else {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-red">⚠️ Trễ ${Math.abs(shipDiff)} ngày</span>`;
+                }
             } else {
-                const todayDate = new Date(today);
-                const remainDays = Math.round((expectedDate - todayDate) / 86400000);
-                if (remainDays > 0) progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;">📅 Còn ${remainDays} ngày</span>`;
-                else if (remainDays < 0) progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;">⚠️ Quá hạn ${Math.abs(remainDays)} ngày</span>`;
-                else progressBadge = `<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fef3c7;color:#d97706;">📦 Hôm nay gửi</span>`;
+                if (diffDays < 0) {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-blue">⏳ Còn ${Math.abs(diffDays)} ngày</span>`;
+                } else if (diffDays === 0) {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-yellow">📦 Hôm nay!</span>`;
+                } else {
+                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-red" style="animation:dhtBlink 1s infinite">🔥 Trễ ${diffDays} ngày</span>`;
+                }
             }
+            tienDoClick = `onclick="event.stopPropagation(); _dhtShowTraSoatModal('${o.id}', '${o.order_code}')" title="Xem tra soát tiến độ"`;
+        } else {
+            progressBadge = `<span style="color:#94a3b8;font-style:italic">—</span>`;
         }
 
         html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};cursor:pointer;" onclick="window._dhtDetailSource='shipping';_dhtShowDetail('${o.id}')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'" title="Xem chi tiết đơn hàng">`;
@@ -473,7 +493,7 @@ function _shBuildTable(orders) {
         // Col 5: Hẹn Lại
         html += `<td style="padding:8px 6px;font-size:11px;">${o.rescheduled_ship_date ? `<span style="color:#d97706;font-weight:700;">📅 ${fmt(o.rescheduled_ship_date)}</span>` : '<span style="color:#d1d5db;">—</span>'}</td>`;
         // Col 6: Progress
-        html += `<td style="padding:8px 6px;">${progressBadge}</td>`;
+        html += `<td style="padding:8px 6px;" ${tienDoClick}>${progressBadge}</td>`;
 
         // Col: Số Tiền Còn Lại
         const remaining = Number(o.remaining_amount) || 0;
@@ -3586,5 +3606,42 @@ window._shDoUpdateShipmentDetails = _shDoUpdateShipmentDetails;
 
 window._shOnPaymentSearchInput = _shOnPaymentSearchInput;
 window._shClearPaymentSearch = _shClearPaymentSearch;
+
+async function _dhtShowTraSoatModal(orderId, orderCode) {
+    const container = document.getElementById('modalContainer');
+    if (container) {
+        container.style.maxWidth = '900px';
+        container.style.width = '95%';
+    }
+    
+    const initialBody = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:12px;color:#6b7280;">
+        <div style="width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:#ea580c;border-radius:50%;animation:dhtSpin 1s linear infinite;"></div>
+        <div style="font-size:13px;font-weight:600;">Đang tải dữ liệu tra soát đơn hàng...</div>
+    </div>
+    <style>
+        @keyframes dhtSpin { to { transform: rotate(360deg); } }
+    </style>`;
+    
+    openModal(`🔍 Tra Soát Đơn Hàng — ${orderCode}`, initialBody, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`);
+    
+    try {
+        const res = await apiCall('/api/trasoat/orders/' + orderId + '/detail');
+        if (typeof _tsRenderTimeline === 'function') {
+            const html = _tsRenderTimeline(res);
+            document.getElementById('modalBody').innerHTML = html;
+        } else {
+            document.getElementById('modalBody').innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">
+                <span style="font-size:24px;">⚠️</span>
+                <div style="font-weight:700;margin-top:8px;">Lỗi: Thư viện Tra Soát Đơn Hàng chưa được tải</div>
+            </div>`;
+        }
+    } catch(err) {
+        document.getElementById('modalBody').innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">
+            <span style="font-size:24px;">❌</span>
+            <div style="font-weight:700;margin-top:8px;">Lỗi khi lấy dữ liệu: ${err.message || err}</div>
+        </div>`;
+    }
+}
+window._dhtShowTraSoatModal = _dhtShowTraSoatModal;
 
 
