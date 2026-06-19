@@ -1013,26 +1013,80 @@ async function _qlxdhShowHistory(id, code) {
         m.id = 'qlxdhHistoryModal';
         m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
         
-        const fmt = d => {
+        const formatDayOfWeekAndDate = d => {
             if (!d) return '—';
-            if (typeof d === 'string' && d.includes('T')) d = d.split('T')[0];
-            const parts = d.split('-');
-            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-            return new Date(d).toLocaleDateString('vi-VN');
+            let dStr = typeof d === 'string' && d.includes('T') ? d.split('T')[0] : d;
+            const parts = dStr.split('-');
+            if (parts.length === 3) {
+                const yyyy = parseInt(parts[0]);
+                const mm = parseInt(parts[1]) - 1;
+                const dd = parseInt(parts[2]);
+                const dt = new Date(yyyy, mm, dd);
+                const dayName = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][dt.getDay()];
+                return `${dayName} - ${String(dd).padStart(2, '0')}/${String(mm + 1).padStart(2, '0')}`;
+            }
+            const dt = new Date(d);
+            const dayName = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][dt.getDay()];
+            const dd = String(dt.getDate()).padStart(2, '0');
+            const mm = String(dt.getMonth() + 1).padStart(2, '0');
+            return `${dayName} - ${dd}/${mm}`;
         };
 
-        const formatCreatedTime = (dtStr) => {
+        const calculateProgress = (oldDateStr, newDateStr) => {
+            if (!oldDateStr || !newDateStr) return '—';
+            let d1Str = oldDateStr.includes('T') ? oldDateStr.split('T')[0] : oldDateStr;
+            let d2Str = newDateStr.includes('T') ? newDateStr.split('T')[0] : newDateStr;
+            
+            const parts1 = d1Str.split('-');
+            const parts2 = d2Str.split('-');
+            if (parts1.length === 3 && parts2.length === 3) {
+                const dt1 = new Date(parseInt(parts1[0]), parseInt(parts1[1]) - 1, parseInt(parts1[2]));
+                const dt2 = new Date(parseInt(parts2[0]), parseInt(parts2[1]) - 1, parseInt(parts2[2]));
+                const diffTime = dt2.getTime() - dt1.getTime();
+                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays > 0) {
+                    return `Chậm ${diffDays} ngày`;
+                } else if (diffDays < 0) {
+                    return `Nhanh ${Math.abs(diffDays)} ngày`;
+                } else {
+                    return `Đúng hạn`;
+                }
+            }
+            return '—';
+        };
+
+        const formatCreatedTimeWithDayOfWeek = (dtStr) => {
             if (!dtStr) return '—';
             const date = new Date(dtStr);
-            return date.toLocaleString('vi-VN', {
+            const formatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: 'Asia/Ho_Chi_Minh',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+                second: 'numeric',
+                hour12: false
             });
+            const parts = formatter.formatToParts(date);
+            const partMap = {};
+            parts.forEach(p => partMap[p.type] = p.value);
+            
+            const year = parseInt(partMap.year);
+            const month = parseInt(partMap.month) - 1;
+            const day = parseInt(partMap.day);
+            const localDt = new Date(year, month, day);
+            
+            const dayName = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][localDt.getDay()];
+            
+            const hh = String(partMap.hour).padStart(2, '0');
+            const mm = String(partMap.minute).padStart(2, '0');
+            const ss = String(partMap.second).padStart(2, '0');
+            const dd = String(day).padStart(2, '0');
+            const mo = String(month + 1).padStart(2, '0');
+            
+            return `${hh}:${mm}:${ss} ${dayName} - ${dd}/${mo}`;
         };
 
         m.innerHTML = `<style>
@@ -1081,34 +1135,32 @@ async function _qlxdhShowHistory(id, code) {
                         <!-- Card Content Box -->
                         <div class="qlxdh-history-card" style="flex:1;background:white;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);transition:all 0.2s;">
                             
-                            <!-- Card Header: Old Date -> New Date -->
-                            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:8px;">
-                                <div style="display:flex;align-items:center;gap:6px;">
-                                    <span style="background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:700;border:1px solid #e2e8f0;">
-                                        ${fmt(r.old_date)}
-                                    </span>
-                                    <span style="color:#94a3b8;font-weight:bold;font-size:12px;">➔</span>
-                                    <span style="background:#fffbeb;color:#b45309;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:800;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:4px;">
-                                        📅 ${fmt(r.new_date)}
-                                    </span>
-                                </div>
+                            <!-- Card Key-Value Information -->
+                            <div style="font-size:13px;color:#1e293b;display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:start;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:10px;">
+                                <span style="color:#64748b;font-weight:600;">Ngày Gửi Dự Kiến (Sale) :</span> 
+                                <span style="font-weight:700;color:#334155;">${formatDayOfWeekAndDate(r.old_date)}</span>
                                 
-                                ${r.reschedule_hour !== null && r.reschedule_minute !== null ? `
-                                <span style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:800;display:inline-flex;align-items:center;gap:4px;">
-                                    🕐 ${String(r.reschedule_hour).padStart(2, '0')}:${String(r.reschedule_minute).padStart(2, '0')}
+                                <span style="color:#64748b;font-weight:600;">Ngày Hẹn :</span> 
+                                <span style="font-weight:700;color:#b45309;">
+                                    ${r.reschedule_hour !== null && r.reschedule_minute !== null ? `${String(r.reschedule_hour).padStart(2, '0')}:${String(r.reschedule_minute).padStart(2, '0')} ` : ''}${formatDayOfWeekAndDate(r.new_date)}
                                 </span>
-                                ` : ''}
+                                
+                                <span style="color:#64748b;font-weight:600;">Tiến Độ Dự Kiến :</span> 
+                                <span style="font-weight:700;color:#1d4ed8;">${calculateProgress(r.old_date, r.new_date)}</span>
                             </div>
                             
                             <!-- Card Reason Body -->
-                            <div style="font-size:13px;color:#334155;line-height:1.5;background:#f8fafc;border-left:3px solid #cbd5e1;padding:8px 12px;border-radius:0 8px 8px 0;margin-bottom:12px;font-style:italic;">
-                                "${r.reason || 'Không có lý do'}"
+                            <div style="margin-bottom:12px;">
+                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">📝 Lý do không ra đơn đúng ngày được :</div>
+                                <div style="font-size:13px;color:#334155;line-height:1.5;background:#f8fafc;border-left:3px solid #cbd5e1;padding:8px 12px;border-radius:0 8px 8px 0;font-style:italic;">
+                                    "${r.reason || 'Không có lý do'}"
+                                </div>
                             </div>
                             
                             <!-- Card Image -->
                             ${r.image_url ? `
                             <div style="margin-bottom:12px;">
-                                <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;display:flex;align-items:center;gap:4px;">📸 Ảnh minh chứng thúc giục:</div>
+                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">📸 Ảnh minh chứng thúc giục:</div>
                                 <div class="qlxdh-history-img" style="position:relative;display:inline-block;overflow:hidden;border-radius:8px;border:1px solid #e2e8f0;width:100%;max-width:240px;aspect-ratio:16/10;background:#f1f5f9;cursor:pointer;transition:all 0.2s;"
                                      onclick="showShippingBillLightbox('${r.image_url}')">
                                     <img src="${r.image_url}" style="width:100%;height:100%;object-fit:cover;">
@@ -1118,11 +1170,11 @@ async function _qlxdhShowHistory(id, code) {
                             
                             <!-- Card Footer: Sender and Date -->
                             <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#64748b;flex-wrap:wrap;gap:8px;border-top:1px dashed #e2e8f0;padding-top:8px;margin-top:8px;">
-                                <span style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;padding:2px 6px;border-radius:4px;font-weight:600;color:#475569;">
-                                    👤 Bởi: <span style="color:#0f172a;font-weight:700;">${r.rescheduled_by_name || '—'}</span>
+                                <span style="display:inline-flex;align-items:center;gap:4px;">
+                                    👤 Người Báo Cáo : <span style="color:#0f172a;font-weight:700;">${r.rescheduled_by_name || '—'}</span>
                                 </span>
-                                <span style="color:#94a3b8;font-weight:500;">
-                                    ⏱️ ${formatCreatedTime(r.created_at)}
+                                <span style="color:#1e293b;font-weight:700;display:inline-flex;align-items:center;gap:4px;">
+                                    ⏱️ ${formatCreatedTimeWithDayOfWeek(r.created_at)}
                                 </span>
                             </div>
                         </div>
