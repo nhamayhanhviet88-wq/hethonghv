@@ -987,49 +987,77 @@ function _vatSetupGlobalPasteListener() {
     }
     
     window._vatGlobalPasteHandler = async function(e) {
+        console.log('[VAT Paste] paste event triggered on document');
         const modalTitleEl = document.getElementById('modalTitle');
-        if (!modalTitleEl) return;
-        
-        const titleText = modalTitleEl.textContent || '';
-        let modalType = '';
-        let orderCode = '';
-        
-        if (titleText.includes('Xuất Hóa Đơn VAT: Đơn')) {
-            modalType = 'export';
-            orderCode = titleText.split('Đơn ')[1]?.trim();
-        } else if (titleText.includes('Nhận Hợp Đồng VAT: Đơn')) {
-            modalType = 'contract';
-            orderCode = titleText.split('Đơn ')[1]?.trim();
-        } else if (titleText.includes('Nhận Biên Bản Bàn Giao: Đơn')) {
-            modalType = 'handover';
-            orderCode = titleText.split('Đơn ')[1]?.trim();
+        if (!modalTitleEl) {
+            console.log('[VAT Paste] no modalTitle element found in DOM');
+            return;
         }
         
-        if (!modalType || !orderCode) return;
+        const titleText = modalTitleEl.textContent || '';
+        console.log('[VAT Paste] modal titleText:', titleText);
+        
+        let modalType = '';
+        if (document.getElementById('vatModalExportFile')) {
+            modalType = 'export';
+        } else if (document.getElementById('vatModalContractFile')) {
+            modalType = 'contract';
+        } else if (document.getElementById('vatModalHandoverFile')) {
+            modalType = 'handover';
+        }
+        
+        console.log('[VAT Paste] detected modalType:', modalType);
+        if (!modalType) {
+            console.log('[VAT Paste] none of the target file input elements are present');
+            return;
+        }
+        
+        // Extract order code: find the pattern of non-whitespace characters following 'Đơn '
+        const match = titleText.match(/Đơn\s+([A-Za-z0-9\-]+)/);
+        const orderCode = match ? match[1].trim() : '';
+        console.log('[VAT Paste] extracted orderCode:', orderCode);
+        if (!orderCode) {
+            console.log('[VAT Paste] could not extract orderCode from title');
+            return;
+        }
         
         // Verify user permission
         if (!_vatCanEdit()) {
+            console.log('[VAT Paste] permission check failed (_vatCanEdit returns false)');
             showToast('Bạn không có quyền thực hiện thao tác này!', 'error');
             return;
         }
         
         const o = _vatState.orders.find(item => item.order_code === orderCode);
-        if (!o) return;
+        if (!o) {
+            console.log('[VAT Paste] order not found in state for code:', orderCode);
+            return;
+        }
         
         const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
-        if (!items) return;
+        if (!items) {
+            console.log('[VAT Paste] clipboard items is empty/null');
+            return;
+        }
         
+        console.log('[VAT Paste] clipboard items count:', items.length);
         for (let i = 0; i < items.length; i++) {
+            console.log(`[VAT Paste] item ${i} type:`, items[i].type);
             if (items[i].type.indexOf('image') !== -1) {
                 e.preventDefault();
                 const file = items[i].getAsFile();
                 if (file) {
+                    console.log('[VAT Paste] successfully retrieved image file, starting upload...');
                     await _vatUploadProofImage(file, o.id, modalType);
+                } else {
+                    console.log('[VAT Paste] file object is null from item.getAsFile()');
                 }
                 return;
             }
         }
+        console.log('[VAT Paste] no image items found in clipboard');
     };
     
     document.addEventListener('paste', window._vatGlobalPasteHandler);
+    console.log('[VAT Paste] global paste event listener registered successfully');
 }
