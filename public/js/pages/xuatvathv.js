@@ -703,7 +703,7 @@ function _vatShowExportModal(id) {
 
 // When checkbox toggles, save right away to keep UI perfectly synced
 async function _vatOnExportCheckboxToggle(checked) {
-    const modalTitle = document.querySelector('.modal-title');
+    const modalTitle = document.getElementById('modalTitle');
     const orderCode = modalTitle ? modalTitle.textContent.split('Đơn ')[1] : '';
     const o = _vatState.orders.find(item => item.order_code === orderCode);
     if (!o) return;
@@ -781,7 +781,7 @@ function _vatShowContractModal(id) {
 
 // When contract checkbox toggles
 async function _vatOnContractCheckboxToggle(checked) {
-    const modalTitle = document.querySelector('.modal-title');
+    const modalTitle = document.getElementById('modalTitle');
     const orderCode = modalTitle ? modalTitle.textContent.split('Đơn ')[1] : '';
     const o = _vatState.orders.find(item => item.order_code === orderCode);
     if (!o) return;
@@ -858,7 +858,7 @@ function _vatShowHandoverModal(id) {
 
 // When handover checkbox toggles
 async function _vatOnHandoverCheckboxToggle(checked) {
-    const modalTitle = document.querySelector('.modal-title');
+    const modalTitle = document.getElementById('modalTitle');
     const orderCode = modalTitle ? modalTitle.textContent.split('Đơn ')[1] : '';
     const o = _vatState.orders.find(item => item.order_code === orderCode);
     if (!o) return;
@@ -987,7 +987,7 @@ function _vatSetupGlobalPasteListener() {
     }
     
     window._vatGlobalPasteHandler = async function(e) {
-        const modalTitleEl = document.querySelector('.modal-title');
+        const modalTitleEl = document.getElementById('modalTitle');
         if (!modalTitleEl) return;
         
         const titleText = modalTitleEl.textContent || '';
