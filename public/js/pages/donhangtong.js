@@ -2133,7 +2133,12 @@ async function _dhtShowDetail(id) {
         }
 
         // ── Combine all sections ──
-        const bodyHTML = actionsHTML + notesHTML + itemsHTML + payHTML + surHTML + finHTML + saleKtHTML + infoHTML + shipHTML + errorHTML + histHTML;
+        let bodyHTML;
+        if (typeof currentPage !== 'undefined' && currentPage === 'xuatvathv') {
+            bodyHTML = itemsHTML + payHTML + finHTML + infoHTML;
+        } else {
+            bodyHTML = actionsHTML + notesHTML + itemsHTML + payHTML + surHTML + finHTML + saleKtHTML + infoHTML + shipHTML + errorHTML + histHTML;
+        }
 
         const titleText = `📦 ${o.order_code} — ${fmt(finRemaining)}đ`;
         const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
