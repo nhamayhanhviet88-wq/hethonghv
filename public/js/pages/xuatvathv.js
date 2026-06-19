@@ -469,7 +469,7 @@ function _vatRenderTable() {
                 <!-- Columns -->
                 <td style="padding:10px 14px;font-weight:600;color:#334155;">${o.category_name || '—'}</td>
                 <td style="padding:10px 14px;text-align:right;font-weight:700;color:${o.remaining_amount > 0 ? '#ef4444' : '#10b981'};">${_vatFmt(o.remaining_amount)} đ</td>
-                <td style="padding:10px 14px;font-weight:700;color:#0284c7;">${o.order_code || '—'}</td>
+                <td style="padding:10px 14px;font-weight:700;color:#0284c7;cursor:pointer;text-decoration:underline;" onclick="if(window._dhtShowDetail) _dhtShowDetail('${o.id}')">${o.order_code || '—'}</td>
                 <td style="padding:10px 14px;font-weight:600;color:#1e293b;">${o.customer_name || '—'}</td>
                 <td style="padding:10px 14px;font-weight:600;color:#475569;">${o.customer_phone || '—'}</td>
                 <td style="padding:10px 14px;color:#475569;">${o.province || '—'}</td>
