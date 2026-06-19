@@ -220,7 +220,7 @@ async function _vatLoadData() {
 function _vatRenderSidebar() {
     // 1. Calculate main counts
     const countChuaXuat = _vatState.orders.filter(o => !o.vat_exported).length;
-    const countChuaThuGiayTo = _vatState.orders.filter(o => !o.vat_contract_received || !o.vat_handover_received).length;
+    const countChuaThuGiayTo = _vatState.orders.filter(o => o.vat_exported && (!o.vat_contract_received || !o.vat_handover_received)).length;
 
     const badgeChuaXuat = document.getElementById('vatBadgeChuaXuat');
     const badgeChuaThuGiayTo = document.getElementById('vatBadgeChuaThuGiayTo');
@@ -364,7 +364,7 @@ function _vatRenderTable() {
         filtered = _vatState.orders.filter(o => !o.vat_exported);
         titleStr = '📁 Danh Sách Chưa Xuất Hóa Đơn';
     } else if (_vatState.activeFilter === 'chua_thu_giay_to') {
-        filtered = _vatState.orders.filter(o => !o.vat_contract_received || !o.vat_handover_received);
+        filtered = _vatState.orders.filter(o => o.vat_exported && (!o.vat_contract_received || !o.vat_handover_received));
         titleStr = '📂 Danh Sách Chưa Thu Giấy Tờ';
     } else if (_vatState.activeFilter === 'hoan_thanh') {
         filtered = _vatState.orders.filter(o => {
