@@ -419,7 +419,7 @@ function _vatRenderTable() {
         }
         
         // Build tooltip content for invoice
-        const hasInvInfo = Object.keys(invInfo).length > 0;
+        const hasInvInfo = !!(invInfo.company_name && invInfo.tax_code && invInfo.company_address && invInfo.company_email);
         const invTooltip = hasInvInfo 
             ? `MST: ${invInfo.tax_code || '—'} | ${invInfo.company_name || '—'}`
             : 'Chưa nhập thông tin hóa đơn';
@@ -447,9 +447,11 @@ function _vatRenderTable() {
                 </td>
                 <!-- Icon 2: Export Invoice -->
                 <td style="padding:10px 8px;text-align:center;">
-                    <button class="vat-action-btn vat-tooltip vat-btn-export ${o.vat_exported ? 'done' : 'pending'}" data-tooltip="${expTooltip}" onclick="_vatShowExportModal(${o.id})">
-                        🧾
-                    </button>
+                    ${hasInvInfo ? `
+                        <button class="vat-action-btn vat-tooltip vat-btn-export ${o.vat_exported ? 'done' : 'pending'}" data-tooltip="${expTooltip}" onclick="_vatShowExportModal(${o.id})">
+                            🧾
+                        </button>
+                    ` : '<span style="color:#cbd5e1;">—</span>'}
                 </td>
                 <!-- Icon 3: Contract -->
                 <td style="padding:10px 8px;text-align:center;">
