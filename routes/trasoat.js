@@ -356,6 +356,7 @@ module.exports = async function(fastify) {
                 oi.product_name, 
                 oi.description, 
                 oi.quantity,
+                oi.material_pairs,
                 (
                     SELECT string_agg(pp.step_id::text, ',') 
                     FROM dht_product_process pp 
@@ -1584,6 +1585,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             oi.product_name,
             oi.description,
             oi.quantity,
+            oi.material_pairs,
             (
                 SELECT string_agg(pp.step_id::text, ',') 
                 FROM dht_product_process pp 
@@ -1614,8 +1616,14 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             ) AS has_any_printing,
             COALESCE(
                 CASE 
-                    WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) 
-                    THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id AND is_cut_done = false)
+                    WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) THEN
+                        CASE 
+                            WHEN COALESCE(jsonb_array_length(oi.material_pairs), 0) = 0 THEN
+                                NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id AND is_cut_done = false)
+                            ELSE
+                                (SELECT COUNT(DISTINCT phoi_index)::int FROM cutting_records WHERE order_item_id = oi.id AND is_cut_done = true) >= jsonb_array_length(oi.material_pairs)
+                                AND NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id AND is_cut_done = false)
+                        END
                     WHEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
                          AND EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
                     THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_cut_done = false)
@@ -1797,10 +1805,25 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
             { name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name }
         ];
     } else {
-        const cutDoneCount = itemCutting.filter(c => c.is_cut_done).length;
-        const cutTotalCount = itemCutting.length;
-        const cutProgress = cutTotalCount > 0 ? `${cutDoneCount}/${cutTotalCount}` : null;
-        const allCutDone = cutTotalCount > 0 && itemCutting.every(c => c.is_cut_done);
+        let expectedTotal = 1;
+        if (item.material_pairs) {
+            try {
+                const pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : item.material_pairs;
+                if (Array.isArray(pairs) && pairs.length > 0) {
+                    expectedTotal = pairs.length;
+                }
+            } catch (e) {}
+        }
+
+        let completedPhois = new Set();
+        itemCutting.forEach(c => {
+            if (c.is_cut_done && c.phoi_index !== null && c.phoi_index !== undefined) {
+                completedPhois.add(c.phoi_index);
+            }
+        });
+        const cutDoneCount = completedPhois.size;
+        const cutProgress = `${cutDoneCount}/${expectedTotal}`;
+        const allCutDone = cutDoneCount === expectedTotal && itemCutting.every(c => c.is_cut_done);
 
         const doneCuts = itemCutting.filter(c => c.is_cut_done && c.cut_done_at);
         const cutTime = doneCuts.length > 0 ? new Date(Math.max(...doneCuts.map(c => new Date(c.cut_done_at).getTime()))) : null;
