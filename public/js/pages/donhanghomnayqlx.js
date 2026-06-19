@@ -2134,3 +2134,5 @@ window._qlxdhSaveRescheduleLimitSettings = _qlxdhSaveRescheduleLimitSettings;
 window._qlxdhOpenProcessingDaysModal = _qlxdhOpenProcessingDaysModal;
 window._qlxdhOnProcessingDaysPresetChange = _qlxdhOnProcessingDaysPresetChange;
 window._qlxdhSaveProcessingDaysSettings = _qlxdhSaveProcessingDaysSettings;
+
+// version 20260619_v4
