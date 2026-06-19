@@ -206,7 +206,7 @@ function _dhcttGetOrderCarriers(o) {
 
         if (o.shipments && o.shipments.length > 0) {
             o.shipments.forEach(function(s) {
-                var cid = Number(s.actual_carrier_id || 0);
+                var cid = Number(s.actual_carrier_id || o.actual_carrier_id || 0);
                 if (cid > 0) {
                     var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
                     var cname = found ? found.name : ('NVC #' + cid);

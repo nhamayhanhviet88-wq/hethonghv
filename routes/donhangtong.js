@@ -1188,7 +1188,7 @@ module.exports = async function(fastify) {
             ) order_items ON true
             LEFT JOIN LATERAL (
                 SELECT json_agg(json_build_object(
-                    'actual_carrier_id', s.actual_carrier_id,
+                    'actual_carrier_id', COALESCE(s.actual_carrier_id, o.actual_carrier_id, 0),
                     'tracking_code', s.tracking_code,
                     'is_reconciled', CASE 
                         WHEN s.tracking_code IS NOT NULL AND s.tracking_code != '' AND EXISTS (
