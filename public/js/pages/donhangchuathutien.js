@@ -168,58 +168,68 @@ function _dhcttGetOrderShipDate(o, carrierId) {
 
 function _dhcttGetOrderCarriers(o) {
     var carriers = [];
-    if (o.items && o.items.length > 0) {
-        o.items.forEach(function(item) {
-            var cid = Number(item.actual_carrier_id || 0);
-            var cname = '';
-            if (cid === 0) {
-                cname = 'Chưa Gửi Đơn';
-            } else {
-                var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
-                cname = found ? found.name : ('NVC #' + cid);
-            }
-            
-            var isReconciled = !!item.is_reconciled;
-            var label = '';
-            if (cid > 0) {
-                if (isReconciled) {
-                    label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(TT 1 Phần - Chưa Thu Đủ)</small></span>';
+    if (o.order_type === 'ao_mau') {
+        if (o.items && o.items.length > 0) {
+            o.items.forEach(function(item) {
+                var cid = Number(item.actual_carrier_id || 0);
+                var cname = '';
+                if (cid === 0) {
+                    cname = 'Chưa Gửi Đơn';
                 } else {
-                    label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Tiền Chưa Về)</small></span>';
+                    var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
+                    cname = found ? found.name : ('NVC #' + cid);
                 }
-            } else {
-                label = '<span class="dhctt-carrier-badge pending" title="Chưa gửi hàng lần nào hoặc phần chưa gửi">' + cname + '</span>';
-            }
-            
-            if (carriers.indexOf(label) === -1) {
-                carriers.push(label);
-            }
-        });
+                
+                var isReconciled = !!item.is_reconciled;
+                var label = '';
+                if (cid > 0) {
+                    if (isReconciled) {
+                        label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(TT 1 Phần - Chưa Thu Đủ)</small></span>';
+                    } else {
+                        label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Tiền Chưa Về)</small></span>';
+                    }
+                } else {
+                    label = '<span class="dhctt-carrier-badge pending" title="Chưa gửi hàng lần nào hoặc phần chưa gửi">' + cname + '</span>';
+                }
+                
+                if (carriers.indexOf(label) === -1) {
+                    carriers.push(label);
+                }
+            });
+        }
     } else {
-        var cid = 0;
-        if (o.shipping_status === 'shipped' && o.actual_carrier_id) {
-            cid = Number(o.actual_carrier_id);
+        var hasPendingItems = (o.items || []).some(function(item) {
+            var nameLower = (item.product_name || item.description || '').toLowerCase();
+            if (nameLower.indexOf('thiết kế') >= 0 || nameLower.indexOf('thiet ke') >= 0) return false;
+            return item.shipping_status === 'pending';
+        });
+
+        if (o.shipments && o.shipments.length > 0) {
+            o.shipments.forEach(function(s) {
+                var cid = Number(s.actual_carrier_id || 0);
+                if (cid > 0) {
+                    var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
+                    var cname = found ? found.name : ('NVC #' + cid);
+                    var isReconciled = !!s.is_reconciled;
+                    var label = '';
+                    if (isReconciled) {
+                        label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(TT 1 Phần - Chưa Thu Đủ)</small></span>';
+                    } else {
+                        label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Tiền Chưa Về)</small></span>';
+                    }
+                    if (carriers.indexOf(label) === -1) {
+                        carriers.push(label);
+                    }
+                }
+            });
         }
-        var cname = '';
-        if (cid === 0) {
-            cname = 'Chưa Gửi Đơn';
-        } else {
-            var found = (_dhctt.carriers || []).find(function(c){ return c.id === cid; });
-            cname = found ? found.name : ('NVC #' + cid);
-        }
-        
-        var isReconciled = !!o.is_reconciled;
-        var label = '';
-        if (cid > 0) {
-            if (isReconciled) {
-                label = '<span class="dhctt-carrier-badge reconciled" title="Đã thu tiền/đối soát, cần gửi tiếp phần còn lại nếu có hoặc thu nốt">' + cname + ' <small>(TT 1 Phần - Chưa Thu Đủ)</small></span>';
-            } else {
-                label = '<span class="dhctt-carrier-badge shipping" title="Đang giao/chưa đối soát">' + cname + ' <small>(Tiền Chưa Về)</small></span>';
+
+        if (hasPendingItems || !o.shipments || o.shipments.length === 0) {
+            var label = '<span class="dhctt-carrier-badge pending" title="Chưa gửi hàng lần nào hoặc phần chưa gửi">Chưa Gửi Đơn</span>';
+            if (carriers.indexOf(label) === -1) {
+                carriers.unshift(label);
             }
-        } else {
-            label = '<span class="dhctt-carrier-badge pending" title="Chưa gửi hàng lần nào hoặc phần chưa gửi">' + cname + '</span>';
         }
-        carriers.push(label);
     }
     return carriers.join(' ');
 }

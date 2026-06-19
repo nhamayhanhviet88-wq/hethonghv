@@ -291,65 +291,49 @@ module.exports = async function(fastify) {
                     WHERE 1=1 ${filterCreatedBy}
                 ),
                 order_carriers AS (
+                    -- 1. Shipped carriers from actual shipments
                     SELECT DISTINCT
                         o.id AS order_id,
-                        CASE 
-                            WHEN oi.shipping_status = 'shipped' 
-                             AND oi.tracking_code IS NOT NULL 
-                             AND oi.tracking_code != ''
-                             AND EXISTS (
-                                 SELECT 1 FROM payment_records pr 
-                                 WHERE pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
-                                    OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
-                                    OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
-                             )
-                            THEN 0
-                            ELSE COALESCE(oi.actual_carrier_id, 0)
-                        END AS carrier_id,
+                        s.actual_carrier_id AS carrier_id,
                         o.order_date AS assoc_date,
                         o.remaining_amount
                     FROM filtered_unpaid o
-                    JOIN dht_order_items oi ON oi.dht_order_id = CAST(o.id AS integer)
+                    JOIN dht_order_shipments s ON s.dht_order_id = CAST(o.id AS integer)
                     WHERE o.order_type = 'dht_order'
                       AND o.remaining_amount > 0
-                      AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
-                      AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
-                      AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
-                      AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
-                    
-                    UNION
-                    
-                    SELECT
-                        o.id AS order_id,
-                        CASE 
-                            WHEN o.shipping_status = 'shipped' 
-                             AND o.actual_carrier_id IS NOT NULL 
-                             AND o.tracking_code IS NOT NULL 
-                             AND o.tracking_code != ''
-                             AND EXISTS (
-                                 SELECT 1 FROM payment_records pr 
-                                 WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
-                                    OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
-                                    OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
-                             )
-                            THEN 0
-                            WHEN o.shipping_status = 'shipped' AND o.actual_carrier_id IS NOT NULL 
-                            THEN o.actual_carrier_id 
-                            ELSE 0 
-                        END AS carrier_id,
-                        o.order_date AS assoc_date,
-                        o.remaining_amount
-                    FROM filtered_unpaid o
-                    WHERE o.order_type = 'dht_order'
+                      AND s.actual_carrier_id IS NOT NULL AND s.actual_carrier_id > 0
                       AND NOT EXISTS (
-                        SELECT 1 FROM dht_order_items 
-                        WHERE dht_order_id = CAST(o.id AS integer)
-                          AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
-                          AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
-                          AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
-                          AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
-                    )
+                          SELECT 1 FROM payment_records pr 
+                          WHERE s.tracking_code IS NOT NULL AND s.tracking_code != '' 
+                            AND (pr.reconciled_waybills LIKE '%"' || s.tracking_code || '"%' 
+                                 OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || s.tracking_code || '%')
+                                 OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || s.tracking_code || '%'))
+                      )
+
+                    UNION
+
+                    -- 2. Pending / Chưa Gửi Đơn state: if no shipments, or if there is any pending item.
+                    SELECT DISTINCT
+                        o.id AS order_id,
+                        0 AS carrier_id,
+                        o.order_date AS assoc_date,
+                        o.remaining_amount
+                    FROM filtered_unpaid o
+                    WHERE o.order_type = 'dht_order'
                       AND o.remaining_amount > 0
+                      AND (
+                          NOT EXISTS (SELECT 1 FROM dht_order_shipments s WHERE s.dht_order_id = CAST(o.id AS integer))
+                          OR
+                          EXISTS (
+                              SELECT 1 FROM dht_order_items oi
+                              WHERE oi.dht_order_id = CAST(o.id AS integer)
+                                AND COALESCE(oi.shipping_status, 'pending') = 'pending'
+                                AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+                                AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+                                AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+                                AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
+                          )
+                      )
 
                     UNION
 
@@ -811,31 +795,18 @@ module.exports = async function(fastify) {
                     o.id DESC
                 `;
                 where += ` AND (
-                    (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) 
-                        AND (COALESCE(o.shipping_status, 'pending') != 'shipped' 
-                            OR o.actual_carrier_id IS NULL 
-                            OR o.actual_carrier_id = 0
-                            OR (o.tracking_code IS NOT NULL AND o.tracking_code != '' AND EXISTS (
-                                SELECT 1 FROM payment_records pr 
-                                WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
-                                   OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
-                                   OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
-                            ))
-                        )
-                    )
+                    -- No shipments at all
+                    NOT EXISTS (SELECT 1 FROM dht_order_shipments os WHERE os.dht_order_id = o.id)
                     OR
-                    EXISTS (SELECT 1 FROM dht_order_items oi 
+                    -- Or has pending items (excluding design items)
+                    EXISTS (
+                        SELECT 1 FROM dht_order_items oi 
                         WHERE oi.dht_order_id = o.id 
-                        AND (COALESCE(oi.shipping_status, 'pending') != 'shipped' 
-                            OR oi.actual_carrier_id IS NULL 
-                            OR oi.actual_carrier_id = 0
-                            OR (oi.tracking_code IS NOT NULL AND oi.tracking_code != '' AND EXISTS (
-                                SELECT 1 FROM payment_records pr 
-                                WHERE pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
-                                   OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
-                                   OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
-                            ))
-                        )
+                          AND COALESCE(oi.shipping_status, 'pending') = 'pending'
+                          AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+                          AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+                          AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+                          AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
                     )
                 )`;
                 if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
@@ -852,30 +823,17 @@ module.exports = async function(fastify) {
                 orderBy = 'COALESCE(o.shipped_at, o.order_date) ASC, o.id DESC';
                 const carrierParamIdx = idx++;
                 params.push(carrierId);
-
-                where += ` AND (
-                    (NOT EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id) 
-                        AND COALESCE(o.shipping_status, 'pending') = 'shipped' 
-                        AND o.actual_carrier_id = $${carrierParamIdx}
-                        AND NOT (o.tracking_code IS NOT NULL AND o.tracking_code != '' AND EXISTS (
-                            SELECT 1 FROM payment_records pr 
-                            WHERE pr.reconciled_waybills LIKE '%"' || o.tracking_code || '"%' 
-                               OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
-                               OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || o.tracking_code || '%')
-                        ))
-                    )
-                    OR
-                    EXISTS (SELECT 1 FROM dht_order_items oi 
-                        WHERE oi.dht_order_id = o.id 
-                        AND COALESCE(oi.shipping_status, 'pending') = 'shipped' 
-                        AND oi.actual_carrier_id = $${carrierParamIdx}
-                        AND NOT (oi.tracking_code IS NOT NULL AND oi.tracking_code != '' AND EXISTS (
-                            SELECT 1 FROM payment_records pr 
-                            WHERE pr.reconciled_waybills LIKE '%"' || oi.tracking_code || '"%' 
-                               OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
-                               OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || oi.tracking_code || '%')
-                        ))
-                    )
+ 
+                where += ` AND EXISTS (
+                    SELECT 1 FROM dht_order_shipments os
+                    WHERE os.dht_order_id = o.id
+                      AND os.actual_carrier_id = $${carrierParamIdx}
+                      AND NOT (os.tracking_code IS NOT NULL AND os.tracking_code != '' AND EXISTS (
+                          SELECT 1 FROM payment_records pr 
+                          WHERE pr.reconciled_waybills LIKE '%"' || os.tracking_code || '"%' 
+                             OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || os.tracking_code || '%')
+                             OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || os.tracking_code || '%')
+                      ))
                 )`;
 
                 if (year) { where += ` AND EXTRACT(YEAR FROM o.order_date) = $${idx++}`; params.push(Number(year)); }
@@ -1166,7 +1124,8 @@ module.exports = async function(fastify) {
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
                 COALESCE(repair_check.repair_count, 0) > 0 AS has_repair_order,
                 COALESCE((SELECT op_in.is_completed FROM dht_order_production op_in WHERE op_in.dht_order_id = o.id AND op_in.step_id = 3), false) AS is_print_done,
-                order_items.items AS items
+                order_items.items AS items,
+                COALESCE(order_shipments.shipments, '[]'::json) AS shipments
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -1227,6 +1186,21 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
                 WHERE i.dht_order_id = o.id
             ) order_items ON true
+            LEFT JOIN LATERAL (
+                SELECT json_agg(json_build_object(
+                    'actual_carrier_id', s.actual_carrier_id,
+                    'tracking_code', s.tracking_code,
+                    'is_reconciled', CASE 
+                        WHEN s.tracking_code IS NOT NULL AND s.tracking_code != '' AND EXISTS (
+                            SELECT 1 FROM payment_records pr 
+                            WHERE pr.reconciled_waybills LIKE '%"' || s.tracking_code || '"%' 
+                               OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || s.tracking_code || '%')
+                               OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || s.tracking_code || '%')
+                        ) THEN true ELSE false END
+                )) AS shipments
+                FROM dht_order_shipments s
+                WHERE s.dht_order_id = o.id
+            ) order_shipments ON true
             ${where}
             ORDER BY ${orderBy}
         `,params);
