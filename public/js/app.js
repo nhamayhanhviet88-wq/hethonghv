@@ -1978,6 +1978,7 @@ async function handleRoute() {
             case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;
             case 'addcmtdoitackh': content.innerHTML=''; setTimeout(function(){if(typeof _acInit==='function')_acInit();},50); break;
             case 'timkiemkhachhang': case 'timkiemkhachhanghv': renderTimKiemKhachHang(content); break;
+            case 'xuatvathv': renderXuatvathvPage(content); break;
             default:
                 // ========== CONVENTION-BASED AUTO-RENDER ==========
                 // Try multiple naming patterns to auto-discover page render functions

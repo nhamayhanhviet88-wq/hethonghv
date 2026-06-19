@@ -108,6 +108,15 @@ module.exports = async function(fastify) {
     // Smart Customer: link orders to free customer record
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS free_customer_id INTEGER DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_carriers ADD COLUMN IF NOT EXISTS tracking_url_template TEXT DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_invoice_info JSONB DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_contract_received BOOLEAN DEFAULT FALSE`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_contract_proof TEXT DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_contract_received_at TIMESTAMPTZ DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_contract_received_by INTEGER DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_handover_received BOOLEAN DEFAULT FALSE`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_handover_proof TEXT DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_handover_received_at TIMESTAMPTZ DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS vat_handover_received_by INTEGER DEFAULT NULL`); } catch(e) {}
     // ★ Repair Order: link repair order back to parent order
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS parent_order_id INTEGER DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS repair_source_code TEXT DEFAULT NULL`); } catch(e) {}
@@ -2812,6 +2821,348 @@ module.exports = async function(fastify) {
         } catch(e) { console.error('[Audit Log VAT Error]:', e.message); }
 
         return { success: true, url: imageUrl };
+    });
+
+    // ★ Dedicated endpoint for querying VAT orders
+    fastify.get('/api/dht/vat-orders', { preHandler: [authenticate] }, async (request, reply) => {
+        const shipCkDeductSql = `COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)`;
+        
+        let where = 'WHERE (o.has_vat = true OR o.vat_amount > 0)';
+        const params = [];
+        let idx = 1;
+
+        // ★ ORDER VISIBILITY: Only GĐ, QLCC, and Phòng Kế Toán see all orders. Sales only see their own.
+        const FULL_VIEW_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
+        if (!FULL_VIEW_ROLES.includes(request.user.role)) {
+            const userDept = await db.get(
+                'SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
+                [request.user.id]
+            );
+            const isKeToan = userDept && userDept.name && (userDept.name.toLowerCase().includes('kế toán') || userDept.name.toLowerCase().includes('ke toan'));
+            if (!isKeToan) {
+                where += ` AND o.created_by = $${idx++}`;
+                params.push(request.user.id);
+            }
+        }
+
+        const queryStr = `
+            SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count, COALESCE(o.is_edited, FALSE) AS is_edited,
+                c.name AS category_name,
+                u_cskh.full_name AS cskh_name,
+                u_created.full_name AS created_by_name,
+                u_updated.full_name AS last_updated_by_name,
+                u_vat.full_name AS vat_exported_by_name,
+                u_contract.full_name AS vat_contract_received_by_name,
+                u_handover.full_name AS vat_handover_received_by_name,
+                GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
+                GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - ${shipCkDeductSql}) AS remaining_amount
+            FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+            LEFT JOIN users u_created ON o.created_by = u_created.id
+            LEFT JOIN users u_updated ON o.last_updated_by = u_updated.id
+            LEFT JOIN users u_vat ON o.vat_exported_by = u_vat.id
+            LEFT JOIN users u_contract ON o.vat_contract_received_by = u_contract.id
+            LEFT JOIN users u_handover ON o.vat_handover_received_by = u_handover.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(amount), 0) AS deposit_total
+                FROM payment_records
+                WHERE total_order_codes ILIKE '%' || o.order_code || '%'
+                   OR order_tt_coc = o.order_code
+            ) pr_dep ON true
+            ${where}
+            ORDER BY o.order_date DESC, o.id DESC
+        `;
+
+        const orders = await db.all(queryStr, params);
+        return { success: true, orders };
+    });
+
+    // ★ Dedicated endpoint for saving Invoice details
+    fastify.post('/api/dht/orders/:id/vat-invoice-info', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        const info = request.body || {};
+
+        // Only GĐ, QLCC, or Kế Toán can update
+        let allowed = request.user.role === 'giam_doc' || request.user.role === 'quan_ly_cap_cao';
+        if (!allowed) {
+            const dept = await db.get('SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1', [request.user.id]);
+            if (dept && dept.name) {
+                const n = dept.name.toLowerCase();
+                allowed = n.includes('kế toán') || n.includes('ke toan');
+            }
+        }
+        if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ, QLCC hoặc Phòng Kế Toán mới được cập nhật thông tin hóa đơn VAT' });
+
+        const order = await db.get('SELECT vat_invoice_info FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        await db.run(
+            `UPDATE dht_orders 
+             SET vat_invoice_info = $1::jsonb, 
+                 last_updated_at = NOW(), 
+                 last_updated_by = $2 
+             WHERE id = $3`,
+            [JSON.stringify(info), request.user.id, orderId]
+        );
+
+        // Audit Log entry
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                [
+                    orderId,
+                    'vat_invoice_info',
+                    '📝 Cập nhật thông tin hóa đơn VAT',
+                    JSON.stringify([
+                        { field: 'vat_invoice_info', label: 'Thông tin hóa đơn', old: order.vat_invoice_info ? JSON.stringify(order.vat_invoice_info) : 'null', new: JSON.stringify(info) }
+                    ]),
+                    request.user.id
+                ]
+            );
+        } catch(e) { console.error('[Audit Log VAT Invoice Info Error]:', e.message); }
+
+        return { success: true };
+    });
+
+    // ★ Dedicated endpoint for updating Contract status / proof
+    fastify.post('/api/dht/orders/:id/vat-contract', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        
+        let allowed = request.user.role === 'giam_doc' || request.user.role === 'quan_ly_cap_cao';
+        if (!allowed) {
+            const dept = await db.get('SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1', [request.user.id]);
+            if (dept && dept.name) {
+                const n = dept.name.toLowerCase();
+                allowed = n.includes('kế toán') || n.includes('ke toan');
+            }
+        }
+        if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ, QLCC hoặc Phòng Kế Toán mới được cập nhật hợp đồng' });
+
+        const order = await db.get('SELECT vat_contract_received, vat_contract_proof FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        let proofImage = null;
+        let contractReceived = true;
+
+        if (request.headers['content-type']?.includes('multipart')) {
+            const data = await request.file();
+            if (data) {
+                const path = require('path');
+                const fs = require('fs');
+                const { compressAndSave } = require('../utils/imageCompressor');
+                const dir = path.join(__dirname, '..', 'uploads', 'vat');
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                const buf = await data.toBuffer();
+                const result = await compressAndSave(buf, dir, 'contract_');
+                proofImage = `/uploads/vat/${result.fileName}`;
+            }
+        } else {
+            const b = request.body || {};
+            contractReceived = b.received === true || b.received === 'true';
+            proofImage = b.proof_image || null;
+        }
+
+        const oldReceived = order.vat_contract_received;
+        const oldProof = order.vat_contract_proof;
+
+        if (!contractReceived) {
+            await db.run(
+                `UPDATE dht_orders 
+                 SET vat_contract_received = false, 
+                     vat_contract_proof = null, 
+                     vat_contract_received_at = null, 
+                     vat_contract_received_by = null,
+                     last_updated_at = NOW(),
+                     last_updated_by = $1
+                 WHERE id = $2`,
+                [request.user.id, orderId]
+            );
+        } else {
+            await db.run(
+                `UPDATE dht_orders 
+                 SET vat_contract_received = true, 
+                     vat_contract_proof = COALESCE($1, vat_contract_proof), 
+                     vat_contract_received_at = COALESCE(vat_contract_received_at, NOW()), 
+                     vat_contract_received_by = COALESCE(vat_contract_received_by, $2),
+                     last_updated_at = NOW(),
+                     last_updated_by = $2
+                 WHERE id = $3`,
+                [proofImage, request.user.id, orderId]
+            );
+        }
+
+        // Audit Log entry
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                [
+                    orderId,
+                    'vat_contract',
+                    '📜 Cập nhật Hợp đồng VAT',
+                    JSON.stringify([
+                        { field: 'vat_contract_received', label: 'Nhận hợp đồng', old: oldReceived ? 'true' : 'false', new: contractReceived ? 'true' : 'false' },
+                        { field: 'vat_contract_proof', label: 'Ảnh/File hợp đồng', old: oldProof || 'null', new: proofImage || oldProof || 'null' }
+                    ]),
+                    request.user.id
+                ]
+            );
+        } catch(e) { console.error('[Audit Log VAT Contract Error]:', e.message); }
+
+        const updatedOrder = await db.get('SELECT vat_contract_received, vat_contract_proof, vat_contract_received_at, vat_contract_received_by FROM dht_orders WHERE id = $1', [orderId]);
+        return { success: true, order: updatedOrder };
+    });
+
+    // ★ Dedicated endpoint for updating Handover status / proof
+    fastify.post('/api/dht/orders/:id/vat-handover', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        
+        let allowed = request.user.role === 'giam_doc' || request.user.role === 'quan_ly_cap_cao';
+        if (!allowed) {
+            const dept = await db.get('SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1', [request.user.id]);
+            if (dept && dept.name) {
+                const n = dept.name.toLowerCase();
+                allowed = n.includes('kế toán') || n.includes('ke toan');
+            }
+        }
+        if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ, QLCC hoặc Phòng Kế Toán mới được cập nhật biên bản bàn giao' });
+
+        const order = await db.get('SELECT vat_handover_received, vat_handover_proof FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        let proofImage = null;
+        let handoverReceived = true;
+
+        if (request.headers['content-type']?.includes('multipart')) {
+            const data = await request.file();
+            if (data) {
+                const path = require('path');
+                const fs = require('fs');
+                const { compressAndSave } = require('../utils/imageCompressor');
+                const dir = path.join(__dirname, '..', 'uploads', 'vat');
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                const buf = await data.toBuffer();
+                const result = await compressAndSave(buf, dir, 'handover_');
+                proofImage = `/uploads/vat/${result.fileName}`;
+            }
+        } else {
+            const b = request.body || {};
+            handoverReceived = b.received === true || b.received === 'true';
+            proofImage = b.proof_image || null;
+        }
+
+        const oldReceived = order.vat_handover_received;
+        const oldProof = order.vat_handover_proof;
+
+        if (!handoverReceived) {
+            await db.run(
+                `UPDATE dht_orders 
+                 SET vat_handover_received = false, 
+                     vat_handover_proof = null, 
+                     vat_handover_received_at = null, 
+                     vat_handover_received_by = null,
+                     last_updated_at = NOW(),
+                     last_updated_by = $1
+                 WHERE id = $2`,
+                [request.user.id, orderId]
+            );
+        } else {
+            await db.run(
+                `UPDATE dht_orders 
+                 SET vat_handover_received = true, 
+                     vat_handover_proof = COALESCE($1, vat_handover_proof), 
+                     vat_handover_received_at = COALESCE(vat_handover_received_at, NOW()), 
+                     vat_handover_received_by = COALESCE(vat_handover_received_by, $2),
+                     last_updated_at = NOW(),
+                     last_updated_by = $2
+                 WHERE id = $3`,
+                [proofImage, request.user.id, orderId]
+            );
+        }
+
+        // Audit Log entry
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                [
+                    orderId,
+                    'vat_handover',
+                    '📦 Cập nhật Biên bản bàn giao VAT',
+                    JSON.stringify([
+                        { field: 'vat_handover_received', label: 'Nhận BB bàn giao', old: oldReceived ? 'true' : 'false', new: handoverReceived ? 'true' : 'false' },
+                        { field: 'vat_handover_proof', label: 'Ảnh/File BB bàn giao', old: oldProof || 'null', new: proofImage || oldProof || 'null' }
+                    ]),
+                    request.user.id
+                ]
+            );
+        } catch(e) { console.error('[Audit Log VAT Handover Error]:', e.message); }
+
+        const updatedOrder = await db.get('SELECT vat_handover_received, vat_handover_proof, vat_handover_received_at, vat_handover_received_by FROM dht_orders WHERE id = $1', [orderId]);
+        return { success: true, order: updatedOrder };
+    });
+
+    // ★ Dedicated endpoint for toggling VAT export status
+    fastify.post('/api/dht/orders/:id/vat-export-toggle', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        const { exported } = request.body || {};
+
+        let allowed = request.user.role === 'giam_doc' || request.user.role === 'quan_ly_cap_cao';
+        if (!allowed) {
+            const dept = await db.get('SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1', [request.user.id]);
+            if (dept && dept.name) {
+                const n = dept.name.toLowerCase();
+                allowed = n.includes('kế toán') || n.includes('ke toan');
+            }
+        }
+        if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ, QLCC hoặc Phòng Kế Toán mới được cập nhật trạng thái xuất hóa đơn VAT' });
+
+        const order = await db.get('SELECT vat_exported, vat_proof_image FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        const oldExported = order.vat_exported;
+
+        if (!exported) {
+            await db.run(
+                `UPDATE dht_orders 
+                 SET vat_exported = false, 
+                     vat_proof_image = null, 
+                     vat_exported_at = null, 
+                     vat_exported_by = null,
+                     last_updated_at = NOW(),
+                     last_updated_by = $1
+                 WHERE id = $2`,
+                [request.user.id, orderId]
+            );
+        } else {
+            await db.run(
+                `UPDATE dht_orders 
+                 SET vat_exported = true, 
+                     vat_exported_at = COALESCE(vat_exported_at, NOW()), 
+                     vat_exported_by = COALESCE(vat_exported_by, $1),
+                     last_updated_at = NOW(),
+                     last_updated_by = $1
+                 WHERE id = $2`,
+                [request.user.id, orderId]
+            );
+        }
+
+        // Audit Log entry
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                [
+                    orderId,
+                    'vat_export_toggle',
+                    '🧾 Thay đổi trạng thái xuất hóa đơn VAT',
+                    JSON.stringify([
+                        { field: 'vat_exported', label: 'Trạng thái xuất VAT', old: oldExported ? 'true' : 'false', new: exported ? 'true' : 'false' }
+                    ]),
+                    request.user.id
+                ]
+            );
+        } catch(e) { console.error('[Audit Log VAT Export Toggle Error]:', e.message); }
+
+        return { success: true };
     });
 
     // ========== ORDERS: Update (full edit) ==========
