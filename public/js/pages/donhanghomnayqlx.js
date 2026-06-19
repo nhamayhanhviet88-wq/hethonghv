@@ -59,6 +59,23 @@ async function renderDonhanghomnayqlxPage(container) {
         .dht-tiendo-blue{background-color:#dbeafe;color:#1d4ed8;border-color:rgba(29,78,216,0.2)}
         .dht-tiendo-yellow{background-color:#fef3c7;color:#b45309;border-color:rgba(180,83,9,0.2)}
         @keyframes dhtBlink{0%,100%{opacity:1}50%{opacity:0.4}}
+        @keyframes qlxdhPulseBlink {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+                filter: brightness(1);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 8px 3px rgba(220, 38, 38, 0.4);
+                filter: brightness(1.2);
+                transform: scale(1.03);
+            }
+        }
+        .qlxdh-hen-homnay {
+            animation: qlxdhPulseBlink 1.2s infinite ease-in-out;
+            border: 1px solid #fca5a5 !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+        }
     </style>
     <div style="max-width:1600px;margin:0 auto;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
@@ -338,10 +355,10 @@ function _qlxdhGetOrderMenu(o) {
 
 function _qlxdhFormatRescheduleStatus(o) {
     if (o.shipping_status === 'shipped') {
-        return { label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5' };
+        return { label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5', class: '' };
     }
     if (!o.last_rescheduled_at) {
-        return { label: 'Chưa Hẹn', color: '#64748b', bg: '#f1f5f9' };
+        return { label: 'Chưa Hẹn', color: '#64748b', bg: '#f1f5f9', class: '' };
     }
     try {
         const reschedDateStr = vnDateStr(o.last_rescheduled_at);
@@ -351,20 +368,18 @@ function _qlxdhFormatRescheduleStatus(o) {
         const diffDays = Math.round((d2.getTime() - d1.getTime()) / 86400000);
         
         if (diffDays === 0) {
-            return { label: 'QLX Hẹn Hôm Nay', color: '#dc2626', bg: '#fef2f2' };
+            return { label: 'QLX Hẹn Hôm Nay', color: '#ffffff', bg: 'linear-gradient(135deg, #dc2626, #ef4444)', class: 'qlxdh-hen-homnay' };
         } else if (diffDays === 1) {
-            return { label: 'QLX Hẹn Hôm Qua', color: '#d97706', bg: '#fffbeb' };
+            return { label: 'QLX Hẹn Hôm Qua', color: '#d97706', bg: '#fffbeb', class: '' };
         } else if (diffDays === 2) {
-            return { label: 'QLX Hẹn Hôm Kia', color: '#7c3aed', bg: '#f5f3ff' };
-        } else if (diffDays === 3) {
-            return { label: 'QLX Hẹn Hôm Kìa', color: '#2563eb', bg: '#eff6ff' };
+            return { label: 'QLX Hẹn Hôm Kia', color: '#7c3aed', bg: '#f5f3ff', class: '' };
         } else {
             const day = d1.getDate();
             const month = d1.getMonth() + 1;
-            return { label: `QLX Hẹn ${day}/${month}`, color: '#4b5563', bg: '#f3f4f6' };
+            return { label: `QLX Hẹn ${day}/${month}`, color: '#4b5563', bg: '#f3f4f6', class: '' };
         }
     } catch (e) {
-        return { label: 'QLX Đã Hẹn', color: '#d97706', bg: '#fffbeb' };
+        return { label: 'QLX Đã Hẹn', color: '#d97706', bg: '#fffbeb', class: '' };
     }
 }
 
@@ -518,7 +533,8 @@ function _qlxdhBuildTable(orders) {
         </td>`;
 
         const statusData = _qlxdhFormatRescheduleStatus(o);
-        const statusBadge = `<span style="background:${statusData.bg};color:${statusData.color};border:1px solid ${statusData.color}40;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block;">${statusData.label}</span>`;
+        const borderStyle = statusData.class ? '' : `border:1px solid ${statusData.color}40;`;
+        const statusBadge = `<span class="${statusData.class}" style="background:${statusData.bg};color:${statusData.color};${borderStyle}padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block;">${statusData.label}</span>`;
         html += `<td style="padding:8px 6px;text-align:center;vertical-align:middle;">${statusBadge}</td>`;
 
         html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
