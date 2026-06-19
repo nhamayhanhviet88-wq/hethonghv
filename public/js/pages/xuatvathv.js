@@ -37,6 +37,35 @@ function _vatCanEdit() {
     return false;
 }
 
+// Check if user is an accountant to render read-only view in invoice modal
+function _vatIsAccountant() {
+    if (!currentUser) return false;
+    if (currentUser.role === 'ke_toan') return true;
+    if (currentUser.department_name && (currentUser.department_name.toLowerCase().includes('kế toán') || currentUser.department_name.toLowerCase().includes('ke toan'))) {
+        return true;
+    }
+    return false;
+}
+
+// Copy to clipboard helper
+function _vatCopyToClipboard(text) {
+    if (!text) {
+        showToast('Không có thông tin để copy!', 'warning');
+        return;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('📋 Đã copy vào bộ nhớ tạm!');
+    }).catch(err => {
+        const el = document.createElement('textarea');
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        showToast('📋 Đã copy vào bộ nhớ tạm!');
+    });
+}
+
 // main render entry point called by the app.js SPA router
 async function renderXuatvathvPage(content) {
     // 1. Inject Styles once
@@ -504,34 +533,61 @@ function _vatShowInvoiceModal(id) {
         } catch(e) {}
     }
 
-    const editable = _vatCanEdit();
+    const isAcc = _vatIsAccountant();
+    const editable = _vatCanEdit() && !isAcc;
+
+    function renderField(label, fieldId, val, type = 'text', required = false) {
+        const reqStar = required ? `<span style="color:#ef4444;">*</span>` : '';
+        if (editable) {
+            if (type === 'textarea') {
+                return `
+                    <div class="vat-modal-field">
+                        <label>${label} ${reqStar}</label>
+                        <textarea id="${fieldId}" rows="2" placeholder="Nhập ${label.toLowerCase()}...">${val || ''}</textarea>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="vat-modal-field">
+                        <label>${label} ${reqStar}</label>
+                        <input type="${type}" id="${fieldId}" value="${val || ''}" placeholder="Nhập ${label.toLowerCase()}...">
+                    </div>
+                `;
+            }
+        } else {
+            const escapedVal = String(val || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            if (type === 'textarea') {
+                return `
+                    <div class="vat-modal-field">
+                        <label>${label} ${reqStar}</label>
+                        <div style="position:relative; display:flex; align-items:center;">
+                            <textarea id="${fieldId}" rows="2" readonly style="width:100%; padding: 8px 36px 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size:13px; background:#f8fafc; color:#334155; font-weight:600; font-family:inherit; resize:none;">${val || ''}</textarea>
+                            <span class="vat-tooltip" data-tooltip="Copy" style="position:absolute; right:12px; top:12px; cursor:pointer; font-size:15px; user-select:none;" onclick="_vatCopyToClipboard('${escapedVal}')">📋</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="vat-modal-field">
+                        <label>${label} ${reqStar}</label>
+                        <div style="position:relative; display:flex; align-items:center;">
+                            <input type="${type}" id="${fieldId}" value="${val || ''}" readonly style="width:100%; padding: 8px 36px 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size:13px; background:#f8fafc; color:#334155; font-weight:600;">
+                            <span class="vat-tooltip" data-tooltip="Copy" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:15px; user-select:none;" onclick="_vatCopyToClipboard('${escapedVal}')">📋</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    }
 
     const bodyHTML = `
         <div class="vat-modal-content" style="padding:4px;">
-            <div class="vat-modal-field">
-                <label>Tên Công Ty (Xuất Hóa Đơn) <span style="color:#ef4444;">*</span></label>
-                <input type="text" id="vatModalCompanyName" value="${info.company_name || ''}" placeholder="Nhập tên công ty..." ${!editable ? 'disabled' : ''}>
-            </div>
-            <div class="vat-modal-field">
-                <label>Mã Số Thuế (MST) <span style="color:#ef4444;">*</span></label>
-                <input type="text" id="vatModalTaxCode" value="${info.tax_code || ''}" placeholder="Nhập mã số thuế..." ${!editable ? 'disabled' : ''}>
-            </div>
-            <div class="vat-modal-field">
-                <label>Địa Chỉ Công Ty <span style="color:#ef4444;">*</span></label>
-                <textarea id="vatModalCompanyAddress" rows="2" placeholder="Nhập địa chỉ công ty..." ${!editable ? 'disabled' : ''}>${info.company_address || ''}</textarea>
-            </div>
-            <div class="vat-modal-field">
-                <label>Email Nhận Hóa Đơn <span style="color:#ef4444;">*</span></label>
-                <input type="email" id="vatModalCompanyEmail" value="${info.company_email || ''}" placeholder="Nhập email nhận hóa đơn..." ${!editable ? 'disabled' : ''}>
-            </div>
-            <div class="vat-modal-field">
-                <label>Số Điện Thoại</label>
-                <input type="text" id="vatModalCompanyPhone" value="${info.company_phone || ''}" placeholder="Nhập số điện thoại liên hệ..." ${!editable ? 'disabled' : ''}>
-            </div>
-            <div class="vat-modal-field">
-                <label>Ghi Chú nếu nhập số lượng và giá khác</label>
-                <textarea id="vatModalCompanyNote" rows="2" placeholder="Nhập ghi chú thêm..." ${!editable ? 'disabled' : ''}>${info.company_note || ''}</textarea>
-            </div>
+            ${renderField('Tên Công Ty (Xuất Hóa Đơn)', 'vatModalCompanyName', info.company_name, 'text', true)}
+            ${renderField('Mã Số Thuế (MST)', 'vatModalTaxCode', info.tax_code, 'text', true)}
+            ${renderField('Địa Chỉ Công Ty', 'vatModalCompanyAddress', info.company_address, 'textarea', true)}
+            ${renderField('Email Nhận Hóa Đơn', 'vatModalCompanyEmail', info.company_email, 'email', true)}
+            ${renderField('Số Điện Thoại', 'vatModalCompanyPhone', info.company_phone, 'text', false)}
+            ${renderField('Ghi Chú nếu nhập số lượng và giá khác', 'vatModalCompanyNote', info.company_note, 'textarea', false)}
         </div>
     `;
 

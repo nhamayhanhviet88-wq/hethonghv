@@ -2896,16 +2896,18 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Email Nhận Hóa Đơn là bắt buộc!' });
         }
 
-        // Only GĐ, QLCC, or Kế Toán can update
-        let allowed = request.user.role === 'giam_doc' || request.user.role === 'quan_ly_cap_cao';
-        if (!allowed) {
+        // Accountants cannot update (only view)
+        let isAccountant = request.user.role === 'ke_toan';
+        if (!isAccountant) {
             const dept = await db.get('SELECT d.name FROM users u JOIN departments d ON u.department_id = d.id WHERE u.id = $1', [request.user.id]);
             if (dept && dept.name) {
                 const n = dept.name.toLowerCase();
-                allowed = n.includes('kế toán') || n.includes('ke toan');
+                isAccountant = n.includes('kế toán') || n.includes('ke toan');
             }
         }
-        if (!allowed) return reply.code(403).send({ error: '🔒 Chỉ GĐ, QLCC hoặc Phòng Kế Toán mới được cập nhật thông tin hóa đơn VAT' });
+        if (isAccountant) {
+            return reply.code(403).send({ error: '🔒 Tài khoản Kế Toán chỉ có quyền xem, không được chỉnh sửa thông tin hóa đơn!' });
+        }
 
         const order = await db.get('SELECT vat_invoice_info FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
