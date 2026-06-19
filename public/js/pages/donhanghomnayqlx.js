@@ -333,6 +333,7 @@ function _qlxdhApplySearch() {
             }
             return true;
         });
+    }
     if (_qlxdhSortVal === 'remaining_asc') {
         list.sort((a, b) => (Number(a.remaining_amount) || 0) - (Number(b.remaining_amount) || 0));
     } else if (_qlxdhSortVal === 'remaining_desc') {
