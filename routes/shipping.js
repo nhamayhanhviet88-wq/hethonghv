@@ -418,10 +418,15 @@ module.exports = async function(fastify) {
                     filterWhere = ` AND (
                         (o.shipping_status = 'pending' AND o.expected_ship_date IS NOT NULL AND o.expected_ship_date <= $${idx}::date)
                         OR
-                        (o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date IS NOT NULL AND o.rescheduled_ship_date <= $${idx+1}::date)
+                        (o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date IS NOT NULL AND o.rescheduled_ship_date <= $${idx}::date
+                         AND NOT EXISTS (
+                             SELECT 1 FROM dht_shipping_reschedules r
+                             WHERE r.dht_order_id = o.id
+                               AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                         ))
                     )`;
-                    params.push(targetDateStr, todayStr);
-                    idx += 2;
+                    params.push(targetDateStr);
+                    idx++;
                 } else {
                     filterWhere = ` AND o.shipping_status IN ('pending','rescheduled') AND o.expected_ship_date IS NOT NULL AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) <= $${idx}::date`;
                     params.push(targetDateStr);
@@ -432,13 +437,21 @@ module.exports = async function(fastify) {
 
             case 'rescheduled':
                 if (page_type === 'qlx') {
-                    filterWhere = ` AND o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date > $${idx}::date`;
+                    filterWhere = ` AND o.shipping_status = 'rescheduled' AND (
+                        o.rescheduled_ship_date > $${idx}::date
+                        OR EXISTS (
+                            SELECT 1 FROM dht_shipping_reschedules r
+                            WHERE r.dht_order_id = o.id
+                              AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                        )
+                    )`;
                     params.push(todayStr);
+                    idx++;
                 } else {
                     filterWhere = ` AND o.shipping_status = 'rescheduled' AND o.rescheduled_ship_date > $${idx}::date`;
                     params.push(targetDateStr);
+                    idx++;
                 }
-                idx++;
                 orderBy = 'o.rescheduled_ship_date ASC';
                 break;
 
@@ -483,6 +496,11 @@ module.exports = async function(fastify) {
                 CASE WHEN o.shipping_status IN ('pending','rescheduled')
                      AND COALESCE(o.rescheduled_ship_date, o.expected_ship_date) < $${idx}::date
                      THEN true ELSE false END AS is_overdue,
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM dht_shipping_reschedules r
+                    WHERE r.dht_order_id = o.id
+                      AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                ) THEN true ELSE false END AS was_rescheduled_today,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
                 GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - (CASE WHEN EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN 0 ELSE COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) END)) AS remaining_amount
             FROM dht_orders o
@@ -894,7 +912,7 @@ module.exports = async function(fastify) {
 
         let counts;
         if (page_type === 'qlx') {
-            const paramsList = [countTargetDate, todayParam];
+            const paramsList = [countTargetDate];
             let qlxVisibilityFilter = '';
             counts = await db.get(`
                 SELECT
@@ -902,9 +920,23 @@ module.exports = async function(fastify) {
                     COUNT(*) FILTER (WHERE 
                         (shipping_status = 'pending' AND expected_ship_date <= $1::date)
                         OR
-                        (shipping_status = 'rescheduled' AND rescheduled_ship_date <= $2::date)
+                        (shipping_status = 'rescheduled' AND rescheduled_ship_date <= $1::date
+                         AND NOT EXISTS (
+                             SELECT 1 FROM dht_shipping_reschedules r
+                             WHERE r.dht_order_id = dht_orders.id
+                               AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                         ))
                     ) AS today_count,
-                    COUNT(*) FILTER (WHERE shipping_status = 'rescheduled' AND rescheduled_ship_date > $2::date) AS rescheduled_count,
+                    COUNT(*) FILTER (WHERE 
+                        shipping_status = 'rescheduled' AND (
+                            rescheduled_ship_date > $1::date
+                            OR EXISTS (
+                                SELECT 1 FROM dht_shipping_reschedules r
+                                WHERE r.dht_order_id = dht_orders.id
+                                  AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                            )
+                        )
+                    ) AS rescheduled_count,
                     COUNT(*) FILTER (WHERE shipping_status = 'shipped') AS shipped_count
                 FROM dht_orders
                 WHERE expected_ship_date IS NOT NULL
