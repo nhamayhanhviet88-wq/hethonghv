@@ -1077,7 +1077,7 @@ async function mOpenCompleteModal(recordId, readOnly = false) {
                 checklistHtml += `
                     <input type="text" class="m-cl-text" value="${val}" ${readOnly ? 'disabled' : ''} placeholder="${placeholderText}" style="background:${readOnly ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)'}; border:1px solid ${readOnly ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)'}; color:${readOnly ? '#9ca3af' : '#e2e8f0'}; font-size:13px; border-radius:10px; padding:10px 12px; width:100%; outline:none; box-sizing:border-box; cursor:${readOnly ? 'not-allowed' : 'text'};"
                         ${isCountQuestion && !readOnly ? `oninput="mValidateCountInput(this, ${r.quantity || 0})"` : ''}
-                        ${isPersonQuestion && !readOnly ? `oninput="this.value = this.value.replace(/\\\\d/g, '')"` : ''}>
+                        ${isPersonQuestion && !readOnly ? `oninput="this.value = this.value.replace(/\\d/g, '')"` : ''}>
                     ${isCountQuestion && !readOnly ? `<div class="m-count-error-msg" style="color:#f87171; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (parseInt(val.replace(/\D/g, ''), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
                 `;
             }
