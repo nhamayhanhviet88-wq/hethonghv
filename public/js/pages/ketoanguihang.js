@@ -2792,39 +2792,59 @@ async function _shShowHistory(id, code) {
                 </div>` :
                 rows.map((r, i) => {
                     const isLast = i === rows.length - 1;
+                    
+                    const cardStyle = r.is_eligible_to_send
+                        ? 'background:#fffbeb; border: 1.5px solid #f59e0b; box-shadow: 0 0 15px rgba(245,158,11,0.25), 0 4px 6px -1px rgba(245,158,11,0.15);'
+                        : 'background:white; border: 1.5px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);';
+                    
+                    const circleStyle = r.is_eligible_to_send
+                        ? 'background:#fef3c7; border: 2px solid #d97706; color:#b45309; box-shadow:0 2px 4px rgba(217,119,6,0.2);'
+                        : 'background:#eff6ff; border: 2px solid #3b82f6; color:#1d4ed8; box-shadow:0 2px 4px rgba(59,130,246,0.15);';
+
+                    const borderStyle = r.is_eligible_to_send ? '#fef08a' : '#f1f5f9';
+
                     return `
                     <div style="display:flex;gap:16px;position:relative;">
                         <!-- Timeline Connector Line -->
                         ${!isLast ? `<div style="position:absolute;left:15px;top:32px;bottom:-20px;width:2px;background:#cbd5e1;z-index:1;"></div>` : ''}
                         
                         <!-- Step Indicator Circle -->
-                        <div style="width:32px;height:32px;border-radius:50%;background:#eff6ff;border:2px solid #3b82f6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#1d4ed8;z-index:2;flex-shrink:0;box-shadow:0 2px 4px rgba(59,130,246,0.15);">
+                        <div style="width:32px;height:32px;border-radius:50%;${circleStyle}display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;z-index:2;flex-shrink:0;">
                             ${rows.length - i}
                         </div>
                         
                         <!-- Card Content Box -->
-                        <div class="sh-history-card" style="flex:1;background:white;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);transition:all 0.2s;">
+                        <div class="sh-history-card" style="flex:1;${cardStyle}border-radius:12px;padding:16px;transition:all 0.2s;">
                             
+                            <!-- Card Header: Title & Type Badge -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid ${borderStyle}; padding-bottom:8px;">
+                                <span style="font-size:11px; font-weight:700; color:${r.is_eligible_to_send ? '#b45309' : '#64748b'}; text-transform:uppercase; letter-spacing:0.05em;">Lịch sử thay đổi #${rows.length - i}</span>
+                                ${r.is_eligible_to_send 
+                                    ? `<span style="background:#f59e0b; color:white; font-size:10px; font-weight:800; padding:3px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:3px; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);">🤝 HẸN KHÁCH</span>`
+                                    : `<span style="background:#64748b; color:white; font-size:10px; font-weight:800; padding:3px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:3px;">💼 HẸN SALE</span>`
+                                }
+                            </div>
+
                             <!-- Card Key-Value Information -->
-                            <div style="font-size:13px;color:#1e293b;display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:start;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:10px;">
-                                <span style="color:#64748b;font-weight:600;">Ngày Gửi Dự Kiến (Sale) :</span> 
-                                <span style="font-weight:700;color:#334155;">${formatDayOfWeekAndDate(r.old_date)}</span>
+                            <div style="font-size:13px;color:#1e293b;display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:start;margin-bottom:12px;border-bottom:1px solid ${borderStyle};padding-bottom:10px;">
+                                <span style="color:${r.is_eligible_to_send ? '#b45309' : '#64748b'};font-weight:600;">Ngày Gửi Dự Kiến (Sale) :</span> 
+                                <span style="font-weight:700;color:${r.is_eligible_to_send ? '#78350f' : '#334155'};">${formatDayOfWeekAndDate(r.old_date)}</span>
                                 
-                                <span style="color:#64748b;font-weight:600;">Ngày Hẹn Lại :</span> 
+                                <span style="color:${r.is_eligible_to_send ? '#b45309' : '#64748b'};font-weight:600;">Ngày Hẹn Lại :</span> 
                                 <span style="font-weight:700;color:#b45309;">
                                     ${r.reschedule_hour !== null && r.reschedule_minute !== null ? `${String(r.reschedule_hour).padStart(2, '0')}:${String(r.reschedule_minute).padStart(2, '0')} ` : ''}${formatDayOfWeekAndDate(r.new_date)}
                                 </span>
                                 
-                                <span style="color:#64748b;font-weight:600;">Tiến Độ Dự Kiến :</span> 
+                                <span style="color:${r.is_eligible_to_send ? '#b45309' : '#64748b'};font-weight:600;">Tiến Độ Dự Kiến :</span> 
                                 <span style="font-weight:700;color:#1d4ed8;">${calculateProgress(r.old_date, r.new_date)}</span>
                             </div>
                             
                             <!-- Card Reason Body -->
                             <div style="margin-bottom:12px;">
-                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
+                                <div style="font-size:12px;font-weight:700;color:${r.is_eligible_to_send ? '#b45309' : '#475569'};margin-bottom:6px;">
                                     ${r.is_eligible_to_send ? '📝 Lý do khách lùi lịch hẹn nhận hàng :' : '📝 Lý do không ra đơn đúng ngày được :'}
                                 </div>
-                                <div style="font-size:13px;color:#334155;line-height:1.5;background:#f8fafc;border-left:3px solid #cbd5e1;padding:8px 12px;border-radius:0 8px 8px 0;font-style:italic;">
+                                <div style="font-size:13px;color:${r.is_eligible_to_send ? '#78350f' : '#334155'};line-height:1.5;background:${r.is_eligible_to_send ? '#fffdf5' : '#f8fafc'};border-left:3px solid ${r.is_eligible_to_send ? '#f59e0b' : '#cbd5e1'};padding:8px 12px;border-radius:0 8px 8px 0;font-style:italic;">
                                     "${r.reason || 'Không có lý do'}"
                                 </div>
                             </div>
@@ -2832,10 +2852,10 @@ async function _shShowHistory(id, code) {
                             <!-- Card Image -->
                             ${r.image_url ? `
                             <div style="margin-bottom:12px;">
-                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
+                                <div style="font-size:12px;font-weight:700;color:${r.is_eligible_to_send ? '#b45309' : '#475569'};margin-bottom:6px;">
                                     ${r.is_eligible_to_send ? '📸 Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng :' : '📸 Ảnh nhắn Sale báo thời gian lùi đơn :'}
                                 </div>
-                                <div class="sh-history-img" style="position:relative;display:inline-block;overflow:hidden;border-radius:8px;border:1px solid #e2e8f0;width:100%;max-width:240px;aspect-ratio:16/10;background:#f1f5f9;cursor:pointer;transition:all 0.2s;"
+                                <div class="sh-history-img" style="position:relative;display:inline-block;overflow:hidden;border-radius:8px;border:1px solid ${r.is_eligible_to_send ? '#fcd34d' : '#e2e8f0'};width:100%;max-width:240px;aspect-ratio:16/10;background:${r.is_eligible_to_send ? '#fffbeb' : '#f1f5f9'};cursor:pointer;transition:all 0.2s;"
                                      onclick="showShippingBillLightbox('${r.image_url}')">
                                     <img src="${r.image_url}" style="width:100%;height:100%;object-fit:cover;">
                                 </div>
@@ -2843,7 +2863,7 @@ async function _shShowHistory(id, code) {
                             ` : ''}
                             
                             <!-- Card Footer: Sender and Date -->
-                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#64748b;flex-wrap:wrap;gap:8px;border-top:1px dashed #e2e8f0;padding-top:8px;margin-top:8px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:${r.is_eligible_to_send ? '#b45309' : '#64748b'};flex-wrap:wrap;gap:8px;border-top:1px dashed ${r.is_eligible_to_send ? '#fcd34d' : '#e2e8f0'};padding-top:8px;margin-top:8px;">
                                 <span style="display:inline-flex;align-items:center;gap:4px;">
                                     👤 Người Báo Cáo : <span style="color:#0f172a;font-weight:700;">${r.rescheduled_by_name || '—'}</span>
                                 </span>
