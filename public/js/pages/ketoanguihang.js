@@ -321,6 +321,15 @@ function _shGetOrderMenu(o) {
     if (o.shipping_status === 'shipped') {
         return { key: 'shipped', label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5' };
     }
+    
+    // Check if regular order and is "Chờ KT Gửi"
+    const isSample = String(o.id).startsWith('sample_');
+    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+    const isEligibleToSend = !isSample && pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+    if (isEligibleToSend) {
+        return { key: 'today', label: 'Hôm Nay Gửi', color: '#dc2626', bg: '#fef2f2' };
+    }
+
     if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
         let reschedDate = o.rescheduled_ship_date;
         try { reschedDate = vnDateStr(reschedDate); } catch(e){}
