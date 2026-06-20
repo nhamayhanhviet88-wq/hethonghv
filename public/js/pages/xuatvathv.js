@@ -1,6 +1,7 @@
 // ========== XUẤT HÓA ĐƠN VAT — Bộ Phận Văn Phòng & Kế Toán ==========
 var _vatState = {
     orders: [],
+    frozenCategoryData: null,
     activeFilter: 'chua_xuat', // 'chua_xuat', 'chua_thu_giay_to', 'hoan_thanh'
     activeYear: null,
     activeMonth: null,
@@ -194,6 +195,7 @@ async function renderXuatvathvPage(content) {
     _vatState.activeMonth = null;
     _vatState.searchQuery = '';
     _vatState.page = 1;
+    _vatState.frozenCategoryData = null;
 
     // 4. Load order data from backend API
     await _vatLoadData();
@@ -205,6 +207,34 @@ async function _vatLoadData() {
     try {
         const res = await apiCall('/api/dht/vat-orders');
         _vatState.orders = res.orders || [];
+
+        // Freeze category categorization attributes on first load of this page session
+        if (!_vatState.frozenCategoryData) {
+            _vatState.frozenCategoryData = {};
+            _vatState.orders.forEach(o => {
+                _vatState.frozenCategoryData[o.id] = {
+                    vat_exported: o.vat_exported,
+                    vat_contract_received: o.vat_contract_received,
+                    vat_handover_received: o.vat_handover_received,
+                    vat_exported_at: o.vat_exported_at,
+                    order_date: o.order_date
+                };
+            });
+        } else {
+            // Keep existing frozen attributes, but add any new orders that didn't exist before
+            _vatState.orders.forEach(o => {
+                if (!_vatState.frozenCategoryData[o.id]) {
+                    _vatState.frozenCategoryData[o.id] = {
+                        vat_exported: o.vat_exported,
+                        vat_contract_received: o.vat_contract_received,
+                        vat_handover_received: o.vat_handover_received,
+                        vat_exported_at: o.vat_exported_at,
+                        order_date: o.order_date
+                    };
+                }
+            });
+        }
+
         _vatRenderSidebar();
         _vatRenderTable();
     } catch (e) {
@@ -218,9 +248,9 @@ async function _vatLoadData() {
 
 // Render Sidebar menu items and the Hoàn Thành VAT tree
 function _vatRenderSidebar() {
-    // 1. Calculate main counts
-    const countChuaXuat = _vatState.orders.filter(o => !o.vat_exported).length;
-    const countChuaThuGiayTo = _vatState.orders.filter(o => o.vat_exported && (!o.vat_contract_received || !o.vat_handover_received)).length;
+    // 1. Calculate main counts using categorization helper
+    const countChuaXuat = _vatState.orders.filter(o => _vatGetOrderCategory(o).filter === 'chua_xuat').length;
+    const countChuaThuGiayTo = _vatState.orders.filter(o => _vatGetOrderCategory(o).filter === 'chua_thu_giay_to').length;
 
     const badgeChuaXuat = document.getElementById('vatBadgeChuaXuat');
     const badgeChuaThuGiayTo = document.getElementById('vatBadgeChuaThuGiayTo');
@@ -231,14 +261,11 @@ function _vatRenderSidebar() {
     // 2. Build Completed Tree dynamically
     const tree = {};
     _vatState.orders.forEach(o => {
-        if (o.vat_exported && o.vat_contract_received && o.vat_handover_received) {
-            const dateVal = o.vat_exported_at || o.order_date;
-            if (dateVal) {
-                const date = new Date(dateVal);
-                const tzDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-                const year = tzDate.getFullYear();
-                const month = tzDate.getMonth() + 1;
-                
+        const cat = _vatGetOrderCategory(o);
+        if (cat.filter === 'hoan_thanh') {
+            const year = cat.year;
+            const month = cat.month;
+            if (year && month) {
                 if (!tree[year]) {
                     tree[year] = { count: 0, months: {} };
                 }
@@ -333,12 +360,13 @@ function _vatSelectMonth(yr, m) {
 
 // Helper to get category for a given order
 function _vatGetOrderCategory(o) {
-    if (!o.vat_exported) {
+    const data = (_vatState.frozenCategoryData && _vatState.frozenCategoryData[o.id]) || o;
+    if (!data.vat_exported) {
         return { filter: 'chua_xuat', year: null, month: null };
-    } else if (!o.vat_contract_received || !o.vat_handover_received) {
+    } else if (!data.vat_contract_received || !data.vat_handover_received) {
         return { filter: 'chua_thu_giay_to', year: null, month: null };
     } else {
-        const dateVal = o.vat_exported_at || o.order_date;
+        const dateVal = data.vat_exported_at || data.order_date;
         if (dateVal) {
             const date = new Date(dateVal);
             const tzDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
@@ -421,19 +449,15 @@ function _vatRenderTable() {
     let titleStr = '';
 
     if (_vatState.activeFilter === 'chua_xuat') {
-        filtered = _vatState.orders.filter(o => !o.vat_exported);
+        filtered = _vatState.orders.filter(o => _vatGetOrderCategory(o).filter === 'chua_xuat');
         titleStr = '📁 Danh Sách Chưa Xuất Hóa Đơn';
     } else if (_vatState.activeFilter === 'chua_thu_giay_to') {
-        filtered = _vatState.orders.filter(o => o.vat_exported && (!o.vat_contract_received || !o.vat_handover_received));
+        filtered = _vatState.orders.filter(o => _vatGetOrderCategory(o).filter === 'chua_thu_giay_to');
         titleStr = '📂 Danh Sách Chưa Thu Giấy Tờ';
     } else if (_vatState.activeFilter === 'hoan_thanh') {
         filtered = _vatState.orders.filter(o => {
-            if (!o.vat_exported || !o.vat_contract_received || !o.vat_handover_received) return false;
-            const dateVal = o.vat_exported_at || o.order_date;
-            if (!dateVal) return false;
-            const date = new Date(dateVal);
-            const tzDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-            return tzDate.getFullYear() === _vatState.activeYear && (tzDate.getMonth() + 1) === _vatState.activeMonth;
+            const cat = _vatGetOrderCategory(o);
+            return cat.filter === 'hoan_thanh' && cat.year === _vatState.activeYear && cat.month === _vatState.activeMonth;
         });
         titleStr = `✅ Hoàn Thành VAT: Tháng ${String(_vatState.activeMonth).padStart(2, '0')}/${_vatState.activeYear}`;
     }
