@@ -2244,6 +2244,11 @@ async function _shShowReschedule(id, code) {
     const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
     const isEligibleToSend = !isSample && pendingItems.length > 0 && pendingItems.every(item => item.all_done);
 
+    // Check if this order is finished early (Chờ KT gửi sớm)
+    const oldDate = o.rescheduled_ship_date || o.expected_ship_date;
+    const todayStr = vnDateStr();
+    const isEarlyCompleted = isEligibleToSend && oldDate > todayStr;
+
     // Load holidays first so we have them for validation and calculating options
     await _shLoadHolidays();
     
@@ -2351,7 +2356,9 @@ async function _shShowReschedule(id, code) {
     // Dynamic labels
     const headerTitle = isEligibleToSend ? "Hẹn Lại Khách Lịch Trả Hàng" : "Hẹn Lịch Gửi Mới";
     const reasonLabel = isEligibleToSend ? "📝 Lý do khách lùi lịch hẹn nhận hàng" : "📝 Lý do không ra đơn đúng ngày được";
-    const imageLabel = isEligibleToSend ? "📸 Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng" : "📸 Hình Ảnh Nhắn Sale báo thời gian lùi đơn";
+    const imageLabel = isEligibleToSend 
+        ? (isEarlyCompleted ? "📸 Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng (Không bắt buộc)" : "📸 Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng") 
+        : "📸 Hình Ảnh Nhắn Sale báo thời gian lùi đơn";
 
     window._shRescheduleImageBase64 = null;
     window._shClearRescheduleImage = function() {
@@ -2453,7 +2460,7 @@ async function _shShowReschedule(id, code) {
 
             <!-- Ảnh nhắn lùi đơn -->
             <div>
-                <label style="font-size:12.5px;font-weight:700;color:${labelColor};display:flex;align-items:center;gap:4px;">${imageLabel} <span style="color:#ef4444">*</span></label>
+                <label style="font-size:12.5px;font-weight:700;color:${labelColor};display:flex;align-items:center;gap:4px;">${imageLabel}${isEarlyCompleted ? '' : ' <span style="color:#ef4444">*</span>'}</label>
                 <div id="shPasteArea" style="border:2px dashed ${isEligibleToSend ? '#c084fc' : '#cbd5e1'};border-radius:10px;padding:20px;text-align:center;background:${isEligibleToSend ? '#faf5ff' : '#f8fafc'};color:${isEligibleToSend ? '#7c3aed' : '#64748b'};font-size:13px;font-weight:600;margin-top:6px;cursor:pointer;position:relative;transition:all 0.2s;" tabindex="0">
                     <div style="font-size:24px;margin-bottom:6px;">📋</div>
                     Nhấp chuột vào đây rồi nhấn <b>Ctrl + V</b> để dán hình ảnh chụp màn hình
@@ -2511,6 +2518,10 @@ async function _shDoRescheduleRich(id) {
     const pendingItems = o && o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
     const isEligibleToSend = !isSample && pendingItems.length > 0 && pendingItems.every(item => item.all_done);
 
+    const oldDate = o.rescheduled_ship_date || o.expected_ship_date;
+    const todayStr = vnDateStr();
+    const isEarlyCompleted = isEligibleToSend && oldDate > todayStr;
+
     const reasonAlert = isEligibleToSend ? 'Nhập lý do khách lùi lịch hẹn nhận hàng' : 'Nhập lý do không ra đơn đúng ngày được';
     const imageAlert = isEligibleToSend ? '⚠️ Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng là bắt buộc!' : '⚠️ Hình Ảnh Nhắn Sale báo thời gian lùi đơn là bắt buộc!';
 
@@ -2518,7 +2529,7 @@ async function _shDoRescheduleRich(id) {
     if (hour === undefined || hour === null || hour === '') { alert('⚠️ Vui lòng chọn giờ hẹn'); return; }
     if (minute === undefined || minute === null || minute === '') { alert('⚠️ Vui lòng chọn phút hẹn'); return; }
     if (!reason?.trim()) { alert(reasonAlert); return; }
-    if (!window._shRescheduleImageBase64) {
+    if (!window._shRescheduleImageBase64 && !isEarlyCompleted) {
         alert(imageAlert);
         return;
     }

@@ -2282,10 +2282,14 @@ module.exports = async function(fastify) {
         const pendingItems = processedItems.filter(item => item.shipping_status === 'pending');
         const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
 
+        const oldDateStr = vnDateStr(order.rescheduled_ship_date || order.expected_ship_date);
+        const curTodayStr = vnDateStr(vnNow());
+        const isEarlyCompleted = isEligibleToSend && oldDateStr > curTodayStr;
+
         const needsRichFields = true;
 
         if (needsRichFields) {
-            if (!image_base64) {
+            if (!image_base64 && !isEarlyCompleted) {
                 const imgErrorMsg = isEligibleToSend 
                     ? '⚠️ Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng là bắt buộc' 
                     : '⚠️ Hình Ảnh Nhắn Sale báo thời gian lùi đơn là bắt buộc';
