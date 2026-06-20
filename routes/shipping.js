@@ -2643,9 +2643,10 @@ module.exports = async function(fastify) {
         if (isSample || isSampleHoan) {
             const sampleId = Number(rawId.replace(isSampleHoan ? 'sample_hoan_' : 'sample_', ''));
             const logs = await db.all(`
-                SELECT l.*, u.full_name AS rescheduled_by_name
+                SELECT l.*, u.full_name AS rescheduled_by_name, s.ship_date, s.hoan_hang_ship_date
                 FROM don_gui_ao_mau_logs l
                 LEFT JOIN users u ON l.performed_by = u.id
+                LEFT JOIN don_gui_ao_mau s ON l.sample_order_id = s.id
                 WHERE l.sample_order_id = $1 AND l.action IN ('reschedule', 'reschedule_hoan')
                 ORDER BY l.created_at DESC
             `, [sampleId]);
@@ -2684,6 +2685,8 @@ module.exports = async function(fastify) {
                     }
                 }
 
+                const origDate = isSampleHoan ? l.hoan_hang_ship_date : l.ship_date;
+
                 return {
                     id: l.id,
                     dht_order_id: rawId,
@@ -2696,7 +2699,8 @@ module.exports = async function(fastify) {
                     is_eligible_to_send: is_eligible_to_send,
                     rescheduled_by: l.performed_by,
                     rescheduled_by_name: l.rescheduled_by_name,
-                    created_at: l.created_at
+                    created_at: l.created_at,
+                    original_expected_date: origDate ? vnDateStr(origDate) : null
                 };
             });
 
@@ -2705,9 +2709,10 @@ module.exports = async function(fastify) {
 
         const orderId = Number(request.params.id);
         const rows = await db.all(`
-            SELECT sr.*, u.full_name AS rescheduled_by_name
+            SELECT sr.*, u.full_name AS rescheduled_by_name, o.expected_ship_date
             FROM dht_shipping_reschedules sr
             LEFT JOIN users u ON sr.rescheduled_by = u.id
+            LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
             WHERE sr.dht_order_id = $1
             ORDER BY sr.created_at DESC
         `, [orderId]);
@@ -2728,7 +2733,8 @@ module.exports = async function(fastify) {
             }
             return {
                 ...r,
-                is_eligible_to_send: isEligible
+                is_eligible_to_send: isEligible,
+                original_expected_date: r.expected_ship_date ? vnDateStr(r.expected_ship_date) : null
             };
         });
 

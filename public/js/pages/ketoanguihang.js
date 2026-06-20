@@ -2873,7 +2873,7 @@ async function _shShowHistory(id, code) {
                             <!-- Card Key-Value Information -->
                             <div style="font-size:13px;color:#1e293b;display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:start;margin-bottom:12px;border-bottom:1px solid ${borderStyle};padding-bottom:10px;">
                                 <span style="color:${r.is_eligible_to_send ? '#b45309' : '#64748b'};font-weight:600;">Ngày Gửi Dự Kiến (Sale) :</span> 
-                                <span style="font-weight:700;color:${r.is_eligible_to_send ? '#78350f' : '#334155'};">${formatDayOfWeekAndDate(r.old_date)}</span>
+                                <span style="font-weight:700;color:${r.is_eligible_to_send ? '#78350f' : '#334155'};">${formatDayOfWeekAndDate(r.original_expected_date || r.old_date)}</span>
                                 
                                 <span style="color:${r.is_eligible_to_send ? '#b45309' : '#64748b'};font-weight:600;">Ngày Hẹn Lại :</span> 
                                 <span style="font-weight:700;color:#b45309;">
@@ -2881,7 +2881,7 @@ async function _shShowHistory(id, code) {
                                 </span>
                                 
                                 <span style="color:${r.is_eligible_to_send ? '#b45309' : '#64748b'};font-weight:600;">Tiến Độ Dự Kiến :</span> 
-                                <span style="font-weight:700;color:#1d4ed8;">${calculateProgress(r.old_date, r.new_date)}</span>
+                                <span style="font-weight:700;color:#1d4ed8;">${calculateProgress(r.original_expected_date || r.old_date, r.new_date)}</span>
                             </div>
                             
                             <!-- Card Reason Body -->
