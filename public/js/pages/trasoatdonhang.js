@@ -256,7 +256,7 @@ function _tsRenderTable(orders, totalCount) {
         }
     };
 
-    const formatQlxExpectedDate = (qlxDate, qlxHour, reschedDate, reschedReason, actualOutputAt, rescheduleCount, orderId, orderCode) => {
+    const formatQlxExpectedDate = (qlxDate, qlxHour, reschedDate, reschedReason, actualOutputAt, rescheduleCount, orderId, orderCode, isCompleted) => {
         let dateStr = '';
         let hourStr = qlxHour || '—';
         let note = '';
@@ -313,6 +313,13 @@ function _tsRenderTable(orders, totalCount) {
             </div>`;
         }
         
+        if (isCompleted || actualOutputAt) {
+            return `<div>
+                ${note}
+                ${badgeHtml}
+            </div>`;
+        }
+        
         if (!dateStr && !reschedDate) {
             return badgeHtml || '—';
         }
@@ -324,7 +331,7 @@ function _tsRenderTable(orders, totalCount) {
     };
 
     let html = `<table class="ts-table"><thead><tr>
-        <th>#</th><th style="width: 140px;">📊 Tiến Độ Ra Hàng</th><th>Mã Đơn</th><th>Khách Hàng</th><th>Tiêu Chuẩn</th><th>Ngày Ra Đơn (SALE)</th><th>Hẹn Ra Đơn (QLX)</th><th>Tiến Độ</th><th>Giai Đoạn</th><th>Chênh Lệch</th>
+        <th>#</th><th style="width: 140px;">📊 Tiến Độ Ra Hàng</th><th>Mã Đơn</th><th>Khách Hàng</th><th>Tiêu Chuẩn</th><th>Ngày Ra Đơn (SALE)</th><th>Hẹn Ra Đơn</th><th>Tiến Độ</th><th>Giai Đoạn</th><th>Chênh Lệch</th>
     </tr></thead><tbody>`;
 
     orders.forEach((o, i) => {
@@ -346,7 +353,7 @@ function _tsRenderTable(orders, totalCount) {
             <td><div style="font-weight:600">${o.customer_name||'-'}</div><div style="font-size:11px;color:#6b7280">${o.customer_phone||''}</div></td>
             <td><span class="ts-prio ${priClass}">${priority}</span></td>
             <td style="font-weight:600; white-space:nowrap;">${formatSaleExpectedDate(o.expected_ship_date, o.shipping_priority, o.standard_delivery_time)}</td>
-            <td style="font-weight:600; white-space:nowrap;">${formatQlxExpectedDate(o.qlx_expected_date, o.qlx_expected_hour, o.qlx_rescheduled_date, o.qlx_rescheduled_reason, o.qlx_actual_output_at, o.reschedule_count, o.id, o.order_code)}</td>
+            <td style="font-weight:600; white-space:nowrap;">${formatQlxExpectedDate(o.qlx_expected_date, o.qlx_expected_hour, o.qlx_rescheduled_date, o.qlx_rescheduled_reason, o.qlx_actual_output_at, o.reschedule_count, o.id, o.order_code, o.progress_percent === 100 || o.shipping_status === 'shipped')}</td>
             <td style="min-width:120px"><div class="ts-progress"><div class="ts-progress-bar" style="width:${o.progress_percent}%;background:${pColor}"></div></div><div style="font-size:10px;font-weight:700;color:${pColor};margin-top:2px">${o.done_steps}/${o.total_steps} (${o.progress_percent}%)</div></td>
             <td><span style="font-weight:700;font-size:12px">${o.current_step_name}</span></td>
             <td><span class="ts-badge ts-badge-${o.deviation_class}">${o.deviation_label}</span></td>

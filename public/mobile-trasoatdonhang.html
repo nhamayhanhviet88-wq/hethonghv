@@ -231,13 +231,14 @@ function render() {
             </div>
             <div class="oc-date">📅 DK Gửi: ${formatExpectedShipDate(o.expected_ship_date, o.shipping_priority, o.standard_delivery_time)}</div>
             ${(() => {
-                if (o.qlx_expected_date || o.qlx_rescheduled_date) {
+                const isCompleted = o.progress_percent === 100 || o.shipping_status === 'shipped';
+                if ((o.qlx_expected_date || o.qlx_rescheduled_date) && !isCompleted) {
                     const qlxDate = o.qlx_rescheduled_date || o.qlx_expected_date;
                     const d = new Date(qlxDate);
                     const daysOfWeek = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
                     const dayName = daysOfWeek[d.getDay()];
                     const qlxDateStr = `${dayName} - ${o.qlx_expected_hour ? o.qlx_expected_hour + ' ' : ''}${d.getDate()}/${d.getMonth() + 1}`;
-                    return `<div class="oc-date" style="color:#4f46e5;font-weight:700;">📅 Hẹn Ra Đơn (QLX): ${qlxDateStr}${o.qlx_rescheduled_date ? ' <span style="color:#d97706;font-weight:800;">(Trễ/Hẹn lại)</span>' : ''}</div>`;
+                    return `<div class="oc-date" style="color:#4f46e5;font-weight:700;">📅 Hẹn Ra Đơn: ${qlxDateStr}${o.qlx_rescheduled_date ? ' <span style="color:#d97706;font-weight:800;">(Trễ/Hẹn lại)</span>' : ''}</div>`;
                 }
                 return '';
             })()}
