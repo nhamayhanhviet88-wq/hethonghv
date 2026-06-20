@@ -217,7 +217,7 @@ async function syncLedgerForDate(dateStr) {
                 (
                     d.status_hoan_hang = true 
                     AND d.status_gui_don_hoan = false 
-                    AND (COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) IS NULL OR COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) <= $1::date)
+                    AND (d.rescheduled_ship_date IS NULL OR d.rescheduled_ship_date <= $1::date)
                     AND NOT (d.updated_at AT TIME ZONE 'Asia/Ho_Chi_Minh' >= ($1::date + $2::time))
                     AND NOT EXISTS (
                         SELECT 1 FROM don_gui_ao_mau_logs l
