@@ -2252,7 +2252,7 @@ module.exports = async function(fastify) {
         const pendingItems = processedItems.filter(item => item.shipping_status === 'pending');
         const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
 
-        const needsRichFields = (page_type === 'qlx' || isEligibleToSend);
+        const needsRichFields = true;
 
         if (needsRichFields) {
             if (!image_base64) {
@@ -2320,7 +2320,7 @@ module.exports = async function(fastify) {
 
         // Limit days check
         try {
-            const configKey = page_type === 'qlx' ? 'reschedule_limit_days_qlx' : 'reschedule_limit_days';
+            const configKey = (page_type === 'qlx' || isEligibleToSend) ? 'reschedule_limit_days_qlx' : 'reschedule_limit_days';
             const limitRow = await db.get("SELECT value FROM app_config WHERE key = ?", [configKey]);
             if (limitRow && limitRow.value) {
                 const limitVal = parseInt(limitRow.value, 10);
