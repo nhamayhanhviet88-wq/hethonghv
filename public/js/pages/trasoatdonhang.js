@@ -256,9 +256,7 @@ function _tsRenderTable(orders, totalCount) {
         }
     };
 
-    const formatQlxExpectedDate = (qlxDate, qlxHour, reschedDate, reschedReason, actualOutputAt) => {
-        if (!qlxDate && !reschedDate) return '—';
-        
+    const formatQlxExpectedDate = (qlxDate, qlxHour, reschedDate, reschedReason, actualOutputAt, rescheduleCount, orderId, orderCode) => {
         let dateStr = '';
         let hourStr = qlxHour || '—';
         let note = '';
@@ -284,7 +282,7 @@ function _tsRenderTable(orders, totalCount) {
         if (reschedDate) {
             dateStr = formatLocalPart(reschedDate);
             note = `<div style="color:#d97706;font-size:10px;margin-top:2px;"><b>Hẹn lại</b><br/><i>${reschedReason || ''}</i></div>`;
-        } else {
+        } else if (qlxDate) {
             dateStr = formatLocalPart(qlxDate);
         }
         
@@ -303,9 +301,26 @@ function _tsRenderTable(orders, totalCount) {
             }
         }
         
+        let badgeHtml = '';
+        if (rescheduleCount > 0) {
+            badgeHtml = `<div style="margin-top:4px;">
+                <span onclick="event.stopPropagation(); _tsShowRescheduleHistoryModal(${orderId}, '${orderCode}')" 
+                      class="ts-badge" 
+                      style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;cursor:pointer;font-weight:800;padding:2px 8px;border-radius:20px;font-size:10px;display:inline-flex;align-items:center;gap:4px;" 
+                      title="Xem lịch sử hẹn lại">
+                      📅 Hẹn lại (${rescheduleCount})
+                </span>
+            </div>`;
+        }
+        
+        if (!dateStr && !reschedDate) {
+            return badgeHtml || '—';
+        }
+        
         return `<div>${dateStr}</div>
                 <div style="font-size:10px;color:#4b5563;font-weight:normal;margin-top:2px;">Giờ: <b>${hourStr}</b></div>
-                ${note}`;
+                ${note}
+                ${badgeHtml}`;
     };
 
     let html = `<table class="ts-table"><thead><tr>
@@ -314,12 +329,8 @@ function _tsRenderTable(orders, totalCount) {
 
     orders.forEach((o, i) => {
         const pColor = o.progress_percent === 100 ? '#10b981' : o.progress_percent >= 50 ? '#f59e0b' : '#6366f1';
-        const rescheduleBadge = o.reschedule_count > 0 
-            ? `<span onclick="event.stopPropagation(); _tsShowRescheduleHistoryModal(${o.id}, '${o.order_code}')" class="ts-badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;cursor:pointer;font-weight:800;margin-left:4px;" title="Xem lịch sử hẹn lại">📅 Hẹn lại (${o.reschedule_count})</span>`
-            : '';
         const badges = (o.is_repair ? '<span class="ts-badge ts-badge-repair">ĐƠN SỬA</span>' : '') +
-                       (o.is_pet_tem ? '<span class="ts-badge ts-badge-pet">PET/TEM</span>' : '') +
-                       rescheduleBadge;
+                       (o.is_pet_tem ? '<span class="ts-badge ts-badge-pet">PET/TEM</span>' : '');
         const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
         let priClass = 'ts-prio-chuan';
         if (priority === 'GẤP') priClass = 'ts-prio-gap';
@@ -335,7 +346,7 @@ function _tsRenderTable(orders, totalCount) {
             <td><div style="font-weight:600">${o.customer_name||'-'}</div><div style="font-size:11px;color:#6b7280">${o.customer_phone||''}</div></td>
             <td><span class="ts-prio ${priClass}">${priority}</span></td>
             <td style="font-weight:600; white-space:nowrap;">${formatSaleExpectedDate(o.expected_ship_date, o.shipping_priority, o.standard_delivery_time)}</td>
-            <td style="font-weight:600; white-space:nowrap;">${formatQlxExpectedDate(o.qlx_expected_date, o.qlx_expected_hour, o.qlx_rescheduled_date, o.qlx_rescheduled_reason, o.qlx_actual_output_at)}</td>
+            <td style="font-weight:600; white-space:nowrap;">${formatQlxExpectedDate(o.qlx_expected_date, o.qlx_expected_hour, o.qlx_rescheduled_date, o.qlx_rescheduled_reason, o.qlx_actual_output_at, o.reschedule_count, o.id, o.order_code)}</td>
             <td style="min-width:120px"><div class="ts-progress"><div class="ts-progress-bar" style="width:${o.progress_percent}%;background:${pColor}"></div></div><div style="font-size:10px;font-weight:700;color:${pColor};margin-top:2px">${o.done_steps}/${o.total_steps} (${o.progress_percent}%)</div></td>
             <td><span style="font-weight:700;font-size:12px">${o.current_step_name}</span></td>
             <td><span class="ts-badge ts-badge-${o.deviation_class}">${o.deviation_label}</span></td>
