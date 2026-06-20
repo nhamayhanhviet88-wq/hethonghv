@@ -203,6 +203,12 @@ async function start() {
         await db.exec(`ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('active','resigned','locked','deleted','probation_locked','test_hidden'))`);
     } catch(e) { /* already done */ }
 
+    // Migration: rescheduled_ship_date for don_gui_ao_mau (sample orders reschedule support)
+    try {
+        await db.exec('ALTER TABLE don_gui_ao_mau ADD COLUMN rescheduled_ship_date DATE');
+    } catch(e) { /* exists */ }
+
+
     // Migration: Payment Records — Sổ Ghi Nhận Tiền (Bộ Phận Văn Phòng)
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS payment_records (

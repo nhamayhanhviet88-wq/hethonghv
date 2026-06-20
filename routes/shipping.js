@@ -631,25 +631,32 @@ module.exports = async function(fastify) {
         let todayIdx = sampleParams.length + 1;
         if (filter === 'early') {
             sampleWhere += ` AND d.status_gui_don = false AND (
-                (d.status_duyet = true AND d.approval_date < d.ship_date AND $${todayIdx}::date < d.ship_date)
-                OR
-                (COALESCE(d.status_duyet, false) = false AND $${todayIdx}::date < d.ship_date)
+                COALESCE(d.status_duyet, false) = false AND COALESCE(d.rescheduled_ship_date, d.ship_date) > $${todayIdx}::date
             )`;
             sampleParams.push(todayParam);
         } else if (filter === 'today') {
             sampleWhere += ` AND d.status_gui_don = false AND (
-                (d.status_duyet = true AND (d.approval_date >= d.ship_date OR $${todayIdx}::date >= d.ship_date))
+                (d.status_duyet = true AND (d.rescheduled_ship_date IS NULL OR d.rescheduled_ship_date <= $${todayIdx}::date))
                 OR
-                (COALESCE(d.status_duyet, false) = false AND $${todayIdx}::date >= d.ship_date)
+                (COALESCE(d.status_duyet, false) = false AND COALESCE(d.rescheduled_ship_date, d.ship_date) <= $${todayIdx}::date)
             )`;
             sampleParams.push(todayParam);
         } else if (filter === 'rescheduled') {
-            sampleWhere += ` AND 1=0`; // sample orders do not support rescheduling
+            sampleWhere += ` AND d.status_gui_don = false AND (
+                COALESCE(d.status_duyet, false) = false AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > $${todayIdx}::date
+            )`;
+            sampleParams.push(todayParam);
+        } else if (filter === 'rescheduled_customer') {
+            sampleWhere += ` AND d.status_gui_don = false AND (
+                d.status_duyet = true AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > $${todayIdx}::date
+            )`;
+            sampleParams.push(todayParam);
         } else if (filter === 'shipped') {
             sampleWhere += ` AND d.status_gui_don = true`;
         } else if (filter === 'all') {
             sampleWhere += ``;
         }
+
 
         const sampleOrdersRows = await db.all(`
             SELECT 
@@ -658,6 +665,7 @@ module.exports = async function(fastify) {
                 d.status_duyet,
                 d.order_date,
                 d.ship_date AS expected_ship_date,
+                d.rescheduled_ship_date,
                 d.order_status,
                 d.status_gui_don,
                 d.shipping_priority,
@@ -704,8 +712,9 @@ module.exports = async function(fastify) {
             ) pr_all ON true
             WHERE (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
             ${sampleWhere}
-            ORDER BY d.ship_date DESC NULLS LAST, d.created_at DESC
+            ORDER BY COALESCE(d.rescheduled_ship_date, d.ship_date) DESC NULLS LAST, d.created_at DESC
         `, sampleParams);
+
 
          mappedSampleOrders = sampleOrdersRows.map(row => {
              const isShipped = row.status_gui_don === true || row.order_status === 'da_gui' || row.order_status === 'hoan_thanh';
@@ -715,9 +724,9 @@ module.exports = async function(fastify) {
                  status_duyet: row.status_duyet,
                  order_date: row.order_date,
                  expected_ship_date: row.expected_ship_date,
-                 rescheduled_ship_date: null,
+                 rescheduled_ship_date: row.rescheduled_ship_date || null,
                  reschedule_reason: null,
-                 shipping_status: isShipped ? 'shipped' : 'pending',
+                 shipping_status: isShipped ? 'shipped' : (row.rescheduled_ship_date ? 'rescheduled' : 'pending'),
                  shipping_priority: row.shipping_priority || 'Chuẩn',
                  delivery_progress: null,
                  customer_name: row.customer_name,
@@ -754,8 +763,8 @@ module.exports = async function(fastify) {
                  cskh_name: row.created_by_name,
                  created_by_name: row.created_by_name,
                  shipped_by_name: row.shipped_by_name,
-                 effective_ship_date: row.expected_ship_date,
-                 is_overdue: !isShipped && row.expected_ship_date && new Date(row.expected_ship_date) < new Date(todayStr),
+                 effective_ship_date: row.rescheduled_ship_date || row.expected_ship_date,
+                 is_overdue: !isShipped && (row.rescheduled_ship_date || row.expected_ship_date) && new Date(row.rescheduled_ship_date || row.expected_ship_date) < new Date(todayStr),
                  deposit_amount: row.deposit_amount || 0,
                  remaining_amount: row.remaining_amount,
                  is_pending_update: !!row.is_pending_update,
@@ -810,13 +819,16 @@ module.exports = async function(fastify) {
              }
          let hoanTodayIdx = hoanParams.length + 1;
          if (filter === 'early') {
-             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $${hoanTodayIdx}::date < d.hoan_hang_ship_date`;
+             hoanWhere += ` AND 1=0`;
              hoanParams.push(todayParam);
          } else if (filter === 'today') {
-             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $${hoanTodayIdx}::date >= d.hoan_hang_ship_date`;
+             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND (d.rescheduled_ship_date IS NULL OR d.rescheduled_ship_date <= $${hoanTodayIdx}::date)`;
              hoanParams.push(todayParam);
          } else if (filter === 'rescheduled') {
              hoanWhere += ` AND 1=0`;
+         } else if (filter === 'rescheduled_customer') {
+             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > \${hoanTodayIdx}::date`;
+             hoanParams.push(todayParam);
          } else if (filter === 'shipped') {
              hoanWhere += ` AND d.status_gui_don_hoan = true`;
          } else if (filter === 'all') {
@@ -878,7 +890,7 @@ module.exports = async function(fastify) {
                  ) pr_all ON true
                  WHERE d.status_hoan_hang = true
                  ${hoanWhere}
-                 ORDER BY d.hoan_hang_ship_date DESC NULLS LAST, d.created_at DESC
+                 ORDER BY COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) DESC NULLS LAST, d.created_at DESC
              `, hoanParams);
          }
 
@@ -889,9 +901,9 @@ module.exports = async function(fastify) {
                  order_code: row.order_code,
                  order_date: row.order_date,
                  expected_ship_date: row.expected_ship_date,
-                 rescheduled_ship_date: null,
+                 rescheduled_ship_date: row.rescheduled_ship_date || null,
                  reschedule_reason: null,
-                 shipping_status: isShipped ? 'shipped' : 'pending',
+                 shipping_status: isShipped ? 'shipped' : (row.rescheduled_ship_date ? 'rescheduled' : 'pending'),
                  shipping_priority: row.shipping_priority || 'Chuẩn',
                  delivery_progress: null,
                  customer_name: row.customer_name,
@@ -928,8 +940,8 @@ module.exports = async function(fastify) {
                  cskh_name: row.created_by_name,
                  created_by_name: row.created_by_name,
                  shipped_by_name: row.shipped_by_name,
-                 effective_ship_date: row.expected_ship_date,
-                 is_overdue: !isShipped && row.expected_ship_date && new Date(row.expected_ship_date) < new Date(todayStr),
+                 effective_ship_date: row.rescheduled_ship_date || row.expected_ship_date,
+                 is_overdue: !isShipped && (row.rescheduled_ship_date || row.expected_ship_date) && new Date(row.rescheduled_ship_date || row.expected_ship_date) < new Date(todayStr),
                  deposit_amount: row.deposit_amount || 0,
                  remaining_amount: row.remaining_amount,
                  is_pending_update: !!row.is_pending_update,
@@ -1194,15 +1206,19 @@ module.exports = async function(fastify) {
             sampleCounts = await db.get(`
                 SELECT
                     COUNT(*) FILTER (WHERE d.status_gui_don = false AND (
-                        (d.status_duyet = true AND d.approval_date < d.ship_date AND $1::date < d.ship_date)
-                        OR
-                        (COALESCE(d.status_duyet, false) = false AND $1::date < d.ship_date)
+                        COALESCE(d.status_duyet, false) = false AND COALESCE(d.rescheduled_ship_date, d.ship_date) > $1::date
                     )) AS early_count,
                     COUNT(*) FILTER (WHERE d.status_gui_don = false AND (
-                        (d.status_duyet = true AND (d.approval_date >= d.ship_date OR $1::date >= d.ship_date))
+                        (d.status_duyet = true AND (d.rescheduled_ship_date IS NULL OR d.rescheduled_ship_date <= $1::date))
                         OR
-                        (COALESCE(d.status_duyet, false) = false AND $1::date >= d.ship_date)
+                        (COALESCE(d.status_duyet, false) = false AND COALESCE(d.rescheduled_ship_date, d.ship_date) <= $1::date)
                     )) AS today_count,
+                    COUNT(*) FILTER (WHERE d.status_gui_don = false AND (
+                        COALESCE(d.status_duyet, false) = false AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > $1::date
+                    )) AS rescheduled_count,
+                    COUNT(*) FILTER (WHERE d.status_gui_don = false AND (
+                        d.status_duyet = true AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > $1::date
+                    )) AS rescheduled_customer_count,
                     COUNT(*) FILTER (WHERE d.status_gui_don = true) AS shipped_count
                 FROM don_gui_ao_mau d
                 WHERE (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
@@ -1211,8 +1227,10 @@ module.exports = async function(fastify) {
 
             sampleHoanCounts = await db.get(`
                 SELECT
-                    COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $1::date < d.hoan_hang_ship_date) AS early_count,
-                    COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND $1::date >= d.hoan_hang_ship_date) AS today_count,
+                    0 AS early_count,
+                    COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND (d.rescheduled_ship_date IS NULL OR d.rescheduled_ship_date <= $1::date)) AS today_count,
+                    0 AS rescheduled_count,
+                    COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > $1::date) AS rescheduled_customer_count,
                     COUNT(*) FILTER (WHERE d.status_gui_don_hoan = true) AS shipped_count
                 FROM don_gui_ao_mau d
                 WHERE d.status_hoan_hang = true
@@ -1222,9 +1240,9 @@ module.exports = async function(fastify) {
             sampleOverdueCount = await db.get(`
                 SELECT COUNT(*) AS cnt FROM don_gui_ao_mau d
                 WHERE (
-                    (d.status_gui_don = false AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND d.ship_date < $1::date)
+                    (d.status_gui_don = false AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND COALESCE(d.rescheduled_ship_date, d.ship_date) < $1::date)
                     OR
-                    (d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.hoan_hang_ship_date < $1::date)
+                    (d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) < $1::date)
                 )
                 ${countVisibilityFilter}
             `, countParams);
@@ -1252,8 +1270,8 @@ module.exports = async function(fastify) {
             finalCounts = {
                 early: (Number(countsObj.early) || 0) + (Number(sampleCounts?.early_count) || 0) + (Number(sampleHoanCounts?.early_count) || 0),
                 today: (Number(countsObj.today) || 0) + (Number(sampleCounts?.today_count) || 0) + (Number(sampleHoanCounts?.today_count) || 0),
-                rescheduled: Number(countsObj.rescheduled) || 0,
-                rescheduled_customer: Number(countsObj.rescheduled_customer) || 0,
+                rescheduled: (Number(countsObj.rescheduled) || 0) + (Number(sampleCounts?.rescheduled_count) || 0) + (Number(sampleHoanCounts?.rescheduled_count) || 0),
+                rescheduled_customer: (Number(countsObj.rescheduled_customer) || 0) + (Number(sampleCounts?.rescheduled_customer_count) || 0) + (Number(sampleHoanCounts?.rescheduled_customer_count) || 0),
                 shipped: (Number(countsObj.shipped) || 0) + (Number(sampleCounts?.shipped_count) || 0) + (Number(sampleHoanCounts?.shipped_count) || 0),
                 overdue: (Number(countsObj.overdue) || 0) + (Number(sampleOverdueCount?.cnt) || 0)
             };
