@@ -480,6 +480,11 @@ function _qlxdhFormatRescheduleStatus(o) {
     if (o.shipping_status === 'shipped') {
         return { label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5', class: '' };
     }
+    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+    const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+    if (isEligibleToSend) {
+        return { label: 'Chờ KT Gửi', color: '#16a34a', bg: '#dcfce7', class: '' };
+    }
     if (!o.last_rescheduled_at) {
         return { label: 'Chưa Hẹn', color: '#64748b', bg: '#f1f5f9', class: '' };
     }
@@ -622,14 +627,21 @@ function _qlxdhBuildTable(orders) {
 
         const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
         const allPendingCompleted = pendingItems.every(item => item.all_done);
+        const isEligibleToSend = pendingItems.length > 0 && allPendingCompleted;
 
         let orderLevelAction = '';
         if (isKT && o.shipping_status !== 'shipped') {
-            orderLevelAction = `
-                ${!allPendingCompleted ? `<button onclick="event.stopPropagation();_qlxdhShowOrderSlipsModal('${o.id}')" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;margin-bottom:3px;display:block;width:100%;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>` : ''}
-                <button onclick="event.stopPropagation();_qlxdhShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
-                <button onclick="event.stopPropagation();_qlxdhOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
-            `;
+            if (isEligibleToSend) {
+                orderLevelAction = `
+                    <span style="color:#15803d;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#f0fdf4;border:1px dashed #bbf7d0;border-radius:6px;white-space:nowrap;" title="Tất cả sản phẩm đã sản xuất xong, chờ Kế toán gửi đi"><span style="font-size:12px;">✅</span> Chờ gửi</span>
+                `;
+            } else {
+                orderLevelAction = `
+                    ${!allPendingCompleted ? `<button onclick="event.stopPropagation();_qlxdhShowOrderSlipsModal('${o.id}')" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;margin-bottom:3px;display:block;width:100%;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>` : ''}
+                    <button onclick="event.stopPropagation();_qlxdhShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    <button onclick="event.stopPropagation();_qlxdhOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
+                `;
+            }
         } else {
             orderLevelAction = `
                 <button onclick="event.stopPropagation();_qlxdhShowShippingDetailOnly('${o.id}')" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-size:14px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseout="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">📄</button>
