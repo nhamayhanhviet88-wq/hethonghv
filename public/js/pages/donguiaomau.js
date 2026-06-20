@@ -136,7 +136,7 @@ function _dgamRenderTable() {
     if (_dgam.subFilter) {
         all = all.filter(o => {
             if (_dgam.subFilter === 'chua_duyet') {
-                return !o.status_duyet;
+                return !o.status_duyet && o.order_status !== 'khong_duyet';
             }
             if (_dgam.subFilter === 'chua_hoan') {
                 const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
@@ -188,7 +188,7 @@ function _dgamRenderSubFilters() {
     if (!container) return;
 
     const totalOrders = _dgam.orders || [];
-    const countChuaDuyet = totalOrders.filter(o => !o.status_duyet).length;
+    const countChuaDuyet = totalOrders.filter(o => !o.status_duyet && o.order_status !== 'khong_duyet').length;
     const countChuaHoan = totalOrders.filter(o => {
         const isTargetCategory = ['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category);
         if (isTargetCategory) {
