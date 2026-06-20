@@ -1539,17 +1539,17 @@ async function _dgamShowDetail(id) {
         // 1. Thao tác nhanh
         let editBtnHTML = '';
         if (o.order_status === 'khong_duyet' || o.order_status === 'cho_duyet') {
-            editBtnHTML = `<button class="btn btn-primary" onclick="_dgamEditOrder(${o.id})" style="padding:6px 16px;font-size:12px;font-weight:700;color:#fff !important;background:linear-gradient(135deg,#0284c7,#3b82f6);border:none;margin-right:8px;">✏️ Sửa Đơn</button>`;
+            editBtnHTML = `<button class="btn btn-primary" onclick="_dgamEditOrder(${o.id})" style="padding:6px 16px;font-size:12px;font-weight:700;color:#fff !important;background:linear-gradient(135deg,#0284c7,#3b82f6);border:none;margin:0;">✏️ Sửa Đơn</button>`;
         }
 
         let actionsHTML = `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px 16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            <div style="display:flex;align-items:center;gap:12px;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <span style="font-weight:800;font-size:14px;color:var(--navy)">Trạng thái gửi Zalo:</span>
                 <span style="background:#e0f2fe;color:#0369a1;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;">📨 Luôn tự động gửi Zalo OA</span>
             </div>
-            <div>
+            <div style="display:flex;align-items:center;gap:8px;">
                 ${editBtnHTML}
-                <button class="btn btn-secondary" onclick="window.print()" style="padding:6px 16px;font-size:12px;font-weight:700;color:#fff !important;">🖨️ In Phiếu</button>
+                <button class="btn btn-secondary" onclick="window.print()" style="padding:6px 16px;font-size:12px;font-weight:700;color:#fff !important;margin:0;">🖨️ In Phiếu</button>
             </div>
         </div>`;
 
