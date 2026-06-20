@@ -2269,20 +2269,39 @@ module.exports = async function(fastify) {
         if (!new_date) return reply.code(400).send({ error: 'Vui lòng chọn ngày gửi mới' });
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do' });
 
-        const orderId = Number(request.params.id);
-        const order = await db.get('SELECT id, shipping_status, expected_ship_date, rescheduled_ship_date, order_code, category_id FROM dht_orders WHERE id = $1', [orderId]);
-        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
-        if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã gửi, không thể hẹn lại' });
+        const rawId = String(request.params.id);
+        const isSample = rawId.startsWith('sample_');
+        let order;
+        let isEligibleToSend = false;
+        let oldDateStr;
+        let orderId = null;
 
-        // Check if this order is a "Chờ KT Gửi" order (all pending items done)
-        const itemsList = await _getShippingItemsProgress([orderId]);
-        const code = (order.order_code || '').toUpperCase();
-        const isPetTem = Number(order.category_id) === 8 || Number(order.category_id) === 9 || code.includes('PET') || code.includes('TEM');
-        const processedItems = _processShippingOrderItems(order, itemsList, isPetTem);
-        const pendingItems = processedItems.filter(item => item.shipping_status === 'pending');
-        const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+        if (isSample) {
+            const sampleId = Number(rawId.replace('sample_', ''));
+            const sampleOrder = await db.get('SELECT id, sample_order_code AS order_code, ship_date AS expected_ship_date, status_gui_don, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
+            if (!sampleOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });
+            if (sampleOrder.status_gui_don === true) return reply.code(400).send({ error: 'Đơn hàng đã gửi, không thể hẹn lại' });
 
-        const oldDateStr = vnDateStr(order.rescheduled_ship_date || order.expected_ship_date);
+            order = sampleOrder;
+            isEligibleToSend = true; // sample orders are always done/ready to send
+            oldDateStr = vnDateStr(order.expected_ship_date);
+        } else {
+            orderId = Number(rawId);
+            const standardOrder = await db.get('SELECT id, shipping_status, expected_ship_date, rescheduled_ship_date, order_code, category_id FROM dht_orders WHERE id = $1', [orderId]);
+            if (!standardOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+            if (standardOrder.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã gửi, không thể hẹn lại' });
+
+            order = standardOrder;
+            // Check if this order is a "Chờ KT Gửi" order (all pending items done)
+            const itemsList = await _getShippingItemsProgress([orderId]);
+            const code = (order.order_code || '').toUpperCase();
+            const isPetTem = Number(order.category_id) === 8 || Number(order.category_id) === 9 || code.includes('PET') || code.includes('TEM');
+            const processedItems = _processShippingOrderItems(order, itemsList, isPetTem);
+            const pendingItems = processedItems.filter(item => item.shipping_status === 'pending');
+            isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+            oldDateStr = vnDateStr(order.rescheduled_ship_date || order.expected_ship_date);
+        }
+
         const curTodayStr = vnDateStr(vnNow());
         const isEarlyCompleted = isEligibleToSend && oldDateStr > curTodayStr;
 
@@ -2395,8 +2414,6 @@ module.exports = async function(fastify) {
             console.error('[Reschedule limit check error]', cfgErr);
         }
 
-        const oldDate = order.rescheduled_ship_date || order.expected_ship_date;
-
         let image_url = null;
         if (image_base64) {
             try {
@@ -2417,26 +2434,47 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Save history
-        await db.run(`
-            INSERT INTO dht_shipping_reschedules (dht_order_id, old_date, new_date, reason, rescheduled_by, image_url, reschedule_hour, reschedule_minute)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        `, [orderId, oldDate, new_date, reason.trim(), userId, image_url, reschedule_hour !== undefined ? Number(reschedule_hour) : null, reschedule_minute !== undefined ? Number(reschedule_minute) : null]);
+        if (isSample) {
+            // Save history
+            const logSummary = `Hẹn lại ngày gửi từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}`;
+            await db.run(
+                `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+                [Number(rawId.replace('sample_', '')), 'reschedule', logSummary, userId]
+            );
 
-        // Update order
-        await db.run(`
-            UPDATE dht_orders SET
-                shipping_status = 'rescheduled',
-                rescheduled_ship_date = $1,
-                reschedule_reason = $2,
-                last_updated_by = $3,
-                last_updated_at = NOW(),
-                rescheduled_ship_hour = $4,
-                rescheduled_ship_minute = $5
-            WHERE id = $6
-        `, [new_date, reason.trim(), userId, reschedule_hour !== undefined ? Number(reschedule_hour) : null, reschedule_minute !== undefined ? Number(reschedule_minute) : null, orderId]);
+            // Update sample order
+            await db.run(`
+                UPDATE don_gui_ao_mau SET
+                    ship_date = $1,
+                    updated_at = NOW(),
+                    updated_by = $2
+                WHERE id = $3
+            `, [new_date, userId, Number(rawId.replace('sample_', ''))]);
 
-        return { success: true, message: `📅 Đã hẹn lại đơn ${order.order_code} sang ${new_date}` };
+            return { success: true, message: `📅 Đã hẹn lại đơn mẫu ${order.order_code} sang ${new_date}` };
+        } else {
+            const oldDate = order.rescheduled_ship_date || order.expected_ship_date;
+            // Save history
+            await db.run(`
+                INSERT INTO dht_shipping_reschedules (dht_order_id, old_date, new_date, reason, rescheduled_by, image_url, reschedule_hour, reschedule_minute)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `, [orderId, oldDate, new_date, reason.trim(), userId, image_url, reschedule_hour !== undefined ? Number(reschedule_hour) : null, reschedule_minute !== undefined ? Number(reschedule_minute) : null]);
+
+            // Update order
+            await db.run(`
+                UPDATE dht_orders SET
+                    shipping_status = 'rescheduled',
+                    rescheduled_ship_date = $1,
+                    reschedule_reason = $2,
+                    last_updated_by = $3,
+                    last_updated_at = NOW(),
+                    rescheduled_ship_hour = $4,
+                    rescheduled_ship_minute = $5
+                WHERE id = $6
+            `, [new_date, reason.trim(), userId, reschedule_hour !== undefined ? Number(reschedule_hour) : null, reschedule_minute !== undefined ? Number(reschedule_minute) : null, orderId]);
+
+            return { success: true, message: `📅 Đã hẹn lại đơn ${order.order_code} sang ${new_date}` };
+        }
     });
 
     // ========== CẤU HÌNH GIỜ NGHỈ KẾ TOÁN ==========

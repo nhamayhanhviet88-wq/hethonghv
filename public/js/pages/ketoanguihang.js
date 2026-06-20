@@ -361,7 +361,7 @@ function _shGetOrderMenu(o) {
     // Check if regular order and is "Chờ KT Gửi"
     const isSample = String(o.id).startsWith('sample_');
     const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
-    const isEligibleToSend = !isSample && pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+    const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
 
     if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
         let reschedDate = o.rescheduled_ship_date;
@@ -2242,7 +2242,7 @@ async function _shShowReschedule(id, code) {
 
     const isSample = String(o.id).startsWith('sample_');
     const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
-    const isEligibleToSend = !isSample && pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+    const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
 
     // Check if this order is finished early (Chờ KT gửi sớm)
     const oldDate = o.rescheduled_ship_date || o.expected_ship_date;
@@ -2516,7 +2516,7 @@ async function _shDoRescheduleRich(id) {
     const o = _shOrders.find(x => String(x.id) === String(id));
     const isSample = o ? String(o.id).startsWith('sample_') : false;
     const pendingItems = o && o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
-    const isEligibleToSend = !isSample && pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+    const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
 
     const oldDate = o.rescheduled_ship_date || o.expected_ship_date;
     const todayStr = vnDateStr();
