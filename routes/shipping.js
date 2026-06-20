@@ -461,6 +461,11 @@ module.exports = async function(fastify) {
                 orderBy = 'o.expected_ship_date ASC';
                 break;
 
+            case 'rescheduled_customer':
+                filterWhere = ` AND o.shipping_status IN ('pending', 'rescheduled') AND o.expected_ship_date IS NOT NULL`;
+                orderBy = 'o.expected_ship_date ASC';
+                break;
+
             case 'all':
                 // Return ALL orders (no status/date filter) for client-side filtering
                 filterWhere = ``;
@@ -1092,6 +1097,7 @@ module.exports = async function(fastify) {
             let earlyCount = 0;
             let todayCount = 0;
             let rescheduledCount = 0;
+            let rescheduledCustomerCount = 0;
             let overdueCountVal = 0;
 
             for (const o of activeOrdersForCounts) {
@@ -1107,21 +1113,31 @@ module.exports = async function(fastify) {
                     overdueCountVal++;
                 }
 
-                if (isEligibleToSend) {
-                    todayCount++;
+                // Check for rescheduled shipping date in the future
+                let hasFutureRescheduled = false;
+                if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
+                    let reschedDate = o.rescheduled_ship_date;
+                    try { reschedDate = vnDateStr(reschedDate); } catch(e){}
+                    if (reschedDate > todayStr) {
+                        hasFutureRescheduled = true;
+                    }
+                }
+
+                if (hasFutureRescheduled) {
+                    if (isEligibleToSend) {
+                        rescheduledCustomerCount++;
+                    } else {
+                        rescheduledCount++;
+                    }
                 } else {
-                    if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
-                        let reschedDate = o.rescheduled_ship_date;
-                        try { reschedDate = vnDateStr(reschedDate); } catch(e){}
-                        if (reschedDate > todayStr) {
-                            rescheduledCount++;
-                        } else {
+                    if (isEligibleToSend) {
+                        todayCount++;
+                    } else {
+                        if (o.shipping_status === 'pending' && effDate && effDate > todayStr) {
+                            earlyCount++;
+                        } else if (['pending', 'rescheduled'].includes(o.shipping_status) && effDate && effDate <= todayStr) {
                             todayCount++;
                         }
-                    } else if (o.shipping_status === 'pending' && effDate && effDate > todayStr) {
-                        earlyCount++;
-                    } else if (o.shipping_status === 'pending' && effDate && effDate <= todayStr) {
-                        todayCount++;
                     }
                 }
             }
@@ -1144,6 +1160,7 @@ module.exports = async function(fastify) {
                 early: earlyCount,
                 today: todayCount,
                 rescheduled: rescheduledCount,
+                rescheduled_customer: rescheduledCustomerCount,
                 shipped: Number(shippedCountRow?.cnt) || 0,
                 overdue: overdueCountVal
             };
@@ -1218,6 +1235,7 @@ module.exports = async function(fastify) {
                 early: (Number(countsObj.early) || 0) + (Number(sampleCounts?.early_count) || 0) + (Number(sampleHoanCounts?.early_count) || 0),
                 today: (Number(countsObj.today) || 0) + (Number(sampleCounts?.today_count) || 0) + (Number(sampleHoanCounts?.today_count) || 0),
                 rescheduled: Number(countsObj.rescheduled) || 0,
+                rescheduled_customer: Number(countsObj.rescheduled_customer) || 0,
                 shipped: (Number(countsObj.shipped) || 0) + (Number(sampleCounts?.shipped_count) || 0) + (Number(sampleHoanCounts?.shipped_count) || 0),
                 overdue: (Number(countsObj.overdue) || 0) + (Number(sampleOverdueCount?.cnt) || 0)
             };
