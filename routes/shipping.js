@@ -698,7 +698,7 @@ module.exports = async function(fastify) {
             ORDER BY d.ship_date DESC NULLS LAST, d.created_at DESC
         `, sampleParams);
 
-         const mappedSampleOrders = sampleOrdersRows.map(row => {
+         mappedSampleOrders = sampleOrdersRows.map(row => {
              const isShipped = row.status_gui_don === true || row.order_status === 'da_gui' || row.order_status === 'hoan_thanh';
              return {
                  id: 'sample_' + row.id,
@@ -872,7 +872,7 @@ module.exports = async function(fastify) {
              `, hoanParams);
          }
 
-         const mappedHoanSampleOrders = hoanSampleOrdersRows.map(row => {
+         mappedHoanSampleOrders = hoanSampleOrdersRows.map(row => {
              const isShipped = row.status_gui_don_hoan === true;
              return {
                  id: 'sample_hoan_' + row.id,
