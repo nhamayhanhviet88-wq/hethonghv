@@ -187,6 +187,11 @@ async function syncLedgerForDate(dateStr) {
     // Source 9: Gửi Hàng Trễ — KT chưa gửi đơn đúng hạn (FLAT 100k/ngày)
     if (!isDateOff) {
     try {
+        const ktCutoffMinutes = GPC.kt_cutoff_time !== undefined ? GPC.kt_cutoff_time : 1110;
+        const ktHrs = Math.floor(ktCutoffMinutes / 60);
+        const ktMins = ktCutoffMinutes % 60;
+        const ktTimeStr = `${String(ktHrs).padStart(2, '0')}:${String(ktMins).padStart(2, '0')}:00`;
+
         const overdueOrders = await db.all(`
             SELECT o.id, o.order_code FROM dht_orders o
             WHERE o.shipping_status IN ('pending','rescheduled')
@@ -195,7 +200,7 @@ async function syncLedgerForDate(dateStr) {
                   COALESCE(o.rescheduled_ship_date, o.expected_ship_date) <= $1::date
                   OR (
                       o.qlx_actual_output_at IS NOT NULL
-                      AND o.qlx_actual_output_at AT TIME ZONE 'Asia/Ho_Chi_Minh' < ($1::date + '18:30:00'::time)
+                      AND o.qlx_actual_output_at AT TIME ZONE 'Asia/Ho_Chi_Minh' < ($1::date + $2::time)
                   )
               )
               AND NOT EXISTS (
@@ -203,7 +208,7 @@ async function syncLedgerForDate(dateStr) {
                   WHERE r.dht_order_id = o.id
                     AND (r.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $1::date
               )
-        `, [dateStr]);
+        `, [dateStr, ktTimeStr]);
         if (overdueOrders.length > 0) {
             const PENALTY_AMT = GPC.gui_hang_tre || 100000;
             const ktUsers = await db.all(`

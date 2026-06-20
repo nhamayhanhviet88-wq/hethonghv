@@ -74,6 +74,9 @@ async function renderKetoanguihangPage(container) {
                 <button onclick="_shOpenRescheduleLimitModal()" style="padding:8px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:800;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 10px rgba(217,119,6,0.25);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
                     📅 Giới Hạn Hẹn Lại
                 </button>
+                <button onclick="_shOpenKTCutoffModal()" style="padding:8px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:800;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 10px rgba(5,150,105,0.25);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
+                    ⏰ Cài Giờ Nghỉ KT
+                </button>
                 ` : ''}
                 <button onclick="_shOpenCarrierSettingsModal()" style="padding:8px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-weight:800;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 10px rgba(79,70,229,0.25);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
                     ⚙️ Cấu hình Nhà Vận Chuyển
@@ -4106,5 +4109,103 @@ async function _dhtShowTraSoatModal(orderId, orderCode) {
     }
 }
 window._dhtShowTraSoatModal = _dhtShowTraSoatModal;
+
+async function _shOpenKTCutoffModal() {
+    const m = document.createElement('div');
+    m.id = 'shKTCutoffModal';
+    m.style.position = 'fixed';
+    m.style.top = '0';
+    m.style.left = '0';
+    m.style.width = '100vw';
+    m.style.height = '100vh';
+    m.style.background = 'rgba(15,23,42,0.6)';
+    m.style.backdropFilter = 'blur(4px)';
+    m.style.display = 'flex';
+    m.style.alignItems = 'center';
+    m.style.justifyContent = 'center';
+    m.style.zIndex = '9999';
+    m.innerHTML = `
+    <div style="background:white;width:480px;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;animation:shModalFadeIn 0.2s ease-out;">
+        <div style="background:linear-gradient(135deg,#059669,#10b981);padding:18px 24px;color:white;display:flex;align-items:center;justify-content:between;">
+            <div style="font-weight:800;font-size:16px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">⏰ Giờ Nghỉ Kế Toán</div>
+            <button onclick="document.getElementById('shKTCutoffModal')?.remove()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;font-weight:bold;margin-left:auto;">×</button>
+        </div>
+        <div style="padding:24px;font-size:13px;color:#334155;" id="shKTCutoffBody">
+            <div style="display:flex;justify-content:center;padding:20px 0;">
+                <div style="display:inline-block;width:24px;height:24px;border:3px solid #f3f3f3;border-top:3px solid #059669;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            </div>
+        </div>
+        <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:12px;justify-content:flex-end;">
+            <button onclick="document.getElementById('shKTCutoffModal')?.remove()" style="padding:9px 18px;border:1px solid #cbd5e1;border-radius:10px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13px;transition:all 0.2s;">Hủy bỏ</button>
+            <button id="shSaveKTCutoffBtn" onclick="_shSaveKTCutoffSettings()" style="padding:9px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 4px 10px rgba(5,150,105,0.25);transition:all 0.2s;" disabled>Lưu Cài Đặt</button>
+        </div>
+    </div>`;
+    
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    
+    try {
+        const res = await apiCall('/api/shipping/kt-cutoff');
+        const amount = res && res.amount !== undefined ? res.amount : 1110;
+        const hrs = Math.floor(amount / 60);
+        const mins = amount % 60;
+        const timeVal = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+        
+        const bodyEl = document.getElementById('shKTCutoffBody');
+        if (!bodyEl) return;
+        
+        bodyEl.innerHTML = `
+            <div style="margin-bottom:12px;font-weight:700;color:#1e293b;">Giờ kết thúc ca làm của Kế Toán (Cut-off Time):</div>
+            <input type="time" id="shKTCutoffInput" value="${timeVal}" style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:16px;font-weight:700;color:#1e293b;text-align:center;">
+            <div style="margin-top:8px;font-size:11px;color:#64748b;line-height:1.4;">
+                * Thiết lập mốc thời gian Kế toán hết giờ làm việc. 
+                <br>
+                * Nếu xưởng hoàn thành đơn hàng SAU giờ này, Kế toán sẽ không bị tính là phạt trễ đơn của ngày hôm đó, mà được chuyển tiếp xử lý sang ngày làm việc tiếp theo.
+            </div>
+        `;
+        document.getElementById('shSaveKTCutoffBtn').disabled = false;
+    } catch (err) {
+        const bodyEl = document.getElementById('shKTCutoffBody');
+        if (bodyEl) bodyEl.innerHTML = `<div style="text-align:center;color:#dc2626;font-weight:700;padding:20px;">Lỗi tải dữ liệu: ${err.message}</div>`;
+    }
+}
+window._shOpenKTCutoffModal = _shOpenKTCutoffModal;
+
+async function _shSaveKTCutoffSettings() {
+    const btn = document.getElementById('shSaveKTCutoffBtn');
+    const input = document.getElementById('shKTCutoffInput');
+    if (!input) return;
+    
+    const val = input.value.trim();
+    if (!val) {
+        alert('Vui lòng chọn giờ nghỉ');
+        return;
+    }
+    
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Đang lưu...';
+    }
+    
+    try {
+        const parts = val.split(':');
+        const amount = Number(parts[0]) * 60 + Number(parts[1]);
+        const r = await apiCall('/api/shipping/kt-cutoff', 'PUT', { amount });
+        if (r.error) {
+            alert(r.error);
+        } else {
+            showToast('✅ Đã lưu giờ kết thúc ca làm của Kế Toán');
+            document.getElementById('shKTCutoffModal')?.remove();
+        }
+    } catch (err) {
+        alert('Lỗi khi lưu cài đặt: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Lưu Cài Đặt';
+        }
+    }
+}
+window._shSaveKTCutoffSettings = _shSaveKTCutoffSettings;
 
 

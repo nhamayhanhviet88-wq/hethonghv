@@ -662,6 +662,7 @@ async function start() {
     try {
         await db.run(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('phat_qlx_tre_don_hom_nay', 'Quản Lý Xưởng Xử Lý Đơn Hàng Hôm Nay', 100000) ON CONFLICT (key) DO NOTHING`);
         await db.run(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('qlx_cutoff_time', 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng', 1080) ON CONFLICT (key) DO NOTHING`);
+        await db.run(`INSERT INTO global_penalty_config (key, label, amount) VALUES ('kt_cutoff_time', 'Giờ kết thúc ca làm của Kế Toán', 1110) ON CONFLICT (key) DO NOTHING`);
     } catch(e) { console.error('[QLX Migration] Seed error:', e.message); }
     // Reschedule history table
     try {

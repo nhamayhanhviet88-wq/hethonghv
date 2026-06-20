@@ -2405,6 +2405,30 @@ module.exports = async function(fastify) {
         return { success: true, message: `📅 Đã hẹn lại đơn ${order.order_code} sang ${new_date}` };
     });
 
+    // ========== CẤU HÌNH GIỜ NGHỈ KẾ TOÁN ==========
+    fastify.get('/api/shipping/kt-cutoff', { preHandler: [authenticate] }, async (request, reply) => {
+        const row = await db.get("SELECT amount FROM global_penalty_config WHERE key = 'kt_cutoff_time'");
+        const amount = row ? Number(row.amount) : 1110; // default 18:30 (1110 mins)
+        return { amount };
+    });
+
+    fastify.put('/api/shipping/kt-cutoff', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: '🔒 Chỉ Giám Đốc mới có quyền thay đổi giờ kết thúc ca làm của Kế toán' });
+        }
+        const { amount } = request.body || {};
+        const parsed = Number(amount);
+        if (isNaN(parsed) || parsed < 0 || parsed > 1440) {
+            return reply.code(400).send({ error: 'Giờ không hợp lệ' });
+        }
+        await db.run(`
+            INSERT INTO global_penalty_config (key, label, amount)
+            VALUES ('kt_cutoff_time', 'Giờ kết thúc ca làm của Kế Toán', $1)
+            ON CONFLICT (key) DO UPDATE SET amount = $1, updated_at = NOW()
+        `, [parsed]);
+        return { success: true };
+    });
+
     // ========== TRACKING — Cập nhật NVC, mã vận đơn, SĐT nhà xe ==========
     fastify.put('/api/shipping/orders/:id/tracking', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;

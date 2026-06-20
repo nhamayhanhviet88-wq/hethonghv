@@ -91,7 +91,8 @@ async function khoaTKNVRoutes(fastify, options) {
             gui_hang_tre: 'Gửi hàng trễ — KT chưa gửi đơn hôm nay',
             phieu_qlx_qua_han: 'Phiếu QLX quá hạn — QLX không xử lý',
             phat_qlx_tre_don_hom_nay: 'Quản Lý Xưởng — Xử Lý Đơn Hàng Hôm Nay',
-            qlx_cutoff_time: 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng'
+            qlx_cutoff_time: 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng',
+            kt_cutoff_time: 'Giờ kết thúc ca làm của Kế Toán'
         };
 
         for (const cfg of configs) {
