@@ -2483,7 +2483,7 @@ module.exports = async function(fastify) {
 
         if (isSampleHoan) {
             const sampleId = Number(rawId.replace('sample_hoan_', ''));
-            const logSummary = `Hẹn lại ngày gửi hoàn từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}${image_url ? ` [image_url: ${image_url}]` : ''}`;
+            const logSummary = `Hẹn lại ngày gửi hoàn từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}${image_url ? ` [image_url: ${image_url}]` : ''} [is_eligible_to_send: ${isEligibleToSend}]`;
             await db.run(
                 `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
                 [sampleId, 'reschedule_hoan', logSummary, userId]
@@ -2501,7 +2501,7 @@ module.exports = async function(fastify) {
         } else if (isSample) {
             const sampleId = Number(rawId.replace('sample_', ''));
             // Save history
-            const logSummary = `Hẹn lại ngày gửi từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}${image_url ? ` [image_url: ${image_url}]` : ''}`;
+            const logSummary = `Hẹn lại ngày gửi từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}${image_url ? ` [image_url: ${image_url}]` : ''} [is_eligible_to_send: ${isEligibleToSend}]`;
             await db.run(
                 `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
                 [sampleId, 'reschedule', logSummary, userId]
@@ -2521,9 +2521,9 @@ module.exports = async function(fastify) {
             const oldDate = order.rescheduled_ship_date || order.expected_ship_date;
             // Save history
             await db.run(`
-                INSERT INTO dht_shipping_reschedules (dht_order_id, old_date, new_date, reason, rescheduled_by, image_url, reschedule_hour, reschedule_minute)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            `, [orderId, oldDate, new_date, reason.trim(), userId, image_url, reschedule_hour !== undefined ? Number(reschedule_hour) : null, reschedule_minute !== undefined ? Number(reschedule_minute) : null]);
+                INSERT INTO dht_shipping_reschedules (dht_order_id, old_date, new_date, reason, rescheduled_by, image_url, reschedule_hour, reschedule_minute, is_eligible_to_send)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            `, [orderId, oldDate, new_date, reason.trim(), userId, image_url, reschedule_hour !== undefined ? Number(reschedule_hour) : null, reschedule_minute !== undefined ? Number(reschedule_minute) : null, isEligibleToSend]);
 
             // Update order
             await db.run(`
@@ -2650,8 +2650,9 @@ module.exports = async function(fastify) {
                 let reschedule_minute = null;
                 let reason = l.summary;
                 let image_url = null;
+                let is_eligible_to_send = null;
 
-                const match = l.summary.match(/Hẹn lại ngày gửi (?:hoàn )?từ ([\d-]+) sang ([\d-]+)(?: lúc (\d+):(\d+))?\. Lý do: (.*?)(?: \[image_url: ([^\]]+)\])?$/);
+                const match = l.summary.match(/Hẹn lại ngày gửi (?:hoàn )?từ ([\d-]+) sang ([\d-]+)(?: lúc (\d+):(\d+))?\. Lý do: (.*?)(?: \[image_url: ([^\]]+)\])?(?: \[is_eligible_to_send: (true|false)\])?$/);
                 if (match) {
                     old_date = match[1];
                     new_date = match[2];
@@ -2659,6 +2660,21 @@ module.exports = async function(fastify) {
                     reschedule_minute = match[4] ? Number(match[4]) : null;
                     reason = match[5];
                     image_url = match[6] || null;
+                    is_eligible_to_send = match[7] ? (match[7] === 'true') : null;
+                }
+
+                if (is_eligible_to_send === null) {
+                    if (isSampleHoan || l.action === 'reschedule_hoan') {
+                        is_eligible_to_send = true;
+                    } else {
+                        const reasonLower = (reason || '').toLowerCase();
+                        const isKhach = reasonLower.includes('khach') || reasonLower.includes('khách') || reasonLower.includes('lùi') || reasonLower.includes('lui') || reasonLower.includes('nhận') || reasonLower.includes('nhan');
+                        if (isKhach || old_date === new_date) {
+                            is_eligible_to_send = true;
+                        } else {
+                            is_eligible_to_send = false;
+                        }
+                    }
                 }
 
                 return {
@@ -2670,6 +2686,7 @@ module.exports = async function(fastify) {
                     reschedule_minute: reschedule_minute,
                     reason: reason,
                     image_url: image_url,
+                    is_eligible_to_send: is_eligible_to_send,
                     rescheduled_by: l.performed_by,
                     rescheduled_by_name: l.rescheduled_by_name,
                     created_at: l.created_at
@@ -2687,7 +2704,27 @@ module.exports = async function(fastify) {
             WHERE sr.dht_order_id = $1
             ORDER BY sr.created_at DESC
         `, [orderId]);
-        return { history: rows };
+
+        const history = rows.map(r => {
+            let isEligible = r.is_eligible_to_send;
+            if (isEligible === null) {
+                const reasonLower = (r.reason || '').toLowerCase();
+                const isKhach = reasonLower.includes('khach') || reasonLower.includes('khách') || reasonLower.includes('lùi') || reasonLower.includes('lui') || reasonLower.includes('nhận') || reasonLower.includes('nhan');
+                const oldStr = vnDateStr(r.old_date);
+                const newStr = vnDateStr(r.new_date);
+                if (isKhach || oldStr === newStr) {
+                    isEligible = true;
+                } else {
+                    isEligible = false;
+                }
+            }
+            return {
+                ...r,
+                is_eligible_to_send: isEligible
+            };
+        });
+
+        return { history };
     });
 
     // ========== MATCHING PAYMENTS — Tìm mã tiền phù hợp để thanh toán khi gửi hàng ==========

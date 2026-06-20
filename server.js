@@ -685,6 +685,7 @@ async function start() {
         try { await db.exec(`ALTER TABLE dht_shipping_reschedules ADD COLUMN image_url TEXT`); } catch(e) {}
         try { await db.exec(`ALTER TABLE dht_shipping_reschedules ADD COLUMN IF NOT EXISTS reschedule_hour INTEGER`); } catch(e) {}
         try { await db.exec(`ALTER TABLE dht_shipping_reschedules ADD COLUMN IF NOT EXISTS reschedule_minute INTEGER`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE dht_shipping_reschedules ADD COLUMN IF NOT EXISTS is_eligible_to_send BOOLEAN DEFAULT false`); } catch(e) {}
     } catch(e) { console.error('[Shipping v8] Reschedules:', e.message); }
 
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS rescheduled_ship_hour INTEGER`); } catch(e) {}

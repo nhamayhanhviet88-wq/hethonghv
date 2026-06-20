@@ -2821,7 +2821,9 @@ async function _shShowHistory(id, code) {
                             
                             <!-- Card Reason Body -->
                             <div style="margin-bottom:12px;">
-                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">📝 Lý do không ra đơn đúng ngày được :</div>
+                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
+                                    ${r.is_eligible_to_send ? '📝 Lý do khách lùi lịch hẹn nhận hàng :' : '📝 Lý do không ra đơn đúng ngày được :'}
+                                </div>
                                 <div style="font-size:13px;color:#334155;line-height:1.5;background:#f8fafc;border-left:3px solid #cbd5e1;padding:8px 12px;border-radius:0 8px 8px 0;font-style:italic;">
                                     "${r.reason || 'Không có lý do'}"
                                 </div>
@@ -2830,7 +2832,9 @@ async function _shShowHistory(id, code) {
                             <!-- Card Image -->
                             ${r.image_url ? `
                             <div style="margin-bottom:12px;">
-                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">📸 Ảnh nhắn Sale báo thời gian lùi đơn:</div>
+                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
+                                    ${r.is_eligible_to_send ? '📸 Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng :' : '📸 Ảnh nhắn Sale báo thời gian lùi đơn :'}
+                                </div>
                                 <div class="sh-history-img" style="position:relative;display:inline-block;overflow:hidden;border-radius:8px;border:1px solid #e2e8f0;width:100%;max-width:240px;aspect-ratio:16/10;background:#f1f5f9;cursor:pointer;transition:all 0.2s;"
                                      onclick="showShippingBillLightbox('${r.image_url}')">
                                     <img src="${r.image_url}" style="width:100%;height:100%;object-fit:cover;">
