@@ -571,7 +571,7 @@ function _tsRenderStepModal(step, d){
             </div>`;
             body+=row('🧵 Chất liệu',V(r.material_name),'#7c3aed');
             body+=row('🎨 Màu',V(r.fabric_color),'#1e293b');
-            body+=row('👤 NV Cắt',V(r.cutter_name),'#059669');
+            body+=row('👤 Nhân Viên Cắt',V(r.cutter_name),'#059669');
             body+=row('📊 SL Đơn',(r.order_quantity||0)+' sp');
             if(r.rolls&&r.rolls.length){
                 body+=section('🧶','CÂY VẢI ĐÃ CHỌN ('+r.rolls.length+')');
@@ -826,7 +826,7 @@ function _tsRenderStepModal(step, d){
             body+=row('🧵 Chất liệu',V(r.material_name));
             body+=row('🎨 Màu',V(r.fabric_color));
             body+=row('👤 CSKH',V(d.cskh_name));
-            body+=row('👷 NV Ép',V(r.presser_name),'#ea580c');
+            body+=row('👷 Nhân Viên Ép',V(r.presser_name),'#ea580c');
             body+=row('📊 SL Cắt',r.order_quantity+' sp');
             body+=section('📋','CHI TIẾT CÁC VỊ TRÍ ÉP');
             const posNames = {'pos_chest_arm':'Ngực, Tay, Tạp Dề, Vải Mũ','pos_back_belly':'Lưng, Bụng, Sườn Áo Sần, Mũ Sần','pos_protective':'Bảo Hộ, Bếp, Sơ Mi','pos_packaging':'Đóng Gói, Cổ Bẻ Vải'};
