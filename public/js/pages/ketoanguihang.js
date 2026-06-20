@@ -360,10 +360,25 @@ function _shGetOrderMenu(o) {
     
     const isSample = String(o.id).startsWith('sample_');
     if (isSample) {
-        if (effDate && effDate > today) {
-            return { key: 'early', label: 'Gửi Sớm', color: '#3b82f6', bg: '#eff6ff' };
+        const isApproved = !!o.status_duyet;
+        let reschedDate = o.rescheduled_ship_date;
+        if (reschedDate) {
+            try { reschedDate = vnDateStr(reschedDate); } catch(e){}
+        }
+        if (isApproved) {
+            if (reschedDate && reschedDate > today) {
+                return { key: 'rescheduled_customer', label: 'Hẹn Lại Gửi Khách', color: '#ea580c', bg: '#fff7ed' };
+            } else {
+                return { key: 'today', label: 'Hôm Nay Gửi', color: '#dc2626', bg: '#fef2f2' };
+            }
         } else {
-            return { key: 'today', label: 'Hôm Nay Gửi', color: '#dc2626', bg: '#fef2f2' };
+            if (reschedDate && reschedDate > today) {
+                return { key: 'rescheduled', label: 'Hẹn Lại Lịch Ra Hàng', color: '#d97706', bg: '#fffbeb' };
+            } else if (effDate && effDate > today) {
+                return { key: 'early', label: 'Gửi Sớm', color: '#3b82f6', bg: '#eff6ff' };
+            } else {
+                return { key: 'today', label: 'Hôm Nay Gửi', color: '#dc2626', bg: '#fef2f2' };
+            }
         }
     }
 

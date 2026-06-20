@@ -820,14 +820,13 @@ module.exports = async function(fastify) {
          let hoanTodayIdx = hoanParams.length + 1;
          if (filter === 'early') {
              hoanWhere += ` AND 1=0`;
-             hoanParams.push(todayParam);
          } else if (filter === 'today') {
              hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND (d.rescheduled_ship_date IS NULL OR d.rescheduled_ship_date <= $${hoanTodayIdx}::date)`;
              hoanParams.push(todayParam);
          } else if (filter === 'rescheduled') {
              hoanWhere += ` AND 1=0`;
          } else if (filter === 'rescheduled_customer') {
-             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > \${hoanTodayIdx}::date`;
+             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > $${hoanTodayIdx}::date`;
              hoanParams.push(todayParam);
          } else if (filter === 'shipped') {
              hoanWhere += ` AND d.status_gui_don_hoan = true`;
@@ -1415,6 +1414,7 @@ module.exports = async function(fastify) {
             let idx = 1;
 
             sets.push(`status_gui_don_hoan = true`);
+            sets.push(`rescheduled_ship_date = NULL`);
             sets.push(`hoan_hang_shipped_by = $${idx++}`); params.push(userId);
             sets.push(`hoan_hang_shipped_at = $${idx++}`); params.push(now.toISOString());
             sets.push(`hoan_hang_actual_carrier_id = $${idx++}`); params.push(Number(b.actual_carrier_id));
@@ -1539,6 +1539,7 @@ module.exports = async function(fastify) {
 
             sets.push(`status_gui_don = true`);
             sets.push(`order_status = 'da_gui'`);
+            sets.push(`rescheduled_ship_date = NULL`);
             sets.push(`shipped_by = $${idx++}`); params.push(userId);
             sets.push(`shipped_at = $${idx++}`); params.push(now.toISOString());
             sets.push(`actual_carrier_id = $${idx++}`); params.push(Number(b.actual_carrier_id));
@@ -2490,7 +2491,7 @@ module.exports = async function(fastify) {
 
             await db.run(`
                 UPDATE don_gui_ao_mau SET
-                    hoan_hang_ship_date = $1,
+                    rescheduled_ship_date = $1,
                     updated_at = NOW(),
                     updated_by = $2
                 WHERE id = $3
@@ -2509,7 +2510,7 @@ module.exports = async function(fastify) {
             // Update sample order
             await db.run(`
                 UPDATE don_gui_ao_mau SET
-                    ship_date = $1,
+                    rescheduled_ship_date = $1,
                     updated_at = NOW(),
                     updated_by = $2
                 WHERE id = $3
