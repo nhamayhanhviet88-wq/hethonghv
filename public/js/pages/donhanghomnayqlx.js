@@ -690,7 +690,7 @@ function _qlxdhBuildTable(orders) {
 
         const statusData = _qlxdhFormatRescheduleStatus(o);
         const borderStyle = statusData.class ? '' : `border:1px solid ${statusData.color}40;`;
-        const statusBadge = `<span class="${statusData.class}" style="background:${statusData.bg};color:${statusData.color};${borderStyle}padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block;">${statusData.label}</span>`;
+        const statusBadge = `<span class="${statusData.class}" onclick="event.stopPropagation(); _qlxdhShowHistory('${o.id}', '${o.order_code}')" style="background:${statusData.bg};color:${statusData.color};${borderStyle}padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block;cursor:pointer;" title="Xem lịch sử hẹn lại">${statusData.label}</span>`;
         html += `<td style="padding:8px 6px;text-align:center;vertical-align:middle;">${statusBadge}</td>`;
 
         html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
