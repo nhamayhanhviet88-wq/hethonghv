@@ -49,6 +49,22 @@ async function renderKetoanguihangPage(container) {
         .dht-tiendo-blue{background-color:#dbeafe;color:#1d4ed8;border-color:rgba(29,78,216,0.2)}
         .dht-tiendo-yellow{background-color:#fef3c7;color:#b45309;border-color:rgba(180,83,9,0.2)}
         @keyframes dhtBlink{0%,100%{opacity:1}50%{opacity:0.4}}
+        @keyframes shPulseBlink {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7);
+                filter: brightness(1);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 8px 3px rgba(168, 85, 247, 0.4);
+                filter: brightness(1.15);
+                transform: scale(1.03);
+            }
+        }
+        .sh-hen-homnay {
+            animation: shPulseBlink 1.2s infinite ease-in-out;
+            border: 1px solid #d8b4fe !important;
+        }
     </style>
     <div style="max-width:1600px;margin:0 auto;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
@@ -366,6 +382,41 @@ function _shRenderContent() {
     el.innerHTML = html;
 }
 
+function _shFormatRescheduleStatus(o) {
+    if (o.shipping_status === 'shipped') {
+        return { label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5', class: '' };
+    }
+    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+    const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+    if (isEligibleToSend) {
+        return { label: 'Chờ KT Gửi', color: '#16a34a', bg: '#dcfce7', class: '' };
+    }
+    if (!o.last_rescheduled_at) {
+        return { label: 'Chưa Hẹn', color: '#64748b', bg: '#f1f5f9', class: '' };
+    }
+    try {
+        const reschedDateStr = vnDateStr(o.last_rescheduled_at);
+        const todayStr = vnDateStr();
+        const d1 = new Date(reschedDateStr + 'T00:00:00+07:00');
+        const d2 = new Date(todayStr + 'T00:00:00+07:00');
+        const diffDays = Math.round((d2.getTime() - d1.getTime()) / 86400000);
+        
+        if (diffDays === 0) {
+            return { label: 'QLX Hẹn Hôm Nay', color: '#581c87', bg: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)', class: 'sh-hen-homnay' };
+        } else if (diffDays === 1) {
+            return { label: 'QLX Hẹn Hôm Qua', color: '#d97706', bg: '#fffbeb', class: '' };
+        } else if (diffDays === 2) {
+            return { label: 'QLX Hẹn Hôm Kia', color: '#7c3aed', bg: '#f5f3ff', class: '' };
+        } else {
+            const day = d1.getDate();
+            const month = d1.getMonth() + 1;
+            return { label: `QLX Hẹn ${day}/${month}`, color: '#4b5563', bg: '#f3f4f6', class: '' };
+        }
+    } catch (e) {
+        return { label: 'QLX Đã Hẹn', color: '#d97706', bg: '#fffbeb', class: '' };
+    }
+}
+
 function _shBuildTable(orders) {
     const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
     const today = vnDateStr();
@@ -397,8 +448,8 @@ function _shBuildTable(orders) {
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
-        ${['','Phiếu Gửi','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'].map(h => {
-            const align = (h === 'Phiếu Gửi' || h === '') ? 'center' : 'left';
+        ${['','Tình Trạng','Phiếu Gửi','Gửi Dự Kiến','🚛 Ngày Gửi','Hẹn Lại','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'].map(h => {
+            const align = (h === 'Phiếu Gửi' || h === 'Tình Trạng' || h === '') ? 'center' : 'left';
             return `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">${h}</th>`;
         }).join('')}
     </tr></thead><tbody>`;
@@ -483,7 +534,13 @@ function _shBuildTable(orders) {
             <span id="shChevron_${o.id}" style="font-size:14px;cursor:pointer;user-select:none;color:#64748b;font-weight:bold;padding:4px;">▶</span>
         </td>`;
 
-        // Col 1: Action
+        // Col: Tình Trạng
+        const statusData = _shFormatRescheduleStatus(o);
+        const borderStyle = statusData.class ? '' : 'border:1.5px solid #cbd5e1;';
+        const statusBadge = `<span class="${statusData.class}" onclick="event.stopPropagation(); _shShowHistory('${o.id}', '${(o.order_code||'').replace(/'/g,"\\'")}')" style="background:${statusData.bg};color:${statusData.color};${borderStyle}padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block;cursor:pointer;" title="Xem lịch sử hẹn lại">${statusData.label}</span>`;
+        html += `<td style="padding:8px 6px;text-align:center;">${statusBadge}</td>`;
+
+        // Col 1: Action (Phiếu Gửi)
         html += `<td style="padding:8px 6px;text-align:center;">${orderLevelAction}</td>`;
 
         // Col 3: Gửi Dự Kiến
@@ -543,7 +600,7 @@ function _shBuildTable(orders) {
         // Sub-row for items/slips
         const itemsTableHtml = _shBuildItemsTable(o);
         html += `<tr id="shItemsRow_${o.id}" style="display:none;background:#f8fafc;border-bottom:1.5px solid #cbd5e1;">
-            <td colspan="12" style="padding:12px 16px;">
+            <td colspan="13" style="padding:12px 16px;">
                 <div style="font-size:12px;font-weight:800;color:#1e3a5f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                     <span>📋 Danh sách phiếu sản phẩm của đơn ${o.order_code}</span>
                 </div>
