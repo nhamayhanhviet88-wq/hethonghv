@@ -2288,20 +2288,30 @@ module.exports = async function(fastify) {
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do' });
 
         const rawId = String(request.params.id);
-        const isSample = rawId.startsWith('sample_');
+        const isSample = rawId.startsWith('sample_') && !rawId.startsWith('sample_hoan_');
+        const isSampleHoan = rawId.startsWith('sample_hoan_');
         let order;
         let isEligibleToSend = false;
         let oldDateStr;
         let orderId = null;
 
-        if (isSample) {
+        if (isSampleHoan) {
+            const sampleId = Number(rawId.replace('sample_hoan_', ''));
+            const sampleOrder = await db.get('SELECT id, sample_order_code AS order_code, hoan_hang_ship_date AS expected_ship_date, status_gui_don_hoan AS status_gui_don, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
+            if (!sampleOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu hoàn' });
+            if (sampleOrder.status_gui_don === true) return reply.code(400).send({ error: 'Đơn hoàn mẫu đã gửi, không thể hẹn lại' });
+
+            order = sampleOrder;
+            isEligibleToSend = true; // Return samples are always eligible
+            oldDateStr = vnDateStr(order.expected_ship_date);
+        } else if (isSample) {
             const sampleId = Number(rawId.replace('sample_', ''));
-            const sampleOrder = await db.get('SELECT id, sample_order_code AS order_code, ship_date AS expected_ship_date, status_gui_don, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
+            const sampleOrder = await db.get('SELECT id, sample_order_code AS order_code, ship_date AS expected_ship_date, status_gui_don, status_duyet, created_by FROM don_gui_ao_mau WHERE id = $1', [sampleId]);
             if (!sampleOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng mẫu' });
             if (sampleOrder.status_gui_don === true) return reply.code(400).send({ error: 'Đơn hàng đã gửi, không thể hẹn lại' });
 
             order = sampleOrder;
-            isEligibleToSend = true; // sample orders are always done/ready to send
+            isEligibleToSend = !!sampleOrder.status_duyet;
             oldDateStr = vnDateStr(order.expected_ship_date);
         } else {
             orderId = Number(rawId);
@@ -2452,12 +2462,30 @@ module.exports = async function(fastify) {
             }
         }
 
-        if (isSample) {
+        if (isSampleHoan) {
+            const sampleId = Number(rawId.replace('sample_hoan_', ''));
+            const logSummary = `Hẹn lại ngày gửi hoàn từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}`;
+            await db.run(
+                `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
+                [sampleId, 'reschedule_hoan', logSummary, userId]
+            );
+
+            await db.run(`
+                UPDATE don_gui_ao_mau SET
+                    hoan_hang_ship_date = $1,
+                    updated_at = NOW(),
+                    updated_by = $2
+                WHERE id = $3
+            `, [new_date, userId, sampleId]);
+
+            return { success: true, message: `📅 Đã hẹn lại đơn hoàn mẫu ${order.order_code} sang ${new_date}` };
+        } else if (isSample) {
+            const sampleId = Number(rawId.replace('sample_', ''));
             // Save history
             const logSummary = `Hẹn lại ngày gửi từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}`;
             await db.run(
                 `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
-                [Number(rawId.replace('sample_', '')), 'reschedule', logSummary, userId]
+                [sampleId, 'reschedule', logSummary, userId]
             );
 
             // Update sample order
@@ -2467,7 +2495,7 @@ module.exports = async function(fastify) {
                     updated_at = NOW(),
                     updated_by = $2
                 WHERE id = $3
-            `, [new_date, userId, Number(rawId.replace('sample_', ''))]);
+            `, [new_date, userId, sampleId]);
 
             return { success: true, message: `📅 Đã hẹn lại đơn mẫu ${order.order_code} sang ${new_date}` };
         } else {

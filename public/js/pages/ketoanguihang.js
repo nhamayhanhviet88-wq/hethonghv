@@ -2265,9 +2265,10 @@ async function _shShowReschedule(id, code) {
     const o = _shOrders.find(x => String(x.id) === String(id));
     if (!o) return;
 
-    const isSample = String(o.id).startsWith('sample_');
+    const isSampleHoan = String(o.id).startsWith('sample_hoan_');
+    const isSample = String(o.id).startsWith('sample_') && !isSampleHoan;
     const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
-    const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+    const isEligibleToSend = isSampleHoan ? true : (isSample ? !!o.status_duyet : (pendingItems.length > 0 && pendingItems.every(item => item.all_done)));
 
     // Check if this order is finished early (Chờ KT gửi sớm)
     const oldDate = o.rescheduled_ship_date || o.expected_ship_date;
