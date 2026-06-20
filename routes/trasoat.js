@@ -1175,7 +1175,8 @@ module.exports = async function(fastify) {
                     sr.order_item_id,
                     o.expected_ship_date AS order_expected_ship_date,
                     o.standard_delivery_time AS order_standard_delivery_time,
-                    (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = fr.sewing_record_id) AS qc_count
+                    (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = fr.sewing_record_id) AS qc_count,
+                    (SELECT MAX(answered_at) FROM qc_checklist_answers qca WHERE qca.sewing_record_id = fr.sewing_record_id) AS qc_date
                 FROM finishing_records fr
                 LEFT JOIN users u ON fr.finisher_id = u.id
                 LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id

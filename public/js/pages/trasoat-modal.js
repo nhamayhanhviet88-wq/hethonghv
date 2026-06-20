@@ -1377,20 +1377,22 @@ function _tsRenderStepModal(step, d){
                     
                     const isQcDone = r.qc_count > 0;
                     const isOutsourced = r.contractor_id !== null;
+                    const completionTime = r.completed_at || r.qc_date;
+                    const timeSuffix = completionTime ? ` (${fmtShortDT(completionTime)})` : '';
                     let statusText = '⏳ Đang hoàn thiện';
                     let badgeBg = '#fef3c7';
                     let badgeColor = '#92400e';
 
                     if (d.is_order_shipped) {
                         if (r.is_completed) {
-                            statusText = '✅ Đã hoàn thiện';
+                            statusText = '✅ Đã hoàn thiện' + timeSuffix;
                             badgeBg = '#d1fae5';
                             badgeColor = '#065f46';
                         }
                     } else {
                         if (isOutsourced) {
                             if (isQcDone) {
-                                statusText = '✅ Đã hoàn thiện từ kiểm tra QC';
+                                statusText = '✅ Đã hoàn thiện từ kiểm tra QC' + timeSuffix;
                                 badgeBg = '#d1fae5';
                                 badgeColor = '#065f46';
                             } else {
@@ -1404,7 +1406,7 @@ function _tsRenderStepModal(step, d){
                                 badgeBg = '#fee2e2';
                                 badgeColor = '#991b1b';
                             } else if (r.is_completed) {
-                                statusText = '✅ Đã hoàn thiện';
+                                statusText = '✅ Đã hoàn thiện' + timeSuffix;
                                 badgeBg = '#d1fae5';
                                 badgeColor = '#065f46';
                             }
