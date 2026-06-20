@@ -2818,7 +2818,7 @@ async function _shShowHistory(id, code) {
                             
                             <!-- Card Header: Title & Type Badge -->
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid ${borderStyle}; padding-bottom:8px;">
-                                <span style="font-size:11px; font-weight:700; color:${r.is_eligible_to_send ? '#b45309' : '#64748b'}; text-transform:uppercase; letter-spacing:0.05em;">Lịch sử thay đổi #${rows.length - i}</span>
+                                <span style="font-size:11px; font-weight:700; color:${r.is_eligible_to_send ? '#b45309' : '#64748b'}; text-transform:uppercase; letter-spacing:0.05em;">Lịch sử thay đổi #${rows.length - i} : ${r.is_eligible_to_send ? 'HẸN KHÁCH' : 'HẸN SALE'}</span>
                                 ${r.is_eligible_to_send 
                                     ? `<span style="background:#f59e0b; color:white; font-size:10px; font-weight:800; padding:3px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:3px; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);">🤝 HẸN KHÁCH</span>`
                                     : `<span style="background:#64748b; color:white; font-size:10px; font-weight:800; padding:3px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:3px;">💼 HẸN SALE</span>`
