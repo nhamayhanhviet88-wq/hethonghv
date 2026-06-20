@@ -819,10 +819,9 @@ module.exports = async function(fastify) {
              }
          let hoanTodayIdx = hoanParams.length + 1;
          if (filter === 'early') {
-             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.rescheduled_ship_date IS NULL AND d.hoan_hang_ship_date > $${hoanTodayIdx}::date`;
-             hoanParams.push(todayParam);
+             hoanWhere += ` AND 1=0`;
          } else if (filter === 'today') {
-             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) <= $${hoanTodayIdx}::date`;
+             hoanWhere += ` AND d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND (d.rescheduled_ship_date IS NULL OR d.rescheduled_ship_date <= $${hoanTodayIdx}::date)`;
              hoanParams.push(todayParam);
          } else if (filter === 'rescheduled') {
              hoanWhere += ` AND 1=0`;
@@ -1227,8 +1226,8 @@ module.exports = async function(fastify) {
 
             sampleHoanCounts = await db.get(`
                 SELECT
-                    COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.rescheduled_ship_date IS NULL AND d.hoan_hang_ship_date > $1::date) AS early_count,
-                    COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) <= $1::date) AS today_count,
+                    0 AS early_count,
+                    COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND (d.rescheduled_ship_date IS NULL OR d.rescheduled_ship_date <= $1::date)) AS today_count,
                     0 AS rescheduled_count,
                     COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > $1::date) AS rescheduled_customer_count,
                     COUNT(*) FILTER (WHERE d.status_gui_don_hoan = true) AS shipped_count

@@ -375,7 +375,19 @@ function _shGetOrderMenu(o) {
         return { key: 'shipped', label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5' };
     }
     
-    const isSample = String(o.id).startsWith('sample_');
+    const isSampleHoan = String(o.id).startsWith('sample_hoan_');
+    const isSample = String(o.id).startsWith('sample_') && !isSampleHoan;
+    if (isSampleHoan) {
+        let reschedDate = o.rescheduled_ship_date;
+        if (reschedDate) {
+            try { reschedDate = vnDateStr(reschedDate); } catch(e){}
+        }
+        if (reschedDate && reschedDate > today) {
+            return { key: 'rescheduled_customer', label: 'Hẹn Lại Gửi Khách', color: '#ea580c', bg: '#fff7ed' };
+        } else {
+            return { key: 'today', label: 'Hôm Nay Gửi', color: '#dc2626', bg: '#fef2f2' };
+        }
+    }
     if (isSample) {
         const isApproved = !!o.status_duyet;
         let reschedDate = o.rescheduled_ship_date;
