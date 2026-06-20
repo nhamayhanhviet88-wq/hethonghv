@@ -78,6 +78,22 @@ async function renderDonhanghomnayqlxPage(container) {
             animation: qlxdhPulseBlink 1.2s infinite ease-in-out;
             border: 1px solid #d8b4fe !important;
         }
+        @keyframes qlxdhKTPulseBlink {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7);
+                filter: brightness(1);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 8px 3px rgba(244, 63, 94, 0.4);
+                filter: brightness(1.15);
+                transform: scale(1.03);
+            }
+        }
+        .qlxdh-kt-hen-homnay {
+            animation: qlxdhKTPulseBlink 1.2s infinite ease-in-out;
+            border: 1px solid #fda4af !important;
+        }
         .qlxdh-th-sortable {
             cursor: pointer;
             user-select: none;
@@ -501,19 +517,28 @@ function _qlxdhFormatRescheduleStatus(o) {
         const d2 = new Date(todayStr + 'T00:00:00+07:00');
         const diffDays = Math.round((d2.getTime() - d1.getTime()) / 86400000);
         
+        const isKT = o.last_rescheduled_by_role === 'ke_toan';
+        const prefix = isKT ? 'KToán' : 'QLX';
+        
         if (diffDays === 0) {
-            return { label: 'QLX Hẹn Hôm Nay', color: '#581c87', bg: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)', class: 'qlxdh-hen-homnay' };
+            if (isKT) {
+                return { label: 'KToán Hẹn Hôm Nay', color: '#9f1239', bg: 'linear-gradient(135deg, #ffe4e6, #fecdd3)', class: 'qlxdh-kt-hen-homnay' };
+            } else {
+                return { label: 'QLX Hẹn Hôm Nay', color: '#581c87', bg: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)', class: 'qlxdh-hen-homnay' };
+            }
         } else if (diffDays === 1) {
-            return { label: 'QLX Hẹn Hôm Qua', color: '#d97706', bg: '#fffbeb', class: '' };
+            return { label: `${prefix} Hẹn Hôm Qua`, color: '#d97706', bg: '#fffbeb', class: '' };
         } else if (diffDays === 2) {
-            return { label: 'QLX Hẹn Hôm Kia', color: '#7c3aed', bg: '#f5f3ff', class: '' };
+            return { label: `${prefix} Hẹn Hôm Kia`, color: '#7c3aed', bg: '#f5f3ff', class: '' };
         } else {
             const day = d1.getDate();
             const month = d1.getMonth() + 1;
-            return { label: `QLX Hẹn ${day}/${month}`, color: '#4b5563', bg: '#f3f4f6', class: '' };
+            return { label: `${prefix} Hẹn ${day}/${month}`, color: '#4b5563', bg: '#f3f4f6', class: '' };
         }
     } catch (e) {
-        return { label: 'QLX Đã Hẹn', color: '#d97706', bg: '#fffbeb', class: '' };
+        const isKT = o.last_rescheduled_by_role === 'ke_toan';
+        const prefix = isKT ? 'KToán' : 'QLX';
+        return { label: `${prefix} Đã Hẹn`, color: '#d97706', bg: '#fffbeb', class: '' };
     }
 }
 
