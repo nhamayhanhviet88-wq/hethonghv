@@ -209,7 +209,50 @@ async function syncLedgerForDate(dateStr) {
                     AND (r.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $1::date
               )
         `, [dateStr, ktTimeStr]);
-        if (overdueOrders.length > 0) {
+
+        const overdueSamples = await db.all(`
+            SELECT d.id, d.sample_order_code AS order_code FROM don_gui_ao_mau d
+            WHERE (
+                -- 1. Return samples
+                (
+                    d.status_hoan_hang = true 
+                    AND d.status_gui_don_hoan = false 
+                    AND (COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) IS NULL OR COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) <= $1::date)
+                    AND NOT (d.updated_at AT TIME ZONE 'Asia/Ho_Chi_Minh' >= ($1::date + $2::time))
+                    AND NOT EXISTS (
+                        SELECT 1 FROM don_gui_ao_mau_logs l
+                        WHERE l.sample_order_id = d.id
+                          AND l.action = 'reschedule_hoan'
+                          AND (l.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $1::date
+                    )
+                )
+                OR
+                -- 2. Standard samples
+                (
+                    (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
+                    AND d.status_gui_don = false
+                    AND (
+                        -- Approved
+                        (d.status_duyet = true AND (d.rescheduled_ship_date IS NULL OR d.rescheduled_ship_date <= $1::date)
+                         AND NOT (d.approved_at AT TIME ZONE 'Asia/Ho_Chi_Minh' >= ($1::date + $2::time)))
+                        OR
+                        -- Not approved
+                        (d.status_duyet = false AND COALESCE(d.rescheduled_ship_date, d.ship_date) <= $1::date
+                         AND NOT (d.updated_at AT TIME ZONE 'Asia/Ho_Chi_Minh' >= ($1::date + $2::time)))
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM don_gui_ao_mau_logs l
+                        WHERE l.sample_order_id = d.id
+                          AND l.action = 'reschedule'
+                          AND (l.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $1::date
+                    )
+                )
+            )
+        `, [dateStr, ktTimeStr]);
+
+        const totalOverdueCount = overdueOrders.length + overdueSamples.length;
+
+        if (totalOverdueCount > 0) {
             const PENALTY_AMT = GPC.gui_hang_tre || 100000;
             const ktUsers = await db.all(`
                 SELECT u.id FROM users u
@@ -219,7 +262,7 @@ async function syncLedgerForDate(dateStr) {
             `);
             for (const kt of ktUsers) {
                 await writeLedger(kt.id, dateStr, 'gui_hang_tre', 'shipping_daily',
-                    `Gửi Hàng Trễ: ${overdueOrders.length} đơn quá hạn`,
+                    `Gửi Hàng Trễ: ${totalOverdueCount} đơn quá hạn`,
                     PENALTY_AMT, 'Kế toán chưa gửi đơn hàng đúng hạn');
                 count++;
             }
