@@ -2435,16 +2435,19 @@ module.exports = async function(fastify) {
                     }));
                     
                     const validDates = [];
-                    let checkDate = new Date(todayStr + 'T00:00:00+07:00');
+                    let offsetDays = 0;
                     let safety = 0;
+                    const nowMs = Date.now();
                     while (validDates.length < limitVal && safety < 100) {
                         safety++;
-                        checkDate.setDate(checkDate.getDate() + 1);
-                        const y = checkDate.getFullYear();
-                        const m = String(checkDate.getMonth() + 1).padStart(2, '0');
-                        const d = String(checkDate.getDate()).padStart(2, '0');
+                        offsetDays++;
+                        const checkTime = new Date(nowMs + offsetDays * 24 * 60 * 60 * 1000);
+                        const vnDateObj = new Date(checkTime.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+                        const y = vnDateObj.getFullYear();
+                        const m = String(vnDateObj.getMonth() + 1).padStart(2, '0');
+                        const d = String(vnDateObj.getDate()).padStart(2, '0');
                         const dateStr = `${y}-${m}-${d}`;
-                        const dayOfWeek = checkDate.getDay();
+                        const dayOfWeek = vnDateObj.getDay();
                         const isSunday = dayOfWeek === 0;
                         const isHoliday = holidaysSet.has(dateStr);
                         if (!isSunday && !isHoliday) {
@@ -2453,7 +2456,11 @@ module.exports = async function(fastify) {
                     }
                     
                     if (!validDates.includes(new_date)) {
-                        return reply.code(400).send({ error: `⚠️ Ngày hẹn phải nằm trong giới hạn ${limitVal} ngày làm việc gần nhất (${validDates.join(', ')})` });
+                        const formattedDates = validDates.map(ds => {
+                            const [y, m, d] = ds.split('-');
+                            return `${d}/${m}/${y}`;
+                        });
+                        return reply.code(400).send({ error: `⚠️ Ngày hẹn phải nằm trong giới hạn ${limitVal} ngày làm việc gần nhất (${formattedDates.join(', ')})` });
                     }
                 }
             }

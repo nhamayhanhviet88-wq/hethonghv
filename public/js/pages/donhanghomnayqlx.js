@@ -1056,16 +1056,19 @@ async function _qlxdhShowReschedule(id, code) {
     
     if (limitVal && limitVal > 0) {
         const validDates = [];
-        let checkDate = new Date(_today + 'T00:00:00+07:00');
+        let offsetDays = 0;
         let safetyCounter = 0;
+        const nowMs = Date.now();
         while (validDates.length < limitVal && safetyCounter < 100) {
             safetyCounter++;
-            checkDate.setDate(checkDate.getDate() + 1);
-            const y = checkDate.getFullYear();
-            const m = String(checkDate.getMonth() + 1).padStart(2, '0');
-            const d = String(checkDate.getDate()).padStart(2, '0');
+            offsetDays++;
+            const checkTime = new Date(nowMs + offsetDays * 24 * 60 * 60 * 1000);
+            const vnDateObj = new Date(checkTime.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            const y = vnDateObj.getFullYear();
+            const m = String(vnDateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(vnDateObj.getDate()).padStart(2, '0');
             const dateStr = `${y}-${m}-${d}`;
-            const dayOfWeek = checkDate.getDay();
+            const dayOfWeek = vnDateObj.getDay();
             const isSunday = dayOfWeek === 0;
             const isHoliday = !!_qlxdhHolidayMap[dateStr];
             if (!isSunday && !isHoliday) {
