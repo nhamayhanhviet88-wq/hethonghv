@@ -243,14 +243,6 @@ function _qlxdhRenderSearchBar() {
             <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;">🔍</span>
             <input type="text" id="qlxdhSearchInput" value="${_qlxdhSearchVal}" oninput="_qlxdhOnSearch(this.value)" placeholder="${placeholderText}" style="width:100%;padding:9px 12px 9px 36px;border:2px solid #fbbf24;border-radius:10px;font-size:13px;font-weight:600;background:#fffef5;outline:none;transition:border .2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fbbf24'">
         </div>
-        <select onchange="_qlxdhOnSortChange(this.value)" style="padding:9px 12px;border:2px solid #fbbf24;border-radius:10px;font-size:13px;font-weight:600;background:#fffef5;color:#334155;outline:none;cursor:pointer;transition:border .2s;height:38px;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fbbf24'">
-            <option value="default" ${_qlxdhSortVal === 'default' ? 'selected' : ''}>Sắp xếp: Mặc định</option>
-            <option value="remaining_desc" ${_qlxdhSortVal === 'remaining_desc' ? 'selected' : ''}>Số tiền còn lại: Lớn nhất</option>
-            <option value="remaining_asc" ${_qlxdhSortVal === 'remaining_asc' ? 'selected' : ''}>Số tiền còn lại: Nhỏ nhất</option>
-            <option value="total_desc" ${_qlxdhSortVal === 'total_desc' ? 'selected' : ''}>Tổng tiền: Lớn nhất</option>
-            <option value="total_asc" ${_qlxdhSortVal === 'total_asc' ? 'selected' : ''}>Tổng tiền: Nhỏ nhất</option>
-            ${_qlxdhSortVal === 'custom' ? `<option value="custom" selected disabled>Sắp xếp: Cột tùy chọn</option>` : ''}
-        </select>
     </div>`;
 }
 
@@ -299,7 +291,6 @@ function _qlxdhSortByCol(col) {
         _qlxdhSortVal = 'custom';
     }
     
-    _qlxdhRenderSearchBar();
     _qlxdhApplySearch();
     _qlxdhRenderContent();
 }
