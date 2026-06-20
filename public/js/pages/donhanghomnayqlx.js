@@ -672,12 +672,22 @@ function _qlxdhBuildTable(orders) {
                     progressBadge = `<span class="dht-tiendo-badge dht-tiendo-red">⚠️ Trễ ${Math.abs(shipDiff)} ngày</span>`;
                 }
             } else {
-                if (diffDays < 0) {
-                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-blue">⏳ Còn ${Math.abs(diffDays)} ngày</span>`;
-                } else if (diffDays === 0) {
-                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-yellow">📦 Hôm nay!</span>`;
+                if (isEligibleToSend) {
+                    if (diffDays < 0) {
+                        progressBadge = `<span class="dht-tiendo-badge dht-tiendo-blue">⏳ Còn ${Math.abs(diffDays)} ngày</span>`;
+                    } else if (diffDays === 0) {
+                        progressBadge = `<span class="dht-tiendo-badge dht-tiendo-yellow">📦 Hôm nay!</span>`;
+                    } else {
+                        progressBadge = `<span class="dht-tiendo-badge dht-tiendo-green" style="opacity: 0.85;">⌛ Trễ ${diffDays} ngày (Chờ KT)</span>`;
+                    }
                 } else {
-                    progressBadge = `<span class="dht-tiendo-badge dht-tiendo-red" style="animation:dhtBlink 1s infinite">🔥 Trễ ${diffDays} ngày</span>`;
+                    if (diffDays < 0) {
+                        progressBadge = `<span class="dht-tiendo-badge dht-tiendo-blue">⏳ Còn ${Math.abs(diffDays)} ngày</span>`;
+                    } else if (diffDays === 0) {
+                        progressBadge = `<span class="dht-tiendo-badge dht-tiendo-yellow">📦 Hôm nay!</span>`;
+                    } else {
+                        progressBadge = `<span class="dht-tiendo-badge dht-tiendo-red" style="animation:dhtBlink 1s infinite">🔥 Trễ ${diffDays} ngày</span>`;
+                    }
                 }
             }
             tienDoClick = `onclick="event.stopPropagation(); _dhtShowTraSoatModal('${o.id}', '${o.order_code}')" title="Xem tra soát tiến độ"`;

@@ -534,8 +534,16 @@ module.exports = async function(fastify) {
             const code = (o.order_code || '').toUpperCase();
             const isPetTem = Number(o.category_id) === 8 || Number(o.category_id) === 9 || code.includes('PET') || code.includes('TEM');
             o.items = _processShippingOrderItems(o, itemsList, isPetTem);
+            
+            if (page_type === 'qlx') {
+                const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+                const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+                if (isEligibleToSend) {
+                    o.is_overdue = false;
+                }
+            }
         }
-
+ 
         let finalOrders = orders;
         if (page_type === 'qlx') {
             if (filter === 'cho_kt_gui') {
@@ -956,6 +964,7 @@ module.exports = async function(fastify) {
             let todayCount = 0;
             let rescheduledCount = 0;
             let choKtGuiCount = 0;
+            let overdueCountVal = 0;
 
             for (const o of activeOrdersForCounts) {
                 const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
@@ -969,6 +978,11 @@ module.exports = async function(fastify) {
                 if (effDate) {
                     try { effDate = vnDateStr(effDate); } catch(e) {}
                 }
+                
+                if (effDate && effDate < todayStr) {
+                    overdueCountVal++;
+                }
+
                 if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
                     let reschedDate = o.rescheduled_ship_date;
                     try { reschedDate = vnDateStr(reschedDate); } catch(e){}
@@ -993,7 +1007,8 @@ module.exports = async function(fastify) {
                 today: todayCount,
                 rescheduled: rescheduledCount,
                 cho_kt_gui: choKtGuiCount,
-                shipped: Number(shippedCountRow?.cnt) || 0
+                shipped: Number(shippedCountRow?.cnt) || 0,
+                overdue: overdueCountVal
             };
         } else {
             const counts = await db.get(`
@@ -1072,7 +1087,7 @@ module.exports = async function(fastify) {
                 rescheduled: countsObj.rescheduled,
                 cho_kt_gui: countsObj.cho_kt_gui,
                 shipped: countsObj.shipped,
-                overdue: (Number(overdueCount?.cnt) || 0)
+                overdue: countsObj.overdue
             };
         } else {
             const raw = countsObj._rawCounts;
