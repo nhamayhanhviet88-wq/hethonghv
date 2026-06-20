@@ -503,7 +503,18 @@ module.exports = async function(fastify) {
                       AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                 ) THEN true ELSE false END AS was_rescheduled_today,
                 (SELECT MAX(created_at) FROM dht_shipping_reschedules r WHERE r.dht_order_id = o.id) AS last_rescheduled_at,
-                (SELECT u.role FROM dht_shipping_reschedules r JOIN users u ON r.rescheduled_by = u.id WHERE r.dht_order_id = o.id ORDER BY r.created_at DESC LIMIT 1) AS last_rescheduled_by_role,
+                (SELECT CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM departments d 
+                        WHERE d.id = u.department_id 
+                          AND (LOWER(d.name) LIKE '%kế toán%' OR LOWER(d.name) LIKE '%ke toan%')
+                    ) THEN 'ke_toan'
+                    ELSE u.role 
+                 END
+                 FROM dht_shipping_reschedules r 
+                 JOIN users u ON r.rescheduled_by = u.id 
+                 WHERE r.dht_order_id = o.id 
+                 ORDER BY r.created_at DESC LIMIT 1) AS last_rescheduled_by_role,
                 GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) AS deposit_amount,
                 GREATEST(0, COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE(pr_dep.deposit_total, 0), COALESCE(o.deposit_amount_cache, 0)) - (CASE WHEN EXISTS (SELECT 1 FROM payment_records pr WHERE (pr.total_order_codes ILIKE '%' || o.order_code || '%' OR pr.order_tt_coc = o.order_code) AND pr.money_source = 'nha_van_chuyen') THEN 0 ELSE COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END) END)) AS remaining_amount
             FROM dht_orders o
