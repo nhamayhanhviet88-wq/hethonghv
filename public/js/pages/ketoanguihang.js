@@ -2764,6 +2764,14 @@ async function _shShowHistory(id, code) {
                 from { transform: translateY(20px); opacity: 0; }
                 to { transform: translateY(0); opacity: 1; }
             }
+            @keyframes shSparkle {
+                0% { box-shadow: 0 0 6px rgba(245, 158, 11, 0.2); border-color: #f59e0b; }
+                50% { box-shadow: 0 0 14px rgba(245, 158, 11, 0.65); border-color: #fbbf24; }
+                100% { box-shadow: 0 0 6px rgba(245, 158, 11, 0.2); border-color: #f59e0b; }
+            }
+            .sh-badge-sparkle {
+                animation: shSparkle 1.8s infinite ease-in-out;
+            }
             .sh-history-card:hover {
                 border-color: #3b82f6 !important;
                 box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.05) !important;
@@ -2820,8 +2828,8 @@ async function _shShowHistory(id, code) {
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid ${borderStyle}; padding-bottom:8px;">
                                 <span style="font-size:11px; font-weight:700; color:${r.is_eligible_to_send ? '#b45309' : '#64748b'}; text-transform:uppercase; letter-spacing:0.05em;">Lịch sử thay đổi #${rows.length - i} : ${r.is_eligible_to_send ? 'HẸN KHÁCH' : 'HẸN SALE'}</span>
                                 ${r.is_eligible_to_send 
-                                    ? `<span style="background:#f59e0b; color:white; font-size:10px; font-weight:800; padding:3px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:3px; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);">🤝 HẸN KHÁCH</span>`
-                                    : `<span style="background:#64748b; color:white; font-size:10px; font-weight:800; padding:3px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:3px;">💼 HẸN SALE</span>`
+                                    ? `<span class="sh-badge-sparkle" style="background:#fef3c7; color:#78350f; font-size:10px; font-weight:800; padding:4px 10px; border-radius:12px; border: 1.5px solid #f59e0b; display:inline-flex; align-items:center; gap:4px; box-shadow: 0 0 8px rgba(245, 158, 11, 0.3); text-shadow: 0 1px 0px rgba(255,255,255,0.6);">🤝 HẸN KHÁCH</span>`
+                                    : `<span style="background:#f1f5f9; color:#334155; font-size:10px; font-weight:800; padding:4px 10px; border-radius:12px; border: 1.5px solid #cbd5e1; display:inline-flex; align-items:center; gap:4px;">💼 HẸN SALE</span>`
                                 }
                             </div>
 
