@@ -2483,7 +2483,7 @@ module.exports = async function(fastify) {
 
         if (isSampleHoan) {
             const sampleId = Number(rawId.replace('sample_hoan_', ''));
-            const logSummary = `Hẹn lại ngày gửi hoàn từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}`;
+            const logSummary = `Hẹn lại ngày gửi hoàn từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}${image_url ? ` [image_url: ${image_url}]` : ''}`;
             await db.run(
                 `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
                 [sampleId, 'reschedule_hoan', logSummary, userId]
@@ -2501,7 +2501,7 @@ module.exports = async function(fastify) {
         } else if (isSample) {
             const sampleId = Number(rawId.replace('sample_', ''));
             // Save history
-            const logSummary = `Hẹn lại ngày gửi từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}`;
+            const logSummary = `Hẹn lại ngày gửi từ ${oldDateStr} sang ${new_date} lúc ${reschedule_hour !== undefined ? reschedule_hour : ''}:${reschedule_minute !== undefined ? reschedule_minute : ''}. Lý do: ${reason.trim()}${image_url ? ` [image_url: ${image_url}]` : ''}`;
             await db.run(
                 `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
                 [sampleId, 'reschedule', logSummary, userId]
@@ -2629,6 +2629,56 @@ module.exports = async function(fastify) {
 
     // ========== HISTORY — Lịch sử hẹn lại ==========
     fastify.get('/api/shipping/orders/:id/history', { preHandler: [authenticate] }, async (request, reply) => {
+        const rawId = String(request.params.id);
+        const isSampleHoan = rawId.startsWith('sample_hoan_');
+        const isSample = rawId.startsWith('sample_') && !isSampleHoan;
+
+        if (isSample || isSampleHoan) {
+            const sampleId = Number(rawId.replace(isSampleHoan ? 'sample_hoan_' : 'sample_', ''));
+            const logs = await db.all(`
+                SELECT l.*, u.full_name AS rescheduled_by_name
+                FROM don_gui_ao_mau_logs l
+                LEFT JOIN users u ON l.performed_by = u.id
+                WHERE l.sample_order_id = $1 AND l.action IN ('reschedule', 'reschedule_hoan')
+                ORDER BY l.created_at DESC
+            `, [sampleId]);
+
+            const history = logs.map(l => {
+                let old_date = null;
+                let new_date = null;
+                let reschedule_hour = null;
+                let reschedule_minute = null;
+                let reason = l.summary;
+                let image_url = null;
+
+                const match = l.summary.match(/Hẹn lại ngày gửi (?:hoàn )?từ ([\d-]+) sang ([\d-]+)(?: lúc (\d+):(\d+))?\. Lý do: (.*?)(?: \[image_url: ([^\]]+)\])?$/);
+                if (match) {
+                    old_date = match[1];
+                    new_date = match[2];
+                    reschedule_hour = match[3] ? Number(match[3]) : null;
+                    reschedule_minute = match[4] ? Number(match[4]) : null;
+                    reason = match[5];
+                    image_url = match[6] || null;
+                }
+
+                return {
+                    id: l.id,
+                    dht_order_id: rawId,
+                    old_date: old_date || '',
+                    new_date: new_date || '',
+                    reschedule_hour: reschedule_hour,
+                    reschedule_minute: reschedule_minute,
+                    reason: reason,
+                    image_url: image_url,
+                    rescheduled_by: l.performed_by,
+                    rescheduled_by_name: l.rescheduled_by_name,
+                    created_at: l.created_at
+                };
+            });
+
+            return { history };
+        }
+
         const orderId = Number(request.params.id);
         const rows = await db.all(`
             SELECT sr.*, u.full_name AS rescheduled_by_name
