@@ -2,6 +2,35 @@
 var _tsModalOrderId = null;
 const _STEP_MAP = {'Cắt':'cat','In':'in','Ép':'ep','May':'may','Kiểm Tra CL':'qc','Hoàn Thiện':'ht','Gửi Hàng':'gui'};
 
+// Fallback helpers for mobile page where app.js is not loaded
+if (typeof parseVNDate === 'undefined') {
+    var parseVNDate = function(str) {
+        if (!str) return null;
+        if (str instanceof Date) return str;
+        let s = String(str).trim();
+        if (!s) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+            s += 'T00:00:00+07:00';
+        } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(s)) {
+            s += '+07:00';
+        }
+        return new Date(s);
+    };
+    window.parseVNDate = parseVNDate;
+}
+
+if (typeof formatVNDate === 'undefined') {
+    var formatVNDate = function(dateVal, formatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' }) {
+        const d = parseVNDate(dateVal);
+        if (!d || isNaN(d.getTime())) return '—';
+        return new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            ...formatOptions
+        }).format(d);
+    };
+    window.formatVNDate = formatVNDate;
+}
+
 function _tsCloseModal(){ const m=document.getElementById('tsModal'); if(m) m.remove(); }
 
 function _tsShowImagePreview(url) {
