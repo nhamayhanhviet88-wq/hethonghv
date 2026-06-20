@@ -1574,6 +1574,12 @@ function _processOrderWithItems(o, items, todayStr) {
         deviation_days: deviationDays, deviation_label: deviationLabel, deviation_class: deviationClass,
         shipping_priority: o.shipping_priority,
         standard_delivery_time: o.standard_delivery_time,
+        qlx_expected_date: o.qlx_expected_date,
+        qlx_expected_hour: o.qlx_expected_hour,
+        qlx_actual_output_at: o.qlx_actual_output_at,
+        qlx_rescheduled_date: o.qlx_rescheduled_date,
+        qlx_rescheduled_reason: o.qlx_rescheduled_reason,
+        reschedule_count: o.reschedule_count,
         items: processedItems
     };
 }
