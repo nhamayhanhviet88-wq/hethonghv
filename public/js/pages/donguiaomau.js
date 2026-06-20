@@ -319,7 +319,7 @@ function _dgamClearSearch() {
 
 var _dgamStatusMap = {
     'cho_duyet': { label: 'Chờ Duyệt', bg: '#fef3c7', color: '#92400e' },
-    'khong_duyet': { label: 'Không Duyệt - Yêu cầu sửa lại đơn', bg: '#fee2e2', color: '#b91c1c' },
+    'khong_duyet': { label: 'Không Duyệt<br>Yêu cầu sửa đơn', bg: '#fee2e2', color: '#b91c1c' },
     'dang_gui_hang': { label: 'Đã Duyệt Gửi', bg: '#dcfce7', color: '#166534' },
     'da_duyet': { label: 'Đã Duyệt', bg: '#dcfce7', color: '#166534' },
     'da_gui': { label: 'Đã Gửi Mẫu', bg: '#dbeafe', color: '#1e40af' },
@@ -439,7 +439,7 @@ function _dgamRenderRows(paged) {
 
         var statusHtml = '<td style="text-align:center" onclick="event.stopPropagation()">'
             +'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">'
-            +'<div><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:'+st.bg+';color:'+st.color+';white-space:nowrap;">'+st.label+'</span></div>'
+            +'<div><span style="display:inline-block;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:700;background:'+st.bg+';color:'+st.color+';white-space:' + (st.label.includes('<br>') ? 'normal' : 'nowrap') + ';line-height:1.3;text-align:center;">'+st.label+'</span></div>'
             +'<div style="display:flex;gap:2px;justify-content:center">'
             +approveBtnHtml
             +hoanBtnHtml
