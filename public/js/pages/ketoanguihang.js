@@ -1151,7 +1151,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         saleKtHTML += row('⚠️ Nhắc Nhở', reminderText);
     }
     if (o.sale_note_for_accountant && o.sale_note_for_accountant.trim() !== '' && o.sale_note_for_accountant.trim() !== '—') {
-        saleKtHTML += row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant);
+        saleKtHTML += row('📝 Nội Dung Dặn KT', `<span style="white-space: pre-wrap;">${o.sale_note_for_accountant}</span>`);
     }
     var tcColor2 = (o.shipping_priority === 'GẤP') ? '#dc2626' : (o.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
     saleKtHTML += row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${o.shipping_priority || 'CHUẨN'}</span>`);

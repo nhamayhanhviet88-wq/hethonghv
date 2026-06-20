@@ -1474,7 +1474,7 @@ async function _dhtShowDetail(id) {
                 saleNotesHTML += row('📞 SĐT Nhận Hộ', ce.proxy_phone ? '<a href="tel:'+ce.proxy_phone+'" style="color:var(--info)">'+ce.proxy_phone+'</a>' : '—');
             }
         }
-        saleNotesHTML += row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant || '<span style="color:#94a3b8;font-style:italic">—</span>');
+        saleNotesHTML += row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant ? `<span style="white-space: pre-wrap;">${o.sale_note_for_accountant}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>');
         var tcColor2 = (o.shipping_priority === 'GẤP') ? '#dc2626' : (o.shipping_priority === 'CHUẨN') ? '#7c3aed' : '#f59e0b';
         saleNotesHTML += row('🏷️ TC Gửi', `<span style="color:${tcColor2};font-weight:900;font-size:14px">${o.shipping_priority || 'CHUẨN'}</span>`);
         

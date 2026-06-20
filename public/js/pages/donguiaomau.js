@@ -1680,7 +1680,7 @@ async function _dgamShowDetail(id) {
             <div style="font-weight:900;font-size:15px;color:#9a3412;margin-bottom:12px">${o.status_hoan_hang ? '📋 Sale Dặn Kế Toán Trước Gửi Hàng lần 1' : '📋 Sale Dặn Kế Toán Trước Gửi Hàng'}</div>
             <table style="width:100%;border-collapse:collapse">
                 ${row('🚚 Vận Chuyển YC Của Sale', o.shipping_method || '—')}
-                ${row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant || '<span style="color:#94a3b8;font-style:italic">—</span>')}
+                ${row('📝 Nội Dung Dặn KT', o.sale_note_for_accountant ? `<span style="white-space: pre-wrap;">${o.sale_note_for_accountant}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>')}
                 ${row('🏷️ TC Gửi', tcValue)}
                 ${row('📊 Tiến Độ Ra Hàng', progressSaleHTML)}
                 ${row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.ship_date))}
@@ -1720,7 +1720,7 @@ async function _dgamShowDetail(id) {
                 <div style="font-weight:900;font-size:15px;color:#15803d;margin-bottom:12px">📋 Sale Dặn Kế Toán Trước Gửi Hàng lần 2</div>
                 <table style="width:100%;border-collapse:collapse">
                     ${row('🚚 Vận Chuyển YC Của Sale', o.hoan_hang_shipping_method || '—')}
-                    ${row('📝 Nội Dung Dặn KT', o.hoan_hang_sale_note || '<span style="color:#94a3b8;font-style:italic">—</span>')}
+                    ${row('📝 Nội Dung Dặn KT', o.hoan_hang_sale_note ? `<span style="white-space: pre-wrap;">${o.hoan_hang_sale_note}</span>` : '<span style="color:#94a3b8;font-style:italic">—</span>')}
                     ${row('🏷️ TC Gửi', tcValueHoan)}
                     ${row('📊 Tiến Độ Ra Hàng', progressHoanSaleHTML)}
                     ${row('📅 Ngày gửi dự kiến', formatExpectedShipDateWithDay(o.hoan_hang_ship_date))}
