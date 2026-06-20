@@ -1127,8 +1127,8 @@ function _tsRenderStepModal(step, d){
                             <span style="font-weight:800;color:#1e293b">${idxAss+1}. ${sewerDisplay} (${r.quantity || 0} sp)</span>
                             <span style="font-weight:800;color:${assQcColor}">${assQcStatus}</span>
                         </div>
-                        <div style="margin-bottom:6px;font-size:11px;color:#64748b">
-                            <span>👷 QC bởi: ${V(r.finisher_name)}</span>
+                        <div style="margin-bottom:6px;font-size:12px;color:#475569">
+                            <span>👷 <span style="font-weight:700">QC bởi:</span> <strong style="color:#0f172a;font-weight:800;font-size:13px">${V(r.finisher_name)}</strong></span>
                         </div>`;
 
                     if (r.answers && r.answers.length > 0) {
@@ -1435,8 +1435,10 @@ function _tsRenderStepModal(step, d){
                             <span style="font-weight:800;color:#1e293b">${idxAss+1}. ${sewerDisplay}</span>
                             <span style="font-weight:800;background:${badgeBg};color:${badgeColor};padding:1px 6px;border-radius:4px;font-size:11px">${statusText}</span>
                         </div>
-                        <div style="margin-bottom:6px;font-size:11px;color:#64748b">
-                            <span>👷 NV hoàn thiện: ${V(r.finisher_name)}</span> | <span>📅 Hạn gửi: ${formattedExpectedDate}</span>
+                        <div style="margin-bottom:6px;font-size:12px;color:#475569">
+                            <span>👷 <span style="font-weight:700">NV hoàn thiện:</span> <strong style="color:#0f172a;font-weight:800;font-size:13px">${V(r.finisher_name)}</strong></span>
+                            <span style="color:#cbd5e1;margin:0 6px">|</span>
+                            <span style="font-size:11px;color:#64748b">📅 Hạn gửi: ${formattedExpectedDate}</span>
                         </div>
                         ${row('📦 Tiêu chuẩn gửi', r.shipping_standard === 'gap' ? '⚠️ GẤP' : (r.shipping_standard === 'gui' ? '📦 GỬI' : '✅ CHUẨN'))}
                         `;
