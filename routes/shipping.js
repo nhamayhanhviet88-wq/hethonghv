@@ -460,6 +460,11 @@ module.exports = async function(fastify) {
                 orderBy = 'o.shipped_at DESC NULLS LAST, o.shipping_date DESC NULLS LAST';
                 break;
 
+            case 'cho_kt_gui':
+                filterWhere = ` AND o.shipping_status IN ('pending', 'rescheduled') AND o.expected_ship_date IS NOT NULL`;
+                orderBy = 'o.expected_ship_date ASC';
+                break;
+
             case 'all':
                 // Return ALL orders (no status/date filter) for client-side filtering
                 filterWhere = ``;
@@ -529,6 +534,22 @@ module.exports = async function(fastify) {
             const code = (o.order_code || '').toUpperCase();
             const isPetTem = Number(o.category_id) === 8 || Number(o.category_id) === 9 || code.includes('PET') || code.includes('TEM');
             o.items = _processShippingOrderItems(o, itemsList, isPetTem);
+        }
+
+        let finalOrders = orders;
+        if (page_type === 'qlx') {
+            if (filter === 'cho_kt_gui') {
+                finalOrders = orders.filter(o => {
+                    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+                    return pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+                });
+            } else if (filter === 'today' || filter === 'early' || filter === 'rescheduled') {
+                finalOrders = orders.filter(o => {
+                    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+                    const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+                    return !isEligibleToSend;
+                });
+            }
         }
 
         const todayParam = todayStr;
@@ -879,10 +900,10 @@ module.exports = async function(fastify) {
          });
          }
  
-         const combinedOrders = [...orders, ...mappedSampleOrders, ...mappedHoanSampleOrders];
+         const combinedOrders = [...finalOrders, ...mappedSampleOrders, ...mappedHoanSampleOrders];
 
         // Sort combined list: if filter is early/today, sort by expected_ship_date ASC, else by shipped_at DESC
-        if (filter === 'early' || filter === 'today') {
+        if (filter === 'early' || filter === 'today' || filter === 'cho_kt_gui') {
             combinedOrders.sort((a, b) => {
                 const dateA = a.effective_ship_date ? new Date(a.effective_ship_date) : new Date(0);
                 const dateB = b.effective_ship_date ? new Date(b.effective_ship_date) : new Date(0);
@@ -911,40 +932,71 @@ module.exports = async function(fastify) {
             }
         }
 
-        let counts;
+        let countsObj = {};
         if (page_type === 'qlx') {
-            const paramsList = [countTargetDate];
-            let qlxVisibilityFilter = '';
-            counts = await db.get(`
-                SELECT
-                    COUNT(*) FILTER (WHERE shipping_status = 'pending' AND expected_ship_date > $1::date) AS early_count,
-                    COUNT(*) FILTER (WHERE 
-                        (shipping_status = 'pending' AND expected_ship_date <= $1::date)
-                        OR
-                        (shipping_status = 'rescheduled' AND rescheduled_ship_date <= $1::date
-                         AND NOT EXISTS (
-                             SELECT 1 FROM dht_shipping_reschedules r
-                             WHERE r.dht_order_id = dht_orders.id
-                               AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                         ))
-                    ) AS today_count,
-                    COUNT(*) FILTER (WHERE 
-                        shipping_status = 'rescheduled' AND (
-                            rescheduled_ship_date > $1::date
-                            OR EXISTS (
-                                SELECT 1 FROM dht_shipping_reschedules r
-                                WHERE r.dht_order_id = dht_orders.id
-                                  AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                            )
-                        )
-                    ) AS rescheduled_count,
-                    COUNT(*) FILTER (WHERE shipping_status = 'shipped') AS shipped_count
-                FROM dht_orders
-                WHERE expected_ship_date IS NOT NULL
-                ${qlxVisibilityFilter}
-            `, paramsList);
+            const activeOrdersForCounts = await db.all(`
+                SELECT o.id, o.order_code, o.expected_ship_date, o.rescheduled_ship_date, o.shipping_status, o.category_id,
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM dht_shipping_reschedules r
+                        WHERE r.dht_order_id = o.id
+                          AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                    ) THEN true ELSE false END AS was_rescheduled_today
+                FROM dht_orders o
+                WHERE o.shipping_status IN ('pending', 'rescheduled') AND o.expected_ship_date IS NOT NULL
+            `);
+            const activeOrderIds = activeOrdersForCounts.map(o => o.id);
+            const activeItemsList = await _getShippingItemsProgress(activeOrderIds);
+            for (const o of activeOrdersForCounts) {
+                const code = (o.order_code || '').toUpperCase();
+                const isPetTem = Number(o.category_id) === 8 || Number(o.category_id) === 9 || code.includes('PET') || code.includes('TEM');
+                o.items = _processShippingOrderItems(o, activeItemsList, isPetTem);
+            }
+
+            let earlyCount = 0;
+            let todayCount = 0;
+            let rescheduledCount = 0;
+            let choKtGuiCount = 0;
+
+            for (const o of activeOrdersForCounts) {
+                const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+                const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+                if (isEligibleToSend) {
+                    choKtGuiCount++;
+                    continue;
+                }
+
+                let effDate = o.rescheduled_ship_date || o.expected_ship_date;
+                if (effDate) {
+                    try { effDate = vnDateStr(effDate); } catch(e) {}
+                }
+                if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
+                    let reschedDate = o.rescheduled_ship_date;
+                    try { reschedDate = vnDateStr(reschedDate); } catch(e){}
+                    if (reschedDate > targetDateStr || o.was_rescheduled_today) {
+                        rescheduledCount++;
+                    } else {
+                        todayCount++;
+                    }
+                } else if (o.shipping_status === 'pending' && effDate && effDate > targetDateStr) {
+                    earlyCount++;
+                } else if (o.shipping_status === 'pending' && effDate && effDate <= targetDateStr) {
+                    todayCount++;
+                }
+            }
+
+            const shippedCountRow = await db.get(`
+                SELECT COUNT(*) AS cnt FROM dht_orders WHERE shipping_status = 'shipped' AND expected_ship_date IS NOT NULL
+            `);
+
+            countsObj = {
+                early: earlyCount,
+                today: todayCount,
+                rescheduled: rescheduledCount,
+                cho_kt_gui: choKtGuiCount,
+                shipped: Number(shippedCountRow?.cnt) || 0
+            };
         } else {
-            counts = await db.get(`
+            const counts = await db.get(`
                 SELECT
                     COUNT(*) FILTER (WHERE shipping_status = 'pending' AND COALESCE(rescheduled_ship_date, expected_ship_date) > $1::date) AS early_count,
                     COUNT(*) FILTER (WHERE shipping_status IN ('pending','rescheduled') AND COALESCE(rescheduled_ship_date, expected_ship_date) <= $1::date) AS today_count,
@@ -954,6 +1006,8 @@ module.exports = async function(fastify) {
                 WHERE expected_ship_date IS NOT NULL
                 ${countVisibilityFilterDht}
             `, countParamsDht);
+
+            countsObj = { _rawCounts: counts };
         }
 
         let sampleCounts = null;
@@ -1010,15 +1064,30 @@ module.exports = async function(fastify) {
               ${countVisibilityFilterDht}
         `, countParamsOverdueDht);
 
+        let finalCounts = {};
+        if (page_type === 'qlx') {
+            finalCounts = {
+                early: countsObj.early,
+                today: countsObj.today,
+                rescheduled: countsObj.rescheduled,
+                cho_kt_gui: countsObj.cho_kt_gui,
+                shipped: countsObj.shipped,
+                overdue: (Number(overdueCount?.cnt) || 0)
+            };
+        } else {
+            const raw = countsObj._rawCounts;
+            finalCounts = {
+                early: (Number(raw?.early_count) || 0) + (Number(sampleCounts?.early_count) || 0) + (Number(sampleHoanCounts?.early_count) || 0),
+                today: (Number(raw?.today_count) || 0) + (Number(sampleCounts?.today_count) || 0) + (Number(sampleHoanCounts?.today_count) || 0),
+                rescheduled: Number(raw?.rescheduled_count) || 0,
+                shipped: (Number(raw?.shipped_count) || 0) + (Number(sampleCounts?.shipped_count) || 0) + (Number(sampleHoanCounts?.shipped_count) || 0),
+                overdue: (Number(overdueCount?.cnt) || 0) + (Number(sampleOverdueCount?.cnt) || 0)
+            };
+        }
+
         return {
             orders: combinedOrders,
-            counts: {
-                early: (Number(counts?.early_count) || 0) + (Number(sampleCounts?.early_count) || 0) + (Number(sampleHoanCounts?.early_count) || 0),
-                today: (Number(counts?.today_count) || 0) + (Number(sampleCounts?.today_count) || 0) + (Number(sampleHoanCounts?.today_count) || 0),
-                rescheduled: Number(counts?.rescheduled_count) || 0,
-                shipped: (Number(counts?.shipped_count) || 0) + (Number(sampleCounts?.shipped_count) || 0) + (Number(sampleHoanCounts?.shipped_count) || 0),
-                overdue: (Number(overdueCount?.cnt) || 0) + (Number(sampleOverdueCount?.cnt) || 0)
-            },
+            counts: finalCounts,
             max_date: page_type === 'qlx' ? targetDateStr : todayStr
         };
     });
