@@ -319,6 +319,7 @@ function _dgamClearSearch() {
 
 var _dgamStatusMap = {
     'cho_duyet': { label: 'Chờ Duyệt', bg: '#fef3c7', color: '#92400e' },
+    'khong_duyet': { label: 'Không Duyệt - Yêu cầu sửa lại đơn', bg: '#fee2e2', color: '#b91c1c' },
     'dang_gui_hang': { label: 'Đã Duyệt Gửi', bg: '#dcfce7', color: '#166534' },
     'da_duyet': { label: 'Đã Duyệt', bg: '#dcfce7', color: '#166534' },
     'da_gui': { label: 'Đã Gửi Mẫu', bg: '#dbeafe', color: '#1e40af' },
@@ -496,7 +497,7 @@ async function _dgamTogSt(id, field, val) {
         var o = (_dgam.orders || []).find(x => x.id === id);
         if (o) {
             var imgHtml = o.sample_image 
-                ? '<img src="' + o.sample_image + '" style="max-width:100%;max-height:220px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);margin:12px 0;object-fit:contain;">'
+                ? '<img src="' + o.sample_image + '" style="max-width:100%;max-height:220px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);margin:12px 0;object-fit:contain;cursor:pointer;" onclick="_dgamShowImagePreview(\'' + o.sample_image + '\')" title="Bấm để phóng to">'
                 : '<div style="background:#f1f5f9;color:#94a3b8;padding:24px;border-radius:12px;text-align:center;font-size:13px;font-weight:600;margin:12px 0;">🚫 Không có ảnh mẫu</div>';
             
             var priorityUpper = (o.shipping_priority || 'CHUẨN').toUpperCase();
@@ -537,8 +538,9 @@ async function _dgamTogSt(id, field, val) {
                 +imgHtml
                 +'</div>';
                 
-            var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;font-weight:600;">Hủy</button>'
-                +'<button class="btn btn-success" id="dgamConfirmApproveBtn" style="padding:10px 28px;font-weight:700;background:linear-gradient(135deg,#10b981,#059669);border:none;box-shadow:0 4px 12px rgba(16,185,129,0.3);" onclick="_dgamExecuteApprove('+id+')">✅ Xác Nhận Duyệt</button>';
+            var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;font-weight:600;margin-right:8px;">Hủy</button>'
+                +'<button class="btn btn-danger" id="dgamRejectBtn" style="padding:10px 24px;font-weight:700;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;box-shadow:0 4px 12px rgba(239,68,68,0.3);margin-right:8px;" onclick="_dgamExecuteReject('+id+')">❌ Không Duyệt</button>'
+                +'<button class="btn btn-success" id="dgamConfirmApproveBtn" style="padding:10px 28px;font-weight:700;background:linear-gradient(135deg,#10b981,#059669);border:none;box-shadow:0 4px 12px rgba(16,185,129,0.3);" onclick="_dgamExecuteApprove('+id+')">✅ Duyệt Gửi</button>';
                 
             openModal('Duyệt Gửi Đơn Mẫu', bodyHTML, footerHTML);
             return;
@@ -559,8 +561,10 @@ async function _dgamTogSt(id, field, val) {
 }
 
 async function _dgamExecuteApprove(id) {
-    const btn = document.getElementById('dgamConfirmApproveBtn');
-    if (btn) { btn.disabled = true; btn.innerText = 'Đang xử lý...'; }
+    const btnApprove = document.getElementById('dgamConfirmApproveBtn');
+    const btnReject = document.getElementById('dgamRejectBtn');
+    if (btnApprove) { btnApprove.disabled = true; btnApprove.innerText = 'Đang xử lý...'; }
+    if (btnReject) btnReject.disabled = true;
     try {
         await apiCall('/api/don-gui-ao-mau/' + id + '/status', 'PATCH', { field: 'status_duyet', value: true });
         closeModal();
@@ -569,9 +573,31 @@ async function _dgamExecuteApprove(id) {
         }
         await _dgamLoadOrders();
     } catch(err) {
-        if (btn) { btn.disabled = false; btn.innerText = '✅ Xác Nhận Duyệt'; }
+        if (btnApprove) { btnApprove.disabled = false; btnApprove.innerText = '✅ Duyệt Gửi'; }
+        if (btnReject) btnReject.disabled = false;
         if (typeof showToast === 'function') {
             showToast(err.message || 'Lỗi khi duyệt gửi', 'error');
+        }
+    }
+}
+
+async function _dgamExecuteReject(id) {
+    const btnApprove = document.getElementById('dgamConfirmApproveBtn');
+    const btnReject = document.getElementById('dgamRejectBtn');
+    if (btnApprove) btnApprove.disabled = true;
+    if (btnReject) { btnReject.disabled = true; btnReject.innerText = 'Đang xử lý...'; }
+    try {
+        await apiCall('/api/don-gui-ao-mau/' + id + '/status', 'PATCH', { field: 'status_duyet', value: false, isReject: true });
+        closeModal();
+        if (typeof showToast === 'function') {
+            showToast('❌ Đã từ chối duyệt đơn mẫu!');
+        }
+        await _dgamLoadOrders();
+    } catch(err) {
+        if (btnApprove) btnApprove.disabled = false;
+        if (btnReject) { btnReject.disabled = false; btnReject.innerText = '❌ Không Duyệt'; }
+        if (typeof showToast === 'function') {
+            showToast(err.message || 'Lỗi khi từ chối duyệt', 'error');
         }
     }
 }
@@ -835,7 +861,7 @@ function _dgamOnShippingPriorityChange() {
     }
 }
 
-async function _dgamShowAdd() {
+async function _dgamShowAdd(editingOrder) {
     try {
         const [draftsRes, catsRes, carriersRes, holidaysRes] = await Promise.all([
             apiCall('/api/don-gui-ao-mau/drafts'),
@@ -844,6 +870,9 @@ async function _dgamShowAdd() {
             apiCall('/api/penalty/holidays').catch(() => ({ holidays: [] }))
         ]);
         _dgamDraftsList = draftsRes.drafts || [];
+        if (editingOrder && !_dgamDraftsList.some(d => d.id == editingOrder.id)) {
+            _dgamDraftsList.push(editingOrder);
+        }
         _dgamDhtCategories = catsRes.categories || [];
         _dgamDhtCarriers = carriersRes.carriers || [];
         _dgam.holidaysRaw = holidaysRes.holidays || [];
@@ -1508,12 +1537,18 @@ async function _dgamShowDetail(id) {
         const titleText = `${o.sample_order_code} — ${fmt(o.remaining_amount)}đ`;
 
         // 1. Thao tác nhanh
+        let editBtnHTML = '';
+        if (o.order_status === 'khong_duyet' || o.order_status === 'cho_duyet') {
+            editBtnHTML = `<button class="btn btn-primary" onclick="_dgamEditOrder(${o.id})" style="padding:6px 16px;font-size:12px;font-weight:700;color:#fff !important;background:linear-gradient(135deg,#0284c7,#3b82f6);border:none;margin-right:8px;">✏️ Sửa Đơn</button>`;
+        }
+
         let actionsHTML = `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px 16px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div style="display:flex;align-items:center;gap:12px;">
                 <span style="font-weight:800;font-size:14px;color:var(--navy)">Trạng thái gửi Zalo:</span>
                 <span style="background:#e0f2fe;color:#0369a1;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;">📨 Luôn tự động gửi Zalo OA</span>
             </div>
             <div>
+                ${editBtnHTML}
                 <button class="btn btn-secondary" onclick="window.print()" style="padding:6px 16px;font-size:12px;font-weight:700;color:#fff !important;">🖨️ In Phiếu</button>
             </div>
         </div>`;
@@ -3264,6 +3299,111 @@ async function _dgamSubmitReceivedProof(id) {
             submitBtn.innerText = '✅ Xác Nhận';
         }
     }
+}
+
+async function _dgamEditOrder(id) {
+    try {
+        const data = await apiCall(`/api/don-gui-ao-mau/${id}/detail`);
+        if (!data || !data.order) {
+            showToast('Không tìm thấy thông tin đơn mẫu', 'error');
+            return;
+        }
+        const o = data.order;
+        
+        // Open the modal passing the order to be edited
+        await _dgamShowAdd(o);
+        
+        // Select this order in the dropdown:
+        const draftSelect = document.getElementById('dgamAddDraftSelect');
+        if (draftSelect) {
+            draftSelect.value = o.id;
+            _dgamOnDraftSelect(); // Populate fields
+            
+            // Populate category select:
+            const catSelect = document.getElementById('dgamAddCategory');
+            if (catSelect) {
+                catSelect.value = o.category || '';
+                _dgamOnCategoryChange();
+                
+                // Populate dynamic fields:
+                const lvSelect = document.getElementById('dgamAddLinhVuc');
+                if (lvSelect) lvSelect.value = o.linh_vuc || '';
+                
+                const prodInput = document.getElementById('dgamAddProductName');
+                if (prodInput) prodInput.value = o.product_name || '';
+                
+                const qtyInput = document.getElementById('dgamAddQuantity');
+                if (qtyInput) qtyInput.value = o.quantity || '';
+                
+                const priceInput = document.getElementById('dgamAddPrice');
+                if (priceInput) priceInput.value = o.price ? o.price.toLocaleString('vi-VN') : '';
+                
+                if (o.sample_image) {
+                    _dgam.sampleImgBase64 = o.sample_image;
+                    _dgamShowSampleImgPreview(o.sample_image);
+                }
+                
+                const shipDateInput = document.getElementById('dgamAddShipDate');
+                if (shipDateInput) shipDateInput.value = o.ship_date ? o.ship_date.slice(0, 10) : '';
+                
+                const prioritySelect = document.getElementById('dgamAddShippingPriority');
+                if (prioritySelect) {
+                    prioritySelect.value = o.shipping_priority || 'CHUẨN';
+                    _dgamOnShippingPriorityChange();
+                    
+                    if (o.shipping_priority === 'CHUẨN' && o.ship_time) {
+                        const parts = o.ship_time.split(':');
+                        const hr = parts[0];
+                        const min = parts[1];
+                        const hrInput = document.getElementById('dgamAddShipHour');
+                        const minInput = document.getElementById('dgamAddShipMinute');
+                        if (hrInput) hrInput.value = hr;
+                        if (minInput) minInput.value = min;
+                    }
+                    
+                    if (o.chuan_proof_image) {
+                        _dgam.chuanProofImgBase64 = o.chuan_proof_image;
+                        _dgamShowChuanProofImgPreview(o.chuan_proof_image);
+                    }
+                }
+                
+                const carrierSelect = document.getElementById('dgamAddCarrier');
+                if (carrierSelect) carrierSelect.value = o.shipping_method || '';
+                
+                const saleNoteInput = document.getElementById('dgamAddSaleNote');
+                if (saleNoteInput) saleNoteInput.value = o.sale_note_for_accountant || '';
+                
+                if (['Gửi mẫu áo', 'Gửi mẫu quần', 'Gửi mẫu váy'].includes(o.category)) {
+                    _dgamCalcRemaining();
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error opening edit order:', e);
+        showToast('Có lỗi xảy ra khi chuẩn bị sửa đơn: ' + e.message, 'error');
+    }
+}
+
+function _dgamShowSampleImgPreview(compressed) {
+    const img = document.getElementById('dgamAddSampleImg');
+    const ph = document.getElementById('dgamAddSampleImgPlaceholder');
+    const btn = document.getElementById('dgamAddSampleImgDeleteBtn');
+    if (img) { img.src = compressed; img.style.display = 'block'; }
+    if (ph) ph.style.display = 'none';
+    if (btn) btn.style.display = 'block';
+    const zone = document.getElementById('dgamAddSampleImgZone');
+    if (zone) { zone.style.borderColor = '#059669'; zone.style.background = '#f0fdf4'; }
+}
+
+function _dgamShowChuanProofImgPreview(compressed) {
+    const img = document.getElementById('dgamChuanProofImg');
+    const ph = document.getElementById('dgamChuanProofImgPlaceholder');
+    const btn = document.getElementById('dgamChuanProofImgDeleteBtn');
+    if (img) { img.src = compressed; img.style.display = 'block'; }
+    if (ph) ph.style.display = 'none';
+    if (btn) btn.style.display = 'block';
+    const zone = document.getElementById('dgamChuanProofImgZone');
+    if (zone) { zone.style.borderColor = '#059669'; zone.style.background = '#f0fdf4'; }
 }
 
 

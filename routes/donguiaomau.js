@@ -130,7 +130,7 @@ module.exports = async function(fastify) {
             FROM don_gui_ao_mau d
             LEFT JOIN customers c ON c.phone = d.customer_phone
             LEFT JOIN payment_records pr ON pr.payment_code = d.deposit_code
-            WHERE d.order_status = 'draft'
+            WHERE d.order_status IN ('draft', 'khong_duyet')
             ORDER BY d.id DESC
         `);
         return { drafts };
@@ -215,7 +215,7 @@ module.exports = async function(fastify) {
 
     fastify.patch('/api/don-gui-ao-mau/:id/status', { preHandler: [authenticate] }, async (request, reply) => {
         const { id } = request.params;
-        const { field, value } = request.body;
+        const { field, value, isReject } = request.body;
 
         const allowedFields = ['status_duyet', 'status_gui_don', 'status_hoan_hang', 'status_kiem_tra'];
         if (!allowedFields.includes(field)) {
@@ -232,7 +232,7 @@ module.exports = async function(fastify) {
                 return reply.code(403).send({ error: '🔒 Chỉ Giám đốc và Quản lý xưởng Lê Công Thực mới được duyệt gửi!' });
             }
 
-            const status = value ? 'dang_gui_hang' : 'cho_duyet';
+            const status = isReject ? 'khong_duyet' : (value ? 'dang_gui_hang' : 'cho_duyet');
             await db.run(
                 `UPDATE don_gui_ao_mau 
                  SET status_duyet = $1, 
@@ -242,7 +242,7 @@ module.exports = async function(fastify) {
                      updated_at = NOW(), 
                      updated_by = $5 
                  WHERE id = $6`,
-                [value, status, value ? now.toISOString() : null, value ? todayStr : null, request.user.id, id]
+                [isReject ? false : value, status, value ? now.toISOString() : null, value ? todayStr : null, request.user.id, id]
             );
         } else if (field === 'status_gui_don') {
             const status = value ? 'da_gui' : 'dang_gui_hang';
@@ -299,7 +299,7 @@ module.exports = async function(fastify) {
         }
 
         const actionLabels = {
-            status_duyet: value ? 'duyệt đơn' : 'bỏ duyệt đơn',
+            status_duyet: isReject ? 'không duyệt đơn' : (value ? 'duyệt đơn' : 'bỏ duyệt đơn'),
             status_gui_don: value ? 'gửi đơn' : 'bỏ gửi đơn',
             status_hoan_hang: value ? 'hoàn hàng' : 'bỏ hoàn hàng',
             status_kiem_tra: value ? 'kiểm tra' : 'bỏ kiểm tra'
@@ -411,7 +411,7 @@ module.exports = async function(fastify) {
         // Check if there is an existing draft with the same sample_order_code
         if (b.sample_order_code) {
             const existingDraft = await db.get(
-                `SELECT id FROM don_gui_ao_mau WHERE sample_order_code = $1 AND order_status = 'draft'`,
+                `SELECT id, order_status FROM don_gui_ao_mau WHERE sample_order_code = $1 AND order_status IN ('draft', 'khong_duyet')`,
                 [b.sample_order_code]
             );
 
@@ -448,6 +448,7 @@ module.exports = async function(fastify) {
                         ship_time = $28,
                         updated_by = $29,
                         chuan_proof_image = $30,
+                        status_duyet = false,
                         updated_at = NOW()
                     WHERE id = $31
                 `, [
@@ -465,7 +466,9 @@ module.exports = async function(fastify) {
                     b.chuan_proof_image || null,
                     existingDraft.id
                 ]);
-                const summary = b.order_status === 'draft' ? 'Đã cập nhật nháp đơn mẫu' : 'Đã xác nhận tạo đơn mẫu';
+                const summary = existingDraft.order_status === 'draft' 
+                    ? (b.order_status === 'draft' ? 'Đã cập nhật nháp đơn mẫu' : 'Đã xác nhận tạo đơn mẫu')
+                    : 'Đã sửa lại đơn mẫu bị từ chối';
                 await db.run(
                     `INSERT INTO don_gui_ao_mau_logs (sample_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`,
                     [existingDraft.id, 'update', summary, request.user.id]

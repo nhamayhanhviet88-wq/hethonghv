@@ -710,7 +710,7 @@ module.exports = async function(fastify) {
                 FROM payment_records
                 WHERE order_ao_mau = d.sample_order_code
             ) pr_all ON true
-            WHERE (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
+            WHERE (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND d.order_status NOT IN ('draft', 'khong_duyet')
             ${sampleWhere}
             ORDER BY COALESCE(d.rescheduled_ship_date, d.ship_date) DESC NULLS LAST, d.created_at DESC
         `, sampleParams);
@@ -887,7 +887,7 @@ module.exports = async function(fastify) {
                      FROM payment_records
                      WHERE order_ao_mau = d.sample_order_code
                  ) pr_all ON true
-                 WHERE d.status_hoan_hang = true
+                 WHERE d.status_hoan_hang = true AND d.order_status NOT IN ('draft', 'khong_duyet')
                  ${hoanWhere}
                  ORDER BY COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) DESC NULLS LAST, d.created_at DESC
              `, hoanParams);
@@ -1220,7 +1220,7 @@ module.exports = async function(fastify) {
                     )) AS rescheduled_customer_count,
                     COUNT(*) FILTER (WHERE d.status_gui_don = true) AS shipped_count
                 FROM don_gui_ao_mau d
-                WHERE (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
+                WHERE (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND d.order_status NOT IN ('draft', 'khong_duyet')
                 ${countVisibilityFilter}
             `, countParams);
 
@@ -1232,7 +1232,7 @@ module.exports = async function(fastify) {
                     COUNT(*) FILTER (WHERE d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.rescheduled_ship_date IS NOT NULL AND d.rescheduled_ship_date > $1::date) AS rescheduled_customer_count,
                     COUNT(*) FILTER (WHERE d.status_gui_don_hoan = true) AS shipped_count
                 FROM don_gui_ao_mau d
-                WHERE d.status_hoan_hang = true
+                WHERE d.status_hoan_hang = true AND d.order_status NOT IN ('draft', 'khong_duyet')
                 ${countVisibilityFilter}
             `, countParams);
 
@@ -1242,7 +1242,7 @@ module.exports = async function(fastify) {
                     (d.status_gui_don = false AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND COALESCE(d.rescheduled_ship_date, d.ship_date) < $1::date)
                     OR
                     (d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND COALESCE(d.rescheduled_ship_date, d.hoan_hang_ship_date) < $1::date)
-                )
+                ) AND d.order_status NOT IN ('draft', 'khong_duyet')
                 ${countVisibilityFilter}
             `, countParams);
         }
