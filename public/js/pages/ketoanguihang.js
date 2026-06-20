@@ -2236,6 +2236,60 @@ async function _shShowReschedule(id, code) {
         `;
     }
 
+    // Inject custom sparkle/shimmer stylesheet
+    const styleId = 'sh-sparkle-style';
+    if (!document.getElementById(styleId)) {
+        const styleSheet = document.createElement('style');
+        styleSheet.id = styleId;
+        styleSheet.innerText = `
+            @keyframes shGlowSparkle {
+                0% { box-shadow: 0 0 8px rgba(124, 58, 237, 0.4), 0 0 15px rgba(139, 92, 246, 0.2); }
+                50% { box-shadow: 0 0 25px rgba(124, 58, 237, 0.9), 0 0 35px rgba(167, 139, 250, 0.6); }
+                100% { box-shadow: 0 0 8px rgba(124, 58, 237, 0.4), 0 0 15px rgba(139, 92, 246, 0.2); }
+            }
+            @keyframes shSparkleStars {
+                0%, 100% { opacity: 0.3; transform: scale(0.8) rotate(0deg); }
+                50% { opacity: 1; transform: scale(1.3) rotate(180deg); }
+            }
+            .sh-sparkle-modal-card {
+                animation: shGlowSparkle 3s infinite ease-in-out;
+                border: 2.5px solid rgba(139, 92, 246, 0.6) !important;
+            }
+            .sh-sparkle-btn {
+                background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
+                box-shadow: 0 4px 15px rgba(124, 58, 237, 0.5) !important;
+                position: relative;
+                overflow: hidden;
+            }
+            .sh-sparkle-btn::after {
+                content: '';
+                position: absolute;
+                top: -50%;
+                left: -60%;
+                width: 20%;
+                height: 200%;
+                background: rgba(255, 255, 255, 0.35);
+                transform: rotate(30deg);
+                transition: none;
+                animation: shShimmerLight 2.5s infinite ease-in-out;
+            }
+            @keyframes shShimmerLight {
+                0% { left: -60%; }
+                100% { left: 140%; }
+            }
+            .sh-star {
+                display: inline-block;
+                animation: shSparkleStars 1.5s infinite ease-in-out;
+            }
+            .sh-star-delay {
+                display: inline-block;
+                animation: shSparkleStars 1.5s infinite ease-in-out;
+                animation-delay: 0.75s;
+            }
+        `;
+        document.head.appendChild(styleSheet);
+    }
+
     // Dynamic labels
     const headerTitle = isEligibleToSend ? "Hẹn Lại Khách Lịch Trả Hàng" : "Hẹn Lịch Gửi Mới";
     const reasonLabel = isEligibleToSend ? "📝 Lý do khách lùi lịch hẹn nhận hàng" : "📝 Lý do không ra đơn đúng ngày được";
@@ -2281,16 +2335,26 @@ async function _shShowReschedule(id, code) {
         reader.readAsDataURL(file);
     }
 
+    // Colors and classes for sparkle theme
+    const headerBg = isEligibleToSend ? "linear-gradient(135deg, #4f46e5, #7c3aed)" : "linear-gradient(135deg, #0f172a, #1e293b)";
+    const cardClass = isEligibleToSend ? "class=\"sh-sparkle-modal-card\"" : "";
+    const cardBg = isEligibleToSend ? "#fcfaff" : "white";
+    const labelColor = isEligibleToSend ? "#4c1d95" : "#334155";
+    const footerBg = isEligibleToSend ? "#f5f3ff" : "#f8fafc";
+    const btnClass = isEligibleToSend ? "class=\"sh-sparkle-btn\"" : "";
+    const btnBg = isEligibleToSend ? "" : "background:linear-gradient(135deg,#d97706,#f59e0b);";
+    const btnLabel = isEligibleToSend ? "✨ Xác nhận hẹn ✨" : "📅 Xác nhận hẹn";
+
     const m = document.createElement('div');
     m.id = 'shRescheduleModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    m.innerHTML = `<div style="background:white;border-radius:20px;width:440px;max-width:95vw;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;border:1px solid #e2e8f0;max-height:90vh;display:flex;flex-direction:column;">
+    m.innerHTML = `<div ${cardClass} style="background:${cardBg};border-radius:20px;width:440px;max-width:95vw;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;border:1px solid #e2e8f0;max-height:90vh;display:flex;flex-direction:column;">
         <!-- Header -->
-        <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:20px 24px;display:flex;align-items:center;gap:10px;color:white;flex-shrink:0;">
+        <div style="background:${headerBg};padding:20px 24px;display:flex;align-items:center;gap:10px;color:white;flex-shrink:0;">
             <span style="font-size:20px;">📅</span>
             <div>
-                <div style="font-size:16px;font-weight:800;letter-spacing:-0.025em;">${headerTitle}</div>
-                <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Mã đơn: <span style="color:#38bdf8;font-weight:700;">${code}</span></div>
+                <div style="font-size:16px;font-weight:800;letter-spacing:-0.025em;">${isEligibleToSend ? `<span class="sh-star">✨</span> Hẹn Lại Khách Lịch Trả Hàng <span class="sh-star-delay">✨</span>` : `Hẹn Lịch Gửi Mới`}</div>
+                <div style="font-size:12px;color:${isEligibleToSend ? '#c7d2fe' : '#94a3b8'};margin-top:2px;">Mã đơn: <span style="color:${isEligibleToSend ? '#f472b6' : '#38bdf8'};font-weight:700;">${code}</span></div>
             </div>
         </div>
         
@@ -2298,22 +2362,22 @@ async function _shShowReschedule(id, code) {
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;flex:1;">
             <!-- Ngày gửi mới -->
             <div>
-                <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">📅 Ngày gửi mới <span style="color:#ef4444">*</span></label>
+                <label style="font-size:12.5px;font-weight:700;color:${labelColor};display:flex;align-items:center;gap:4px;">📅 Ngày gửi mới <span style="color:#ef4444">*</span></label>
                 ${dateInputHtml}
             </div>
             
             <!-- Giờ & Phút (chia 2 cột) -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div>
-                    <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">🕐 Giờ hẹn <span style="color:#ef4444">*</span></label>
-                    <select id="shRescheduleHour" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;font-weight:600;color:#1e293b;background:white;cursor:pointer;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                    <label style="font-size:12.5px;font-weight:700;color:${labelColor};display:flex;align-items:center;gap:4px;">🕐 Giờ hẹn <span style="color:#ef4444">*</span></label>
+                    <select id="shRescheduleHour" style="width:100%;padding:9px 12px;border:1.5px solid ${isEligibleToSend ? '#c084fc' : '#cbd5e1'};border-radius:8px;font-size:13.5px;margin-top:6px;font-weight:600;color:#1e293b;background:white;cursor:pointer;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='${isEligibleToSend ? '#c084fc' : '#cbd5e1'}'">
                         <option value="" disabled selected>-- Chọn giờ --</option>
                         ${Array.from({length: 24}, (_, i) => `<option value="${i}">${String(i).padStart(2, '0')} giờ</option>`).join('')}
                     </select>
                 </div>
                 <div>
-                    <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">⏱️ Phút hẹn <span style="color:#ef4444">*</span></label>
-                    <select id="shRescheduleMinute" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;font-weight:600;color:#1e293b;background:white;cursor:pointer;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                    <label style="font-size:12.5px;font-weight:700;color:${labelColor};display:flex;align-items:center;gap:4px;">⏱️ Phút hẹn <span style="color:#ef4444">*</span></label>
+                    <select id="shRescheduleMinute" style="width:100%;padding:9px 12px;border:1.5px solid ${isEligibleToSend ? '#c084fc' : '#cbd5e1'};border-radius:8px;font-size:13.5px;margin-top:6px;font-weight:600;color:#1e293b;background:white;cursor:pointer;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='${isEligibleToSend ? '#c084fc' : '#cbd5e1'}'">
                         <option value="" disabled selected>-- Chọn phút --</option>
                         <option value="0">00 phút</option>
                         <option value="15">15 phút</option>
@@ -2325,18 +2389,18 @@ async function _shShowReschedule(id, code) {
 
             <!-- Lý do -->
             <div>
-                <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">${reasonLabel} <span style="color:#ef4444">*</span></label>
-                <textarea id="shReason" rows="3" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;resize:none;outline:none;transition:border-color 0.2s;" placeholder="Nhập lý do chi tiết..." onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+                <label style="font-size:12.5px;font-weight:700;color:${labelColor};display:flex;align-items:center;gap:4px;">${reasonLabel} <span style="color:#ef4444">*</span></label>
+                <textarea id="shReason" rows="3" style="width:100%;padding:9px 12px;border:1.5px solid ${isEligibleToSend ? '#c084fc' : '#cbd5e1'};border-radius:8px;font-size:13.5px;margin-top:6px;resize:none;outline:none;transition:border-color 0.2s;" placeholder="Nhập lý do chi tiết..." onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='${isEligibleToSend ? '#c084fc' : '#cbd5e1'}'"></textarea>
             </div>
 
             <!-- Ảnh nhắn lùi đơn -->
             <div>
-                <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">${imageLabel} <span style="color:#ef4444">*</span></label>
-                <div id="shPasteArea" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;background:#f8fafc;color:#64748b;font-size:13px;font-weight:600;margin-top:6px;cursor:pointer;position:relative;transition:all 0.2s;" tabindex="0">
+                <label style="font-size:12.5px;font-weight:700;color:${labelColor};display:flex;align-items:center;gap:4px;">${imageLabel} <span style="color:#ef4444">*</span></label>
+                <div id="shPasteArea" style="border:2px dashed ${isEligibleToSend ? '#c084fc' : '#cbd5e1'};border-radius:10px;padding:20px;text-align:center;background:${isEligibleToSend ? '#faf5ff' : '#f8fafc'};color:${isEligibleToSend ? '#7c3aed' : '#64748b'};font-size:13px;font-weight:600;margin-top:6px;cursor:pointer;position:relative;transition:all 0.2s;" tabindex="0">
                     <div style="font-size:24px;margin-bottom:6px;">📋</div>
                     Nhấp chuột vào đây rồi nhấn <b>Ctrl + V</b> để dán hình ảnh chụp màn hình
                 </div>
-                <div id="shImagePreview" style="margin-top:6px;display:none;position:relative;width:100%;height:140px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">
+                <div id="shImagePreview" style="margin-top:6px;display:none;position:relative;width:100%;height:140px;border:1px solid ${isEligibleToSend ? '#c084fc' : '#cbd5e1'};border-radius:8px;overflow:hidden;">
                     <img id="shPreviewImg" src="" style="width:100%;height:100%;object-fit:contain;background:#f8fafc;">
                     <button type="button" onclick="window._shClearRescheduleImage()" style="position:absolute;top:8px;right:8px;background:rgba(15,23,42,0.8);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:background 0.2s;">✕</button>
                 </div>
@@ -2344,9 +2408,9 @@ async function _shShowReschedule(id, code) {
         </div>
         
         <!-- Footer -->
-        <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid #f1f5f9;display:flex;gap:12px;justify-content:flex-end;flex-shrink:0;">
+        <div style="background:${footerBg};padding:16px 24px;border-top:1px solid #f1f5f9;display:flex;gap:12px;justify-content:flex-end;flex-shrink:0;">
             <button onclick="document.getElementById('shRescheduleModal')?.remove()" style="padding:10px 20px;border:1.5px solid #cbd5e1;border-radius:8px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13.5px;transition:all 0.2s;">Hủy bộ</button>
-            <button id="shRescheduleBtn" onclick="_shDoRescheduleRich('${id}')" style="padding:10px 24px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:800;font-size:13.5px;box-shadow:0 4px 6px -1px rgba(245,158,11,0.3);transition:all 0.2s;">📅 Xác nhận hẹn</button>
+            <button id="shRescheduleBtn" ${btnClass} onclick="_shDoRescheduleRich('${id}')" style="padding:10px 24px;border:none;border-radius:8px;${btnBg}color:white;cursor:pointer;font-weight:800;font-size:13.5px;transition:all 0.2s;">${btnLabel}</button>
         </div>
     </div>`;
 
