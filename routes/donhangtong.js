@@ -2785,51 +2785,124 @@ module.exports = async function(fastify) {
             return reply.code(403).send({ error: '🔒 Kế toán đã báo cáo rồi, không được sửa! Chỉ Giám Đốc hoặc Lê Việt Trinh mới có quyền sửa.' });
         }
 
-        const data = await request.file();
-        if (!data) return reply.code(400).send({ error: 'Không có hình ảnh hóa đơn VAT' });
+        const shouldConfirm = request.query.confirm === 'true' || request.query.confirm === true;
 
-        const path = require('path');
-        const fs = require('fs');
-        const { compressAndSave } = require('../utils/imageCompressor');
-        const dir = path.join(__dirname, '..', 'uploads', 'vat');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        if (request.headers['content-type']?.includes('multipart')) {
+            const data = await request.file();
+            if (!data) return reply.code(400).send({ error: 'Không có hình ảnh hóa đơn VAT' });
 
-        const buf = await data.toBuffer();
-        const result = await compressAndSave(buf, dir, 'vat_');
-        const imageUrl = `/uploads/vat/${result.fileName}`;
+            const path = require('path');
+            const fs = require('fs');
+            const { compressAndSave } = require('../utils/imageCompressor');
+            const dir = path.join(__dirname, '..', 'uploads', 'vat');
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-        const oldVatExported = order.vat_exported;
-        const oldVatProofImage = order.vat_proof_image;
+            const buf = await data.toBuffer();
+            const result = await compressAndSave(buf, dir, 'vat_');
+            const imageUrl = `/uploads/vat/${result.fileName}`;
 
-        // Update database
-        await db.run(
-            `UPDATE dht_orders 
-             SET vat_exported = true, 
-                 vat_proof_image = $1, 
-                 vat_exported_at = NOW(), 
-                 vat_exported_by = $2 
-             WHERE id = $3`,
-            [imageUrl, request.user.id, orderId]
-        );
+            const oldVatExported = order.vat_exported;
+            const oldVatProofImage = order.vat_proof_image;
 
-        // Audit Log entry
-        try {
-            await db.run(
-                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
-                [
-                    orderId,
-                    'export_vat',
-                    '🧾 Xuất hóa đơn VAT',
-                    JSON.stringify([
-                        { field: 'vat_exported', label: 'Xuất VAT', old: oldVatExported ? 'true' : 'false', new: 'true' },
-                        { field: 'vat_proof_image', label: 'Ảnh VAT', old: oldVatProofImage || 'null', new: imageUrl }
-                    ]),
-                    request.user.id
-                ]
-            );
-        } catch(e) { console.error('[Audit Log VAT Error]:', e.message); }
+            if (shouldConfirm) {
+                // Update database (save image and export immediately)
+                await db.run(
+                    `UPDATE dht_orders 
+                     SET vat_exported = true, 
+                         vat_proof_image = $1, 
+                         vat_exported_at = NOW(), 
+                         vat_exported_by = $2 
+                     WHERE id = $3`,
+                    [imageUrl, request.user.id, orderId]
+                );
 
-        return { success: true, url: imageUrl };
+                // Audit Log entry
+                try {
+                    await db.run(
+                        `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                        [
+                            orderId,
+                            'export_vat',
+                            '🧾 Xuất hóa đơn VAT',
+                            JSON.stringify([
+                                { field: 'vat_exported', label: 'Xuất VAT', old: oldVatExported ? 'true' : 'false', new: 'true' },
+                                { field: 'vat_proof_image', label: 'Ảnh VAT', old: oldVatProofImage || 'null', new: imageUrl }
+                            ]),
+                            request.user.id
+                        ]
+                    );
+                } catch(e) { console.error('[Audit Log VAT Error]:', e.message); }
+            } else {
+                // Update database (save image only, do not export yet)
+                await db.run(
+                    `UPDATE dht_orders 
+                     SET vat_exported = false, 
+                         vat_proof_image = $1, 
+                         last_updated_at = NOW(),
+                         last_updated_by = $2
+                     WHERE id = $3`,
+                    [imageUrl, request.user.id, orderId]
+                );
+
+                // Audit Log entry
+                try {
+                    await db.run(
+                        `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                        [
+                            orderId,
+                            'upload_vat_proof',
+                            '📤 Tải lên ảnh hóa đơn VAT (chờ xác nhận)',
+                            JSON.stringify([
+                                { field: 'vat_proof_image', label: 'Ảnh VAT', old: oldVatProofImage || 'null', new: imageUrl }
+                            ]),
+                            request.user.id
+                        ]
+                    );
+                } catch(e) { console.error('[Audit Log VAT Upload Error]:', e.message); }
+            }
+
+            return { success: true, url: imageUrl };
+        } else {
+            // JSON request to confirm the export
+            const b = request.body || {};
+            const confirm = b.confirm === true || b.confirm === 'true';
+
+            if (confirm) {
+                const currentOrderState = await db.get('SELECT vat_proof_image, vat_exported FROM dht_orders WHERE id = $1', [orderId]);
+                if (!currentOrderState || !currentOrderState.vat_proof_image) {
+                    return reply.code(400).send({ error: 'Chưa có ảnh bằng chứng xuất VAT. Vui lòng dán ảnh trước.' });
+                }
+                const oldVatExported = currentOrderState.vat_exported;
+                await db.run(
+                    `UPDATE dht_orders 
+                     SET vat_exported = true, 
+                         vat_exported_at = NOW(), 
+                         vat_exported_by = $1 
+                     WHERE id = $2`,
+                    [request.user.id, orderId]
+                );
+
+                // Audit Log entry
+                try {
+                    await db.run(
+                        `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) VALUES ($1,$2,$3,$4,$5,NOW())`,
+                        [
+                            orderId,
+                            'export_vat',
+                            '🧾 Xác nhận xuất hóa đơn VAT',
+                            JSON.stringify([
+                                { field: 'vat_exported', label: 'Xuất VAT', old: oldVatExported ? 'true' : 'false', new: 'true' }
+                            ]),
+                            request.user.id
+                        ]
+                    );
+                } catch(e) { console.error('[Audit Log VAT Confirm Error]:', e.message); }
+
+                return { success: true };
+            } else {
+                return reply.code(400).send({ error: 'Yêu cầu không hợp lệ' });
+            }
+        }
     });
 
     // ★ Dedicated endpoint for querying VAT orders

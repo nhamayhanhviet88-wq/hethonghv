@@ -3598,7 +3598,7 @@ async function _dhtSubmitVat(orderId) {
 
     try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`/api/dht/orders/${orderId}/export-vat`, {
+        const res = await fetch(`/api/dht/orders/${orderId}/export-vat?confirm=true`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`

@@ -1111,9 +1111,15 @@ async function _vatConfirmModal(id, type) {
             showToast('⚠️ Vui lòng dán ảnh bằng chứng xuất hóa đơn VAT!', 'error');
             return;
         }
-        closeModal();
-        await _vatLoadData();
-        _vatRenderTable();
+        try {
+            await apiCall(`/api/dht/orders/${id}/export-vat`, 'POST', { confirm: true });
+            showToast('Đã xuất hóa đơn VAT thành công!');
+            closeModal();
+            await _vatLoadData();
+            _vatRenderTable();
+        } catch (e) {
+            showToast('❌ Lỗi xác nhận: ' + (e.message || e), 'error');
+        }
     } else if (type === 'contract') {
         if (!o.vat_contract_proof) {
             showToast('⚠️ Vui lòng dán ảnh bằng chứng nhận hợp đồng!', 'error');
