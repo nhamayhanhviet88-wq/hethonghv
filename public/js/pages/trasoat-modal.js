@@ -31,6 +31,21 @@ if (typeof formatVNDate === 'undefined') {
     window.formatVNDate = formatVNDate;
 }
 
+if (typeof vnISOStr === 'undefined') {
+    var vnISOStr = function(d) {
+        var vn = new Date((d ? new Date(d) : new Date()).toLocaleString('en-US',{timeZone:'Asia/Ho_Chi_Minh'}));
+        return vn.getFullYear()+'-'+String(vn.getMonth()+1).padStart(2,'0')+'-'+String(vn.getDate()).padStart(2,'0')+'T'+String(vn.getHours()).padStart(2,'0')+':'+String(vn.getMinutes()).padStart(2,'0');
+    };
+    window.vnISOStr = vnISOStr;
+}
+
+if (typeof vnDateStr === 'undefined') {
+    var vnDateStr = function(d) {
+        return vnISOStr(d).slice(0,10);
+    };
+    window.vnDateStr = vnDateStr;
+}
+
 function _tsCloseModal(){ const m=document.getElementById('tsModal'); if(m) m.remove(); }
 
 function _tsShowImagePreview(url) {
