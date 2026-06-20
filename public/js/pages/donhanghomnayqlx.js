@@ -94,6 +94,22 @@ async function renderDonhanghomnayqlxPage(container) {
             animation: qlxdhKTPulseBlink 1.2s infinite ease-in-out;
             border: 1px solid #67e8f9 !important;
         }
+        @keyframes qlxdhLatePulseBlink {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+                filter: brightness(1);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 8px 3px rgba(220, 38, 38, 0.4);
+                filter: brightness(1.2);
+                transform: scale(1.03);
+            }
+        }
+        .qlxdh-late-blink {
+            animation: qlxdhLatePulseBlink 1.2s infinite ease-in-out;
+            border: 1px solid #ef4444 !important;
+        }
         .qlxdh-th-sortable {
             cursor: pointer;
             user-select: none;
@@ -501,6 +517,14 @@ function _qlxdhGetOrderMenu(o) {
 function _qlxdhFormatRescheduleStatus(o) {
     if (o.shipping_status === 'shipped') {
         return { label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5', class: '' };
+    }
+    const today = vnDateStr();
+    let effDate = o.rescheduled_ship_date || o.expected_ship_date;
+    if (effDate) {
+        try { effDate = vnDateStr(effDate); } catch(e){}
+        if (effDate < today) {
+            return { label: 'Xử Lý Trễ', color: '#ffffff', bg: '#dc2626', class: 'qlxdh-late-blink' };
+        }
     }
     const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
     const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
