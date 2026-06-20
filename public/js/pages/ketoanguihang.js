@@ -97,6 +97,23 @@ async function renderKetoanguihangPage(container) {
             animation: shLatePulseBlink 1.2s infinite ease-in-out;
             border: 1px solid #ef4444 !important;
         }
+        @keyframes shChongayBlink {
+            0%, 100% {
+                background-color: #fee2e2;
+                color: #b91c1c;
+                border-color: #fca5a5;
+                box-shadow: 0 0 4px rgba(239, 68, 68, 0.2);
+            }
+            50% {
+                background-color: #ef4444;
+                color: #ffffff;
+                border-color: #b91c1c;
+                box-shadow: 0 0 12px rgba(239, 68, 68, 0.7);
+            }
+        }
+        .sh-chongay-blink {
+            animation: shChongayBlink 1.4s infinite ease-in-out;
+        }
     </style>
     <div style="max-width:1600px;margin:0 auto;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
@@ -562,23 +579,28 @@ function _shBuildTable(orders) {
         const isSampleNotApproved = isSample && !o.is_hoan_hang && !o.status_duyet;
 
         if (isKT && o.shipping_status !== 'shipped') {
+            const isEarlyTab = _shFilter === 'early';
+            const rescheduleBtnHtml = isEarlyTab
+                ? `<div class="sh-chongay-blink" style="padding:4px 6px;border:1px solid #ef4444;border-radius:6px;font-size:10px;font-weight:900;margin-top:3px;text-align:center;width:100%;box-sizing:border-box;cursor:default;user-select:none;text-transform:uppercase;letter-spacing:0.02em;" onclick="event.stopPropagation();">Chờ ngày xử lý</div>`
+                : `<button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>`;
+
             if (isSampleNotApproved) {
                 orderLevelAction = `
-                    <button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    ${rescheduleBtnHtml}
                     <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
                 `;
             } else if (allPendingCompleted && pendingItems.length > 0) {
                 // All pending items are done -> Show Gửi
                 orderLevelAction = `
                     <button onclick="event.stopPropagation();_shShowOrderSlipsModal('${o.id}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Xác nhận gửi">📤 Gửi</button>
-                    <button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    ${rescheduleBtnHtml}
                     <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
                 `;
             } else {
                 // Not all pending items are done -> Show Không gửi được
                 orderLevelAction = `
                     <button onclick="event.stopPropagation();_shShowOrderSlipsModal('${o.id}')" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
-                    <button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    ${rescheduleBtnHtml}
                     <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
                 `;
             }
