@@ -15,6 +15,8 @@ let _qlxdhSelectedMonth = 'all';
 let _qlxdhHolidayMap = {};
 let _qlxdhMaxDate = null;
 let _qlxdhSortVal = 'default';
+let _qlxdhSortCol = 'expected_ship_date';
+let _qlxdhSortDir = 'asc';
 
 function _isQLXUser() {
     return window._currentUser && (
@@ -75,6 +77,14 @@ async function renderDonhanghomnayqlxPage(container) {
         .qlxdh-hen-homnay {
             animation: qlxdhPulseBlink 1.2s infinite ease-in-out;
             border: 1px solid #d8b4fe !important;
+        }
+        .qlxdh-th-sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s ease;
+        }
+        .qlxdh-th-sortable:hover {
+            background-color: rgba(255, 255, 255, 0.15) !important;
         }
     </style>
     <div style="max-width:1600px;margin:0 auto;padding:16px;">
@@ -239,12 +249,57 @@ function _qlxdhRenderSearchBar() {
             <option value="remaining_asc" ${_qlxdhSortVal === 'remaining_asc' ? 'selected' : ''}>Số tiền còn lại: Nhỏ nhất</option>
             <option value="total_desc" ${_qlxdhSortVal === 'total_desc' ? 'selected' : ''}>Tổng tiền: Lớn nhất</option>
             <option value="total_asc" ${_qlxdhSortVal === 'total_asc' ? 'selected' : ''}>Tổng tiền: Nhỏ nhất</option>
+            ${_qlxdhSortVal === 'custom' ? `<option value="custom" selected disabled>Sắp xếp: Cột tùy chọn</option>` : ''}
         </select>
     </div>`;
 }
 
 function _qlxdhOnSortChange(val) {
     _qlxdhSortVal = val;
+    if (val === 'default') {
+        _qlxdhSortCol = 'expected_ship_date';
+        _qlxdhSortDir = 'asc';
+    } else if (val === 'remaining_desc') {
+        _qlxdhSortCol = 'remaining_amount';
+        _qlxdhSortDir = 'desc';
+    } else if (val === 'remaining_asc') {
+        _qlxdhSortCol = 'remaining_amount';
+        _qlxdhSortDir = 'asc';
+    } else if (val === 'total_desc') {
+        _qlxdhSortCol = 'total_amount';
+        _qlxdhSortDir = 'desc';
+    } else if (val === 'total_asc') {
+        _qlxdhSortCol = 'total_amount';
+        _qlxdhSortDir = 'asc';
+    }
+    _qlxdhApplySearch();
+    _qlxdhRenderContent();
+}
+
+function _qlxdhSortByCol(col) {
+    if (_qlxdhSortCol === col) {
+        _qlxdhSortDir = _qlxdhSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        _qlxdhSortCol = col;
+        _qlxdhSortDir = 'asc';
+    }
+    
+    // Sync to dropdown if possible
+    if (_qlxdhSortCol === 'expected_ship_date' && _qlxdhSortDir === 'asc') {
+        _qlxdhSortVal = 'default';
+    } else if (_qlxdhSortCol === 'remaining_amount' && _qlxdhSortDir === 'desc') {
+        _qlxdhSortVal = 'remaining_desc';
+    } else if (_qlxdhSortCol === 'remaining_amount' && _qlxdhSortDir === 'asc') {
+        _qlxdhSortVal = 'remaining_asc';
+    } else if (_qlxdhSortCol === 'total_amount' && _qlxdhSortDir === 'desc') {
+        _qlxdhSortVal = 'total_desc';
+    } else if (_qlxdhSortCol === 'total_amount' && _qlxdhSortDir === 'asc') {
+        _qlxdhSortVal = 'total_asc';
+    } else {
+        _qlxdhSortVal = 'custom';
+    }
+    
+    _qlxdhRenderSearchBar();
     _qlxdhApplySearch();
     _qlxdhRenderContent();
 }
@@ -333,22 +388,70 @@ function _qlxdhApplySearch() {
             return true;
         });
     }
-    if (_qlxdhSortVal === 'default') {
-        list.sort((a, b) => {
-            const dA = a.expected_ship_date ? new Date(a.expected_ship_date + 'T00:00:00Z') : new Date('9999-12-31T00:00:00Z');
-            const dB = b.expected_ship_date ? new Date(b.expected_ship_date + 'T00:00:00Z') : new Date('9999-12-31T00:00:00Z');
-            if (dA - dB !== 0) return dA - dB;
-            return b.id - a.id;
-        });
-    } else if (_qlxdhSortVal === 'remaining_asc') {
-        list.sort((a, b) => (Number(a.remaining_amount) || 0) - (Number(b.remaining_amount) || 0));
-    } else if (_qlxdhSortVal === 'remaining_desc') {
-        list.sort((a, b) => (Number(b.remaining_amount) || 0) - (Number(a.remaining_amount) || 0));
-    } else if (_qlxdhSortVal === 'total_asc') {
-        list.sort((a, b) => (Number(a.total_amount) || 0) - (Number(b.total_amount) || 0));
-    } else if (_qlxdhSortVal === 'total_desc') {
-        list.sort((a, b) => (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0));
-    }
+    list.sort((a, b) => {
+        let valA, valB;
+        if (_qlxdhSortCol === 'status') {
+            valA = _qlxdhFormatRescheduleStatus(a).label;
+            valB = _qlxdhFormatRescheduleStatus(b).label;
+        } else if (_qlxdhSortCol === 'expected_ship_date') {
+            valA = a.expected_ship_date ? new Date(a.expected_ship_date + 'T00:00:00Z').getTime() : new Date('9999-12-31T00:00:00Z').getTime();
+            valB = b.expected_ship_date ? new Date(b.expected_ship_date + 'T00:00:00Z').getTime() : new Date('9999-12-31T00:00:00Z').getTime();
+        } else if (_qlxdhSortCol === 'rescheduled_ship_date') {
+            valA = a.rescheduled_ship_date ? new Date(a.rescheduled_ship_date + 'T00:00:00Z').getTime() : new Date('9999-12-31T00:00:00Z').getTime();
+            valB = b.rescheduled_ship_date ? new Date(b.rescheduled_ship_date + 'T00:00:00Z').getTime() : new Date('9999-12-31T00:00:00Z').getTime();
+        } else if (_qlxdhSortCol === 'shipped_at') {
+            valA = (a.shipped_at || a.shipping_date || a.created_at) ? new Date(a.shipped_at || a.shipping_date || a.created_at).getTime() : 0;
+            valB = (b.shipped_at || b.shipping_date || b.created_at) ? new Date(b.shipped_at || b.shipping_date || b.created_at).getTime() : 0;
+        } else if (_qlxdhSortCol === 'progress') {
+            const getProgressValue = o => {
+                if (o.shipped_at || o.shipping_status === 'shipped') {
+                    const shipExpected = o.expected_ship_date ? new Date(o.expected_ship_date + 'T00:00:00Z').getTime() : 0;
+                    const shipActual = new Date(o.shipped_at || o.shipping_date || o.created_at).getTime();
+                    return shipExpected - shipActual;
+                } else if (o.expected_ship_date) {
+                    const shipExpected = new Date(o.expected_ship_date + 'T00:00:00Z').getTime();
+                    const today = new Date().setHours(0,0,0,0);
+                    return shipExpected - today;
+                }
+                return 999999999999;
+            };
+            valA = getProgressValue(a);
+            valB = getProgressValue(b);
+        } else if (_qlxdhSortCol === 'remaining_amount') {
+            valA = Number(a.remaining_amount) || 0;
+            valB = Number(b.remaining_amount) || 0;
+        } else if (_qlxdhSortCol === 'total_amount') {
+            valA = Number(a.total_amount) || 0;
+            valB = Number(b.total_amount) || 0;
+        } else if (_qlxdhSortCol === 'order_code') {
+            valA = a.order_code || '';
+            valB = b.order_code || '';
+        } else if (_qlxdhSortCol === 'customer_name') {
+            valA = a.customer_name || '';
+            valB = b.customer_name || '';
+        } else if (_qlxdhSortCol === 'customer_phone') {
+            valA = a.customer_phone || '';
+            valB = b.customer_phone || '';
+        } else if (_qlxdhSortCol === 'cskh_name') {
+            valA = a.cskh_name || '';
+            valB = b.cskh_name || '';
+        } else {
+            valA = a.id;
+            valB = b.id;
+        }
+
+        let comparison = 0;
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            comparison = valA.localeCompare(valB, 'vi', { sensitivity: 'base' });
+        } else {
+            comparison = valA - valB;
+        }
+
+        if (comparison !== 0) {
+            return _qlxdhSortDir === 'asc' ? comparison : -comparison;
+        }
+        return b.id - a.id;
+    });
     _qlxdhSearched = list;
 }
 
@@ -488,12 +591,36 @@ function _qlxdhBuildTable(orders) {
     const headers = ['','Tình Trạng','Phiếu Gửi','Gửi Dự Kiến','Hẹn Lại','🚛 Ngày Gửi','Tiến Độ','Số Tiền Còn Lại','Tổng Tiền','Mã Đơn','KH','SĐT','CSKH'];
     const filteredHeaders = isQLX ? headers.filter(h => h !== 'SĐT') : headers;
 
+    const colMap = {
+        'Tình Trạng': 'status',
+        'Gửi Dự Kiến': 'expected_ship_date',
+        'Hẹn Lại': 'rescheduled_ship_date',
+        '🚛 Ngày Gửi': 'shipped_at',
+        'Tiến Độ': 'progress',
+        'Số Tiền Còn Lại': 'remaining_amount',
+        'Tổng Tiền': 'total_amount',
+        'Mã Đơn': 'order_code',
+        'KH': 'customer_name',
+        'SĐT': 'customer_phone',
+        'CSKH': 'cskh_name'
+    };
+
     let html = `<div style="overflow-x:auto;border:2px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px;">
     <thead><tr style="background:linear-gradient(135deg,#122546,#1e3a5f);">
         ${filteredHeaders.map(h => {
             const align = (h === 'Phiếu Gửi' || h === 'Tình Trạng' || h === '') ? 'center' : 'left';
-            return `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">${h}</th>`;
+            const sortKey = colMap[h];
+            if (sortKey) {
+                const isActive = _qlxdhSortCol === sortKey;
+                const arrow = isActive ? (_qlxdhSortDir === 'asc' ? ' ▲' : ' ▼') : ' ↕';
+                const opacity = isActive ? '1' : '0.4';
+                return `<th onclick="_qlxdhSortByCol('${sortKey}')" class="qlxdh-th-sortable" style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">
+                    ${h}<span style="opacity:${opacity};margin-left:4px;font-size:9px;">${arrow}</span>
+                </th>`;
+            } else {
+                return `<th style="padding:10px 8px;color:white;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:${align};">${h}</th>`;
+            }
         }).join('')}
     </tr></thead><tbody>`;
 
