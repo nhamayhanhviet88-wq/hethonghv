@@ -188,10 +188,21 @@ async function syncLedgerForDate(dateStr) {
     if (!isDateOff) {
     try {
         const overdueOrders = await db.all(`
-            SELECT id, order_code FROM dht_orders
-            WHERE shipping_status IN ('pending','rescheduled')
-              AND expected_ship_date IS NOT NULL
-              AND COALESCE(rescheduled_ship_date, expected_ship_date) <= $1::date
+            SELECT o.id, o.order_code FROM dht_orders o
+            WHERE o.shipping_status IN ('pending','rescheduled')
+              AND o.expected_ship_date IS NOT NULL
+              AND (
+                  COALESCE(o.rescheduled_ship_date, o.expected_ship_date) <= $1::date
+                  OR (
+                      o.qlx_actual_output_at IS NOT NULL
+                      AND o.qlx_actual_output_at AT TIME ZONE 'Asia/Ho_Chi_Minh' < ($1::date + '18:30:00'::time)
+                  )
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM dht_shipping_reschedules r
+                  WHERE r.dht_order_id = o.id
+                    AND (r.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $1::date
+              )
         `, [dateStr]);
         if (overdueOrders.length > 0) {
             const PENALTY_AMT = GPC.gui_hang_tre || 100000;
