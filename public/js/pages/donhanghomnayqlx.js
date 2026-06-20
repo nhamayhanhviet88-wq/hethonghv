@@ -80,19 +80,19 @@ async function renderDonhanghomnayqlxPage(container) {
         }
         @keyframes qlxdhKTPulseBlink {
             0%, 100% {
-                box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7);
+                box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7);
                 filter: brightness(1);
                 transform: scale(1);
             }
             50% {
-                box-shadow: 0 0 8px 3px rgba(244, 63, 94, 0.4);
+                box-shadow: 0 0 8px 3px rgba(6, 182, 212, 0.4);
                 filter: brightness(1.15);
                 transform: scale(1.03);
             }
         }
         .qlxdh-kt-hen-homnay {
             animation: qlxdhKTPulseBlink 1.2s infinite ease-in-out;
-            border: 1px solid #fda4af !important;
+            border: 1px solid #67e8f9 !important;
         }
         .qlxdh-th-sortable {
             cursor: pointer;
@@ -522,7 +522,7 @@ function _qlxdhFormatRescheduleStatus(o) {
         
         if (diffDays === 0) {
             if (isKT) {
-                return { label: 'KToán Hẹn Hôm Nay', color: '#9f1239', bg: 'linear-gradient(135deg, #ffe4e6, #fecdd3)', class: 'qlxdh-kt-hen-homnay' };
+                return { label: 'KToán Hẹn Hôm Nay', color: '#0e7490', bg: 'linear-gradient(135deg, #ecfeff, #cffafe)', class: 'qlxdh-kt-hen-homnay' };
             } else {
                 return { label: 'QLX Hẹn Hôm Nay', color: '#581c87', bg: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)', class: 'qlxdh-hen-homnay' };
             }
