@@ -659,9 +659,13 @@ function _tsRenderStepModal(step, d){
                 });
                 sortedPrintItems.forEach((r, idx) => {
                     const printType = V(r.print_field || r.field_name);
+                    const labelColor = '#475569';
+                    const nameColor = '#0f172a';
                     const printerDisplay = r.contractor_name 
-                        ? `🏭 Gia công: ${r.contractor_name}`
-                        : (r.printer_name ? `👤 Thợ in: ${r.printer_name}` : `👤 Thợ in: Chưa nhận`);
+                        ? `🏭 <span style="color:${labelColor};font-weight:700">Gia công:</span> <span style="color:${nameColor};font-weight:800;font-size:13px">${r.contractor_name}</span>`
+                        : (r.printer_name 
+                            ? `👤 <span style="color:${labelColor};font-weight:700">Thợ in:</span> <span style="color:${nameColor};font-weight:800;font-size:13px">${r.printer_name}</span>` 
+                            : `👤 <span style="color:${labelColor};font-weight:700">Thợ in:</span> <span style="color:#ef4444;font-weight:800;font-size:13px">Chưa nhận</span>`);
                     
                     const itemStatusText = r.is_print_done 
                         ? `✅ Đã in xong (${fmtShortDT(r.print_done_at)})` 
@@ -674,7 +678,7 @@ function _tsRenderStepModal(step, d){
                             <span style="font-weight:800;color:#5b21b6">${idx+1}. ${printType}</span>
                             <span style="font-weight:800;background:${itemStatusBg};color:${itemStatusColor};padding:1px 6px;border-radius:4px;font-size:11px">${itemStatusText}</span>
                         </div>
-                        <div style="display:flex;justify-content:space-between;color:#64748b;font-size:11px;margin-bottom:4px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;margin-bottom:6px">
                             <span>${printerDisplay}</span>
                         </div>`;
 
