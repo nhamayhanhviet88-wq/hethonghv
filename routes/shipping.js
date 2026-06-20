@@ -630,10 +630,18 @@ module.exports = async function(fastify) {
 
         let todayIdx = sampleParams.length + 1;
         if (filter === 'early') {
-            sampleWhere += ` AND d.status_gui_don = false AND d.approval_date < d.ship_date AND $${todayIdx}::date < d.ship_date`;
+            sampleWhere += ` AND d.status_gui_don = false AND (
+                (d.status_duyet = true AND d.approval_date < d.ship_date AND $${todayIdx}::date < d.ship_date)
+                OR
+                (COALESCE(d.status_duyet, false) = false AND $${todayIdx}::date < d.ship_date)
+            )`;
             sampleParams.push(todayParam);
         } else if (filter === 'today') {
-            sampleWhere += ` AND d.status_gui_don = false AND (d.approval_date >= d.ship_date OR $${todayIdx}::date >= d.ship_date)`;
+            sampleWhere += ` AND d.status_gui_don = false AND (
+                (d.status_duyet = true AND (d.approval_date >= d.ship_date OR $${todayIdx}::date >= d.ship_date))
+                OR
+                (COALESCE(d.status_duyet, false) = false AND $${todayIdx}::date >= d.ship_date)
+            )`;
             sampleParams.push(todayParam);
         } else if (filter === 'rescheduled') {
             sampleWhere += ` AND 1=0`; // sample orders do not support rescheduling
@@ -647,6 +655,7 @@ module.exports = async function(fastify) {
             SELECT 
                 d.id,
                 d.sample_order_code AS order_code,
+                d.status_duyet,
                 d.order_date,
                 d.ship_date AS expected_ship_date,
                 d.order_status,
@@ -693,7 +702,7 @@ module.exports = async function(fastify) {
                 FROM payment_records
                 WHERE order_ao_mau = d.sample_order_code
             ) pr_all ON true
-            WHERE d.status_duyet = true AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
+            WHERE (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
             ${sampleWhere}
             ORDER BY d.ship_date DESC NULLS LAST, d.created_at DESC
         `, sampleParams);
@@ -703,6 +712,7 @@ module.exports = async function(fastify) {
              return {
                  id: 'sample_' + row.id,
                  order_code: row.order_code,
+                 status_duyet: row.status_duyet,
                  order_date: row.order_date,
                  expected_ship_date: row.expected_ship_date,
                  rescheduled_ship_date: null,
@@ -1183,11 +1193,19 @@ module.exports = async function(fastify) {
             
             sampleCounts = await db.get(`
                 SELECT
-                    COUNT(*) FILTER (WHERE d.status_gui_don = false AND d.approval_date < d.ship_date AND $1::date < d.ship_date) AS early_count,
-                    COUNT(*) FILTER (WHERE d.status_gui_don = false AND (d.approval_date >= d.ship_date OR $1::date >= d.ship_date)) AS today_count,
+                    COUNT(*) FILTER (WHERE d.status_gui_don = false AND (
+                        (d.status_duyet = true AND d.approval_date < d.ship_date AND $1::date < d.ship_date)
+                        OR
+                        (COALESCE(d.status_duyet, false) = false AND $1::date < d.ship_date)
+                    )) AS early_count,
+                    COUNT(*) FILTER (WHERE d.status_gui_don = false AND (
+                        (d.status_duyet = true AND (d.approval_date >= d.ship_date OR $1::date >= d.ship_date))
+                        OR
+                        (COALESCE(d.status_duyet, false) = false AND $1::date >= d.ship_date)
+                    )) AS today_count,
                     COUNT(*) FILTER (WHERE d.status_gui_don = true) AS shipped_count
                 FROM don_gui_ao_mau d
-                WHERE d.status_duyet = true AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
+                WHERE (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false)
                 ${countVisibilityFilter}
             `, countParams);
 
@@ -1204,7 +1222,7 @@ module.exports = async function(fastify) {
             sampleOverdueCount = await db.get(`
                 SELECT COUNT(*) AS cnt FROM don_gui_ao_mau d
                 WHERE (
-                    (d.status_duyet = true AND d.status_gui_don = false AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND d.ship_date < $1::date)
+                    (d.status_gui_don = false AND (d.status_hoan_hang IS NOT TRUE OR d.status_hoan_hang = false) AND d.ship_date < $1::date)
                     OR
                     (d.status_hoan_hang = true AND d.status_gui_don_hoan = false AND d.hoan_hang_ship_date < $1::date)
                 )

@@ -358,8 +358,16 @@ function _shGetOrderMenu(o) {
         return { key: 'shipped', label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5' };
     }
     
-    // Check if regular order and is "Chờ KT Gửi"
     const isSample = String(o.id).startsWith('sample_');
+    if (isSample) {
+        if (effDate && effDate > today) {
+            return { key: 'early', label: 'Gửi Sớm', color: '#3b82f6', bg: '#eff6ff' };
+        } else {
+            return { key: 'today', label: 'Hôm Nay Gửi', color: '#dc2626', bg: '#fef2f2' };
+        }
+    }
+
+    // Check if regular order and is "Chờ KT Gửi"
     const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
     const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
 
@@ -435,6 +443,10 @@ function _shRenderContent() {
 function _shFormatRescheduleStatus(o) {
     if (o.shipping_status === 'shipped') {
         return { label: 'Đã Gửi', color: '#059669', bg: '#ecfdf5', class: '' };
+    }
+    const isSample = String(o.id).startsWith('sample_');
+    if (isSample && !o.is_hoan_hang && !o.status_duyet) {
+        return { label: 'Chưa Duyệt', color: '#b45309', bg: '#fef3c7', class: '' };
     }
     const today = vnDateStr();
     let effDate = o.rescheduled_ship_date || o.expected_ship_date;
@@ -531,24 +543,30 @@ function _shBuildTable(orders) {
         const allPendingCompleted = pendingItems.every(item => item.all_done);
 
         let orderLevelAction = '';
+        const isSample = String(o.id).startsWith('sample_');
+        const isSampleNotApproved = isSample && !o.is_hoan_hang && !o.status_duyet;
+
         if (isKT && o.shipping_status !== 'shipped') {
-            if (allPendingCompleted && pendingItems.length > 0) {
+            if (isSampleNotApproved) {
+                orderLevelAction = `
+                    <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
+                `;
+            } else if (allPendingCompleted && pendingItems.length > 0) {
                 // All pending items are done -> Show Gửi
                 orderLevelAction = `
                     <button onclick="event.stopPropagation();_shShowOrderSlipsModal('${o.id}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Xác nhận gửi">📤 Gửi</button>
-                    <button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    ${isSample ? '' : `<button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>`}
                     <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
                 `;
             } else {
                 // Not all pending items are done -> Show Không gửi được
                 orderLevelAction = `
                     <button onclick="event.stopPropagation();_shShowOrderSlipsModal('${o.id}')" style="padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:white;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Chưa đủ điều kiện gửi">⚠️ Không gửi được</button>
-                    <button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>
+                    ${isSample ? '' : `<button onclick="event.stopPropagation();_shShowReschedule('${o.id}','${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 6px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Hẹn lại">📅 Hẹn</button>`}
                     <button onclick="event.stopPropagation();_shOpenErrorModal('${o.id}')" style="padding:4px 6px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-size:10px;font-weight:700;margin-top:3px;display:block;width:100%;" title="Báo lỗi đơn hàng">🚨 Báo Lỗi</button>
                 `;
             }
         } else {
-            const isSample = String(o.id).startsWith('sample_');
             orderLevelAction = `
                 <button onclick="event.stopPropagation();_shShowShippingDetailOnly('${o.id}')" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;cursor:pointer;font-size:14px;padding:4px 10px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseout="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Xem thông tin vận chuyển">📄</button>
                 ${isSample ? '' : `<button onclick="event.stopPropagation();_shShipOrder('${o.id}', '${(o.order_code||'').replace(/'/g,"\\'")}')" style="padding:4px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;margin-top:3px;display:block;width:100%;" title="Gửi thêm hoặc hoàn hàng cho đơn này">📤 Gửi Thêm/Hoàn</button>`}
@@ -755,8 +773,12 @@ function _shBuildItemsTable(order) {
         const trStyle = `border-bottom:1px solid #f1f5f9;`;
         
         let actionHtml = '';
-        if (item.shipping_status === 'shipped') {
-            const isSample = String(order.id).startsWith('sample_');
+        const isSample = String(order.id).startsWith('sample_');
+        const isSampleNotApproved = isSample && !order.is_hoan_hang && !order.status_duyet;
+
+        if (isSampleNotApproved) {
+            actionHtml = `<span style="color:#94a3b8;font-style:italic">Chờ duyệt</span>`;
+        } else if (item.shipping_status === 'shipped') {
             actionHtml = isSample ? '' : `<button onclick="event.stopPropagation();_shShipOrder('${order.id}','${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;" title="Gửi thêm hoặc hoàn hàng cho đơn này">🔁 Gửi lại</button>`;
         } else {
             if (item.all_done) {
@@ -769,7 +791,9 @@ function _shBuildItemsTable(order) {
         const progressHtml = _shBuildProgressHTML(item);
         const statusBadge = item.shipping_status === 'shipped' 
             ? `<span style="background:#ecfdf5;color:#047857;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">✅ Đã gửi</span>` 
-            : `<span style="background:#fffbeb;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chờ gửi</span>`;
+            : (isSampleNotApproved
+                ? `<span style="background:#fef3c7;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chưa duyệt</span>`
+                : `<span style="background:#fffbeb;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chờ gửi</span>`);
 
         html += `<tr style="${trStyle}">
             <td style="padding:6px 8px;font-weight:600;color:#1e293b;">
