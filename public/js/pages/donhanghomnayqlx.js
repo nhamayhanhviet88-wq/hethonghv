@@ -709,7 +709,7 @@ function _qlxdhBuildTable(orders) {
                 o.rescheduled_ship_minute !== null && o.rescheduled_ship_minute !== undefined) {
                 timePrefix = `${String(o.rescheduled_ship_hour).padStart(2, '0')}:${String(o.rescheduled_ship_minute).padStart(2, '0')} `;
             }
-            rescheduleCell = `<span onclick="event.stopPropagation(); _qlxdhShowHistory('${o.id}', '${o.order_code}')" style="color:#d97706;font-weight:700;cursor:pointer;text-decoration:underline;white-space:nowrap;">📅 ${timePrefix}${dayOfWeekName} ${dayNum}/${monthNum}</span>`;
+            rescheduleCell = `<span onclick="event.stopPropagation(); _qlxdhShowHistory('${o.id}', '${o.order_code}')" style="background:#fffbeb;color:#b45309;border:1.5px solid #fcd34d;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Xem lịch sử hẹn lại">${timePrefix}${dayOfWeekName} ${dayNum}/${monthNum}</span>`;
         }
         html += `<td style="padding:8px 6px;font-size:11px;">${rescheduleCell}</td>`;
         html += `<td style="padding:8px 6px;font-size:11px;color:#64748b;text-align:center;white-space:nowrap;">${formatActualShipDateWithDay(o.shipped_at)}</td>`;
