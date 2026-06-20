@@ -257,29 +257,346 @@ async function syncLedgerForDate(dateStr) {
     // Source 11: Quản Lý Xưởng Trễ Đơn Hàng Hôm Nay
     if (!isDateOff) {
     try {
-        const qlxOrders = await db.all(`
-            SELECT id, order_code, created_at, expected_ship_date, qlx_expected_date, qlx_rescheduled_date
-            FROM dht_orders
-            WHERE shipping_status IN ('pending','rescheduled')
-              AND qlx_actual_output_at IS NULL
-              AND expected_ship_date IS NOT NULL
-              AND COALESCE(qlx_rescheduled_date, qlx_expected_date, expected_ship_date) <= $1::date
-        `, [dateStr]);
-
         const { vnDateStr, vnTimeStr } = require('./timezone');
-        const cutoffMinutes = GPC.qlx_cutoff_time !== undefined ? GPC.qlx_cutoff_time : 1080;
-        const cutoffHrs = Math.floor(cutoffMinutes / 60);
-        const cutoffMins = cutoffMinutes % 60;
-        const cutoffTimeStr = `${String(cutoffHrs).padStart(2, '0')}:${String(cutoffMins).padStart(2, '0')}`;
-
-        const overdueOrders = qlxOrders.filter(order => {
-            const orderDate = vnDateStr(order.created_at);
-            const orderTime = vnTimeStr(order.created_at);
-            if (orderDate === dateStr && orderTime > cutoffTimeStr) {
-                return false; // Exclude late orders created today after cutoff
+        
+        async function getQlxMaxDate(todayStr) {
+            let limitVal = 1; // Default is just "Hôm nay"
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'qlx_processing_days_limit'");
+            if (row && row.value) {
+                const parsed = parseInt(row.value, 10);
+                if (!isNaN(parsed) && parsed > 0) {
+                    limitVal = parsed;
+                }
             }
-            return true;
-        });
+            
+            if (limitVal <= 1) return todayStr;
+            
+            const validDates = [];
+            let checkDate = new Date(todayStr + 'T00:00:00+07:00');
+            let safety = 0;
+            while (validDates.length < limitVal && safety < 100) {
+                safety++;
+                const y = checkDate.getFullYear();
+                const m = String(checkDate.getMonth() + 1).padStart(2, '0');
+                const d = String(checkDate.getDate()).padStart(2, '0');
+                const checkStr = `${y}-${m}-${d}`;
+                
+                const isOff = await _isDayOff(checkStr);
+                if (!isOff) {
+                    validDates.push(checkStr);
+                }
+                checkDate.setDate(checkDate.getDate() + 1);
+            }
+            
+            if (validDates.length > 0) {
+                return validDates[validDates.length - 1];
+            }
+            return todayStr;
+        }
+
+        const maxDateStr = await getQlxMaxDate(dateStr);
+
+        // Fetch active orders for QLX
+        const activeOrders = await db.all(`
+            SELECT o.id, o.order_code, o.created_at, o.expected_ship_date, o.rescheduled_ship_date, o.shipping_status, o.category_id, o.total_quantity
+            FROM dht_orders o
+            WHERE o.shipping_status IN ('pending', 'rescheduled')
+              AND o.qlx_actual_output_at IS NULL
+              AND o.expected_ship_date IS NOT NULL
+        `);
+
+        let overdueOrders = [];
+        if (activeOrders.length > 0) {
+            const orderIds = activeOrders.map(o => o.id);
+            
+            // Query progress for items of these active orders
+            const activeItemsList = await db.all(`
+                SELECT 
+                    oi.id AS item_id,
+                    oi.dht_order_id,
+                    oi.product_name,
+                    oi.description,
+                    oi.quantity,
+                    oi.accounting_notes,
+                    COALESCE(oi.shipping_status, 'pending') AS shipping_status,
+                    oi.shipped_at,
+                    oi.shipped_by,
+                    oi.shipping_date,
+                    oi.actual_carrier_id,
+                    oi.tracking_code,
+                    oi.shipping_bill_link,
+                    oi.carrier_phone,
+                    oi.receiver_name,
+                    oi.shipping_fee,
+                    oi.shipping_fee_payer,
+                    oi.shipping_fee_method,
+                    cr.name AS actual_carrier_name,
+                    (
+                        SELECT string_agg(pp.step_id::text, ',') 
+                        FROM dht_product_process pp 
+                        JOIN dht_products p ON pp.product_id = p.id 
+                        WHERE (p.name = oi.product_name OR p.name = TRIM(oi.description) OR oi.product_name LIKE '%' || p.name)
+                          AND pp.is_active = true
+                    ) AS required_steps,
+                    (
+                        EXISTS (
+                            SELECT 1 FROM qlx_order_print_assignments qa
+                            JOIN printing_fields pf ON qa.field_id = pf.id
+                            WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                              AND pf.name IN ('IN PET', 'IN DECAL')
+                        ) OR EXISTS (
+                            SELECT 1 FROM printing_records pr
+                            WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                              AND pr.print_field IN ('IN PET', 'IN DECAL')
+                        )
+                    ) AS has_press_printing,
+                    (
+                        EXISTS (
+                            SELECT 1 FROM qlx_order_print_assignments qa
+                            WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                        ) OR EXISTS (
+                            SELECT 1 FROM printing_records pr
+                            WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                        )
+                    ) AS has_any_printing,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) 
+                            THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id AND is_cut_done = false)
+                            WHEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                                 AND EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                            THEN NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_cut_done = false)
+                            ELSE false
+                        END,
+                        false
+                    ) AS cut_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id) 
+                            THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND is_print_done = false AND contractor_id IS NULL)
+                            WHEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                                 AND EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                            THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_print_done = false AND contractor_id IS NULL)
+                            ELSE false
+                        END,
+                        false
+                    ) AS print_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id) 
+                            THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE order_item_id = oi.id AND is_reported = false)
+                            WHEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                                 AND EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                            THEN NOT EXISTS (SELECT 1 FROM pressing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_reported = false)
+                            ELSE false
+                        END,
+                        false
+                    ) AS press_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id) 
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM sewing_records sr
+                                WHERE sr.order_item_id = oi.id
+                                  AND (
+                                      (sr.contractor_id IS NULL AND NOT EXISTS (
+                                          SELECT 1 FROM finishing_records fr 
+                                          WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                                      ))
+                                      OR
+                                      (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                          SELECT 1 FROM qc_checklist_answers qca 
+                                          WHERE qca.sewing_record_id = sr.id
+                                      ))
+                                  )
+                            )
+                            WHEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                                 AND EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM sewing_records sr
+                                WHERE sr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
+                                  AND (
+                                      (sr.contractor_id IS NULL AND NOT EXISTS (
+                                          SELECT 1 FROM finishing_records fr 
+                                          WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
+                                      ))
+                                      OR
+                                      (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                          SELECT 1 FROM qc_checklist_answers qca 
+                                          WHERE qca.sewing_record_id = sr.id
+                                      ))
+                                  )
+                            )
+                            ELSE false
+                        END,
+                        false
+                    ) AS sew_done,
+                    COALESCE(
+                        CASE 
+                            WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM finishing_records fr 
+                                JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
+                                WHERE sr.order_item_id = oi.id
+                                  AND (
+                                      NOT EXISTS (
+                                          SELECT 1 FROM qc_checklist_answers qca 
+                                          WHERE qca.sewing_record_id = fr.sewing_record_id
+                                      )
+                                      OR
+                                      (sr.contractor_id IS NULL AND fr.is_completed = false)
+                                  )
+                            )
+                            WHEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NOT NULL)
+                                 AND EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL)
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM finishing_records fr 
+                                JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
+                                WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
+                                  AND (
+                                      NOT EXISTS (
+                                          SELECT 1 FROM qc_checklist_answers qca 
+                                          WHERE qca.sewing_record_id = fr.sewing_record_id
+                                      )
+                                      OR
+                                      (sr.contractor_id IS NULL AND fr.is_completed = false)
+                                  )
+                            )
+                            ELSE false
+                        END,
+                        false
+                    ) AS finish_done,
+                    COALESCE(
+                        CASE
+                            WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id)
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM sewing_records sr
+                                WHERE sr.order_item_id = oi.id
+                                  AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id)
+                            )
+                            WHEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
+                                 AND EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
+                            THEN NOT EXISTS (
+                                SELECT 1 FROM sewing_records sr
+                                WHERE sr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
+                                  AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id)
+                            )
+                            ELSE false
+                        END,
+                        false
+                    ) AS qc_done
+                FROM dht_order_items oi
+                LEFT JOIN dht_carriers cr ON oi.actual_carrier_id = cr.id
+                WHERE oi.dht_order_id = ANY($1::int[])
+                  AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiet ke%'
+                  AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiết kế%'
+                  AND LOWER(COALESCE(oi.description, '')) NOT LIKE '%thiet ke%'
+            `, [orderIds]);
+
+            // Query reschedule records created today
+            const reschedulesToday = await db.all(`
+                SELECT dht_order_id FROM dht_shipping_reschedules
+                WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $1::date
+            `, [dateStr]);
+            const rescheduledTodayIds = new Set(reschedulesToday.map(r => r.dht_order_id));
+
+            const cutoffMinutes = GPC.qlx_cutoff_time !== undefined ? GPC.qlx_cutoff_time : 1080;
+            const cutoffHrs = Math.floor(cutoffMinutes / 60);
+            const cutoffMins = cutoffMinutes % 60;
+            const cutoffTimeStr = `${String(cutoffHrs).padStart(2, '0')}:${String(cutoffMins).padStart(2, '0')}`;
+
+            for (const o of activeOrders) {
+                // Exclude orders created today after cutoff
+                const orderDate = vnDateStr(o.created_at);
+                const orderTime = vnTimeStr(o.created_at);
+                if (orderDate === dateStr && orderTime > cutoffTimeStr) {
+                    continue; 
+                }
+
+                let orderItems = activeItemsList.filter(item => item.dht_order_id === o.id);
+                if (!orderItems.length) {
+                    orderItems = [{
+                        shipping_status: o.shipping_status === 'shipped' ? 'shipped' : 'pending',
+                        cut_done: true,
+                        print_done: true,
+                        press_done: true,
+                        sew_done: true,
+                        qc_done: true,
+                        finish_done: true
+                    }];
+                }
+
+                const code = (o.order_code || '').toUpperCase();
+                const isPetTem = Number(o.category_id) === 8 || Number(o.category_id) === 9 || code.includes('PET') || code.includes('TEM');
+
+                const mappedItems = orderItems.map(item => {
+                    let requiredStepIds = null;
+                    if (item.required_steps) {
+                        requiredStepIds = new Set(item.required_steps.split(',').map(Number));
+                    }
+                    if (!requiredStepIds) {
+                        if (isPetTem) {
+                            requiredStepIds = new Set([3]);
+                        } else {
+                            requiredStepIds = new Set([1, 2, 3, 4, 5, 6, 7]);
+                        }
+                    }
+
+                    const needsCut = requiredStepIds.has(2);
+                    const needsPrint = requiredStepIds.has(3);
+                    let needsPress = requiredStepIds.has(4);
+                    if (item.has_any_printing && !isPetTem) {
+                        needsPress = !!item.has_press_printing;
+                    }
+                    const needsSew = requiredStepIds.has(5);
+                    const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+
+                    const cutDone = !needsCut || item.cut_done;
+                    const printDone = !needsPrint || item.print_done;
+                    const pressDone = !needsPress || item.press_done;
+                    const sewDone = !needsSew || item.sew_done;
+                    const qcDone = !needsSew || item.qc_done;
+                    const finishDone = !needsFinishing || item.finish_done;
+
+                    const allDone = cutDone && printDone && pressDone && sewDone && qcDone && finishDone;
+                    return { all_done: allDone, shipping_status: item.shipping_status };
+                });
+
+                const pendingItems = mappedItems.filter(item => item.shipping_status === 'pending');
+                const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+                
+                if (isEligibleToSend) {
+                    continue;
+                }
+
+                let effDate = o.rescheduled_ship_date || o.expected_ship_date;
+                if (effDate) {
+                    try { effDate = vnDateStr(effDate); } catch(e) {}
+                }
+
+                let tabKey = 'unknown';
+                const wasRescheduledToday = rescheduledTodayIds.has(o.id);
+
+                if (o.shipping_status === 'rescheduled' && o.rescheduled_ship_date) {
+                    let reschedDate = o.rescheduled_ship_date;
+                    try { reschedDate = vnDateStr(reschedDate); } catch(e){}
+                    if (reschedDate > maxDateStr || wasRescheduledToday) {
+                        tabKey = 'rescheduled';
+                    } else {
+                        tabKey = 'today';
+                    }
+                } else if (o.shipping_status === 'pending' && effDate && effDate > maxDateStr) {
+                    tabKey = 'early';
+                } else if (o.shipping_status === 'pending' && effDate && effDate <= maxDateStr) {
+                    tabKey = 'today';
+                }
+
+                if (tabKey === 'today') {
+                    overdueOrders.push(o);
+                }
+            }
+        }
 
         if (overdueOrders.length > 0) {
             const PENALTY_AMT = GPC.phat_qlx_tre_don_hom_nay !== undefined ? GPC.phat_qlx_tre_don_hom_nay : 100000;
@@ -296,7 +613,7 @@ async function syncLedgerForDate(dateStr) {
                 count++;
             }
         }
-    } catch (e) { console.error('  ❌ [Ledger] QLX Trễ Đơn:', e.message); }
+    } catch (e) { console.error('  ❌ [Ledger] QLX Trễ Đơn:', e.stack || e.message); }
     } // end if (!isDateOff) Source 11
 
     return count;
