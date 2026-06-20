@@ -2707,7 +2707,8 @@ module.exports = async function(fastify) {
 
         const history = rows.map(r => {
             let isEligible = r.is_eligible_to_send;
-            if (isEligible === null) {
+            // Fallback for records created before the is_eligible_to_send column was added
+            if (new Date(r.created_at) < new Date('2026-06-20T17:30:00Z')) {
                 const reasonLower = (r.reason || '').toLowerCase();
                 const isKhach = reasonLower.includes('khach') || reasonLower.includes('khách') || reasonLower.includes('lùi') || reasonLower.includes('lui') || reasonLower.includes('nhận') || reasonLower.includes('nhan');
                 const oldStr = vnDateStr(r.old_date);
