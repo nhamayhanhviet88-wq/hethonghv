@@ -2178,13 +2178,22 @@ function _shToggleSkipPayment() {
 
 async function _shShowReschedule(id, code) {
     document.getElementById('shRescheduleModal')?.remove();
+    
+    const o = _shOrders.find(x => String(x.id) === String(id));
+    if (!o) return;
+
+    const isSample = String(o.id).startsWith('sample_');
+    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+    const isEligibleToSend = !isSample && pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+
     // Load holidays first so we have them for validation and calculating options
     await _shLoadHolidays();
     
     // Fetch reschedule limit days config
     let limitVal = null;
     try {
-        const configRes = await apiCall('/api/app-config/reschedule_limit_days');
+        const configKey = isEligibleToSend ? 'reschedule_limit_days_qlx' : 'reschedule_limit_days';
+        const configRes = await apiCall('/api/app-config/' + configKey);
         if (configRes && configRes.value) {
             limitVal = parseInt(configRes.value, 10);
         }
@@ -2215,7 +2224,7 @@ async function _shShowReschedule(id, code) {
         }
         
         dateInputHtml = `
-            <select id="shNewDate" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;font-weight:700;color:#1e293b;background:white;cursor:pointer;">
+            <select id="shNewDate" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;margin-top:6px;font-weight:700;color:#1e293b;background:white;cursor:pointer;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
                 ${validDates.map(vd => `<option value="${vd.dateStr}">${vd.label}</option>`).join('')}
             </select>
         `;
@@ -2225,32 +2234,208 @@ async function _shShowReschedule(id, code) {
         _tomorrow.setUTCDate(_tomorrow.getUTCDate() + 1);
         const _minDate = _tomorrow.toISOString().split('T')[0];
         dateInputHtml = `
-            <input type="date" id="shNewDate" min="${_minDate}" onchange="_shCheckHoliday()" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;">
+            <input type="date" id="shNewDate" min="${_minDate}" onchange="_shCheckHoliday()" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;margin-top:6px;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
             <div id="shHolidayWarn" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fca5a5;font-size:12px;color:#dc2626;font-weight:700;"></div>
         `;
     }
 
-    const m = document.createElement('div');
-    m.id = 'shRescheduleModal';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    m.innerHTML = `<div style="background:white;border-radius:16px;width:420px;max-width:95vw;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,.3);">
-        <div style="font-size:16px;font-weight:800;color:#122546;margin-bottom:16px;">📅 Hẹn Lại — ${code}</div>
-        <div style="margin-bottom:12px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">Ngày gửi mới <span style="color:#dc2626">*</span></label>
-            ${dateInputHtml}
-        </div>
-        <div style="margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">Lý do <span style="color:#dc2626">*</span></label>
-            <textarea id="shReason" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;margin-top:4px;resize:vertical;" placeholder="Nhập lý do hẹn lại..."></textarea>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="document.getElementById('shRescheduleModal')?.remove()" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
-            <button id="shRescheduleBtn" onclick="_shDoReschedule('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:700;font-size:13px;">📅 Hẹn lại</button>
-        </div>
-    </div>`;
-    document.body.appendChild(m);
-    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    if (isEligibleToSend) {
+        window._shRescheduleImageBase64 = null;
+        window._shClearRescheduleImage = function() {
+            window._shRescheduleImageBase64 = null;
+            const preview = document.getElementById('shImagePreview');
+            const previewImg = document.getElementById('shPreviewImg');
+            const pasteArea = document.getElementById('shPasteArea');
+            if (preview && previewImg && pasteArea) {
+                preview.style.display = 'none';
+                previewImg.src = '';
+                pasteArea.style.display = 'block';
+            }
+        };
+
+        function _shCompressImage(file, callback) {
+            if (!file.type.startsWith('image/')) {
+                callback(null);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const maxW = 800, maxH = 800;
+                    let w = img.width, h = img.height;
+                    if (w > h) {
+                        if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+                    } else {
+                        if (h > maxH) { w = Math.round((w * maxH) / h); h = maxH; }
+                    }
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    callback(canvas.toDataURL('image/jpeg', 0.6));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        const m = document.createElement('div');
+        m.id = 'shRescheduleModal';
+        m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        m.innerHTML = `<div style="background:white;border-radius:20px;width:440px;max-width:95vw;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;border:1px solid #e2e8f0;max-height:90vh;display:flex;flex-direction:column;">
+            <!-- Header -->
+            <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:20px 24px;display:flex;align-items:center;gap:10px;color:white;flex-shrink:0;">
+                <span style="font-size:20px;">📅</span>
+                <div>
+                    <div style="font-size:16px;font-weight:800;letter-spacing:-0.025em;">Hẹn Lại Khách Lịch Trả Hàng</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Mã đơn: <span style="color:#38bdf8;font-weight:700;">${code}</span></div>
+                </div>
+            </div>
+            
+            <!-- Body -->
+            <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;flex:1;">
+                <!-- Ngày gửi mới -->
+                <div>
+                    <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">📅 Ngày gửi mới <span style="color:#ef4444">*</span></label>
+                    ${dateInputHtml}
+                </div>
+                
+                <!-- Giờ & Phút (chia 2 cột) -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div>
+                        <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">🕐 Giờ hẹn <span style="color:#ef4444">*</span></label>
+                        <select id="shRescheduleHour" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;font-weight:600;color:#1e293b;background:white;cursor:pointer;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                            <option value="" disabled selected>-- Chọn giờ --</option>
+                            ${Array.from({length: 24}, (_, i) => `<option value="${i}">${String(i).padStart(2, '0')} giờ</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">⏱️ Phút hẹn <span style="color:#ef4444">*</span></label>
+                        <select id="shRescheduleMinute" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;font-weight:600;color:#1e293b;background:white;cursor:pointer;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                            <option value="" disabled selected>-- Chọn phút --</option>
+                            <option value="0">00 phút</option>
+                            <option value="15">15 phút</option>
+                            <option value="30">30 phút</option>
+                            <option value="45">45 phút</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Lý do -->
+                <div>
+                    <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">📝 Lý do khách lùi lịch hẹn nhận hàng <span style="color:#ef4444">*</span></label>
+                    <textarea id="shReason" rows="3" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-top:6px;resize:none;outline:none;transition:border-color 0.2s;" placeholder="Nhập lý do chi tiết..." onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+                </div>
+
+                <!-- Ảnh nhắn Sale báo lùi đơn -->
+                <div>
+                    <label style="font-size:12.5px;font-weight:700;color:#334155;display:flex;align-items:center;gap:4px;">📸 Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng <span style="color:#ef4444">*</span></label>
+                    <div id="shPasteArea" style="border:2px dashed #cbd5e1;border-radius:10px;padding:20px;text-align:center;background:#f8fafc;color:#64748b;font-size:13px;font-weight:600;margin-top:6px;cursor:pointer;position:relative;transition:all 0.2s;" tabindex="0">
+                        <div style="font-size:24px;margin-bottom:6px;">📋</div>
+                        Nhấp chuột vào đây rồi nhấn <b>Ctrl + V</b> để dán hình ảnh chụp màn hình
+                    </div>
+                    <div id="shImagePreview" style="margin-top:6px;display:none;position:relative;width:100%;height:140px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">
+                        <img id="shPreviewImg" src="" style="width:100%;height:100%;object-fit:contain;background:#f8fafc;">
+                        <button type="button" onclick="window._shClearRescheduleImage()" style="position:absolute;top:8px;right:8px;background:rgba(15,23,42,0.8);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:background 0.2s;">✕</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid #f1f5f9;display:flex;gap:12px;justify-content:flex-end;flex-shrink:0;">
+                <button onclick="document.getElementById('shRescheduleModal')?.remove()" style="padding:10px 20px;border:1.5px solid #cbd5e1;border-radius:8px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13.5px;transition:all 0.2s;">Hủy bộ</button>
+                <button id="shRescheduleBtn" onclick="_shDoRescheduleRich('${id}')" style="padding:10px 24px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:800;font-size:13.5px;box-shadow:0 4px 6px -1px rgba(245,158,11,0.3);transition:all 0.2s;">📅 Xác nhận hẹn</button>
+            </div>
+        </div>`;
+
+        const pasteHandler = function(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') === 0) {
+                    const blob = items[i].getAsFile();
+                    _shCompressImage(blob, function(compressed) {
+                        if (compressed) {
+                            window._shRescheduleImageBase64 = compressed;
+                            const preview = document.getElementById('shImagePreview');
+                            const previewImg = document.getElementById('shPreviewImg');
+                            const pasteArea = document.getElementById('shPasteArea');
+                            if (preview && previewImg && pasteArea) {
+                                previewImg.src = compressed;
+                                preview.style.display = 'block';
+                                pasteArea.style.display = 'none';
+                            }
+                        }
+                    });
+                    break;
+                }
+            }
+        };
+        m.addEventListener('paste', pasteHandler);
+
+        document.body.appendChild(m);
+        m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    } else {
+        const m = document.createElement('div');
+        m.id = 'shRescheduleModal';
+        m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        m.innerHTML = `<div style="background:white;border-radius:16px;width:420px;max-width:95vw;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,.3);">
+            <div style="font-size:16px;font-weight:800;color:#122546;margin-bottom:16px;">📅 Hẹn Lại — ${code}</div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:12px;font-weight:700;color:#374151;">Ngày gửi mới <span style="color:#dc2626">*</span></label>
+                ${dateInputHtml}
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:12px;font-weight:700;color:#374151;">Lý do <span style="color:#dc2626">*</span></label>
+                <textarea id="shReason" rows="3" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;margin-top:4px;resize:vertical;" placeholder="Nhập lý do hẹn lại..."></textarea>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button onclick="document.getElementById('shRescheduleModal')?.remove()" style="padding:8px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
+                <button id="shRescheduleBtn" onclick="_shDoReschedule('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:700;font-size:13px;">📅 Hẹn lại</button>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    }
 }
+
+async function _shDoRescheduleRich(id) {
+    const newDate = document.getElementById('shNewDate')?.value;
+    const hour = document.getElementById('shRescheduleHour')?.value;
+    const minute = document.getElementById('shRescheduleMinute')?.value;
+    const reason = document.getElementById('shReason')?.value;
+    
+    if (!newDate) { alert('Chọn ngày gửi mới'); return; }
+    if (hour === undefined || hour === null || hour === '') { alert('⚠️ Vui lòng chọn giờ hẹn'); return; }
+    if (minute === undefined || minute === null || minute === '') { alert('⚠️ Vui lòng chọn phút hẹn'); return; }
+    if (!reason?.trim()) { alert('Nhập lý do khách lùi lịch hẹn nhận hàng'); return; }
+    if (!window._shRescheduleImageBase64) {
+        alert('⚠️ Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng là bắt buộc!');
+        return;
+    }
+    
+    // Double-check holiday and Sunday on client
+    const d = new Date(newDate + 'T00:00:00+07:00');
+    if (d.getDay() === 0) { alert('⚠️ Không được hẹn vào ngày Chủ Nhật'); return; }
+    if (_shHolidayMap[newDate]) { alert('⚠️ Không được hẹn vào ngày lễ: ' + _shHolidayMap[newDate]); return; }
+    
+    try {
+        const r = await apiCall(`/api/shipping/orders/${id}/reschedule`, 'POST', {
+            new_date: newDate,
+            reason: reason.trim(),
+            page_type: 'ketoan',
+            image_base64: window._shRescheduleImageBase64,
+            reschedule_hour: hour,
+            reschedule_minute: minute
+        });
+        if (r.error) { alert(r.error); return; }
+        showToast(r.message || '✅ Đã hẹn lại');
+        document.getElementById('shRescheduleModal')?.remove();
+        _shLoadOrders();
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+window._shDoRescheduleRich = _shDoRescheduleRich;
 
 // Holiday cache
 var _shHolidayMap = {};

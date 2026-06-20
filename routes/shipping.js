@@ -2239,9 +2239,27 @@ module.exports = async function(fastify) {
         if (!new_date) return reply.code(400).send({ error: 'Vui lòng chọn ngày gửi mới' });
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do' });
 
-        if (page_type === 'qlx') {
+        const orderId = Number(request.params.id);
+        const order = await db.get('SELECT id, shipping_status, expected_ship_date, rescheduled_ship_date, order_code, category_id FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+        if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã gửi, không thể hẹn lại' });
+
+        // Check if this order is a "Chờ KT Gửi" order (all pending items done)
+        const itemsList = await _getShippingItemsProgress([orderId]);
+        const code = (order.order_code || '').toUpperCase();
+        const isPetTem = Number(order.category_id) === 8 || Number(order.category_id) === 9 || code.includes('PET') || code.includes('TEM');
+        const processedItems = _processShippingOrderItems(order, itemsList, isPetTem);
+        const pendingItems = processedItems.filter(item => item.shipping_status === 'pending');
+        const isEligibleToSend = pendingItems.length > 0 && pendingItems.every(item => item.all_done);
+
+        const needsRichFields = (page_type === 'qlx' || isEligibleToSend);
+
+        if (needsRichFields) {
             if (!image_base64) {
-                return reply.code(400).send({ error: '⚠️ Hình Ảnh Nhắn Sale báo thời gian lùi đơn là bắt buộc' });
+                const imgErrorMsg = isEligibleToSend 
+                    ? '⚠️ Hình Ảnh Nhắn Khách lùi lịch hẹn nhận hàng là bắt buộc' 
+                    : '⚠️ Hình Ảnh Nhắn Sale báo thời gian lùi đơn là bắt buộc';
+                return reply.code(400).send({ error: imgErrorMsg });
             }
             if (reschedule_hour === undefined || reschedule_hour === null || reschedule_hour === '') {
                 return reply.code(400).send({ error: '⚠️ Vui lòng chọn giờ hẹn' });
@@ -2342,11 +2360,6 @@ module.exports = async function(fastify) {
         } catch(cfgErr) {
             console.error('[Reschedule limit check error]', cfgErr);
         }
-
-        const orderId = Number(request.params.id);
-        const order = await db.get('SELECT id, shipping_status, expected_ship_date, rescheduled_ship_date, order_code FROM dht_orders WHERE id = $1', [orderId]);
-        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
-        if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã gửi, không thể hẹn lại' });
 
         const oldDate = order.rescheduled_ship_date || order.expected_ship_date;
 
