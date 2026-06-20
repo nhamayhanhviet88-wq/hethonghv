@@ -210,7 +210,10 @@ function render() {
         else if (priority === 'GỬI') priClass = 'oc-prio-gui';
         const priBadge = `<span class="oc-prio ${priClass}">${priority}</span>`;
 
-        const badges = (o.is_repair?'<span class="oc-badge oc-badge-repair">SỬA</span>':'')+(o.is_pet_tem?'<span class="oc-badge oc-badge-pet">PET</span>':'') + priBadge;
+        const rescheduleBadge = o.reschedule_count > 0 
+            ? `<span onclick="event.stopPropagation(); _tsShowRescheduleHistoryModal(${o.id}, '${o.order_code}')" class="oc-badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;font-weight:800;margin-left:4px;">📅 Hẹn lại (${o.reschedule_count})</span>`
+            : '';
+        const badges = (o.is_repair?'<span class="oc-badge oc-badge-repair">SỬA</span>':'')+(o.is_pet_tem?'<span class="oc-badge oc-badge-pet">PET</span>':'') + rescheduleBadge + priBadge;
         const expanded = _m.expandedId === o.id;
         html += `<div class="order-card ${expanded?'expanded':''}" id="mCard${o.id}">
             <div class="oc-top">
@@ -250,6 +253,12 @@ async function loadDetail(id) {
         const {order:o, items} = res;
         const fmtDT = d => { if(!d) return ''; return new Date(d).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}); };
         let html = '';
+        if (o.reschedule_count > 0) {
+            html += `<div style="margin-bottom:12px;padding:8px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:#78350f">
+                <span>Lịch sử lùi lịch:</span>
+                <span onclick="event.stopPropagation(); _tsShowRescheduleHistoryModal(${o.id}, '${o.order_code}')" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:2px 8px;border-radius:12px;cursor:pointer">📅 Xem hẹn lại (${o.reschedule_count})</span>
+            </div>`;
+        }
         
         if (!items || !items.length) {
             html += '<div style="text-align:center;padding:12px;color:#9ca3af">Không có sản phẩm nào</div>';
@@ -478,6 +487,6 @@ document.addEventListener('DOMContentLoaded', init);
 window.apiCall = api;
 window.currentUser = null;
 </script>
-<script src="/js/pages/trasoat-modal.js?v=20260621_mobile_fix_v2"></script>
+<script src="/js/pages/trasoat-modal.js?v=20260621_reschedule_history"></script>
 </body>
 </html>

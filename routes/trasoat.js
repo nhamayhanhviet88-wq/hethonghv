@@ -101,6 +101,7 @@ module.exports = async function(fastify) {
                 u_created.full_name AS created_by_name,
                 cr2.name AS carrier_name,
                 req.required_steps,
+                (SELECT COUNT(*)::int FROM dht_shipping_reschedules r WHERE r.dht_order_id = o.id) AS reschedule_count,
                 (
                     EXISTS (
                         SELECT 1 FROM qlx_order_print_assignments qa
@@ -255,7 +256,8 @@ module.exports = async function(fastify) {
                 cr2.tracking_url_template AS carrier_tracking_url,
                 cf_ship.cashflow_code AS shipping_cashflow_code,
                 pr_ship.payment_code AS shipping_payment_code,
-                pr_ship.amount AS shipping_payment_amount
+                pr_ship.amount AS shipping_payment_amount,
+                (SELECT COUNT(*)::int FROM dht_shipping_reschedules r WHERE r.dht_order_id = o.id) AS reschedule_count
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -494,7 +496,8 @@ module.exports = async function(fastify) {
                 shipping_fee_method: order.shipping_fee_method,
                 shipping_payment_code: order.shipping_payment_code,
                 shipping_payment_amount: order.shipping_payment_amount,
-                shipping_cashflow_code: order.shipping_cashflow_code
+                shipping_cashflow_code: order.shipping_cashflow_code,
+                reschedule_count: order.reschedule_count
             },
             items: itemsTimeline,
             cutting: cutting.map(c => ({ item_id: c.order_item_id, cutter: c.cutter_name, fabric: c.fabric_name, kg: c.kg_cut, ratio: c.cut_ratio, started: c.cutting_at, done: c.cut_done_at, is_done: c.is_cut_done })),

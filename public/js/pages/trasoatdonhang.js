@@ -314,8 +314,12 @@ function _tsRenderTable(orders, totalCount) {
 
     orders.forEach((o, i) => {
         const pColor = o.progress_percent === 100 ? '#10b981' : o.progress_percent >= 50 ? '#f59e0b' : '#6366f1';
+        const rescheduleBadge = o.reschedule_count > 0 
+            ? `<span onclick="event.stopPropagation(); _tsShowRescheduleHistoryModal(${o.id}, '${o.order_code}')" class="ts-badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;cursor:pointer;font-weight:800;margin-left:4px;" title="Xem lịch sử hẹn lại">📅 Hẹn lại (${o.reschedule_count})</span>`
+            : '';
         const badges = (o.is_repair ? '<span class="ts-badge ts-badge-repair">ĐƠN SỬA</span>' : '') +
-                       (o.is_pet_tem ? '<span class="ts-badge ts-badge-pet">PET/TEM</span>' : '');
+                       (o.is_pet_tem ? '<span class="ts-badge ts-badge-pet">PET/TEM</span>' : '') +
+                       rescheduleBadge;
         const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
         let priClass = 'ts-prio-chuan';
         if (priority === 'GẤP') priClass = 'ts-prio-gap';
@@ -427,7 +431,12 @@ function _tsRenderTimeline(res) {
     const { order: o, items } = res;
     const fmtDT = d => { if (!d) return ''; const dt = new Date(d); return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); };
 
-    let html = '<div style="font-weight:800;font-size:14px;color:#1e1b4b;margin-bottom:12px;padding: 4px 8px;border-left:4px solid #4f46e5;background:#f3f4f6;border-radius:0 4px 4px 0">📋 ' + o.order_code + ' — ' + (o.customer_name||'') + '</div>';
+    let html = `<div style="font-weight:800;font-size:14px;color:#1e1b4b;margin-bottom:12px;padding: 4px 8px;border-left:4px solid #4f46e5;background:#f3f4f6;border-radius:0 4px 4px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <span>📋 ${o.order_code} — ${o.customer_name||''}</span>`;
+    if (o.reschedule_count > 0) {
+        html += `<span onclick="event.stopPropagation(); _tsShowRescheduleHistoryModal(${o.id}, '${o.order_code}')" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Xem lịch sử hẹn lại">📅 Hẹn lại (${o.reschedule_count})</span>`;
+    }
+    html += `</div>`;
     
     if (!items || !items.length) {
         html += '<div style="text-align:center;padding:12px;color:#9ca3af">Không có sản phẩm nào</div>';
