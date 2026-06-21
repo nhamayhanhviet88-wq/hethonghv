@@ -787,4 +787,79 @@ module.exports = async function (fastify) {
         }
         return { success: true, deleted: ids.length };
     });
+
+    // ========== LOCATIONS (Khu vực / Vị trí) ==========
+
+    // GET /api/khovai/locations?wid= — List locations for a warehouse
+    fastify.get('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
+        const { wid } = request.query;
+        if (!wid) return { locations: [] };
+        const rows = await db.all('SELECT * FROM kv_locations WHERE warehouse_id = $1 ORDER BY name', [wid]);
+        return { locations: rows };
+    });
+
+    // POST /api/khovai/locations — Create location
+    fastify.post('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
+        const { warehouse_id, name, description } = request.body || {};
+        if (!warehouse_id) return { error: 'Chưa chọn kho' };
+        if (!name || !name.trim()) return { error: 'Tên vị trí không được trống' };
+
+        const exists = await db.get('SELECT id FROM kv_locations WHERE warehouse_id = $1 AND LOWER(name) = LOWER($2)', [warehouse_id, name.trim()]);
+        if (exists) return { error: 'Tên vị trí này đã tồn tại trong kho' };
+
+        const row = await db.get(
+            `INSERT INTO kv_locations (warehouse_id, name, description) VALUES ($1, $2, $3) RETURNING *`,
+            [warehouse_id, name.trim(), description ? description.trim() : null]
+        );
+        return { success: true, location: row };
+    });
+
+    // PUT /api/khovai/locations/:id — Update location
+    fastify.put('/api/khovai/locations/:id', { preHandler: [authenticate] }, async (request) => {
+        const { name, description } = request.body || {};
+        const id = request.params.id;
+
+        const oldLoc = await db.get('SELECT * FROM kv_locations WHERE id = $1', [id]);
+        if (!oldLoc) return { error: 'Không tìm thấy vị trí' };
+
+        const updates = []; const params = []; let idx = 1;
+        if (name !== undefined) {
+            const newName = name.trim();
+            if (!newName) return { error: 'Tên vị trí không được trống' };
+            const duplicate = await db.get('SELECT id FROM kv_locations WHERE warehouse_id = $1 AND LOWER(name) = LOWER($2) AND id <> $3', [oldLoc.warehouse_id, newName, id]);
+            if (duplicate) return { error: 'Tên vị trí này đã tồn tại trong kho' };
+            updates.push(`name = $${idx++}`);
+            params.push(newName);
+        }
+        if (description !== undefined) {
+            updates.push(`description = $${idx++}`);
+            params.push(description ? description.trim() : null);
+        }
+
+        if (!updates.length) return { error: 'Không có gì thay đổi' };
+
+        params.push(id);
+        await db.run(`UPDATE kv_locations SET ${updates.join(', ')} WHERE id = $${idx}`, params);
+
+        if (name !== undefined && name.trim() !== oldLoc.name) {
+            const newName = name.trim();
+            await db.run('UPDATE kv_materials SET location = $1 WHERE warehouse_id = $2 AND location = $3', [newName, oldLoc.warehouse_id, oldLoc.name]);
+            await db.run('UPDATE kv_fabric_colors SET location = $1 WHERE material_id IN (SELECT id FROM kv_materials WHERE warehouse_id = $2) AND location = $3', [newName, oldLoc.warehouse_id, oldLoc.name]);
+        }
+
+        return { success: true };
+    });
+
+    // DELETE /api/khovai/locations/:id — Delete location
+    fastify.delete('/api/khovai/locations/:id', { preHandler: [authenticate] }, async (request) => {
+        const id = request.params.id;
+        const oldLoc = await db.get('SELECT * FROM kv_locations WHERE id = $1', [id]);
+        if (!oldLoc) return { error: 'Vị trí không tồn tại' };
+
+        await db.run('UPDATE kv_materials SET location = NULL WHERE warehouse_id = $1 AND location = $2', [oldLoc.warehouse_id, oldLoc.name]);
+        await db.run('UPDATE kv_fabric_colors SET location = NULL WHERE material_id IN (SELECT id FROM kv_materials WHERE warehouse_id = $1) AND location = $2', [oldLoc.warehouse_id, oldLoc.name]);
+
+        await db.run('DELETE FROM kv_locations WHERE id = $1', [id]);
+        return { success: true };
+    });
 };

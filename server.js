@@ -208,6 +208,18 @@ async function start() {
         await db.exec('ALTER TABLE don_gui_ao_mau ADD COLUMN rescheduled_ship_date DATE');
     } catch(e) { /* exists */ }
 
+    // Migration: kv_locations - vị trí khu vực trong kho vải
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_locations (
+            id SERIAL PRIMARY KEY,
+            warehouse_id INTEGER NOT NULL REFERENCES kv_warehouses(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(warehouse_id, name)
+        )`);
+    } catch(e) { /* exists */ }
+
 
     // Migration: Payment Records — Sổ Ghi Nhận Tiền (Bộ Phận Văn Phòng)
     try {
