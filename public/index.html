@@ -49,7 +49,11 @@
                         window.location.href = 'https://dongphuchv.net';
                     });
                 } else {
-                    window.location.href = '/dashboard';
+                    if (window.innerWidth < 768 && localStorage.getItem('preferDesktop') !== 'true') {
+                        window.location.href = '/m';
+                    } else {
+                        window.location.href = '/dashboard';
+                    }
                 }
             }
         }).catch(() => {});
@@ -81,7 +85,11 @@
                         errDiv.innerHTML = 'Tài khoản đối tác vui lòng đăng nhập tại <a href="https://dongphuchv.net" style="color:#fad24c;font-weight:700;">dongphuchv.net</a>';
                         errDiv.style.display = 'block';
                     } else {
-                        window.location.href = '/dashboard';
+                        if (window.innerWidth < 768 && localStorage.getItem('preferDesktop') !== 'true') {
+                            window.location.href = '/m';
+                        } else {
+                            window.location.href = '/dashboard';
+                        }
                     }
                 } else if (data.locked && (data.penalties || data.penaltyGroups)) {
                     // Show penalty popup

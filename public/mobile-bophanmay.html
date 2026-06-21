@@ -41,6 +41,8 @@
         @keyframes sn{to{transform:rotate(360deg)}}
         .mb{display:inline-flex;align-items:center;gap:6px;color:#5eead4;font-size:12px;font-weight:600;text-decoration:none;margin:12px 16px;padding:8px 14px;background:rgba(255,255,255,.05);border-radius:8px}
     </style>
+    <!-- Unified Mobile Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
 </head>
 <body>
     <div class="mh"><img src="/images/logo.png" alt="Logo"><h1>🧵 BỘ PHẬN MAY</h1><span class="mu" id="mU">...</span></div>
@@ -118,5 +120,7 @@ function mErr(id){location.href='/donloikhachhang'}
 function mView(id){const r=mr.find(x=>x.id===id);if(r)toast('📄 Phiếu #'+id+': '+cleanProdName(r)+' — SL:'+r.quantity+' — Lương:'+fn(r.salary))}
 mInit();
 </script>
+    <!-- Unified Mobile Navigation Script -->
+    <script src="/js/mobile-nav.js?v=20260621"></script>
 </body>
 </html>

@@ -1234,6 +1234,16 @@ async function start() {
         return reply.sendFile('quanlyaffiliate.html');
     });
 
+    // Mobile Dashboard Hub
+    fastify.get('/m', async (request, reply) => {
+        return reply.sendFile('mobile-hub.html');
+    });
+
+    // Mobile Xin Nghỉ Nhân Viên
+    fastify.get('/m/xinnghinhanvien', async (request, reply) => {
+        return reply.sendFile('mobile-xinnghi.html');
+    });
+
     // Mobile Chuyển Số — standalone touch-optimized page
     fastify.get('/m/chuyen-so', async (request, reply) => {
         return reply.sendFile('mobile-chuyenso.html');

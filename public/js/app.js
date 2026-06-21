@@ -1,3 +1,10 @@
+// ========== MOBILE DEVICE REDIRECT ==========
+if (window.innerWidth < 768 && localStorage.getItem('preferDesktop') !== 'true') {
+    if (window.location.hostname.indexOf('dongphuchv.net') === -1) {
+        window.location.href = '/m';
+    }
+}
+
 // ========== GLOBAL STATE ==========
 let currentUser = null;
 let currentPage = 'dashboard';

@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Xin Nghỉ Nhân Viên — Đồng Phục HV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    
+    <!-- Unified Mobile Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
+    
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            color: #1e293b;
+            padding-bottom: 40px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 12px;
+        }
+        
+        /* Toast style */
+        .mt-c {
+            position: fixed;
+            top: 70px;
+            left: 12px;
+            right: 12px;
+            z-index: 9999;
+        }
+        .mt {
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            animation: mSI 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .mt-s { background: linear-gradient(135deg, #10b981, #059669); }
+        .mt-e { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        @keyframes mSI {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Tabs */
+        .tab-nav {
+            display: flex;
+            background: #e2e8f0;
+            padding: 4px;
+            border-radius: 14px;
+            margin-bottom: 16px;
+            gap: 4px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 10px 8px;
+            border: none;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+            background: transparent;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .tab-btn.active {
+            background: white;
+            color: #1e3a5f;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        /* Content panels */
+        .panel {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .panel.active {
+            display: block;
+        }
+
+        /* Form elements */
+        .card {
+            background: white;
+            border-radius: 16px;
+            border: 1.5px solid #e2e8f0;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            padding: 16px;
+            color: white;
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+        .card-header.stats-header {
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+        }
+        .card-body {
+            padding: 16px;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        input[type="date"], textarea, select {
+            width: 100%;
+            padding: 11px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            color: #1e293b;
+            outline: none;
+            box-sizing: border-box;
+            background: white;
+            transition: border-color 0.15s;
+            -webkit-appearance: none;
+        }
+        input[type="date"]:focus, textarea:focus, select:focus {
+            border-color: #3b82f6;
+        }
+        .mode-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .mode-btn {
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+            background: white;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+        .mode-btn.active {
+            border-color: #10b981;
+            background: #ecfdf5;
+            color: #059669;
+        }
+        .sess-flex {
+            display: flex;
+            gap: 6px;
+        }
+        .sess-btn {
+            flex: 1;
+            padding: 9px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            background: white;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+        .sess-btn.active {
+            border-color: #10b981;
+            background: #ecfdf5;
+            color: #059669;
+        }
+        
+        .total-display {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border: 2px solid #93c5fd;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            margin-bottom: 14px;
+        }
+        .total-val {
+            font-size: 32px;
+            font-weight: 800;
+            color: #1d4ed8;
+        }
+
+        .upload-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 20px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            background: #f8fafc;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .upload-area:active {
+            background: #ecfdf5;
+            border-color: #10b981;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+        .submit-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* History items */
+        .hist-item {
+            padding: 14px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        .hist-item.cancelled {
+            opacity: 0.6;
+            background: #fef2f2;
+            border-color: #fca5a5;
+        }
+        .hist-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+        .hist-date {
+            font-weight: 700;
+            font-size: 13.5px;
+            color: #1e293b;
+        }
+        .hist-status {
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .status-badge-val {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        .status-badge-cancelled {
+            background: #fecaca;
+            color: #dc2626;
+        }
+        .hist-desc {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .cancel-req-btn {
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+            padding: 4px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* Stats tables styling */
+        .dept-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            background: white;
+        }
+        .dept-header {
+            background: #f8fafc;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 700;
+            font-size: 13px;
+        }
+        .dept-badge {
+            background: #c4b5fd;
+            color: #7c3aed;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .stats-table th {
+            background: #7c3aed;
+            color: white;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 8px 6px;
+            text-align: left;
+            text-transform: uppercase;
+        }
+        .stats-table td {
+            padding: 8px 6px;
+            font-size: 11.5px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        /* General styling */
+        .loading {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 12px;
+            padding: 20px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 30px 20px;
+            color: #64748b;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mt-c" id="toastContainer"></div>
+
+    <div class="container">
+        <!-- Tabs selection -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('request', this)">📝 Gửi Đơn</button>
+            <button class="tab-btn" onclick="switchTab('history', this)">📊 Lịch Sử Tôi</button>
+            <button class="tab-btn" id="statsTabBtn" style="display: none;" onclick="switchTab('stats', this)">🏢 Thống Kê</button>
+        </nav>
+
+        <!-- PANEL: REQUEST -->
+        <div class="panel active" id="panel-request">
+            <div class="card">
+                <div class="card-header">📝 ĐƠN XIN NGHỈ PHÉP</div>
+                <div class="card-body">
+                    <!-- MODE -->
+                    <div class="form-group">
+                        <label>Chọn loại nghỉ</label>
+                        <div class="mode-grid">
+                            <button type="button" id="modeOneBtn" class="mode-btn active" onclick="setMode('one')">Nghỉ 1 ngày</button>
+                            <button type="button" id="modeMultiBtn" class="mode-btn" onclick="setMode('multi')">Nghỉ nhiều ngày</button>
+                        </div>
+                    </div>
+
+                    <!-- ONE DAY WRAP -->
+                    <div id="wrapOneDay" class="form-group">
+                        <label>Ngày nghỉ *</label>
+                        <input type="date" id="dateOne" onchange="calcTotalDays()">
+                    </div>
+
+                    <!-- MULTI DAY WRAP -->
+                    <div id="wrapMultiDay" style="display: none;">
+                        <div class="form-group">
+                            <label>Từ ngày *</label>
+                            <input type="date" id="dateFrom" onchange="calcTotalDays()">
+                        </div>
+                        <div class="form-group">
+                            <label>Đến ngày *</label>
+                            <input type="date" id="dateTo" onchange="calcTotalDays()">
+                        </div>
+                    </div>
+
+                    <!-- SESSION SELECTION -->
+                    <div id="wrapSession" style="display: none;" class="form-group">
+                        <label id="sessionLabel">Buổi nghỉ</label>
+                        <div class="sess-flex">
+                            <button type="button" class="sess-btn active" data-val="full" onclick="pickSession('first', 'full', this)">Cả ngày</button>
+                            <button type="button" class="sess-btn" data-val="morning" onclick="pickSession('first', 'morning', this)">Sáng</button>
+                            <button type="button" class="sess-btn" data-val="afternoon" onclick="pickSession('first', 'afternoon', this)">Chiều</button>
+                        </div>
+                        
+                        <div id="wrapLastSession" style="display: none; margin-top: 10px;">
+                            <label>Buổi nghỉ ngày cuối</label>
+                            <div class="sess-flex">
+                                <button type="button" class="sess-btn-last active" data-val="full" onclick="pickSession('last', 'full', this)">Cả ngày</button>
+                                <button type="button" class="sess-btn-last" data-val="morning" onclick="pickSession('last', 'morning', this)">Sáng</button>
+                                <button type="button" class="sess-btn-last" data-val="afternoon" onclick="pickSession('last', 'afternoon', this)">Chiều</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TOTAL DAYS -->
+                    <div id="wrapTotal" style="display: none;" class="total-display">
+                        <div style="font-size: 10px; color: #3b82f6; font-weight: 800; letter-spacing: 0.5px;">TỔNG SỐ BUỔI NGHỈ</div>
+                        <div class="total-val" id="totalDaysLabel">0</div>
+                    </div>
+
+                    <!-- REASON -->
+                    <div class="form-group">
+                        <label>Lý do xin nghỉ *</label>
+                        <textarea id="reason" rows="3" placeholder="Nhập lý do chi tiết..."></textarea>
+                    </div>
+
+                    <!-- HANDOVER -->
+                    <div class="form-group">
+                        <label>Bàn giao việc cho *</label>
+                        <select id="handover">
+                            <option value="">— Chọn người nhận bàn giao —</option>
+                        </select>
+                    </div>
+
+                    <!-- PROOF -->
+                    <div class="form-group">
+                        <label>Ảnh xin phép quản lý (chụp đoạn chat) *</label>
+                        <div id="proofPreview" style="display: none; margin-bottom: 8px; text-align: center;"></div>
+                        <label class="upload-area">
+                            <span style="font-size: 26px;">📸</span>
+                            <span style="font-size: 12px; color: #64748b; font-weight: 700;">Chụp hình / Tải ảnh lên</span>
+                            <input type="file" id="proofFile" accept="image/*" capture="environment" onchange="previewImage(this)" style="display: none;">
+                        </label>
+                    </div>
+
+                    <button class="submit-btn" onclick="submitRequest()">🔔 GỬI ĐƠN XIN NGHỈ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL: HISTORY -->
+        <div class="panel" id="panel-history">
+            <div class="card">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>📊 LỊCH SỬ CỦA TÔI</span>
+                    <input type="month" id="historyMonth" onchange="loadMyHistory()" style="width: auto; padding: 4px 8px; font-size: 11px; color: white; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;">
+                </div>
+                <div class="card-body" id="historyContainer">
+                    <div class="loading">Đang tải lịch sử...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL: STATS -->
+        <div class="panel" id="panel-stats">
+            <div class="card">
+                <div class="card-header stats-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>📊 THỐNG KÊ PHÒNG BAN</span>
+                    <input type="month" id="statsMonth" onchange="loadStats()" style="width: auto; padding: 4px 8px; font-size: 11px; color: white; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;">
+                </div>
+                <div class="card-body" id="statsContainer">
+                    <div class="loading">Đang tải thống kê...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Nav Global JS -->
+    <script src="/js/mobile-nav.js?v=20260621"></script>
+    
+    <script>
+        let currentUser = null;
+        let activeLeaveMode = 'one';
+        let leaveFirstSession = 'full';
+        let leaveLastSession = 'full';
+
+        // API Helper
+        async function apiCall(url, method = 'GET', body = null) {
+            const options = {
+                method,
+                credentials: 'include',
+                headers: {}
+            };
+            if (body) {
+                if (body instanceof FormData) {
+                    options.body = body;
+                } else {
+                    options.headers['Content-Type'] = 'application/json';
+                    options.body = JSON.stringify(body);
+                }
+            }
+            const res = await fetch(url, options);
+            if (res.status === 401 || res.status === 403) {
+                window.location.href = '/index.html';
+                return;
+            }
+            return res.json();
+        }
+
+        function showToast(msg, type = 's') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `mt mt-${type}`;
+            toast.innerHTML = `<span>${msg}</span><span style="cursor:pointer;margin-left:12px;opacity:0.7" onclick="this.parentElement.remove()">✕</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // Init page
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Set current month
+            const now = new Date();
+            const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            document.getElementById('historyMonth').value = currentMonthStr;
+            document.getElementById('statsMonth').value = currentMonthStr;
+
+            try {
+                const res = await apiCall('/api/auth/me');
+                if (!res.user) return;
+                currentUser = res.user;
+
+                // Show stats tab for managers/GD
+                const canViewStats = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role);
+                if (canViewStats) {
+                    document.getElementById('statsTabBtn').style.display = 'block';
+                }
+
+                // Load initial dropdown and history
+                loadColleagues();
+                loadMyHistory();
+                if (canViewStats) loadStats();
+            } catch(e) {
+                console.error(e);
+            }
+        });
+
+        // Tab Switcher
+        function switchTab(tabName, btn) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            
+            btn.classList.add('active');
+            document.getElementById(`panel-${tabName}`).classList.add('active');
+        }
+
+        // Mode setter
+        function setMode(mode) {
+            activeLeaveMode = mode;
+            const oneBtn = document.getElementById('modeOneBtn');
+            const multiBtn = document.getElementById('modeMultiBtn');
+            const wrapOne = document.getElementById('wrapOneDay');
+            const wrapMulti = document.getElementById('wrapMultiDay');
+
+            if (mode === 'one') {
+                oneBtn.classList.add('active');
+                multiBtn.classList.remove('active');
+                wrapOne.style.display = 'block';
+                wrapMulti.style.display = 'none';
+            } else {
+                multiBtn.classList.add('active');
+                oneBtn.classList.remove('active');
+                wrapOne.style.display = 'none';
+                wrapMulti.style.display = 'block';
+            }
+
+            // Reset session pickers
+            leaveFirstSession = 'full';
+            leaveLastSession = 'full';
+            document.querySelectorAll('.sess-btn').forEach((b, i) => {
+                if (i === 0) b.classList.add('active');
+                else b.classList.remove('active');
+            });
+            document.querySelectorAll('.sess-btn-last').forEach((b, i) => {
+                if (i === 0) b.classList.add('active');
+                else b.classList.remove('active');
+            });
+
+            calcTotalDays();
+        }
+
+        // Pick session
+        function pickSession(which, val, btn) {
+            if (which === 'first') {
+                leaveFirstSession = val;
+                document.querySelectorAll('.sess-btn').forEach(b => b.classList.remove('active'));
+            } else {
+                leaveLastSession = val;
+                document.querySelectorAll('.sess-btn-last').forEach(b => b.classList.remove('active'));
+            }
+            btn.classList.add('active');
+            calcTotalDays();
+        }
+
+        // Calculate total days
+        function calcTotalDays() {
+            const wrapSess = document.getElementById('wrapSession');
+            const wrapLast = document.getElementById('wrapLastSession');
+            const wrapTotal = document.getElementById('wrapTotal');
+            const totalEl = document.getElementById('totalDaysLabel');
+            const labelSess = document.getElementById('sessionLabel');
+
+            let fromStr, toStr;
+            if (activeLeaveMode === 'one') {
+                const val = document.getElementById('dateOne').value;
+                if (!val) {
+                    wrapSess.style.display = 'none';
+                    wrapTotal.style.display = 'none';
+                    return;
+                }
+                fromStr = val;
+                toStr = val;
+                labelSess.textContent = 'Buổi nghỉ';
+            } else {
+                const f = document.getElementById('dateFrom').value;
+                const t = document.getElementById('dateTo').value;
+                if (!f || !t) {
+                    wrapSess.style.display = 'none';
+                    wrapTotal.style.display = 'none';
+                    return;
+                }
+                fromStr = f;
+                toStr = t;
+                labelSess.textContent = 'Buổi nghỉ ngày đầu';
+            }
+
+            const from = new Date(fromStr);
+            const to = new Date(toStr);
+            
+            if (from > to) {
+                wrapTotal.style.display = 'none';
+                return;
+            }
+
+            wrapSess.style.display = 'block';
+            const diffMs = to - from;
+            const diffDays = Math.round(diffMs / 86400000);
+
+            // Show/hide last day session picker (only for multi-day)
+            wrapLast.style.display = diffDays > 0 ? 'block' : 'none';
+
+            let total = 0;
+            if (diffDays === 0) {
+                total = leaveFirstSession === 'full' ? 1 : 0.5;
+            } else {
+                total += leaveFirstSession === 'full' ? 1 : 0.5;
+                total += Math.max(0, diffDays - 1);
+                total += leaveLastSession === 'full' ? 1 : 0.5;
+            }
+
+            wrapTotal.style.display = 'block';
+            totalEl.textContent = total;
+        }
+
+        // Image preview
+        function previewImage(input) {
+            const preview = document.getElementById('proofPreview');
+            if (!preview || !input.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.style.display = 'block';
+                preview.innerHTML = `<img src="${e.target.result}" style="max-width:100%;max-height:160px;border-radius:10px;border:1.5px solid #cbd5e1;box-shadow:var(--shadow-sm);">`;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+
+        // Load Handover colleagues
+        async function loadColleagues() {
+            try {
+                const data = await apiCall('/api/leave/colleagues');
+                const select = document.getElementById('handover');
+                if (!data || !data.colleagues) return;
+                data.colleagues.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.full_name;
+                    select.appendChild(opt);
+                });
+            } catch(e) {}
+        }
+
+        // Submit Leave Request
+        async function submitRequest() {
+            let dateFrom, dateTo;
+
+            if (activeLeaveMode === 'one') {
+                const val = document.getElementById('dateOne').value;
+                if (!val) return alert('Vui lòng chọn ngày nghỉ');
+                dateFrom = val;
+                dateTo = val;
+            } else {
+                dateFrom = document.getElementById('dateFrom').value;
+                dateTo = document.getElementById('dateTo').value;
+                if (!dateFrom || !dateTo) return alert('Vui lòng chọn từ ngày đến ngày');
+            }
+
+            const reason = document.getElementById('reason').value.trim();
+            const handover = document.getElementById('handover').value;
+            const proofFile = document.getElementById('proofFile').files[0];
+
+            if (!reason) return alert('Vui lòng nhập lý do xin nghỉ');
+            if (!handover) return alert('Vui lòng chọn người nhận bàn giao');
+            if (!proofFile) return alert('Vui lòng upload ảnh xin phép quản lý');
+
+            const formData = new FormData();
+            formData.append('date_from', dateFrom);
+            formData.append('date_to', dateTo);
+            formData.append('first_day_session', leaveFirstSession);
+            formData.append('last_day_session', activeLeaveMode === 'one' ? leaveFirstSession : leaveLastSession);
+            formData.append('reason', reason);
+            formData.append('handover_user_id', handover);
+            formData.append('proof', proofFile);
+
+            try {
+                const res = await fetch('/api/leave/request', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                showToast('✅ Gửi đơn xin nghỉ thành công!');
+                
+                // Clear fields
+                document.getElementById('dateOne').value = '';
+                document.getElementById('dateFrom').value = '';
+                document.getElementById('dateTo').value = '';
+                document.getElementById('reason').value = '';
+                document.getElementById('handover').value = '';
+                document.getElementById('proofFile').value = '';
+                document.getElementById('proofPreview').style.display = 'none';
+                document.getElementById('wrapSession').style.display = 'none';
+                document.getElementById('wrapTotal').style.display = 'none';
+
+                // Sync UI and Switch to History Tab
+                const subMonth = dateFrom.substring(0, 7);
+                document.getElementById('historyMonth').value = subMonth;
+                loadMyHistory();
+                
+                const histTabBtn = document.querySelectorAll('.tab-btn')[1];
+                switchTab('history', histTabBtn);
+
+                if (['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
+                    document.getElementById('statsMonth').value = subMonth;
+                    loadStats();
+                }
+            } catch(e) {
+                alert('Lỗi: ' + e.message);
+            }
+        }
+
+        // Load my history
+        async function loadMyHistory() {
+            const container = document.getElementById('historyContainer');
+            const month = document.getElementById('historyMonth').value;
+            container.innerHTML = '<div class="loading">⏳ Đang tải lịch sử...</div>';
+
+            try {
+                const data = await apiCall(`/api/leave/my-history?month=${month}`);
+                const items = data.history || [];
+                const total = data.total_days || 0;
+
+                if (items.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div style="font-size:32px; margin-bottom:6px;">☕</div>
+                            <div style="font-weight:700;">Không có đơn xin nghỉ</div>
+                            <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Trong tháng này bạn chưa nghỉ buổi nào.</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = items.map(item => {
+                    const fromF = item.date_from.split('-').reverse().join('/');
+                    const toF = item.date_to.split('-').reverse().join('/');
+                    const dateRange = item.date_from === item.date_to ? fromF : `${fromF} → ${toF}`;
+                    const isCancelled = item.status === 'cancelled';
+                    
+                    const today = new Date();
+                    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+                    const canCancel = !isCancelled && item.date_from > todayStr;
+
+                    let sessionInfo = '';
+                    if (item.date_from !== item.date_to) {
+                        const fs = item.first_day_session === 'morning' ? '(sáng)' : item.first_day_session === 'afternoon' ? '(chiều)' : '';
+                        const ls = item.last_day_session === 'morning' ? '(sáng)' : item.last_day_session === 'afternoon' ? '(chiều)' : '';
+                        if (fs || ls) sessionInfo = ` — ${fs ? 'Đầu ' + fs : ''} ${ls ? 'Cuối ' + ls : ''}`;
+                    } else {
+                        const fs = item.first_day_session === 'morning' ? '(sáng)' : item.first_day_session === 'afternoon' ? '(chiều)' : '(cả ngày)';
+                        sessionInfo = ` ${fs}`;
+                    }
+
+                    return `
+                        <div class="hist-item ${isCancelled ? 'cancelled' : ''}">
+                            <div class="hist-top">
+                                <div class="hist-date">📅 ${dateRange}${sessionInfo}</div>
+                                <span class="hist-status ${isCancelled ? 'status-badge-cancelled' : 'status-badge-val'}">
+                                    ${isCancelled ? 'Đã hủy' : parseFloat(item.total_days) + ' buổi'}
+                                </span>
+                            </div>
+                            <div class="hist-desc">
+                                <div><strong>Lý do:</strong> ${item.reason}</div>
+                                ${item.handover_name ? `<div><strong>Bàn giao:</strong> ${item.handover_name}</div>` : ''}
+                            </div>
+                            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; align-items:center;">
+                                ${item.proof_image ? `<a href="${item.proof_image}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;font-weight:700;">🖼️ Xem ảnh</a>` : ''}
+                                ${canCancel ? `<button class="cancel-req-btn" onclick="cancelRequest(${item.id})">Hủy đơn</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                html += `
+                    <div style="text-align:right; padding:10px 0; border-top:2px solid #e2e8f0; margin-top:12px; font-weight:700;">
+                        <span>Tổng ngày nghỉ tháng: </span>
+                        <span style="color:#2563eb; font-size:18px;">${total}</span> buổi
+                    </div>
+                `;
+                container.innerHTML = html;
+
+            } catch(e) {
+                container.innerHTML = `<div style="color:red; text-align:center; padding:20px;">Lỗi tải dữ liệu: ${e.message}</div>`;
+            }
+        }
+
+        // Cancel request
+        async function cancelRequest(id) {
+            if (!confirm('Bạn có chắc chắn muốn hủy đơn xin nghỉ này không?')) return;
+            try {
+                const res = await apiCall(`/api/leave/cancel/${id}`, 'POST');
+                if (res.error) return alert(res.error);
+                showToast('✅ Hủy đơn thành công!');
+                loadMyHistory();
+                if (['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
+                    loadStats();
+                }
+            } catch(e) {
+                alert('Lỗi: ' + e.message);
+            }
+        }
+
+        // Load department stats
+        async function loadStats() {
+            const container = document.getElementById('statsContainer');
+            const month = document.getElementById('statsMonth').value;
+            container.innerHTML = '<div class="loading">⏳ Đang tải thống kê...</div>';
+
+            try {
+                const data = await apiCall(`/api/leave/stats?month=${month}`);
+                const stats = data.stats || [];
+
+                if (stats.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div style="font-size:32px; margin-bottom:6px;">😊</div>
+                            <div style="font-weight:700;">Không có nhân viên xin nghỉ</div>
+                            <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Trong tháng này chưa có ai xin nghỉ phép.</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Group by department → user
+                const byDept = {};
+                stats.forEach(s => {
+                    const deptName = s.dept_name || 'Khác';
+                    if (!byDept[deptName]) byDept[deptName] = {};
+                    const uid = s.user_id;
+                    if (!byDept[deptName][uid]) {
+                        byDept[deptName][uid] = { name: s.user_name, items: [], total: 0 };
+                    }
+                    byDept[deptName][uid].items.push(s);
+                    byDept[deptName][uid].total += parseFloat(s.total_days);
+                });
+
+                let html = '';
+                let grandTotal = 0;
+
+                Object.keys(byDept).sort().forEach(deptName => {
+                    const users = byDept[deptName];
+                    let deptTotal = 0;
+                    let rows = '';
+
+                    Object.keys(users).forEach(uid => {
+                        const u = users[uid];
+                        deptTotal += u.total;
+
+                        u.items.forEach((item, index) => {
+                            const fromF = item.date_from.split('-').reverse().join('/');
+                            const toF = item.date_to.split('-').reverse().join('/');
+                            const dateRange = item.date_from === item.date_to ? fromF : `${fromF}→${toF}`;
+
+                            rows += `
+                                <tr>
+                                    ${index === 0 ? `<td rowspan="${u.items.length}" style="font-weight:700; color:#1e293b; vertical-align:top; border-right:1px solid #e2e8f0; max-width:90px; overflow:hidden; text-overflow:ellipsis;">${u.name}</td>` : ''}
+                                    <td style="color:#475569;">${dateRange}</td>
+                                    <td style="font-weight:700; color:#2563eb; text-align:center;">${parseFloat(item.total_days)}</td>
+                                    <td style="max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#64748b;" title="${item.reason}">${item.reason}</td>
+                                    <td>${item.proof_image ? `<a href="${item.proof_image}" target="_blank" style="text-decoration:none;">🖼️</a>` : '—'}</td>
+                                </tr>
+                            `;
+                        });
+                    });
+
+                    grandTotal += deptTotal;
+
+                    html += `
+                        <div class="dept-card">
+                            <div class="dept-header">
+                                <span>🏢 ${deptName}</span>
+                                <span class="dept-badge">${deptTotal} buổi</span>
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table class="stats-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nhân Viên</th>
+                                            <th>Ngày Nghỉ</th>
+                                            <th style="text-align:center;">Buổi</th>
+                                            <th>Lý do</th>
+                                            <th>Ảnh</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                    <div style="background:linear-gradient(135deg, #7c3aed, #6d28d9); color:white; border-radius:12px; padding:16px; display:flex; justify-content:space-between; align-items:center; margin-top:14px; font-weight:700;">
+                        <span>📊 TỔNG CỘNG CẢ XƯỞNG</span>
+                        <span style="font-size:20px;">${grandTotal} buổi</span>
+                    </div>
+                `;
+
+                container.innerHTML = html;
+
+            } catch(e) {
+                container.innerHTML = `<div style="color:red; text-align:center; padding:20px;">Lỗi tải dữ liệu: ${e.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

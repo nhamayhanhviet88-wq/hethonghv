@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trang Chủ Mobile — Đồng Phục HV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    
+    <!-- Unified Mobile Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
+    
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            color: #1e293b;
+            padding-bottom: 40px;
+        }
+        .hub-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+        
+        /* Welcome card */
+        .welcome-card {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            border-radius: 20px;
+            padding: 24px;
+            color: white;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            animation: fadeInDown 0.5s ease-out;
+        }
+        .welcome-card::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            right: -30px;
+            width: 130px;
+            height: 130px;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .welcome-title {
+            font-size: 15px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 4px;
+        }
+        .welcome-name {
+            font-size: 24px;
+            font-weight: 800;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .welcome-role {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-top: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .welcome-date {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Search wrap */
+        .search-wrap {
+            margin-bottom: 20px;
+            animation: fadeInUp 0.5s ease-out 0.1s both;
+        }
+        .search-box {
+            width: 100%;
+            padding: 14px 16px 14px 46px;
+            border-radius: 16px;
+            border: 2px solid #e2e8f0;
+            background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E") no-repeat 16px center;
+            font-size: 16px;
+            font-family: inherit;
+            color: #0f172a;
+            outline: none;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+            -webkit-appearance: none;
+        }
+        .search-box:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            background-color: white;
+        }
+
+        /* Grid section */
+        .section-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 12px;
+            padding-left: 4px;
+            animation: fadeIn 0.4s ease-out 0.2s both;
+        }
+        
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+            animation: fadeInUp 0.5s ease-out 0.25s both;
+        }
+
+        /* Menu card style */
+        .menu-card {
+            background: white;
+            border-radius: 18px;
+            padding: 20px 16px;
+            text-align: center;
+            text-decoration: none;
+            color: #1e293b;
+            border: 1.5px solid #e2e8f0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .menu-card:active {
+            transform: scale(0.96);
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+        .menu-card-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.06));
+            transition: transform 0.2s;
+        }
+        .menu-card:active .menu-card-icon {
+            transform: scale(1.1);
+        }
+        .menu-card-label {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #334155;
+            line-height: 1.3;
+        }
+
+        /* Access blocked warning */
+        .no-access-warn {
+            background: #fffbeb;
+            border: 1px dashed #f59e0b;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            display: none;
+        }
+
+        /* Notifications toast container */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+        .toast-msg {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 10px 25px rgba(220, 38, 38, 0.25);
+            margin-bottom: 8px;
+            animation: slideInDown 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            pointer-events: auto;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Unified Mobile Header & Drawer Script will inject here automatically -->
+    
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="hub-container">
+        <!-- Profile Greeting -->
+        <div class="welcome-card">
+            <div class="welcome-title">Xin chào,</div>
+            <div class="welcome-name" id="userFullName">Đang tải...</div>
+            <div class="welcome-role" id="userRoleBadge">...</div>
+            <div class="welcome-date">
+                <span>📅</span> <span id="currentDateStr">Đang tải ngày...</span>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="search-wrap">
+            <input type="search" id="searchInput" class="search-box" placeholder="Tìm bộ phận, công việc..." inputmode="search" enterkeyhint="search">
+        </div>
+
+        <!-- Menu Section -->
+        <div class="section-title">Danh sách bộ phận</div>
+        
+        <div class="no-access-warn" id="noAccessWarn">
+            <div style="font-size: 32px; margin-bottom: 8px;">🔒</div>
+            <div style="font-weight: 700; color: #b45309; font-size: 14px;">Chưa được phân quyền</div>
+            <div style="font-size: 12px; color: #78350f; margin-top: 4px;">Tài khoản của bạn chưa có quyền xem các trang mobile của xưởng. Vui lòng liên hệ Admin.</div>
+        </div>
+
+        <div class="menu-grid" id="menuGrid">
+            <!-- Dynamically Rendered Permitted Cards -->
+        </div>
+    </div>
+
+    <!-- Mobile Nav Global JS (handles session fetch, authorization, injects header & sidebar) -->
+    <script src="/js/mobile-nav.js?v=20260621"></script>
+    
+    <script>
+        // Local Hub page rendering logic
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check for redirect unauthorized messages
+            const redirectToast = sessionStorage.getItem('unauthorized_redirect_toast');
+            if (redirectToast) {
+                sessionStorage.removeItem('unauthorized_redirect_toast');
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = 'toast-msg';
+                toast.textContent = redirectToast;
+                container.appendChild(toast);
+                setTimeout(() => toast.remove(), 4000);
+            }
+
+            // Load today date format Vietnam
+            const now = new Date();
+            const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+            const dateString = `${days[now.getDay()]}, ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth()+1).padStart(2, '0')}/${now.getFullYear()}`;
+            document.getElementById('currentDateStr').textContent = dateString;
+
+            try {
+                // Fetch User Details to render hub greeting & grid
+                const res = await fetch('/api/auth/me');
+                if (res.status === 401 || res.status === 403) return;
+                const data = await res.json();
+                if (!data.user) return;
+
+                const user = data.user;
+                const perms = user.permissions || {};
+
+                document.getElementById('userFullName').textContent = user.full_name;
+                
+                const roleBadge = document.getElementById('userRoleBadge');
+                roleBadge.textContent = ROLE_MAP[user.role] || user.role;
+                roleBadge.className = `welcome-role profile-role-${user.role}`;
+
+                // Build permitted grid
+                const grid = document.getElementById('menuGrid');
+                let cardsHtml = '';
+                let hasAnyCard = false;
+
+                // Loop through items in MOBILE_MENU_CONFIG (skip 'hub' itself)
+                MOBILE_MENU_CONFIG.forEach(item => {
+                    if (item.id === 'hub') return; // Skip home card
+
+                    let isPermitted = false;
+                    if (user.role === 'giam_doc') {
+                        isPermitted = true;
+                    } else {
+                        const userPerm = perms[item.permKey];
+                        if (userPerm && userPerm.can_view) {
+                            isPermitted = true;
+                        }
+                    }
+
+                    if (isPermitted) {
+                        hasAnyCard = true;
+                        cardsHtml += `
+                            <a href="${item.href}" class="menu-card" data-label="${item.label.toLowerCase()}">
+                                <div class="menu-card-icon">${item.icon}</div>
+                                <div class="menu-card-label">${item.label}</div>
+                            </a>
+                        `;
+                    }
+                });
+
+                if (hasAnyCard) {
+                    grid.innerHTML = cardsHtml;
+                    document.getElementById('noAccessWarn').style.display = 'none';
+                } else {
+                    document.getElementById('noAccessWarn').style.display = 'block';
+                }
+
+                // Add Real-time search inside hub grid
+                const searchInput = document.getElementById('searchInput');
+                searchInput.addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase().trim();
+                    const cards = grid.querySelectorAll('.menu-card');
+                    cards.forEach(card => {
+                        const label = card.getAttribute('data-label');
+                        if (label.includes(query)) {
+                            card.style.display = 'flex';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                });
+
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        searchInput.blur();
+                    }
+                });
+
+            } catch (err) {
+                console.error('Error loading mobile hub details:', err);
+            }
+        });
+    </script>
+</body>
+</html>
