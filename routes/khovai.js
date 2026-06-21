@@ -92,25 +92,26 @@ module.exports = async function (fastify) {
 
     // POST /api/khovai/materials — Create material
     fastify.post('/api/khovai/materials', { preHandler: [authenticate] }, async (request) => {
-        const { warehouse_id, name } = request.body || {};
+        const { warehouse_id, name, location } = request.body || {};
         if (!warehouse_id) return { error: 'Chưa chọn kho' };
         if (!name || !name.trim()) return { error: 'Tên chất liệu không được trống' };
 
         const maxOrder = await db.get('SELECT COALESCE(MAX(display_order),0)+1 AS next FROM kv_materials WHERE warehouse_id=$1', [warehouse_id]);
         const row = await db.get(
-            `INSERT INTO kv_materials (warehouse_id, name, display_order) VALUES ($1, $2, $3) RETURNING *`,
-            [warehouse_id, name.trim(), maxOrder.next]
+            `INSERT INTO kv_materials (warehouse_id, name, display_order, location) VALUES ($1, $2, $3, $4) RETURNING *`,
+            [warehouse_id, name.trim(), maxOrder.next, location ? location.trim() : null]
         );
         return { success: true, material: row };
     });
 
     // PUT /api/khovai/materials/:id — Update material
     fastify.put('/api/khovai/materials/:id', { preHandler: [authenticate] }, async (request) => {
-        const { name, display_order, original_tree_threshold } = request.body || {};
+        const { name, display_order, original_tree_threshold, location } = request.body || {};
         const updates = []; const params = []; let idx = 1;
         if (name !== undefined) { updates.push(`name = $${idx++}`); params.push(name.trim()); }
         if (display_order !== undefined) { updates.push(`display_order = $${idx++}`); params.push(display_order); }
         if (original_tree_threshold !== undefined) { updates.push(`original_tree_threshold = $${idx++}`); params.push(original_tree_threshold); }
+        if (location !== undefined) { updates.push(`location = $${idx++}`); params.push(location ? location.trim() : null); }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push('updated_at = NOW()');
         params.push(request.params.id);
@@ -147,26 +148,27 @@ module.exports = async function (fastify) {
 
     // POST /api/khovai/colors — Create color
     fastify.post('/api/khovai/colors', { preHandler: [authenticate] }, async (request) => {
-        const { material_id, color_name, price, original_tree_threshold } = request.body || {};
+        const { material_id, color_name, price, original_tree_threshold, location } = request.body || {};
         if (!material_id) return { error: 'Chưa chọn chất liệu' };
         if (!color_name || !color_name.trim()) return { error: 'Tên màu không được trống' };
 
         const row = await db.get(
-            `INSERT INTO kv_fabric_colors (material_id, color_name, price, original_tree_threshold)
-             VALUES ($1, $2, $3, $4) RETURNING *`,
-            [material_id, color_name.trim(), price || 0, original_tree_threshold || 10]
+            `INSERT INTO kv_fabric_colors (material_id, color_name, price, original_tree_threshold, location)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [material_id, color_name.trim(), price || 0, original_tree_threshold || 10, location ? location.trim() : null]
         );
         return { success: true, color: row };
     });
 
     // PUT /api/khovai/colors/:id — Update color (name, price, threshold)
     fastify.put('/api/khovai/colors/:id', { preHandler: [authenticate] }, async (request) => {
-        const { color_name, price, original_tree_threshold, notes } = request.body || {};
+        const { color_name, price, original_tree_threshold, notes, location } = request.body || {};
         const updates = []; const params = []; let idx = 1;
         if (color_name !== undefined) { updates.push(`color_name = $${idx++}`); params.push(color_name.trim()); }
         if (price !== undefined) { updates.push(`price = $${idx++}`); params.push(price); }
         if (original_tree_threshold !== undefined) { updates.push(`original_tree_threshold = $${idx++}`); params.push(original_tree_threshold); }
         if (notes !== undefined) { updates.push(`notes = $${idx++}`); params.push(notes); }
+        if (location !== undefined) { updates.push(`location = $${idx++}`); params.push(location ? location.trim() : null); }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push('updated_at = NOW()');
         params.push(request.params.id);
@@ -178,6 +180,7 @@ module.exports = async function (fastify) {
         if (color_name !== undefined) changes.push('Đổi tên màu: ' + color_name);
         if (price !== undefined) changes.push('Đổi giá: ' + price);
         if (original_tree_threshold !== undefined) changes.push('Đổi ngưỡng cây nguyên: ' + original_tree_threshold);
+        if (location !== undefined) changes.push('Đổi vị trí kho: ' + (location || 'Trống'));
         if (changes.length) {
             await db.run(
                 `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
@@ -610,6 +613,9 @@ module.exports = async function (fastify) {
                    fc.notes, fc.material_id, fc.updated_at,
                    m.name AS material_name, m.warehouse_id,
                    w.name AS warehouse_name, w.unit,
+                   fc.location AS color_location,
+                   m.location AS material_location,
+                   COALESCE(NULLIF(fc.location, ''), NULLIF(m.location, '')) AS location,
                    COALESCE((SELECT SUM(t.quantity) FROM kv_transactions t
                              WHERE t.fabric_color_id = fc.id AND t.tx_type = 'NHAP'), 0) AS dau_ky,
                    GREATEST(0, COALESCE((SELECT SUM(t.quantity) FROM kv_transactions t

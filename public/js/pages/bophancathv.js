@@ -733,7 +733,10 @@ function _bpcMapRecordRow(r, i) {
             +nameHtml
             +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
             +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
-            +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
+            +'<td style="font-size:10px">'
+            +(r.fabric_color||'—')
+            +(r.warehouse_location ? '<br><span style="background:#e0f2fe;color:#0369a1;font-weight:700;padding:1px 4px;border-radius:3px;font-size:9px;display:inline-block;margin-top:2px" title="Vị trí kho vải">📍 ' + r.warehouse_location + '</span>' : '')
+            +'</td>'
             +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
             +'<td style="text-align:center;font-weight:700;color:'+cutColor+'">'+_bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category)+'</td>'
             +'<td style="text-align:center;font-weight:700;color:#dc2626">'+_bpcFmtKg(r.kg_cut)+'</td>'
@@ -757,7 +760,10 @@ function _bpcMapRecordRow(r, i) {
         +nameHtml
         +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
-        +'<td style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
+        +'<td style="font-size:10px">'
+        +(r.fabric_color||'—')
+        +(r.warehouse_location ? '<br><span style="background:#e0f2fe;color:#0369a1;font-weight:700;padding:1px 4px;border-radius:3px;font-size:9px;display:inline-block;margin-top:2px" title="Vị trí kho vải">📍 ' + r.warehouse_location + '</span>' : '')
+        +'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+cutColor+'">'+(r.is_cut_done ? _bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category) : '—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.is_cut_done ? _bpcFmtKg(r.kg_cut) : '—')+'</td>'

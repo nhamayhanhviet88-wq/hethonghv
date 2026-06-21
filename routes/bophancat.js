@@ -567,6 +567,7 @@ module.exports = async function(fastify) {
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
                    cr.multi_cut_group_id, cr.unit_price, cr.salary, cr.wash_items, cr.wash_market_image,
+                   COALESCE(NULLIF(fc.location, ''), NULLIF(m.location, '')) AS warehouse_location,
                    (
                        SELECT sub.cut_quantity 
                        FROM cutting_records sub 
@@ -601,26 +602,27 @@ module.exports = async function(fastify) {
                    t.target_ratio AS target_cut_ratio,
                    w.unit AS fabric_unit,
                    sch.cut_expected_at
-            FROM cutting_records cr
-            LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
-            LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
-            LEFT JOIN users u_salary ON cr.salary_approved_by = u_salary.id
-            LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
-            LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
-            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
-            LEFT JOIN users u_created ON o.created_by = u_created.id
-            LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
-            LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
-            LEFT JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
-            LEFT JOIN qlx_item_schedules sch ON sch.dht_order_id = cr.dht_order_id AND (sch.order_item_id = cr.order_item_id OR (sch.order_item_id IS NULL AND cr.order_item_id IS NULL))
-            LEFT JOIN LATERAL (
-                SELECT h.details, h.performed_at, h.performed_by
-                FROM cutting_history h WHERE h.cutting_id = cr.id
-                ORDER BY h.performed_at DESC LIMIT 1
-            ) lh ON true
-            LEFT JOIN users lh_user ON lh.performed_by = lh_user.id
-            ${where}
-            ORDER BY cr.is_cutting DESC, COALESCE(cr.multi_cut_group_id, 'ZZZ') ASC, o.order_code ASC NULLS LAST, (CASE WHEN COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%' THEN 1 ELSE 0 END) ASC, cr.product_name ASC, cr.created_at DESC
+             FROM cutting_records cr
+             LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
+             LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
+             LEFT JOIN users u_salary ON cr.salary_approved_by = u_salary.id
+             LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
+             LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
+             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+             LEFT JOIN users u_created ON o.created_by = u_created.id
+             LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
+             LEFT JOIN kv_fabric_colors fc ON fc.material_id = m.id AND fc.color_name = cr.fabric_color AND fc.is_active = true
+             LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
+             LEFT JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
+             LEFT JOIN qlx_item_schedules sch ON sch.dht_order_id = cr.dht_order_id AND (sch.order_item_id = cr.order_item_id OR (sch.order_item_id IS NULL AND cr.order_item_id IS NULL))
+             LEFT JOIN LATERAL (
+                 SELECT h.details, h.performed_at, h.performed_by
+                 FROM cutting_history h WHERE h.cutting_id = cr.id
+                 ORDER BY h.performed_at DESC LIMIT 1
+             ) lh ON true
+             LEFT JOIN users lh_user ON lh.performed_by = lh_user.id
+             ${where}
+             ORDER BY cr.is_cutting DESC, COALESCE(cr.multi_cut_group_id, 'ZZZ') ASC, o.order_code ASC NULLS LAST, (CASE WHEN COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%' THEN 1 ELSE 0 END) ASC, cr.product_name ASC, cr.created_at DESC
         `, params);
 
         return { records };
@@ -637,6 +639,7 @@ module.exports = async function(fastify) {
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
                    cr.multi_cut_group_id, cr.unit_price, cr.salary, cr.wash_items, cr.wash_market_image,
+                   COALESCE(NULLIF(fc.location, ''), NULLIF(m.location, '')) AS warehouse_location,
                    (
                        SELECT sub.cut_quantity 
                        FROM cutting_records sub 
@@ -684,6 +687,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
             LEFT JOIN kv_materials m ON m.name = cr.material_name AND m.is_active = true
+            LEFT JOIN kv_fabric_colors fc ON fc.material_id = m.id AND fc.color_name = cr.fabric_color AND fc.is_active = true
             LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
             LEFT JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
             LEFT JOIN qlx_item_schedules sch ON sch.dht_order_id = cr.dht_order_id AND (sch.order_item_id = cr.order_item_id OR (sch.order_item_id IS NULL AND cr.order_item_id IS NULL))

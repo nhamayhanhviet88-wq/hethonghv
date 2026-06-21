@@ -186,12 +186,13 @@ function _kvRenderTable() {
     if (searchKey) {
         sorted = sorted.filter(function(r) {
             return (r.color_name || '').toLowerCase().indexOf(searchKey) >= 0
-                || (r.material_name || '').toLowerCase().indexOf(searchKey) >= 0;
+                || (r.material_name || '').toLowerCase().indexOf(searchKey) >= 0
+                || (r.location || '').toLowerCase().indexOf(searchKey) >= 0;
         });
     }
 
     if (!sorted.length) {
-        wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400)"><div style="font-size:32px">\ud83d\udd0d</div><div style="margin-top:8px">' + (searchKey ? 'Kh\u00f4ng t\u00ecm th\u1ea5y "' + searchKey + '"' : 'Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u kho v\u1ea3i') + '</div></div>';
+        wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400)"><div style="font-size:32px">\ud83d\udd0d</div><div style="margin-top:8px">' + (searchKey ? 'Không tìm thấy "' + searchKey + '"' : 'Chưa có dữ liệu kho vải') + '</div></div>';
         return;
     }
     // Sort icon helper
@@ -201,7 +202,7 @@ function _kvRenderTable() {
     }
     var thC = 'cursor:pointer;user-select:none';
     var h = '<table class="kv-table"><thead><tr>';
-    h += '<th>#</th><th>T\u00ean V\u1ea3i</th><th>Ch\u1ea5t Li\u1ec7u</th><th>Kho</th><th>\u0110VT</th>';
+    h += '<th>#</th><th>T\u00ean V\u1ea3i</th><th>Ch\u1ea5t Li\u1ec7u</th><th>Kho</th><th>\u0110VT</th><th>V\u1ecb Tr\u00ed Kho</th>';
     h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'so_cuc\')">' + 'S\u1ed1 C\u1ee5c' + sIco('so_cuc') + '</th>';
     h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'cay_nguyen\')">' + 'C\u00e2y Nguy\u00ean' + sIco('cay_nguyen') + '</th>';
     h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'dau_ky\')">' + '\u0110\u1ea7u K\u1ef3' + sIco('dau_ky') + '</th>';
@@ -238,6 +239,7 @@ function _kvRenderTable() {
         h += '<td>' + (r.material_name||'') + '</td>';
         h += '<td style="font-size:10px;color:#64748b">' + (r.warehouse_name||'') + '</td>';
         h += '<td style="font-size:10px">' + (r.unit||'kg') + '</td>';
+        h += '<td style="font-size:11px;font-weight:600;color:#0284c7">' + (r.location||'—') + '</td>';
         h += '<td style="text-align:right;font-weight:700">' + (r.so_cuc||0) + '</td>';
         h += '<td style="text-align:right;font-weight:700;color:' + cayNguyenColor + '">' + (r.cay_nguyen||0) + '</td>';
         h += '<td style="text-align:right;font-weight:700;color:#059669">' + _kvFmt(r.dau_ky) + '</td>';
@@ -275,6 +277,7 @@ async function _kvShowDetail(fcid) {
         ['CHẤT LIỆU', r.material_name || ''],
         ['MÀU', r.color_name || ''],
         ['ĐƠN VỊ TÍNH', r.unit || 'kg'],
+        ['VỊ TRÍ KHO', '<b style="color:#0284c7">' + (r.location || '—') + '</b>' + (r.location ? (r.color_location ? ' <span style="font-weight:normal;font-size:10px;color:#059669">(Riêng của màu)</span>' : (r.material_location ? ' <span style="font-weight:normal;font-size:10px;color:#64748b">(Theo chất liệu)</span>' : '')) : '')],
         ['SỐ CỤC', '<b>' + (r.so_cuc||0) + '</b>'],
         ['ĐẦU KỲ', '<b style="color:#059669">' + _kvFmt(r.dau_ky) + '</b>'],
         ['XUẤT', '<b style="color:#dc2626">' + _kvFmt(r.xuat) + '</b>'],
