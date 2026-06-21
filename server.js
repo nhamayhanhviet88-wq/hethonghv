@@ -1322,6 +1322,11 @@ async function start() {
         return reply.sendFile('mobile-kiemkho.html');
     });
 
+    // Mobile Quản Lý Kho Vải — standalone touch-optimized page
+    fastify.get('/m/quanlykhovai', async (request, reply) => {
+        return reply.sendFile('mobile-quanlykhovai.html');
+    });
+
     // Mobile Nhập Xuất Hoàn Vải — standalone touch-optimized page
     fastify.get('/m/nhapxuathoanvai', async (request, reply) => {
         return reply.sendFile('mobile-nhapxuathoanvai.html');
