@@ -758,6 +758,12 @@ function _qkvStartQRScan() {
     _qkvScanner = new Html5Qrcode("qkvQrReader");
     var config = { fps: 10, qrbox: { width: 240, height: 240 } };
     
+    if (!window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        showToast('⚠️ Trình duyệt yêu cầu kết nối bảo mật HTTPS để mở camera! Vui lòng đổi sang địa chỉ https://', 'error');
+        _qkvStopQRScan();
+        return;
+    }
+
     _qkvScanner.start(
         { facingMode: "environment" },
         config,
@@ -769,7 +775,12 @@ function _qkvStartQRScan() {
         }
     ).catch(function(err) {
         console.error(err);
-        showToast('Không truy cập được camera. Hãy chắc chắn bạn đã cấp quyền truy cập camera cho trình duyệt!', 'error');
+        var errMsg = err ? (err.message || err.toString()) : '';
+        if (errMsg.indexOf('NotAllowedError') >= 0 || errMsg.indexOf('Permission denied') >= 0) {
+            showToast('🚫 Bạn đã chặn quyền camera. Vui lòng cấp lại quyền camera trong cài đặt trình duyệt!', 'error');
+        } else {
+            showToast('❌ Lỗi mở camera: ' + errMsg + '. Hãy chắc chắn bạn đã cấp quyền!', 'error');
+        }
         _qkvStopQRScan();
     });
 }

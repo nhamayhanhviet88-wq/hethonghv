@@ -738,6 +738,11 @@
                 return;
             }
 
+            if (!window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                showToast('⚠️ Trình duyệt yêu cầu kết nối bảo mật HTTPS để mở camera! Vui lòng đổi sang địa chỉ https://hethonghv.top/m/quanlykhovai', 'error');
+                return;
+            }
+
             document.getElementById('qkvQrModal').style.display = 'flex';
             scanner = new Html5Qrcode("qkvQrReader");
             var config = { fps: 10, qrbox: { width: 220, height: 220 } };
@@ -753,7 +758,12 @@
                 }
             ).catch(err => {
                 console.error(err);
-                showToast('Không thể mở camera. Hãy chắc chắn bạn đã cấp quyền!', 'error');
+                var errMsg = err ? (err.message || err.toString()) : '';
+                if (errMsg.indexOf('NotAllowedError') >= 0 || errMsg.indexOf('Permission denied') >= 0) {
+                    showToast('🚫 Bạn đã chặn quyền camera. Vui lòng cấp lại quyền camera trong cài đặt trình duyệt!', 'error');
+                } else {
+                    showToast('❌ Lỗi mở camera: ' + errMsg + '. Hãy chắc chắn bạn đã cấp quyền!', 'error');
+                }
                 stopQR();
             });
         }
