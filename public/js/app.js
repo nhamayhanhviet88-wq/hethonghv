@@ -1,3 +1,8 @@
+// Force HTTPS context (required for camera/QR scanner API on mobile)
+if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && !window.location.hostname.startsWith('192.168.')) {
+    window.location.href = window.location.href.replace('http:', 'https:');
+}
+
 // ========== MOBILE DEVICE REDIRECT ==========
 if (window.innerWidth < 768 && localStorage.getItem('preferDesktop') !== 'true') {
     if (window.location.hostname.indexOf('dongphuchv.net') === -1) {

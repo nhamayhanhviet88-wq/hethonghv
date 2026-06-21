@@ -1,3 +1,8 @@
+// Force HTTPS context (required for camera/QR scanner API on mobile)
+if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && !window.location.hostname.startsWith('192.168.')) {
+    window.location.href = window.location.href.replace('http:', 'https:');
+}
+
 // Central Mobile Navigation & Drawer Component
 const MOBILE_MENU_CONFIG = [
     { id: 'hub', label: 'Trang chủ Mobile', icon: '🏠', href: '/m', permKey: null },
