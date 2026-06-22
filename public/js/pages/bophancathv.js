@@ -1919,16 +1919,38 @@ async function _bpcOpenDetail(recordId) {
 }
 
 // ========== CẮT XONG MODAL ==========
-function _bpcOpenDoneModal(recordId) {
+function _bpcOpenDoneModal(recordId, isRefresh = false) {
     var r = _bpc.records.find(function(x) { return x.id === recordId; });
     if (!r) return;
     // Multi-cut group → open group done modal
-    if (r.multi_cut_group_id) { return _bpcOpenGroupDoneModal(r.multi_cut_group_id); }
+    if (r.multi_cut_group_id) { return _bpcOpenGroupDoneModal(r.multi_cut_group_id, isRefresh); }
+    
+    var preservedQty = '';
+    var preservedReason = '';
+    var preservedComp = 'false';
+    var preservedImgHtml = '';
+    const existing = document.getElementById('_bpcDoneModal');
+    if (existing) {
+        const qtyInp = document.getElementById('_bpcDoneQty');
+        if (qtyInp) preservedQty = qtyInp.value;
+        const reasonInp = document.getElementById('_bpcDoneReason');
+        if (reasonInp) preservedReason = reasonInp.value;
+        const compSel = document.getElementById('_bpcDoneCompensateSelect');
+        if (compSel) preservedComp = compSel.value;
+        const imgPrev = document.getElementById('_bpcDoneImgPreview');
+        if (imgPrev) preservedImgHtml = imgPrev.innerHTML;
+    }
+
     var rolls = [];
     try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
-    window._bpcDoneData = { recordId: recordId, rolls: rolls, kgStart: Number(r.kg_start) || 0, orderQty: Number(r.order_quantity) || 0, imgData: null, targetRatio: Number(r.target_cut_ratio) || 0, unit: r.fabric_unit || 'kg', _allCut: false };
-    var h = '<div class="bpc-modal-overlay" id="_bpcDoneModal" onclick="if(event.target===this)_bpcCloseDoneModal()">';
-    h += '<div class="bpc-modal" style="width:560px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">';
+    
+    let prevImgData = null;
+    if (isRefresh && window._bpcDoneData && window._bpcDoneData.recordId === recordId) {
+        prevImgData = window._bpcDoneData.imgData;
+    }
+    window._bpcDoneData = { recordId: recordId, rolls: rolls, kgStart: Number(r.kg_start) || 0, orderQty: Number(r.order_quantity) || 0, imgData: prevImgData, targetRatio: Number(r.target_cut_ratio) || 0, unit: r.fabric_unit || 'kg', _allCut: false };
+    
+    var h = '<div class="bpc-modal" style="width:560px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#1e40af,#3b82f6)"><div class="m-icon">🏁</div><div><div class="m-title">CẮT XONG</div><div class="m-sub">' + (r.product_name||r.order_code||'') + '</div></div></div>';
     h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1">';
     // Read-only info
@@ -1940,7 +1962,7 @@ function _bpcOpenDoneModal(recordId) {
     h += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px;font-weight:900">' + _bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category) + '</span></div>';
     // SL Cắt input
     var hasSiblingQty = r.ticket_completed_quantity !== null && r.ticket_completed_quantity !== undefined;
-    var initialQty = hasSiblingQty ? r.ticket_completed_quantity : '';
+    var initialQty = hasSiblingQty ? r.ticket_completed_quantity : (existing ? preservedQty : '');
     var disAttr = hasSiblingQty ? ' readonly' : '';
     var qtyStyle = hasSiblingQty ? 'width:80px;padding:6px 10px;border:2px solid #9ca3af;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#6b7280;background:#f3f4f6;cursor:not-allowed' : 'width:80px;padding:6px 10px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#1e40af';
     var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Cố định theo phối đã cắt trước: ' + r.ticket_completed_quantity + ' ' + (r.cutting_category || 'phối').toLowerCase() + '</div>' : '';
@@ -1955,8 +1977,8 @@ function _bpcOpenDoneModal(recordId) {
         h += '<input type="hidden" id="_bpcDoneCompensateSelect" value="' + compVal + '">';
     } else {
         h += '<select id="_bpcDoneCompensateSelect" style="padding:4px 8px;border-radius:6px;border:1.5px solid #d8b4fe;font-size:11px;font-weight:700;color:#6b21a8;background:#fff">';
-        h += '<option value="false">🔴 Chốt đơn (Không bù)</option>';
-        h += '<option value="true">🟡 Cắt bù sau (Tạo phiếu bù)</option>';
+        h += '<option value="false" style="color:#000"' + (preservedComp === 'false' ? ' selected' : '') + '>🔴 Chốt đơn (Không bù)</option>';
+        h += '<option value="true" style="color:#000"' + (preservedComp === 'true' ? ' selected' : '') + '>🟡 Cắt bù sau (Tạo phiếu bù)</option>';
         h += '</select>';
     }
     h += '</div></div>';
@@ -2005,10 +2027,10 @@ function _bpcOpenDoneModal(recordId) {
     h += '<div id="_bpcDoneRatioWarn" style="display:none;border-top:2px solid #fca5a5;margin:10px 0;padding-top:10px">';
     h += '<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:12px">';
     h += '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO (Định lượng tối thiểu: ' + (r.target_cut_ratio || 0) + ' sp/' + (r.fabric_unit || 'kg') + ')</div>';
-    h += '<textarea id="_bpcDoneReason" placeholder="Nhập lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1.5px solid #fca5a5;border-radius:6px;font-size:12px;resize:none;font-family:Inter,sans-serif"></textarea>';
+    h += '<textarea id="_bpcDoneReason" placeholder="Nhập lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1.5px solid #fca5a5;border-radius:6px;font-size:12px;resize:none;font-family:Inter,sans-serif">' + (preservedReason || '') + '</textarea>';
     h += '<div style="margin-top:8px"><div style="font-size:10px;font-weight:700;color:#dc2626;margin-bottom:4px">📷 Hình ảnh (Ctrl+V hoặc chọn file) <span style="color:#dc2626">*</span></div>';
     h += '<div id="_bpcDoneImgArea" style="border:2px dashed #fca5a5;border-radius:8px;padding:16px;text-align:center;cursor:pointer;min-height:60px;position:relative" onclick="document.getElementById(\'_bpcDoneImgInput\').click()">';
-    h += '<div id="_bpcDoneImgPreview" style="font-size:11px;color:#94a3b8">Ctrl+V paste ảnh hoặc click chọn file</div>';
+    h += '<div id="_bpcDoneImgPreview" style="font-size:11px;color:#94a3b8">' + (preservedImgHtml || 'Ctrl+V paste ảnh hoặc click chọn file') + '</div>';
     h += '<input type="file" id="_bpcDoneImgInput" accept="image/*" style="display:none" onchange="_bpcDoneImgFile(event)"></div></div>';
     h += '</div></div>';
     h += '</div>';
@@ -2016,11 +2038,20 @@ function _bpcOpenDoneModal(recordId) {
     h += '<div class="bpc-modal-actions"><button class="bpc-modal-btn cancel" onclick="_bpcCloseDoneModal()">Hủy</button>';
     h += '<button class="bpc-modal-btn confirm" id="_bpcDoneSubmitBtn" style="background:linear-gradient(135deg,#1e40af,#3b82f6)" onclick="_bpcSubmitDone(' + recordId + ')">🏁 XÁC NHẬN CẮT XONG</button></div>';
     h += '</div></div>';
-    document.body.insertAdjacentHTML('beforeend', h);
-    requestAnimationFrame(function() { document.getElementById('_bpcDoneModal').classList.add('show'); });
-    // Paste handler
+
+    if (existing) {
+        existing.innerHTML = h;
+    } else {
+        var overlayHtml = '<div class="bpc-modal-overlay" id="_bpcDoneModal" onclick="if(event.target===this)_bpcCloseDoneModal()">' + h + '</div>';
+        document.body.insertAdjacentHTML('beforeend', overlayHtml);
+        requestAnimationFrame(function() { document.getElementById('_bpcDoneModal').classList.add('show'); });
+    }
+    
+    // Paste handler toggle to avoid duplicate triggers
+    document.removeEventListener('paste', _bpcDonePasteHandler);
     document.addEventListener('paste', _bpcDonePasteHandler);
     _bpcDoneRecalc();
+}
 }
 
 function _bpcDonePasteHandler(e) {
@@ -2410,17 +2441,41 @@ async function _bpcSubmitDone(recordId) {
 }
 
 // ========== GROUP DONE MODAL (Multi-cut Desktop) ==========
-function _bpcOpenGroupDoneModal(groupId) {
-    if (window._bpcBusy) return;
+function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
+    if (window._bpcBusy && !isRefresh) return;
     window._bpcBusy = true;
     var groupRecs = _bpc.records.filter(function(x) { return x.multi_cut_group_id === groupId; });
     if (groupRecs.length < 2) { showToast('Nhóm không đủ đơn', 'error'); window._bpcBusy = false; return; }
     var ref = groupRecs[0];
+    
+    var preservedQtys = {};
+    var preservedComps = {};
+    var preservedReason = '';
+    var preservedImgHtml = '';
+    var existing = document.getElementById('_bpcGDoneModal');
+    if (existing) {
+        groupRecs.forEach(function(gr) {
+            var qtyInp = document.getElementById('_bpcGQ_' + gr.id);
+            if (qtyInp) preservedQtys[gr.id] = qtyInp.value;
+            var compSel = document.getElementById('_bpcGroupCompSelect_' + gr.id);
+            if (compSel) preservedComps[gr.id] = compSel.value;
+        });
+        var reasonInp = document.getElementById('_bpcGDoneReason');
+        if (reasonInp) preservedReason = reasonInp.value;
+        var imgPrev = document.getElementById('_bpcGDoneImgPreview');
+        if (imgPrev) preservedImgHtml = imgPrev.innerHTML;
+    }
+    
     var rolls = []; try { rolls = typeof ref.selected_roll_ids === 'string' ? JSON.parse(ref.selected_roll_ids) : (ref.selected_roll_ids || []); } catch(e) {}
     var kgStart = Number(ref.kg_start) || 0;
-    window._bpcGDone = { groupId: groupId, records: groupRecs, rolls: rolls, kgStart: kgStart, _allCut: false, targetRatio: Number(ref.target_cut_ratio) || 0, imgData: null, unit: ref.fabric_unit || 'kg' };
-    var h = '<div class="bpc-modal-overlay" id="_bpcGDoneModal" onclick="if(event.target===this)_bpcCloseGDone()">';
-    h += '<div class="bpc-modal" style="width:580px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">';
+    
+    let prevImgData = null;
+    if (isRefresh && window._bpcGDone && window._bpcGDone.groupId === groupId) {
+        prevImgData = window._bpcGDone.imgData;
+    }
+    window._bpcGDone = { groupId: groupId, records: groupRecs, rolls: rolls, kgStart: kgStart, _allCut: false, targetRatio: Number(ref.target_cut_ratio) || 0, imgData: prevImgData, unit: ref.fabric_unit || 'kg' };
+    
+    var h = '<div class="bpc-modal" style="width:580px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#7c3aed,#a855f7)"><div class="m-icon">🏁</div><div><div class="m-title">CẮT XONG NHÓM</div>';
     h += '<div class="m-sub">' + groupRecs.length + ' đơn · ' + rolls.length + ' cây · ' + kgStart + 'kg</div></div></div>';
     h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1">';
@@ -2434,7 +2489,7 @@ function _bpcOpenGroupDoneModal(groupId) {
         h += '<div style="display:flex;align-items:center;justify-content:space-between">';
         h += '<span style="font-size:11px;color:#7c3aed">SL Đơn: <b>' + _bpcFormatOrderQty(gr.order_quantity, gr.product_name, gr.cutting_category) + '</b></span>';
         var hasSiblingQty = gr.ticket_completed_quantity !== null && gr.ticket_completed_quantity !== undefined;
-        var defaultQty = hasSiblingQty ? gr.ticket_completed_quantity : '';
+        var defaultQty = hasSiblingQty ? gr.ticket_completed_quantity : (existing ? (preservedQtys[gr.id] || '') : '');
         var disAttr = hasSiblingQty ? ' readonly' : '';
         var qtyStyle = hasSiblingQty ? 'width:80px;padding:6px 10px;border:2px solid #9ca3af;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#6b7280;background:#f3f4f6;cursor:not-allowed' : 'width:80px;padding:6px 10px;border:2px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:800;text-align:center;color:#7c3aed';
         var siblingNote = hasSiblingQty ? '<div style="font-size:10px;color:#dc2626;text-align:right;margin-top:2px">* Theo phối trước: ' + gr.ticket_completed_quantity + ' ' + (gr.cutting_category || 'phối').toLowerCase() + '</div>' : '';
@@ -2444,8 +2499,8 @@ function _bpcOpenGroupDoneModal(groupId) {
         h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">';
         h += '<span style="font-size:10px;font-weight:700;color:#6b21a8">⚠️ Cắt thiếu:</span>';
         h += '<select id="_bpcGroupCompSelect_' + gr.id + '" style="padding:2px 6px;border-radius:4px;border:1.5px solid #d8b4fe;font-size:10px;font-weight:700;color:#6b21a8;background:#fff">';
-        h += '<option value="false">🔴 Chốt (Không bù)</option>';
-        h += '<option value="true">🟡 Cắt bù sau</option>';
+        h += '<option value="false" style="color:#000"' + (preservedComps[gr.id] === 'false' ? ' selected' : '') + '>🔴 Chốt (Không bù)</option>';
+        h += '<option value="true" style="color:#000"' + (preservedComps[gr.id] === 'true' ? ' selected' : '') + '>🟡 Cắt bù sau</option>';
         h += '</select></div></div>';
         h += '</div></div></div>';
     });
@@ -2486,20 +2541,29 @@ function _bpcOpenGroupDoneModal(groupId) {
     h += '<div id="_bpcGDoneRatioWarn" style="display:none;border-top:2px solid #fca5a5;margin:10px 0;padding-top:10px">';
     h += '<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:12px">';
     h += '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:8px">⚠️ TỈ LỆ THẤP — BẮT BUỘC GHI LÝ DO (Định lượng tối thiểu: ' + (ref.target_cut_ratio || 0) + ' sp/' + (ref.fabric_unit || 'kg') + ')</div>';
-    h += '<textarea id="_bpcGDoneReason" placeholder="Nhập lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1.5px solid #fca5a5;border-radius:6px;font-size:12px;resize:none;font-family:Inter,sans-serif"></textarea>';
+    h += '<textarea id="_bpcGDoneReason" placeholder="Nhập lý do cắt sai tỉ lệ..." rows="2" style="width:100%;padding:8px;border:1.5px solid #fca5a5;border-radius:6px;font-size:12px;resize:none;font-family:Inter,sans-serif">' + (preservedReason || '') + '</textarea>';
     h += '<div style="margin-top:8px"><div style="font-size:10px;font-weight:700;color:#dc2626;margin-bottom:4px">📷 Hình ảnh (Ctrl+V hoặc chọn file) <span style="color:#dc2626">*</span></div>';
     h += '<div id="_bpcGDoneImgArea" style="border:2px dashed #fca5a5;border-radius:8px;padding:16px;text-align:center;cursor:pointer;min-height:60px;position:relative" onclick="document.getElementById(\'_bpcGDoneImgInput\').click()">';
-    h += '<div id="_bpcGDoneImgPreview" style="font-size:11px;color:#94a3b8">Ctrl+V paste ảnh hoặc click chọn file</div>';
+    h += '<div id="_bpcGDoneImgPreview" style="font-size:11px;color:#94a3b8">' + (preservedImgHtml || 'Ctrl+V paste ảnh hoặc click chọn file') + '</div>';
     h += '<input type="file" id="_bpcGDoneImgInput" accept="image/*" style="display:none" onchange="_bpcGDoneImgFile(event)"></div></div>';
     h += '</div></div>';
     h += '</div>';
     h += '<div class="bpc-modal-actions"><button class="bpc-modal-btn cancel" onclick="_bpcCloseGDone()">Hủy</button>';
     h += '<button class="bpc-modal-btn confirm" id="_bpcGDoneOk" style="background:linear-gradient(135deg,#7c3aed,#a855f7)" onclick="_bpcSubmitGDone()">🏁 XÁC NHẬN CẮT XONG NHÓM</button></div>';
     h += '</div></div>';
-    document.body.insertAdjacentHTML('beforeend', h);
-    requestAnimationFrame(function() { document.getElementById('_bpcGDoneModal').classList.add('show'); });
+
+    if (existing) {
+        existing.innerHTML = h;
+    } else {
+        var overlayHtml = '<div class="bpc-modal-overlay" id="_bpcGDoneModal" onclick="if(event.target===this)_bpcCloseGDone()">' + h + '</div>';
+        document.body.insertAdjacentHTML('beforeend', overlayHtml);
+        requestAnimationFrame(function() { document.getElementById('_bpcGDoneModal').classList.add('show'); });
+    }
+    
+    document.removeEventListener('paste', _bpcGDonePasteHandler);
     document.addEventListener('paste', _bpcGDonePasteHandler);
     _bpcGDoneRecalc();
+}
 }
 function _bpcCloseGDone() {
     window._bpcBusy = false;
@@ -2694,8 +2758,7 @@ async function _bpcRemoveRoll(recordId, rollId) {
             rec.selected_roll_ids = res.selected_roll_ids;
             rec.kg_start = res.kg_start;
         }
-        _bpcCloseDoneModal();
-        _bpcOpenDoneModal(recordId);
+        _bpcOpenDoneModal(recordId, true);
     } catch (e) {
         showToast(e.message || 'Lỗi khi xóa cây vải', 'error');
     }
@@ -2743,8 +2806,7 @@ async function _bpcDoAddRoll(recordId) {
             rec.selected_roll_ids = res.selected_roll_ids;
             rec.kg_start = res.kg_start;
         }
-        _bpcCloseDoneModal();
-        _bpcOpenDoneModal(recordId);
+        _bpcOpenDoneModal(recordId, true);
     } catch (e) {
         showToast(e.message || 'Lỗi khi thêm cây vải', 'error');
     }
@@ -2768,8 +2830,7 @@ async function _bpcRemoveRollGroup(groupId, rollId) {
                 rec.kg_start = res.kg_start;
             }
         });
-        _bpcCloseGDone();
-        _bpcOpenGroupDoneModal(groupId);
+        _bpcOpenGroupDoneModal(groupId, true);
     } catch (e) {
         showToast(e.message || 'Lỗi khi xóa cây vải', 'error');
     }
@@ -2821,8 +2882,7 @@ async function _bpcDoAddRollGroup(groupId) {
                 rec.kg_start = res.kg_start;
             }
         });
-        _bpcCloseGDone();
-        _bpcOpenGroupDoneModal(groupId);
+        _bpcOpenGroupDoneModal(groupId, true);
     } catch (e) {
         showToast(e.message || 'Lỗi khi thêm cây vải', 'error');
     }
