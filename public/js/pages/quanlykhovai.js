@@ -636,8 +636,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                 }
             }
             
-            var isColorOverride = !!item.color_location;
-            var badgeHtml = isColorOverride ? `<span class="qkv-item-badge qkv-badge-col" title="Vị trí được phân riêng cho màu vải này">Kệ riêng</span>` : '';
+            var badgeHtml = '';
             var prefix = isUnassigned ? `${itemIndex}. ` : '';
 
             itemsHtml += `
@@ -668,9 +667,14 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                         ${item.roll_weights.map(r => {
                             var photoHtml = '';
                             var moveHtml = '';
+                            var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
                             if (r.img) {
                                 photoHtml = `<img src="${escapeHTML(r.img)}" style="width:32px; height:32px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                                moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="_qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
+                                if (isGD) {
+                                    moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="_qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
+                                } else {
+                                    moveHtml = ``;
+                                }
                             } else {
                                 photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:11px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
                                 moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;

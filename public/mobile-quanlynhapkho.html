@@ -837,8 +837,7 @@
                         }
                     }
 
-                    var isColorOverride = !!item.color_location;
-                    var badgeHtml = isColorOverride ? `<span class="item-badge badge-col">Kệ riêng</span>` : '';
+                    var badgeHtml = '';
                     var escapedItemStr = JSON.stringify(item).replace(/"/g, '&quot;');
                     
                     var prefix = isUnassigned ? `${itemIndex}. ` : '';
@@ -1274,7 +1273,7 @@
                     `;
                 }
 
-                var badgeHtml = item.color_location ? `<span class="item-badge badge-col">Kệ riêng</span>` : '';
+                var badgeHtml = '';
                 var opacityStyle = isAllowed ? '' : 'opacity:0.35; filter:grayscale(0.5);';
 
                 return `
