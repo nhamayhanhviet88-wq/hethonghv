@@ -424,15 +424,15 @@
     </div>
 
     <!-- 2. Quick Import Bottom Drawer Modal -->
-    <div id="importModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.65); z-index:9000; flex-direction:column; justify-content:flex-end;">
-        <div style="background:#0f172a; border-radius:24px 24px 0 0; width:100%; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 -10px 30px rgba(0,0,0,0.3); border-top: 1px solid rgba(255,255,255,0.08); padding-bottom:env(safe-area-inset-bottom);">
+    <div id="importModal" style="display:none; position:fixed; top:60px; left:0; width:100%; height:calc(100% - 60px); background:rgba(0,0,0,0.65); z-index:9000; flex-direction:column; justify-content:stretch;">
+        <div style="background:#0f172a; border-radius:24px 24px 0 0; width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 -10px 30px rgba(0,0,0,0.3); border-top: 1px solid rgba(255,255,255,0.08); padding-bottom:env(safe-area-inset-bottom);">
             <div style="padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02);">
                 <div style="min-width:0; flex:1;">
                     <h3 id="importModalTitle" style="margin:0; font-size:16px; font-weight:800; color:#5eead4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Nhập Vải Vào Kệ</h3>
                 </div>
                 <button onclick="closeImportModal()" style="background:rgba(255,255,255,0.1); border:none; width:32px; height:32px; border-radius:50%; font-size:12px; color:white; cursor:pointer;">❌</button>
             </div>
-            <div style="padding:20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
+            <div style="padding:20px; flex:1; display:flex; flex-direction:column; gap:16px; overflow:hidden;">
                 <!-- Unregistered Shelf Alert -->
                 <div id="importWarnBanner" style="display:none; padding:10px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:10px; color:#f59e0b; font-size:11px; font-weight:600; line-height:1.4;"></div>
                 
@@ -442,9 +442,9 @@
                 </div>
                 
                 <!-- List -->
-                <div>
+                <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
                     <div style="font-size:11px; font-weight:800; color:#94a3b8; margin-bottom:8px; text-transform:uppercase;">Danh sách đề xuất (Chưa xếp kệ)</div>
-                    <div id="importList" style="display:flex; flex-direction:column; gap:8px; max-height: 250px; overflow-y:auto; padding-right:2px;"></div>
+                    <div id="importList" style="flex:1; display:flex; flex-direction:column; gap:8px; overflow-y:auto; padding-right:2px;"></div>
                 </div>
                 
                 <button onclick="closeImportModal()" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:none; border-radius:12px; color:white; font-size:14px; font-weight:700; cursor:pointer; margin-top:8px;">Hoàn thành</button>
@@ -520,6 +520,14 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
+        }
+
+        function escapeJS(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/"/g, '\\"');
         }
 
         function toggleShelfCollapse(element, shelfName) {
@@ -1215,26 +1223,71 @@
             }
 
             function buildImportItemHtml(item, isAllowed) {
-                var status = item.location ? `(Ở kệ: ${item.location})` : '(Chưa xếp kệ)';
-                var opacityStyle = isAllowed ? '' : 'opacity:0.35; filter:grayscale(0.5); cursor:not-allowed;';
-                var clickHandler = isAllowed 
-                    ? `onclick="executeImport(${item.id}, ${item.material_id}, '${escapeJS(item.color_name)}', '${escapeJS(item.material_name)}')"` 
-                    : `onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!', 'warning')"` ;
+                var rollsHtml = '';
+                
+                if (item.roll_weights && item.roll_weights.length > 0) {
+                    rollsHtml = `
+                        <div class="roll-list-unassigned" style="background:rgba(255,255,255,0.02); border-radius:8px; padding:8px; margin:8px 0 0 0; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:6px; width:100%; box-sizing:border-box;">
+                            ${item.roll_weights.map(r => {
+                                var photoHtml = '';
+                                var actionHtml = '';
+                                
+                                if (!isAllowed) {
+                                    if (r.img) {
+                                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #64748b; cursor:not-allowed;" onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!', 'warning')" />`;
+                                    } else {
+                                        photoHtml = `<button class="btn-camera" style="background:#475569; border:none; padding:6px 10px; border-radius:6px; color:#cbd5e1; font-size:12px; font-weight:700; cursor:not-allowed;" onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!', 'warning')">📷 Chụp</button>`;
+                                    }
+                                    actionHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Bị giới hạn</span>`;
+                                } else {
+                                    if (r.img) {
+                                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                                        actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
+                                    } else {
+                                        photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                        actionHtml = `<span style="font-size:11px; color:#64748b; font-style:italic; white-space:nowrap;">Chờ chụp ảnh</span>`;
+                                    }
+                                }
+
+                                return `
+                                    <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+                                        <div style="flex:1; min-width:0;">
+                                            <div style="font-size:12px; font-weight:700; color:white;">Cây ${r.w}kg</div>
+                                            <div style="font-size:11px; color:#94a3b8; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            ${photoHtml}
+                                            ${actionHtml}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                }
+
+                var badgeHtml = item.color_location ? `<span class="item-badge badge-col">Kệ riêng</span>` : '';
+                var opacityStyle = isAllowed ? '' : 'opacity:0.35; filter:grayscale(0.5);';
 
                 return `
-                    <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); margin-bottom:6px; ${opacityStyle}" ${clickHandler}>
-                        <div style="min-width:0; flex:1;">
-                            <div style="font-size:12px; font-weight:700; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(item.material_name)}</div>
-                            <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
-                                Màu: <span style="font-weight:700; color:#5eead4;">${escapeHTML(item.color_name)}</span> 
-                                <span style="margin-left:4px; font-size:9px; color:#64748b;">${status}</span>
+                    <div class="material-color-frame" style="${opacityStyle} margin-bottom:12px;">
+                        <div class="item-row" style="border:none; background:transparent; margin-bottom:0; padding:0;">
+                            <div class="item-main">
+                                <div class="item-name" style="font-size:13px; font-weight:800; color:#ffffff;">
+                                    ${escapeHTML(item.material_name)}
+                                    <span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>
+                                </div>
+                                <div class="item-sub" style="margin-top:4px;">
+                                    Màu: <span style="font-weight:800; color:#ffffff; background:#e65100; padding:3px 8px; border-radius:6px; font-size:11px; box-shadow: 0 0 8px rgba(230,81,0,0.5); display:inline-block; margin-left:2px;">${escapeHTML(item.color_name)}</span>
+                                    ${badgeHtml}
+                                </div>
+                            </div>
+                            <div class="item-balance">
+                                ${fmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
+                                <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
                             </div>
                         </div>
-                        <div style="font-size:11px; font-weight:800; color:white; text-align:right; margin-left:8px;">
-                            ${fmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
-                            <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
-                        </div>
-                        <div style="font-size:16px; margin-left:12px; color:#5eead4;">📥</div>
+                        ${rollsHtml}
                     </div>
                 `;
             }
@@ -1291,18 +1344,26 @@
             list.innerHTML = html;
         }
 
-        async function executeImport(colorId, materialId, colorName, materialName) {
+        function confirmImportRoll(rollId, rollWeight, rollCode, matName, colorName) {
             if (!activeImportShelf) return;
-            var scope = 'color';
+            var message = `Bạn có chắc chắn muốn xếp cây vải này vào kệ "${activeImportShelf}"?\n`
+                        + `- Chất liệu: ${matName}\n`
+                        + `- Màu: ${colorName}\n`
+                        + `- Trọng lượng: Cây ${rollWeight}kg\n`
+                        + `- Mã: ${rollCode || 'không mã'}`;
+            if (confirm(message)) {
+                executeImportSingleRoll(rollId, rollWeight, rollCode, matName, colorName);
+            }
+        }
 
+        async function executeImportSingleRoll(rollId, rollWeight, rollCode, matName, colorName) {
+            if (!activeImportShelf) return;
             try {
-                if (scope === 'material') {
-                    await api(`/api/khovai/materials/${materialId}`, 'PUT', { location: activeImportShelf });
-                } else {
-                    await api(`/api/khovai/colors/${colorId}`, 'PUT', { location: activeImportShelf });
-                }
-
-                showToast(`Đã xếp "${materialName} - ${colorName}" vào kệ "${activeImportShelf}"`);
+                await api(`/api/khovai/rolls/batch`, 'PUT', {
+                    roll_ids: [Number(rollId)],
+                    location: activeImportShelf
+                });
+                showToast(`Đã xếp cây vải ${rollWeight}kg vào kệ "${activeImportShelf}" thành công!`);
                 await loadData();
                 renderImportList();
             } catch (err) {
@@ -1390,6 +1451,9 @@
                 } else {
                     showToast('Đã chụp ảnh thành công!');
                     await loadData();
+                    if (document.getElementById('importModal').style.display === 'flex') {
+                        renderImportList();
+                    }
                 }
             } catch (e) {
                 console.error(e);
