@@ -858,7 +858,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                             var releaseBtn = !isLocked ? '<button onclick="_qlxFabRelease(' + rv.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px" title="Hủy giữ vải">🗑️</button>' : '';
                             resInfo += '<div id="' + editId + '_row" style="font-size:10px;color:#475569;margin-top:3px;padding-left:8px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
                                 + badge
-                                + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b id="' + editId + '_val">' + rv.kg_reserved + unitLabel + '</b>' + (rv.order_qty ? ' : ' + rv.order_qty + ' SP' : '') + '</span>'
+                                + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b id="' + editId + '_val">' + rv.kg_reserved + unitLabel + '</b>' + (rv.order_qty ? ' : ' + rv.order_qty + ' Sản Phẩm' : '') + '</span>'
                                 + editBtn
                                 + releaseBtn
                                 + '</div>';
@@ -887,7 +887,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
                     if (rl.is_original_tree) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
                     if (isLocked) {
-                        html += '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔒 Đang cắt: ' + (rl.cutting_order_name || 'Đang xử lý') + (rl.cutting_by_name ? ' (' + rl.cutting_by_name + ')' : '') + (rl.cutting_order_qty ? ' : ' + rl.cutting_order_qty + ' SP' : '') + '</span>';
+                        html += '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔒 Đang cắt: ' + (rl.cutting_order_name || 'Đang xử lý') + (rl.cutting_by_name ? ' (' + rl.cutting_by_name + ')' : '') + (rl.cutting_order_qty ? ' : ' + rl.cutting_order_qty + ' Sản Phẩm' : '') + '</span>';
                     }
                     if (tagHtml) html += tagHtml;
                     html += '<span style="margin-left:auto;font-size:10px;color:' + (avail > 0 ? '#059669' : '#dc2626') + ';font-weight:700">✅ Còn: ' + avail + unitLabel + '</span>';
