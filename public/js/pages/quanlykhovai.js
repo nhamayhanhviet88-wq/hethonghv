@@ -562,6 +562,9 @@ function _qkvRenderMap() {
             }
         }
     });
+
+    _qkv.unassignedLe = unassignedLe.items || [];
+    _qkv.unassignedNguyen = unassignedNguyen.items || [];
     
     // Build Cards HTML
     var html = '';
@@ -1358,48 +1361,32 @@ function _qkvRenderQuickImportList(shelfName) {
     var targetLoc = (_qkv.locations || []).find(function(l) {
         return l.name.trim().toLowerCase() === shelfName.trim().toLowerCase();
     });
-    var allowedMaterialIds = null;
-    if (targetLoc && targetLoc.is_restricted) {
-        allowedMaterialIds = (_qkv.materials || [])
+
+    function isMaterialAllowed(item) {
+        if (!targetLoc || !targetLoc.is_restricted) return true;
+        
+        var assignedMatIds = (_qkv.materials || [])
             .filter(function(m) {
                 return m.location && m.location.trim().toLowerCase() === targetLoc.name.trim().toLowerCase();
             })
             .map(function(m) { return Number(m.id); });
+        
+        if (assignedMatIds.includes(Number(item.material_id)) || 
+            (targetLoc.restricted_material_id && Number(targetLoc.restricted_material_id) === Number(item.material_id))) {
+            return true;
+        }
+        return false;
     }
-    
-    var filtered = [];
-    if (!searchVal) {
-        // Show only unassigned
-        filtered = _qkv.summary.filter(function(item) {
-            var loc = (item.location || '').trim();
-            var exists = _qkv.locations.some(l => l.name === loc);
-            return !loc || !exists;
-        });
-    } else {
-        // Show matching items from entire inventory
-        filtered = _qkv.summary.filter(function(item) {
-            return (item.material_name || '').toLowerCase().includes(searchVal)
-                || (item.color_name || '').toLowerCase().includes(searchVal);
-        });
-    }
-    
-    // If target shelf is restricted, filter out items that don't match allowed materials
-    if (allowedMaterialIds !== null) {
-        filtered = filtered.filter(function(item) {
-            return allowedMaterialIds.includes(Number(item.material_id));
-        });
-    }
-    
-    if (filtered.length === 0) {
-        listEl.innerHTML = '<div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:11px; font-weight:500;">Không có cây vải nào phù hợp</div>';
-        return;
-    }
-    
-    var html = '';
-    filtered.forEach(function(item) {
+
+    function buildImportItemHtml(item, isAllowed) {
         var currentLocText = item.location ? `(Ở kệ: ${item.location})` : '(Chưa xếp vị trí)';
-        html += `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #f1f5f9; background:#fff; border-radius:8px; margin-bottom:6px; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.1s;" onclick="_qkvOnQuickSelectClick(${item.id}, ${item.material_id}, '${escapeJS(item.color_name)}', '${escapeJS(item.material_name)}', '${escapeJS(shelfName)}')" onmouseover="this.style.borderColor='#0d9488'" onmouseout="this.style.borderColor='#e2e8f0'">
+        var opacityStyle = isAllowed ? '' : 'opacity:0.35; filter:grayscale(0.5); cursor:not-allowed;';
+        var clickHandler = isAllowed
+            ? `onclick="_qkvOnQuickSelectClick(${item.id}, ${item.material_id}, '${escapeJS(item.color_name)}', '${escapeJS(item.material_name)}', '${escapeJS(shelfName)}')"`
+            : `onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!', 'warning')"` ;
+
+        return `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #f1f5f9; background:#fff; border-radius:8px; margin-bottom:6px; border:1px solid #e2e8f0; ${opacityStyle}" ${clickHandler} onmouseover="if(${isAllowed}) this.style.borderColor='#0d9488'" onmouseout="if(${isAllowed}) this.style.borderColor='#e2e8f0'">
                 <div style="min-width:0; flex:1;">
                     <div style="font-size:12px; font-weight:700; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(item.material_name)}</div>
                     <div style="font-size:10px; color:#64748b; margin-top:2px;">
@@ -1414,7 +1401,57 @@ function _qkvRenderQuickImportList(shelfName) {
                 <div style="font-size:16px; margin-left:12px; color:#0d9488; font-weight:bold;">📥</div>
             </div>
         `;
+    }
+
+    var leItems = (_qkv.unassignedLe || []).filter(function(item) {
+        if (searchVal) {
+            return (item.material_name || '').toLowerCase().includes(searchVal)
+                || (item.color_name || '').toLowerCase().includes(searchVal);
+        }
+        return true;
     });
+
+    var nguyenItems = (_qkv.unassignedNguyen || []).filter(function(item) {
+        if (searchVal) {
+            return (item.material_name || '').toLowerCase().includes(searchVal)
+                || (item.color_name || '').toLowerCase().includes(searchVal);
+        }
+        return true;
+    });
+
+    if (leItems.length === 0 && nguyenItems.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:11px; font-weight:500;">Không có cây vải chưa phân vị trí phù hợp</div>';
+        return;
+    }
+
+    var html = '';
+
+    // 1. Render Lẻ items
+    if (leItems.length > 0) {
+        html += `
+            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#ec4899; background:rgba(236,72,153,0.06); padding:4px 8px; border-radius:4px; margin:8px 0 6px 0; border:1px solid rgba(236,72,153,0.15); display:flex; align-items:center; justify-content:space-between;">
+                <span>⚠️ Chưa Phân Vị Trí Cây Lẻ</span>
+                <span style="font-size:9px; background:#ec4899; color:white; padding:1px 5px; border-radius:10px;">${leItems.length}</span>
+            </div>
+        `;
+        leItems.forEach(function(item) {
+            html += buildImportItemHtml(item, isMaterialAllowed(item));
+        });
+    }
+
+    // 2. Render Nguyên items
+    if (nguyenItems.length > 0) {
+        html += `
+            <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#d97706; background:rgba(217,119,6,0.06); padding:4px 8px; border-radius:4px; margin:12px 0 6px 0; border:1px solid rgba(217,119,6,0.15); display:flex; align-items:center; justify-content:space-between;">
+                <span>⚠️ Chưa Phân Vị Trí Cây Nguyên</span>
+                <span style="font-size:9px; background:#d97706; color:white; padding:1px 5px; border-radius:10px;">${nguyenItems.length}</span>
+            </div>
+        `;
+        nguyenItems.forEach(function(item) {
+            html += buildImportItemHtml(item, isMaterialAllowed(item));
+        });
+    }
+
     listEl.innerHTML = html;
 }
 
