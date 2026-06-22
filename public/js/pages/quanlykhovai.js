@@ -962,6 +962,11 @@ function _qkvUpdateLocationDropdown() {
     if (rollCheckboxes.length > 0) {
         rollCheckboxes.forEach(cb => {
             cb.disabled = (scope !== 'roll');
+            if (scope === 'roll') {
+                cb.checked = true;
+            } else {
+                cb.checked = false;
+            }
         });
     }
     
