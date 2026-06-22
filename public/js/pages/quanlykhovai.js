@@ -920,7 +920,11 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
                 <label class="form-label" style="font-weight:700;font-size:12px;">Phạm vi áp dụng</label>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
                     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                        <input type="radio" name="qkvScope" value="color" checked onchange="_qkvUpdateLocationDropdown()" />
+                        <input type="radio" name="qkvScope" value="material" checked onchange="_qkvUpdateLocationDropdown()" />
+                        <span>Tất cả các màu chất liệu (<strong>${escapeHTML(matName)}</strong>)</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                        <input type="radio" name="qkvScope" value="color" onchange="_qkvUpdateLocationDropdown()" />
                         <span>Chỉ riêng màu này (<strong>${escapeHTML(colorName)}</strong>)</span>
                     </label>
                     ${rolls.length > 0 ? `
@@ -928,15 +932,20 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
                         <input type="radio" name="qkvScope" value="roll" onchange="_qkvUpdateLocationDropdown()" />
                         <span>Chỉ riêng cây vải cụ thể:</span>
                     </label>
-                    <select id="qkvMoveRollSelect" class="form-control" style="margin-left:24px;width:calc(100% - 24px);margin-top:4px;height:38px;padding:4px 12px;line-height:30px;" disabled>
-                        ${rolls.map(r => `<option value="${r.id}">Cây ${r.w}kg (${r.code || 'không mã'})${r.loc ? ' - Kệ: ' + r.loc : ''}</option>`).join('')}
-                    </select>
+                    <div id="qkvMoveRollsContainer" style="margin-left:24px; margin-top:4px; max-height:150px; overflow-y:auto; border:1px solid var(--gray-300); border-radius:6px; padding:8px; background:#fff; display:flex; flex-direction:column; gap:6px;">
+                        ${rolls.map(r => `
+                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; font-weight:500;">
+                                <input type="checkbox" name="qkvMoveRollCheckbox" value="${r.id}" disabled />
+                                <span>Cây <strong>${r.w}kg</strong> (${r.code || 'không mã'})${r.loc ? ' - Kệ: ' + escapeHTML(r.loc) : ''}</span>
+                            </label>
+                        `).join('')}
+                    </div>
                     ` : ''}
                 </div>
             </div>
 
             <div class="form-group" style="margin-bottom:16px;">
-                <label class="form-label" style="font-weight:700;font-size:12px;">Vị Trí Mới</label>
+                <label class="form-label" style="font-weight:700;font-size:12px;">Xếp vào kệ</label>
                 <select id="qkvMoveSelect" class="form-control" style="width:100%;height:38px;padding:4px 12px;line-height:30px;">
                     <!-- Filled by js -->
                 </select>
@@ -953,9 +962,11 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
 
 function _qkvUpdateLocationDropdown() {
     var scope = document.querySelector('input[name="qkvScope"]:checked')?.value;
-    var rollSelect = document.getElementById('qkvMoveRollSelect');
-    if (rollSelect) {
-        rollSelect.disabled = (scope !== 'roll');
+    var rollCheckboxes = document.querySelectorAll('input[name="qkvMoveRollCheckbox"]');
+    if (rollCheckboxes.length > 0) {
+        rollCheckboxes.forEach(cb => {
+            cb.disabled = (scope !== 'roll');
+        });
     }
     
     var select = document.getElementById('qkvMoveSelect');
@@ -1009,9 +1020,15 @@ async function _qkvSaveItemLocation(colorId, materialId) {
                 location: newLoc
             });
         } else if (scope === 'roll') {
-            var rollId = document.getElementById('qkvMoveRollSelect').value;
+            var checkboxes = document.querySelectorAll('input[name="qkvMoveRollCheckbox"]:checked');
+            if (checkboxes.length === 0) {
+                showToast('Vui lòng chọn ít nhất một cây vải!', 'error');
+                return;
+            }
+            var rollIds = Array.from(checkboxes).map(cb => Number(cb.value));
             var targetLoc = (newLoc === 'inherit') ? null : newLoc;
-            res = await apiCall(`/api/khovai/rolls/${rollId}`, 'PUT', {
+            res = await apiCall(`/api/khovai/rolls/batch`, 'PUT', {
+                roll_ids: rollIds,
                 location: targetLoc
             });
         }

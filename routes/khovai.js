@@ -339,6 +339,78 @@ module.exports = async function (fastify) {
         return { success: true, roll };
     });
 
+    // PUT /api/khovai/rolls/batch — Batch update roll locations
+    fastify.put('/api/khovai/rolls/batch', { preHandler: [authenticate] }, async (request) => {
+        const { roll_ids, location } = request.body || {};
+        if (!Array.isArray(roll_ids) || roll_ids.length === 0) {
+            return { error: 'Danh sách cuộn vải trống hoặc không hợp lệ' };
+        }
+
+        for (const rollId of roll_ids) {
+            const oldRoll = await db.get('SELECT * FROM kv_rolls WHERE id = $1', [rollId]);
+            if (!oldRoll) continue;
+
+            if (location) {
+                const rollMat = await db.get(
+                    `SELECT c.material_id 
+                     FROM kv_rolls r
+                     JOIN kv_fabric_colors c ON r.fabric_color_id = c.id
+                     WHERE r.id = $1`,
+                    [rollId]
+                );
+                if (rollMat) {
+                    const locRecord = await db.get(
+                        `SELECT id, is_restricted 
+                         FROM kv_locations 
+                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
+                             SELECT warehouse_id FROM kv_materials WHERE id = $2
+                         )`,
+                        [location.trim(), rollMat.material_id]
+                    );
+                    if (locRecord && locRecord.is_restricted) {
+                        const isAssigned = await db.get(
+                            `SELECT COUNT(*)::int AS count 
+                             FROM kv_materials 
+                             WHERE LOWER(location) = LOWER($1) AND id = $2`,
+                            [location.trim(), rollMat.material_id]
+                        );
+                        if (!isAssigned || isAssigned.count === 0) {
+                            return { error: `Kệ này giới hạn chất liệu khác, không thể xếp cuộn vải ${oldRoll.roll_code || rollId} này vào!` };
+                        }
+                    }
+                }
+            }
+
+            const targetLoc = location === null ? null : (typeof location === 'string' ? location.trim() : null);
+            await db.run('UPDATE kv_rolls SET location = $1, updated_at = NOW() WHERE id = $2', [targetLoc, rollId]);
+
+            // Auto-assign material restriction to location if not yet set
+            if (location) {
+                const rollMat = await db.get(
+                    `SELECT c.material_id 
+                     FROM kv_rolls r
+                     JOIN kv_fabric_colors c ON r.fabric_color_id = c.id
+                     WHERE r.id = $1`,
+                    [rollId]
+                );
+                if (rollMat) {
+                    const locRecord = await db.get(
+                        `SELECT id, is_restricted, restricted_material_id 
+                         FROM kv_locations 
+                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
+                             SELECT warehouse_id FROM kv_materials WHERE id = $2
+                         )`,
+                        [location.trim(), rollMat.material_id]
+                    );
+                    if (locRecord && locRecord.is_restricted && !locRecord.restricted_material_id) {
+                        await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [rollMat.material_id, locRecord.id]);
+                    }
+                }
+            }
+        }
+        return { success: true };
+    });
+
     // PUT /api/khovai/rolls/:id — Update roll weight & location
     fastify.put('/api/khovai/rolls/:id', { preHandler: [authenticate] }, async (request) => {
         const { weight, note, is_returned, location } = request.body || {};
