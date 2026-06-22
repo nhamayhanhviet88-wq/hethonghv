@@ -2213,6 +2213,7 @@ module.exports = async function(fastify) {
                        r.called_for_orders, r.created_at AS roll_created_at,
                        r.locked_by_cutting_id,
                        cr_lock.product_name AS cutting_order_name,
+                       cr_lock.order_quantity AS cutting_order_qty,
                        u_lock.full_name AS cutting_by_name,
                        (r.weight = r.original_weight AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)) AS is_original_tree,
                        COALESCE((
@@ -2241,6 +2242,7 @@ module.exports = async function(fastify) {
                     SELECT res.id, res.kg_reserved, res.dht_order_id,
                            o.order_code, res.phoi_index, res.item_id,
                            it.description AS product_name,
+                           it.quantity AS order_qty,
                            res.arrived_at, res.status AS res_status
                     FROM qlx_fabric_reservations res
                     LEFT JOIN dht_orders o ON o.id = res.dht_order_id
