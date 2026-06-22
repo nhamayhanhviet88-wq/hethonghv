@@ -920,17 +920,13 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
                 <label class="form-label" style="font-weight:700;font-size:12px;">Phạm vi áp dụng</label>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
                     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                        <input type="radio" name="qkvScope" value="material" checked onchange="_qkvUpdateLocationDropdown()" />
-                        <span>Tất cả các màu chất liệu (<strong>${escapeHTML(matName)}</strong>)</span>
-                    </label>
-                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                        <input type="radio" name="qkvScope" value="color" onchange="_qkvUpdateLocationDropdown()" />
-                        <span>Chỉ riêng màu này (<strong>${escapeHTML(colorName)}</strong>)</span>
+                        <input type="radio" name="qkvScope" value="color" checked onchange="_qkvUpdateLocationDropdown()" />
+                        <span>Tất cả cây vải thuộc màu này (<strong>${escapeHTML(colorName)}</strong>)</span>
                     </label>
                     ${rolls.length > 0 ? `
                     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
                         <input type="radio" name="qkvScope" value="roll" onchange="_qkvUpdateLocationDropdown()" />
-                        <span>Chỉ riêng cây vải cụ thể:</span>
+                        <span>Chỉ di chuyển cây vải được chọn dưới đây:</span>
                     </label>
                     <div id="qkvMoveRollsContainer" style="margin-left:24px; margin-top:4px; max-height:150px; overflow-y:auto; border:1px solid var(--gray-300); border-radius:6px; padding:8px; background:#fff; display:flex; flex-direction:column; gap:6px;">
                         ${rolls.map(r => `
