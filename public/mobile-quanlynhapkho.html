@@ -602,19 +602,83 @@
                 groups[loc.name] = { name: loc.name, description: loc.description, items: [] };
             });
 
-            var unassignedKey = '__unassigned__';
-            groups[unassignedKey] = { name: 'Chưa phân vị trí', items: [] };
+            var unassignedNguyen = {
+                name: 'Chưa Phân Vị Trí Cây Nguyên',
+                items: []
+            };
+            var unassignedLe = {
+                name: 'Chưa Phân Vị Trí Cây Lẻ',
+                items: []
+            };
 
             summary.forEach(item => {
                 if (!showZeroWeight && Number(item.cuoi_ky || 0) <= 0 && Number(item.so_cuc || 0) <= 0) {
                     return;
                 }
-                var loc = (item.location || '').trim();
-                var exists = locations.some(l => l.name === loc);
-                if (!loc || !exists) {
-                    groups[unassignedKey].items.push(item);
+                var key = (item.location || '').trim();
+                var isPredefined = locations.some(l => l.name === key);
+                
+                var rollsList = item.roll_weights || [];
+                
+                if (rollsList.length === 0) {
+                    if (key && isPredefined) {
+                        groups[key].items.push(item);
+                    } else {
+                        unassignedNguyen.items.push(item);
+                    }
                 } else {
-                    groups[loc].items.push(item);
+                    // Group rolls of this item by their target bucket
+                    var rollBuckets = {}; // key -> array of rolls
+                    
+                    rollsList.forEach(function(r) {
+                        var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : null;
+                        var isNguyen = Number(r.w) >= Number(r.ow);
+                        
+                        var targetBucket = '';
+                        if (isNguyen) {
+                            if (rollLoc && locations.some(l => l.name === rollLoc)) {
+                                targetBucket = rollLoc;
+                            } else if (rollLoc === '') {
+                                targetBucket = 'unassignedNguyen';
+                            } else {
+                                if (key && isPredefined) {
+                                    targetBucket = key;
+                                } else {
+                                    targetBucket = 'unassignedNguyen';
+                                }
+                            }
+                        } else {
+                            if (rollLoc && locations.some(l => l.name === rollLoc)) {
+                                targetBucket = rollLoc;
+                            } else {
+                                targetBucket = 'unassignedLe';
+                            }
+                        }
+                        
+                        if (!rollBuckets[targetBucket]) {
+                            rollBuckets[targetBucket] = [];
+                        }
+                        rollBuckets[targetBucket].push(r);
+                    });
+                    
+                    // For each target bucket, create a copied item and push it
+                    for (var target in rollBuckets) {
+                        var subRolls = rollBuckets[target];
+                        var subItem = Object.assign({}, item);
+                        subItem.roll_weights = subRolls;
+                        subItem.so_cuc = subRolls.length;
+                        subItem.cuoi_ky = subRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+                        
+                        if (target === 'unassignedNguyen') {
+                            unassignedNguyen.items.push(subItem);
+                        } else if (target === 'unassignedLe') {
+                            unassignedLe.items.push(subItem);
+                        } else {
+                            if (groups[target]) {
+                                groups[target].items.push(subItem);
+                            }
+                        }
+                    }
                 }
             });
 
@@ -623,14 +687,16 @@
 
             // Locations
             locations.forEach(loc => {
-                var grp = groups[loc.name] || { items: [] };
+                var grp = groups[loc.name] || { name: loc.name, description: loc.description, items: [] };
                 html += buildCardHtml(grp, false, searchKey);
             });
 
             // Unassigned
-            var unassigned = groups[unassignedKey] || { items: [] };
-            if (unassigned.items.length > 0 || locations.length === 0) {
-                html += buildCardHtml(unassigned, true, searchKey);
+            if (unassignedNguyen.items.length > 0 || locations.length === 0) {
+                html += buildCardHtml(unassignedNguyen, true, searchKey);
+            }
+            if (unassignedLe.items.length > 0 || (locations.length === 0 && unassignedNguyen.items.length === 0)) {
+                html += buildCardHtml(unassignedLe, true, searchKey);
             }
 
             container.innerHTML = html;
