@@ -286,6 +286,81 @@
         .toast-error { background: linear-gradient(135deg, #ef4444, #dc2626); }
         .toast-warning { background: linear-gradient(135deg, #f59e0b, #d97706); }
         @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        @keyframes shimmerGlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes sparkleStars {
+            0%, 100% { opacity: 0.8; text-shadow: 0 0 4px rgba(255,255,255,0.4), 0 0 12px rgba(255,255,255,0.2); }
+            50% { opacity: 1; text-shadow: 0 0 8px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.5); }
+        }
+        .card-header-nguyen {
+            padding: 12px 14px !important;
+            background: linear-gradient(135deg, #f59e0b, #d97706, #f59e0b, #b45309) !important;
+            background-size: 300% 300% !important;
+            animation: shimmerGlow 6s ease infinite !important;
+            border-bottom: 2px solid rgba(251, 191, 36, 0.4) !important;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 10px rgba(217, 119, 6, 0.25) !important;
+        }
+        .card-header-nguyen .card-title {
+            color: #ffffff !important;
+            font-size: 13px !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.5px;
+            animation: sparkleStars 2s infinite ease-in-out;
+        }
+        .card-header-nguyen .card-count {
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: #ffffff !important;
+            font-size: 10px !important;
+            font-weight: 900 !important;
+            border: 1px solid rgba(255,255,255,0.3) !important;
+        }
+
+        .card-header-le {
+            padding: 12px 14px !important;
+            background: linear-gradient(135deg, #ec4899, #be185d, #ec4899, #9d174d) !important;
+            background-size: 300% 300% !important;
+            animation: shimmerGlow 6s ease infinite !important;
+            border-bottom: 2px solid rgba(236, 72, 153, 0.4) !important;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 10px rgba(190, 24, 93, 0.25) !important;
+        }
+        .card-header-le .card-title {
+            color: #ffffff !important;
+            font-size: 13px !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.5px;
+            animation: sparkleStars 2s infinite ease-in-out;
+        }
+        .card-header-le .card-count {
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: #ffffff !important;
+            font-size: 10px !important;
+            font-weight: 900 !important;
+            border: 1px solid rgba(255,255,255,0.3) !important;
+        }
+
+        .material-color-frame {
+            border: 1.5px solid rgba(94, 234, 212, 0.15) !important;
+            background: rgba(255, 255, 255, 0.02) !important;
+            border-radius: 12px !important;
+            padding: 10px !important;
+            margin-bottom: 12px !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15) !important;
+            transition: all 0.2s !important;
+        }
+        .material-color-frame:hover {
+            border-color: rgba(94, 234, 212, 0.35) !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+        }
     </style>
     <!-- Unified Mobile Style -->
     <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
@@ -507,16 +582,16 @@
                     return;
                 }
                 
-                var html = '';
+                var html = '<option value="all">🏭 TẤT CẢ KHO VẢI</option>';
                 warehouses.forEach(w => {
                     html += `<option value="${w.id}">🏭 ${w.name} (${w.unit})</option>`;
                 });
                 select.innerHTML = html;
 
                 // Pick targeted or first warehouse
-                var pickId = warehouses[0].id;
-                if (targetWid && warehouses.some(w => w.id == targetWid)) {
-                    pickId = Number(targetWid);
+                var pickId = 'all';
+                if (targetWid) {
+                    pickId = targetWid === 'all' ? 'all' : (warehouses.some(w => w.id == targetWid) ? Number(targetWid) : 'all');
                 }
                 selectedWid = pickId;
                 select.value = selectedWid;
@@ -541,7 +616,8 @@
         }
 
         async function onWarehouseChange() {
-            selectedWid = Number(document.getElementById('warehouseSelect').value);
+            var val = document.getElementById('warehouseSelect').value;
+            selectedWid = val === 'all' ? 'all' : Number(val);
             await loadData();
         }
 
@@ -610,11 +686,11 @@
                 
                 if (rollsList.length === 0) {
                     if (key && isPredefined) {
-                        if (item.warehouse_id === selectedWid) {
-                            groups[key].items.push(item);
-                        }
+                        groups[key].items.push(item);
                     } else {
-                        unassignedNguyen.items.push(item);
+                        if (selectedWid === 'all' || item.warehouse_id === selectedWid) {
+                            unassignedNguyen.items.push(item);
+                        }
                     }
                 } else {
                     // Group rolls of this item by their target bucket
@@ -655,9 +731,15 @@
                     for (var target in rollBuckets) {
                         var subRolls = rollBuckets[target];
                         
-                        // If the target is a shelf (assigned), only push if warehouse matches!
-                        if (target !== 'unassignedNguyen' && target !== 'unassignedLe' && item.warehouse_id !== selectedWid) {
-                            continue;
+                        // For unassigned items, filter by selectedWid
+                        if (target === 'unassignedNguyen') {
+                            if (selectedWid !== 'all' && item.warehouse_id !== selectedWid) {
+                                continue;
+                            }
+                        } else if (target === 'unassignedLe') {
+                            if (selectedWid !== 'all' && item.warehouse_id !== selectedWid) {
+                                continue;
+                            }
                         }
                         
                         var subItem = Object.assign({}, item);
@@ -719,57 +801,58 @@
                     }
 
                     var isColorOverride = !!item.color_location;
-                    var badgeText = isColorOverride ? 'Kệ riêng' : 'Kệ chung';
-                    var badgeClass = isColorOverride ? 'badge-col' : 'badge-mat';
+                    var badgeHtml = isColorOverride ? `<span class="item-badge badge-col">Kệ riêng</span>` : '';
                     var escapedItemStr = JSON.stringify(item).replace(/"/g, '&quot;');
 
                     itemsHtml += `
-                        <div class="item-row ${matched ? 'matched' : ''}" style="${isUnassigned ? 'border-bottom:none; padding-bottom:4px;' : ''}">
-                            <div class="item-main">
-                                <div class="item-name">
-                                    ${escapeHTML(item.material_name)}
-                                    ${isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : ''}
+                        <div class="material-color-frame">
+                            <div class="item-row ${matched ? 'matched' : ''}" style="border:none; background:transparent; margin-bottom:0; padding:0;">
+                                <div class="item-main">
+                                    <div class="item-name" style="font-size:13px; font-weight:800; color:#ffffff;">
+                                        ${escapeHTML(item.material_name)}
+                                        ${isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : ''}
+                                    </div>
+                                    <div class="item-sub" style="margin-top:4px;">
+                                        Màu: <span style="font-weight:800; color:#ffffff; background:#e65100; padding:3px 8px; border-radius:6px; font-size:11px; box-shadow: 0 0 8px rgba(230,81,0,0.5); display:inline-block; margin-left:2px;">${escapeHTML(item.color_name)}</span>
+                                        ${badgeHtml}
+                                    </div>
                                 </div>
-                                <div class="item-sub">
-                                    Màu: <span style="font-weight:700; color:#5eead4;">${escapeHTML(item.color_name)}</span>
-                                    <span class="item-badge ${badgeClass}">${badgeText}</span>
+                                <div class="item-balance">
+                                    ${fmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
+                                    <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
                                 </div>
+                                ${!isUnassigned ? `
+                                <button class="btn-move" onclick="openMoveModal('${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, '${escapeHTML(item.location || '')}', '${escapeHTML(JSON.stringify(item.roll_weights || []))}')">🚚</button>
+                                ` : ''}
                             </div>
-                            <div class="item-balance">
-                                ${fmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
-                                <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
+                            ${isUnassigned && item.roll_weights && item.roll_weights.length > 0 ? `
+                            <div class="roll-list-unassigned" style="background:rgba(255,255,255,0.02); border-radius:8px; padding:8px; margin:8px 0 0 0; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:6px; width:100%; box-sizing:border-box;">
+                                ${item.roll_weights.map(r => {
+                                    var photoHtml = '';
+                                    var moveHtml = '';
+                                    if (r.img) {
+                                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                                        moveHtml = `<button class="btn-move" style="padding:4px 8px; margin:0;" onclick="openSingleMoveModal(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')">🚚</button>`;
+                                    } else {
+                                        photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                        moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                                    }
+                                    return `
+                                        <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+                                            <div style="flex:1; min-width:0;">
+                                                <div style="font-size:12px; font-weight:700; color:white;">Cây ${r.w}kg</div>
+                                                <div style="font-size:11px; color:#94a3b8; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
+                                            </div>
+                                            <div style="display:flex; align-items:center; gap:8px;">
+                                                ${photoHtml}
+                                                ${moveHtml}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
-                            ${!isUnassigned ? `
-                            <button class="btn-move" onclick="openMoveModal('${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, '${escapeHTML(item.location || '')}', '${escapeHTML(JSON.stringify(item.roll_weights || []))}')">🚚</button>
                             ` : ''}
                         </div>
-                        ${isUnassigned && item.roll_weights && item.roll_weights.length > 0 ? `
-                        <div class="roll-list-unassigned" style="background:rgba(255,255,255,0.03); border-radius:8px; padding:8px; margin:4px 0 12px 0; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:6px; width:100%; box-sizing:border-box;">
-                            ${item.roll_weights.map(r => {
-                                var photoHtml = '';
-                                var moveHtml = '';
-                                if (r.img) {
-                                    photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                                    moveHtml = `<button class="btn-move" style="padding:4px 8px; margin:0;" onclick="openSingleMoveModal(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')">🚚</button>`;
-                                } else {
-                                    photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                                    moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
-                                }
-                                return `
-                                    <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
-                                        <div style="flex:1; min-width:0;">
-                                            <div style="font-size:12px; font-weight:700; color:white;">Cây ${r.w}kg</div>
-                                            <div style="font-size:11px; color:#94a3b8; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
-                                        </div>
-                                        <div style="display:flex; align-items:center; gap:8px;">
-                                            ${photoHtml}
-                                            ${moveHtml}
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                        ` : ''}
                     `;
                 });
             }
@@ -786,9 +869,18 @@
 
             var qrBtn = !isUnassigned ? `<button class="card-qr-btn" onclick="showQrCodeModal('${escapeHTML(group.name)}')">📷 QR</button>` : '';
 
+            var headerClass = 'card-header';
+            if (isUnassigned) {
+                if (group.name === 'Chưa Phân Vị Trí Cây Nguyên') {
+                    headerClass = 'card-header-nguyen';
+                } else if (group.name === 'Chưa Phân Vị Trí Cây Lẻ') {
+                    headerClass = 'card-header-le';
+                }
+            }
+
             return `
                 <div class="${cardClass}">
-                    <div class="card-header">
+                    <div class="${headerClass}">
                         <div class="${titleClass}">
                             <span>${icon} ${escapeHTML(group.name)}</span>
                             ${qrBtn}

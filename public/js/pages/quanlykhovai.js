@@ -118,15 +118,43 @@ async function renderQuanlykhovaiPage(content) {
             '.qkv-empty-card-icon { font-size: 24px; margin-bottom: 6px; opacity: 0.6; }',
             
             // Special Cards
+            '@keyframes qkvShimmerGlow {',
+            '  0% { background-position: 0% 50%; }',
+            '  50% { background-position: 100% 50%; }',
+            '  100% { background-position: 0% 50%; }',
+            '}',
+            '@keyframes qkvSparkleStars {',
+            '  0%, 100% { opacity: 0.8; text-shadow: 0 0 4px rgba(255,255,255,0.4); }',
+            '  50% { opacity: 1; text-shadow: 0 0 8px rgba(255,255,255,0.8); }',
+            '}',
             '.qkv-card-unassigned { border-style: dashed; border-width: 2px; }',
             '.qkv-card-unassigned .qkv-card-header { background: linear-gradient(135deg, #fff, #f8fafc); }',
             '.qkv-card-unassigned-header { color: #f59e0b; }',
-            '.qkv-card-unassigned-nguyen { border-color: #0d9488 !important; }',
-            '.qkv-card-unassigned-nguyen .qkv-card-header { background: linear-gradient(135deg, #f0fdfa, #f9fafb) !important; }',
-            '.qkv-card-unassigned-nguyen-header { color: #0d9488 !important; }',
-            '.qkv-card-unassigned-le { border-color: #d97706 !important; }',
-            '.qkv-card-unassigned-le .qkv-card-header { background: linear-gradient(135deg, #fffbeb, #f9fafb) !important; }',
-            '.qkv-card-unassigned-le-header { color: #d97706 !important; }',
+            '.qkv-card-unassigned-nguyen { border-color: #f59e0b !important; }',
+            '.qkv-card-unassigned-nguyen-header {',
+            '  background: linear-gradient(135deg, #f59e0b, #d97706, #f59e0b, #b45309) !important;',
+            '  background-size: 300% 300% !important;',
+            '  animation: qkvShimmerGlow 6s ease infinite !important;',
+            '  color: #ffffff !important;',
+            '  font-weight: 900 !important;',
+            '  text-shadow: 0 1px 2px rgba(0,0,0,0.2);',
+            '  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);',
+            '}',
+            '.qkv-card-unassigned-nguyen-header .qkv-card-title { color: #ffffff !important; animation: qkvSparkleStars 2s infinite ease-in-out; }',
+            '.qkv-card-unassigned-nguyen-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
+            '.qkv-card-unassigned-le { border-color: #ec4899 !important; }',
+            '.qkv-card-unassigned-le-header {',
+            '  background: linear-gradient(135deg, #ec4899, #be185d, #ec4899, #9d174d) !important;',
+            '  background-size: 300% 300% !important;',
+            '  animation: qkvShimmerGlow 6s ease infinite !important;',
+            '  color: #ffffff !important;',
+            '  font-weight: 900 !important;',
+            '  text-shadow: 0 1px 2px rgba(0,0,0,0.2);',
+            '  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);',
+            '}',
+            '.qkv-card-unassigned-le-header .qkv-card-title { color: #ffffff !important; animation: qkvSparkleStars 2s infinite ease-in-out; }',
+            '.qkv-card-unassigned-le-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
+            ' ',
             
             // Mobile Specific Styles
             '@media (max-width: 768px) {',
@@ -273,16 +301,16 @@ async function _qkvLoadWarehouses(targetWid, targetLoc) {
             return;
         }
         
-        var html = '';
+        var html = '<option value="all">🏭 TẤT CẢ KHO VẢI</option>';
         _qkv.warehouses.forEach(function(w) {
-            html += `<option value="${w.id}">${w.name} (${w.unit})</option>`;
+            html += `<option value="${w.id}">🏭 ${w.name} (${w.unit})</option>`;
         });
         select.innerHTML = html;
         
         // Select matching warehouse or fall back to first one
-        var selectedId = _qkv.warehouses[0].id;
-        if (targetWid && _qkv.warehouses.some(w => w.id == targetWid)) {
-            selectedId = Number(targetWid);
+        var selectedId = 'all';
+        if (targetWid) {
+            selectedId = targetWid === 'all' ? 'all' : (_qkv.warehouses.some(w => w.id == targetWid) ? Number(targetWid) : 'all');
         }
         _qkv.selectedWid = selectedId;
         select.value = _qkv.selectedWid;
@@ -303,7 +331,7 @@ async function _qkvLoadWarehouses(targetWid, targetLoc) {
 
 // 2. Handle warehouse selection change
 async function _qkvOnWarehouseChanged(wid) {
-    _qkv.selectedWid = Number(wid);
+    _qkv.selectedWid = wid === 'all' ? 'all' : Number(wid);
     await _qkvLoadData();
 }
 
@@ -318,10 +346,11 @@ async function _qkvLoadData() {
     if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:50px;color:#94a3b8;">Đang tải sơ đồ...</div>';
     
     try {
+        var widParam = _qkv.selectedWid === 'all' ? '' : `?wid=${_qkv.selectedWid}`;
         var [locRes, sumRes, matRes] = await Promise.all([
             apiCall(`/api/khovai/locations`),
             apiCall(`/api/khovai/summary`),
-            apiCall(`/api/khovai/materials?wid=${_qkv.selectedWid}`)
+            apiCall(`/api/khovai/materials${widParam}`)
         ]);
         
         _qkv.locations = locRes.locations || [];
@@ -449,11 +478,11 @@ function _qkvRenderMap() {
         
         if (rollsList.length === 0) {
             if (key && isPredefined) {
-                if (item.warehouse_id === _qkv.selectedWid) {
-                    groups[key].items.push(item);
-                }
+                groups[key].items.push(item);
             } else {
-                unassignedNguyen.items.push(item);
+                if (_qkv.selectedWid === 'all' || item.warehouse_id === _qkv.selectedWid) {
+                    unassignedNguyen.items.push(item);
+                }
             }
         } else {
             // Group rolls of this item by their target bucket
@@ -494,9 +523,15 @@ function _qkvRenderMap() {
             for (var target in rollBuckets) {
                 var subRolls = rollBuckets[target];
                 
-                // If the target is a shelf (assigned), only push if warehouse matches!
-                if (target !== 'unassignedNguyen' && target !== 'unassignedLe' && item.warehouse_id !== _qkv.selectedWid) {
-                    continue;
+                // For unassigned items, filter by selectedWid
+                if (target === 'unassignedNguyen') {
+                    if (_qkv.selectedWid !== 'all' && item.warehouse_id !== _qkv.selectedWid) {
+                        continue;
+                    }
+                } else if (target === 'unassignedLe') {
+                    if (_qkv.selectedWid !== 'all' && item.warehouse_id !== _qkv.selectedWid) {
+                        continue;
+                    }
                 }
                 
                 var subItem = Object.assign({}, item);
@@ -586,59 +621,59 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
             }
             
             var isColorOverride = !!item.color_location;
-            var badgeText = isColorOverride ? 'Kệ riêng' : 'Kệ chung';
-            var badgeClass = isColorOverride ? 'qkv-badge-col' : 'qkv-badge-mat';
-            var originTip = isColorOverride ? 'Vị trí được phân riêng cho màu vải này' : 'Vị trí mặc định lấy từ Chất liệu cha';
+            var badgeHtml = isColorOverride ? `<span class="qkv-item-badge qkv-badge-col" title="Vị trí được phân riêng cho màu vải này">Kệ riêng</span>` : '';
             
             itemsHtml += `
-                <div class="qkv-item-row ${matched ? 'matched' : ''}" style="${isUnassigned ? 'border-bottom:none; padding-bottom:4px;' : ''}">
-                    <div class="qkv-item-main">
-                        <div class="qkv-item-name" title="${escapeHTML(item.material_name)} - ${escapeHTML(item.color_name)}">
-                            ${escapeHTML(item.material_name)}
-                            ${isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : ''}
-                        </div>
-                        <div class="qkv-item-sub">
-                            Màu: <span style="font-weight:700;color:#0f766e;">${escapeHTML(item.color_name)}</span>
-                            <span class="qkv-item-badge ${badgeClass}" title="${originTip}">${badgeText}</span>
-                        </div>
-                    </div>
-                    <div class="qkv-item-balance">
-                        ${_qkvFmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
-                        <span style="font-size:9px;color:#94a3b8;font-weight:normal;">${item.so_cuc} cây</span>
-                    </div>
-                    <div class="qkv-loc-actions">
-                        ${!isUnassigned ? `
-                        <button class="qkv-btn-icon" onclick="_qkvOnChangeItemLocationByIndex(${itemIdx})" title="Di chuyển vị trí">🚚</button>
-                        ` : ''}
-                    </div>
-                </div>
-                ${isUnassigned && item.roll_weights && item.roll_weights.length > 0 ? `
-                <div class="roll-list-unassigned" style="background:#f8fafc; border-radius:6px; padding:6px; margin:4px 0 10px 0; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:4px; width:100%; box-sizing:border-box;">
-                    ${item.roll_weights.map(r => {
-                        var photoHtml = '';
-                        var moveHtml = '';
-                        if (r.img) {
-                            photoHtml = `<img src="${escapeHTML(r.img)}" style="width:32px; height:32px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                            moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="_qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
-                        } else {
-                            photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:11px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                            moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
-                        }
-                        return `
-                            <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #f1f5f9;">
-                                <div style="flex:1; min-width:0;">
-                                    <div style="font-size:12px; font-weight:700;">Cây ${r.w}kg</div>
-                                    <div style="font-size:11px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
-                                </div>
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    ${photoHtml}
-                                    ${moveHtml}
-                                </div>
+                <div class="qkv-material-color-frame" style="border: 1px solid #e2e8f0; background: #fafafa; border-radius: 10px; padding: 10px; margin-bottom: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+                    <div class="qkv-item-row ${matched ? 'matched' : ''}" style="border:none; background:transparent; margin-bottom:0; padding:0;">
+                        <div class="qkv-item-main">
+                            <div class="qkv-item-name" title="${escapeHTML(item.material_name)} - ${escapeHTML(item.color_name)}" style="font-size:12.5px; font-weight:800;">
+                                ${escapeHTML(item.material_name)}
+                                ${isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : ''}
                             </div>
-                        `;
-                    }).join('')}
+                            <div class="qkv-item-sub" style="margin-top:4px;">
+                                Màu: <span style="font-weight:700;color:#ffffff;background:#e65100;padding:2px 6px;border-radius:4px;font-size:11px;box-shadow: 0 0 6px rgba(230,81,0,0.4);display:inline-block;margin-left:2px;">${escapeHTML(item.color_name)}</span>
+                                ${badgeHtml}
+                            </div>
+                        </div>
+                        <div class="qkv-item-balance">
+                            ${_qkvFmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
+                            <span style="font-size:9px;color:#94a3b8;font-weight:normal;">${item.so_cuc} cây</span>
+                        </div>
+                        <div class="qkv-loc-actions">
+                            ${!isUnassigned ? `
+                            <button class="qkv-btn-icon" onclick="_qkvOnChangeItemLocationByIndex(${itemIdx})" title="Di chuyển vị trí">🚚</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ${isUnassigned && item.roll_weights && item.roll_weights.length > 0 ? `
+                    <div class="roll-list-unassigned" style="background:#f8fafc; border-radius:6px; padding:6px; margin:8px 0 0 0; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:4px; width:100%; box-sizing:border-box;">
+                        ${item.roll_weights.map(r => {
+                            var photoHtml = '';
+                            var moveHtml = '';
+                            if (r.img) {
+                                photoHtml = `<img src="${escapeHTML(r.img)}" style="width:32px; height:32px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                                moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="_qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
+                            } else {
+                                photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:11px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                            }
+                            return `
+                                <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #f1f5f9;">
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-size:12px; font-weight:700;">Cây ${r.w}kg</div>
+                                        <div style="font-size:11px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        ${photoHtml}
+                                        ${moveHtml}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    ` : ''}
                 </div>
-                ` : ''}
             `;
         });
     }
@@ -659,9 +694,9 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     
     return `
         <div class="${cardClass}">
-            <div class="qkv-card-header">
+            <div class="qkv-card-header ${headerClass}">
                 <div style="min-width:0;flex:1;">
-                    <div class="qkv-card-title ${headerClass}">
+                    <div class="qkv-card-title">
                         <span>${icon} ${escapeHTML(group.name)}</span>
                         ${qrButton}
                     </div>
