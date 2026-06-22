@@ -871,7 +871,7 @@
                                     var moveHtml = '';
                                     if (r.img) {
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                                        moveHtml = `<button class="btn-move" style="padding:4px 8px; margin:0;" onclick="openSingleMoveModal(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')">🚚</button>`;
+                                        moveHtml = ``;
                                     } else {
                                         photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
                                         moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
