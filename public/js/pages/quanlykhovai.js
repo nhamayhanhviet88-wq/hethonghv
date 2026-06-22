@@ -178,8 +178,9 @@ async function renderQuanlykhovaiPage(content) {
                             </div>
                             <div class="qkv-form-group">
                                 <label class="qkv-label">Giới hạn chất liệu</label>
-                                <select id="qkvNewLocMaterial" class="qkv-select">
-                                    <option value="">-- Đa năng (Chất liệu nào cũng được) --</option>
+                                <select id="qkvNewLocIsRestricted" class="qkv-select">
+                                    <option value="false">Đa năng (Chất liệu nào cũng được)</option>
+                                    <option value="true">Duy nhất (Chỉ 1 số chất liệu nhất định)</option>
                                 </select>
                             </div>
                             <button type="submit" class="qkv-btn-primary">💾 Tạo vị trí mới</button>
@@ -345,18 +346,17 @@ async function _qkvLoadData() {
 }
 
 function _qkvPopulateSidebarDropdowns() {
-    var newLocMat = document.getElementById('qkvNewLocMaterial');
     var assignMat = document.getElementById('qkvAssignMatSelect');
     var assignLoc = document.getElementById('qkvAssignLocSelect');
 
-    var matOptions = '<option value="">-- Đa năng (Chất liệu nào cũng được) --</option>';
     var assignMatOptions = '<option value="">-- Chọn chất liệu --</option>';
     (_qkv.materials || []).forEach(function(m) {
-        matOptions += `<option value="${m.id}">${escapeHTML(m.name)}</option>`;
+        if (m.location && m.location.trim()) {
+            return;
+        }
         assignMatOptions += `<option value="${m.id}">${escapeHTML(m.name)}</option>`;
     });
 
-    if (newLocMat) newLocMat.innerHTML = matOptions;
     if (assignMat) assignMat.innerHTML = assignMatOptions;
 
     var locOptions = '<option value="">-- Chọn kệ / vị trí --</option>';
@@ -383,13 +383,17 @@ function _qkvRenderSidebarLocations() {
                 <div style="min-width: 0; flex: 1;">
                     <div class="qkv-loc-name">
                         ${escapeHTML(loc.name)}
-                        ${loc.restricted_material_name ? `<span style="font-size:9px;font-weight:800;color:#e11d48;background:#fff1f2;border:1px solid #ffe4e6;padding:1px 6px;border-radius:4px;margin-left:6px;">🔒 ${escapeHTML(loc.restricted_material_name)}</span>` : '<span style="font-size:9px;font-weight:800;color:#059669;background:#ecfdf5;border:1px solid #d1fae5;padding:1px 6px;border-radius:4px;margin-left:6px;">🔓 Đa năng</span>'}
+                        ${loc.is_restricted ? 
+                          (loc.restricted_material_name ? `<span style="font-size:9px;font-weight:800;color:#e11d48;background:#fff1f2;border:1px solid #ffe4e6;padding:1px 6px;border-radius:4px;margin-left:6px;">🔒 ${escapeHTML(loc.restricted_material_name)}</span>` 
+                                                        : `<span style="font-size:9px;font-weight:800;color:#b45309;background:#fef3c7;border:1px solid #fde68a;padding:1px 6px;border-radius:4px;margin-left:6px;">🔒 Duy nhất (Trống)</span>`)
+                          : '<span style="font-size:9px;font-weight:800;color:#059669;background:#ecfdf5;border:1px solid #d1fae5;padding:1px 6px;border-radius:4px;margin-left:6px;">🔓 Đa năng</span>'
+                        }
                     </div>
                     <div class="qkv-loc-desc">${loc.description ? escapeHTML(loc.description) : 'Không có ghi chú'}</div>
                 </div>
                 <div class="qkv-loc-actions">
                     <button class="qkv-btn-icon" onclick="_qkvShowLocationQRCode('${escapeJS(loc.name)}')" title="Xem mã QR kệ">📷</button>
-                    <button class="qkv-btn-icon" onclick="_qkvEditLocation(${loc.id}, '${escapeJS(loc.name)}', '${escapeJS(loc.description || '')}', ${loc.restricted_material_id || 'null'})" title="Sửa tên/mô tả/giới hạn">✏️</button>
+                    <button class="qkv-btn-icon" onclick="_qkvEditLocation(${loc.id}, '${escapeJS(loc.name)}', '${escapeJS(loc.description || '')}', ${loc.is_restricted ? 'true' : 'false'}, ${loc.restricted_material_id || 'null'})" title="Sửa tên/mô tả/giới hạn">✏️</button>
                     <button class="qkv-btn-icon" onclick="_qkvDeleteLocation(${loc.id}, '${escapeJS(loc.name)}')" title="Xóa vị trí">🗑️</button>
                 </div>
             </div>
@@ -646,11 +650,11 @@ async function _qkvOnAddLocation(e) {
     
     var nameEl = document.getElementById('qkvNewLocName');
     var descEl = document.getElementById('qkvNewLocDesc');
-    var matEl = document.getElementById('qkvNewLocMaterial');
+    var isRestrictedEl = document.getElementById('qkvNewLocIsRestricted');
     
     var name = nameEl.value.trim();
     var desc = descEl.value.trim();
-    var restrictedMaterialId = matEl ? matEl.value : null;
+    var isRestricted = isRestrictedEl ? (isRestrictedEl.value === 'true') : false;
     
     if (!name) return;
     
@@ -659,7 +663,7 @@ async function _qkvOnAddLocation(e) {
             warehouse_id: _qkv.selectedWid,
             name: name,
             description: desc,
-            restricted_material_id: restrictedMaterialId || null
+            is_restricted: isRestricted
         });
         
         if (res.error) {
@@ -670,7 +674,7 @@ async function _qkvOnAddLocation(e) {
         showToast(`Tạo vị trí "${name}" thành công!`, 'success');
         nameEl.value = '';
         descEl.value = '';
-        if (matEl) matEl.value = '';
+        if (isRestrictedEl) isRestrictedEl.value = 'false';
         
         await _qkvLoadData();
     } catch(err) {
@@ -680,12 +684,46 @@ async function _qkvOnAddLocation(e) {
 }
 
 // 9. Edit Location modal
-function _qkvEditLocation(id, name, desc, restrictedMaterialId) {
-    var matOptions = '<option value="">-- Đa năng (Chất liệu nào cũng được) --</option>';
-    (_qkv.materials || []).forEach(function(m) {
-        var selected = m.id == restrictedMaterialId ? 'selected' : '';
-        matOptions += `<option value="${m.id}" ${selected}>${escapeHTML(m.name)}</option>`;
+function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId) {
+    var statusText = '';
+    if (isRestricted && restrictedMaterialId) {
+        var mat = (_qkv.materials || []).find(function(m) { return m.id == restrictedMaterialId; });
+        if (mat) {
+            statusText = `<div style="font-size:11px;color:#e11d48;margin-top:6px;font-weight:600;">🔒 Đang khóa cho chất liệu: ${escapeHTML(mat.name)}</div>`;
+        }
+    }
+
+    // Find materials assigned to this shelf
+    var assignedMats = (_qkv.materials || []).filter(function(m) {
+        return m.location && m.location.trim().toLowerCase() === name.trim().toLowerCase();
     });
+
+    var matsHtml = '';
+    if (assignedMats.length > 0) {
+        matsHtml = `
+            <div style="margin-top:15px; border-top: 1px solid var(--gray-200); padding-top:12px;">
+                <label class="form-label" style="font-weight:700;font-size:12px;margin-bottom:8px;display:block;color:var(--navy);">📦 Chất liệu hiện có trong kệ:</label>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+        `;
+        assignedMats.forEach(function(m) {
+            matsHtml += `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(212,168,67,0.06); border: 1px solid rgba(212,168,67,0.2); padding:6px 12px; border-radius:6px;">
+                    <span style="font-size:13px; font-weight:600; color:var(--navy);">${escapeHTML(m.name)}</span>
+                    <button class="btn btn-danger" style="padding: 2px 8px; font-size:11px; height:auto; line-height:1.2;" onclick="_qkvRemoveMaterialFromLocation(${m.id}, ${id})">❌ Gỡ khỏi kệ</button>
+                </div>
+            `;
+        });
+        matsHtml += `
+                </div>
+            </div>
+        `;
+    } else {
+        matsHtml = `
+            <div style="margin-top:15px; border-top: 1px solid var(--gray-200); padding-top:12px; color: #94a3b8; font-size:12px; text-align:center; font-style:italic;">
+                Chưa có chất liệu nào xếp trong kệ này.
+            </div>
+        `;
+    }
 
     openModal(
         '✏️ Sửa Vị Trí / Kệ',
@@ -698,12 +736,15 @@ function _qkvEditLocation(id, name, desc, restrictedMaterialId) {
                 <label class="form-label" style="font-weight:700;font-size:12px;">Mô tả / Ghi chú</label>
                 <input type="text" id="qkvEditDesc" class="form-control" value="${escapeHTML(desc)}" />
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom:12px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Giới hạn chất liệu</label>
-                <select id="qkvEditMaterial" class="form-control" style="height:38px;">
-                    ${matOptions}
+                <select id="qkvEditIsRestricted" class="form-control" style="height:38px; padding:4px 12px; line-height:30px;">
+                    <option value="false" ${!isRestricted ? 'selected' : ''}>Đa năng (Chất liệu nào cũng được)</option>
+                    <option value="true" ${isRestricted ? 'selected' : ''}>Duy nhất (Chỉ 1 số chất liệu nhất định)</option>
                 </select>
+                ${statusText}
             </div>
+            ${matsHtml}
         `,
         `
             <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
@@ -712,12 +753,43 @@ function _qkvEditLocation(id, name, desc, restrictedMaterialId) {
     );
 }
 
+// 9b. Remove material from location
+async function _qkvRemoveMaterialFromLocation(matId, locId) {
+    if (!confirm('Bạn có chắc muốn gỡ chất liệu này khỏi kệ?')) return;
+    
+    try {
+        var res = await apiCall(`/api/khovai/materials/${matId}`, 'PUT', {
+            location: null
+        });
+        
+        if (res.error) {
+            showToast(res.error, 'error');
+            return;
+        }
+        
+        showToast('Gỡ chất liệu khỏi kệ thành công!', 'success');
+        
+        await _qkvLoadData();
+        
+        var loc = (_qkv.locations || []).find(l => l.id == locId);
+        if (loc) {
+            closeModal();
+            _qkvEditLocation(loc.id, loc.name, loc.description || '', loc.is_restricted, loc.restricted_material_id);
+        } else {
+            closeModal();
+        }
+    } catch(err) {
+        console.error(err);
+        showToast('Lỗi khi gỡ chất liệu khỏi kệ', 'error');
+    }
+}
+
 // 10. Save edited location to database
 async function _qkvSaveLocation(id) {
     var name = document.getElementById('qkvEditName').value.trim();
     var desc = document.getElementById('qkvEditDesc').value.trim();
-    var matEl = document.getElementById('qkvEditMaterial');
-    var restrictedMaterialId = matEl ? matEl.value : null;
+    var isRestrictedEl = document.getElementById('qkvEditIsRestricted');
+    var isRestricted = isRestrictedEl ? (isRestrictedEl.value === 'true') : false;
     
     if (!name) {
         showToast('Tên vị trí không được để trống', 'error');
@@ -728,7 +800,7 @@ async function _qkvSaveLocation(id) {
         var res = await apiCall(`/api/khovai/locations/${id}`, 'PUT', {
             name: name,
             description: desc,
-            restricted_material_id: restrictedMaterialId || null
+            is_restricted: isRestricted
         });
         
         if (res.error) {

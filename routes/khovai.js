@@ -121,6 +121,22 @@ module.exports = async function (fastify) {
             // Cascade to colors and rolls under this material to inherit (NULL location)
             await db.run('UPDATE kv_fabric_colors SET location = NULL WHERE material_id = $1', [request.params.id]);
             await db.run('UPDATE kv_rolls SET location = NULL WHERE fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)', [request.params.id]);
+            
+            if (location) {
+                const locRecord = await db.get(
+                    `SELECT id, is_restricted, restricted_material_id 
+                     FROM kv_locations 
+                     WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
+                         SELECT warehouse_id FROM kv_materials WHERE id = $2
+                     )`,
+                    [location.trim(), request.params.id]
+                );
+                if (locRecord && locRecord.is_restricted) {
+                    await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [request.params.id, locRecord.id]);
+                }
+            } else {
+                await db.run('UPDATE kv_locations SET restricted_material_id = NULL WHERE restricted_material_id = $1', [request.params.id]);
+            }
         }
         return { success: true };
     });
@@ -179,6 +195,23 @@ module.exports = async function (fastify) {
         updates.push('updated_at = NOW()');
         params.push(request.params.id);
         await db.run(`UPDATE kv_fabric_colors SET ${updates.join(', ')} WHERE id = $${idx}`, params);
+
+        if (location) {
+            const colorRecord = await db.get('SELECT material_id FROM kv_fabric_colors WHERE id = $1', [request.params.id]);
+            if (colorRecord) {
+                const locRecord = await db.get(
+                    `SELECT id, is_restricted, restricted_material_id 
+                     FROM kv_locations 
+                     WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
+                         SELECT warehouse_id FROM kv_materials WHERE id = $2
+                     )`,
+                    [location.trim(), colorRecord.material_id]
+                );
+                if (locRecord && locRecord.is_restricted && !locRecord.restricted_material_id) {
+                    await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [colorRecord.material_id, locRecord.id]);
+                }
+            }
+        }
 
         // Log history
         const user = request.user;
@@ -273,6 +306,29 @@ module.exports = async function (fastify) {
         if (location !== undefined) {
             updates.push(`location = $${idx++}`);
             params.push(location === null ? null : (typeof location === 'string' ? location.trim() : null));
+
+            if (location) {
+                const rollMat = await db.get(
+                    `SELECT c.material_id 
+                     FROM kv_rolls r
+                     JOIN kv_fabric_colors c ON r.fabric_color_id = c.id
+                     WHERE r.id = $1`,
+                    [request.params.id]
+                );
+                if (rollMat) {
+                    const locRecord = await db.get(
+                        `SELECT id, is_restricted, restricted_material_id 
+                         FROM kv_locations 
+                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
+                             SELECT warehouse_id FROM kv_materials WHERE id = $2
+                         )`,
+                        [location.trim(), rollMat.material_id]
+                    );
+                    if (locRecord && locRecord.is_restricted && !locRecord.restricted_material_id) {
+                        await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [rollMat.material_id, locRecord.id]);
+                    }
+                }
+            }
         }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push(`updated_at = NOW()`);
@@ -815,7 +871,7 @@ module.exports = async function (fastify) {
 
     // POST /api/khovai/locations — Create location
     fastify.post('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
-        const { warehouse_id, name, description, restricted_material_id } = request.body || {};
+        const { warehouse_id, name, description, is_restricted, restricted_material_id } = request.body || {};
         if (!warehouse_id) return { error: 'Chưa chọn kho' };
         if (!name || !name.trim()) return { error: 'Tên vị trí không được trống' };
 
@@ -823,16 +879,16 @@ module.exports = async function (fastify) {
         if (exists) return { error: 'Tên vị trí này đã tồn tại trong kho' };
 
         const row = await db.get(
-            `INSERT INTO kv_locations (warehouse_id, name, description, restricted_material_id) 
-             VALUES ($1, $2, $3, $4) RETURNING *`,
-            [warehouse_id, name.trim(), description ? description.trim() : null, restricted_material_id ? Number(restricted_material_id) : null]
+            `INSERT INTO kv_locations (warehouse_id, name, description, is_restricted, restricted_material_id) 
+              VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [warehouse_id, name.trim(), description ? description.trim() : null, is_restricted ? true : false, (!is_restricted) ? null : (restricted_material_id ? Number(restricted_material_id) : null)]
         );
         return { success: true, location: row };
     });
 
     // PUT /api/khovai/locations/:id — Update location
     fastify.put('/api/khovai/locations/:id', { preHandler: [authenticate] }, async (request) => {
-        const { name, description, restricted_material_id } = request.body || {};
+        const { name, description, is_restricted, restricted_material_id } = request.body || {};
         const id = request.params.id;
 
         const oldLoc = await db.get('SELECT * FROM kv_locations WHERE id = $1', [id]);
@@ -851,9 +907,16 @@ module.exports = async function (fastify) {
             updates.push(`description = $${idx++}`);
             params.push(description ? description.trim() : null);
         }
+        if (is_restricted !== undefined) {
+            updates.push(`is_restricted = $${idx++}`);
+            params.push(is_restricted ? true : false);
+        }
         if (restricted_material_id !== undefined) {
             updates.push(`restricted_material_id = $${idx++}`);
             params.push(restricted_material_id ? Number(restricted_material_id) : null);
+        } else if (is_restricted === false) {
+            // If explicitly toggled to multipurpose, clear restriction
+            updates.push(`restricted_material_id = NULL`);
         }
 
         if (!updates.length) return { error: 'Không có gì thay đổi' };

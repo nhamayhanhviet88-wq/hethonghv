@@ -225,6 +225,11 @@ async function start() {
         await db.exec(`ALTER TABLE kv_locations ADD COLUMN IF NOT EXISTS restricted_material_id INTEGER REFERENCES kv_materials(id) ON DELETE SET NULL`);
     } catch(e) { /* already exists */ }
 
+    // Migration: kv_locations - add is_restricted column
+    try {
+        await db.exec(`ALTER TABLE kv_locations ADD COLUMN IF NOT EXISTS is_restricted BOOLEAN DEFAULT FALSE`);
+    } catch(e) { /* already exists */ }
+
 
 
     // Migration: Payment Records — Sổ Ghi Nhận Tiền (Bộ Phận Văn Phòng)
