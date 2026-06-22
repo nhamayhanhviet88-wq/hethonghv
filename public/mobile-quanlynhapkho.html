@@ -361,6 +361,9 @@
             border-color: rgba(94, 234, 212, 0.35) !important;
             background: rgba(255, 255, 255, 0.03) !important;
         }
+        .card.collapsed .card-body {
+            display: none !important;
+        }
     </style>
     <!-- Unified Mobile Style -->
     <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
@@ -500,6 +503,7 @@
         var searchText = '';
         var scanner = null;
         var showZeroWeight = false;
+        var collapsedShelves = {};
         
         // Active item target details for dialogs
         var activeMoveItem = null;
@@ -514,6 +518,15 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
+        }
+
+        function toggleShelfCollapse(element, shelfName) {
+            var card = element.closest('.card');
+            if (!card) return;
+            card.classList.toggle('collapsed');
+            
+            var isCollapsed = card.classList.contains('collapsed');
+            collapsedShelves[shelfName] = isCollapsed;
         }
 
         // Native API Call Helper
@@ -769,12 +782,12 @@
                 html += buildCardHtml(grp, false, searchKey);
             });
 
-            // Unassigned
-            if (unassignedNguyen.items.length > 0 || locations.length === 0) {
-                html += buildCardHtml(unassignedNguyen, true, searchKey);
-            }
-            if (unassignedLe.items.length > 0 || (locations.length === 0 && unassignedNguyen.items.length === 0)) {
+            // Unassigned: Lẻ first, then Nguyên
+            if (unassignedLe.items.length > 0 || locations.length === 0) {
                 html += buildCardHtml(unassignedLe, true, searchKey);
+            }
+            if (unassignedNguyen.items.length > 0 || (locations.length === 0 && unassignedLe.items.length === 0)) {
+                html += buildCardHtml(unassignedNguyen, true, searchKey);
             }
 
             container.innerHTML = html;
@@ -788,7 +801,9 @@
             if (group.items.length === 0) {
                 itemsHtml = `<div class="empty-card">📦 Kệ trống</div>`;
             } else {
+                var itemIndex = 0;
                 group.items.forEach(item => {
+                    itemIndex++;
                     var matched = false;
                     if (searchKey) {
                         matched = (item.material_name || '').toLowerCase().includes(searchKey)
@@ -803,13 +818,15 @@
                     var isColorOverride = !!item.color_location;
                     var badgeHtml = isColorOverride ? `<span class="item-badge badge-col">Kệ riêng</span>` : '';
                     var escapedItemStr = JSON.stringify(item).replace(/"/g, '&quot;');
+                    
+                    var prefix = isUnassigned ? `${itemIndex}. ` : '';
 
                     itemsHtml += `
                         <div class="material-color-frame">
                             <div class="item-row ${matched ? 'matched' : ''}" style="border:none; background:transparent; margin-bottom:0; padding:0;">
                                 <div class="item-main">
                                     <div class="item-name" style="font-size:13px; font-weight:800; color:#ffffff;">
-                                        ${escapeHTML(item.material_name)}
+                                        ${prefix}${escapeHTML(item.material_name)}
                                         ${isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : ''}
                                     </div>
                                     <div class="item-sub" style="margin-top:4px;">
@@ -857,8 +874,20 @@
                 });
             }
 
+            var isCollapsed = false;
+            if (searchKey) {
+                isCollapsed = !isCardHighlighted;
+            } else {
+                if (isUnassigned) {
+                    isCollapsed = !!collapsedShelves[group.name];
+                } else {
+                    isCollapsed = collapsedShelves[group.name] !== false; // defaults to true
+                }
+            }
+
             var cardClass = 'card';
             if (isCardHighlighted) cardClass += ' highlighted';
+            if (isCollapsed) cardClass += ' collapsed';
             
             var icon = isUnassigned ? '⚠️' : '📍';
             var titleClass = isUnassigned ? 'card-title unassigned-title' : 'card-title';
@@ -867,7 +896,7 @@
                 countText = `<span class="card-count" style="background:#fbbf24; color:#78350f;">Tìm thấy ${matchCount}</span>`;
             }
 
-            var qrBtn = !isUnassigned ? `<button class="card-qr-btn" onclick="showQrCodeModal('${escapeHTML(group.name)}')">📷 QR</button>` : '';
+            var qrBtn = !isUnassigned ? `<button class="card-qr-btn" onclick="event.stopPropagation(); showQrCodeModal('${escapeHTML(group.name)}')">📷 QR</button>` : '';
 
             var headerClass = 'card-header';
             if (isUnassigned) {
@@ -880,7 +909,7 @@
 
             return `
                 <div class="${cardClass}">
-                    <div class="${headerClass}">
+                    <div class="${headerClass}" style="cursor:pointer;" onclick="toggleShelfCollapse(this, '${escapeJS(group.name)}')">
                         <div class="${titleClass}">
                             <span>${icon} ${escapeHTML(group.name)}</span>
                             ${qrBtn}

@@ -10,6 +10,16 @@ var _qkv = {
     activeItems: []
 };
 var _qkvScanner = null;
+var _qkvCollapsedShelves = {};
+
+function _qkvToggleShelfCollapse(element, shelfName) {
+    var card = element.closest('.qkv-card');
+    if (!card) return;
+    card.classList.toggle('collapsed');
+    
+    var isCollapsed = card.classList.contains('collapsed');
+    _qkvCollapsedShelves[shelfName] = isCollapsed;
+}
 
 // HTML and JS escaping helpers
 function escapeHTML(str) {
@@ -170,7 +180,8 @@ async function renderQuanlykhovaiPage(content) {
             '}',
             '@media (min-width: 769px) {',
             '  .qkv-sb-toggle-btn { display: none !important; }',
-            '}'
+            '}',
+            '.qkv-card.collapsed .qkv-card-body { display: none !important; }'
         ].join('\n');
         document.head.appendChild(st);
     }
@@ -564,13 +575,13 @@ function _qkvRenderMap() {
     });
     
     // RENDER UNASSIGNED CARDS AT THE END
-    if (unassignedNguyen.items.length > 0 || _qkv.locations.length === 0) {
-        var cardHtml = _qkvBuildCardHtml(unassignedNguyen, 'nguyen', searchKey);
+    if (unassignedLe.items.length > 0 || _qkv.locations.length === 0) {
+        var cardHtml = _qkvBuildCardHtml(unassignedLe, 'le', searchKey);
         html += cardHtml;
     }
     
-    if (unassignedLe.items.length > 0 || (_qkv.locations.length === 0 && unassignedNguyen.items.length === 0)) {
-        var cardHtml = _qkvBuildCardHtml(unassignedLe, 'le', searchKey);
+    if (unassignedNguyen.items.length > 0 || (_qkv.locations.length === 0 && unassignedLe.items.length === 0)) {
+        var cardHtml = _qkvBuildCardHtml(unassignedNguyen, 'nguyen', searchKey);
         html += cardHtml;
     }
     
@@ -605,7 +616,9 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
             </div>
         `;
     } else {
+        var itemIndex = 0;
         group.items.forEach(function(item) {
+            itemIndex++;
             _qkv.activeItems.push(item);
             var itemIdx = _qkv.activeItems.length - 1;
 
@@ -622,13 +635,14 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
             
             var isColorOverride = !!item.color_location;
             var badgeHtml = isColorOverride ? `<span class="qkv-item-badge qkv-badge-col" title="Vị trí được phân riêng cho màu vải này">Kệ riêng</span>` : '';
-            
+            var prefix = isUnassigned ? `${itemIndex}. ` : '';
+
             itemsHtml += `
                 <div class="qkv-material-color-frame" style="border: 1px solid #e2e8f0; background: #fafafa; border-radius: 10px; padding: 10px; margin-bottom: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
                     <div class="qkv-item-row ${matched ? 'matched' : ''}" style="border:none; background:transparent; margin-bottom:0; padding:0;">
                         <div class="qkv-item-main">
                             <div class="qkv-item-name" title="${escapeHTML(item.material_name)} - ${escapeHTML(item.color_name)}" style="font-size:12.5px; font-weight:800;">
-                                ${escapeHTML(item.material_name)}
+                                ${prefix}${escapeHTML(item.material_name)}
                                 ${isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : ''}
                             </div>
                             <div class="qkv-item-sub" style="margin-top:4px;">
@@ -678,6 +692,20 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
         });
     }
     
+    var isCollapsed = false;
+    if (searchKey) {
+        isCollapsed = !isCardHighlighted;
+    } else {
+        if (isUnassigned) {
+            isCollapsed = !!_qkvCollapsedShelves[group.name];
+        } else {
+            isCollapsed = _qkvCollapsedShelves[group.name] !== false; // defaults to true (collapsed)
+        }
+    }
+
+    if (isCollapsed) {
+        cardClass += ' collapsed';
+    }
     if (isCardHighlighted) {
         cardClass += ' highlighted';
     }
@@ -690,11 +718,11 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
         countBadge = `<span class="qkv-card-count" style="background:#fef3c7;color:#d97706;">Tìm thấy ${matchCount}</span>`;
     }
 
-    var qrButton = !isUnassigned ? `<button class="qkv-btn-icon" style="font-size:12px; margin-left: 6px;" onclick="_qkvShowLocationQRCode('${escapeJS(group.name)}')" title="Xem mã QR của kệ này">📷 QR</button>` : '';
+    var qrButton = !isUnassigned ? `<button class="qkv-btn-icon" style="font-size:12px; margin-left: 6px;" onclick="event.stopPropagation(); _qkvShowLocationQRCode('${escapeJS(group.name)}')" title="Xem mã QR của kệ này">📷 QR</button>` : '';
     
     return `
         <div class="${cardClass}">
-            <div class="qkv-card-header ${headerClass}">
+            <div class="qkv-card-header ${headerClass}" style="cursor:pointer;" onclick="_qkvToggleShelfCollapse(this, '${escapeJS(group.name)}')">
                 <div style="min-width:0;flex:1;">
                     <div class="qkv-card-title">
                         <span>${icon} ${escapeHTML(group.name)}</span>
