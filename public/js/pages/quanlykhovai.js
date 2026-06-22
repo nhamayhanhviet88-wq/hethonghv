@@ -928,7 +928,7 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
                         <input type="radio" name="qkvScope" value="roll" onchange="_qkvUpdateLocationDropdown()" />
                         <span>Chỉ riêng cây vải cụ thể:</span>
                     </label>
-                    <select id="qkvMoveRollSelect" class="form-control" style="margin-left:24px;width:calc(100% - 24px);margin-top:4px;height:38px;" disabled>
+                    <select id="qkvMoveRollSelect" class="form-control" style="margin-left:24px;width:calc(100% - 24px);margin-top:4px;height:38px;padding:4px 12px;line-height:30px;" disabled>
                         ${rolls.map(r => `<option value="${r.id}">Cây ${r.w}kg (${r.code || 'không mã'})${r.loc ? ' - Kệ: ' + r.loc : ''}</option>`).join('')}
                     </select>
                     ` : ''}
@@ -937,7 +937,7 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
 
             <div class="form-group" style="margin-bottom:16px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Vị Trí Mới</label>
-                <select id="qkvMoveSelect" class="form-control" style="width:100%;height:38px;">
+                <select id="qkvMoveSelect" class="form-control" style="width:100%;height:38px;padding:4px 12px;line-height:30px;">
                     <!-- Filled by js -->
                 </select>
             </div>
