@@ -131,15 +131,16 @@ module.exports = async function(fastify) {
         `);
     } catch(e) { console.log('[BPC] backfill cutting_category:', e.message); }
 
-    // Backfill selected_roll_ids with label for existing records
+    // Backfill selected_roll_ids with label and location for existing records
     try {
         const recs = await db.all(`SELECT id, selected_roll_ids FROM cutting_records WHERE selected_roll_ids IS NOT NULL AND selected_roll_ids != '[]'`);
         for (const rec of recs) {
             let rolls = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []);
-            if (!rolls.length || rolls[0].label) continue; // skip if empty or already has label
+            if (!rolls.length || rolls.every(r => r.label && r.roll_loc_name)) continue;
             const rollIds = rolls.map(r => r.roll_id);
             const details = await db.all(`
-                SELECT r.id, r.weight, m.name AS material_name, fc.color_name
+                SELECT r.id, r.weight, r.original_weight, r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
+                       m.name AS material_name, fc.color_name, r.roll_code
                 FROM kv_rolls r
                 JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                 JOIN kv_materials m ON m.id = fc.material_id
@@ -149,11 +150,16 @@ module.exports = async function(fastify) {
             details.forEach(d => { detailMap[d.id] = d; });
             const updated = rolls.map(r => {
                 const d = detailMap[r.roll_id];
-                return { ...r, label: d ? (d.material_name + ' - ' + d.color_name + ' - ' + Number(d.weight) + 'kg') : r.roll_code };
+                if (!d) return r;
+                return {
+                    ...r,
+                    label: r.label || (d.material_name + ' - ' + d.color_name + ' - ' + Number(d.weight) + 'kg'),
+                    roll_loc_name: r.roll_loc_name || resolveRollLocationName(d)
+                };
             });
             await db.run(`UPDATE cutting_records SET selected_roll_ids = $1 WHERE id = $2`, [JSON.stringify(updated), rec.id]);
         }
-    } catch(e) { console.log('[BPC] backfill roll labels:', e.message); }
+    } catch(e) { console.log('[BPC] backfill roll labels and locations:', e.message); }
 
     // Backfill phoi_index for existing records
     try {
