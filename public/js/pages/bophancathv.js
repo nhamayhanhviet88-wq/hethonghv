@@ -2052,7 +2052,6 @@ function _bpcOpenDoneModal(recordId, isRefresh = false) {
     document.addEventListener('paste', _bpcDonePasteHandler);
     _bpcDoneRecalc();
 }
-}
 
 function _bpcDonePasteHandler(e) {
     if (!document.getElementById('_bpcDoneModal')) { document.removeEventListener('paste', _bpcDonePasteHandler); return; }
@@ -2563,7 +2562,6 @@ function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
     document.removeEventListener('paste', _bpcGDonePasteHandler);
     document.addEventListener('paste', _bpcGDonePasteHandler);
     _bpcGDoneRecalc();
-}
 }
 function _bpcCloseGDone() {
     window._bpcBusy = false;
