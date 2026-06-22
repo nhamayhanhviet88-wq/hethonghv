@@ -174,6 +174,28 @@ module.exports = async function (fastify) {
         if (!material_id) return { error: 'Chưa chọn chất liệu' };
         if (!color_name || !color_name.trim()) return { error: 'Tên màu không được trống' };
 
+        if (location) {
+            const locRecord = await db.get(
+                `SELECT id, is_restricted 
+                 FROM kv_locations 
+                 WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
+                     SELECT warehouse_id FROM kv_materials WHERE id = $2
+                 )`,
+                [location.trim(), material_id]
+            );
+            if (locRecord && locRecord.is_restricted) {
+                const isAssigned = await db.get(
+                    `SELECT COUNT(*)::int AS count 
+                     FROM kv_materials 
+                     WHERE LOWER(location) = LOWER($1) AND id = $2`,
+                    [location.trim(), material_id]
+                );
+                if (!isAssigned || isAssigned.count === 0) {
+                    return { error: 'Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!' };
+                }
+            }
+        }
+
         const row = await db.get(
             `INSERT INTO kv_fabric_colors (material_id, color_name, price, original_tree_threshold, location)
              VALUES ($1, $2, $3, $4, $5) RETURNING *`,
@@ -190,7 +212,33 @@ module.exports = async function (fastify) {
         if (price !== undefined) { updates.push(`price = $${idx++}`); params.push(price); }
         if (original_tree_threshold !== undefined) { updates.push(`original_tree_threshold = $${idx++}`); params.push(original_tree_threshold); }
         if (notes !== undefined) { updates.push(`notes = $${idx++}`); params.push(notes); }
-        if (location !== undefined) { updates.push(`location = $${idx++}`); params.push(location ? location.trim() : null); }
+        if (location !== undefined) {
+            if (location) {
+                const colorRecord = await db.get('SELECT material_id FROM kv_fabric_colors WHERE id = $1', [request.params.id]);
+                if (colorRecord) {
+                    const locRecord = await db.get(
+                        `SELECT id, is_restricted 
+                         FROM kv_locations 
+                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
+                             SELECT warehouse_id FROM kv_materials WHERE id = $2
+                         )`,
+                        [location.trim(), colorRecord.material_id]
+                    );
+                    if (locRecord && locRecord.is_restricted) {
+                        const isAssigned = await db.get(
+                            `SELECT COUNT(*)::int AS count 
+                             FROM kv_materials 
+                             WHERE LOWER(location) = LOWER($1) AND id = $2`,
+                            [location.trim(), colorRecord.material_id]
+                        );
+                        if (!isAssigned || isAssigned.count === 0) {
+                            return { error: 'Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!' };
+                        }
+                    }
+                }
+            }
+            updates.push(`location = $${idx++}`); params.push(location ? location.trim() : null);
+        }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push('updated_at = NOW()');
         params.push(request.params.id);
@@ -304,6 +352,36 @@ module.exports = async function (fastify) {
         if (note !== undefined) { updates.push(`note = $${idx++}`); params.push(note); }
         if (is_returned !== undefined) { updates.push(`is_returned = $${idx++}`); params.push(is_returned); }
         if (location !== undefined) {
+            if (location) {
+                const rollMat = await db.get(
+                    `SELECT c.material_id 
+                     FROM kv_rolls r
+                     JOIN kv_fabric_colors c ON r.fabric_color_id = c.id
+                     WHERE r.id = $1`,
+                    [request.params.id]
+                );
+                if (rollMat) {
+                    const locRecord = await db.get(
+                        `SELECT id, is_restricted 
+                         FROM kv_locations 
+                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
+                             SELECT warehouse_id FROM kv_materials WHERE id = $2
+                         )`,
+                        [location.trim(), rollMat.material_id]
+                    );
+                    if (locRecord && locRecord.is_restricted) {
+                        const isAssigned = await db.get(
+                            `SELECT COUNT(*)::int AS count 
+                             FROM kv_materials 
+                             WHERE LOWER(location) = LOWER($1) AND id = $2`,
+                            [location.trim(), rollMat.material_id]
+                        );
+                        if (!isAssigned || isAssigned.count === 0) {
+                            return { error: 'Kệ này giới hạn chất liệu khác, không thể xếp cuộn vải này vào!' };
+                        }
+                    }
+                }
+            }
             updates.push(`location = $${idx++}`);
             params.push(location === null ? null : (typeof location === 'string' ? location.trim() : null));
 

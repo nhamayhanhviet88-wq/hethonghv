@@ -378,16 +378,31 @@ function _qkvRenderSidebarLocations() {
     
     var html = '';
     _qkv.locations.forEach(function(loc) {
+        // Find materials assigned to this location
+        var assignedMatNames = (_qkv.materials || [])
+            .filter(function(m) {
+                return m.location && m.location.trim().toLowerCase() === loc.name.trim().toLowerCase();
+            })
+            .map(function(m) { return m.name; });
+
+        var restrictionBadge = '';
+        if (loc.is_restricted) {
+            if (assignedMatNames.length > 0) {
+                var tooltip = escapeHTML(assignedMatNames.join(', '));
+                restrictionBadge = `<span style="font-size:9px;font-weight:800;color:#e11d48;background:#fff1f2;border:1px solid #ffe4e6;padding:1px 6px;border-radius:4px;margin-left:6px;" title="${tooltip}">🔒 Duy nhất (${assignedMatNames.length} CL)</span>`;
+            } else {
+                restrictionBadge = `<span style="font-size:9px;font-weight:800;color:#b45309;background:#fef3c7;border:1px solid #fde68a;padding:1px 6px;border-radius:4px;margin-left:6px;">🔒 Duy nhất (Trống)</span>`;
+            }
+        } else {
+            restrictionBadge = '<span style="font-size:9px;font-weight:800;color:#059669;background:#ecfdf5;border:1px solid #d1fae5;padding:1px 6px;border-radius:4px;margin-left:6px;">🔓 Đa năng</span>';
+        }
+
         html += `
             <div class="qkv-loc-item">
                 <div style="min-width: 0; flex: 1;">
                     <div class="qkv-loc-name">
                         ${escapeHTML(loc.name)}
-                        ${loc.is_restricted ? 
-                          (loc.restricted_material_name ? `<span style="font-size:9px;font-weight:800;color:#e11d48;background:#fff1f2;border:1px solid #ffe4e6;padding:1px 6px;border-radius:4px;margin-left:6px;">🔒 ${escapeHTML(loc.restricted_material_name)}</span>` 
-                                                        : `<span style="font-size:9px;font-weight:800;color:#b45309;background:#fef3c7;border:1px solid #fde68a;padding:1px 6px;border-radius:4px;margin-left:6px;">🔒 Duy nhất (Trống)</span>`)
-                          : '<span style="font-size:9px;font-weight:800;color:#059669;background:#ecfdf5;border:1px solid #d1fae5;padding:1px 6px;border-radius:4px;margin-left:6px;">🔓 Đa năng</span>'
-                        }
+                        ${restrictionBadge}
                     </div>
                     <div class="qkv-loc-desc">${loc.description ? escapeHTML(loc.description) : 'Không có ghi chú'}</div>
                 </div>
@@ -686,11 +701,8 @@ async function _qkvOnAddLocation(e) {
 // 9. Edit Location modal
 function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId) {
     var statusText = '';
-    if (isRestricted && restrictedMaterialId) {
-        var mat = (_qkv.materials || []).find(function(m) { return m.id == restrictedMaterialId; });
-        if (mat) {
-            statusText = `<div style="font-size:11px;color:#e11d48;margin-top:6px;font-weight:600;">🔒 Đang khóa cho chất liệu: ${escapeHTML(mat.name)}</div>`;
-        }
+    if (isRestricted) {
+        statusText = `<div style="font-size:11px;color:#e11d48;margin-top:6px;font-weight:600;">🔒 Chỉ các chất liệu được xếp dưới đây mới được phép di chuyển vào kệ này.</div>`;
     }
 
     // Find materials assigned to this shelf
@@ -955,9 +967,19 @@ function _qkvUpdateLocationDropdown() {
     }
     html += `<option value="">-- Chưa phân vị trí --</option>`;
     (_qkv.locations || []).forEach(function(loc) {
-        // Zoning filter: only show if multipurpose or dedicated to this material
-        if (loc.restricted_material_id && loc.restricted_material_id != _qkv.activeMoveMaterialId) {
-            return;
+        // Zoning filter:
+        if (loc.is_restricted) {
+            // Find all materials assigned to this location name (case-insensitive, trimmed comparison)
+            var assignedMatIds = (_qkv.materials || [])
+                .filter(function(m) {
+                    return m.location && m.location.trim().toLowerCase() === loc.name.trim().toLowerCase();
+                })
+                .map(function(m) { return Number(m.id); });
+            
+            // If the activeMoveMaterialId is not in the assigned list, hide this shelf
+            if (!assignedMatIds.includes(Number(_qkv.activeMoveMaterialId))) {
+                return;
+            }
         }
         var descText = loc.description ? ` (${loc.description})` : '';
         html += `<option value="${escapeHTML(loc.name)}">${escapeHTML(loc.name)}${escapeHTML(descText)}</option>`;
@@ -1236,6 +1258,19 @@ function _qkvRenderQuickImportList(shelfName) {
     var listEl = document.getElementById('qkvQuickImportList');
     if (!listEl) return;
     
+    // Check if target shelf is restricted
+    var targetLoc = (_qkv.locations || []).find(function(l) {
+        return l.name.trim().toLowerCase() === shelfName.trim().toLowerCase();
+    });
+    var allowedMaterialIds = null;
+    if (targetLoc && targetLoc.is_restricted) {
+        allowedMaterialIds = (_qkv.materials || [])
+            .filter(function(m) {
+                return m.location && m.location.trim().toLowerCase() === targetLoc.name.trim().toLowerCase();
+            })
+            .map(function(m) { return Number(m.id); });
+    }
+    
     var filtered = [];
     if (!searchVal) {
         // Show only unassigned
@@ -1249,6 +1284,13 @@ function _qkvRenderQuickImportList(shelfName) {
         filtered = _qkv.summary.filter(function(item) {
             return (item.material_name || '').toLowerCase().includes(searchVal)
                 || (item.color_name || '').toLowerCase().includes(searchVal);
+        });
+    }
+    
+    // If target shelf is restricted, filter out items that don't match allowed materials
+    if (allowedMaterialIds !== null) {
+        filtered = filtered.filter(function(item) {
+            return allowedMaterialIds.includes(Number(item.material_id));
         });
     }
     
