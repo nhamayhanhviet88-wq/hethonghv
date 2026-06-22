@@ -176,7 +176,33 @@ async function renderQuanlykhovaiPage(content) {
                                 <label class="qkv-label">Mô tả / Ghi chú</label>
                                 <input type="text" id="qkvNewLocDesc" class="qkv-input" placeholder="Ví dụ: Dành cho vải Cotton" />
                             </div>
+                            <div class="qkv-form-group">
+                                <label class="qkv-label">Giới hạn chất liệu</label>
+                                <select id="qkvNewLocMaterial" class="qkv-select">
+                                    <option value="">-- Đa năng (Chất liệu nào cũng được) --</option>
+                                </select>
+                            </div>
                             <button type="submit" class="qkv-btn-primary">💾 Tạo vị trí mới</button>
+                        </form>
+                    </div>
+
+                    <!-- Assign Material to Shelf Form -->
+                    <div class="qkv-sb-section">
+                        <div class="qkv-sb-title">🚚 Xếp Chất Liệu Vào Kệ</div>
+                        <form id="qkvAssignMatForm" onsubmit="_qkvOnAssignMaterial(event)">
+                            <div class="qkv-form-group">
+                                <label class="qkv-label">Chọn chất liệu</label>
+                                <select id="qkvAssignMatSelect" class="qkv-select" required>
+                                    <option value="">-- Chọn chất liệu --</option>
+                                </select>
+                            </div>
+                            <div class="qkv-form-group">
+                                <label class="qkv-label">Chọn kệ / vị trí</label>
+                                <select id="qkvAssignLocSelect" class="qkv-select" required>
+                                    <option value="">-- Chọn kệ / vị trí --</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="qkv-btn-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1);">🚚 Xếp vào kệ</button>
                         </form>
                     </div>
                     
@@ -287,7 +313,7 @@ async function _qkvOnWarehouseChanged(wid) {
     await _qkvLoadData();
 }
 
-// 3. Load Locations and summary data for the selected warehouse
+// 3. Load Locations, summary, and materials data for the selected warehouse
 async function _qkvLoadData() {
     if (!_qkv.selectedWid) return;
     
@@ -298,21 +324,46 @@ async function _qkvLoadData() {
     if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:50px;color:#94a3b8;">Đang tải sơ đồ...</div>';
     
     try {
-        // Fetch locations and fabric summary in parallel
-        var [locRes, sumRes] = await Promise.all([
+        // Fetch locations, fabric summary, and materials in parallel
+        var [locRes, sumRes, matRes] = await Promise.all([
             apiCall(`/api/khovai/locations?wid=${_qkv.selectedWid}`),
-            apiCall(`/api/khovai/summary?wid=${_qkv.selectedWid}`)
+            apiCall(`/api/khovai/summary?wid=${_qkv.selectedWid}`),
+            apiCall(`/api/khovai/materials?wid=${_qkv.selectedWid}`)
         ]);
         
         _qkv.locations = locRes.locations || [];
         _qkv.summary = sumRes.summary || [];
+        _qkv.materials = matRes.materials || [];
         
+        _qkvPopulateSidebarDropdowns();
         _qkvRenderSidebarLocations();
         _qkvRenderMap();
     } catch(e) {
         console.error(e);
         showToast('Lỗi khi tải dữ liệu sơ đồ kho', 'error');
     }
+}
+
+function _qkvPopulateSidebarDropdowns() {
+    var newLocMat = document.getElementById('qkvNewLocMaterial');
+    var assignMat = document.getElementById('qkvAssignMatSelect');
+    var assignLoc = document.getElementById('qkvAssignLocSelect');
+
+    var matOptions = '<option value="">-- Đa năng (Chất liệu nào cũng được) --</option>';
+    var assignMatOptions = '<option value="">-- Chọn chất liệu --</option>';
+    (_qkv.materials || []).forEach(function(m) {
+        matOptions += `<option value="${m.id}">${escapeHTML(m.name)}</option>`;
+        assignMatOptions += `<option value="${m.id}">${escapeHTML(m.name)}</option>`;
+    });
+
+    if (newLocMat) newLocMat.innerHTML = matOptions;
+    if (assignMat) assignMat.innerHTML = assignMatOptions;
+
+    var locOptions = '<option value="">-- Chọn kệ / vị trí --</option>';
+    (_qkv.locations || []).forEach(function(l) {
+        locOptions += `<option value="${escapeHTML(l.name)}">${escapeHTML(l.name)}</option>`;
+    });
+    if (assignLoc) assignLoc.innerHTML = locOptions;
 }
 
 // 4. Render locations list in the sidebar
@@ -330,12 +381,15 @@ function _qkvRenderSidebarLocations() {
         html += `
             <div class="qkv-loc-item">
                 <div style="min-width: 0; flex: 1;">
-                    <div class="qkv-loc-name">${escapeHTML(loc.name)}</div>
+                    <div class="qkv-loc-name">
+                        ${escapeHTML(loc.name)}
+                        ${loc.restricted_material_name ? `<span style="font-size:9px;font-weight:800;color:#e11d48;background:#fff1f2;border:1px solid #ffe4e6;padding:1px 6px;border-radius:4px;margin-left:6px;">🔒 ${escapeHTML(loc.restricted_material_name)}</span>` : '<span style="font-size:9px;font-weight:800;color:#059669;background:#ecfdf5;border:1px solid #d1fae5;padding:1px 6px;border-radius:4px;margin-left:6px;">🔓 Đa năng</span>'}
+                    </div>
                     <div class="qkv-loc-desc">${loc.description ? escapeHTML(loc.description) : 'Không có ghi chú'}</div>
                 </div>
                 <div class="qkv-loc-actions">
                     <button class="qkv-btn-icon" onclick="_qkvShowLocationQRCode('${escapeJS(loc.name)}')" title="Xem mã QR kệ">📷</button>
-                    <button class="qkv-btn-icon" onclick="_qkvEditLocation(${loc.id}, '${escapeJS(loc.name)}', '${escapeJS(loc.description || '')}')" title="Sửa tên/mô tả">✏️</button>
+                    <button class="qkv-btn-icon" onclick="_qkvEditLocation(${loc.id}, '${escapeJS(loc.name)}', '${escapeJS(loc.description || '')}', ${loc.restricted_material_id || 'null'})" title="Sửa tên/mô tả/giới hạn">✏️</button>
                     <button class="qkv-btn-icon" onclick="_qkvDeleteLocation(${loc.id}, '${escapeJS(loc.name)}')" title="Xóa vị trí">🗑️</button>
                 </div>
             </div>
@@ -592,9 +646,11 @@ async function _qkvOnAddLocation(e) {
     
     var nameEl = document.getElementById('qkvNewLocName');
     var descEl = document.getElementById('qkvNewLocDesc');
+    var matEl = document.getElementById('qkvNewLocMaterial');
     
     var name = nameEl.value.trim();
     var desc = descEl.value.trim();
+    var restrictedMaterialId = matEl ? matEl.value : null;
     
     if (!name) return;
     
@@ -602,7 +658,8 @@ async function _qkvOnAddLocation(e) {
         var res = await apiCall('/api/khovai/locations', 'POST', {
             warehouse_id: _qkv.selectedWid,
             name: name,
-            description: desc
+            description: desc,
+            restricted_material_id: restrictedMaterialId || null
         });
         
         if (res.error) {
@@ -613,6 +670,7 @@ async function _qkvOnAddLocation(e) {
         showToast(`Tạo vị trí "${name}" thành công!`, 'success');
         nameEl.value = '';
         descEl.value = '';
+        if (matEl) matEl.value = '';
         
         await _qkvLoadData();
     } catch(err) {
@@ -622,7 +680,13 @@ async function _qkvOnAddLocation(e) {
 }
 
 // 9. Edit Location modal
-function _qkvEditLocation(id, name, desc) {
+function _qkvEditLocation(id, name, desc, restrictedMaterialId) {
+    var matOptions = '<option value="">-- Đa năng (Chất liệu nào cũng được) --</option>';
+    (_qkv.materials || []).forEach(function(m) {
+        var selected = m.id == restrictedMaterialId ? 'selected' : '';
+        matOptions += `<option value="${m.id}" ${selected}>${escapeHTML(m.name)}</option>`;
+    });
+
     openModal(
         '✏️ Sửa Vị Trí / Kệ',
         `
@@ -630,9 +694,15 @@ function _qkvEditLocation(id, name, desc) {
                 <label class="form-label" style="font-weight:700;font-size:12px;">Tên Vị Trí</label>
                 <input type="text" id="qkvEditName" class="form-control" value="${escapeHTML(name)}" required />
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom:12px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Mô tả / Ghi chú</label>
                 <input type="text" id="qkvEditDesc" class="form-control" value="${escapeHTML(desc)}" />
+            </div>
+            <div class="form-group">
+                <label class="form-label" style="font-weight:700;font-size:12px;">Giới hạn chất liệu</label>
+                <select id="qkvEditMaterial" class="form-control" style="height:38px;">
+                    ${matOptions}
+                </select>
             </div>
         `,
         `
@@ -646,6 +716,8 @@ function _qkvEditLocation(id, name, desc) {
 async function _qkvSaveLocation(id) {
     var name = document.getElementById('qkvEditName').value.trim();
     var desc = document.getElementById('qkvEditDesc').value.trim();
+    var matEl = document.getElementById('qkvEditMaterial');
+    var restrictedMaterialId = matEl ? matEl.value : null;
     
     if (!name) {
         showToast('Tên vị trí không được để trống', 'error');
@@ -655,7 +727,8 @@ async function _qkvSaveLocation(id) {
     try {
         var res = await apiCall(`/api/khovai/locations/${id}`, 'PUT', {
             name: name,
-            description: desc
+            description: desc,
+            restricted_material_id: restrictedMaterialId || null
         });
         
         if (res.error) {
@@ -669,6 +742,30 @@ async function _qkvSaveLocation(id) {
     } catch(err) {
         console.error(err);
         showToast('Lỗi khi lưu thay đổi', 'error');
+    }
+}
+
+// 10b. Assign a material to a shelf
+async function _qkvOnAssignMaterial(e) {
+    e.preventDefault();
+    var matId = document.getElementById('qkvAssignMatSelect').value;
+    var locName = document.getElementById('qkvAssignLocSelect').value;
+    if (!matId) { showToast('Vui lòng chọn chất liệu!', 'error'); return; }
+    if (!locName) { showToast('Vui lòng chọn kệ!', 'error'); return; }
+
+    try {
+        var res = await apiCall(`/api/khovai/materials/${matId}`, 'PUT', {
+            location: locName
+        });
+        if (res.error) {
+            showToast(res.error, 'error');
+            return;
+        }
+        showToast('Xếp chất liệu vào kệ thành công!', 'success');
+        await _qkvLoadData();
+    } catch(err) {
+        console.error(err);
+        showToast('Lỗi khi xếp chất liệu', 'error');
     }
 }
 
@@ -724,6 +821,8 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
     var rolls = [];
     try { rolls = JSON.parse(rollsJson || '[]'); } catch(e) {}
 
+    _qkv.activeMoveMaterialId = materialId;
+
     openModal(
         '🚚 Di chuyển vị trí vải',
         `
@@ -739,10 +838,6 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
                     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
                         <input type="radio" name="qkvScope" value="color" checked onchange="_qkvUpdateLocationDropdown()" />
                         <span>Chỉ riêng màu này (<strong>${escapeHTML(colorName)}</strong>)</span>
-                    </label>
-                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                        <input type="radio" name="qkvScope" value="material" onchange="_qkvUpdateLocationDropdown()" />
-                        <span>Toàn bộ chất liệu (<strong>${escapeHTML(matName)}</strong>)</span>
                     </label>
                     ${rolls.length > 0 ? `
                     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
@@ -787,8 +882,13 @@ function _qkvUpdateLocationDropdown() {
         html += `<option value="inherit">-- Theo vị trí của màu vải (Kế thừa) --</option>`;
     }
     html += `<option value="">-- Chưa phân vị trí --</option>`;
-    _qkv.locations.forEach(function(loc) {
-        html += `<option value="${escapeHTML(loc.name)}">${escapeHTML(loc.name)} ${loc.description ? '(' + escapeHTML(loc.description) + ')' : ''}</option>`;
+    (_qkv.locations || []).forEach(function(loc) {
+        // Zoning filter: only show if multipurpose or dedicated to this material
+        if (loc.restricted_material_id && loc.restricted_material_id != _qkv.activeMoveMaterialId) {
+            return;
+        }
+        var descText = loc.description ? ` (${loc.description})` : '';
+        html += `<option value="${escapeHTML(loc.name)}">${escapeHTML(loc.name)}${escapeHTML(descText)}</option>`;
     });
     select.innerHTML = html;
     

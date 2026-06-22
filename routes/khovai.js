@@ -116,6 +116,12 @@ module.exports = async function (fastify) {
         updates.push('updated_at = NOW()');
         params.push(request.params.id);
         await db.run(`UPDATE kv_materials SET ${updates.join(', ')} WHERE id = $${idx}`, params);
+        
+        if (location !== undefined) {
+            // Cascade to colors and rolls under this material to inherit (NULL location)
+            await db.run('UPDATE kv_fabric_colors SET location = NULL WHERE material_id = $1', [request.params.id]);
+            await db.run('UPDATE kv_rolls SET location = NULL WHERE fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)', [request.params.id]);
+        }
         return { success: true };
     });
 
@@ -797,13 +803,19 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
         const { wid } = request.query;
         if (!wid) return { locations: [] };
-        const rows = await db.all('SELECT * FROM kv_locations WHERE warehouse_id = $1 ORDER BY name', [wid]);
+        const rows = await db.all(`
+            SELECT l.*, m.name AS restricted_material_name
+            FROM kv_locations l
+            LEFT JOIN kv_materials m ON m.id = l.restricted_material_id
+            WHERE l.warehouse_id = $1
+            ORDER BY l.name
+        `, [wid]);
         return { locations: rows };
     });
 
     // POST /api/khovai/locations — Create location
     fastify.post('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
-        const { warehouse_id, name, description } = request.body || {};
+        const { warehouse_id, name, description, restricted_material_id } = request.body || {};
         if (!warehouse_id) return { error: 'Chưa chọn kho' };
         if (!name || !name.trim()) return { error: 'Tên vị trí không được trống' };
 
@@ -811,15 +823,16 @@ module.exports = async function (fastify) {
         if (exists) return { error: 'Tên vị trí này đã tồn tại trong kho' };
 
         const row = await db.get(
-            `INSERT INTO kv_locations (warehouse_id, name, description) VALUES ($1, $2, $3) RETURNING *`,
-            [warehouse_id, name.trim(), description ? description.trim() : null]
+            `INSERT INTO kv_locations (warehouse_id, name, description, restricted_material_id) 
+             VALUES ($1, $2, $3, $4) RETURNING *`,
+            [warehouse_id, name.trim(), description ? description.trim() : null, restricted_material_id ? Number(restricted_material_id) : null]
         );
         return { success: true, location: row };
     });
 
     // PUT /api/khovai/locations/:id — Update location
     fastify.put('/api/khovai/locations/:id', { preHandler: [authenticate] }, async (request) => {
-        const { name, description } = request.body || {};
+        const { name, description, restricted_material_id } = request.body || {};
         const id = request.params.id;
 
         const oldLoc = await db.get('SELECT * FROM kv_locations WHERE id = $1', [id]);
@@ -838,6 +851,10 @@ module.exports = async function (fastify) {
             updates.push(`description = $${idx++}`);
             params.push(description ? description.trim() : null);
         }
+        if (restricted_material_id !== undefined) {
+            updates.push(`restricted_material_id = $${idx++}`);
+            params.push(restricted_material_id ? Number(restricted_material_id) : null);
+        }
 
         if (!updates.length) return { error: 'Không có gì thay đổi' };
 
@@ -848,6 +865,7 @@ module.exports = async function (fastify) {
             const newName = name.trim();
             await db.run('UPDATE kv_materials SET location = $1 WHERE warehouse_id = $2 AND location = $3', [newName, oldLoc.warehouse_id, oldLoc.name]);
             await db.run('UPDATE kv_fabric_colors SET location = $1 WHERE material_id IN (SELECT id FROM kv_materials WHERE warehouse_id = $2) AND location = $3', [newName, oldLoc.warehouse_id, oldLoc.name]);
+            await db.run('UPDATE kv_rolls SET location = $1 WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id WHERE m.warehouse_id = $2) AND location = $3', [newName, oldLoc.warehouse_id, oldLoc.name]);
         }
 
         return { success: true };
@@ -861,6 +879,7 @@ module.exports = async function (fastify) {
 
         await db.run('UPDATE kv_materials SET location = NULL WHERE warehouse_id = $1 AND location = $2', [oldLoc.warehouse_id, oldLoc.name]);
         await db.run('UPDATE kv_fabric_colors SET location = NULL WHERE material_id IN (SELECT id FROM kv_materials WHERE warehouse_id = $1) AND location = $2', [oldLoc.warehouse_id, oldLoc.name]);
+        await db.run('UPDATE kv_rolls SET location = NULL WHERE fabric_color_id IN (SELECT fc.id FROM kv_fabric_colors fc JOIN kv_materials m ON m.id = fc.material_id WHERE m.warehouse_id = $1) AND location = $2', [oldLoc.warehouse_id, oldLoc.name]);
 
         await db.run('DELETE FROM kv_locations WHERE id = $1', [id]);
         return { success: true };

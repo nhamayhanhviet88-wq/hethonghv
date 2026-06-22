@@ -910,16 +910,20 @@ module.exports = async function(fastify) {
             });
         }
 
-        // 3. Match fabric_color_id for each group
+        // 3. Match fabric_color_id for each group using Smart Routing
         for (const key of Object.keys(groupMap)) {
             const g = groupMap[key];
             const match = await db.get(`
-                SELECT fc.id AS fabric_color_id, m.warehouse_id, w.unit AS wh_unit
+                SELECT fc.id AS fabric_color_id, m.warehouse_id, w.unit AS wh_unit,
+                       (SELECT COUNT(*)::int FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.weight > 0 AND r.is_returned = false) AS active_roll_count,
+                       (SELECT COUNT(*)::int FROM kv_rolls r WHERE r.fabric_color_id = fc.id) AS total_roll_count,
+                       (SELECT COUNT(*)::int FROM kv_rolls r JOIN kv_fabric_colors fc2 ON fc2.id = r.fabric_color_id WHERE fc2.material_id = m.id) AS material_roll_count
                 FROM kv_fabric_colors fc
                 JOIN kv_materials m ON m.id = fc.material_id
                 JOIN kv_warehouses w ON w.id = m.warehouse_id
                 WHERE fc.is_active = true AND m.is_active = true
                   AND UPPER(m.name) = UPPER($1) AND UPPER(fc.color_name) = UPPER($2)
+                ORDER BY active_roll_count DESC, total_roll_count DESC, material_roll_count DESC, fc.id DESC
                 LIMIT 1
             `, [g.material_name, g.color_name]);
             g.fabric_color_id = match ? match.fabric_color_id : null;
