@@ -120,6 +120,12 @@ async function renderQuanlykhovaiPage(content) {
             '.qkv-card-unassigned { border-style: dashed; border-width: 2px; }',
             '.qkv-card-unassigned .qkv-card-header { background: linear-gradient(135deg, #fff, #f8fafc); }',
             '.qkv-card-unassigned-header { color: #f59e0b; }',
+            '.qkv-card-unassigned-nguyen { border-color: #0d9488 !important; }',
+            '.qkv-card-unassigned-nguyen .qkv-card-header { background: linear-gradient(135deg, #f0fdfa, #f9fafb) !important; }',
+            '.qkv-card-unassigned-nguyen-header { color: #0d9488 !important; }',
+            '.qkv-card-unassigned-le { border-color: #d97706 !important; }',
+            '.qkv-card-unassigned-le .qkv-card-header { background: linear-gradient(135deg, #fffbeb, #f9fafb) !important; }',
+            '.qkv-card-unassigned-le-header { color: #d97706 !important; }',
             
             // Mobile Specific Styles
             '@media (max-width: 768px) {',
@@ -354,10 +360,13 @@ function _qkvRenderMap() {
         };
     });
     
-    // Special unassigned group
-    var unassignedKey = '__unassigned__';
-    groups[unassignedKey] = {
-        name: 'Chưa phân vị trí',
+    // Special unassigned groups
+    var unassignedNguyen = {
+        name: 'Chưa Phân Vị Trí Cây Nguyên',
+        items: []
+    };
+    var unassignedLe = {
+        name: 'Chưa Phân Vị Trí Cây Lẻ',
         items: []
     };
     
@@ -370,7 +379,36 @@ function _qkvRenderMap() {
         var isPredefined = _qkv.locations.some(l => l.name === key);
         
         if (!key || !isPredefined) {
-            groups[unassignedKey].items.push(item);
+            var rollsList = item.roll_weights || [];
+            
+            // Cây Nguyên: w >= ow (chưa từng cắt)
+            var nguyenRolls = rollsList.filter(function(r) {
+                return Number(r.w) >= Number(r.ow);
+            });
+            // Cây Lẻ: w < ow (đã từng cắt)
+            var leRolls = rollsList.filter(function(r) {
+                return Number(r.w) < Number(r.ow);
+            });
+            
+            if (rollsList.length === 0) {
+                // Fallback nếu không có dữ liệu chi tiết cuộn: cho vào Cây Nguyên
+                unassignedNguyen.items.push(item);
+            } else {
+                if (nguyenRolls.length > 0) {
+                    var itemNguyen = Object.assign({}, item);
+                    itemNguyen.roll_weights = nguyenRolls;
+                    itemNguyen.so_cuc = nguyenRolls.length;
+                    itemNguyen.cuoi_ky = nguyenRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+                    unassignedNguyen.items.push(itemNguyen);
+                }
+                if (leRolls.length > 0) {
+                    var itemLe = Object.assign({}, item);
+                    itemLe.roll_weights = leRolls;
+                    itemLe.so_cuc = leRolls.length;
+                    itemLe.cuoi_ky = leRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+                    unassignedLe.items.push(itemLe);
+                }
+            }
         } else {
             groups[key].items.push(item);
         }
@@ -387,10 +425,14 @@ function _qkvRenderMap() {
         html += cardHtml;
     });
     
-    // RENDER UNASSIGNED CARD AT THE END
-    var unassignedGroup = groups[unassignedKey] || { items: [] };
-    if (unassignedGroup.items.length > 0 || _qkv.locations.length === 0) {
-        var cardHtml = _qkvBuildCardHtml(unassignedGroup, true, searchKey);
+    // RENDER UNASSIGNED CARDS AT THE END
+    if (unassignedNguyen.items.length > 0 || _qkv.locations.length === 0) {
+        var cardHtml = _qkvBuildCardHtml(unassignedNguyen, 'nguyen', searchKey);
+        html += cardHtml;
+    }
+    
+    if (unassignedLe.items.length > 0 || (_qkv.locations.length === 0 && unassignedNguyen.items.length === 0)) {
+        var cardHtml = _qkvBuildCardHtml(unassignedLe, 'le', searchKey);
         html += cardHtml;
     }
     
@@ -399,8 +441,19 @@ function _qkvRenderMap() {
 
 // 6. Build single Card HTML
 function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
-    var headerClass = isUnassigned ? 'qkv-card-unassigned-header' : '';
-    var cardClass = isUnassigned ? 'qkv-card qkv-card-unassigned' : 'qkv-card';
+    var headerClass = '';
+    var cardClass = 'qkv-card';
+    
+    if (isUnassigned === 'nguyen') {
+        headerClass = 'qkv-card-unassigned-nguyen-header';
+        cardClass = 'qkv-card qkv-card-unassigned qkv-card-unassigned-nguyen';
+    } else if (isUnassigned === 'le') {
+        headerClass = 'qkv-card-unassigned-le-header';
+        cardClass = 'qkv-card qkv-card-unassigned qkv-card-unassigned-le';
+    } else if (isUnassigned) {
+        headerClass = 'qkv-card-unassigned-header';
+        cardClass = 'qkv-card qkv-card-unassigned';
+    }
     
     var isCardHighlighted = false;
     var itemsHtml = '';

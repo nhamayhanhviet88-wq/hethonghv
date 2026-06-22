@@ -227,7 +227,7 @@ function _kvRenderTable() {
         if (rwList.length) {
             var parts = rwList.map(function(rw) {
                 var w = Number(rw.w), ow = Number(rw.ow);
-                var isNguyen = (w === ow && w >= (Number(r.original_tree_threshold) || 10));
+                var isNguyen = (w === ow);
                 return isNguyen ? '<span style="color:#ea580c;font-weight:800">' + _kvFmt(w) + '</span>' : '<span>' + _kvFmt(w) + '</span>';
             });
             rwHtml = ' - ' + parts.join(', ');
@@ -455,7 +455,7 @@ async function _kvShowRolls(fcid) {
         rolls.sort(function(a, b) { return Number(b.weight) - Number(a.weight); });
         var threshold = rolls.length && rolls[0].original_tree_threshold ? Number(rolls[0].original_tree_threshold) : 10;
         var body = '<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">';
-        body += '<span style="font-size:12px;color:#64748b">Ngưỡng cây nguyên: <b style="color:#7c3aed">≥' + threshold + ' ' + (r?r.unit:'kg') + '</b></span>';
+        body += '<span style="font-size:12px;color:#64748b">Cây nguyên: Cây chưa bị cắt</span>';
         body += '<button onclick="_kvAddRollForm(' + fcid + ')" style="background:#0d9488;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">➕ Thêm cục</button></div>';
         body += '<div id="kvRollFormArea"></div>';
         if (!rolls.length) {

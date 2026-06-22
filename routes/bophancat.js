@@ -1514,7 +1514,7 @@ module.exports = async function(fastify) {
                    u_lock.full_name AS locked_by_name,
                    cr_lock.product_name AS locked_product,
                    do_lock.order_code AS locked_order_code,
-                   (r.weight = r.original_weight AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)) AS is_original_tree,
+                   (r.weight = r.original_weight) AS is_original_tree,
                    EXISTS (
                        SELECT 1 FROM qlx_fabric_reservations res
                        WHERE res.roll_id = r.id

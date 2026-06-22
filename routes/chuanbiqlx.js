@@ -2215,7 +2215,7 @@ module.exports = async function(fastify) {
                        cr_lock.product_name AS cutting_order_name,
                        cr_lock.order_quantity AS cutting_order_qty,
                        u_lock.full_name AS cutting_by_name,
-                       (r.weight = r.original_weight AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)) AS is_original_tree,
+                       (r.weight = r.original_weight) AS is_original_tree,
                        COALESCE((
                            SELECT SUM(res.kg_reserved)
                            FROM qlx_fabric_reservations res

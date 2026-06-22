@@ -209,7 +209,7 @@ module.exports = async function (fastify) {
         const rows = await db.all(
             `SELECT r.*,
                     COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
-                    (r.weight = r.original_weight AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)) AS is_original_tree,
+                    (r.weight = r.original_weight) AS is_original_tree,
                     cr.product_name AS cutting_order_name,
                     u_cut.full_name AS cutting_by_name
              FROM kv_rolls r
@@ -625,8 +625,7 @@ module.exports = async function (fastify) {
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0), 0) AS so_cuc,
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false
-                             AND r.weight = r.original_weight
-                             AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)), 0) AS cay_nguyen,
+                             AND r.weight = r.original_weight), 0) AS cay_nguyen,
                    COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0) AS cuoi_ky,
                    (SELECT json_build_object('name', u.full_name, 'role', u.role, 'at', t2.created_at)
