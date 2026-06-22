@@ -728,7 +728,7 @@
                     var escapedItemStr = JSON.stringify(item).replace(/"/g, '&quot;');
 
                     itemsHtml += `
-                        <div class="item-row ${matched ? 'matched' : ''}">
+                        <div class="item-row ${matched ? 'matched' : ''}" style="${isUnassigned ? 'border-bottom:none; padding-bottom:4px;' : ''}">
                             <div class="item-main">
                                 <div class="item-name">${escapeHTML(item.material_name)}</div>
                                 <div class="item-sub">
@@ -740,8 +740,37 @@
                                 ${fmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
                                 <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
                             </div>
+                            ${!isUnassigned ? `
                             <button class="btn-move" onclick="openMoveModal('${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, '${escapeHTML(item.location || '')}', '${escapeHTML(JSON.stringify(item.roll_weights || []))}')">🚚</button>
+                            ` : ''}
                         </div>
+                        ${isUnassigned && item.roll_weights && item.roll_weights.length > 0 ? `
+                        <div class="roll-list-unassigned" style="background:rgba(255,255,255,0.03); border-radius:8px; padding:8px; margin:4px 0 12px 0; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:6px; width:100%; box-sizing:border-box;">
+                            ${item.roll_weights.map(r => {
+                                var photoHtml = '';
+                                var moveHtml = '';
+                                if (r.img) {
+                                    photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                                    moveHtml = `<button class="btn-move" style="padding:4px 8px; margin:0;" onclick="openSingleMoveModal(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')">🚚</button>`;
+                                } else {
+                                    photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                    moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                                }
+                                return `
+                                    <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+                                        <div style="flex:1; min-width:0;">
+                                            <div style="font-size:12px; font-weight:700; color:white;">Cây ${r.w}kg</div>
+                                            <div style="font-size:11px; color:#94a3b8; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            ${photoHtml}
+                                            ${moveHtml}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        ` : ''}
                     `;
                 });
             }
@@ -775,47 +804,17 @@
         }
 
         // ================== MOVE ITEM POSITION DIALOG ==================
-        function openMoveModal(matName, colorName, colorId, materialId, currentLoc, rollsJson) {
-            var rolls = [];
-            try { rolls = JSON.parse(rollsJson || '[]'); } catch(e) {}
-            
-            activeMoveItem = { colorId, materialId, matName, colorName, currentLoc, rolls };
-            
-            var info = `
-                <div>🧵 Chất liệu: <strong>${matName}</strong></div>
-                <div>🎨 Màu vải: <strong style="color:#5eead4;">${colorName}</strong></div>
-                <div>📍 Vị trí hiện tại: <strong>${currentLoc || 'Chưa phân vị trí'}</strong></div>
-            `;
-            document.getElementById('moveInfoBox').innerHTML = info;
-
-            // Render rolls checkbox list
-            var rollsContainer = document.getElementById('qkvMobileMoveRollsContainer');
-            if (rolls.length > 0) {
-                rollsContainer.innerHTML = rolls.map(r => `
-                    <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; font-weight:500; color:white;">
-                        <input type="checkbox" name="qkvMobileMoveRollCheckbox" value="${r.id}" checked style="width:14px; height:14px; accent-color:#5eead4;" />
-                        <span>Cây <strong>${r.w}kg</strong> (${r.code || 'không mã'})${r.loc ? ' - Kệ: ' + escapeHTML(r.loc) : ''}</span>
-                    </label>
-                `).join('');
-                document.getElementById('btnExecuteMove').removeAttribute('disabled');
-            } else {
-                rollsContainer.innerHTML = `<div style="color:#94a3b8; font-size:12px; font-style:italic;">Màu này hiện chưa có cây vải nào để di chuyển vị trí.</div>`;
-                document.getElementById('btnExecuteMove').setAttribute('disabled', 'disabled');
-            }
-
-            // Options select
+        function populateMoveSelect(materialId) {
             var select = document.getElementById('moveSelect');
-            
             var activeMatLocs = [];
-            var activeMatItem = summary.find(item => item.material_id === materialId);
+            var activeMatItem = (summary || []).find(item => item.material_id === materialId);
             if (activeMatItem && activeMatItem.material_location) {
                 activeMatLocs = activeMatItem.material_location.split(',').map(s => s.trim().toLowerCase());
             }
 
-            // Zoning filter check (same as desktop)
             var availableLocs = (locations || []).filter(function(loc) {
                 if (loc.is_restricted) {
-                    var assignedMatIds = summary
+                    var assignedMatIds = (summary || [])
                         .filter(function(item) {
                             return item.material_location && item.material_location.trim().toLowerCase() === loc.name.trim().toLowerCase();
                         })
@@ -850,13 +849,65 @@
             });
             select.innerHTML = optHtml;
 
-            // Set default selected value
             if (priorityLocs.length > 0) {
                 select.value = priorityLocs[0].name;
             } else {
                 select.value = '';
             }
+        }
 
+        function openMoveModal(matName, colorName, colorId, materialId, currentLoc, rollsJson) {
+            var rolls = [];
+            try { rolls = JSON.parse(rollsJson || '[]'); } catch(e) {}
+            
+            activeMoveItem = { colorId, materialId, matName, colorName, currentLoc, rolls };
+            
+            var info = `
+                <div>🧵 Chất liệu: <strong>${matName}</strong></div>
+                <div>🎨 Màu vải: <strong style="color:#5eead4;">${colorName}</strong></div>
+                <div>📍 Vị trí hiện tại: <strong>${currentLoc || 'Chưa phân vị trí'}</strong></div>
+            `;
+            document.getElementById('moveInfoBox').innerHTML = info;
+
+            var rollsContainer = document.getElementById('qkvMobileMoveRollsContainer');
+            if (rolls.length > 0) {
+                rollsContainer.innerHTML = rolls.map(r => `
+                    <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; font-weight:500; color:white;">
+                        <input type="checkbox" name="qkvMobileMoveRollCheckbox" value="${r.id}" checked style="width:14px; height:14px; accent-color:#5eead4;" />
+                        <span>Cây <strong>${r.w}kg</strong> (${r.code || 'không mã'})${r.loc ? ' - Kệ: ' + escapeHTML(r.loc) : ''}</span>
+                    </label>
+                `).join('');
+                document.getElementById('btnExecuteMove').removeAttribute('disabled');
+            } else {
+                rollsContainer.innerHTML = `<div style="color:#94a3b8; font-size:12px; font-style:italic;">Màu này hiện chưa có cây vải nào để di chuyển vị trí.</div>`;
+                document.getElementById('btnExecuteMove').setAttribute('disabled', 'disabled');
+            }
+
+            populateMoveSelect(materialId);
+            document.getElementById('moveModal').style.display = 'flex';
+        }
+
+        function openSingleMoveModal(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode) {
+            var rolls = [{ id: rollId, w: rollWeight, code: rollCode, loc: '' }];
+            activeMoveItem = { colorId, materialId, matName, colorName, currentLoc: 'Chưa phân vị trí', rolls };
+            
+            var info = `
+                <div>🧵 Chất liệu: <strong>${matName}</strong></div>
+                <div>🎨 Màu vải: <strong style="color:#5eead4;">${colorName}</strong></div>
+                <div>📍 Cây vải cần chuyển: <strong>Cây ${rollWeight}kg (${rollCode})</strong></div>
+            `;
+            document.getElementById('moveInfoBox').innerHTML = info;
+
+            var rollsContainer = document.getElementById('qkvMobileMoveRollsContainer');
+            rollsContainer.innerHTML = `
+                <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; font-weight:500; color:white;">
+                    <input type="checkbox" name="qkvMobileMoveRollCheckbox" value="${rollId}" checked style="width:14px; height:14px; accent-color:#5eead4;" onclick="return false;" />
+                    <span>Cây <strong>${rollWeight}kg</strong> (${rollCode})</span>
+                </label>
+            `;
+            document.getElementById('btnExecuteMove').removeAttribute('disabled');
+            
+            populateMoveSelect(materialId);
             document.getElementById('moveModal').style.display = 'flex';
         }
 
@@ -1114,9 +1165,116 @@
             printWindow.document.close();
         }
 
+        // ================== CAMERA CAPTURE & IMAGE UPLOAD ==================
+        var activeUploadRollId = null;
+
+        function triggerRollCamera(rollId) {
+            activeUploadRollId = rollId;
+            var input = document.getElementById('qkvGlobalCameraInput');
+            if (input) {
+                input.value = '';
+                input.click();
+            }
+        }
+
+        async function handleCameraFileSelected(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+
+            var btn = document.getElementById('camera-btn-' + activeUploadRollId);
+            var originalBtnHtml = '';
+            if (btn) {
+                originalBtnHtml = btn.innerHTML;
+                btn.innerHTML = '⏳ ...';
+                btn.disabled = true;
+            }
+
+            try {
+                var resizedBase64 = await resizeImageFile(file, 800, 0.7);
+                
+                var res = await api(`/api/khovai/rolls/${activeUploadRollId}/upload-image`, 'POST', {
+                    image_data: resizedBase64
+                });
+                
+                if (res.error) {
+                    showToast('Lỗi upload: ' + res.error, 'error');
+                    if (btn) {
+                        btn.innerHTML = originalBtnHtml;
+                        btn.disabled = false;
+                    }
+                } else {
+                    showToast('Đã chụp ảnh thành công!');
+                    await loadData();
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Lỗi xử lý ảnh: ' + e.message, 'error');
+                if (btn) {
+                    btn.innerHTML = originalBtnHtml;
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        function resizeImageFile(file, maxSide, quality) {
+            return new Promise((resolve, reject) => {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var img = new Image();
+                    img.onload = function() {
+                        var canvas = document.createElement('canvas');
+                        var w = img.width;
+                        var h = img.height;
+                        
+                        if (w > h) {
+                            if (w > maxSide) {
+                                h = Math.round(h * maxSide / w);
+                                w = maxSide;
+                            }
+                        } else {
+                            if (h > maxSide) {
+                                w = Math.round(w * maxSide / h);
+                                h = maxSide;
+                            }
+                        }
+                        
+                        canvas.width = w;
+                        canvas.height = h;
+                        var ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        
+                        var base64 = canvas.toDataURL('image/jpeg', quality);
+                        resolve(base64);
+                    };
+                    img.onerror = function(err) { reject(err); };
+                    img.src = e.target.result;
+                };
+                reader.onerror = function(err) { reject(err); };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function openImagePreviewModal(imgUrl) {
+            document.getElementById('qkvImagePreviewContent').src = imgUrl;
+            document.getElementById('qkvImagePreviewModal').style.display = 'flex';
+        }
+
+        function closeImagePreviewModal() {
+            document.getElementById('qkvImagePreviewModal').style.display = 'none';
+        }
+
         // Initialize on load
         window.addEventListener('load', init);
     </script>
+    <!-- 5. Image Preview Modal -->
+    <div id="qkvImagePreviewModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; justify-content:center; align-items:center; padding:16px;" onclick="closeImagePreviewModal()">
+        <img id="qkvImagePreviewContent" src="" style="max-width:100%; max-height:80%; border-radius:8px; object-fit:contain; box-shadow:0 10px 25px rgba(0,0,0,0.5);" />
+        <div style="color:white; margin-top:16px; font-size:14px; font-weight:500;">Chạm vào bất kỳ đâu để đóng</div>
+    </div>
+
+    <!-- Hidden camera file input -->
+    <input type="file" id="qkvGlobalCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleCameraFileSelected(event)" />
+
     <!-- Unified Mobile Navigation Script -->
     <script src="/js/mobile-nav.js?v=20260623"></script>
 </body>

@@ -591,7 +591,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
             var originTip = isColorOverride ? 'Vị trí được phân riêng cho màu vải này' : 'Vị trí mặc định lấy từ Chất liệu cha';
             
             itemsHtml += `
-                <div class="qkv-item-row ${matched ? 'matched' : ''}">
+                <div class="qkv-item-row ${matched ? 'matched' : ''}" style="${isUnassigned ? 'border-bottom:none; padding-bottom:4px;' : ''}">
                     <div class="qkv-item-main">
                         <div class="qkv-item-name" title="${escapeHTML(item.material_name)} - ${escapeHTML(item.color_name)}">
                             ${escapeHTML(item.material_name)}
@@ -606,9 +606,38 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                         <span style="font-size:9px;color:#94a3b8;font-weight:normal;">${item.so_cuc} cây</span>
                     </div>
                     <div class="qkv-loc-actions">
+                        ${!isUnassigned ? `
                         <button class="qkv-btn-icon" onclick="_qkvOnChangeItemLocationByIndex(${itemIdx})" title="Di chuyển vị trí">🚚</button>
+                        ` : ''}
                     </div>
                 </div>
+                ${isUnassigned && item.roll_weights && item.roll_weights.length > 0 ? `
+                <div class="roll-list-unassigned" style="background:#f8fafc; border-radius:6px; padding:6px; margin:4px 0 10px 0; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:4px; width:100%; box-sizing:border-box;">
+                    ${item.roll_weights.map(r => {
+                        var photoHtml = '';
+                        var moveHtml = '';
+                        if (r.img) {
+                            photoHtml = `<img src="${escapeHTML(r.img)}" style="width:32px; height:32px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                            moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="_qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
+                        } else {
+                            photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:11px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                            moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                        }
+                        return `
+                            <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #f1f5f9;">
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-size:12px; font-weight:700;">Cây ${r.w}kg</div>
+                                    <div style="font-size:11px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    ${photoHtml}
+                                    ${moveHtml}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                ` : ''}
             `;
         });
     }
@@ -1368,3 +1397,165 @@ async function _qkvExecuteQuickImport(colorId, materialId, colorName, materialNa
         showToast('Lỗi khi lưu vị trí vải', 'error');
     }
 }
+
+// ================== SINGLE ROLL MOVE & CAMERA HANDLERS ==================
+function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode) {
+    _qkv.activeMoveMaterialId = materialId;
+
+    openModal(
+        '🚚 Di chuyển vị trí cây vải',
+        `
+            <div style="font-size:13px;line-height:1.6;margin-bottom:16px;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
+                <div>🧵 Chất liệu: <strong>${escapeHTML(matName)}</strong></div>
+                <div>🎨 Màu vải: <strong style="color:#0f766e;">${escapeHTML(colorName)}</strong></div>
+                <div>📍 Cây vải cần chuyển: <strong>Cây ${rollWeight}kg (${rollCode})</strong></div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom:16px; display:none;">
+                <input type="checkbox" name="qkvMoveRollCheckbox" value="${rollId}" checked style="width:14px; height:14px;" onclick="return false;" />
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label" style="font-weight:700;font-size:12px;">Xếp vào kệ</label>
+                <select id="qkvMoveSelect" class="form-control" style="width:100%;height:38px;padding:4px 12px;line-height:30px;">
+                    <!-- Filled by js -->
+                </select>
+            </div>
+        `,
+        `
+            <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="_qkvSaveItemLocation(${colorId}, ${materialId})">Lưu vị trí mới</button>
+        `
+    );
+    
+    _qkvUpdateLocationDropdown();
+}
+
+var activeUploadRollId = null;
+
+function triggerRollCamera(rollId) {
+    activeUploadRollId = rollId;
+    var input = document.getElementById('qkvGlobalCameraInput');
+    if (!input) {
+        input = document.createElement('input');
+        input.type = 'file';
+        input.id = 'qkvGlobalCameraInput';
+        input.accept = 'image/*';
+        if (window.innerWidth < 768) {
+            input.setAttribute('capture', 'environment');
+        }
+        input.style.display = 'none';
+        input.addEventListener('change', handleCameraFileSelected);
+        document.body.appendChild(input);
+    }
+    input.value = '';
+    input.click();
+}
+
+async function handleCameraFileSelected(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+
+    var btn = document.getElementById('camera-btn-' + activeUploadRollId);
+    var originalBtnHtml = '';
+    if (btn) {
+        originalBtnHtml = btn.innerHTML;
+        btn.innerHTML = '⏳ ...';
+        btn.disabled = true;
+    }
+
+    try {
+        var resizedBase64 = await resizeImageFile(file, 800, 0.7);
+        
+        var res = await apiCall(`/api/khovai/rolls/${activeUploadRollId}/upload-image`, 'POST', {
+            image_data: resizedBase64
+        });
+        
+        if (res.error) {
+            showToast('Lỗi upload: ' + res.error, 'error');
+            if (btn) {
+                btn.innerHTML = originalBtnHtml;
+                btn.disabled = false;
+            }
+        } else {
+            showToast('Đã chụp ảnh thành công!', 'success');
+            await _qkvLoadData();
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Lỗi xử lý ảnh: ' + e.message, 'error');
+        if (btn) {
+            btn.innerHTML = originalBtnHtml;
+            btn.disabled = false;
+        }
+    }
+}
+
+function resizeImageFile(file, maxSide, quality) {
+    return new Promise((resolve, reject) => {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = new Image();
+            img.onload = function() {
+                var canvas = document.createElement('canvas');
+                var w = img.width;
+                var h = img.height;
+                
+                if (w > h) {
+                    if (w > maxSide) {
+                        h = Math.round(h * maxSide / w);
+                        w = maxSide;
+                    }
+                } else {
+                    if (h > maxSide) {
+                        w = Math.round(w * maxSide / h);
+                        h = maxSide;
+                    }
+                }
+                
+                canvas.width = w;
+                canvas.height = h;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                
+                var base64 = canvas.toDataURL('image/jpeg', quality);
+                resolve(base64);
+            };
+            img.onerror = function(err) { reject(err); };
+            img.src = e.target.result;
+        };
+        reader.onerror = function(err) { reject(err); };
+        reader.readAsDataURL(file);
+    });
+}
+
+function openImagePreviewModal(imgUrl) {
+    var modal = document.getElementById('qkvImagePreviewModal');
+    if (!modal) {
+        // Create dynamically if not exists in DOM yet
+        modal = document.createElement('div');
+        modal.id = 'qkvImagePreviewModal';
+        modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; justify-content:center; align-items:center; padding:16px;';
+        modal.onclick = closeImagePreviewModal;
+        
+        var img = document.createElement('img');
+        img.id = 'qkvImagePreviewContent';
+        img.style.cssText = 'max-width:100%; max-height:80%; border-radius:8px; object-fit:contain; box-shadow:0 10px 25px rgba(0,0,0,0.5);';
+        
+        var text = document.createElement('div');
+        text.style.cssText = 'color:white; margin-top:16px; font-size:14px; font-weight:500;';
+        text.innerText = 'Chạm hoặc click bất kỳ đâu để đóng';
+        
+        modal.appendChild(img);
+        modal.appendChild(text);
+        document.body.appendChild(modal);
+    }
+    document.getElementById('qkvImagePreviewContent').src = imgUrl;
+    modal.style.display = 'flex';
+}
+
+function closeImagePreviewModal() {
+    var modal = document.getElementById('qkvImagePreviewModal');
+    if (modal) modal.style.display = 'none';
+}
+

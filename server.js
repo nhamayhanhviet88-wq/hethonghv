@@ -477,6 +477,7 @@ async function start() {
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS receipt_image TEXT`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS source_import_id INTEGER`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS called_for_orders JSONB DEFAULT '[]'`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS image_path TEXT`); } catch(e) {}
         await db.exec(`UPDATE kv_rolls SET original_weight = weight WHERE original_weight = 0 OR original_weight IS NULL`);
         // Backfill roll_code for existing rows
         const rollsNoCode = await db.all(`SELECT id FROM kv_rolls WHERE roll_code IS NULL`);

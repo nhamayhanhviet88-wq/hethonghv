@@ -2,6 +2,8 @@
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 function genRollCode() {
     return 'KV' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 10);
@@ -413,7 +415,7 @@ module.exports = async function (fastify) {
 
     // PUT /api/khovai/rolls/:id — Update roll weight & location
     fastify.put('/api/khovai/rolls/:id', { preHandler: [authenticate] }, async (request) => {
-        const { weight, note, is_returned, location } = request.body || {};
+        const { weight, note, is_returned, location, image_path } = request.body || {};
         const user = request.user;
 
         const oldRoll = await db.get('SELECT * FROM kv_rolls WHERE id = $1', [request.params.id]);
@@ -423,6 +425,7 @@ module.exports = async function (fastify) {
         if (weight !== undefined) { updates.push(`weight = $${idx++}`); params.push(Number(weight)); }
         if (note !== undefined) { updates.push(`note = $${idx++}`); params.push(note); }
         if (is_returned !== undefined) { updates.push(`is_returned = $${idx++}`); params.push(is_returned); }
+        if (image_path !== undefined) { updates.push(`image_path = $${idx++}`); params.push(image_path); }
         if (location !== undefined) {
             if (location) {
                 const rollMat = await db.get(
@@ -508,6 +511,43 @@ module.exports = async function (fastify) {
         }
 
         return { success: true };
+    });
+
+    // POST /api/khovai/rolls/:id/upload-image — Upload roll image (base64)
+    fastify.post('/api/khovai/rolls/:id/upload-image', { preHandler: [authenticate] }, async (request, reply) => {
+        const rollId = Number(request.params.id);
+        const { image_data } = request.body || {};
+        if (!image_data) return reply.code(400).send({ error: 'Thiếu dữ liệu ảnh' });
+
+        const roll = await db.get('SELECT id FROM kv_rolls WHERE id = $1', [rollId]);
+        if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
+
+        try {
+            const { compressImage } = require('../utils/imageCompressor');
+            const matches = image_data.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (!matches) return reply.code(400).send({ error: 'Định dạng ảnh không hợp lệ' });
+            let buffer = Buffer.from(matches[2], 'base64');
+
+            // Max 10MB raw (will be compressed)
+            if (buffer.length > 10 * 1024 * 1024) return reply.code(400).send({ error: 'Ảnh quá lớn (tối đa 10MB)' });
+
+            // Compress: resize to 800px max, webp format, quality 75%
+            const compressed = await compressImage(buffer, { maxWidth: 800, quality: 75, format: 'webp' });
+
+            const uploadDir = path.join(__dirname, '..', 'uploads', 'khovai');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+            const fileName = `roll_${rollId}_${Date.now()}.webp`;
+            fs.writeFileSync(path.join(uploadDir, fileName), compressed.buffer);
+            const imagePath = `/uploads/khovai/${fileName}`;
+
+            await db.run('UPDATE kv_rolls SET image_path = $1, updated_at = NOW() WHERE id = $2', [imagePath, rollId]);
+
+            return { success: true, image_path: imagePath };
+        } catch (e) {
+            console.error('[KhoVai] Image upload error:', e.message);
+            return reply.code(500).send({ error: 'Lưu ảnh thất bại: ' + e.message });
+        }
     });
 
     // DELETE /api/khovai/rolls/:id — Delete roll + log XUAT
@@ -849,7 +889,7 @@ module.exports = async function (fastify) {
                     LEFT JOIN users u ON u.id = t2.created_by
                     WHERE t2.fabric_color_id = fc.id
                     ORDER BY t2.created_at DESC LIMIT 1) AS last_update,
-                   COALESCE((SELECT json_agg(json_build_object('id', r.id, 'w', r.weight, 'ow', r.original_weight, 'loc', r.location, 'code', r.roll_code) ORDER BY r.weight DESC)
+                   COALESCE((SELECT json_agg(json_build_object('id', r.id, 'w', r.weight, 'ow', r.original_weight, 'loc', r.location, 'code', r.roll_code, 'img', r.image_path) ORDER BY r.weight DESC)
                     FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0), '[]') AS roll_weights
             FROM kv_fabric_colors fc
             JOIN kv_materials m ON m.id = fc.material_id
