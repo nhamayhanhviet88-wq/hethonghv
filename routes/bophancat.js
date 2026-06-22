@@ -1091,6 +1091,47 @@ module.exports = async function(fastify) {
                             SET status = 'released', updated_at = $1 
                             WHERE roll_id = $2 AND status IN ('reserved', 'arrived')
                         `, [now, s.roll_id]);
+                    } else {
+                        // Adjust other active reservations on this roll if their sum exceeds finalWeight
+                        const otherRes = await db.all(`
+                            SELECT id, kg_reserved, dht_order_id
+                            FROM qlx_fabric_reservations
+                            WHERE roll_id = $1 AND status IN ('reserved', 'arrived')
+                            ORDER BY created_at ASC
+                        `, [s.roll_id]);
+                        
+                        let remainingLimit = finalWeight;
+                        for (const r of otherRes) {
+                            if (r.kg_reserved > remainingLimit) {
+                                if (remainingLimit <= 0) {
+                                    await db.run(`
+                                        UPDATE qlx_fabric_reservations
+                                        SET status = 'released', updated_at = $1
+                                        WHERE id = $2
+                                    `, [now, r.id]);
+                                    
+                                    await db.run(`
+                                        INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                                        VALUES ($1, 'fabric_release', $2, $3, $4)
+                                    `, [r.dht_order_id, `Hủy giữ vải do cây vải đã bị cắt hết/hụt cân (Cân dư thực tế: ${finalWeight}kg)`, request.user.id, now]);
+                                } else {
+                                    await db.run(`
+                                        UPDATE qlx_fabric_reservations
+                                        SET kg_reserved = $1, updated_at = $2
+                                        WHERE id = $3
+                                    `, [remainingLimit, now, r.id]);
+                                    
+                                    await db.run(`
+                                        INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                                        VALUES ($1, 'fabric_reserve_update', $2, $3, $4)
+                                    `, [r.dht_order_id, `Giảm số kg giữ xuống ${remainingLimit}kg do cây vải bị cắt hụt cân (Cân dư thực tế: ${finalWeight}kg)`, request.user.id, now]);
+                                    
+                                    remainingLimit = 0;
+                                }
+                            } else {
+                                remainingLimit -= r.kg_reserved;
+                            }
+                        }
                     }
                 }
                 detail = '✅ Cắt xong — Kg cắt: ' + kgCut.toFixed(2) + ', SL: ' + cutQty + ', Tỉ lệ: ' + cutRatio;

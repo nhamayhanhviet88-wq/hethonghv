@@ -2218,7 +2218,10 @@ module.exports = async function(fastify) {
                        COALESCE((
                            SELECT SUM(res.kg_reserved)
                            FROM qlx_fabric_reservations res
-                           WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
+                           LEFT JOIN cutting_records cr ON cr.id = r.locked_by_cutting_id
+                           WHERE res.roll_id = r.id 
+                             AND res.status IN ('reserved', 'arrived')
+                             AND (r.locked_by_cutting_id IS NULL OR res.dht_order_id != cr.dht_order_id)
                        ), 0) AS reserved_total
                 FROM kv_rolls r
                 JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
@@ -2585,7 +2588,21 @@ module.exports = async function(fastify) {
             // Allow reserving even if locked by cutting, per user request
 
             // Also count 'arrived' from_stock reservations (they don't reduce available for other orders)
-            const reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [roll_id, 'reserved', 'arrived']);
+            let reservedSum;
+            if (roll.locked_by_cutting_id) {
+                const activeCut = await db.get('SELECT dht_order_id FROM cutting_records WHERE id = $1', [roll.locked_by_cutting_id]);
+                if (activeCut && activeCut.dht_order_id) {
+                    reservedSum = await db.get(`
+                        SELECT COALESCE(SUM(kg_reserved),0) AS total 
+                        FROM qlx_fabric_reservations 
+                        WHERE roll_id = $1 AND status IN ('reserved','arrived') AND dht_order_id != $2
+                    `, [roll_id, activeCut.dht_order_id]);
+                } else {
+                    reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [roll_id, 'reserved', 'arrived']);
+                }
+            } else {
+                reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [roll_id, 'reserved', 'arrived']);
+            }
             const available = Number(roll.weight) - Number(reservedSum.total);
             if (Number(kg_reserved) > available) return reply.code(400).send({ error: `Không đủ! Cây này còn ${available} ${unit || 'kg'} khả dụng. Hãy sửa kg (✏️) các đơn khác trước.` });
 
@@ -2920,12 +2937,29 @@ module.exports = async function(fastify) {
 
         // Validate: new total must not exceed roll weight
         if (res.roll_id) {
-            const roll = await db.get('SELECT weight FROM kv_rolls WHERE id = $1', [res.roll_id]);
+            const roll = await db.get('SELECT weight, locked_by_cutting_id FROM kv_rolls WHERE id = $1', [res.roll_id]);
             if (roll) {
-                const otherSum = await db.get(
-                    'SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND id != $2 AND status IN ($3,$4)',
-                    [res.roll_id, resId, 'reserved', 'arrived']
-                );
+                let otherSum;
+                if (roll.locked_by_cutting_id) {
+                    const activeCut = await db.get('SELECT dht_order_id FROM cutting_records WHERE id = $1', [roll.locked_by_cutting_id]);
+                    if (activeCut && activeCut.dht_order_id) {
+                        otherSum = await db.get(`
+                            SELECT COALESCE(SUM(kg_reserved),0) AS total 
+                            FROM qlx_fabric_reservations 
+                            WHERE roll_id = $1 AND id != $2 AND status IN ('reserved','arrived') AND dht_order_id != $3
+                        `, [res.roll_id, resId, activeCut.dht_order_id]);
+                    } else {
+                        otherSum = await db.get(
+                            'SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND id != $2 AND status IN ($3,$4)',
+                            [res.roll_id, resId, 'reserved', 'arrived']
+                        );
+                    }
+                } else {
+                    otherSum = await db.get(
+                        'SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND id != $2 AND status IN ($3,$4)',
+                        [res.roll_id, resId, 'reserved', 'arrived']
+                    );
+                }
                 const maxAllowed = Number(roll.weight) - Number(otherSum.total);
                 if (newKg > maxAllowed) {
                     return reply.code(400).send({ error: `Tối đa ${maxAllowed} ${res.unit||'kg'}! (Cây ${Number(roll.weight)}${res.unit||'kg'} - đơn khác ${Number(otherSum.total)}${res.unit||'kg'})` });
