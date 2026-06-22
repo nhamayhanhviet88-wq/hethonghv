@@ -2604,7 +2604,7 @@ module.exports = async function(fastify) {
                     if (activeCut && activeCut.dht_order_id) {
                         reservedSum = await db.get(`
                             SELECT COALESCE(SUM(res.kg_reserved),0) AS total 
-                            FROM qlx_fabric_reservations 
+                            FROM qlx_fabric_reservations res
                             WHERE roll_id = $1 AND status IN ('reserved','arrived') AND dht_order_id != $2
                         `, [rId, activeCut.dht_order_id]);
                     } else {
