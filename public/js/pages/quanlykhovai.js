@@ -6,7 +6,8 @@ var _qkv = {
     summary: [],
     searchText: '',
     draggedItem: null,
-    showZeroWeight: localStorage.getItem('qkvShowZeroWeight') === 'true'
+    showZeroWeight: localStorage.getItem('qkvShowZeroWeight') === 'true',
+    activeItems: []
 };
 var _qkvScanner = null;
 
@@ -348,6 +349,7 @@ function _qkvRenderMap() {
     var grid = document.getElementById('qkvGrid');
     if (!grid) return;
     
+    _qkv.activeItems = [];
     var groups = {};
     
     // Initialize groups for predefined locations
@@ -496,6 +498,9 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
         `;
     } else {
         group.items.forEach(function(item) {
+            _qkv.activeItems.push(item);
+            var itemIdx = _qkv.activeItems.length - 1;
+
             var matched = false;
             if (searchKey) {
                 matched = (item.material_name || '').toLowerCase().includes(searchKey)
@@ -528,7 +533,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                         <span style="font-size:9px;color:#94a3b8;font-weight:normal;">${item.so_cuc} cây</span>
                     </div>
                     <div class="qkv-loc-actions">
-                        <button class="qkv-btn-icon" onclick="_qkvOnChangeItemLocation(${item.id}, ${item.material_id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', '${escapeJS(item.location || '')}', '${escapeJS(JSON.stringify(item.roll_weights || []))}')" title="Di chuyển vị trí">🚚</button>
+                        <button class="qkv-btn-icon" onclick="_qkvOnChangeItemLocationByIndex(${itemIdx})" title="Di chuyển vị trí">🚚</button>
                     </div>
                 </div>
             `;
@@ -701,7 +706,19 @@ async function _qkvConfirmDeleteLocation(id) {
     }
 }
 
-// 13. Move item position modal
+function _qkvOnChangeItemLocationByIndex(index) {
+    var item = _qkv.activeItems[index];
+    if (!item) return;
+    _qkvOnChangeItemLocation(
+        item.id,
+        item.material_id,
+        item.material_name,
+        item.color_name,
+        item.location || '',
+        JSON.stringify(item.roll_weights || [])
+    );
+}
+
 // 13. Move item position modal
 function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc, rollsJson) {
     var rolls = [];
