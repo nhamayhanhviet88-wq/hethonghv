@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Xuất Vải Để Cắt — Đồng Phục HV</title>
+    <title>✂️ Xuất Vải Để Cắt — Đồng Phục HV</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
@@ -19,97 +19,333 @@
         }
         body {
             font-family: 'Outfit', sans-serif;
-            background: #0f172a; /* Dark background */
+            background: #0f172a; /* Slate-900 */
             min-height: 100vh;
-            color: #f1f5f9;
-            padding-bottom: 80px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            color: #cbd5e1;
+            padding-bottom: 90px;
         }
-        .container {
-            width: 100%;
-            max-width: 500px;
-            padding: 24px;
-            text-align: center;
-        }
-        .icon-wrap {
-            width: 100px;
-            height: 100px;
+        
+        /* Header styling */
+        .mh {
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 50%;
+            padding: 16px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 48px;
-            margin: 0 auto 24px;
-            border: 2px solid rgba(94, 234, 212, 0.15);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-            position: relative;
-            animation: float 3s ease-in-out infinite;
+            gap: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.4);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+        .mh img {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
         }
-        .status-badge {
-            display: inline-block;
-            background: rgba(94, 234, 212, 0.1);
-            color: #5eead4;
-            border: 1px solid rgba(94, 234, 212, 0.2);
-            padding: 6px 16px;
-            border-radius: 30px;
-            font-size: 11px;
+        .mh h1 {
+            font-size: 15px;
             font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
+            color: white;
+            flex: 1;
+            letter-spacing: 0.5px;
         }
-        h2 {
-            font-size: 26px;
+        .mu {
+            font-size: 10px;
+            color: #5eead4;
+            font-weight: 700;
+            background: rgba(94, 234, 212, 0.1);
+            border: 1px solid rgba(94, 234, 212, 0.15);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        
+        /* Stats and controls */
+        .ms {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 12px 16px;
+        }
+        .ms > div {
+            text-align: center;
+            padding: 10px 6px;
+            border-radius: 12px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .ms .mv {
+            font-size: 16px;
             font-weight: 900;
             color: white;
-            margin-bottom: 12px;
-            letter-spacing: -0.5px;
         }
-        p {
-            font-size: 14px;
+        .ms .ml {
+            font-size: 9px;
+            font-weight: 700;
             color: #94a3b8;
-            line-height: 1.6;
-            margin-bottom: 30px;
-            padding: 0 16px;
+            letter-spacing: .5px;
+            margin-top: 2px;
+            text-transform: uppercase;
         }
-        .card {
-            background: rgba(30, 41, 59, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-        .features-list {
-            text-align: left;
-            margin-top: 16px;
+        
+        .m-ctrl {
+            padding: 0 16px 12px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        .feature-item {
+        .search-wrap {
+            position: relative;
+            width: 100%;
+        }
+        .search-input {
+            width: 100%;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1.5px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 12px 16px 12px 40px;
+            font-family: inherit;
+            font-size: 13px;
+            color: white;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .search-input:focus {
+            border-color: #5eead4;
+            box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.15);
+            background: rgba(15, 23, 42, 0.8);
+        }
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .settings-bar {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 10px;
+        }
+        .sound-btn {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1.5px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            color: #cbd5e1;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sound-btn.muted {
+            border-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.05);
+        }
+        
+        .refresh-btn {
+            background: #5eead4;
+            border: none;
+            color: #0f172a;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 8px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(94,234,212,0.25);
+        }
+        
+        /* List and cards */
+        .mc {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        
+        .m-ticket-card {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        .m-ticket-card.new-pulse {
+            animation: mPulseFlash 1.5s infinite;
+        }
+        @keyframes mPulseFlash {
+            0%, 100% { border-color: rgba(255,255,255,0.06); }
+            50% { border-color: #10b981; box-shadow: 0 0 15px rgba(16, 185, 129, 0.25); }
+        }
+        
+        .m-ticket-hdr {
+            background: rgba(30, 41, 59, 0.7);
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .m-ticket-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .m-badge {
+            font-size: 9px;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+        .m-badge.cutter { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+        .m-badge.order { background: rgba(251, 146, 60, 0.15); color: #fb923c; }
+        .m-badge.cskh { background: rgba(192, 132, 252, 0.15); color: #c084fc; }
+        .m-ticket-title {
             font-size: 13px;
+            font-weight: 800;
+            color: white;
+            line-height: 1.4;
+        }
+        
+        .m-roll-list {
+            padding: 10px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .m-roll-card {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px dashed rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .m-roll-hdr {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .m-roll-code {
+            font-family: monospace;
+            font-size: 12px;
+            font-weight: 800;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        /* Shelf location highlighted badge for Mobile */
+        .m-location-badge {
+            font-size: 11px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .m-location-badge.empty {
+            background: rgba(255,255,255,0.05);
+            color: #64748b;
+            border-color: rgba(255,255,255,0.05);
+        }
+        
+        .m-roll-body {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .m-roll-fabric {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .m-roll-fabric .name {
+            font-size: 13px;
+            font-weight: 700;
             color: #cbd5e1;
         }
-        .feature-item span {
+        .m-roll-fabric .desc {
+            font-size: 10px;
+            color: #64748b;
+        }
+        .m-roll-weight {
+            text-align: right;
+        }
+        .m-roll-weight .current {
+            font-size: 16px;
+            font-weight: 900;
             color: #5eead4;
         }
+        .m-roll-weight .original {
+            font-size: 9px;
+            color: #475569;
+        }
+        
+        .m-ticket-ft {
+            padding: 8px 14px;
+            font-size: 10px;
+            color: #64748b;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        /* Spinner */
+        .sp {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255,255,255,.1);
+            border-top-color: #5eead4;
+            border-radius: 50%;
+            animation: sn .6s linear infinite;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+        @keyframes sn { to { transform: rotate(360deg); } }
+        
+        /* Toasts */
+        .tc {
+            position: fixed;
+            top: 70px;
+            left: 12px;
+            right: 12px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .tt {
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            box-shadow: 0 8px 24px rgba(0,0,0,.4);
+            animation: si .3s ease;
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        }
+        @keyframes si { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Bottom nav */
         .bottom-nav {
             position: fixed;
             bottom: 12px;
             left: 12px;
             right: 12px;
-            background: rgba(15, 23, 42, 0.9);
+            background: rgba(15, 23, 42, 0.95);
             backdrop-filter: blur(15px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 16px;
@@ -117,7 +353,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
             z-index: 80;
         }
         .nav-back {
@@ -136,35 +372,328 @@
 </head>
 <body>
 
-    <div class="container">
-        <div class="icon-wrap">
-            ✂️
+    <div class="mh">
+        <img src="/images/logo.png" alt="Logo">
+        <h1>✂️ XUẤT VẢI ĐỂ CẮT</h1>
+        <span class="mu" id="mU">...</span>
+    </div>
+    
+    <div class="tc" id="mTC"></div>
+    
+    <div class="ms">
+        <div>
+            <div class="mv" id="statRolls">0</div>
+            <div class="ml">Cây vải</div>
         </div>
-        <div class="status-badge">Đang thiết kế</div>
-        <h2>Xuất Vải Để Cắt</h2>
-        <p>Tính năng này đang được phát triển và thiết kế giao diện phù hợp với quy trình sản xuất của xưởng.</p>
-        
-        <div class="card">
-            <h4 style="font-weight: 800; color: white; text-align: left; font-size: 14px;">Dự kiến các chức năng chính:</h4>
-            <div class="features-list">
-                <div class="feature-item">
-                    <span>⚡</span> Quét QR cuộn vải để tự động trừ kho xuất cắt.
-                </div>
-                <div class="feature-item">
-                    <span>⚡</span> Quản lý định mức hao hụt khi cắt vải thực tế.
-                </div>
-                <div class="feature-item">
-                    <span>⚡</span> Đồng bộ trực tiếp lệnh sản xuất của tổ cắt.
-                </div>
-            </div>
+        <div>
+            <div class="mv" id="statWeight">0.0</div>
+            <div class="ml">Tổng kg</div>
+        </div>
+        <div>
+            <div class="mv" id="statCutters">0</div>
+            <div class="ml">Thợ cắt</div>
+        </div>
+    </div>
+    
+    <div class="m-ctrl">
+        <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="mSearch" placeholder="Tìm mã cây, thợ cắt, đơn, kệ...">
+        </div>
+        <div class="settings-bar">
+            <button class="sound-btn" id="mToggleSound">🔊 Âm Báo</button>
+            <label style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; cursor:pointer; user-select:none; color:#94a3b8;">
+                <input type="checkbox" id="mAutoRefresh" checked style="accent-color:#5eead4; width:14px; height:14px;">
+                Tự cập nhật (30s)
+            </label>
+            <button class="refresh-btn" onclick="mLoad(true)">LÀM MỚI 🔄</button>
+        </div>
+    </div>
+    
+    <div class="mc" id="mC">
+        <div style="text-align:center; padding:60px 20px; color:#64748b;">
+            <div class="sp"></div>
+            <div>Đang tải dữ liệu...</div>
         </div>
     </div>
 
     <!-- Floating Bottom Navigation -->
     <div class="bottom-nav">
-        <a href="/m" class="nav-back">← Quay lại trang chủ</a>
-        <div style="font-size:10px; color:#64748b; font-weight:600;">CRM Mobile v2026.06</div>
+        <a href="/m" class="nav-back">← Hub Mobile</a>
+        <div style="font-size:10px; color:#64748b; font-weight:600;">Đồng Phục HV</div>
     </div>
+
+    <!-- Script logic -->
+    <script>
+        let rolls = [];
+        let activeRollIds = new Set();
+        let soundEnabled = localStorage.getItem('_xvc_sound') !== 'false';
+        let autoRefreshInterval = null;
+        let searchVal = '';
+
+        async function api(u, m='GET', b=null) {
+            const o = {
+                method: m,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            };
+            if (b) o.body = JSON.stringify(b);
+            const r = await fetch(u, o);
+            if (r.status === 401) {
+                location.href = '/index.html';
+                return;
+            }
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Lỗi');
+            return d;
+        }
+
+        function toast(m) {
+            const c = document.getElementById('mTC');
+            const d = document.createElement('div');
+            d.className = 'tt';
+            d.textContent = m;
+            c.appendChild(d);
+            setTimeout(() => d.remove(), 4000);
+        }
+
+        function playChime() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                const now = ctx.currentTime;
+                
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(659.25, now);
+                gain1.gain.setValueAtTime(0.2, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.3);
+                
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(880.00, now + 0.12);
+                gain2.gain.setValueAtTime(0.2, now + 0.12);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.12);
+                osc2.stop(now + 0.5);
+            } catch(e) {
+                console.warn('AudioContext blocked:', e);
+            }
+        }
+
+        async function mInit() {
+            try {
+                // Auth check
+                const a = await api('/api/auth/me');
+                if (!a.user) {
+                    location.href = '/index.html';
+                    return;
+                }
+                document.getElementById('mU').textContent = a.user.full_name || a.user.username;
+                
+                // Sound button state
+                const sndBtn = document.getElementById('mToggleSound');
+                sndBtn.className = soundEnabled ? 'sound-btn' : 'sound-btn muted';
+                sndBtn.textContent = soundEnabled ? '🔊 Âm Báo: Bật' : '🔇 Âm Báo: Tắt';
+                
+                sndBtn.addEventListener('click', () => {
+                    soundEnabled = !soundEnabled;
+                    localStorage.setItem('_xvc_sound', soundEnabled);
+                    sndBtn.className = soundEnabled ? 'sound-btn' : 'sound-btn muted';
+                    sndBtn.textContent = soundEnabled ? '🔊 Âm Báo: Bật' : '🔇 Âm Báo: Tắt';
+                    if (soundEnabled) {
+                        playChime();
+                        toast('🔊 Đã bật âm báo mới!');
+                    }
+                });
+
+                // Search handler
+                document.getElementById('mSearch').addEventListener('input', (e) => {
+                    searchVal = e.target.value || '';
+                    mRender();
+                });
+
+                // Auto-refresh handler
+                document.getElementById('mAutoRefresh').addEventListener('change', (e) => {
+                    mSetupAutoRefresh();
+                });
+
+                await mLoad(false);
+                mSetupAutoRefresh();
+            } catch(e) {
+                console.error('[mInit] Error:', e);
+                document.getElementById('mC').innerHTML = `
+                    <div style="text-align:center; padding:60px 20px; color:#64748b;">
+                        <div style="font-size:48px; margin-bottom:12px;">⚠️</div>
+                        <div>Lỗi: ${e.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function mSetupAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            const enabled = document.getElementById('mAutoRefresh').checked;
+            if (enabled) {
+                autoRefreshInterval = setInterval(() => {
+                    mLoad(false);
+                }, 30000);
+            }
+        }
+
+        async function mLoad(isManual) {
+            try {
+                const res = await api('/api/cutting/active-rolls');
+                const newRolls = res.rolls || [];
+
+                // Check for new rolls
+                if (rolls.length > 0 || isManual) {
+                    const newAdded = newRolls.filter(r => !activeRollIds.has(r.roll_id));
+                    if (newAdded.length > 0) {
+                        if (soundEnabled) playChime();
+                        newAdded.forEach(r => {
+                            toast(`🔔 Cần xuất: ${r.roll_code} (Kệ: ${r.location || 'Chưa kệ'})`);
+                            r._is_new = true;
+                            setTimeout(() => { delete r._is_new; }, 6000);
+                        });
+                    }
+                }
+
+                rolls = newRolls;
+                activeRollIds = new Set(newRolls.map(r => r.roll_id));
+                mRender();
+            } catch(e) {
+                console.error('[mLoad] Error:', e);
+                toast('⚠️ Lỗi tải dữ liệu: ' + e.message);
+            }
+        }
+
+        function mRender() {
+            const container = document.getElementById('mC');
+            
+            // Filter
+            let filtered = rolls.slice();
+            if (searchVal) {
+                const q = searchVal.toLowerCase().trim();
+                filtered = filtered.filter(r => 
+                    (r.roll_code || '').toLowerCase().includes(q) ||
+                    (r.cutter_name || '').toLowerCase().includes(q) ||
+                    (r.material_name || '').toLowerCase().includes(q) ||
+                    (r.color_name || '').toLowerCase().includes(q) ||
+                    (r.location || '').toLowerCase().includes(q) ||
+                    (r.order_code || '').toLowerCase().includes(q) ||
+                    (r.product_name || '').toLowerCase().includes(q)
+                );
+            }
+
+            // Stats
+            const totalWeight = filtered.reduce((sum, r) => sum + (Number(r.roll_weight) || 0), 0);
+            const uniqueCutters = new Set(filtered.map(r => r.cutter_name).filter(Boolean));
+            document.getElementById('statRolls').textContent = filtered.length;
+            document.getElementById('statWeight').textContent = totalWeight.toFixed(1);
+            document.getElementById('statCutters').textContent = uniqueCutters.size;
+
+            if (!filtered.length) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:60px 20px; color:#64748b;">
+                        <div style="font-size:48px; margin-bottom:12px;">✂️</div>
+                        <div style="font-size:14px; font-weight:700;">Không có cây vải nào đang cắt</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Group by cutting session
+            const groups = {};
+            filtered.forEach(r => {
+                if (!groups[r.cutting_id]) {
+                    groups[r.cutting_id] = {
+                        cutting_id: r.cutting_id,
+                        product_name: r.product_name,
+                        order_quantity: r.order_quantity,
+                        cutter_name: r.cutter_name,
+                        cutting_at: r.cutting_at,
+                        order_code: r.order_code,
+                        cskh_name: r.cskh_name,
+                        rolls: [],
+                        _is_new: false
+                    };
+                }
+                if (r._is_new) groups[r.cutting_id]._is_new = true;
+                groups[r.cutting_id].rolls.push(r);
+            });
+
+            const groupedArray = Object.values(groups).sort((a,b) => new Date(b.cutting_at) - new Date(a.cutting_at));
+
+            container.innerHTML = groupedArray.map(g => {
+                const startDt = g.cutting_at ? new Date(g.cutting_at) : null;
+                let timeStr = '—';
+                if (startDt) {
+                    const diffMin = Math.round((new Date() - startDt) / 60000);
+                    timeStr = diffMin < 60 ? `${diffMin}p trước` : startDt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                }
+
+                const totalGrpWeight = g.rolls.reduce((sum, r) => sum + Number(r.roll_weight), 0);
+                const pulseClass = g._is_new ? 'new-pulse' : '';
+
+                const rollsHtml = g.rolls.map(r => {
+                    const locBadge = r.location ? `<span class="m-location-badge">📍 ${r.location}</span>` : `<span class="m-location-badge empty">Chưa kệ</span>`;
+                    return `
+                        <div class="m-roll-card">
+                            <div class="m-roll-hdr">
+                                <span class="m-roll-code">${r.roll_code}</span>
+                                ${locBadge}
+                            </div>
+                            <div class="m-roll-body">
+                                <div class="m-roll-fabric">
+                                    <span class="name">${r.material_name}</span>
+                                    <span class="desc">${r.color_name}</span>
+                                </div>
+                                <div class="m-roll-weight">
+                                    <div class="current">${Number(r.roll_weight).toFixed(1)} kg</div>
+                                    <div class="original">Gốc: ${Number(r.original_weight).toFixed(1)}kg</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="m-ticket-card ${pulseClass}">
+                        <div class="m-ticket-hdr">
+                            <div class="m-ticket-meta">
+                                <span class="m-badge cutter">✂️ ${g.cutter_name || 'Chưa gán'}</span>
+                                <span class="m-badge order">📦 ${g.order_code || '—'}</span>
+                                ${g.cskh_name ? `<span class="m-badge cskh">👤 ${g.cskh_name}</span>` : ''}
+                            </div>
+                            <div class="m-ticket-title">${g.product_name || '—'} (SL: ${g.order_quantity || 0})</div>
+                        </div>
+                        <div class="m-roll-list">
+                            ${rollsHtml}
+                        </div>
+                        <div class="m-ticket-ft">
+                            <span>⏱️ Bắt đầu: ${timeStr}</span>
+                            <span style="color:#5eead4; font-weight:800;">Tổng: ${totalGrpWeight.toFixed(1)} kg</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        mInit();
+    </script>
 
     <!-- Unified Mobile Navigation Script -->
     <script src="/js/mobile-nav.js?v=20260622"></script>

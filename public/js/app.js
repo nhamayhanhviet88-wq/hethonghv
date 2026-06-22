@@ -2261,6 +2261,7 @@ var _PAGE_INIT_REGISTRY = {
     'don-quan-he': '_dqhInit',
     'donquanhe': '_dqhInit',
     'loithuonggap': '_ltgInit',
+    'xuatvaicat': 'renderXuatvaicatPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {

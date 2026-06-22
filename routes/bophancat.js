@@ -2587,4 +2587,34 @@ module.exports = async function(fastify) {
         }
         return { success: true };
     });
+
+    // ========== GET ACTIVE ROLLS: Cây vải đang cắt (Xuất vải để cắt) ==========
+    fastify.get('/api/cutting/active-rolls', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const rolls = await db.all(`
+                SELECT r.id AS roll_id, r.roll_code, r.weight AS roll_weight, r.original_weight,
+                       COALESCE(NULLIF(fc.location, ''), NULLIF(m.location, '')) AS location,
+                       m.name AS material_name, fc.color_name,
+                       cr.id AS cutting_id, cr.product_name, cr.order_quantity,
+                       u_cutter.full_name AS cutter_name, cr.cutting_at,
+                       o.order_code, u_cskh.full_name AS cskh_name
+                FROM kv_rolls r
+                JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                JOIN kv_materials m ON m.id = fc.material_id
+                JOIN cutting_records cr ON cr.id = r.locked_by_cutting_id
+                LEFT JOIN users u_cutter ON u_cutter.id = cr.cutter_id
+                LEFT JOIN dht_orders o ON o.id = cr.dht_order_id
+                LEFT JOIN users u_cskh ON u_cskh.id = o.cskh_user_id
+                WHERE cr.is_cutting = true 
+                  AND cr.is_cut_done = false 
+                  AND r.is_returned = false 
+                  AND r.weight > 0
+                ORDER BY cr.cutting_at DESC, r.roll_code ASC
+            `);
+            return { rolls };
+        } catch (e) {
+            console.error('[API Active Rolls] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
 };
