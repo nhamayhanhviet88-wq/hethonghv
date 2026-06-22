@@ -6,6 +6,24 @@ const { vnNow } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
+    function resolveRollLocationName(r) {
+        const rawLoc = (r.roll_loc !== null && r.roll_loc !== undefined) ? r.roll_loc.trim() : null;
+        const isNguyen = Number(r.weight) >= Number(r.original_weight);
+        
+        let resolved = '';
+        if (rawLoc !== null) {
+            resolved = rawLoc;
+        } else {
+            resolved = (r.color_loc || r.mat_loc || '').trim();
+        }
+        
+        if (resolved) {
+            return resolved;
+        } else {
+            return isNguyen ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
+        }
+    }
+
     // ========== AUTO-MIGRATE ==========
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS qlx_preparation (
@@ -2210,6 +2228,7 @@ module.exports = async function(fastify) {
             // Get all rolls for this fabric_color
             rolls = await db.all(`
                 SELECT r.id, r.roll_code, r.weight, r.original_weight, r.note,
+                       r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
                        r.called_for_orders, r.created_at AS roll_created_at,
                        r.locked_by_cutting_id,
                        cr_lock.product_name AS cutting_order_name,
@@ -2238,6 +2257,7 @@ module.exports = async function(fastify) {
             for (const roll of rolls) {
                 roll.reserved_total = Number(roll.reserved_total);
                 roll.available = Number(roll.weight) - roll.reserved_total;
+                roll.roll_loc_name = resolveRollLocationName(roll);
                 roll.reservations = await db.all(`
                     SELECT res.id, res.kg_reserved, res.dht_order_id,
                            o.order_code, res.phoi_index, res.item_id,
@@ -2257,6 +2277,8 @@ module.exports = async function(fastify) {
         // Get existing reservations for this order+item+phoi
         const existing = await db.all(`
             SELECT res.*, r.weight AS roll_weight, r.roll_code AS current_roll_code,
+                   r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
+                   r.original_weight, r.weight,
                    u_create.full_name AS created_by_name,
                    u_arrive.full_name AS arrived_by_name,
                    parent_o.order_code AS linked_from_order_code,
@@ -2268,6 +2290,8 @@ module.exports = async function(fastify) {
                    (SELECT COUNT(*)::int FROM qlx_fabric_reservations lk WHERE lk.linked_call_id = res.id AND lk.status != 'released') AS linked_count
             FROM qlx_fabric_reservations res
             LEFT JOIN kv_rolls r ON r.id = res.roll_id
+            LEFT JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            LEFT JOIN kv_materials m ON m.id = fc.material_id
             LEFT JOIN users u_create ON u_create.id = res.created_by
             LEFT JOIN users u_arrive ON u_arrive.id = res.arrived_by
             LEFT JOIN qlx_fabric_reservations parent_res ON parent_res.id = res.linked_call_id
@@ -2276,6 +2300,18 @@ module.exports = async function(fastify) {
               AND res.status NOT IN ('released', 'fulfilled')
             ORDER BY res.reservation_type, res.created_at
         `, [orderId, itemId, pi]);
+
+        for (const ex of existing) {
+            if (ex.reservation_type === 'from_stock') {
+                ex.roll_loc_name = resolveRollLocationName({
+                    weight: ex.weight,
+                    original_weight: ex.original_weight,
+                    roll_loc: ex.roll_loc,
+                    color_loc: ex.color_loc,
+                    mat_loc: ex.mat_loc
+                });
+            }
+        }
 
         // Fetch pending new_call reservations from OTHER orders with same material/color
         let pendingCalls = [];

@@ -748,11 +748,29 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     }
                     var createdInfo = (!isArrived && ex.created_by_name) ? ' <span style="font-size:9px;color:#6b7280">Tạo: ' + ex.created_by_name + '</span>' : '';
 
+                    var locHtml = '';
+                    if (ex.roll_loc_name) {
+                        var bColor = '#94a3b8';
+                        var bBg = 'rgba(148,163,184,0.12)';
+                        if (ex.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
+                            if (ex.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
+                                bColor = '#fbbf24';
+                                bBg = 'rgba(251,191,36,0.15)';
+                            } else {
+                                bColor = '#f87171';
+                                bBg = 'rgba(248,113,113,0.15)';
+                            }
+                        } else {
+                            bColor = '#3b82f6';
+                            bBg = 'rgba(59,130,246,0.12)';
+                        }
+                        locHtml = ' <span style="background:' + bBg + ';color:' + bColor + ';padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;border:1px solid ' + bColor + '40;display:inline-block;vertical-align:middle">📍 ' + ex.roll_loc_name + '</span>';
+                    }
                     html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:11px">';
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
                     html += '<span style="font-size:10px;font-weight:800;color:#6b7280;min-width:18px">' + (exIdx+1) + '.</span>';
                     html += statusBadge + ' ';
-                    html += '<span style="flex:1;font-weight:700;color:#1e293b">' + lbl + inlineDate + createdInfo + '</span>';
+                    html += '<span style="flex:1;font-weight:700;color:#1e293b">' + lbl + locHtml + inlineDate + createdInfo + '</span>';
                     if (!isArrived && !isLocked) {
                         html += '<button onclick="_qlxFabArrived(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap">✅ Vải Đã Về</button>';
                     }
@@ -887,6 +905,25 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     html += '<span style="font-size:10px;font-weight:800;color:#6b7280;min-width:18px">' + (idx+1) + '.</span>';
                     html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
                     if (rl.is_original_tree) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
+                    var locHtml = '';
+                    if (rl.roll_loc_name) {
+                        var bColor = '#94a3b8';
+                        var bBg = 'rgba(148,163,184,0.12)';
+                        if (rl.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
+                            if (rl.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
+                                bColor = '#fbbf24';
+                                bBg = 'rgba(251,191,36,0.15)';
+                            } else {
+                                bColor = '#f87171';
+                                bBg = 'rgba(248,113,113,0.15)';
+                            }
+                        } else {
+                            bColor = '#3b82f6';
+                            bBg = 'rgba(59,130,246,0.12)';
+                        }
+                        locHtml = '<span style="background:' + bBg + ';color:' + bColor + ';padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;border:1px solid ' + bColor + '40">📍 ' + rl.roll_loc_name + '</span>';
+                    }
+                    if (locHtml) html += locHtml;
                     if (isLocked) {
                         html += '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔒 Đang cắt: ' + (rl.cutting_order_name || 'Đang xử lý') + (rl.cutting_by_name ? ' (' + rl.cutting_by_name + ')' : '') + (rl.cutting_order_qty ? ' : ' + rl.cutting_order_qty + ' Sản Phẩm' : '') + '</span>';
                     }
