@@ -380,44 +380,64 @@ function _qkvRenderMap() {
         
         var rollsList = item.roll_weights || [];
         
-        // Cây Nguyên: w >= ow (chưa từng cắt)
-        var nguyenRolls = rollsList.filter(function(r) {
-            return Number(r.w) >= Number(r.ow);
-        });
-        // Cây Lẻ: w < ow (đã từng cắt)
-        var leRolls = rollsList.filter(function(r) {
-            return Number(r.w) < Number(r.ow);
-        });
-        
         if (rollsList.length === 0) {
-            // Fallback nếu không có dữ liệu chi tiết cuộn: xếp theo vị trí cài đặt
             if (key && isPredefined) {
                 groups[key].items.push(item);
             } else {
                 unassignedNguyen.items.push(item);
             }
         } else {
-            // Cây Nguyên: xếp vào kệ đã phân (nếu có), chưa có thì vào "Chưa Phân Vị Trí Cây Nguyên"
-            if (nguyenRolls.length > 0) {
-                var itemNguyen = Object.assign({}, item);
-                itemNguyen.roll_weights = nguyenRolls;
-                itemNguyen.so_cuc = nguyenRolls.length;
-                itemNguyen.cuoi_ky = nguyenRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+            // Group rolls of this item by their target bucket
+            var rollBuckets = {}; // key -> array of rolls
+            
+            rollsList.forEach(function(r) {
+                var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : null;
+                var isNguyen = Number(r.w) >= Number(r.ow);
                 
-                if (key && isPredefined) {
-                    groups[key].items.push(itemNguyen);
+                var targetBucket = '';
+                if (isNguyen) {
+                    if (rollLoc && _qkv.locations.some(l => l.name === rollLoc)) {
+                        targetBucket = rollLoc;
+                    } else if (rollLoc === '') {
+                        targetBucket = 'unassignedNguyen';
+                    } else {
+                        if (key && isPredefined) {
+                            targetBucket = key;
+                        } else {
+                            targetBucket = 'unassignedNguyen';
+                        }
+                    }
                 } else {
-                    unassignedNguyen.items.push(itemNguyen);
+                    if (rollLoc && _qkv.locations.some(l => l.name === rollLoc)) {
+                        targetBucket = rollLoc;
+                    } else {
+                        targetBucket = 'unassignedLe';
+                    }
                 }
-            }
-            // Cây Lẻ: BẤT KỂ màu/chất liệu đã phân kệ hay chưa, hễ bị cắt lẻ (w < ow) là phải đưa về "Chưa Phân Vị Trí Cây Lẻ"
-            if (leRolls.length > 0) {
-                var itemLe = Object.assign({}, item);
-                itemLe.roll_weights = leRolls;
-                itemLe.so_cuc = leRolls.length;
-                itemLe.cuoi_ky = leRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
                 
-                unassignedLe.items.push(itemLe);
+                if (!rollBuckets[targetBucket]) {
+                    rollBuckets[targetBucket] = [];
+                }
+                rollBuckets[targetBucket].push(r);
+            });
+            
+            // For each target bucket, create a copied item and push it
+            for (var target in rollBuckets) {
+                var subRolls = rollBuckets[target];
+                var subItem = Object.assign({}, item);
+                subItem.roll_weights = subRolls;
+                subItem.so_cuc = subRolls.length;
+                subItem.cuoi_ky = subRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+                
+                if (target === 'unassignedNguyen') {
+                    unassignedNguyen.items.push(subItem);
+                } else if (target === 'unassignedLe') {
+                    unassignedLe.items.push(subItem);
+                } else {
+                    if (groups[target]) {
+                        groups[target].items.push(subItem);
+                    }
+                }
             }
         }
     });
@@ -508,7 +528,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                         <span style="font-size:9px;color:#94a3b8;font-weight:normal;">${item.so_cuc} cây</span>
                     </div>
                     <div class="qkv-loc-actions">
-                        <button class="qkv-btn-icon" onclick="_qkvOnChangeItemLocation(${item.id}, ${item.material_id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', '${escapeJS(item.location || '')}')" title="Di chuyển vị trí">🚚</button>
+                        <button class="qkv-btn-icon" onclick="_qkvOnChangeItemLocation(${item.id}, ${item.material_id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', '${escapeJS(item.location || '')}', '${escapeJS(JSON.stringify(item.roll_weights || []))}')" title="Di chuyển vị trí">🚚</button>
                     </div>
                 </div>
             `;
@@ -682,11 +702,10 @@ async function _qkvConfirmDeleteLocation(id) {
 }
 
 // 13. Move item position modal
-function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc) {
-    var optionsHtml = `<option value="" ${!currentLoc ? 'selected' : ''}>-- Chưa phân vị trí --</option>`;
-    _qkv.locations.forEach(function(loc) {
-        optionsHtml += `<option value="${escapeHTML(loc.name)}" ${currentLoc === loc.name ? 'selected' : ''}>${escapeHTML(loc.name)} ${loc.description ? '(' + escapeHTML(loc.description) + ')' : ''}</option>`;
-    });
+// 13. Move item position modal
+function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc, rollsJson) {
+    var rolls = [];
+    try { rolls = JSON.parse(rollsJson || '[]'); } catch(e) {}
 
     openModal(
         '🚚 Di chuyển vị trí vải',
@@ -698,24 +717,33 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
             </div>
             
             <div class="form-group" style="margin-bottom:16px;">
-                <label class="form-label" style="font-weight:700;font-size:12px;">Vị Trí Mới</label>
-                <select id="qkvMoveSelect" class="form-control" style="width:100%;height:38px;">
-                    ${optionsHtml}
-                </select>
-            </div>
-            
-            <div class="form-group">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Phạm vi áp dụng</label>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
                     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                        <input type="radio" name="qkvScope" value="color" checked />
+                        <input type="radio" name="qkvScope" value="color" checked onchange="_qkvUpdateLocationDropdown()" />
                         <span>Chỉ riêng màu này (<strong>${escapeHTML(colorName)}</strong>)</span>
                     </label>
                     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                        <input type="radio" name="qkvScope" value="material" />
+                        <input type="radio" name="qkvScope" value="material" onchange="_qkvUpdateLocationDropdown()" />
                         <span>Toàn bộ chất liệu (<strong>${escapeHTML(matName)}</strong>)</span>
                     </label>
+                    ${rolls.length > 0 ? `
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                        <input type="radio" name="qkvScope" value="roll" onchange="_qkvUpdateLocationDropdown()" />
+                        <span>Chỉ riêng cây vải cụ thể:</span>
+                    </label>
+                    <select id="qkvMoveRollSelect" class="form-control" style="margin-left:24px;width:calc(100% - 24px);margin-top:4px;height:38px;" disabled>
+                        ${rolls.map(r => `<option value="${r.id}">Cây ${r.w}kg (${r.code || 'không mã'})${r.loc ? ' - Kệ: ' + r.loc : ''}</option>`).join('')}
+                    </select>
+                    ` : ''}
                 </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label" style="font-weight:700;font-size:12px;">Vị Trí Mới</label>
+                <select id="qkvMoveSelect" class="form-control" style="width:100%;height:38px;">
+                    <!-- Filled by js -->
+                </select>
             </div>
         `,
         `
@@ -723,9 +751,38 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
             <button class="btn btn-primary" onclick="_qkvSaveItemLocation(${id}, ${materialId})">🚚 Lưu vị trí mới</button>
         `
     );
+    
+    _qkvUpdateLocationDropdown();
 }
 
-// 14. Save new location mapping to material/color
+function _qkvUpdateLocationDropdown() {
+    var scope = document.querySelector('input[name="qkvScope"]:checked')?.value;
+    var rollSelect = document.getElementById('qkvMoveRollSelect');
+    if (rollSelect) {
+        rollSelect.disabled = (scope !== 'roll');
+    }
+    
+    var select = document.getElementById('qkvMoveSelect');
+    if (!select) return;
+    
+    var html = '';
+    if (scope === 'roll') {
+        html += `<option value="inherit">-- Theo vị trí của màu vải (Kế thừa) --</option>`;
+    }
+    html += `<option value="">-- Chưa phân vị trí --</option>`;
+    _qkv.locations.forEach(function(loc) {
+        html += `<option value="${escapeHTML(loc.name)}">${escapeHTML(loc.name)} ${loc.description ? '(' + escapeHTML(loc.description) + ')' : ''}</option>`;
+    });
+    select.innerHTML = html;
+    
+    if (scope === 'roll') {
+        select.value = 'inherit';
+    } else {
+        select.value = '';
+    }
+}
+
+// 14. Save new location mapping to material/color/roll
 async function _qkvSaveItemLocation(colorId, materialId) {
     var newLoc = document.getElementById('qkvMoveSelect').value;
     var scope = document.querySelector('input[name="qkvScope"]:checked').value;
@@ -736,9 +793,15 @@ async function _qkvSaveItemLocation(colorId, materialId) {
             res = await apiCall(`/api/khovai/materials/${materialId}`, 'PUT', {
                 location: newLoc
             });
-        } else {
+        } else if (scope === 'color') {
             res = await apiCall(`/api/khovai/colors/${colorId}`, 'PUT', {
                 location: newLoc
+            });
+        } else if (scope === 'roll') {
+            var rollId = document.getElementById('qkvMoveRollSelect').value;
+            var targetLoc = (newLoc === 'inherit') ? null : newLoc;
+            res = await apiCall(`/api/khovai/rolls/${rollId}`, 'PUT', {
+                location: targetLoc
             });
         }
         

@@ -252,9 +252,9 @@ module.exports = async function (fastify) {
         return { success: true, roll };
     });
 
-    // PUT /api/khovai/rolls/:id — Update roll weight
+    // PUT /api/khovai/rolls/:id — Update roll weight & location
     fastify.put('/api/khovai/rolls/:id', { preHandler: [authenticate] }, async (request) => {
-        const { weight, note, is_returned } = request.body || {};
+        const { weight, note, is_returned, location } = request.body || {};
         const user = request.user;
 
         const oldRoll = await db.get('SELECT * FROM kv_rolls WHERE id = $1', [request.params.id]);
@@ -264,6 +264,10 @@ module.exports = async function (fastify) {
         if (weight !== undefined) { updates.push(`weight = $${idx++}`); params.push(Number(weight)); }
         if (note !== undefined) { updates.push(`note = $${idx++}`); params.push(note); }
         if (is_returned !== undefined) { updates.push(`is_returned = $${idx++}`); params.push(is_returned); }
+        if (location !== undefined) {
+            updates.push(`location = $${idx++}`);
+            params.push(location === null ? null : (typeof location === 'string' ? location.trim() : null));
+        }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push(`updated_at = NOW()`);
         params.push(request.params.id);
@@ -633,7 +637,7 @@ module.exports = async function (fastify) {
                     LEFT JOIN users u ON u.id = t2.created_by
                     WHERE t2.fabric_color_id = fc.id
                     ORDER BY t2.created_at DESC LIMIT 1) AS last_update,
-                   COALESCE((SELECT json_agg(json_build_object('w', r.weight, 'ow', r.original_weight) ORDER BY r.weight DESC)
+                   COALESCE((SELECT json_agg(json_build_object('id', r.id, 'w', r.weight, 'ow', r.original_weight, 'loc', r.location, 'code', r.roll_code) ORDER BY r.weight DESC)
                     FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0), '[]') AS roll_weights
             FROM kv_fabric_colors fc
             JOIN kv_materials m ON m.id = fc.material_id
