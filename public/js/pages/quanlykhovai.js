@@ -378,39 +378,47 @@ function _qkvRenderMap() {
         var key = (item.location || '').trim();
         var isPredefined = _qkv.locations.some(l => l.name === key);
         
-        if (!key || !isPredefined) {
-            var rollsList = item.roll_weights || [];
-            
-            // Cây Nguyên: w >= ow (chưa từng cắt)
-            var nguyenRolls = rollsList.filter(function(r) {
-                return Number(r.w) >= Number(r.ow);
-            });
-            // Cây Lẻ: w < ow (đã từng cắt)
-            var leRolls = rollsList.filter(function(r) {
-                return Number(r.w) < Number(r.ow);
-            });
-            
-            if (rollsList.length === 0) {
-                // Fallback nếu không có dữ liệu chi tiết cuộn: cho vào Cây Nguyên
-                unassignedNguyen.items.push(item);
+        var rollsList = item.roll_weights || [];
+        
+        // Cây Nguyên: w >= ow (chưa từng cắt)
+        var nguyenRolls = rollsList.filter(function(r) {
+            return Number(r.w) >= Number(r.ow);
+        });
+        // Cây Lẻ: w < ow (đã từng cắt)
+        var leRolls = rollsList.filter(function(r) {
+            return Number(r.w) < Number(r.ow);
+        });
+        
+        if (rollsList.length === 0) {
+            // Fallback nếu không có dữ liệu chi tiết cuộn: xếp theo vị trí cài đặt
+            if (key && isPredefined) {
+                groups[key].items.push(item);
             } else {
-                if (nguyenRolls.length > 0) {
-                    var itemNguyen = Object.assign({}, item);
-                    itemNguyen.roll_weights = nguyenRolls;
-                    itemNguyen.so_cuc = nguyenRolls.length;
-                    itemNguyen.cuoi_ky = nguyenRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
-                    unassignedNguyen.items.push(itemNguyen);
-                }
-                if (leRolls.length > 0) {
-                    var itemLe = Object.assign({}, item);
-                    itemLe.roll_weights = leRolls;
-                    itemLe.so_cuc = leRolls.length;
-                    itemLe.cuoi_ky = leRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
-                    unassignedLe.items.push(itemLe);
-                }
+                unassignedNguyen.items.push(item);
             }
         } else {
-            groups[key].items.push(item);
+            // Cây Nguyên: xếp vào kệ đã phân (nếu có), chưa có thì vào "Chưa Phân Vị Trí Cây Nguyên"
+            if (nguyenRolls.length > 0) {
+                var itemNguyen = Object.assign({}, item);
+                itemNguyen.roll_weights = nguyenRolls;
+                itemNguyen.so_cuc = nguyenRolls.length;
+                itemNguyen.cuoi_ky = nguyenRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+                
+                if (key && isPredefined) {
+                    groups[key].items.push(itemNguyen);
+                } else {
+                    unassignedNguyen.items.push(itemNguyen);
+                }
+            }
+            // Cây Lẻ: BẤT KỂ màu/chất liệu đã phân kệ hay chưa, hễ bị cắt lẻ (w < ow) là phải đưa về "Chưa Phân Vị Trí Cây Lẻ"
+            if (leRolls.length > 0) {
+                var itemLe = Object.assign({}, item);
+                itemLe.roll_weights = leRolls;
+                itemLe.so_cuc = leRolls.length;
+                itemLe.cuoi_ky = leRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+                
+                unassignedLe.items.push(itemLe);
+            }
         }
     });
     
