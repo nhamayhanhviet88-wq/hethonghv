@@ -1456,7 +1456,7 @@ async function _bpcOpenCutModal(recordId) {
     requestAnimationFrame(function() { document.getElementById('_bpcCutModal').classList.add('show'); });
     // Fetch rolls and reminders
     try {
-        var rollsRes = apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(rec.material_name || '') + '&color_name=' + encodeURIComponent(rec.fabric_color || ''));
+        var rollsRes = apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(rec.material_name || '') + '&color_name=' + encodeURIComponent(rec.fabric_color || '') + '&order_id=' + rec.dht_order_id + '&order_item_id=' + (rec.order_item_id || '') + '&phoi_index=' + (rec.phoi_index || 0));
         
         var remUrl = '/api/qlx/reminders?order_id=' + rec.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
         if (rec.order_item_id) remUrl += '&item_id=' + rec.order_item_id;
@@ -1465,6 +1465,7 @@ async function _bpcOpenCutModal(recordId) {
         
         var results = await Promise.all([rollsRes, remRes]);
         var rolls = results[0].rolls || [];
+        window._bpcAvailableRolls = rolls;
         var cutReminders = results[1].reminders || [];
         var cutReminderIds = results[1].reminder_ids || [];
         var cutViewedIds = results[1].viewed_ids || [];
@@ -1483,12 +1484,27 @@ async function _bpcOpenCutModal(recordId) {
         } else {
             rolls.forEach(function(roll) {
                 var disabled = roll.locked ? ' disabled' : '';
+                var isReserved = !!roll.is_reserved_for_this_order;
+                var checked = (isReserved && !roll.locked) ? ' checked' : '';
+                var borderStyle = isReserved ? 'border:2px solid #ea580c;background:#fff7ed;' : 'border:1.5px solid #e2e8f0;';
                 var lockInfo = roll.locked ? '<span style="color:#ef4444;font-size:10px;margin-left:6px">🔒 ' + (roll.locked_order ? roll.locked_order + ' — ' : '') + (roll.locked_by || 'Đang cắt') + '</span>' : '';
                 var opacity = roll.locked ? 'opacity:0.5;' : '';
-                bh += '<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:6px;cursor:'+(roll.locked?'not-allowed':'pointer')+';'+opacity+'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled)this.style.borderColor=\'#dc2626\'" onmouseout="this.style.borderColor=\'#e2e8f0\'">';
-                bh += '<input type="checkbox" class="_bpcRollCb" value="' + roll.id + '" data-weight="' + roll.weight + '"' + disabled + ' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
-                bh += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>';
+                
+                bh += '<label style="display:block;padding:10px 14px;border-radius:10px;margin-bottom:6px;cursor:'+(roll.locked?'not-allowed':'pointer')+';'+opacity+borderStyle+'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled && !'+isReserved+')this.style.borderColor=\'#dc2626\'" onmouseout="if(!'+isReserved+')this.style.borderColor=\'#e2e8f0\'">';
+                bh += '  <div style="display:flex;align-items:center;gap:10px">';
+                bh += '    <input type="checkbox" class="_bpcRollCb" value="' + roll.id + '" data-weight="' + roll.weight + '"' + disabled + checked + ' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
+                bh += '    <span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>';
                 bh += lockInfo;
+                bh += '  </div>';
+                if (isReserved) {
+                    var kgReservedText = roll.kg_reserved ? ' (Báo lấy: ' + roll.kg_reserved + 'kg, hiện còn ' + roll.weight + 'kg)' : '';
+                    bh += '  <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; border-top: 1.5px dashed rgba(234, 88, 12, 0.2); padding-top: 6px;">';
+                    bh += '    <div style="display:flex; align-items:center; gap:6px">';
+                    bh += '      <span style="background:#ea580c; color:#fff; font-size:9px; padding:1px 6px; border-radius:4px; font-weight:800">📍 QLX CHỈ ĐỊNH</span>';
+                    bh += '      <span style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; padding:1px 8px; border-radius:6px; font-size:10px; font-weight:800; display:inline-flex; align-items:center; gap:4px">🔔 Cây này đã được QLX báo lấy ra để cắt' + kgReservedText + '</span>';
+                    bh += '    </div>';
+                    bh += '  </div>';
+                }
                 bh += '</label>';
             });
         }
@@ -1542,6 +1558,7 @@ async function _bpcOpenCutModal(recordId) {
         }
 
         body.innerHTML = bh;
+        _bpcRecalcKg();
         document.getElementById('_bpcCutActions').style.display = 'flex';
         _bpcUpdateConfirmState();
     } catch(e) {
@@ -1579,6 +1596,21 @@ async function _bpcDoCut(recordId) {
         showToast('Vui lòng xác nhận đã xem và làm tất cả nhắc nhở!', 'error');
         window._bpcSubmitBusy = false;
         return;
+    }
+    
+    var rolls = window._bpcAvailableRolls || [];
+    var reservedRolls = rolls.filter(function(r) { return r.is_reserved_for_this_order; });
+    if (reservedRolls.length > 0) {
+        var selectedIds = Array.from(cbs).map(function(cb) { return Number(cb.value); });
+        var missingReserved = reservedRolls.filter(function(r) { return !selectedIds.includes(r.id); });
+        if (missingReserved.length > 0) {
+            var btnConfirm = document.getElementById('_bpcCutConfirmBtn');
+            if (!confirm('⚠️ Chú ý: Bạn đang không chọn cây vải do QLX chỉ định cho phối này. Bạn có chắc chắn muốn dùng cây khác không?')) {
+                window._bpcSubmitBusy = false;
+                if (btnConfirm) { btnConfirm.disabled = false; btnConfirm.textContent = '✂️ XÁC NHẬN CẮT'; _bpcUpdateConfirmState(); }
+                return;
+            }
+        }
     }
     
     var rollIds = [];

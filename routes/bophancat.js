@@ -559,7 +559,7 @@ module.exports = async function(fastify) {
         }
 
         const records = await db.all(`
-            SELECT cr.id, cr.dht_order_id, cr.order_item_id, cr.is_cutting, cr.cutting_at, cr.cutting_by,
+            SELECT cr.id, cr.dht_order_id, cr.order_item_id, cr.phoi_index, cr.is_cutting, cr.cutting_at, cr.cutting_by,
                    cr.is_cut_done, cr.cut_done_at, cr.cut_done_by, cr.salary_approved, cr.salary_approved_at,
                    cr.salary_approved_by, cr.wash_reported, cr.wash_reported_at, cr.wash_reported_by,
                    cr.error_reported, cr.error_order_id, cr.cut_date, cr.cutter_id, cr.product_name,
@@ -631,7 +631,7 @@ module.exports = async function(fastify) {
     // ========== GET SINGLE RECORD: Chi tiết một đơn cắt ==========
     fastify.get('/api/cutting/records/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const record = await db.get(`
-            SELECT cr.id, cr.dht_order_id, cr.order_item_id, cr.is_cutting, cr.cutting_at, cr.cutting_by,
+            SELECT cr.id, cr.dht_order_id, cr.order_item_id, cr.phoi_index, cr.is_cutting, cr.cutting_at, cr.cutting_by,
                    cr.is_cut_done, cr.cut_done_at, cr.cut_done_by, cr.salary_approved, cr.salary_approved_at,
                    cr.salary_approved_by, cr.wash_reported, cr.wash_reported_at, cr.wash_reported_by,
                    cr.error_reported, cr.error_order_id, cr.cut_date, cr.cutter_id, cr.product_name,
@@ -1460,8 +1460,12 @@ module.exports = async function(fastify) {
 
     // ========== AVAILABLE ROLLS: Cây vải khả dụng theo chất liệu + màu ==========
     fastify.get('/api/cutting/available-rolls', { preHandler: [authenticate] }, async (request, reply) => {
-        const { material_name, color_name } = request.query;
+        const { material_name, color_name, order_id, order_item_id, phoi_index } = request.query;
         if (!material_name || !color_name) return { rolls: [], message: 'Thiếu chất liệu hoặc màu' };
+
+        const orderId = order_id ? Number(order_id) : null;
+        const orderItemId = order_item_id ? Number(order_item_id) : null;
+        const phoiIdx = phoi_index !== undefined && phoi_index !== null ? Number(phoi_index) : 0;
 
         const rolls = await db.all(`
             SELECT r.id, r.roll_code, r.weight, r.original_weight, r.locked_by_cutting_id,
@@ -1469,7 +1473,26 @@ module.exports = async function(fastify) {
                    u_lock.full_name AS locked_by_name,
                    cr_lock.product_name AS locked_product,
                    do_lock.order_code AS locked_order_code,
-                   (r.weight = r.original_weight AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)) AS is_original_tree
+                   (r.weight = r.original_weight AND r.weight >= COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10)) AS is_original_tree,
+                   EXISTS (
+                       SELECT 1 FROM qlx_fabric_reservations res
+                       WHERE res.roll_id = r.id
+                         AND res.dht_order_id = $3
+                         AND COALESCE(res.item_id, 0) = COALESCE($4, 0)
+                         AND COALESCE(res.phoi_index, 0) = COALESCE($5, 0)
+                         AND res.status = 'arrived'
+                         AND res.reservation_type = 'from_stock'
+                   ) AS is_reserved_for_this_order,
+                   (
+                       SELECT res.kg_reserved FROM qlx_fabric_reservations res
+                       WHERE res.roll_id = r.id
+                         AND res.dht_order_id = $3
+                         AND COALESCE(res.item_id, 0) = COALESCE($4, 0)
+                         AND COALESCE(res.phoi_index, 0) = COALESCE($5, 0)
+                         AND res.status = 'arrived'
+                         AND res.reservation_type = 'from_stock'
+                       LIMIT 1
+                   ) AS kg_reserved
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
@@ -1481,8 +1504,18 @@ module.exports = async function(fastify) {
               AND r.weight > 0
               AND TRIM(m.name) ILIKE $1
               AND TRIM(fc.color_name) ILIKE $2
-            ORDER BY r.weight ASC
-        `, ['%' + material_name.trim() + '%', '%' + color_name.trim() + '%']);
+            ORDER BY
+              (CASE WHEN EXISTS (
+                  SELECT 1 FROM qlx_fabric_reservations res
+                  WHERE res.roll_id = r.id
+                    AND res.dht_order_id = $3
+                    AND COALESCE(res.item_id, 0) = COALESCE($4, 0)
+                    AND COALESCE(res.phoi_index, 0) = COALESCE($5, 0)
+                    AND res.status = 'arrived'
+                    AND res.reservation_type = 'from_stock'
+              ) THEN 0 ELSE 1 END) ASC,
+              r.weight ASC
+        `, ['%' + material_name.trim() + '%', '%' + color_name.trim() + '%', orderId, orderItemId, phoiIdx]);
 
         return {
             rolls: rolls.map(r => ({
@@ -1493,6 +1526,8 @@ module.exports = async function(fastify) {
                 locked_by: r.locked_by_name || null,
                 locked_order: r.locked_order_code || null,
                 is_original_tree: !!r.is_original_tree,
+                is_reserved_for_this_order: !!r.is_reserved_for_this_order,
+                kg_reserved: r.kg_reserved !== null ? Number(r.kg_reserved) : null,
                 label: r.material_name + ' - ' + r.color_name + ' - ' + Number(r.weight) + 'kg'
             }))
         };

@@ -1582,13 +1582,14 @@ async function mOpenCutModal(recordId){
     document.body.insertAdjacentHTML('beforeend',h);
     requestAnimationFrame(()=>document.getElementById('_mmCutModal').classList.add('show'));
     try{
-        const rollsRes=mApi('/api/cutting/available-rolls?material_name='+encodeURIComponent(rec.material_name||'')+'&color_name='+encodeURIComponent(rec.fabric_color||''));
+        const rollsRes=mApi('/api/cutting/available-rolls?material_name='+encodeURIComponent(rec.material_name||'')+'&color_name='+encodeURIComponent(rec.fabric_color||'')+'&order_id='+rec.dht_order_id+'&order_item_id='+(rec.order_item_id||'')+'&phoi_index='+(rec.phoi_index||0));
         let remUrl = '/api/qlx/reminders?order_id=' + rec.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
         if (rec.order_item_id) remUrl += '&item_id=' + rec.order_item_id;
         const remRes = mApi(remUrl);
 
         const [rollsData, remData] = await Promise.all([rollsRes, remRes]);
         const rolls=rollsData.rolls||[];
+        window._mAvailableRolls = rolls;
         const cutReminders = remData.reminders || [];
         const cutReminderIds = remData.reminder_ids || [];
         const cutViewedIds = remData.viewed_ids || [];
@@ -1606,11 +1607,28 @@ async function mOpenCutModal(recordId){
         } else {
             rolls.forEach(r=>{
                 const dis=r.locked?' disabled':'';
+                const isReserved = !!r.is_reserved_for_this_order;
+                const chk = (isReserved && !r.locked) ? ' checked' : '';
+                const border = isReserved ? 'border:2px solid #ea580c;background:rgba(234,88,12,0.1);' : 'border:1.5px solid rgba(255,255,255,0.12);';
                 const lk=r.locked?'<div style="color:#ef4444;font-size:10px;margin-top:2px">🔒 '+(r.locked_order?r.locked_order+' — ':'')+(r.locked_by||'Đang cắt')+'</div>':'';
                 const op=r.locked?'opacity:0.4;':'';
-                b+='<label style="display:flex;align-items:center;gap:12px;padding:12px;border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;margin-bottom:8px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+'">';
-                b+='<input type="checkbox" class="_mRollCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+' onchange="mRecalcKg()" style="width:22px;height:22px;accent-color:#ef4444">';
-                b+='<div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">'+r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</div>'+lk+'</div></label>';
+                
+                let resHtml = '';
+                if (isReserved) {
+                    const kgReservedText = r.kg_reserved ? ' (Báo lấy: ' + r.kg_reserved + 'kg, hiện còn ' + r.weight + 'kg)' : '';
+                    resHtml += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;border-top:1px dashed rgba(234,88,12,0.2);padding-top:6px">';
+                    resHtml += '<span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800">📍 QLX CHỈ ĐỊNH</span>';
+                    resHtml += '<span style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);padding:1px 6px;border-radius:6px;font-size:9.5px;font-weight:800;display:inline-flex;align-items:center;gap:3px">🔔 QLX báo lấy ra để cắt' + kgReservedText + '</span>';
+                    resHtml += '</div>';
+                }
+
+                b+='<label style="display:block;padding:12px;border-radius:12px;margin-bottom:8px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+border+'">';
+                b+='  <div style="display:flex;align-items:center;gap:12px">';
+                b+='    <input type="checkbox" class="_mRollCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mRecalcKg()" style="width:22px;height:22px;accent-color:#ef4444">';
+                b+='    <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">'+r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</div>'+lk+'</div>';
+                b+='  </div>';
+                b+=resHtml;
+                b+='</label>';
             });
         }
         b+='</div>';
@@ -1641,6 +1659,7 @@ async function mOpenCutModal(recordId){
         }
 
         bd.innerHTML=b;
+        mRecalcKg();
         document.getElementById('_mmCutActs').style.display='flex';
         mUpdateCutConfirmState();
     }catch(e){
@@ -1725,6 +1744,21 @@ async function mDoCut(recordId){
         mToast('Vui lòng xác nhận đã xem và làm tất cả nhắc nhở!', false);
         window._mSubmitBusy = false;
         return;
+    }
+    
+    const rolls = window._mAvailableRolls || [];
+    const reservedRolls = rolls.filter(r => r.is_reserved_for_this_order);
+    if (reservedRolls.length > 0) {
+        const selectedIds = Array.from(cbs).map(cb => Number(cb.value));
+        const missingReserved = reservedRolls.filter(r => !selectedIds.includes(r.id));
+        if (missingReserved.length > 0) {
+            const btnConfirm = document.getElementById('_mmCutOk');
+            if (!confirm('⚠️ Chú ý: Bạn đang không chọn cây vải do QLX chỉ định cho phối này. Bạn có chắc chắn muốn dùng cây khác không?')) {
+                window._mSubmitBusy = false;
+                if (btnConfirm) { btnConfirm.disabled = false; btnConfirm.textContent = '✂️ XÁC NHẬN CẮT'; }
+                return;
+            }
+        }
     }
     
     const ids=[];cbs.forEach(cb=>ids.push(Number(cb.value)));
