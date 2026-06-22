@@ -913,7 +913,15 @@
             
             var icon = isUnassigned ? '⚠️' : '📍';
             var titleClass = isUnassigned ? 'card-title unassigned-title' : 'card-title';
-            var countText = group.items.length > 0 ? `<span class="card-count">${group.items.length} mặt hàng</span>` : '';
+            var countText = '';
+            if (group.items.length > 0) {
+                if (isUnassigned) {
+                    var totalRolls = group.items.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
+                    countText = `<span class="card-count">Tổng ${totalRolls} cây</span>`;
+                } else {
+                    countText = `<span class="card-count">${group.items.length} mặt hàng</span>`;
+                }
+            }
             if (searchKey && matchCount > 0) {
                 countText = `<span class="card-count" style="background:#fbbf24; color:#78350f;">Tìm thấy ${matchCount}</span>`;
             }
@@ -1222,7 +1230,7 @@
                 return false;
             }
 
-            function buildImportItemHtml(item, isAllowed) {
+            function buildImportItemHtml(item, isAllowed, index) {
                 var rollsHtml = '';
                 
                 if (item.roll_weights && item.roll_weights.length > 0) {
@@ -1274,7 +1282,7 @@
                         <div class="item-row" style="border:none; background:transparent; margin-bottom:0; padding:0;">
                             <div class="item-main">
                                 <div class="item-name" style="font-size:13px; font-weight:800; color:#ffffff;">
-                                    ${escapeHTML(item.material_name)}
+                                    ${index}. ${escapeHTML(item.material_name)}
                                     <span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>
                                 </div>
                                 <div class="item-sub" style="margin-top:4px;">
@@ -1317,27 +1325,33 @@
 
             // 1. Render Lẻ items
             if (leItems.length > 0) {
+                var totalLeRolls = leItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
                 html += `
                     <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#ec4899; background:rgba(236,72,153,0.1); padding:6px 12px; border-radius:6px; margin:10px 0 6px 0; border:1px solid rgba(236,72,153,0.2); display:flex; align-items:center; justify-content:space-between;">
                         <span>⚠️ Chưa Phân Vị Trí Cây Lẻ</span>
-                        <span style="font-size:10px; background:#ec4899; color:white; padding:2px 6px; border-radius:10px;">${leItems.length}</span>
+                        <span style="font-size:10px; background:#ec4899; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalLeRolls} cây</span>
                     </div>
                 `;
+                var leIdx = 0;
                 leItems.forEach(item => {
-                    html += buildImportItemHtml(item, isMaterialAllowed(item));
+                    leIdx++;
+                    html += buildImportItemHtml(item, isMaterialAllowed(item), leIdx);
                 });
             }
 
             // 2. Render Nguyên items
             if (nguyenItems.length > 0) {
+                var totalNguyenRolls = nguyenItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
                 html += `
                     <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#f59e0b; background:rgba(245,158,11,0.1); padding:6px 12px; border-radius:6px; margin:14px 0 6px 0; border:1px solid rgba(245,158,11,0.2); display:flex; align-items:center; justify-content:space-between;">
                         <span>⚠️ Chưa Phân Vị Trí Cây Nguyên</span>
-                        <span style="font-size:10px; background:#f59e0b; color:white; padding:2px 6px; border-radius:10px;">${nguyenItems.length}</span>
+                        <span style="font-size:10px; background:#f59e0b; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalNguyenRolls} cây</span>
                     </div>
                 `;
+                var nguyenIdx = 0;
                 nguyenItems.forEach(item => {
-                    html += buildImportItemHtml(item, isMaterialAllowed(item));
+                    nguyenIdx++;
+                    html += buildImportItemHtml(item, isMaterialAllowed(item), nguyenIdx);
                 });
             }
 
