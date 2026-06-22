@@ -2580,52 +2580,75 @@ module.exports = async function(fastify) {
         }
 
         if (reservation_type === 'from_stock') {
-            if (!roll_id || !kg_reserved || Number(kg_reserved) <= 0) return reply.code(400).send({ error: 'Chọn cây vải và nhập số kg' });
+            const { roll_id, roll_ids, roll_code, kg_reserved, roll_note } = request.body || {};
+            const targetIds = Array.isArray(roll_ids) ? roll_ids : (roll_id ? [roll_id] : []);
 
-            // Validate: check available
-            const roll = await db.get('SELECT weight, locked_by_cutting_id FROM kv_rolls WHERE id = $1 AND is_returned = false', [roll_id]);
-            if (!roll) return reply.code(400).send({ error: 'Cây vải không tồn tại hoặc đã trả NCC' });
-            // Allow reserving even if locked by cutting, per user request
+            if (!targetIds.length || !kg_reserved || Number(kg_reserved) <= 0) 
+                return reply.code(400).send({ error: 'Chọn cây vải và nhập số kg' });
 
-            // Also count 'arrived' from_stock reservations (they don't reduce available for other orders)
-            let reservedSum;
-            if (roll.locked_by_cutting_id) {
-                const activeCut = await db.get('SELECT dht_order_id FROM cutting_records WHERE id = $1', [roll.locked_by_cutting_id]);
-                if (activeCut && activeCut.dht_order_id) {
-                    reservedSum = await db.get(`
-                        SELECT COALESCE(SUM(kg_reserved),0) AS total 
-                        FROM qlx_fabric_reservations 
-                        WHERE roll_id = $1 AND status IN ('reserved','arrived') AND dht_order_id != $2
-                    `, [roll_id, activeCut.dht_order_id]);
-                } else {
-                    reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [roll_id, 'reserved', 'arrived']);
+            let successCount = 0;
+            let lastError = null;
+
+            for (const rId of targetIds) {
+                // Validate: check available
+                const roll = await db.get('SELECT roll_code, weight, locked_by_cutting_id FROM kv_rolls WHERE id = $1 AND is_returned = false', [rId]);
+                if (!roll) {
+                    lastError = 'Cây vải không tồn tại hoặc đã trả NCC';
+                    continue;
                 }
-            } else {
-                reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [roll_id, 'reserved', 'arrived']);
+
+                // Also count 'arrived' from_stock reservations (they don't reduce available for other orders)
+                let reservedSum;
+                if (roll.locked_by_cutting_id) {
+                    const activeCut = await db.get('SELECT dht_order_id FROM cutting_records WHERE id = $1', [roll.locked_by_cutting_id]);
+                    if (activeCut && activeCut.dht_order_id) {
+                        reservedSum = await db.get(`
+                            SELECT COALESCE(SUM(res.kg_reserved),0) AS total 
+                            FROM qlx_fabric_reservations 
+                            WHERE roll_id = $1 AND status IN ('reserved','arrived') AND dht_order_id != $2
+                        `, [rId, activeCut.dht_order_id]);
+                    } else {
+                        reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [rId, 'reserved', 'arrived']);
+                    }
+                } else {
+                    reservedSum = await db.get('SELECT COALESCE(SUM(kg_reserved),0) AS total FROM qlx_fabric_reservations WHERE roll_id = $1 AND status IN ($2,$3)', [rId, 'reserved', 'arrived']);
+                }
+                const available = Number(roll.weight) - Number(reservedSum.total);
+                
+                // Cap the reservation weight to whatever is actually available on this roll
+                const actualKg = Math.min(Number(kg_reserved), available);
+                if (actualKg <= 0) {
+                    lastError = `Cây ${roll.roll_code} không còn cân khả dụng`;
+                    continue;
+                }
+
+                // Check if reservation already exists for this roll+order+phoi (prevent duplicate key)
+                const existingRes = await db.get(
+                    'SELECT id FROM qlx_fabric_reservations WHERE roll_id = $1 AND dht_order_id = $2 AND phoi_index = $3 AND status IN ($4,$5)',
+                    [rId, dht_order_id, phoi_index||0, 'reserved', 'arrived']
+                );
+                if (existingRes) {
+                    lastError = `Đơn này đã đánh dấu cây vải ${roll.roll_code} rồi!`;
+                    continue;
+                }
+
+                await db.run(`
+                    INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
+                        reservation_type, roll_id, roll_code, kg_reserved, roll_note, status, arrived_at, arrived_by, created_by)
+                    VALUES ($1,$2,$3,$4,$5,$6,'from_stock',$7,$8,$9,$10,'arrived',$11,$12,$13)
+                `, [dht_order_id, item_id, phoi_index||0, material_name, color_name, unit||'kg',
+                    rId, roll.roll_code, actualKg, roll_note||null, now, request.user.id, request.user.id]);
+
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'fabric_reserve', $2, $3, $4)`,
+                    [dht_order_id, `Lấy từ kho cây ${roll.roll_code}: ${actualKg}${unit||'kg'} cho Phối ${(phoi_index||0)+1} (auto vải về)`, request.user.id, now]);
+
+                successCount++;
             }
-            const available = Number(roll.weight) - Number(reservedSum.total);
-            if (Number(kg_reserved) > available) return reply.code(400).send({ error: `Không đủ! Cây này còn ${available} ${unit || 'kg'} khả dụng. Hãy sửa kg (✏️) các đơn khác trước.` });
 
-            // from_stock = vải đã ở xưởng → auto status='arrived'
-            // Check if reservation already exists for this roll+order+phoi (prevent duplicate key)
-            const existingRes = await db.get(
-                'SELECT id FROM qlx_fabric_reservations WHERE roll_id = $1 AND dht_order_id = $2 AND phoi_index = $3 AND status IN ($4,$5)',
-                [roll_id, dht_order_id, phoi_index||0, 'reserved', 'arrived']
-            );
-            if (existingRes) {
-                return reply.code(400).send({ error: 'Đơn này đã đánh dấu cây vải này rồi! Hãy dùng ✏️ để sửa kg.' });
+            if (successCount === 0 && lastError) {
+                return reply.code(400).send({ error: lastError });
             }
-
-            await db.run(`
-                INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
-                    reservation_type, roll_id, roll_code, kg_reserved, roll_note, status, arrived_at, arrived_by, created_by)
-                VALUES ($1,$2,$3,$4,$5,$6,'from_stock',$7,$8,$9,$10,'arrived',$11,$12,$13)
-            `, [dht_order_id, item_id, phoi_index||0, material_name, color_name, unit||'kg',
-                roll_id, roll_code, Number(kg_reserved), roll_note||null, now, request.user.id, request.user.id]);
-
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
-                VALUES ($1, 'fabric_reserve', $2, $3, $4)`,
-                [dht_order_id, `Lấy từ kho cây ${roll_code}: ${kg_reserved}${unit||'kg'} cho Phối ${(phoi_index||0)+1} (auto vải về)`, request.user.id, now]);
 
         } else if (reservation_type === 'new_call') {
             if ((!call_trees || call_trees <= 0) && (!call_amount || Number(call_amount) <= 0))

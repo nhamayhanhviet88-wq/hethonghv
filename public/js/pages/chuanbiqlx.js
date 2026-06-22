@@ -684,6 +684,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
         var unitLabel = unit === 'kg' ? 'kg' : unit === 'met' ? 'mét' : 'cái';
         // Store for _qlxFabLink access
         window._qlxFabPopupData = { material_name: ph ? ph.material_name : '', color_name: ph ? ph.color_name : '', unit: unit };
+        window._qlxPopupRolls = rolls;
 
         var html = '<div style="padding:0">';
         // Header info
@@ -1451,6 +1452,27 @@ async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, 
         return;
     }
 
+    var currentRoll = (window._qlxPopupRolls || []).find(function(r) { return r.id === rollId; });
+    var targetRollIds = [rollId];
+    if (currentRoll && currentRoll.locked_by_cutting_id) {
+        var otherLockedRolls = (window._qlxPopupRolls || []).filter(function(r) {
+            if (r.id === rollId) return false;
+            if (r.locked_by_cutting_id !== currentRoll.locked_by_cutting_id) return false;
+            var isAlreadyMarked = r.reservations && r.reservations.some(function(rv) { return rv.dht_order_id === orderId; });
+            return !isAlreadyMarked;
+        });
+        if (otherLockedRolls.length > 0) {
+            var otherCodes = otherLockedRolls.map(function(r) { return r.roll_code; }).join(', ');
+            var confirmMsg = 'Cây này đang được cắt cho cùng đơn hàng với các cây khác (' + otherCodes + ').\n\n'
+                + 'Bạn có muốn tự động ĐÁNH DẤU ' + kg + ' ' + (unit || 'kg') + ' cho tất cả các cây này không?';
+            if (confirm(confirmMsg)) {
+                otherLockedRolls.forEach(function(r) {
+                    targetRollIds.push(r.id);
+                });
+            }
+        }
+    }
+
     var reminderData = _qlxValidateAndGetCutReminders();
     if (!reminderData) {
         window._qlxFabBusy = false;
@@ -1467,7 +1489,7 @@ async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, 
         var res = await apiCall('/api/qlx/fabric-reserve', 'POST', {
             dht_order_id: orderId, item_id: itemId, phoi_index: pairIndex,
             material_name: mat, color_name: color, unit: unit,
-            reservation_type: 'from_stock', roll_id: rollId, roll_code: rollCode, kg_reserved: kg,
+            reservation_type: 'from_stock', roll_id: rollId, roll_ids: targetRollIds, roll_code: rollCode, kg_reserved: kg,
             cut_remind_choice: reminderData.choice, cut_reminders: reminderData.reminders,
             cut_schedule: reminderData.schedule
         });
