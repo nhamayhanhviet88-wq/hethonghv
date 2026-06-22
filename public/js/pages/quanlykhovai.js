@@ -952,11 +952,13 @@ function _qkvUpdateLocationDropdown() {
     var select = document.getElementById('qkvMoveSelect');
     if (!select) return;
     
-    var html = '';
-    html += `<option value="inherit">-- Theo vị trí của màu vải (Kế thừa) --</option>`;
-    html += `<option value="">-- Chưa phân vị trí --</option>`;
-    (_qkv.locations || []).forEach(function(loc) {
-        // Zoning filter:
+    var activeMat = (_qkv.materials || []).find(m => Number(m.id) === Number(_qkv.activeMoveMaterialId));
+    var activeMatLocs = [];
+    if (activeMat && activeMat.location) {
+        activeMatLocs = activeMat.location.split(',').map(s => s.trim().toLowerCase());
+    }
+
+    var availableLocs = (_qkv.locations || []).filter(function(loc) {
         if (loc.is_restricted) {
             // Find all materials assigned to this location name (case-insensitive, trimmed comparison)
             var assignedMatIds = (_qkv.materials || [])
@@ -965,17 +967,41 @@ function _qkvUpdateLocationDropdown() {
                 })
                 .map(function(m) { return Number(m.id); });
             
-            // If the activeMoveMaterialId is not in the assigned list, hide this shelf
-            if (!assignedMatIds.includes(Number(_qkv.activeMoveMaterialId))) {
-                return;
+            if (!assignedMatIds.includes(Number(_qkv.activeMoveMaterialId)) && 
+                (!loc.restricted_material_id || Number(loc.restricted_material_id) !== Number(_qkv.activeMoveMaterialId))) {
+                return false;
             }
         }
+        return true;
+    });
+
+    var priorityLocs = [];
+    var otherLocs = [];
+    availableLocs.forEach(function(loc) {
+        var isPri = activeMatLocs.includes(loc.name.trim().toLowerCase()) || 
+                    (loc.restricted_material_id && Number(loc.restricted_material_id) === Number(_qkv.activeMoveMaterialId));
+        if (isPri) {
+            priorityLocs.push(loc);
+        } else {
+            otherLocs.push(loc);
+        }
+    });
+
+    var sortedLocs = priorityLocs.concat(otherLocs);
+    
+    var html = '';
+    html += `<option value="">-- Chưa phân vị trí --</option>`;
+    sortedLocs.forEach(function(loc) {
         var descText = loc.description ? ` (${loc.description})` : '';
         html += `<option value="${escapeHTML(loc.name)}">${escapeHTML(loc.name)}${escapeHTML(descText)}</option>`;
     });
     select.innerHTML = html;
     
-    select.value = 'inherit';
+    if (priorityLocs.length > 0) {
+        select.value = priorityLocs[0].name;
+    } else {
+        select.value = '';
+    }
 }
 
 // 14. Save new location mapping to material/color/roll
@@ -989,7 +1015,7 @@ async function _qkvSaveItemLocation(colorId, materialId) {
             return;
         }
         var rollIds = Array.from(checkboxes).map(cb => Number(cb.value));
-        var targetLoc = (newLoc === 'inherit') ? null : newLoc;
+        var targetLoc = newLoc || null;
         var res = await apiCall(`/api/khovai/rolls/batch`, 'PUT', {
             roll_ids: rollIds,
             location: targetLoc
