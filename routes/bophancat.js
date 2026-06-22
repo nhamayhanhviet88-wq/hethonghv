@@ -840,8 +840,8 @@ module.exports = async function(fastify) {
                     const newShared = 'Cắt chung ' + remaining.length + ' đơn: ' + remaining.map(r => r.product_name).join(', ');
                     await db.run(`UPDATE cutting_records SET cut_shared = $1, updated_at = $2 WHERE multi_cut_group_id = $3 AND id != $4 AND is_cutting = true`, [newShared, now, rec.multi_cut_group_id, id]);
                 } else {
-                    // Last member — unlock rolls
-                    await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL WHERE locked_by_cutting_id = $1`, [id]);
+                    // Last member — unlock rolls and clear location
+                    await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = '' WHERE locked_by_cutting_id = $1`, [id]);
                 }
                 await db.run(
                     `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', multi_cut_group_id = NULL, cut_shared = NULL, updated_at = $1 WHERE id = $2`,
@@ -849,8 +849,8 @@ module.exports = async function(fastify) {
                 );
                 detail = '↩️ Hoàn tác cắt chung — ' + (groupMembers.length > 0 ? 'rời nhóm, ' + groupMembers.length + ' đơn còn lại' : 'đã unlock cây vải');
             } else {
-                // Normal single-cut undo
-                await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL WHERE locked_by_cutting_id = $1`, [id]);
+                // Normal single-cut undo — unlock rolls and clear location
+                await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = '' WHERE locked_by_cutting_id = $1`, [id]);
                 await db.run(
                     `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', updated_at = $1 WHERE id = $2`,
                     [now, id]
@@ -1475,7 +1475,7 @@ module.exports = async function(fastify) {
 
         const removedRoll = snapshot[idx];
         await db.run(
-            `UPDATE kv_rolls SET locked_by_cutting_id = NULL WHERE id = $1 AND locked_by_cutting_id = $2`,
+            `UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = '' WHERE id = $1 AND locked_by_cutting_id = $2`,
             [roll_id, lockId]
         );
 
