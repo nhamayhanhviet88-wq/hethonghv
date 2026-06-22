@@ -312,10 +312,6 @@
             <span class="m-search-icon">🔍</span>
             <input type="text" id="mSearch" class="m-search-input" placeholder="Tìm chất liệu hoặc màu..." oninput="onSearch(this.value)" />
         </div>
-        <label class="m-toggle-zero">
-            <input type="checkbox" id="mShowZeroWeight" onchange="toggleZeroWeight(this.checked)" />
-            <span>Hiện 0kg</span>
-        </label>
         <button class="m-btn-scan" onclick="startQR()">📷 QUÉT QR</button>
     </div>
 
@@ -428,7 +424,7 @@
         var summary = [];
         var searchText = '';
         var scanner = null;
-        var showZeroWeight = localStorage.getItem('qkvShowZeroWeight') === 'true';
+        var showZeroWeight = false;
         
         // Active item target details for dialogs
         var activeMoveItem = null;
@@ -495,10 +491,6 @@
                 document.getElementById('mUsername').textContent = cu.full_name || cu.username;
                 
                 // Pre-check zero weight checkbox state
-                var chkZero = document.getElementById('mShowZeroWeight');
-                if (chkZero) {
-                    chkZero.checked = showZeroWeight;
-                }
 
                 // Parse Deep link query params
                 const urlParams = new URLSearchParams(window.location.search);
@@ -565,8 +557,8 @@
             
             try {
                 const [locRes, sumRes] = await Promise.all([
-                    api(`/api/khovai/locations?wid=${selectedWid}`),
-                    api(`/api/khovai/summary?wid=${selectedWid}`)
+                    api(`/api/khovai/locations`),
+                    api(`/api/khovai/summary`)
                 ]);
                 
                 locations = locRes.locations || [];
@@ -584,11 +576,7 @@
             renderMap();
         }
 
-        function toggleZeroWeight(checked) {
-            showZeroWeight = checked;
-            localStorage.setItem('qkvShowZeroWeight', checked ? 'true' : 'false');
-            renderMap();
-        }
+        // Toggle zero weight removed
 
         function renderMap() {
             const container = document.getElementById('mContent');
@@ -612,7 +600,7 @@
             };
 
             summary.forEach(item => {
-                if (!showZeroWeight && Number(item.cuoi_ky || 0) <= 0 && Number(item.so_cuc || 0) <= 0) {
+                if (Number(item.cuoi_ky || 0) <= 0 && Number(item.so_cuc || 0) <= 0) {
                     return;
                 }
                 var key = (item.location || '').trim();
@@ -622,7 +610,9 @@
                 
                 if (rollsList.length === 0) {
                     if (key && isPredefined) {
-                        groups[key].items.push(item);
+                        if (item.warehouse_id === selectedWid) {
+                            groups[key].items.push(item);
+                        }
                     } else {
                         unassignedNguyen.items.push(item);
                     }
@@ -664,6 +654,12 @@
                     // For each target bucket, create a copied item and push it
                     for (var target in rollBuckets) {
                         var subRolls = rollBuckets[target];
+                        
+                        // If the target is a shelf (assigned), only push if warehouse matches!
+                        if (target !== 'unassignedNguyen' && target !== 'unassignedLe' && item.warehouse_id !== selectedWid) {
+                            continue;
+                        }
+                        
                         var subItem = Object.assign({}, item);
                         subItem.roll_weights = subRolls;
                         subItem.so_cuc = subRolls.length;
@@ -730,7 +726,10 @@
                     itemsHtml += `
                         <div class="item-row ${matched ? 'matched' : ''}" style="${isUnassigned ? 'border-bottom:none; padding-bottom:4px;' : ''}">
                             <div class="item-main">
-                                <div class="item-name">${escapeHTML(item.material_name)}</div>
+                                <div class="item-name">
+                                    ${escapeHTML(item.material_name)}
+                                    ${isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : ''}
+                                </div>
                                 <div class="item-sub">
                                     Màu: <span style="font-weight:700; color:#5eead4;">${escapeHTML(item.color_name)}</span>
                                     <span class="item-badge ${badgeClass}">${badgeText}</span>

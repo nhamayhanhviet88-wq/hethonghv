@@ -6,7 +6,7 @@ var _qkv = {
     summary: [],
     searchText: '',
     draggedItem: null,
-    showZeroWeight: localStorage.getItem('qkvShowZeroWeight') === 'true',
+    showZeroWeight: false,
     activeItems: []
 };
 var _qkvScanner = null;
@@ -223,10 +223,6 @@ async function renderQuanlykhovaiPage(content) {
                         <span class="qkv-search-icon">🔍</span>
                         <input type="text" id="qkvSearchInput" class="qkv-search-input" placeholder="Nhập tên chất liệu hoặc màu vải để tra cứu vị trí..." oninput="_qkvOnSearch(this.value)" />
                     </div>
-                    <label class="qkv-toggle-zero">
-                        <input type="checkbox" id="qkvToggleZeroInput" onchange="_qkvToggleZeroWeight(this.checked)" />
-                        <span>Hiện hàng 0kg</span>
-                    </label>
                     <button class="qkv-btn-qr" onclick="_qkvStartQRScan()">📷 Quét QR Kệ</button>
                 </div>
                 
@@ -240,9 +236,6 @@ async function renderQuanlykhovaiPage(content) {
 
     // Pre-check toggle checkbox state
     var chkZero = document.getElementById('qkvToggleZeroInput');
-    if (chkZero) {
-        chkZero.checked = _qkv.showZeroWeight;
-    }
 
     // Parse Deep Link URL parameters
     var urlParams = new URLSearchParams(window.location.search);
@@ -325,10 +318,9 @@ async function _qkvLoadData() {
     if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:50px;color:#94a3b8;">Đang tải sơ đồ...</div>';
     
     try {
-        // Fetch locations, fabric summary, and materials in parallel
         var [locRes, sumRes, matRes] = await Promise.all([
-            apiCall(`/api/khovai/locations?wid=${_qkv.selectedWid}`),
-            apiCall(`/api/khovai/summary?wid=${_qkv.selectedWid}`),
+            apiCall(`/api/khovai/locations`),
+            apiCall(`/api/khovai/summary`),
             apiCall(`/api/khovai/materials?wid=${_qkv.selectedWid}`)
         ]);
         
@@ -447,7 +439,7 @@ function _qkvRenderMap() {
     
     // Group the items
     _qkv.summary.forEach(function(item) {
-        if (!_qkv.showZeroWeight && Number(item.cuoi_ky || 0) <= 0 && Number(item.so_cuc || 0) <= 0) {
+        if (Number(item.cuoi_ky || 0) <= 0 && Number(item.so_cuc || 0) <= 0) {
             return;
         }
         var key = (item.location || '').trim();
@@ -457,7 +449,9 @@ function _qkvRenderMap() {
         
         if (rollsList.length === 0) {
             if (key && isPredefined) {
-                groups[key].items.push(item);
+                if (item.warehouse_id === _qkv.selectedWid) {
+                    groups[key].items.push(item);
+                }
             } else {
                 unassignedNguyen.items.push(item);
             }
@@ -499,6 +493,12 @@ function _qkvRenderMap() {
             // For each target bucket, create a copied item and push it
             for (var target in rollBuckets) {
                 var subRolls = rollBuckets[target];
+                
+                // If the target is a shelf (assigned), only push if warehouse matches!
+                if (target !== 'unassignedNguyen' && target !== 'unassignedLe' && item.warehouse_id !== _qkv.selectedWid) {
+                    continue;
+                }
+                
                 var subItem = Object.assign({}, item);
                 subItem.roll_weights = subRolls;
                 subItem.so_cuc = subRolls.length;
@@ -595,6 +595,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                     <div class="qkv-item-main">
                         <div class="qkv-item-name" title="${escapeHTML(item.material_name)} - ${escapeHTML(item.color_name)}">
                             ${escapeHTML(item.material_name)}
+                            ${isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : ''}
                         </div>
                         <div class="qkv-item-sub">
                             Màu: <span style="font-weight:700;color:#0f766e;">${escapeHTML(item.color_name)}</span>
@@ -678,12 +679,6 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
 // 7. Handle Search Input
 function _qkvOnSearch(val) {
     _qkv.searchText = val;
-    _qkvRenderMap();
-}
-
-function _qkvToggleZeroWeight(checked) {
-    _qkv.showZeroWeight = checked;
-    localStorage.setItem('qkvShowZeroWeight', checked ? 'true' : 'false');
     _qkvRenderMap();
 }
 

@@ -128,10 +128,8 @@ module.exports = async function (fastify) {
                 const locRecord = await db.get(
                     `SELECT id, is_restricted, restricted_material_id 
                      FROM kv_locations 
-                     WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
-                         SELECT warehouse_id FROM kv_materials WHERE id = $2
-                     )`,
-                    [location.trim(), request.params.id]
+                     WHERE LOWER(name) = LOWER($1)`,
+                    [location.trim()]
                 );
                 if (locRecord && locRecord.is_restricted) {
                     await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [request.params.id, locRecord.id]);
@@ -180,10 +178,8 @@ module.exports = async function (fastify) {
             const locRecord = await db.get(
                 `SELECT id, is_restricted 
                  FROM kv_locations 
-                 WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
-                     SELECT warehouse_id FROM kv_materials WHERE id = $2
-                 )`,
-                [location.trim(), material_id]
+                 WHERE LOWER(name) = LOWER($1)`,
+                [location.trim()]
             );
             if (locRecord && locRecord.is_restricted) {
                 const isAssigned = await db.get(
@@ -221,10 +217,8 @@ module.exports = async function (fastify) {
                     const locRecord = await db.get(
                         `SELECT id, is_restricted 
                          FROM kv_locations 
-                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
-                             SELECT warehouse_id FROM kv_materials WHERE id = $2
-                         )`,
-                        [location.trim(), colorRecord.material_id]
+                         WHERE LOWER(name) = LOWER($1)`,
+                        [location.trim()]
                     );
                     if (locRecord && locRecord.is_restricted) {
                         const isAssigned = await db.get(
@@ -252,10 +246,8 @@ module.exports = async function (fastify) {
                 const locRecord = await db.get(
                     `SELECT id, is_restricted, restricted_material_id 
                      FROM kv_locations 
-                     WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
-                         SELECT warehouse_id FROM kv_materials WHERE id = $2
-                     )`,
-                    [location.trim(), colorRecord.material_id]
+                     WHERE LOWER(name) = LOWER($1)`,
+                    [location.trim()]
                 );
                 if (locRecord && locRecord.is_restricted && !locRecord.restricted_material_id) {
                     await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [colorRecord.material_id, locRecord.id]);
@@ -364,10 +356,8 @@ module.exports = async function (fastify) {
                     const locRecord = await db.get(
                         `SELECT id, is_restricted 
                          FROM kv_locations 
-                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
-                             SELECT warehouse_id FROM kv_materials WHERE id = $2
-                         )`,
-                        [location.trim(), rollMat.material_id]
+                         WHERE LOWER(name) = LOWER($1)`,
+                        [location.trim()]
                     );
                     if (locRecord && locRecord.is_restricted) {
                         const isAssigned = await db.get(
@@ -399,10 +389,8 @@ module.exports = async function (fastify) {
                     const locRecord = await db.get(
                         `SELECT id, is_restricted, restricted_material_id 
                          FROM kv_locations 
-                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
-                             SELECT warehouse_id FROM kv_materials WHERE id = $2
-                         )`,
-                        [location.trim(), rollMat.material_id]
+                         WHERE LOWER(name) = LOWER($1)`,
+                        [location.trim()]
                     );
                     if (locRecord && locRecord.is_restricted && !locRecord.restricted_material_id) {
                         await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [rollMat.material_id, locRecord.id]);
@@ -439,10 +427,8 @@ module.exports = async function (fastify) {
                     const locRecord = await db.get(
                         `SELECT id, is_restricted 
                          FROM kv_locations 
-                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
-                             SELECT warehouse_id FROM kv_materials WHERE id = $2
-                         )`,
-                        [location.trim(), rollMat.material_id]
+                         WHERE LOWER(name) = LOWER($1)`,
+                        [location.trim()]
                     );
                     if (locRecord && locRecord.is_restricted) {
                         const isAssigned = await db.get(
@@ -472,10 +458,8 @@ module.exports = async function (fastify) {
                     const locRecord = await db.get(
                         `SELECT id, is_restricted, restricted_material_id 
                          FROM kv_locations 
-                         WHERE LOWER(name) = LOWER($1) AND warehouse_id = (
-                             SELECT warehouse_id FROM kv_materials WHERE id = $2
-                         )`,
-                        [location.trim(), rollMat.material_id]
+                         WHERE LOWER(name) = LOWER($1)`,
+                        [location.trim()]
                     );
                     if (locRecord && locRecord.is_restricted && !locRecord.restricted_material_id) {
                         await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [rollMat.material_id, locRecord.id]);
@@ -1045,17 +1029,15 @@ module.exports = async function (fastify) {
 
     // ========== LOCATIONS (Khu vực / Vị trí) ==========
 
-    // GET /api/khovai/locations?wid= — List locations for a warehouse
     fastify.get('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
-        const { wid } = request.query;
-        if (!wid) return { locations: [] };
         const rows = await db.all(`
             SELECT l.*, m.name AS restricted_material_name
             FROM kv_locations l
             LEFT JOIN kv_materials m ON m.id = l.restricted_material_id
-            WHERE l.warehouse_id = $1
+            JOIN kv_warehouses w ON w.id = l.warehouse_id
+            WHERE w.is_active = true
             ORDER BY l.name
-        `, [wid]);
+        `);
         return { locations: rows };
     });
 
