@@ -3192,6 +3192,27 @@ module.exports = async function(fastify) {
 
         await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = $2 WHERE id = $3', ['released', now, request.params.id]);
 
+        // Check if there are any active reservations left for this item_id & phoi_index
+        const activeRes = await db.get(`
+            SELECT 1 FROM qlx_fabric_reservations
+            WHERE item_id = $1 AND phoi_index = $2 AND status IN ('reserved', 'arrived', 'fulfilled')
+            LIMIT 1
+        `, [res.item_id, pi]);
+        if (!activeRes) {
+            // Delete incomplete cutting record if it exists
+            const cuttingRec = await db.get(`
+                SELECT id FROM cutting_records
+                WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = false
+                LIMIT 1
+            `, [res.item_id, pi]);
+            if (cuttingRec) {
+                await db.run('DELETE FROM cutting_records WHERE id = $1', [cuttingRec.id]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'fabric_release_reset_claim', $2, $3, $4)`,
+                    [res.dht_order_id, `Hủy nhận cắt phối ${pi + 1} do hết vải/hủy giữ vải`, user.id, now]);
+            }
+        }
+
         await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
             VALUES ($1, 'fabric_release', $2, $3, $4)`,
             [res.dht_order_id, `Giải phóng: ${res.roll_code || 'Gọi vải'} (${res.kg_reserved || res.call_amount}${res.unit})`, user.id, now]);
@@ -3201,10 +3222,31 @@ module.exports = async function(fastify) {
         if (res.reservation_type === 'new_call') {
             // Release all linked children
             const linkedRows = await db.all(
-                'SELECT id, dht_order_id FROM qlx_fabric_reservations WHERE linked_call_id=$1 AND status!=$2',
+                'SELECT id, dht_order_id, item_id, phoi_index FROM qlx_fabric_reservations WHERE linked_call_id=$1 AND status!=$2',
                 [res.id, 'released']);
             for (const lk of linkedRows) {
                 await db.run('UPDATE qlx_fabric_reservations SET status=$1, updated_at=$2 WHERE id=$3', ['released', now, lk.id]);
+                
+                const lkPi = lk.phoi_index !== undefined && lk.phoi_index !== null ? lk.phoi_index : 0;
+                const lkActive = await db.get(`
+                    SELECT 1 FROM qlx_fabric_reservations
+                    WHERE item_id = $1 AND phoi_index = $2 AND status IN ('reserved', 'arrived', 'fulfilled')
+                    LIMIT 1
+                `, [lk.item_id, lkPi]);
+                if (!lkActive) {
+                    const lkCuttingRec = await db.get(`
+                        SELECT id FROM cutting_records
+                        WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = false
+                        LIMIT 1
+                    `, [lk.item_id, lkPi]);
+                    if (lkCuttingRec) {
+                        await db.run('DELETE FROM cutting_records WHERE id = $1', [lkCuttingRec.id]);
+                        await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                            VALUES ($1, 'fabric_release_reset_claim', $2, $3, $4)`,
+                            [lk.dht_order_id, `[Cascade] Hủy nhận cắt phối ${lkPi + 1} do hết vải/hủy giữ vải`, user.id, now]);
+                    }
+                }
+
                 if (!affectedOrderIds.includes(lk.dht_order_id)) affectedOrderIds.push(lk.dht_order_id);
                 await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
                     VALUES ($1, 'fabric_release', $2, $3, $4)`,
