@@ -6,8 +6,8 @@ if (window.location.protocol === 'http:' && window.location.hostname !== 'localh
 // Central Mobile Navigation & Drawer Component
 const MOBILE_MENU_CONFIG = [
     { id: 'hub', label: 'Trang chủ Mobile', icon: '🏠', href: '/m', permKey: null },
-    { id: 'quanlynhapkho', label: 'Quản Lý Nhập Kho Vải', icon: '🗺️', href: '/m/quanlynhapkho', permKey: 'kho_vai' },
-    { id: 'xuatvaicat', label: 'Xuất Vải Để Cắt', icon: '✂️', href: '/m/quanlykhovai', permKey: 'kho_vai' },
+    { id: 'quanlynhapkho', label: 'Quản Lý Nhập Kho Vải', icon: '🗺️', href: '/m/quanlykhovai', permKey: 'kho_vai' },
+    { id: 'xuatvaicat', label: 'Xuất Vải Để Cắt', icon: '✂️', href: '/m/xuatvaicat', permKey: 'kho_vai' },
     { id: 'bophancat', label: 'Bộ Phận Cắt', icon: '✂️', href: '/m/bophancathv', permKey: 'bo_phan_cat' },
     { id: 'bophanin', label: 'Bộ Phận In', icon: '🖨️', href: '/m/bophaninhv', permKey: 'bo_phan_in' },
     { id: 'bophanep', label: 'Bộ Phận Ép', icon: '🔥', href: '/m/bophanephv', permKey: 'bo_phan_ep' },

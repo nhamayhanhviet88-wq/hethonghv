@@ -1343,7 +1343,7 @@ async function start() {
         return reply.sendFile('mobile-kiemkho.html');
     });
 
-    // Mobile Xuất Vải Để Cắt — standalone touch-optimized placeholder page (with QR redirect logic)
+    // Mobile Quản Lý Nhập Kho Vải — standalone touch-optimized page (with QR redirect logic)
     fastify.get('/m/quanlykhovai', async (request, reply) => {
         if (request.query.loc) {
             let dest = `/m/quanlynhapkho?loc=${encodeURIComponent(request.query.loc)}`;
@@ -1352,12 +1352,20 @@ async function start() {
             }
             return reply.redirect(dest);
         }
-        return reply.sendFile('mobile-xuatvaicat.html');
+        return reply.sendFile('mobile-quanlynhapkho.html');
     });
 
-    // Mobile Quản Lý Nhập Kho Vải — standalone touch-optimized page
+    // Mobile Quản Lý Nhập Kho Vải — alternative path
     fastify.get('/m/quanlynhapkho', async (request, reply) => {
         return reply.sendFile('mobile-quanlynhapkho.html');
+    });
+
+    // Mobile Xuất Vải Để Cắt — standalone touch-optimized page
+    fastify.get('/m/xuatvaicat', async (request, reply) => {
+        return reply.sendFile('mobile-xuatvaicat.html');
+    });
+    fastify.get('/m/xuavatcat', async (request, reply) => {
+        return reply.sendFile('mobile-xuatvaicat.html');
     });
 
     // Mobile Nhập Xuất Hoàn Vải — standalone touch-optimized page
