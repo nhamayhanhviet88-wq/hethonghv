@@ -427,7 +427,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
             }
             
             var isColorOverride = !!item.color_location;
-            var badgeText = isColorOverride ? 'Màu vải' : 'Chất liệu';
+            var badgeText = isColorOverride ? 'Kệ riêng' : 'Kệ chung';
             var badgeClass = isColorOverride ? 'qkv-badge-col' : 'qkv-badge-mat';
             var originTip = isColorOverride ? 'Vị trí được phân riêng cho màu vải này' : 'Vị trí mặc định lấy từ Chất liệu cha';
             
