@@ -5,6 +5,24 @@ const { vnNow, vnFormat } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
+    function resolveRollLocationName(r) {
+        const rawLoc = (r.roll_loc !== null && r.roll_loc !== undefined) ? r.roll_loc.trim() : null;
+        const isNguyen = Number(r.weight) >= Number(r.original_weight);
+        
+        let resolved = '';
+        if (rawLoc !== null) {
+            resolved = rawLoc;
+        } else {
+            resolved = (r.color_loc || r.mat_loc || '').trim();
+        }
+        
+        if (resolved) {
+            return resolved;
+        } else {
+            return isNguyen ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
+        }
+    }
+
     async function createCompensationTicket(rec, cutQty, performedBy, timeStr) {
         const remQty = Number(rec.order_quantity) - Number(cutQty);
         if (remQty <= 0) return;
@@ -786,7 +804,9 @@ module.exports = async function(fastify) {
             }
             // Fetch full label (material + color) for snapshot
             const rollDetails = await db.all(`
-                SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name
+                SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name,
+                       r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
+                       r.original_weight
                 FROM kv_rolls r
                 JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                 JOIN kv_materials m ON m.id = fc.material_id
@@ -796,7 +816,8 @@ module.exports = async function(fastify) {
             const kgStart = locked.reduce((sum, r) => sum + Number(r.weight), 0);
             const rollSnapshot = rollDetails.map(r => ({
                 roll_id: r.id, weight: Number(r.weight), roll_code: r.roll_code,
-                label: (r.material_name || '') + ' - ' + (r.color_name || '') + ' - ' + Number(r.weight) + 'kg'
+                label: (r.material_name || '') + ' - ' + (r.color_name || '') + ' - ' + Number(r.weight) + 'kg',
+                roll_loc_name: resolveRollLocationName(r)
             }));
             await db.run(
                 `UPDATE cutting_records SET is_cutting = true, cutting_at = $1, cutting_by = $2, kg_start = $3, selected_roll_ids = $4, updated_at = $1 WHERE id = $5`,
@@ -1371,7 +1392,9 @@ module.exports = async function(fastify) {
 
         const roll = await db.get(`
             SELECT r.id, r.roll_code, r.weight, r.is_returned, r.locked_by_cutting_id,
-                   m.name AS material_name, fc.color_name
+                   m.name AS material_name, fc.color_name,
+                   r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
+                   r.original_weight
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
@@ -1416,7 +1439,8 @@ module.exports = async function(fastify) {
             roll_id: roll.id,
             weight: Number(roll.weight),
             roll_code: roll.roll_code,
-            label: (roll.material_name || '') + ' - ' + (roll.color_name || '') + ' - ' + Number(roll.weight) + 'kg'
+            label: (roll.material_name || '') + ' - ' + (roll.color_name || '') + ' - ' + Number(roll.weight) + 'kg',
+            roll_loc_name: resolveRollLocationName(roll)
         };
         snapshot.push(newRollSnapshot);
         const newKgStart = Number(rec.kg_start) + Number(roll.weight);
@@ -1515,6 +1539,7 @@ module.exports = async function(fastify) {
                    cr_lock.product_name AS locked_product,
                    do_lock.order_code AS locked_order_code,
                    (r.weight = r.original_weight) AS is_original_tree,
+                   r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
                    EXISTS (
                        SELECT 1 FROM qlx_fabric_reservations res
                        WHERE res.roll_id = r.id
@@ -1569,7 +1594,8 @@ module.exports = async function(fastify) {
                 is_original_tree: !!r.is_original_tree,
                 is_reserved_for_this_order: !!r.is_reserved_for_this_order,
                 kg_reserved: r.kg_reserved !== null ? Number(r.kg_reserved) : null,
-                label: r.material_name + ' - ' + r.color_name + ' - ' + Number(r.weight) + 'kg'
+                label: r.material_name + ' - ' + r.color_name + ' - ' + Number(r.weight) + 'kg',
+                roll_loc_name: resolveRollLocationName(r)
             }))
         };
     });
@@ -2431,14 +2457,17 @@ module.exports = async function(fastify) {
 
         // Fetch roll labels
         const rollDetails = await db.all(`
-            SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name
+            SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name,
+                   r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
+                   r.original_weight
             FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id WHERE r.id = ANY($1)
         `, [locked.map(r => r.id)]);
         const kgStart = locked.reduce((s, r) => s + Number(r.weight), 0);
         const rollSnapshot = rollDetails.map(r => ({
             roll_id: r.id, weight: Number(r.weight), roll_code: r.roll_code,
-            label: (r.material_name||'') + ' - ' + (r.color_name||'') + ' - ' + Number(r.weight) + 'kg'
+            label: (r.material_name||'') + ' - ' + (r.color_name||'') + ' - ' + Number(r.weight) + 'kg',
+            roll_loc_name: resolveRollLocationName(r)
         }));
 
         // Generate group ID + update all records

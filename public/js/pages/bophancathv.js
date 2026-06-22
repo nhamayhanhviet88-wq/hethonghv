@@ -1496,10 +1496,29 @@ async function _bpcOpenCutModal(recordId) {
                 var lockInfo = roll.locked ? '<span style="color:#ef4444;font-size:10px;margin-left:6px">🔒 ' + (roll.locked_order ? roll.locked_order + ' — ' : '') + (roll.locked_by || 'Đang cắt') + '</span>' : '';
                 var opacity = roll.locked ? 'opacity:0.5;' : '';
                 
+                var locBadge = '';
+                if (roll.roll_loc_name) {
+                    var bColor = '#64748b';
+                    var bBg = 'rgba(100,116,139,0.08)';
+                    if (roll.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
+                        if (roll.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
+                            bColor = '#d97706';
+                            bBg = '#fef3c7';
+                        } else {
+                            bColor = '#dc2626';
+                            bBg = '#fee2e2';
+                        }
+                    } else {
+                        bColor = '#2563eb';
+                        bBg = '#dbeafe';
+                    }
+                    locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+roll.roll_loc_name+'</div>';
+                }
+
                 bh += '<label style="display:block;padding:10px 14px;border-radius:10px;margin-bottom:6px;cursor:'+(roll.locked?'not-allowed':'pointer')+';'+opacity+borderStyle+'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled && !'+isReserved+')this.style.borderColor=\'#dc2626\'" onmouseout="if(!'+isReserved+')this.style.borderColor=\'#e2e8f0\'">';
                 bh += '  <div style="display:flex;align-items:center;gap:10px">';
                 bh += '    <input type="checkbox" class="_bpcRollCb" value="' + roll.id + '" data-weight="' + roll.weight + '"' + disabled + checked + ' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
-                bh += '    <span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>';
+                bh += '    <span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>' + locBadge + '</span>';
                 bh += lockInfo;
                 bh += '  </div>';
                 if (isReserved) {
@@ -1805,7 +1824,25 @@ async function _bpcOpenDetail(recordId) {
         h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px"><div style="font-size:11px;font-weight:800;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 CÂY VẢI ĐÃ CHỌN (' + rolls.length + ')</div>';
         if (rolls.length) {
             rolls.forEach(function(rl, idx) {
-                h += '<div style="padding:8px 14px;border:1.5px solid #f1f5f9;border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#1e293b">' + (rl.label || rl.roll_code || 'Cây '+(idx+1)) + '</div>';
+                var locBadge = '';
+                if (rl.roll_loc_name) {
+                    var bColor = '#64748b';
+                    var bBg = 'rgba(100,116,139,0.08)';
+                    if (rl.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
+                        if (rl.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
+                            bColor = '#d97706';
+                            bBg = '#fef3c7';
+                        } else {
+                            bColor = '#dc2626';
+                            bBg = '#fee2e2';
+                        }
+                    } else {
+                        bColor = '#2563eb';
+                        bBg = '#dbeafe';
+                    }
+                    locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
+                }
+                h += '<div style="padding:8px 14px;border:1.5px solid #f1f5f9;border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#1e293b;display:flex;flex-direction:column;align-items:flex-start">' + (rl.label || rl.roll_code || 'Cây '+(idx+1)) + locBadge + '</div>';
             });
         } else {
             h += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Chưa có dữ liệu cây vải</div>';
@@ -1990,10 +2027,28 @@ function _bpcOpenDoneModal(recordId, isRefresh = false) {
     if (rolls.length) {
         rolls.forEach(function(rl, idx) {
             var w = Number(rl.weight) || 0;
+            var locBadge = '';
+            if (rl.roll_loc_name) {
+                var bColor = '#64748b';
+                var bBg = 'rgba(100,116,139,0.08)';
+                if (rl.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
+                    if (rl.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
+                        bColor = '#d97706';
+                        bBg = '#fef3c7';
+                    } else {
+                        bColor = '#dc2626';
+                        bBg = '#fee2e2';
+                    }
+                } else {
+                    bColor = '#2563eb';
+                    bBg = '#dbeafe';
+                }
+                locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
+            }
             h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
             h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
             h += '<input type="checkbox" class="_bpcDoneRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#3b82f6">';
-            h += '<span style="flex:1;font-size:12px;font-weight:700;color:#1e293b">' + (rl.label || 'Cây '+(idx+1)) + '</span>';
+            h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#1e293b">' + (rl.label || 'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
             h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
             h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRoll(' + recordId + ', ' + rl.roll_id + ')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0;line-height:1" title="Xóa cây vải">🗑️</button></label>';
             h += '<div id="_bpcDoneRollInput_' + idx + '" style="display:none;margin-top:8px;padding-left:28px">';
@@ -2510,10 +2565,28 @@ function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
     h += '<div id="_bpcGRollsList">';
     rolls.forEach(function(rl, idx) {
         var w = Number(rl.weight) || 0;
+        var locBadge = '';
+        if (rl.roll_loc_name) {
+            var bColor = '#64748b';
+            var bBg = 'rgba(100,116,139,0.08)';
+            if (rl.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
+                if (rl.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
+                    bColor = '#d97706';
+                    bBg = '#fef3c7';
+                } else {
+                    bColor = '#dc2626';
+                    bBg = '#fee2e2';
+                }
+            } else {
+                bColor = '#2563eb';
+                bBg = '#dbeafe';
+            }
+            locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
+        }
         h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
         h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
         h += '<input type="checkbox" class="_bpcGRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcGDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#8b5cf6">';
-        h += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + (rl.label||'Cây '+(idx+1)) + '</span>';
+        h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (rl.label||'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
         h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
         h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRollGroup(\'' + groupId + '\', ' + rl.roll_id + ')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0;line-height:1" title="Xóa cây vải">🗑️</button></label>';
         h += '<div id="_bpcGRollInp_' + idx + '" style="display:none;margin-top:8px;padding-left:28px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn:</span>';
