@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>🏬 Quản Lý Kho Vải — Đồng Phục HV</title>
+    <title>🏬 Quản Lý Nhập Kho Vải — Đồng Phục HV</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -293,7 +293,7 @@
     <!-- Top Header -->
     <div class="mh">
         <img src="/images/logo.png" alt="Logo">
-        <h1>🏬 QL KHO VẢI</h1>
+        <h1>🏬 QL NHẬP KHO VẢI</h1>
         <span class="mu" id="mUsername">...</span>
     </div>
 
@@ -509,7 +509,7 @@
                 
                 // Permission check
                 if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.kho_vai || !cu.permissions.kho_vai.can_view)) {
-                    sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Quản Lý Kho Vải!');
+                    sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Quản Lý Nhập Kho Vải!');
                     window.location.href = '/';
                     return;
                 }
@@ -784,7 +784,7 @@
             }
 
             if (!window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                showToast('⚠️ Trình duyệt yêu cầu kết nối bảo mật HTTPS để mở camera! Vui lòng đổi sang địa chỉ https://hethonghv.top/m/quanlykhovai', 'error');
+                showToast('⚠️ Trình duyệt yêu cầu kết nối bảo mật HTTPS để mở camera! Vui lòng đổi sang địa chỉ https://hethonghv.top/m/quanlynhapkho', 'error');
                 return;
             }
 
@@ -956,7 +956,7 @@
 
         // ================== QR CODE VIEW AND PRINT TEMPLATE ==================
         function showQrCodeModal(locName) {
-            var deepLink = window.location.origin + '/m/quanlykhovai?loc=' + encodeURIComponent(locName) + '&wid=' + selectedWid;
+            var deepLink = window.location.origin + '/m/quanlynhapkho?loc=' + encodeURIComponent(locName) + '&wid=' + selectedWid;
             var qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(deepLink)}`;
             
             document.getElementById('qrViewImage').src = qrUrl;
@@ -998,6 +998,6 @@
         window.addEventListener('load', init);
     </script>
     <!-- Unified Mobile Navigation Script -->
-    <script src="/js/mobile-nav.js?v=20260621"></script>
+    <script src="/js/mobile-nav.js?v=20260622"></script>
 </body>
 </html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Xuất Vải Để Cắt — Đồng Phục HV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    
+    <!-- Unified Mobile Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
+    
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #0f172a; /* Dark background */
+            min-height: 100vh;
+            color: #f1f5f9;
+            padding-bottom: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            padding: 24px;
+            text-align: center;
+        }
+        .icon-wrap {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin: 0 auto 24px;
+            border: 2px solid rgba(94, 234, 212, 0.15);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            position: relative;
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .status-badge {
+            display: inline-block;
+            background: rgba(94, 234, 212, 0.1);
+            color: #5eead4;
+            border: 1px solid rgba(94, 234, 212, 0.2);
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+        h2 {
+            font-size: 26px;
+            font-weight: 900;
+            color: white;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+        p {
+            font-size: 14px;
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            padding: 0 16px;
+        }
+        .card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .features-list {
+            text-align: left;
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #cbd5e1;
+        }
+        .feature-item span {
+            color: #5eead4;
+        }
+        .bottom-nav {
+            position: fixed;
+            bottom: 12px;
+            left: 12px;
+            right: 12px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 80;
+        }
+        .nav-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 14px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="icon-wrap">
+            ✂️
+        </div>
+        <div class="status-badge">Đang thiết kế</div>
+        <h2>Xuất Vải Để Cắt</h2>
+        <p>Tính năng này đang được phát triển và thiết kế giao diện phù hợp với quy trình sản xuất của xưởng.</p>
+        
+        <div class="card">
+            <h4 style="font-weight: 800; color: white; text-align: left; font-size: 14px;">Dự kiến các chức năng chính:</h4>
+            <div class="features-list">
+                <div class="feature-item">
+                    <span>⚡</span> Quét QR cuộn vải để tự động trừ kho xuất cắt.
+                </div>
+                <div class="feature-item">
+                    <span>⚡</span> Quản lý định mức hao hụt khi cắt vải thực tế.
+                </div>
+                <div class="feature-item">
+                    <span>⚡</span> Đồng bộ trực tiếp lệnh sản xuất của tổ cắt.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Bottom Navigation -->
+    <div class="bottom-nav">
+        <a href="/m" class="nav-back">← Quay lại trang chủ</a>
+        <div style="font-size:10px; color:#64748b; font-weight:600;">CRM Mobile v2026.06</div>
+    </div>
+
+    <!-- Unified Mobile Navigation Script -->
+    <script src="/js/mobile-nav.js?v=20260622"></script>
+</body>
+</html>
