@@ -1044,10 +1044,11 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
             }
         }
         var colorAttr = valISO ? '#1e293b' : '#94a3b8';
+        var minVal = typeof _qlxGetMinDateTimeStr === 'function' ? _qlxGetMinDateTimeStr() : '';
         html += '  <div style="position:relative; width:100%; max-width:320px; margin-bottom:12px;">';
-        html += '    <input type="hidden" id="qlx_cut_schedule_raw" value="' + valISO + '" onchange="_qlxCutReminderChanged()">';
-        html += '    <input type="text" id="qlx_cut_schedule_raw_display" class="modal-input qlx-custom-datetime-input" style="width:100%; padding:6px 10px; border:2.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#fff; cursor:pointer; font-weight:600; color:' + colorAttr + '; transition:all 0.3s;" readonly value="' + displayVal + '" onclick="_qlxOpenDateTimePicker(\'qlx_cut_schedule_raw\', typeof _qlxGetMinDateTimeStr === \'function\' ? _qlxGetMinDateTimeStr() : \'\')">';
-        html += '    <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:#64748b; font-size:12px;">📅</span>';
+        html += '    <input type="text" id="qlx_cut_schedule_raw_display" class="modal-input qlx-custom-datetime-input" style="width:100%; padding:6px 10px; border:2.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#fff; cursor:pointer; font-weight:600; color:' + colorAttr + '; transition:all 0.3s;" readonly value="' + displayVal + '">';
+        html += '    <input type="datetime-local" id="qlx_cut_schedule_raw" value="' + valISO + '" min="' + minVal + '" onchange="_qlxCutReminderChanged()" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10;">';
+        html += '    <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:#64748b; font-size:12px; z-index:5;">📅</span>';
         html += '  </div>';
     }
 
@@ -1133,6 +1134,74 @@ function _qlxFabPreview(mat, color, unit) {
         + '</div>';
 }
 
+function _qlxFormatDateTimeToShow(valISO) {
+    if (!valISO) return 'Bấm để chọn lịch cắt...';
+    var sDt = new Date(valISO);
+    if (isNaN(sDt.getTime())) return 'Bấm để chọn lịch cắt...';
+    var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    var dayName = days[sDt.getDay()];
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    return dayName + ' - ' + pad(sDt.getDate()) + '/' + pad(sDt.getMonth() + 1) + '/' + sDt.getFullYear() + ' ' + pad(sDt.getHours()) + ':' + pad(sDt.getMinutes());
+}
+
+function _qlxGetMinDateTimeStr() {
+    if (typeof vnISOStr === 'function') {
+        return vnISOStr();
+    }
+    const now = new Date();
+    const vnDt = new Date(now.getTime() + 7 * 3600000);
+    return vnDt.toISOString().slice(0, 16);
+}
+
+function _qlxOpenDateTimePicker(targetId, minDateTimeStr) {
+    var targetInput = document.getElementById(targetId);
+    if (!targetInput) return;
+
+    var tempPicker = document.getElementById(targetId + '_temp_picker');
+    if (!tempPicker) {
+        tempPicker = document.createElement('input');
+        tempPicker.type = 'datetime-local';
+        tempPicker.id = targetId + '_temp_picker';
+        tempPicker.style.position = 'absolute';
+        tempPicker.style.opacity = '0';
+        tempPicker.style.pointerEvents = 'none';
+        tempPicker.style.width = '1px';
+        tempPicker.style.height = '1px';
+        tempPicker.style.zIndex = '-9999';
+        
+        targetInput.parentNode.appendChild(tempPicker);
+
+        tempPicker.addEventListener('change', function() {
+            var val = tempPicker.value;
+            targetInput.value = val;
+            
+            // Trigger target change event
+            var event = new Event('change', { bubbles: true });
+            targetInput.dispatchEvent(event);
+            
+            // Update display field
+            var displayEl = document.getElementById(targetId + '_display');
+            if (displayEl) {
+                displayEl.value = _qlxFormatDateTimeToShow(val);
+            }
+        });
+    }
+
+    if (minDateTimeStr) {
+        tempPicker.min = minDateTimeStr;
+    } else {
+        tempPicker.min = _qlxGetMinDateTimeStr();
+    }
+
+    tempPicker.value = targetInput.value || '';
+
+    if (typeof tempPicker.showPicker === 'function') {
+        tempPicker.showPicker();
+    } else {
+        tempPicker.click();
+    }
+}
+
 function _qlxGetCurrentCutSchedule() {
     var rawEl = document.getElementById('qlx_cut_schedule_raw');
     if (!rawEl || !rawEl.value) return null;
@@ -1145,8 +1214,12 @@ function _qlxCutReminderChanged() {
     if (rawEl && displayEl) {
         if (rawEl.value) {
             displayEl.style.color = '#1e293b';
+            if (typeof _qlxFormatDateTimeToShow === 'function') {
+                displayEl.value = _qlxFormatDateTimeToShow(rawEl.value);
+            }
         } else {
             displayEl.style.color = '#94a3b8';
+            displayEl.value = 'Bấm để chọn lịch cắt...';
         }
     }
 }
