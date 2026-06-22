@@ -2270,7 +2270,7 @@ function _tryAutoRenderPage(pageId, content) {
     if (registryFn && typeof window[registryFn] === 'function') {
         console.log('[AutoRender] ✅ Found via registry:', pageId, '→', registryFn);
         content.innerHTML = '';
-        setTimeout(function(){ window[registryFn](); }, 50);
+        setTimeout(function(){ window[registryFn](content); }, 50);
         return true;
     }
 
@@ -2290,7 +2290,7 @@ function _tryAutoRenderPage(pageId, content) {
     if (typeof window[initName] === 'function') {
         console.log('[AutoRender] ✅ Found via init:', pageId, '→', initName);
         content.innerHTML = '';
-        setTimeout(function(){ window[initName](); }, 50);
+        setTimeout(function(){ window[initName](content); }, 50);
         return true;
     }
 

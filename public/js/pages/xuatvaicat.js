@@ -10,6 +10,8 @@ var _xvc = {
 };
 
 function renderXuatvaicatPage(content) {
+    if (!content) content = document.getElementById('contentArea');
+    if (!content) return;
     if (!document.getElementById('_xvcS')) {
         var st = document.createElement('style');
         st.id = '_xvcS';
