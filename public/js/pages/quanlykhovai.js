@@ -5,7 +5,8 @@ var _qkv = {
     locations: [],
     summary: [],
     searchText: '',
-    draggedItem: null
+    draggedItem: null,
+    showZeroWeight: localStorage.getItem('qkvShowZeroWeight') === 'true'
 };
 var _qkvScanner = null;
 
@@ -81,6 +82,9 @@ async function renderQuanlykhovaiPage(content) {
             '.qkv-search-input { width: 100%; padding: 14px 16px 14px 44px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 14px; font-weight: 500; color: #1e293b; outline: none; box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: all 0.2s; }',
             '.qkv-search-input:focus { border-color: #0f766e; box-shadow: 0 4px 20px rgba(15, 118, 110, 0.1); }',
             '.qkv-search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 18px; color: #94a3b8; }',
+            '.qkv-toggle-zero { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; user-select: none; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.02); height: 48px; }',
+            '.qkv-toggle-zero:hover { border-color: #0f766e; background: #f8fafc; }',
+            '.qkv-toggle-zero input { width: 16px; height: 16px; accent-color: #0f766e; cursor: pointer; margin: 0; }',
             '.qkv-btn-qr { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 20px; height: 48px; background: linear-gradient(135deg, #4f46e5, #4338ca); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.15); white-space: nowrap; }',
             '.qkv-btn-qr:hover { opacity: 0.95; transform: translateY(-1px); }',
             
@@ -185,6 +189,10 @@ async function renderQuanlykhovaiPage(content) {
                         <span class="qkv-search-icon">🔍</span>
                         <input type="text" id="qkvSearchInput" class="qkv-search-input" placeholder="Nhập tên chất liệu hoặc màu vải để tra cứu vị trí..." oninput="_qkvOnSearch(this.value)" />
                     </div>
+                    <label class="qkv-toggle-zero">
+                        <input type="checkbox" id="qkvToggleZeroInput" onchange="_qkvToggleZeroWeight(this.checked)" />
+                        <span>Hiện hàng 0kg</span>
+                    </label>
                     <button class="qkv-btn-qr" onclick="_qkvStartQRScan()">📷 Quét QR Kệ</button>
                 </div>
                 
@@ -195,6 +203,12 @@ async function renderQuanlykhovaiPage(content) {
             </div>
         </div>
     `;
+
+    // Pre-check toggle checkbox state
+    var chkZero = document.getElementById('qkvToggleZeroInput');
+    if (chkZero) {
+        chkZero.checked = _qkv.showZeroWeight;
+    }
 
     // Parse Deep Link URL parameters
     var urlParams = new URLSearchParams(window.location.search);
@@ -349,6 +363,9 @@ function _qkvRenderMap() {
     
     // Group the items
     _qkv.summary.forEach(function(item) {
+        if (!_qkv.showZeroWeight && Number(item.cuoi_ky || 0) <= 0 && Number(item.so_cuc || 0) <= 0) {
+            return;
+        }
         var key = (item.location || '').trim();
         var isPredefined = _qkv.locations.some(l => l.name === key);
         
@@ -473,6 +490,12 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
 // 7. Handle Search Input
 function _qkvOnSearch(val) {
     _qkv.searchText = val;
+    _qkvRenderMap();
+}
+
+function _qkvToggleZeroWeight(checked) {
+    _qkv.showZeroWeight = checked;
+    localStorage.setItem('qkvShowZeroWeight', checked ? 'true' : 'false');
     _qkvRenderMap();
 }
 

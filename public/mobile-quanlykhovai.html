@@ -73,6 +73,29 @@
             display: flex;
             gap: 10px;
             padding: 12px 16px;
+            align-items: center;
+        }
+        .m-toggle-zero {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1.5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #e2e8f0;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .m-toggle-zero input {
+            width: 14px;
+            height: 14px;
+            accent-color: #5eead4;
+            cursor: pointer;
+            margin: 0;
         }
         .m-input-wrap {
             position: relative;
@@ -288,6 +311,10 @@
             <span class="m-search-icon">🔍</span>
             <input type="text" id="mSearch" class="m-search-input" placeholder="Tìm chất liệu hoặc màu..." oninput="onSearch(this.value)" />
         </div>
+        <label class="m-toggle-zero">
+            <input type="checkbox" id="mShowZeroWeight" onchange="toggleZeroWeight(this.checked)" />
+            <span>Hiện 0kg</span>
+        </label>
         <button class="m-btn-scan" onclick="startQR()">📷 QUÉT QR</button>
     </div>
 
@@ -422,6 +449,7 @@
         var summary = [];
         var searchText = '';
         var scanner = null;
+        var showZeroWeight = localStorage.getItem('qkvShowZeroWeight') === 'true';
         
         // Active item target details for dialogs
         var activeMoveItem = null;
@@ -486,6 +514,12 @@
                     return;
                 }
                 document.getElementById('mUsername').textContent = cu.full_name || cu.username;
+                
+                // Pre-check zero weight checkbox state
+                var chkZero = document.getElementById('mShowZeroWeight');
+                if (chkZero) {
+                    chkZero.checked = showZeroWeight;
+                }
 
                 // Parse Deep link query params
                 const urlParams = new URLSearchParams(window.location.search);
@@ -571,6 +605,12 @@
             renderMap();
         }
 
+        function toggleZeroWeight(checked) {
+            showZeroWeight = checked;
+            localStorage.setItem('qkvShowZeroWeight', checked ? 'true' : 'false');
+            renderMap();
+        }
+
         function renderMap() {
             const container = document.getElementById('mContent');
             if (locations.length === 0 && summary.length === 0) {
@@ -587,6 +627,9 @@
             groups[unassignedKey] = { name: 'Chưa phân vị trí', items: [] };
 
             summary.forEach(item => {
+                if (!showZeroWeight && Number(item.cuoi_ky || 0) <= 0 && Number(item.so_cuc || 0) <= 0) {
+                    return;
+                }
                 var loc = (item.location || '').trim();
                 var exists = locations.some(l => l.name === loc);
                 if (!loc || !exists) {
