@@ -1007,6 +1007,10 @@ function _qkvUpdateLocationDropdown() {
 // 14. Save new location mapping to material/color/roll
 async function _qkvSaveItemLocation(colorId, materialId) {
     var newLoc = document.getElementById('qkvMoveSelect').value;
+    if (!newLoc) {
+        showToast('Vui lòng chọn kệ để xếp vải!', 'error');
+        return;
+    }
     
     try {
         var checkboxes = document.querySelectorAll('input[name="qkvMoveRollCheckbox"]:checked');
