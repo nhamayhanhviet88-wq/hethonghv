@@ -784,7 +784,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     html += '<div style="background:#fff;border:1px solid #e9d5ff;border-radius:8px;padding:8px 10px;margin-bottom:6px">';
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
                     html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">🔖 ' + pc.order_code + '</span>';
-                    html += '<span style="font-size:10px;color:#374151;font-weight:600">' + (pc.product_name ? 'Phối ' + ((pc.phoi_index||0)+1) + ' — ' + pc.product_name : 'Phối ' + ((pc.phoi_index||0)+1)) + '</span>';
+                    var callLabel = ' — Phiếu ' + (pc.item_index||1) + ' — P' + ((pc.phoi_index||0)+1) + (pc.product_name ? ' — ' + pc.product_name : '') + (pc.order_qty ? ' : ' + pc.order_qty + ' Sản Phẩm' : '');
+                    html += '<span style="font-size:10px;color:#374151;font-weight:600">' + callLabel + '</span>';
                     html += '<span style="margin-left:auto"></span>';
                     if (!isLocked) {
                         html += '<button onclick="_qlxFabLink(' + pc.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap">📎 Liên kết đơn này</button>';
@@ -847,7 +848,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                             var badge = isThisOrder
                                 ? '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🏷️ Đơn này</span>'
                                 : '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔖 ' + rv.order_code + '</span>';
-                            var phoiLabel = ' Phối ' + ((rv.phoi_index||0)+1);
+                            var phoiLabel = (isThisOrder ? ' ' : ' — ') + 'Phiếu ' + (rv.item_index||1) + ' — P' + ((rv.phoi_index||0)+1);
                             var prodName = rv.product_name ? ' — ' + rv.product_name : '';
                             var editId = '_qlxResKg_' + rv.id;
                             // Calculate max allowed for this reservation: rollWeight - otherReservations

@@ -2243,6 +2243,7 @@ module.exports = async function(fastify) {
                            o.order_code, res.phoi_index, res.item_id,
                            it.description AS product_name,
                            it.quantity AS order_qty,
+                           (SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id) AS item_index,
                            res.arrived_at, res.status AS res_status
                     FROM qlx_fabric_reservations res
                     LEFT JOIN dht_orders o ON o.id = res.dht_order_id
@@ -2284,6 +2285,8 @@ module.exports = async function(fastify) {
                        res.material_name, res.color_name, res.call_trees, res.call_amount,
                        res.call_content, res.call_note, res.call_date, res.status,
                        o.order_code, it.description AS product_name,
+                       it.quantity AS order_qty,
+                       (SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id) AS item_index,
                        u.full_name AS created_by_name,
                        (SELECT COUNT(*)::int FROM qlx_fabric_reservations lk WHERE lk.linked_call_id = res.id AND lk.status != 'released') AS linked_count
                 FROM qlx_fabric_reservations res
