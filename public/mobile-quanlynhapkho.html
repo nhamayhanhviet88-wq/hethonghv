@@ -362,21 +362,6 @@
                 <!-- Unregistered Shelf Alert -->
                 <div id="importWarnBanner" style="display:none; padding:10px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:10px; color:#f59e0b; font-size:11px; font-weight:600; line-height:1.4;"></div>
                 
-                <!-- Scope selection -->
-                <div>
-                    <span style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Phạm vi áp dụng</span>
-                    <div style="display:flex; gap:20px; margin-top:6px;">
-                        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
-                            <input type="radio" name="importScope" value="color" checked style="accent-color:#5eead4;" />
-                            <span>Chỉ riêng màu này</span>
-                        </label>
-                        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
-                            <input type="radio" name="importScope" value="material" style="accent-color:#5eead4;" />
-                            <span>Toàn bộ chất liệu</span>
-                        </label>
-                    </div>
-                </div>
-                
                 <!-- Search bar in import dialog -->
                 <div>
                     <input type="text" id="importSearch" placeholder="🔍 Gõ tên chất liệu hoặc màu vải..." oninput="renderImportList()" style="width:100%; padding:12px; border:1px solid rgba(255,255,255,0.15); border-radius:12px; font-size:13px; font-family:inherit; background:rgba(255,255,255,0.05); color:white; outline:none;" />
@@ -961,17 +946,18 @@
             var filtered = [];
 
             if (!val) {
-                // Show unassigned only
+                // Show unassigned only, excluding 0kg
                 filtered = summary.filter(item => {
                     var loc = (item.location || '').trim();
                     var exists = locations.some(l => l.name === loc);
-                    return !loc || !exists;
+                    return (!loc || !exists) && Number(item.cuoi_ky || 0) > 0;
                 });
             } else {
-                // Show matching from entire database
+                // Show matching from entire database, excluding 0kg
                 filtered = summary.filter(item => {
-                    return (item.material_name || '').toLowerCase().includes(val)
-                        || (item.color_name || '').toLowerCase().includes(val);
+                    return ((item.material_name || '').toLowerCase().includes(val)
+                        || (item.color_name || '').toLowerCase().includes(val))
+                        && Number(item.cuoi_ky || 0) > 0;
                 });
             }
 
@@ -1005,7 +991,7 @@
 
         async function executeImport(colorId, materialId, colorName, materialName) {
             if (!activeImportShelf) return;
-            var scope = document.querySelector('input[name="importScope"]:checked').value;
+            var scope = 'color';
 
             try {
                 if (scope === 'material') {
