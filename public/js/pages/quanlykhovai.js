@@ -100,7 +100,7 @@ async function renderQuanlykhovaiPage(content) {
             '.qkv-btn-qr:hover { opacity: 0.95; transform: translateY(-1px); }',
             
             // Layout Grid
-            '.qkv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; align-items: start; }',
+            '.qkv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 20px; align-items: start; }',
             
             // Shelf Cards
             '.qkv-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.01), 0 2px 4px -1px rgba(0,0,0,0.01); overflow: hidden; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }',
@@ -109,7 +109,7 @@ async function renderQuanlykhovaiPage(content) {
             '.qkv-card-header { padding: 14px 16px; background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; }',
             '.qkv-card-title { font-size: 13px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 6px; }',
             '.qkv-card-count { background: #e2e8f0; color: #475569; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 12px; }',
-            '.qkv-card-body { padding: 12px; min-height: 80px; max-height: 320px; overflow-y: auto; }',
+            '.qkv-card-body { padding: 12px; min-height: 80px; max-height: 420px; overflow-y: auto; }',
             
             // Items List inside Card
             '.qkv-item-row { display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 8px; margin-bottom: 6px; border: 1px solid #f1f5f9; background: #fff; transition: all 0.15s; }',
@@ -703,11 +703,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     if (searchKey) {
         isCollapsed = !isCardHighlighted;
     } else {
-        if (isUnassigned) {
-            isCollapsed = !!_qkvCollapsedShelves[group.name];
-        } else {
-            isCollapsed = _qkvCollapsedShelves[group.name] !== false; // defaults to true (collapsed)
-        }
+        isCollapsed = _qkvCollapsedShelves[group.name] === true; // defaults to false (always expanded!)
     }
 
     if (isCollapsed) {
@@ -727,6 +723,15 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
 
     var qrButton = !isUnassigned ? `<button class="qkv-btn-icon" style="font-size:12px; margin-left: 6px;" onclick="event.stopPropagation(); _qkvShowLocationQRCode('${escapeJS(group.name)}')" title="Xem mã QR của kệ này">📷 QR</button>` : '';
     
+    var searchBoxHtml = '';
+    if (group.items.length > 0) {
+        searchBoxHtml = `
+            <div class="qkv-card-search-container" style="margin-bottom: 8px;" onclick="event.stopPropagation();">
+                <input type="text" placeholder="Tìm chất liệu, màu..." class="qkv-card-search-input" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 11px; outline: none; background: #fff;" oninput="_qkvFilterCardItems(this)">
+            </div>
+        `;
+    }
+
     return `
         <div class="${cardClass}">
             <div class="qkv-card-header ${headerClass}" style="cursor:pointer;" onclick="_qkvToggleShelfCollapse(this, '${escapeJS(group.name)}')">
@@ -740,10 +745,26 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                 ${countBadge}
             </div>
             <div class="qkv-card-body">
+                ${searchBoxHtml}
                 ${itemsHtml}
             </div>
         </div>
     `;
+}
+
+function _qkvFilterCardItems(input) {
+    var val = (input.value || '').toLowerCase().trim();
+    var cardBody = input.closest('.qkv-card-body');
+    if (!cardBody) return;
+    var items = cardBody.querySelectorAll('.qkv-material-color-frame');
+    items.forEach(function(item) {
+        var text = (item.textContent || '').toLowerCase();
+        if (text.includes(val)) {
+            item.style.setProperty('display', 'block', 'important');
+        } else {
+            item.style.setProperty('display', 'none', 'important');
+        }
+    });
 }
 
 // 7. Handle Search Input
