@@ -1482,6 +1482,12 @@ async function _bpcOpenCutModal(recordId) {
         if (!rolls.length) {
             bh += '<div style="text-align:center;padding:20px;color:#f59e0b;font-weight:600;background:#fef3c7;border-radius:8px">⚠️ Không tìm thấy cây vải "' + (rec.material_name||'') + ' - ' + (rec.fabric_color||'') + '" trong kho</div>';
         } else {
+            var reservedUnlockedCount = rolls.filter(function(r) { return r.is_reserved_for_this_order && !r.locked; }).length;
+            if (reservedUnlockedCount > 1) {
+                bh += '<div style="background:#fff7ed; border:1px solid #f97316; color:#c2410c; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px">';
+                bh += '  <span>⚠️ QLX chỉ định nhiều cây dự phòng. Vui lòng tích chọn đúng cây vải bạn dùng thực tế!</span>';
+                bh += '</div>';
+            }
             rolls.forEach(function(roll) {
                 var disabled = roll.locked ? ' disabled' : '';
                 var isReserved = !!roll.is_reserved_for_this_order;

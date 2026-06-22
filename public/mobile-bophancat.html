@@ -1605,6 +1605,12 @@ async function mOpenCutModal(recordId){
         if(!rolls.length){
             b+='<div style="text-align:center;padding:16px;color:#fbbf24;background:rgba(251,191,36,0.1);border-radius:8px">⚠️ Không tìm thấy cây vải</div>';
         } else {
+            const reservedUnlockedCount = rolls.filter(r => r.is_reserved_for_this_order && !r.locked).length;
+            if (reservedUnlockedCount > 1) {
+                b += '<div style="background:rgba(234,88,12,0.15); border:1px solid #ea580c; color:#ffedd5; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px">';
+                b += '  <span>⚠️ QLX chỉ định nhiều cây dự phòng. Vui lòng tích chọn đúng cây vải bạn dùng thực tế!</span>';
+                b += '</div>';
+            }
             rolls.forEach(r=>{
                 const dis=r.locked?' disabled':'';
                 const isReserved = !!r.is_reserved_for_this_order;
