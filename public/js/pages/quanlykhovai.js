@@ -894,7 +894,15 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                         <div style="flex:1; min-width:0;">
                                             <div style="font-size:12px; font-weight:700; color:#334155; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
                                                 <span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
-                                                    Cây ${r.w}kg
+                                                    ${r.source_import_id ? `
+                                                        <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
+                                                            Cây ${r.w}kg
+                                                        </span>
+                                                    ` : `
+                                                        <span style="cursor:pointer; color:#334155;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                                            Cây ${r.w}kg
+                                                        </span>
+                                                    `}
                                                     ${locText}
                                                 </span>
                                                 ${tagsHtml}
@@ -2195,7 +2203,17 @@ function _qkvUpdateModalView() {
                     rightHtml += `
                         <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; gap:8px;">
                             <div style="min-width:0; flex:1;">
-                                <div style="font-size:13px; font-weight:800; color:#0f766e;">${r.w} kg</div>
+                                <div style="font-size:13px; font-weight:800; color:#0f766e;">
+                                    ${r.source_import_id ? `
+                                        <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
+                                            ${r.w} kg
+                                        </span>
+                                    ` : `
+                                        <span style="cursor:pointer;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                            ${r.w} kg
+                                        </span>
+                                    `}
+                                </div>
                                 <div style="font-size:10px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Mã: ${escapeHTML(r.code || 'không mã')}</div>
                             </div>
                             <div style="display:flex; align-items:center; gap:6px;">
@@ -2231,4 +2249,17 @@ function _qkvOnModalSearch(val) {
     _qkvModalState.searchQuery = val;
     _qkvUpdateModalView();
 }
+
+function _qkvOpenImportBill(importId) {
+    if (typeof _bnhFabDetail === 'function') {
+        _bnhFabDetail(importId);
+    } else {
+        var s = document.createElement('script');
+        s.src = '/js/pages/fab-import-v4.js?v=20260616a';
+        s.onload = function() { _bnhFabDetail(importId); };
+        document.head.appendChild(s);
+    }
+}
+window._qkvOpenImportBill = _qkvOpenImportBill;
+
 

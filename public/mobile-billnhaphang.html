@@ -280,6 +280,11 @@
             document.getElementById('mFB').style.display='';
             document.getElementById('mSB').style.display='';
             await mLoad();
+            const urlParams = new URLSearchParams(window.location.search);
+            const autoOpenId = urlParams.get('id');
+            if (autoOpenId) {
+                openDetail(Number(autoOpenId));
+            }
         }catch(e){
             document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>';
         }

@@ -1101,7 +1101,15 @@
                                             <div style="flex:1; min-width:0;">
                                                 <div style="font-size:12px; font-weight:700; color:white; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
                                                     <span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
-                                                        Cây ${r.w}kg
+                                                        ${r.source_import_id ? `
+                                                            <a href="/m/billnhaphang?id=${r.source_import_id}" style="cursor:pointer; color:#818cf8; text-decoration:underline;" onclick="event.stopPropagation();" title="Nhấp để xem chi tiết bill nhập vải">
+                                                                Cây ${r.w}kg
+                                                            </a>
+                                                        ` : `
+                                                            <span style="cursor:pointer; color:white;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                                                Cây ${r.w}kg
+                                                            </span>
+                                                        `}
                                                         ${locText}
                                                     </span>
                                                 </div>

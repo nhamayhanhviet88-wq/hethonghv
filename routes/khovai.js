@@ -875,6 +875,7 @@ module.exports = async function (fastify) {
                             'code', r.roll_code, 
                             'img', r.image_path,
                             'locked_by_cutting_id', r.locked_by_cutting_id,
+                            'source_import_id', r.source_import_id,
                             'active_cut', (
                                 SELECT json_build_object(
                                     'id', cr.id,
