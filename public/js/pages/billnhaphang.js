@@ -34,10 +34,29 @@ function renderBillnhaphangPage(content){
 
 async function _bnhLoadAll(){
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260623a';document.head.appendChild(s);}
-    try{var[tR,sR,dR]=await Promise.all([apiCall('/api/import/tree?record_type=fabric'),apiCall('/api/import/sources?source_type=fabric'),apiCall('/api/import/check-duyet-perm')]);_bnh.tree=tR;_bnh.sources=sR.sources||[];_bnh.isDuyet=dR.allowed||false;_bnhRenderSb();await _bnhLoadRecs();
-    // Check fabric permission
-    setTimeout(function(){if(typeof _bnhCheckFabPerm==='function')_bnhCheckFabPerm();},300);
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260623b';document.head.appendChild(s);}
+    try{
+        var u=window._currentUser||window.currentUser||{};
+        var promises = [
+            apiCall('/api/import/tree?record_type=fabric'),
+            apiCall('/api/import/sources?source_type=fabric'),
+            apiCall('/api/import/check-duyet-perm')
+        ];
+        if (u.role === 'giam_doc') {
+            promises.push(apiCall('/api/app-config/fabric_import_require_roll_photo'));
+        }
+        var results = await Promise.all(promises);
+        _bnh.tree = results[0];
+        _bnh.sources = results[1].sources||[];
+        _bnh.isDuyet = results[2].allowed||false;
+        if (u.role === 'giam_doc') {
+            var cfg = results[3];
+            _bnh.requireRollPhoto = cfg && cfg.value !== undefined ? (cfg.value === 'true') : true;
+        }
+        _bnhRenderSb();
+        await _bnhLoadRecs();
+        // Check fabric permission
+        setTimeout(function(){if(typeof _bnhCheckFabPerm==='function')_bnhCheckFabPerm();},300);
     }catch(e){console.error('[BNH]',e);}}
 
 function _bnhFM(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN');}
@@ -65,10 +84,21 @@ function _bnhRenderSb(){var sb=document.getElementById('bnhSb');if(!sb)return;va
 var h='<div class="bnh-sb-title"><span>────── 🧾 Bill Nhập Vải ──────</span></div>';
 if(t&&t.totals){var tt=t.totals;
 h+='<div class="bnh-sb-total" onclick="_bnhFilter()"><div style="display:flex;justify-content:space-between;align-items:center"><span>📦 Tất cả</span><span class="tv">'+(tt.total||0)+'</span></div><div class="ts">🌲 Cây vải: '+(tt.total_trees||0)+' &nbsp;|&nbsp; 💰 '+_bnhFM(tt.sum_total)+' ₫'+(Number(tt.sum_debt)>0?' &nbsp;|&nbsp; 🔴 Nợ: '+_bnhFM(tt.sum_debt)+' ₫':'')+'</div></div>';}
-var u=window._currentUser||{};if(u.role==='giam_doc'||u.role==='quan_ly_cap_cao')h+='<div class="bnh-add-src" onclick="_bnhAddSrc()">➕ Thêm nguồn cung cấp</div>';
+var u=window._currentUser||window.currentUser||{};if(u.role==='giam_doc'||u.role==='quan_ly_cap_cao')h+='<div class="bnh-add-src" onclick="_bnhAddSrc()">➕ Thêm nguồn cung cấp</div>';
 if(t&&t.sources)t.sources.forEach(function(s){var active=f.source_id==s.id;
 var color=_bnhGetSourceColor(s.name);
 h+='<div class="bnh-sb-src'+(active?' active':'')+'" onclick="_bnhFilter('+s.id+')"><span class="sn" style="color:'+color+';font-weight:700">🏪 '+s.name+'</span><span class="sc" style="color:'+color+'">['+s.count+']</span><span class="sm">'+_bnhFM(s.sum_total)+'₫</span>' + (u.role === 'giam_doc' ? '<span class="del-btn" onclick="event.stopPropagation();_bnhDelSrc('+s.id+', \''+s.name+'\')" style="margin-left: 8px; color: #ef4444; font-weight: bold; cursor: pointer;" title="Xóa nguồn">❌</span>' : '') + '</div>';});
+
+if(u.role==='giam_doc'){
+    var checked = _bnh.requireRollPhoto !== false ? 'checked' : '';
+    h += '<div style="margin-top:16px;padding:16px;border-top:1.5px dashed #cbd5e1;background:#f8fafc;display:flex;flex-direction:column;gap:8px">'
+        + '<div style="font-size:10px;font-weight:800;color:#475569;letter-spacing:0.5px">⚙️ CẤU HÌNH NHẬP VẢI</div>'
+        + '<label style="display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:#334155;cursor:pointer;user-select:none">'
+        + '<input type="checkbox" id="_bnhCfgPhoto" onchange="_bnhTogglePhotoRequirement(this.checked)" ' + checked + ' style="cursor:pointer;width:14px;height:14px;margin:0">'
+        + 'Bắt buộc chụp ảnh từng cây</label>'
+        + '</div>';
+}
+
 sb.innerHTML=h;}
 
 function _bnhFilter(sid){_bnh.filter.source_id=sid||null;_bnhRenderSb();_bnhLoadRecs();}
@@ -343,5 +373,17 @@ async function _bnhShowPaymentHistoryModal(importId) {
     } catch (e) {
         console.error('[BNH] Show payment history error:', e);
         showToast('Không tải được lịch sử thanh toán', 'error');
+    }
+}
+
+async function _bnhTogglePhotoRequirement(checked) {
+    try {
+        _bnh.requireRollPhoto = checked;
+        await apiCall('/api/app-config/fabric_import_require_roll_photo', 'PUT', { value: checked ? 'true' : 'false' });
+        showToast('⚙️ Đã cập nhật thiết lập chụp ảnh cây vải: ' + (checked ? 'BẮT BUỘC' : 'TÙY CHỌN'));
+    } catch(e) {
+        showToast(e.message || 'Lỗi lưu thiết lập', 'error');
+        // Re-render to revert checkbox state
+        _bnhRenderSb();
     }
 }

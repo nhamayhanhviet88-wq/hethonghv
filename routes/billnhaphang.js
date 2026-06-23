@@ -1011,13 +1011,16 @@ module.exports = async function(fastify) {
         if (!b.bill_image_url) return reply.code(400).send({ error: 'Ảnh bill bắt buộc' });
         if (Number(b.ship_cost) > 0 && !b.ship_image_url) return reply.code(400).send({ error: 'Có phí ship thì phải có ảnh ship' });
         // Validate each fabric item
+        const photoReqRow = await db.get("SELECT value FROM app_config WHERE key = 'fabric_import_require_roll_photo'");
+        const isPhotoRequired = photoReqRow ? photoReqRow.value === 'true' : true;
+
         for (const fi of b.fabric_items) {
             if (!fi.trees || !fi.trees.length) return reply.code(400).send({ error: `${fi.material_name} - ${fi.color_name}: nhập ít nhất 1 cây` });
             for (let t = 0; t < fi.trees.length; t++) {
                 if (!fi.trees[t].weight || Number(fi.trees[t].weight) <= 0) {
                     return reply.code(400).send({ error: `${fi.material_name}: Cây ${t+1} phải có trọng lượng > 0` });
                 }
-                if (!fi.trees[t].image_path) {
+                if (isPhotoRequired && !fi.trees[t].image_path) {
                     return reply.code(400).send({ error: `${fi.material_name} - ${fi.color_name}: Cây ${t+1} bắt buộc phải chụp ảnh định danh` });
                 }
             }
