@@ -2282,8 +2282,18 @@ module.exports = async function(fastify) {
                    r.original_weight, r.weight,
                    u_create.full_name AS created_by_name,
                    u_arrive.full_name AS arrived_by_name,
-                   parent_o.order_code AS linked_from_order_code,
-                   (SELECT string_agg(DISTINCT lo.order_code, ', ')
+                   CASE 
+                     WHEN parent_o.order_code IS NOT NULL THEN 
+                       parent_o.order_code || ' - P' || 
+                       (SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = parent_res.dht_order_id AND it2.id <= parent_res.item_id) || 
+                       '.' || (parent_res.phoi_index + 1)
+                     ELSE NULL
+                   END AS linked_from_order_code,
+                   (SELECT string_agg(
+                        lo.order_code || ' - P' || 
+                        (SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = lk.dht_order_id AND it2.id <= lk.item_id) || 
+                        '.' || (lk.phoi_index + 1), ', '
+                    )
                     FROM qlx_fabric_reservations lk
                     JOIN dht_orders lo ON lo.id = lk.dht_order_id
                     WHERE lk.linked_call_id = res.id AND lk.status != 'released'
