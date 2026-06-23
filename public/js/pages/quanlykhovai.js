@@ -726,7 +726,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
         countBadge = `<span class="qkv-card-count" style="background:#fef3c7;color:#d97706;">Tìm thấy ${matchCount}</span>`;
     }
 
-    var qrButton = !isUnassigned ? `<button class="qkv-btn-icon" style="font-size:12px; margin-left: 6px;" onclick="event.stopPropagation(); _qkvShowLocationQRCode('${escapeJS(group.name)}')" title="Xem mã QR của kệ này">📷 QR</button>` : '';
+    var qrButton = (!isUnassigned && isGD) ? `<button class="qkv-btn-icon" style="font-size:12px; margin-left: 6px;" onclick="event.stopPropagation(); _qkvShowLocationQRCode('${escapeJS(group.name)}')" title="Xem mã QR của kệ này">📷 QR</button>` : '';
     
     var searchBoxHtml = '';
     if (group.items.length > 0) {
@@ -1161,6 +1161,11 @@ async function _qkvSaveItemLocation(colorId, materialId) {
 
 // 15. Show QR Code Modal for a location
 function _qkvShowLocationQRCode(locName) {
+    var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+    if (!isGD) {
+        showToast('Bạn không có quyền thực hiện chức năng này!', 'error');
+        return;
+    }
     var deepLink = window.location.origin + '/quanlykhovai?loc=' + encodeURIComponent(locName) + '&wid=' + _qkv.selectedWid;
     var qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(deepLink)}`;
     
