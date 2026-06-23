@@ -101,8 +101,11 @@ async function renderQuanlykhovaiPage(content) {
             
             // Layout Grid
             '.qkv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 20px; align-items: start; margin-bottom: 25px; }',
-            '.qkv-section-title { font-size: 15px; font-weight: 800; color: #1e293b; margin: 24px 0 12px 0; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.5px; }',
+            '.qkv-section-title { font-size: 13.5px; font-weight: 800; margin: 28px 0 14px 0; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; letter-spacing: 0.5px; text-transform: uppercase; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }',
             '.qkv-section-title:first-child { margin-top: 0; }',
+            '.qkv-sec-shelves { background: #e0f2fe; color: #0369a1; border-left: 5px solid #0284c7; }',
+            '.qkv-sec-processed { background: #f3e8ff; color: #6b21a8; border-left: 5px solid #8b5cf6; }',
+            '.qkv-sec-unassigned { background: #fee2e2; color: #991b1b; border-left: 5px solid #ef4444; }',
             
             // Shelf Cards
             '.qkv-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.01), 0 2px 4px -1px rgba(0,0,0,0.01); overflow: hidden; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }',
@@ -640,7 +643,7 @@ function _qkvRenderMap() {
     });
 
     var waitingGroup = {
-        name: 'Các Cây Đang Chờ Cắt / Đang Cắt',
+        name: 'Cây Chờ Cắt / Đang Cắt',
         description: 'Tổng hợp các cây vải đang chờ cắt, đang cắt, hoặc gọi vải chưa về',
         items: waitingItems
     };
@@ -656,7 +659,7 @@ function _qkvRenderMap() {
         htmlShelves += _qkvBuildCardHtml(group, false, searchKey);
     });
     if (htmlShelves) {
-        html += '<div class="qkv-section-title">📍 SƠ ĐỒ CÁC KỆ VẢI</div>';
+        html += '<div class="qkv-section-title qkv-sec-shelves">📍 SƠ ĐỒ CÁC KỆ VẢI</div>';
         html += '<div class="qkv-grid">' + htmlShelves + '</div>';
     }
 
@@ -672,7 +675,7 @@ function _qkvRenderMap() {
         htmlProcessed += _qkvBuildCardHtml(waitingGroup, 'waiting', searchKey);
     }
     if (htmlProcessed) {
-        html += '<div class="qkv-section-title">⚙️ CÂY VẢI CẦN XỬ LÝ KHO & CHỜ CẮT</div>';
+        html += '<div class="qkv-section-title qkv-sec-processed">⚙️ CÂY VẢI CẦN XỬ LÝ KHO & CHỜ CẮT</div>';
         html += '<div class="qkv-grid">' + htmlProcessed + '</div>';
     }
     
@@ -685,7 +688,7 @@ function _qkvRenderMap() {
         htmlUnassigned += _qkvBuildCardHtml(unassignedNguyen, 'nguyen', searchKey);
     }
     if (htmlUnassigned) {
-        html += '<div class="qkv-section-title">⚠️ VẢI CHƯA PHÂN VỊ TRÍ (CŨ)</div>';
+        html += '<div class="qkv-section-title qkv-sec-unassigned">⚠️ VẢI CHƯA PHÂN VỊ TRÍ (CŨ)</div>';
         html += '<div class="qkv-grid">' + htmlUnassigned + '</div>';
     }
     
@@ -771,8 +774,9 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
             var totalWeight = materialGroup.items.reduce((sum, item) => sum + Number(item.cuoi_ky || 0), 0);
             var totalRolls = materialGroup.items.reduce((sum, item) => sum + Number(item.so_cuc || 0), 0);
             
-            var groupBodyStyle = (searchKey && materialGroup.anyMatched) ? 'display: block;' : 'display: none;';
-            var groupArrowText = (searchKey && materialGroup.anyMatched) ? '▼' : '▶';
+            var showGroup = !searchKey || materialGroup.anyMatched;
+            var groupBodyStyle = showGroup ? 'display: block;' : 'display: none;';
+            var groupArrowText = showGroup ? '▼' : '▶';
 
             itemsHtml += `
                 <div class="qkv-material-group" data-material="${escapeHTML(matName)}" style="margin-bottom: 8px;">
@@ -905,12 +909,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
         if (_qkvCollapsedShelves[group.name] !== undefined) {
             isCollapsed = _qkvCollapsedShelves[group.name] === true;
         } else {
-            // Default collapse states: old unassigned cards default to collapsed
-            if (group.name === 'Chưa Phân Vị Trí Cây Lẻ' || group.name === 'Chưa Phân Vị Trí Cây Nguyên') {
-                isCollapsed = true;
-            } else {
-                isCollapsed = false;
-            }
+            isCollapsed = false;
         }
     }
 
