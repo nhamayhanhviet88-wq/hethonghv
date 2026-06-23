@@ -602,6 +602,8 @@
         var collapsedShelves = {};
         var globalUnassignedNguyen = [];
         var globalUnassignedLe = [];
+        var globalProcessedNguyen = [];
+        var globalProcessedLe = [];
         
         // Active item target details for dialogs
         var activeMoveItem = null;
@@ -924,8 +926,10 @@
                 }
             });
 
-            globalUnassignedLe = processedLe.items || [];
-            globalUnassignedNguyen = processedNguyen.items || [];
+            globalUnassignedLe = unassignedLe.items || [];
+            globalUnassignedNguyen = unassignedNguyen.items || [];
+            globalProcessedLe = processedLe.items || [];
+            globalProcessedNguyen = processedNguyen.items || [];
 
             // Group waiting/cutting items
             var waitingItems = [];
@@ -1543,20 +1547,36 @@
                 return true;
             });
 
-            if (leItems.length === 0 && nguyenItems.length === 0) {
+            var processedLeItems = (globalProcessedLe || []).filter(item => {
+                if (val) {
+                    return (item.material_name || '').toLowerCase().includes(val)
+                        || (item.color_name || '').toLowerCase().includes(val);
+                }
+                return true;
+            });
+
+            var processedNguyenItems = (globalProcessedNguyen || []).filter(item => {
+                if (val) {
+                    return (item.material_name || '').toLowerCase().includes(val)
+                        || (item.color_name || '').toLowerCase().includes(val);
+                }
+                return true;
+            });
+
+            if (leItems.length === 0 && nguyenItems.length === 0 && processedLeItems.length === 0 && processedNguyenItems.length === 0) {
                 list.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Không có vải phù hợp</div>';
                 return;
             }
 
             var html = '';
 
-            // 1. Render Lẻ items
+            // 1. Render Lẻ items (Chưa Phân Vị Trí)
             if (leItems.length > 0) {
                 var totalLeRolls = leItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
                 html += `
-                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#ec4899; background:rgba(236,72,153,0.1); padding:6px 12px; border-radius:6px; margin:10px 0 6px 0; border:1px solid rgba(236,72,153,0.2); display:flex; align-items:center; justify-content:space-between;">
+                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#94a3b8; background:rgba(148,163,184,0.06); padding:6px 12px; border-radius:6px; margin:10px 0 6px 0; border:1px solid rgba(148,163,184,0.15); display:flex; align-items:center; justify-content:space-between;">
                         <span>⚠️ Chưa Phân Vị Trí Cây Lẻ</span>
-                        <span style="font-size:10px; background:#ec4899; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalLeRolls} cây</span>
+                        <span style="font-size:10px; background:#64748b; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalLeRolls} cây</span>
                     </div>
                 `;
                 var leIdx = 0;
@@ -1566,19 +1586,51 @@
                 });
             }
 
-            // 2. Render Nguyên items
+            // 2. Render Nguyên items (Chưa Phân Vị Trí)
             if (nguyenItems.length > 0) {
                 var totalNguyenRolls = nguyenItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
                 html += `
-                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#f59e0b; background:rgba(245,158,11,0.1); padding:6px 12px; border-radius:6px; margin:14px 0 6px 0; border:1px solid rgba(245,158,11,0.2); display:flex; align-items:center; justify-content:space-between;">
+                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#94a3b8; background:rgba(148,163,184,0.06); padding:6px 12px; border-radius:6px; margin:14px 0 6px 0; border:1px solid rgba(148,163,184,0.15); display:flex; align-items:center; justify-content:space-between;">
                         <span>⚠️ Chưa Phân Vị Trí Cây Nguyên</span>
-                        <span style="font-size:10px; background:#f59e0b; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalNguyenRolls} cây</span>
+                        <span style="font-size:10px; background:#64748b; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalNguyenRolls} cây</span>
                     </div>
                 `;
                 var nguyenIdx = 0;
                 nguyenItems.forEach(item => {
                     nguyenIdx++;
                     html += buildImportItemHtml(item, isMaterialAllowed(item), nguyenIdx);
+                });
+            }
+
+            // 3. Render Processed Lẻ items (Cần Xử Lý Kho)
+            if (processedLeItems.length > 0) {
+                var totalPLeRolls = processedLeItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
+                html += `
+                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#f472b6; background:rgba(219,39,119,0.15); padding:6px 12px; border-radius:6px; margin:14px 0 6px 0; border:1px solid rgba(219,39,119,0.3); display:flex; align-items:center; justify-content:space-between;">
+                        <span>🛠️ Cây Lẻ Cần Xử Lý Kho</span>
+                        <span style="font-size:10px; background:#db2777; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalPLeRolls} cây</span>
+                    </div>
+                `;
+                var pleIdx = 0;
+                processedLeItems.forEach(item => {
+                    pleIdx++;
+                    html += buildImportItemHtml(item, isMaterialAllowed(item), pleIdx);
+                });
+            }
+
+            // 4. Render Processed Nguyên items (Cần Xử Lý Kho)
+            if (processedNguyenItems.length > 0) {
+                var totalPNguyenRolls = processedNguyenItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
+                html += `
+                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#fbbf24; background:rgba(217,119,6,0.15); padding:6px 12px; border-radius:6px; margin:14px 0 6px 0; border:1px solid rgba(217,119,6,0.3); display:flex; align-items:center; justify-content:space-between;">
+                        <span>🛠️ Cây Nguyên Cần Xử Lý Kho</span>
+                        <span style="font-size:10px; background:#d97706; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalPNguyenRolls} cây</span>
+                    </div>
+                `;
+                var pnguyenIdx = 0;
+                processedNguyenItems.forEach(item => {
+                    pnguyenIdx++;
+                    html += buildImportItemHtml(item, isMaterialAllowed(item), pnguyenIdx);
                 });
             }
 
