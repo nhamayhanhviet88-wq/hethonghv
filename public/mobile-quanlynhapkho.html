@@ -539,7 +539,7 @@
                 
                 <!-- List -->
                 <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
-                    <div style="font-size:11px; font-weight:800; color:#94a3b8; margin-bottom:8px; text-transform:uppercase;">Danh sách đề xuất (Chưa xếp kệ)</div>
+                    <div style="font-size:11px; font-weight:800; color:#94a3b8; margin-bottom:8px; text-transform:uppercase;">Danh sách đề xuất cần xử lý kho</div>
                     <div id="importList" style="flex:1; display:flex; flex-direction:column; gap:8px; overflow-y:auto; padding-right:2px;"></div>
                 </div>
                 
@@ -1152,7 +1152,7 @@
                 countText = `<span class="card-count" style="background:#fbbf24; color:#78350f;">Tìm thấy ${matchCount}</span>`;
             }
 
-            var qrBtn = !isUnassigned ? `<button class="card-qr-btn" onclick="event.stopPropagation(); showQrCodeModal('${escapeHTML(group.name)}')">📷 QR</button>` : '';
+            var qrBtn = (!isUnassigned && cu && cu.role === 'giam_doc') ? `<button class="card-qr-btn" onclick="event.stopPropagation(); showQrCodeModal('${escapeHTML(group.name)}')">📷 QR</button>` : '';
 
             var headerClass = 'card-header';
             if (!isUnassigned) {
@@ -1462,7 +1462,7 @@
                 return false;
             }
 
-            function buildImportItemHtml(item, isAllowed, index) {
+            function buildImportItemHtml(item, isAllowed, index, groupType) {
                 var rollsHtml = '';
                 
                 if (item.roll_weights && item.roll_weights.length > 0) {
@@ -1484,8 +1484,12 @@
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
                                         actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
                                     } else {
-                                        photoHtml = ``;
-                                        actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
+                                        if (groupType === 'processed_le' || groupType === 'processed_nguyen') {
+                                            photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                        } else {
+                                            photoHtml = ``;
+                                        }
+                                        actionHtml = ``;
                                     }
                                 }
 
@@ -1531,22 +1535,6 @@
                 `;
             }
 
-            var leItems = (globalUnassignedLe || []).filter(item => {
-                if (val) {
-                    return (item.material_name || '').toLowerCase().includes(val)
-                        || (item.color_name || '').toLowerCase().includes(val);
-                }
-                return true;
-            });
-
-            var nguyenItems = (globalUnassignedNguyen || []).filter(item => {
-                if (val) {
-                    return (item.material_name || '').toLowerCase().includes(val)
-                        || (item.color_name || '').toLowerCase().includes(val);
-                }
-                return true;
-            });
-
             var processedLeItems = (globalProcessedLe || []).filter(item => {
                 if (val) {
                     return (item.material_name || '').toLowerCase().includes(val)
@@ -1563,50 +1551,18 @@
                 return true;
             });
 
-            if (leItems.length === 0 && nguyenItems.length === 0 && processedLeItems.length === 0 && processedNguyenItems.length === 0) {
-                list.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Không có vải phù hợp</div>';
+            if (processedLeItems.length === 0 && processedNguyenItems.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Không có vải phù hợp cần xử lý kho</div>';
                 return;
             }
 
             var html = '';
 
-            // 1. Render Lẻ items (Chưa Phân Vị Trí)
-            if (leItems.length > 0) {
-                var totalLeRolls = leItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
-                html += `
-                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#94a3b8; background:rgba(148,163,184,0.06); padding:6px 12px; border-radius:6px; margin:10px 0 6px 0; border:1px solid rgba(148,163,184,0.15); display:flex; align-items:center; justify-content:space-between;">
-                        <span>⚠️ Chưa Phân Vị Trí Cây Lẻ</span>
-                        <span style="font-size:10px; background:#64748b; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalLeRolls} cây</span>
-                    </div>
-                `;
-                var leIdx = 0;
-                leItems.forEach(item => {
-                    leIdx++;
-                    html += buildImportItemHtml(item, isMaterialAllowed(item), leIdx);
-                });
-            }
-
-            // 2. Render Nguyên items (Chưa Phân Vị Trí)
-            if (nguyenItems.length > 0) {
-                var totalNguyenRolls = nguyenItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
-                html += `
-                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#94a3b8; background:rgba(148,163,184,0.06); padding:6px 12px; border-radius:6px; margin:14px 0 6px 0; border:1px solid rgba(148,163,184,0.15); display:flex; align-items:center; justify-content:space-between;">
-                        <span>⚠️ Chưa Phân Vị Trí Cây Nguyên</span>
-                        <span style="font-size:10px; background:#64748b; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalNguyenRolls} cây</span>
-                    </div>
-                `;
-                var nguyenIdx = 0;
-                nguyenItems.forEach(item => {
-                    nguyenIdx++;
-                    html += buildImportItemHtml(item, isMaterialAllowed(item), nguyenIdx);
-                });
-            }
-
-            // 3. Render Processed Lẻ items (Cần Xử Lý Kho)
+            // 1. Render Processed Lẻ items (Cần Xử Lý Kho)
             if (processedLeItems.length > 0) {
                 var totalPLeRolls = processedLeItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
                 html += `
-                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#f472b6; background:rgba(219,39,119,0.15); padding:6px 12px; border-radius:6px; margin:14px 0 6px 0; border:1px solid rgba(219,39,119,0.3); display:flex; align-items:center; justify-content:space-between;">
+                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#f472b6; background:rgba(219,39,119,0.15); padding:6px 12px; border-radius:6px; margin:10px 0 6px 0; border:1px solid rgba(219,39,119,0.3); display:flex; align-items:center; justify-content:space-between;">
                         <span>🛠️ Cây Lẻ Cần Xử Lý Kho</span>
                         <span style="font-size:10px; background:#db2777; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalPLeRolls} cây</span>
                     </div>
@@ -1614,11 +1570,11 @@
                 var pleIdx = 0;
                 processedLeItems.forEach(item => {
                     pleIdx++;
-                    html += buildImportItemHtml(item, isMaterialAllowed(item), pleIdx);
+                    html += buildImportItemHtml(item, isMaterialAllowed(item), pleIdx, 'processed_le');
                 });
             }
 
-            // 4. Render Processed Nguyên items (Cần Xử Lý Kho)
+            // 2. Render Processed Nguyên items (Cần Xử Lý Kho)
             if (processedNguyenItems.length > 0) {
                 var totalPNguyenRolls = processedNguyenItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
                 html += `
@@ -1630,7 +1586,7 @@
                 var pnguyenIdx = 0;
                 processedNguyenItems.forEach(item => {
                     pnguyenIdx++;
-                    html += buildImportItemHtml(item, isMaterialAllowed(item), pnguyenIdx);
+                    html += buildImportItemHtml(item, isMaterialAllowed(item), pnguyenIdx, 'processed_nguyen');
                 });
             }
 
@@ -1666,6 +1622,10 @@
 
         // ================== QR CODE VIEW AND PRINT TEMPLATE ==================
         function showQrCodeModal(locName) {
+            if (!cu || cu.role !== 'giam_doc') {
+                showToast('Chỉ giám đốc mới có quyền xem mã QR kệ', 'error');
+                return;
+            }
             var deepLink = window.location.origin + '/m/quanlynhapkho?loc=' + encodeURIComponent(locName) + '&wid=' + selectedWid;
             var qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(deepLink)}`;
             
