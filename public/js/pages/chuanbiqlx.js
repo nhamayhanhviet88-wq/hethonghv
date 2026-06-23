@@ -754,11 +754,11 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                         var bBg = 'rgba(148,163,184,0.12)';
                         if (ex.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
                             if (ex.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
-                                bColor = '#fbbf24';
-                                bBg = 'rgba(251,191,36,0.15)';
+                                bColor = '#b45309';
+                                bBg = '#fef3c7';
                             } else {
-                                bColor = '#f87171';
-                                bBg = 'rgba(248,113,113,0.15)';
+                                bColor = '#b91c1c';
+                                bBg = '#fee2e2';
                             }
                         } else {
                             bColor = '#3b82f6';
@@ -911,11 +911,11 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                         var bBg = 'rgba(148,163,184,0.12)';
                         if (rl.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
                             if (rl.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
-                                bColor = '#fbbf24';
-                                bBg = 'rgba(251,191,36,0.15)';
+                                bColor = '#b45309';
+                                bBg = '#fef3c7';
                             } else {
-                                bColor = '#f87171';
-                                bBg = 'rgba(248,113,113,0.15)';
+                                bColor = '#b91c1c';
+                                bBg = '#fee2e2';
                             }
                         } else {
                             bColor = '#3b82f6';

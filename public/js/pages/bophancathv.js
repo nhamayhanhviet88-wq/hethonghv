@@ -1579,10 +1579,10 @@ async function _bpcOpenCutModal(recordId) {
                     var bBg = 'rgba(100,116,139,0.08)';
                     if (roll.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
                         if (roll.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
-                            bColor = '#d97706';
+                            bColor = '#b45309';
                             bBg = '#fef3c7';
                         } else {
-                            bColor = '#dc2626';
+                            bColor = '#b91c1c';
                             bBg = '#fee2e2';
                         }
                     } else {
@@ -1914,10 +1914,10 @@ async function _bpcOpenDetail(recordId) {
                     var bBg = 'rgba(100,116,139,0.08)';
                     if (rl.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
                         if (rl.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
-                            bColor = '#d97706';
+                            bColor = '#b45309';
                             bBg = '#fef3c7';
                         } else {
-                            bColor = '#dc2626';
+                            bColor = '#b91c1c';
                             bBg = '#fee2e2';
                         }
                     } else {
@@ -2178,10 +2178,10 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                 var bBg = 'rgba(100,116,139,0.08)';
                 if (rl.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
                     if (rl.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
-                        bColor = '#d97706';
+                        bColor = '#b45309';
                         bBg = '#fef3c7';
                     } else {
-                        bColor = '#dc2626';
+                        bColor = '#b91c1c';
                         bBg = '#fee2e2';
                     }
                 } else {
@@ -2764,10 +2764,10 @@ async function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
             var bBg = 'rgba(100,116,139,0.08)';
             if (rl.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
                 if (rl.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
-                    bColor = '#d97706';
+                    bColor = '#b45309';
                     bBg = '#fef3c7';
                 } else {
-                    bColor = '#dc2626';
+                    bColor = '#b91c1c';
                     bBg = '#fee2e2';
                 }
             } else {
