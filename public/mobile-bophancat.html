@@ -406,6 +406,73 @@ function mHighlight(el){
         el.style.boxShadow='';
     },2500);
 }
+
+function mShowImagePopup(url) {
+    let exist = document.getElementById('_mImagePopup');
+    if (exist) exist.remove();
+    
+    let d = document.createElement('div');
+    d.id = '_mImagePopup';
+    d.style.position = 'fixed';
+    d.style.top = '0';
+    d.style.left = '0';
+    d.style.width = '100vw';
+    d.style.height = '100vh';
+    d.style.background = 'rgba(0,0,0,0.9)';
+    d.style.zIndex = '999999';
+    d.style.display = 'flex';
+    d.style.alignItems = 'center';
+    d.style.justifyContent = 'center';
+    d.style.opacity = '0';
+    d.style.transition = 'opacity 0.25s ease';
+    
+    let closeBtn = document.createElement('div');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '20px';
+    closeBtn.style.right = '20px';
+    closeBtn.style.width = '40px';
+    closeBtn.style.height = '40px';
+    closeBtn.style.background = 'rgba(255,255,255,0.2)';
+    closeBtn.style.color = '#fff';
+    closeBtn.style.borderRadius = '50%';
+    closeBtn.style.display = 'flex';
+    closeBtn.style.alignItems = 'center';
+    closeBtn.style.justifyContent = 'center';
+    closeBtn.style.fontSize = '20px';
+    closeBtn.style.fontWeight = 'bold';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.onclick = function(e) {
+        e.stopPropagation();
+        d.style.opacity = '0';
+        setTimeout(() => d.remove(), 250);
+    };
+    
+    let img = document.createElement('img');
+    img.src = url;
+    img.style.maxWidth = '95vw';
+    img.style.maxHeight = '85vh';
+    img.style.objectFit = 'contain';
+    img.style.borderRadius = '8px';
+    img.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+    img.onclick = function(e) {
+        e.stopPropagation();
+    };
+    
+    d.appendChild(closeBtn);
+    d.appendChild(img);
+    
+    d.onclick = function() {
+        d.style.opacity = '0';
+        setTimeout(() => d.remove(), 250);
+    };
+    
+    document.body.appendChild(d);
+    
+    requestAnimationFrame(() => {
+        d.style.opacity = '1';
+    });
+}
 function mDoneValidQty(el,max){
     const v=parseInt(el.value)||0;
     if(v>max || v<=0){el.style.borderColor='#ef4444';el.style.color='#ef4444';}
@@ -1723,7 +1790,7 @@ async function mOpenCutModal(recordId){
 
                 let imgHtml = '';
                 if (r.image_path) {
-                    imgHtml = '<img src="' + r.image_path + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15);flex-shrink:0" onclick="event.preventDefault(); event.stopPropagation(); window.open(\'' + r.image_path + '\',\'_blank\')">';
+                    imgHtml = '<img src="' + r.image_path + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15);flex-shrink:0" onclick="event.preventDefault(); event.stopPropagation(); mShowImagePopup(\'' + r.image_path + '\')">';
                 }
 
                 let locBadge = '';
