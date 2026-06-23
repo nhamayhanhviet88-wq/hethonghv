@@ -859,26 +859,25 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Attach items to orders and dynamically update order-level fabric flags
+        // Attach items to orders
         for (const o of orders) {
             o.items = itemMap[o.id] || [];
-            if (orderHasCuts[o.id]) {
-                o.fabric_called = true;
-                o.fabric_arrived = true;
-            }
         }
 
         // Fetch per-phoi fabric reservation statuses
         let phoiFabRows = [];
         if (orderIds.length > 0) {
             phoiFabRows = await db.all(`
-                SELECT dht_order_id, item_id, phoi_index,
+                SELECT r.dht_order_id, r.item_id, r.phoi_index,
                        COUNT(*)::int AS total,
-                       COUNT(*) FILTER (WHERE status IN ('arrived', 'fulfilled'))::int AS arrived,
-                       COUNT(*) FILTER (WHERE status = 'reserved')::int AS pending
-                FROM qlx_fabric_reservations
-                WHERE dht_order_id = ANY($1) AND status NOT IN ('released')
-                GROUP BY dht_order_id, item_id, phoi_index
+                       COUNT(*) FILTER (WHERE r.status IN ('arrived', 'fulfilled'))::int AS arrived,
+                       COUNT(*) FILTER (WHERE r.status = 'reserved')::int AS pending
+                FROM qlx_fabric_reservations r
+                LEFT JOIN kv_rolls roll ON r.roll_id = roll.id
+                WHERE r.dht_order_id = ANY($1) 
+                  AND r.status NOT IN ('released')
+                  AND (r.roll_id IS NULL OR roll.weight > 0)
+                GROUP BY r.dht_order_id, r.item_id, r.phoi_index
             `, [orderIds]);
         }
         const phoiFabStatus = {};
@@ -928,9 +927,86 @@ module.exports = async function(fastify) {
             if (oItems.length > 0) {
                 o.is_cut_done = oItems.every(it => it.is_cut_done);
                 o.is_material_done = oItems.every(it => it.is_material_done);
+
+                if (orderHasCuts[o.id]) {
+                    o.fabric_called = true;
+                    o.fabric_arrived = true;
+                } else {
+                    // Recalculate order-level fabric_arrived and fabric_called dynamically
+                    let totalPhois = 0;
+                    let arrivedPhois = 0;
+                    let calledPhois = 0;
+
+                    for (const it of oItems) {
+                        let pairs = [];
+                        try {
+                            pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []);
+                        } catch(e) {}
+                        if (!Array.isArray(pairs)) pairs = [];
+
+                        if (pairs.length === 0) {
+                            totalPhois++;
+                            const itemCuts = cuttingRows.filter(c => c.order_item_id === it.id);
+                            const isCutOrCutting = itemCuts.some(c => c.is_cutting || c.is_cut_done);
+                            if (isCutOrCutting) {
+                                arrivedPhois++;
+                                calledPhois++;
+                            } else {
+                                const key = `${o.id}_${it.id}_0`;
+                                const pfs = phoiFabStatus[key];
+                                if (pfs && pfs.pending === 0 && pfs.arrived > 0) {
+                                    arrivedPhois++;
+                                    calledPhois++;
+                                } else if (pfs && pfs.total > 0) {
+                                    calledPhois++;
+                                } else if (it.material_called || it.material_arrived) {
+                                    calledPhois++;
+                                    if (it.material_arrived) arrivedPhois++;
+                                }
+                            }
+                        } else {
+                            pairs.forEach((p, pIdx) => {
+                                totalPhois++;
+                                const pMat = (p.material_name || '').trim().toLowerCase();
+                                const pColor = (p.color_name || '').trim().toLowerCase();
+
+                                const itemCuts = cuttingRows.filter(c => c.order_item_id === it.id);
+                                const match = itemCuts.find(c => {
+                                    const cMat = (c.material_name || '').trim().toLowerCase();
+                                    const cColor = (c.fabric_color || '').trim().toLowerCase();
+                                    return cMat === pMat && cColor === pColor;
+                                });
+
+                                if (match && (match.is_cutting || match.is_cut_done)) {
+                                    arrivedPhois++;
+                                    calledPhois++;
+                                } else {
+                                    const key = `${o.id}_${item.id}_${pIdx}`;
+                                    const pfs = phoiFabStatus[key];
+                                    if (pfs && pfs.pending === 0 && pfs.arrived > 0) {
+                                        arrivedPhois++;
+                                        calledPhois++;
+                                    } else if (pfs && pfs.total > 0) {
+                                        calledPhois++;
+                                    }
+                                }
+                            });
+                        }
+                    }
+
+                    if (totalPhois > 0) {
+                        o.fabric_arrived = (arrivedPhois === totalPhois);
+                        o.fabric_called = (calledPhois > 0);
+                    } else {
+                        o.fabric_arrived = !!o.fabric_arrived;
+                        o.fabric_called = !!o.fabric_called;
+                    }
+                }
             } else {
                 o.is_cut_done = false;
                 o.is_material_done = !!(o.material_called || o.material_arrived);
+                o.fabric_arrived = !!o.fabric_arrived;
+                o.fabric_called = !!o.fabric_called;
             }
         }
 
@@ -2753,24 +2829,12 @@ module.exports = async function(fastify) {
                 [dht_order_id, `Liên kết gọi vải: ${parent.call_content || parent.material_name+' - '+parent.color_name} (từ đơn khác)`, request.user.id, now]);
         }
 
-        // Update fabric_called status
-        await ensureOrderPrepRow(dht_order_id);
-        await db.run(`UPDATE qlx_preparation SET fabric_called = true, fabric_called_at = $1, fabric_called_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
-            [now, request.user.id, dht_order_id]);
-
-        // Auto-check: if ALL reservations for this order are 'arrived' → set fabric_arrived = true
-        const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [dht_order_id]);
-        const cuttingDone = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND (is_cutting = true OR is_cut_done = true)) AS has_cut`, [dht_order_id]);
-        const hasActive = await db.get(`SELECT EXISTS (SELECT 1 FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status IN ('arrived', 'fulfilled')) AS has_active`, [dht_order_id]);
-        const isArrived = (pending && pending.cnt === 0) && (hasActive.has_active || cuttingDone.has_cut);
-
-        await ensureOrderPrepRow(dht_order_id);
-        if (isArrived) {
-            await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
-                [now, request.user.id, dht_order_id]);
-        } else {
-            await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
-                [now, dht_order_id]);
+        // Recalculate order fabric status using helper
+        try {
+            const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+            await recalculateOrderFabricStatus(dht_order_id);
+        } catch (e) {
+            console.error('[QLX FABRIC RECALC] Error in POST /api/qlx/fabric-reserve:', e);
         }
 
         return { success: true };
@@ -3061,6 +3125,13 @@ module.exports = async function(fastify) {
             VALUES ($1, 'fabric_update_kg', $2, $3, $4)`,
             [res.dht_order_id, `Sửa kg cây ${res.roll_code}: ${oldKg} → ${newKg} ${res.unit||'kg'} (Phối ${(res.phoi_index||0)+1})`, request.user.id, now]);
 
+        try {
+            const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+            await recalculateOrderFabricStatus(res.dht_order_id);
+        } catch (e) {
+            console.error('[QLX FABRIC RECALC] Error in update-kg:', e);
+        }
+
         return { success: true, old_kg: oldKg, new_kg: newKg };
     });
 
@@ -3168,21 +3239,14 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Auto-update order-level fabric_arrived for ALL affected orders
-        for (const oid of affectedOrderIds) {
-            const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [oid]);
-            const cuttingDone = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND (is_cutting = true OR is_cut_done = true)) AS has_cut`, [oid]);
-            const hasActive = await db.get(`SELECT EXISTS (SELECT 1 FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status IN ('arrived', 'fulfilled')) AS has_active`, [oid]);
-            const isArrived = (pending && pending.cnt === 0) && (hasActive.has_active || cuttingDone.has_cut);
-
-            await ensureOrderPrepRow(oid);
-            if (isArrived) {
-                await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
-                    [now, request.user.id, oid]);
-            } else {
-                await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
-                    [now, oid]);
+        // Recalculate order fabric status for all affected orders using helper
+        try {
+            const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+            for (const oid of affectedOrderIds) {
+                await recalculateOrderFabricStatus(oid);
             }
+        } catch (e) {
+            console.error('[QLX FABRIC RECALC] Error in arrive:', e);
         }
 
         return { success: true };
@@ -3316,21 +3380,14 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Recheck order-level fabric_arrived for ALL affected orders
-        for (const oid of affectedOrderIds) {
-            const pending = await db.get(`SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status = 'reserved'`, [oid]);
-            const cuttingDone = await db.get(`SELECT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND (is_cutting = true OR is_cut_done = true)) AS has_cut`, [oid]);
-            const hasActive = await db.get(`SELECT EXISTS (SELECT 1 FROM qlx_fabric_reservations WHERE dht_order_id = $1 AND status IN ('arrived', 'fulfilled')) AS has_active`, [oid]);
-            const isArrived = (pending && pending.cnt === 0) && (hasActive.has_active || cuttingDone.has_cut);
-
-            await ensureOrderPrepRow(oid);
-            if (isArrived) {
-                await db.run(`UPDATE qlx_preparation SET fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
-                    [now, user.id, oid]);
-            } else {
-                await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
-                    [now, oid]);
+        // Recheck order-level fabric_arrived for ALL affected orders using helper
+        try {
+            const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+            for (const oid of affectedOrderIds) {
+                await recalculateOrderFabricStatus(oid);
             }
+        } catch (e) {
+            console.error('[QLX FABRIC RECALC] Error in delete:', e);
         }
 
         return { success: true };

@@ -1336,6 +1336,40 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Action không hợp lệ' });
         }
 
+        if (['cut_done', 'undo_cut_done'].includes(action)) {
+            try {
+                const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+                let snapshot = [];
+                try {
+                    snapshot = typeof rec.selected_roll_ids === 'string' ? JSON.parse(rec.selected_roll_ids) : (rec.selected_roll_ids || []);
+                } catch(e) {}
+                const rollIds = snapshot.map(s => s.roll_id).filter(Boolean);
+                
+                const affectedOrderIds = new Set();
+                if (rec.dht_order_id) affectedOrderIds.add(rec.dht_order_id);
+
+                if (rollIds.length > 0) {
+                    const rows = await db.all('SELECT DISTINCT dht_order_id FROM qlx_fabric_reservations WHERE roll_id = ANY($1)', [rollIds]);
+                    for (const r of rows) {
+                        if (r.dht_order_id) affectedOrderIds.add(r.dht_order_id);
+                    }
+                }
+
+                if (rec.multi_cut_group_id) {
+                    const groupRecs = await db.all('SELECT DISTINCT dht_order_id FROM cutting_records WHERE multi_cut_group_id = $1', [rec.multi_cut_group_id]);
+                    for (const g of groupRecs) {
+                        if (g.dht_order_id) affectedOrderIds.add(g.dht_order_id);
+                    }
+                }
+
+                for (const oid of affectedOrderIds) {
+                    await recalculateOrderFabricStatus(oid);
+                }
+            } catch(e) {
+                console.error('[QLX FABRIC RECALC] Error in post toggle hook:', e);
+            }
+        }
+
         await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, action, detail, request.user.id, now]);
 

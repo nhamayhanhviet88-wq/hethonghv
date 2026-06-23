@@ -494,6 +494,18 @@ module.exports = async function (fastify) {
             );
         }
 
+        if (weight !== undefined && Number(weight) !== Number(oldRoll.weight)) {
+            try {
+                const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+                const affectedOrders = await db.all('SELECT DISTINCT dht_order_id FROM qlx_fabric_reservations WHERE roll_id = $1', [request.params.id]);
+                for (const ord of affectedOrders) {
+                    await recalculateOrderFabricStatus(ord.dht_order_id);
+                }
+            } catch (e) {
+                console.error('[QLX FABRIC RECALC] Error in PUT /api/khovai/rolls/:id:', e);
+            }
+        }
+
         return { success: true };
     });
 
@@ -540,6 +552,8 @@ module.exports = async function (fastify) {
         const roll = await db.get('SELECT * FROM kv_rolls WHERE id = $1', [request.params.id]);
         if (!roll) return { error: 'Cục vải không tồn tại' };
 
+        const affectedOrders = await db.all('SELECT DISTINCT dht_order_id FROM qlx_fabric_reservations WHERE roll_id = $1', [request.params.id]);
+
         await db.run('DELETE FROM kv_rolls WHERE id = $1', [request.params.id]);
 
         // Log
@@ -548,6 +562,15 @@ module.exports = async function (fastify) {
              VALUES ($1, 'XUAT', $2, $3, $4)`,
             [roll.fabric_color_id, Number(roll.weight), `Xóa cục ${roll.weight}`, user.id]
         );
+
+        try {
+            const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+            for (const ord of affectedOrders) {
+                await recalculateOrderFabricStatus(ord.dht_order_id);
+            }
+        } catch (e) {
+            console.error('[QLX FABRIC RECALC] Error in DELETE /api/khovai/rolls/:id:', e);
+        }
 
         return { success: true };
     });
