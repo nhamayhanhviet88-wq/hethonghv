@@ -2087,6 +2087,13 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
         console.error('[BPC] Fetch live rolls error:', e);
     }
 
+    // Keep track of the snapshot before we auto-sync to identify which rolls were newly added
+    var initialSnapIds = new Set();
+    try {
+        var snapBefore = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []);
+        snapBefore.forEach(function(sr) { initialSnapIds.add(sr.roll_id); });
+    } catch(e) {}
+
     // Auto-sync called rolls that have arrived
     var hasSyncedNewRoll = false;
     try {
@@ -2119,6 +2126,7 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
         var snapRolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []);
         rolls = snapRolls.map(sr => {
             const live = liveRolls.find(lr => lr.id === sr.roll_id);
+            var isNewlySynced = !initialSnapIds.has(sr.roll_id);
             if (live) {
                 return {
                     roll_id: sr.roll_id,
@@ -2130,7 +2138,8 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                     reservations: live.reservations || [],
                     available: live.available,
                     called_for_orders: live.called_for_orders,
-                    is_original_tree: live.is_original_tree
+                    is_original_tree: live.is_original_tree,
+                    is_newly_synced: isNewlySynced
                 };
             } else {
                 return {
@@ -2143,7 +2152,8 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                     reservations: [],
                     available: sr.weight,
                     called_for_orders: [],
-                    is_original_tree: sr.is_original_tree || false
+                    is_original_tree: sr.is_original_tree || false,
+                    is_newly_synced: isNewlySynced
                 };
             }
         });
@@ -2217,8 +2227,7 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                 }
                 locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
             }
-            var isArrivedCalled = rl.reservations && rl.reservations.some(function(res) { return res.dht_order_id === r.dht_order_id && res.res_status === 'arrived'; });
-            var calledBadge = isArrivedCalled ? '<span style="background:#10b981;color:#fff;font-size:9.5px;padding:2px 6px;border-radius:6px;font-weight:800;margin-top:4px;display:inline-block">✨ CÂY GỌI THÊM ĐÃ VỀ</span>' : '';
+            var calledBadge = rl.is_newly_synced ? '<span style="background:#10b981;color:#fff;font-size:9.5px;padding:2px 6px;border-radius:6px;font-weight:800;margin-top:4px;display:inline-block">✨ CÂY GỌI THÊM ĐÃ VỀ</span>' : '';
 
             h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
             h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
