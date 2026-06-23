@@ -41,9 +41,20 @@ function _bpcSortRollsForCutting(rolls, orderCode) {
         var bIsLocked = b.locked ? 1 : 0;
         if (aIsLocked !== bIsLocked) return aIsLocked - bIsLocked;
 
-        var aRes = a.is_reserved_for_this_order ? 1 : 0;
-        var bRes = b.is_reserved_for_this_order ? 1 : 0;
-        if (aRes !== bRes) return bRes - aRes;
+        var aIsReservedForThisOrder = (a.reservations || []).some(function(rv) {
+            return codes.indexOf(rv.order_code) >= 0;
+        }) ? 1 : 0;
+        var bIsReservedForThisOrder = (b.reservations || []).some(function(rv) {
+            return codes.indexOf(rv.order_code) >= 0;
+        }) ? 1 : 0;
+
+        if (aIsReservedForThisOrder !== bIsReservedForThisOrder) {
+            return bIsReservedForThisOrder - aIsReservedForThisOrder;
+        }
+
+        var aExact = a.is_reserved_for_this_order ? 1 : 0;
+        var bExact = b.is_reserved_for_this_order ? 1 : 0;
+        if (aExact !== bExact) return bExact - aExact;
 
         var aHas = (a.available !== undefined ? a.available : a.weight) > 0 ? 1 : 0;
         var bHas = (b.available !== undefined ? b.available : b.weight) > 0 ? 1 : 0;
