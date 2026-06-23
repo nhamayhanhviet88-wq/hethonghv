@@ -176,7 +176,22 @@ async function renderQuanlykhovaiPage(content) {
             '}',
             '.qkv-card-waiting-header .qkv-card-title { color: #ffffff !important; animation: qkvSparkleStars 2s infinite ease-in-out; }',
             '.qkv-card-waiting-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
-            ' ',
+            '.qkv-card-processed-nguyen { border-color: #f59e0b !important; }',
+            '.qkv-card-processed-nguyen-header {',
+            '  background: linear-gradient(135deg, #f59e0b, #d97706) !important;',
+            '  color: #ffffff !important;',
+            '  font-weight: 900 !important;',
+            '}',
+            '.qkv-card-processed-nguyen-header .qkv-card-title { color: #ffffff !important; }',
+            '.qkv-card-processed-nguyen-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
+            '.qkv-card-processed-le { border-color: #ec4899 !important; }',
+            '.qkv-card-processed-le-header {',
+            '  background: linear-gradient(135deg, #ec4899, #be185d) !important;',
+            '  color: #ffffff !important;',
+            '  font-weight: 900 !important;',
+            '}',
+            '.qkv-card-processed-le-header .qkv-card-title { color: #ffffff !important; }',
+            '.qkv-card-processed-le-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
             
             // Mobile Specific Styles
             '@media (max-width: 768px) {',
@@ -578,8 +593,43 @@ function _qkvRenderMap() {
         }
     });
 
-    _qkv.unassignedLe = unassignedLe.items || [];
-    _qkv.unassignedNguyen = unassignedNguyen.items || [];
+    // Filtered processing categories
+    var processedLe = {
+        name: 'Cây Lẻ Cần Xử Lý Kho',
+        items: []
+    };
+    (unassignedLe.items || []).forEach(function(item) {
+        var freeRolls = (item.roll_weights || []).filter(function(r) {
+            return !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+        });
+        if (freeRolls.length > 0) {
+            var subItem = Object.assign({}, item);
+            subItem.roll_weights = freeRolls;
+            subItem.so_cuc = freeRolls.length;
+            subItem.cuoi_ky = freeRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+            processedLe.items.push(subItem);
+        }
+    });
+
+    var processedNguyen = {
+        name: 'Cây Nguyên Cần Xử Lý Kho',
+        items: []
+    };
+    (unassignedNguyen.items || []).forEach(function(item) {
+        var freeRolls = (item.roll_weights || []).filter(function(r) {
+            return !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+        });
+        if (freeRolls.length > 0 || (item.roll_weights || []).length === 0) {
+            var subItem = Object.assign({}, item);
+            subItem.roll_weights = freeRolls;
+            subItem.so_cuc = freeRolls.length;
+            subItem.cuoi_ky = freeRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+            processedNguyen.items.push(subItem);
+        }
+    });
+
+    _qkv.unassignedLe = processedLe.items || [];
+    _qkv.unassignedNguyen = processedNguyen.items || [];
     
     // Group waiting/cutting items
     var waitingItems = [];
@@ -624,7 +674,17 @@ function _qkvRenderMap() {
         html += cardHtml;
     });
     
-    // RENDER UNASSIGNED CARDS AT THE END
+    // RENDER PROCESSED CARDS (Cần Xử Lý Kho)
+    if (processedLe.items.length > 0) {
+        var cardHtml = _qkvBuildCardHtml(processedLe, 'processed_le', searchKey);
+        html += cardHtml;
+    }
+    if (processedNguyen.items.length > 0) {
+        var cardHtml = _qkvBuildCardHtml(processedNguyen, 'processed_nguyen', searchKey);
+        html += cardHtml;
+    }
+    
+    // RENDER UNASSIGNED CARDS AT THE END (Chưa Phân Vị Trí)
     if (unassignedLe.items.length > 0 || _qkv.locations.length === 0) {
         var cardHtml = _qkvBuildCardHtml(unassignedLe, 'le', searchKey);
         html += cardHtml;
@@ -651,6 +711,12 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     } else if (isUnassigned === 'le') {
         headerClass = 'qkv-card-unassigned-le-header';
         cardClass = 'qkv-card qkv-card-unassigned qkv-card-unassigned-le';
+    } else if (isUnassigned === 'processed_nguyen') {
+        headerClass = 'qkv-card-processed-nguyen-header';
+        cardClass = 'qkv-card qkv-card-unassigned qkv-card-processed-nguyen';
+    } else if (isUnassigned === 'processed_le') {
+        headerClass = 'qkv-card-processed-le-header';
+        cardClass = 'qkv-card qkv-card-unassigned qkv-card-processed-le';
     } else if (isUnassigned === 'waiting') {
         headerClass = 'qkv-card-waiting-header';
         cardClass = 'qkv-card qkv-card-waiting';
@@ -842,7 +908,16 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     if (searchKey) {
         isCollapsed = !isCardHighlighted;
     } else {
-        isCollapsed = _qkvCollapsedShelves[group.name] === true; // defaults to false (always expanded!)
+        if (_qkvCollapsedShelves[group.name] !== undefined) {
+            isCollapsed = _qkvCollapsedShelves[group.name] === true;
+        } else {
+            // Default collapse states: old unassigned cards default to collapsed
+            if (group.name === 'Chưa Phân Vị Trí Cây Lẻ' || group.name === 'Chưa Phân Vị Trí Cây Nguyên') {
+                isCollapsed = true;
+            } else {
+                isCollapsed = false;
+            }
+        }
     }
 
     if (isCollapsed) {
@@ -852,7 +927,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
         cardClass += ' highlighted';
     }
     
-    var icon = isUnassigned ? (isUnassigned === 'waiting' ? '⏳' : '⚠️') : '📍';
+    var icon = isUnassigned ? (isUnassigned === 'waiting' ? '⏳' : (isUnassigned.indexOf('processed') !== -1 ? '🛠' : '⚠️')) : '📍';
     var descHtml = group.description ? `<div style="font-size:10px;color:#64748b;margin-top:2px;">${escapeHTML(group.description)}</div>` : '';
     
     var totalRolls = group.items.reduce(function(sum, item) { return sum + (Number(item.so_cuc) || 0); }, 0);

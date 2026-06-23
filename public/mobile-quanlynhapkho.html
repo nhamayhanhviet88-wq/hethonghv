@@ -839,6 +839,44 @@
                 }
             });
 
+            // Filtered processing categories (mobile)
+            var processedLe = {
+                name: 'Cây Lẻ Cần Xử Lý Kho',
+                items: []
+            };
+            (unassignedLe.items || []).forEach(function(item) {
+                var freeRolls = (item.roll_weights || []).filter(r => {
+                    return !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                });
+                if (freeRolls.length > 0) {
+                    var subItem = Object.assign({}, item);
+                    subItem.roll_weights = freeRolls;
+                    subItem.so_cuc = freeRolls.length;
+                    subItem.cuoi_ky = freeRolls.reduce((sum, r) => sum + Number(r.w), 0);
+                    processedLe.items.push(subItem);
+                }
+            });
+
+            var processedNguyen = {
+                name: 'Cây Nguyên Cần Xử Lý Kho',
+                items: []
+            };
+            (unassignedNguyen.items || []).forEach(function(item) {
+                var freeRolls = (item.roll_weights || []).filter(r => {
+                    return !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                });
+                if (freeRolls.length > 0 || (item.roll_weights || []).length === 0) {
+                    var subItem = Object.assign({}, item);
+                    subItem.roll_weights = freeRolls;
+                    subItem.so_cuc = freeRolls.length;
+                    subItem.cuoi_ky = freeRolls.reduce((sum, r) => sum + Number(r.w), 0);
+                    processedNguyen.items.push(subItem);
+                }
+            });
+
+            globalUnassignedLe = processedLe.items || [];
+            globalUnassignedNguyen = processedNguyen.items || [];
+
             // Group waiting/cutting items
             var waitingItems = [];
             summary.forEach(item => {
@@ -879,15 +917,21 @@
                 html += buildCardHtml(grp, false, searchKey);
             });
 
+            // Processed categories (Cần xử lý kho)
+            if (processedLe.items.length > 0) {
+                html += buildCardHtml(processedLe, 'processed_le', searchKey);
+            }
+            if (processedNguyen.items.length > 0) {
+                html += buildCardHtml(processedNguyen, 'processed_nguyen', searchKey);
+            }
+
             // Unassigned: Lẻ first, then Nguyên
             if (unassignedLe.items.length > 0 || locations.length === 0) {
-                html += buildCardHtml(unassignedLe, true, searchKey);
+                html += buildCardHtml(unassignedLe, 'le', searchKey);
             }
             if (unassignedNguyen.items.length > 0 || (locations.length === 0 && unassignedLe.items.length === 0)) {
-                html += buildCardHtml(unassignedNguyen, true, searchKey);
+                html += buildCardHtml(unassignedNguyen, 'nguyen', searchKey);
             }
-            globalUnassignedLe = unassignedLe.items || [];
-            globalUnassignedNguyen = unassignedNguyen.items || [];
 
             container.innerHTML = html;
         }
@@ -1020,10 +1064,17 @@
             if (searchKey) {
                 isCollapsed = !isCardHighlighted;
             } else {
-                if (isUnassigned) {
-                    isCollapsed = !!collapsedShelves[group.name];
+                if (collapsedShelves[group.name] !== undefined) {
+                    isCollapsed = collapsedShelves[group.name] === true;
                 } else {
-                    isCollapsed = collapsedShelves[group.name] !== false; // defaults to true
+                    // Default states
+                    if (group.name === 'Chưa Phân Vị Trí Cây Lẻ' || group.name === 'Chưa Phân Vị Trí Cây Nguyên') {
+                        isCollapsed = true;
+                    } else if (isUnassigned) {
+                        isCollapsed = false;
+                    } else {
+                        isCollapsed = true;
+                    }
                 }
             }
 
@@ -1031,7 +1082,7 @@
             if (isCardHighlighted) cardClass += ' highlighted';
             if (isCollapsed) cardClass += ' collapsed';
             
-            var icon = isUnassigned ? (isUnassigned === 'waiting' ? '⏳' : '⚠️') : '📍';
+            var icon = isUnassigned ? (isUnassigned === 'waiting' ? '⏳' : (isUnassigned.indexOf('processed') !== -1 ? '🛠️' : '⚠️')) : '📍';
             var titleClass = isUnassigned ? (isUnassigned === 'waiting' ? 'card-title' : 'card-title unassigned-title') : 'card-title';
             var countText = '';
             if (group.items.length > 0) {
@@ -1048,9 +1099,9 @@
             if (isUnassigned === 'waiting') {
                 headerClass = 'card-header-waiting';
             } else if (isUnassigned) {
-                if (group.name === 'Chưa Phân Vị Trí Cây Nguyên') {
+                if (group.name === 'Chưa Phân Vị Trí Cây Nguyên' || group.name === 'Cây Nguyên Cần Xử Lý Kho') {
                     headerClass = 'card-header-nguyen';
-                } else if (group.name === 'Chưa Phân Vị Trí Cây Lẻ') {
+                } else if (group.name === 'Chưa Phân Vị Trí Cây Lẻ' || group.name === 'Cây Lẻ Cần Xử Lý Kho') {
                     headerClass = 'card-header-le';
                 }
             }
