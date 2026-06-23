@@ -142,6 +142,16 @@ async function renderQuanlykhovaiPage(content) {
             '  0%, 100% { opacity: 0.8; text-shadow: 0 0 4px rgba(255,255,255,0.4); }',
             '  50% { opacity: 1; text-shadow: 0 0 8px rgba(255,255,255,0.8); }',
             '}',
+            '.qkv-card-shelf { border-color: #0f766e !important; }',
+            '.qkv-card-shelf-header {',
+            '  background: linear-gradient(135deg, #0f766e, #0d9488) !important;',
+            '  color: #ffffff !important;',
+            '  font-weight: 900 !important;',
+            '  text-shadow: 0 1px 2px rgba(0,0,0,0.2);',
+            '  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);',
+            '}',
+            '.qkv-card-shelf-header .qkv-card-title { color: #ffffff !important; }',
+            '.qkv-card-shelf-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
             '.qkv-card-unassigned { border-style: dashed; border-width: 2px; }',
             '.qkv-card-unassigned .qkv-card-header { background: linear-gradient(135deg, #fff, #f8fafc); }',
             '.qkv-card-unassigned-header { color: #f59e0b; }',
@@ -644,7 +654,7 @@ function _qkvRenderMap() {
 
     var waitingGroup = {
         name: 'Cây Chờ Cắt / Đang Cắt',
-        description: 'Tổng hợp các cây vải đang chờ cắt, đang cắt, hoặc gọi vải chưa về',
+        description: '',
         items: waitingItems
     };
 
@@ -702,7 +712,10 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     var headerClass = '';
     var cardClass = 'qkv-card';
     
-    if (isUnassigned === 'nguyen') {
+    if (!isUnassigned) {
+        headerClass = 'qkv-card-shelf-header';
+        cardClass = 'qkv-card qkv-card-shelf';
+    } else if (isUnassigned === 'nguyen') {
         headerClass = 'qkv-card-unassigned-nguyen-header';
         cardClass = 'qkv-card qkv-card-unassigned qkv-card-unassigned-nguyen';
     } else if (isUnassigned === 'le') {
@@ -875,12 +888,11 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                     <div class="roll-row-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #e2e8f0;">
                                         <div style="flex:1; min-width:0;">
                                             <div style="font-size:12px; font-weight:700; color:#334155; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-                                                Cây ${r.w}kg
-                                                ${locText}
+                                                <span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
+                                                    Cây ${r.w}kg
+                                                    ${locText}
+                                                </span>
                                                 ${tagsHtml}
-                                            </div>
-                                            <div style="font-size:10px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                                                ${r.code || 'không mã'}
                                             </div>
                                         </div>
                                         <div style="display:flex; align-items:center; gap:8px;">
@@ -920,11 +932,12 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
         cardClass += ' highlighted';
     }
     
-    var icon = isUnassigned ? (isUnassigned === 'waiting' ? '⏳' : (isUnassigned.indexOf('processed') !== -1 ? '🛠' : '⚠️')) : '📍';
-    var descHtml = group.description ? `<div style="font-size:10px;color:#64748b;margin-top:2px;">${escapeHTML(group.description)}</div>` : '';
+    var icon = isUnassigned ? (isUnassigned === 'waiting' ? '⏳' : (isUnassigned.indexOf('processed') !== -1 ? '🛠️' : '⚠️')) : '📍';
+    var descColor = headerClass ? 'rgba(255, 255, 255, 0.85)' : '#64748b';
+    var descHtml = (group.description && isUnassigned !== 'waiting') ? `<div style="font-size:10px;color:${descColor};margin-top:2px;">${escapeHTML(group.description)}</div>` : '';
     
     var totalRolls = group.items.reduce(function(sum, item) { return sum + (Number(item.so_cuc) || 0); }, 0);
-    var countBadge = group.items.length > 0 ? `<span class="qkv-card-count">${group.items.length} mặt hàng / ${totalRolls} cây</span>` : '';
+    var countBadge = group.items.length > 0 ? `<span class="qkv-card-count">${group.items.length} màu vải / ${totalRolls} cây</span>` : '';
     if (searchKey && matchCount > 0) {
         countBadge = `<span class="qkv-card-count" style="background:#fef3c7;color:#d97706;">Tìm thấy ${matchCount}</span>`;
     }
