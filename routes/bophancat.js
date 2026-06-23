@@ -1598,6 +1598,28 @@ module.exports = async function(fastify) {
             [newLocation, roll_id, lockId]
         );
 
+        // Giải phóng giữ vải tương ứng cho các đơn hàng trong lượt cắt này
+        const groupRecs = await db.all(
+            `SELECT dht_order_id FROM cutting_records WHERE id = ANY($1)`,
+            [targetIds]
+        );
+        const orderIds = [...new Set(groupRecs.map(r => r.dht_order_id).filter(oid => oid !== null))];
+        if (orderIds.length > 0) {
+            await db.run(
+                `UPDATE qlx_fabric_reservations 
+                 SET status = 'released', updated_at = $1 
+                 WHERE roll_id = $2 AND dht_order_id = ANY($3) AND status IN ('reserved', 'arrived')`,
+                [now, roll_id, orderIds]
+            );
+            for (const orderId of orderIds) {
+                await db.run(
+                    `INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                     VALUES ($1, 'fabric_release_cutting', $2, $3, $4)`,
+                    [orderId, `Giải phóng giữ vải do thợ báo không cắt cây ${removedRoll.roll_code || removedRoll.roll_id} (${removedRoll.weight}kg)`, request.user.id, now]
+                );
+            }
+        }
+
         snapshot.splice(idx, 1);
         const newKgStart = Math.max(0, Number(rec.kg_start) - Number(removedRoll.weight));
 
