@@ -72,14 +72,15 @@ function _bpcRenderRollReservations(roll, currentOrderCodeOrCodes) {
     const codes = Array.isArray(currentOrderCodeOrCodes) ? currentOrderCodeOrCodes : [currentOrderCodeOrCodes];
     roll.reservations.forEach(function(rv) {
         var isThisOrder = codes.indexOf(rv.order_code) >= 0;
+        var labelText = (isThisOrder ? 'Đơn này' : rv.order_code) + ' - P' + (rv.item_index || 1) + '.' + ((rv.phoi_index || 0) + 1);
         var badge = isThisOrder
-            ? '<span style="background:rgba(22,163,74,0.15);color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🏷️ Đơn này</span>'
-            : '<span style="background:rgba(37,99,235,0.15);color:#2563eb;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🔖 ' + rv.order_code + '</span>';
-        var phoiLabel = (isThisOrder ? ' ' : ' — ') + 'Phiếu ' + (rv.item_index || 1) + ' — P' + ((rv.phoi_index || 0) + 1);
-        var prodName = rv.product_name ? ' — ' + rv.product_name : '';
+            ? '<span style="background:rgba(22,163,74,0.15);color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🏷️ ' + labelText + '</span>'
+            : '<span style="background:rgba(37,99,235,0.15);color:#2563eb;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🔖 ' + labelText + '</span>';
+        var weightText = ' : lấy <b style="color:#dc2626">' + Number(rv.kg_reserved).toFixed(2) + 'kg</b>';
+        var qtyText = rv.order_qty ? '/' + rv.order_qty + 'sp' : '';
         html += '<div style="font-size:11px;color:#64748b;margin-top:4px;padding-left:12px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;line-height:1.4">'
             + badge
-            + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b style="color:#dc2626">' + rv.kg_reserved + 'kg</b>' + (rv.order_qty ? ' : ' + rv.order_qty + ' sp' : '') + '</span>'
+            + '<span style="font-weight:600">' + weightText + qtyText + '</span>'
             + '</div>';
     });
     return html;
@@ -1585,11 +1586,11 @@ async function _bpcOpenCutModal(recordId) {
                 bh += lockInfo;
                 bh += '  </div>';
                 if (isReserved) {
-                    var kgReservedText = roll.kg_reserved ? ' (Báo lấy: ' + roll.kg_reserved + 'kg)' : '';
+                    var msg = roll.kg_reserved ? 'QLX báo lấy ra ' + roll.kg_reserved + 'kg cắt' : 'QLX báo lấy ra cắt';
                     bh += '  <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; border-top: 1.5px dashed rgba(234, 88, 12, 0.2); padding-top: 6px;">';
                     bh += '    <div style="display:flex; align-items:center; gap:6px">';
                     bh += '      <span style="background:#ea580c; color:#fff; font-size:9px; padding:1px 6px; border-radius:4px; font-weight:800">📍 QLX CHỈ ĐỊNH</span>';
-                    bh += '      <span style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; padding:1px 8px; border-radius:6px; font-size:10px; font-weight:800; display:inline-flex; align-items:center; gap:4px">🔔 Cây này đã được QLX báo lấy ra để cắt' + kgReservedText + '</span>';
+                    bh += '      <span style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; padding:1px 8px; border-radius:6px; font-size:10px; font-weight:800; display:inline-flex; align-items:center; gap:4px">🔔 ' + msg + '</span>';
                     bh += '    </div>';
                     bh += '  </div>';
                 }
