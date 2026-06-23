@@ -191,7 +191,7 @@ async function renderQuanlykhovaiPage(content) {
     content.innerHTML = `
         <div class="qkv-wrap">
             <!-- Sidebar -->
-            <div class="qkv-sidebar">
+            <div class="qkv-sidebar" style="${!isGD ? 'display: none !important;' : ''}">
                 <!-- Warehouse Selector -->
                 <div class="qkv-sb-section">
                     <div class="qkv-sb-title">🏬 Chọn Kho Vải</div>
