@@ -9,17 +9,15 @@ module.exports = async function(fastify) {
         const rawLoc = (r.roll_loc !== null && r.roll_loc !== undefined) ? r.roll_loc.trim() : null;
         const isNguyen = Number(r.weight) >= Number(r.original_weight);
         
-        let resolved = '';
-        if (rawLoc !== null) {
-            resolved = rawLoc;
-        } else {
-            resolved = (r.color_loc || r.mat_loc || '').trim();
+        if (rawLoc !== null && rawLoc !== '') {
+            return rawLoc;
         }
         
-        if (resolved) {
-            return resolved;
+        if (isNguyen) {
+            const fallback = (r.color_loc || r.mat_loc || '').trim();
+            return fallback || 'Chưa Phân Vị Trí Cây Nguyên';
         } else {
-            return isNguyen ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
+            return 'Chưa Phân Vị Trí Cây Lẻ';
         }
     }
 
