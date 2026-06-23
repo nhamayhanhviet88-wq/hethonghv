@@ -1847,7 +1847,7 @@ function _qkvShowShelfDetailModal(shelfName) {
                 </div>
 
                 <!-- Materials & Colors List -->
-                <div id="qkvModalListContainer" style="display:flex; flex-direction:column; gap:16px; max-height:450px; overflow-y:auto; padding-right:6px;">
+                <div id="qkvModalListContainer" style="display:flex; flex-direction:column; gap:16px; padding-bottom:12px;">
         `;
 
         Object.keys(materialGroups).forEach(function(matName) {
