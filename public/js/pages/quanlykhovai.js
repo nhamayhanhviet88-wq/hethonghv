@@ -782,11 +782,28 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
 
                                 var locText = '';
                                 if (!r.is_called) {
+                                    var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : '';
+                                    var isPredefined = _qkv.locations.some(l => l.name === rollLoc);
+                                    
+                                    var actualLoc = '';
+                                    if (rollLoc && isPredefined) {
+                                        actualLoc = rollLoc;
+                                    } else {
+                                        var isNguyen = Number(r.w) >= Number(r.ow);
+                                        if (isNguyen) {
+                                            var itemLoc = (item.location || '').trim();
+                                            var isItemLocPredefined = _qkv.locations.some(l => l.name === itemLoc);
+                                            if (itemLoc && isItemLocPredefined) {
+                                                actualLoc = itemLoc;
+                                            }
+                                        }
+                                    }
+                                    
                                     if (isUnassigned === 'waiting') {
-                                        var displayLoc = r.loc || item.location || 'Chưa xếp kệ';
+                                        var displayLoc = actualLoc || 'Chưa xếp kệ';
                                         locText = ` <span style="font-size:10px; background:#e2e8f0; color:#475569; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(displayLoc)}</span>`;
-                                    } else if (r.loc && r.loc !== item.location) {
-                                        locText = ` <span style="font-size:10px; background:#e2e8f0; color:#475569; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(r.loc)}</span>`;
+                                    } else if (actualLoc && group && group.name && actualLoc !== group.name) {
+                                        locText = ` <span style="font-size:10px; background:#e2e8f0; color:#475569; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(actualLoc)}</span>`;
                                     }
                                 }
 
