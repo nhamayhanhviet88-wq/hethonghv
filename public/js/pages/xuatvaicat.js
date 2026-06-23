@@ -375,9 +375,14 @@ function _xvcRender() {
 
             var rollsHtml = g.rolls.map(r => {
                 var locBadge = r.location ? `<span class="xvc-location-badge">📍 ${r.location}</span>` : `<span class="xvc-location-badge empty">📍 Chưa có kệ</span>`;
+                var imgHtml = '';
+                if (r.image_path) {
+                    imgHtml = `<img src="${r.image_path}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;margin-right:8px" onclick="event.preventDefault(); event.stopPropagation(); window.open('${r.image_path}', '_blank')">`;
+                }
                 return `
                     <div class="xvc-roll-item">
                         <div class="xvc-roll-main">
+                            ${imgHtml}
                             <span class="xvc-roll-code" title="Cây ID: ${r.roll_id}">${r.roll_code}</span>
                             <div class="xvc-roll-fabric">
                                 <span class="name">${r.material_name} — ${r.color_name}</span>
@@ -429,11 +434,15 @@ function _xvcRender() {
         var tableRows = listArray.map((r, i) => {
             var locBadge = r.location ? `<span class="xvc-location-badge">📍 ${r.location}</span>` : `<span class="xvc-location-badge empty">📍 Chưa kệ</span>`;
             var pulseClass = r._is_new ? 'style="background:rgba(16,185,129,0.08);"' : '';
+            var imgHtml = '';
+            if (r.image_path) {
+                imgHtml = `<img src="${r.image_path}" style="width:30px;height:30px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e1;cursor:pointer;vertical-align:middle;margin-right:6px" onclick="event.preventDefault(); event.stopPropagation(); window.open('${r.image_path}', '_blank')">`;
+            }
             return `
                 <tr ${pulseClass}>
                     <td style="font-weight:700; text-align:center; color:var(--gray-400);">${i + 1}</td>
                     <td>${locBadge}</td>
-                    <td><span class="xvc-roll-code">${r.roll_code}</span></td>
+                    <td>${imgHtml}<span class="xvc-roll-code">${r.roll_code}</span></td>
                     <td style="font-weight:700; color:var(--navy);">${r.material_name} — ${r.color_name}</td>
                     <td style="font-weight:800; color:var(--navy); text-align:right;">${Number(r.roll_weight).toFixed(1)} kg</td>
                     <td style="color:var(--gray-400); text-align:right;">${Number(r.original_weight).toFixed(1)} kg</td>

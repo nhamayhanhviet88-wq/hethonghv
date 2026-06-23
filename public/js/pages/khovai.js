@@ -384,7 +384,14 @@ async function _kvShowRollDetail(rollId) {
         // Part 1: Info card
         var thS = 'padding:6px 12px;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;width:160px;border-bottom:1px solid var(--gray-100)';
         var tdS = 'padding:6px 12px;border-bottom:1px solid var(--gray-100)';
-        var body = '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:16px">';
+        var body = '';
+        if (rl.image_path) {
+            body += '<div style="text-align:center;margin-bottom:16px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:12px;padding:8px;position:relative;overflow:hidden;max-width:100%">';
+            body += '  <img src="' + rl.image_path + '" style="max-height:240px;max-width:100%;object-fit:contain;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1)">';
+            body += '  <div style="font-size:11px;color:#64748b;font-weight:700;margin-top:6px">📷 HÌNH ẢNH ĐỊNH DANH CÂY VẢI</div>';
+            body += '</div>';
+        }
+        body += '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:16px">';
         body += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
         body += '<tr><td style="' + thS + '">T\u00caN C\u00c2Y V\u1ea2I</td><td style="' + tdS + '"><b style="color:#0d9488;font-size:14px">' + label + '</b></td></tr>';
         body += '<tr><td style="' + thS + '">ID CU\u1ed8N V\u1ea2I</td><td style="' + tdS + '"><code style="background:#e2e8f0;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:1px">' + (rl.roll_code||'N/A') + '</code></td></tr>';

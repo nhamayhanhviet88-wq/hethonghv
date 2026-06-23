@@ -1515,9 +1515,15 @@ async function _bpcOpenCutModal(recordId) {
                     locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+roll.roll_loc_name+'</div>';
                 }
 
+                var imgPreview = '';
+                if (roll.image_path) {
+                    imgPreview = '<img src="' + roll.image_path + '" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;flex-shrink:0" onclick="event.preventDefault(); event.stopPropagation(); window.open(\'' + roll.image_path + '\', \'_blank\')">';
+                }
+
                 bh += '<label style="display:block;padding:10px 14px;border-radius:10px;margin-bottom:6px;cursor:'+(roll.locked?'not-allowed':'pointer')+';'+opacity+borderStyle+'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled && !'+isReserved+')this.style.borderColor=\'#dc2626\'" onmouseout="if(!'+isReserved+')this.style.borderColor=\'#e2e8f0\'">';
                 bh += '  <div style="display:flex;align-items:center;gap:10px">';
                 bh += '    <input type="checkbox" class="_bpcRollCb" value="' + roll.id + '" data-weight="' + roll.weight + '"' + disabled + checked + ' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
+                if (imgPreview) bh += '    ' + imgPreview;
                 bh += '    <span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>' + locBadge + '</span>';
                 bh += lockInfo;
                 bh += '  </div>';
@@ -1842,7 +1848,13 @@ async function _bpcOpenDetail(recordId) {
                     }
                     locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
                 }
-                h += '<div style="padding:8px 14px;border:1.5px solid #f1f5f9;border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#1e293b;display:flex;flex-direction:column;align-items:flex-start">' + (rl.label || rl.roll_code || 'Cây '+(idx+1)) + locBadge + '</div>';
+                var imgHtml = '';
+                if (rl.image_path) {
+                    imgHtml = '<img src="' + rl.image_path + '" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;flex-shrink:0;margin-right:8px" onclick="event.preventDefault(); event.stopPropagation(); window.open(\'' + rl.image_path + '\', \'_blank\')">';
+                }
+                h += '<div style="padding:8px 14px;border:1.5px solid #f1f5f9;border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#1e293b;display:flex;align-items:center">';
+                if (imgHtml) h += imgHtml;
+                h += '<div style="flex:1;display:flex;flex-direction:column;align-items:flex-start">' + (rl.label || rl.roll_code || 'Cây '+(idx+1)) + locBadge + '</div></div>';
             });
         } else {
             h += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Chưa có dữ liệu cây vải</div>';

@@ -1628,9 +1628,15 @@ async function mOpenCutModal(recordId){
                     resHtml += '</div>';
                 }
 
+                let imgHtml = '';
+                if (r.image_path) {
+                    imgHtml = '<img src="' + r.image_path + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15);flex-shrink:0" onclick="event.preventDefault(); event.stopPropagation(); window.open(\'' + r.image_path + '\',\'_blank\')">';
+                }
+
                 b+='<label style="display:block;padding:12px;border-radius:12px;margin-bottom:8px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+border+'">';
                 b+='  <div style="display:flex;align-items:center;gap:12px">';
                 b+='    <input type="checkbox" class="_mRollCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mRecalcKg()" style="width:22px;height:22px;accent-color:#ef4444">';
+                if (imgHtml) b+= imgHtml;
                 b+='    <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">'+r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</div>'+lk+'</div>';
                 b+='  </div>';
                 b+=resHtml;
@@ -1907,7 +1913,13 @@ async function mOpenDetail(recordId){
                     }
                     locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid '+bColor+'40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
                 }
-                h+='<div style="padding:10px 14px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#e2e8f0;display:flex;flex-direction:column;align-items:flex-start">'+(rl.label||rl.roll_code||'Cây '+(i+1))+locBadge+'</div>';
+                let imgHtml = '';
+                if (rl.image_path) {
+                    imgHtml = '<img src="' + rl.image_path + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;margin-right:10px" onclick="event.preventDefault(); event.stopPropagation(); window.open(\'' + rl.image_path + '\',\'_blank\')">';
+                }
+                h+='<div style="padding:10px 14px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#e2e8f0;display:flex;align-items:center">';
+                if (imgHtml) h+= imgHtml;
+                h+='<div style="flex:1;display:flex;flex-direction:column;align-items:flex-start">'+(rl.label||rl.roll_code||'Cây '+(i+1))+locBadge+'</div></div>';
             });
         } else {
             h+='<div style="text-align:center;padding:12px;color:#64748b;font-size:12px">Chưa có dữ liệu cây vải</div>';

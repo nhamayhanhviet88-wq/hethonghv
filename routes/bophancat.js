@@ -812,7 +812,7 @@ module.exports = async function(fastify) {
             const rollDetails = await db.all(`
                 SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name,
                        r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
-                       r.original_weight
+                       r.original_weight, r.image_path
                 FROM kv_rolls r
                 JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                 JOIN kv_materials m ON m.id = fc.material_id
@@ -823,7 +823,8 @@ module.exports = async function(fastify) {
             const rollSnapshot = rollDetails.map(r => ({
                 roll_id: r.id, weight: Number(r.weight), roll_code: r.roll_code,
                 label: (r.material_name || '') + ' - ' + (r.color_name || '') + ' - ' + Number(r.weight) + 'kg',
-                roll_loc_name: resolveRollLocationName(r)
+                roll_loc_name: resolveRollLocationName(r),
+                image_path: r.image_path
             }));
             await db.run(
                 `UPDATE cutting_records SET is_cutting = true, cutting_at = $1, cutting_by = $2, kg_start = $3, selected_roll_ids = $4, updated_at = $1 WHERE id = $5`,
@@ -1400,7 +1401,7 @@ module.exports = async function(fastify) {
             SELECT r.id, r.roll_code, r.weight, r.is_returned, r.locked_by_cutting_id,
                    m.name AS material_name, fc.color_name,
                    r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
-                   r.original_weight
+                   r.original_weight, r.image_path
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
@@ -1446,7 +1447,8 @@ module.exports = async function(fastify) {
             weight: Number(roll.weight),
             roll_code: roll.roll_code,
             label: (roll.material_name || '') + ' - ' + (roll.color_name || '') + ' - ' + Number(roll.weight) + 'kg',
-            roll_loc_name: resolveRollLocationName(roll)
+            roll_loc_name: resolveRollLocationName(roll),
+            image_path: roll.image_path
         };
         snapshot.push(newRollSnapshot);
         const newKgStart = Number(rec.kg_start) + Number(roll.weight);
@@ -1539,7 +1541,7 @@ module.exports = async function(fastify) {
         const phoiIdx = phoi_index !== undefined && phoi_index !== null ? Number(phoi_index) : 0;
 
         const rolls = await db.all(`
-            SELECT r.id, r.roll_code, r.weight, r.original_weight, r.locked_by_cutting_id,
+            SELECT r.id, r.roll_code, r.weight, r.original_weight, r.locked_by_cutting_id, r.image_path,
                    m.name AS material_name, fc.color_name,
                    u_lock.full_name AS locked_by_name,
                    cr_lock.product_name AS locked_product,
@@ -1601,7 +1603,8 @@ module.exports = async function(fastify) {
                 is_reserved_for_this_order: !!r.is_reserved_for_this_order,
                 kg_reserved: r.kg_reserved !== null ? Number(r.kg_reserved) : null,
                 label: r.material_name + ' - ' + r.color_name + ' - ' + Number(r.weight) + 'kg',
-                roll_loc_name: resolveRollLocationName(r)
+                roll_loc_name: resolveRollLocationName(r),
+                image_path: r.image_path
             }))
         };
     });
@@ -2627,7 +2630,7 @@ module.exports = async function(fastify) {
     fastify.get('/api/cutting/active-rolls', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             const rolls = await db.all(`
-                SELECT r.id AS roll_id, r.roll_code, r.weight AS roll_weight, r.original_weight,
+                SELECT r.id AS roll_id, r.roll_code, r.weight AS roll_weight, r.original_weight, r.image_path,
                        COALESCE(NULLIF(fc.location, ''), NULLIF(m.location, '')) AS location,
                        m.name AS material_name, fc.color_name,
                        cr.id AS cutting_id, cr.product_name, cr.order_quantity,

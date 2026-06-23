@@ -650,16 +650,23 @@
 
                 const rollsHtml = g.rolls.map(r => {
                     const locBadge = r.location ? `<span class="m-location-badge">📍 ${r.location}</span>` : `<span class="m-location-badge empty">Chưa kệ</span>`;
+                    let imgHtml = '';
+                    if (r.image_path) {
+                        imgHtml = `<img src="${r.image_path}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15);flex-shrink:0" onclick="event.preventDefault(); event.stopPropagation(); window.open('${r.image_path}', '_blank')">`;
+                    }
                     return `
                         <div class="m-roll-card">
                             <div class="m-roll-hdr">
                                 <span class="m-roll-code">${r.roll_code}</span>
                                 ${locBadge}
                             </div>
-                            <div class="m-roll-body">
-                                <div class="m-roll-fabric">
-                                    <span class="name">${r.material_name}</span>
-                                    <span class="desc">${r.color_name}</span>
+                            <div class="m-roll-body" style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-top:8px">
+                                <div style="display:flex;align-items:center;gap:10px;flex:1">
+                                    ${imgHtml}
+                                    <div class="m-roll-fabric">
+                                        <span class="name">${r.material_name}</span>
+                                        <span class="desc">${r.color_name}</span>
+                                    </div>
                                 </div>
                                 <div class="m-roll-weight">
                                     <div class="current">${Number(r.roll_weight).toFixed(1)} kg</div>
