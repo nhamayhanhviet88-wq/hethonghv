@@ -2207,7 +2207,7 @@ async function mOpenDetail(recordId){
 }
 
 async function mOpenDoneModal(recordId, isRefresh = false){
-    const r=mMine.find(x=>x.id===recordId);if(!r)return;
+    let r=mMine.find(x=>x.id===recordId);if(!r)return;
     // If multi-cut group → open GROUP done modal
     if(r.multi_cut_group_id){return mOpenGroupDoneModal(r.multi_cut_group_id, isRefresh);}
     if(window._mBusy && !isRefresh)return;
@@ -2235,6 +2235,32 @@ async function mOpenDoneModal(recordId, isRefresh = false){
         liveRolls = rollsRes.rolls || [];
     } catch(e) {
         console.error('[BPC] Fetch live rolls error:', e);
+    }
+
+    // Auto-sync called rolls that have arrived
+    let hasSyncedNewRoll = false;
+    try {
+        const snapRolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []);
+        const snapIds = new Set(snapRolls.map(sr => sr.roll_id));
+        for (const live of liveRolls) {
+            if (live.is_reserved_for_this_order && !snapIds.has(live.id)) {
+                console.log('[BPC] Auto-syncing arrived called roll:', live.id);
+                await mApi('/api/cutting/records/' + recordId + '/add-roll', 'POST', { roll_id: live.id });
+                hasSyncedNewRoll = true;
+            }
+        }
+    } catch(err) {
+        console.error('[BPC] Auto-sync called rolls error:', err);
+    }
+
+    if (hasSyncedNewRoll) {
+        try {
+            await mLoadAll();
+            const updated = mMine.find(x => x.id === recordId);
+            if (updated) r = updated;
+        } catch(err) {
+            console.error('[BPC] Reload mine list after auto-sync error:', err);
+        }
     }
 
     let rolls = [];
@@ -2338,10 +2364,13 @@ async function mOpenDoneModal(recordId, isRefresh = false){
             }
             locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid '+bColor+'40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
         }
+        const isArrivedCalled = rl.reservations && rl.reservations.some(res => res.dht_order_id === r.dht_order_id && res.res_status === 'arrived');
+        const calledBadge = isArrivedCalled ? '<span style="background:#10b981;color:#fff;font-size:9.5px;padding:2px 6px;border-radius:6px;font-weight:800;margin-top:4px;display:inline-block">✨ CÂY GỌI THÊM ĐÃ VỀ</span>' : '';
+
         sheetHtml+='<div style="border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px;margin-bottom:8px">';
         sheetHtml+='<label style="display:flex;align-items:center;gap:12px;cursor:pointer">';
         sheetHtml+='<input type="checkbox" class="_mDoneRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#3b82f6">';
-        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(idx+1)+'. '+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+'</span>';
+        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(idx+1)+'. '+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+calledBadge+'</span>';
         sheetHtml+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
         sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRoll('+recordId+','+rl.roll_id+')" style="border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
         sheetHtml+=mRenderRollReservations(rl, r.order_code);

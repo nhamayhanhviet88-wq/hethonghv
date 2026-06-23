@@ -2087,6 +2087,33 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
         console.error('[BPC] Fetch live rolls error:', e);
     }
 
+    // Auto-sync called rolls that have arrived
+    var hasSyncedNewRoll = false;
+    try {
+        var snapRolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []);
+        var snapIds = new Set(snapRolls.map(function(sr) { return sr.roll_id; }));
+        for (var i = 0; i < liveRolls.length; i++) {
+            var live = liveRolls[i];
+            if (live.is_reserved_for_this_order && !snapIds.has(live.id)) {
+                console.log('[BPC] Auto-syncing arrived called roll:', live.id);
+                await apiCall('/api/cutting/records/' + recordId + '/add-roll', 'POST', { roll_id: live.id });
+                hasSyncedNewRoll = true;
+            }
+        }
+    } catch(err) {
+        console.error('[BPC] Auto-sync called rolls error:', err);
+    }
+
+    if (hasSyncedNewRoll) {
+        try {
+            await _bpcLoadRecords();
+            var updated = _bpc.records.find(function(x) { return x.id === recordId; });
+            if (updated) r = updated;
+        } catch(err) {
+            console.error('[BPC] Reload records list after auto-sync error:', err);
+        }
+    }
+
     var rolls = [];
     try {
         var snapRolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []);
@@ -2190,10 +2217,13 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                 }
                 locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
             }
+            var isArrivedCalled = rl.reservations && rl.reservations.some(function(res) { return res.dht_order_id === r.dht_order_id && res.res_status === 'arrived'; });
+            var calledBadge = isArrivedCalled ? '<span style="background:#10b981;color:#fff;font-size:9.5px;padding:2px 6px;border-radius:6px;font-weight:800;margin-top:4px;display:inline-block">✨ CÂY GỌI THÊM ĐÃ VỀ</span>' : '';
+
             h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
             h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
             h += '<input type="checkbox" class="_bpcDoneRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#3b82f6">';
-            h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#1e293b">' + (idx+1) + '. ' + (rl.label || 'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
+            h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#1e293b">' + (idx+1) + '. ' + (rl.label || 'Cây '+(idx+1)) + '</span>' + locBadge + calledBadge + '</span>';
             h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
             h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRoll(' + recordId + ', ' + rl.roll_id + ')" style="border:1.5px solid #dc2626;background:rgba(220,38,38,0.06);color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;line-height:1.2;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
             h += _bpcRenderRollReservations(rl, r.order_code);
