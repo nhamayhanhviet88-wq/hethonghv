@@ -1090,14 +1090,8 @@
                 if (collapsedShelves[group.name] !== undefined) {
                     isCollapsed = collapsedShelves[group.name] === true;
                 } else {
-                    // Default states
-                    if (group.name === 'Chưa Phân Vị Trí Cây Lẻ' || group.name === 'Chưa Phân Vị Trí Cây Nguyên') {
-                        isCollapsed = true;
-                    } else if (isUnassigned) {
-                        isCollapsed = false;
-                    } else {
-                        isCollapsed = true;
-                    }
+                    // Default states: collapse all on mobile by default
+                    isCollapsed = true;
                 }
             }
 
