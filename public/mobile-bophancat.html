@@ -2106,7 +2106,7 @@ function mOpenDoneModal(recordId, isRefresh = false){
         sheetHtml+='<input type="checkbox" class="_mDoneRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#3b82f6">';
         sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+'</span>';
         sheetHtml+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
-        sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRoll('+recordId+','+rl.roll_id+')" style="border:none;background:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0" title="Xóa cây vải">🗑️</button></label>';
+        sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRoll('+recordId+','+rl.roll_id+')" style="border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
         sheetHtml+='<div id="_mDoneRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         sheetHtml+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
         sheetHtml+='<input id="_mDoneRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)">';
@@ -2428,7 +2428,7 @@ function mOpenGroupDoneModal(groupId, isRefresh = false){
         sheetHtml+='<input type="checkbox" class="_mGRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mGDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#8b5cf6">';
         sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+'</span>';
         sheetHtml+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
-        sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRollGroup('+groupId+','+rl.roll_id+')" style="border:none;background:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0" title="Xóa cây vải">🗑️</button></label>';
+        sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRollGroup('+groupId+','+rl.roll_id+')" style="border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
         sheetHtml+='<div id="_mGRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         sheetHtml+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
         sheetHtml+='<input id="_mGRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mGDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#c4b5fd;background:rgba(255,255,255,0.06)">';
@@ -2967,10 +2967,10 @@ function mCompressImage(file, callback) {
 
 // ========== DYNAMIC ADD/REMOVE ROLLS (Mobile) ==========
 async function mRemoveRoll(recordId, rollId) {
-    if (!confirm('Bạn có chắc chắn muốn xóa cây vải này ra khỏi đơn cắt?')) return;
+    if (!confirm('Bạn có chắc chắn không cắt cây vải này?')) return;
     try {
         const res = await mApi('/api/cutting/records/' + recordId + '/remove-roll', 'POST', { roll_id: rollId });
-        mToast('✅ Đã xóa cây vải!');
+        mToast('✅ Đã chọn không cắt cây vải!');
         if (window._mDoneData && window._mDoneData.recordId === recordId) {
             window._mDoneData.rolls = res.selected_roll_ids;
             window._mDoneData.kgStart = Number(res.kg_start) || 0;
@@ -2982,7 +2982,7 @@ async function mRemoveRoll(recordId, rollId) {
         }
         mOpenDoneModal(recordId, true);
     } catch (e) {
-        mToast(e.message || 'Lỗi khi xóa cây vải', false);
+        mToast(e.message || 'Lỗi khi chọn không cắt cây vải', false);
     }
 }
 
@@ -3035,12 +3035,12 @@ async function mDoAddRoll(recordId) {
 }
 
 async function mRemoveRollGroup(groupId, rollId) {
-    if (!confirm('Bạn có chắc chắn muốn xóa cây vải này ra khỏi nhóm cắt?')) return;
+    if (!confirm('Bạn có chắc chắn không cắt cây vải này khỏi nhóm?')) return;
     const refRecord = window._mGDone && window._mGDone.records[0];
     if (!refRecord) return;
     try {
         const res = await mApi('/api/cutting/records/' + refRecord.id + '/remove-roll', 'POST', { roll_id: rollId });
-        mToast('✅ Đã xóa cây vải khỏi nhóm!');
+        mToast('✅ Đã chọn không cắt cây vải khỏi nhóm!');
         if (window._mGDone && window._mGDone.groupId === groupId) {
             window._mGDone.rolls = res.selected_roll_ids;
             window._mGDone.kgStart = Number(res.kg_start) || 0;
@@ -3054,7 +3054,7 @@ async function mRemoveRollGroup(groupId, rollId) {
         });
         mOpenGroupDoneModal(groupId, true);
     } catch (e) {
-        mToast(e.message || 'Lỗi khi xóa cây vải', false);
+        mToast(e.message || 'Lỗi khi chọn không cắt cây vải', false);
     }
 }
 

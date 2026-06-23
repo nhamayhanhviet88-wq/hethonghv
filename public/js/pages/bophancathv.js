@@ -2062,7 +2062,7 @@ function _bpcOpenDoneModal(recordId, isRefresh = false) {
             h += '<input type="checkbox" class="_bpcDoneRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#3b82f6">';
             h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#1e293b">' + (rl.label || 'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
             h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
-            h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRoll(' + recordId + ', ' + rl.roll_id + ')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0;line-height:1" title="Xóa cây vải">🗑️</button></label>';
+            h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRoll(' + recordId + ', ' + rl.roll_id + ')" style="border:1.5px solid #dc2626;background:rgba(220,38,38,0.06);color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;line-height:1.2;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
             h += '<div id="_bpcDoneRollInput_' + idx + '" style="display:none;margin-top:8px;padding-left:28px">';
             h += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn lại:</span>';
             h += '<input id="_bpcDoneRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" placeholder="0" oninput="_bpcDoneRecalc()" style="width:70px;padding:4px 8px;border:1.5px solid #3b82f6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
@@ -2600,7 +2600,7 @@ function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
         h += '<input type="checkbox" class="_bpcGRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcGDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#8b5cf6">';
         h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (rl.label||'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
         h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
-        h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRollGroup(\'' + groupId + '\', ' + rl.roll_id + ')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0;line-height:1" title="Xóa cây vải">🗑️</button></label>';
+        h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRollGroup(\'' + groupId + '\', ' + rl.roll_id + ')" style="border:1.5px solid #dc2626;background:rgba(220,38,38,0.06);color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;line-height:1.2;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
         h += '<div id="_bpcGRollInp_' + idx + '" style="display:none;margin-top:8px;padding-left:28px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn:</span>';
         h += '<input id="_bpcGRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" oninput="_bpcGDoneValidKg(this,' + w + ')" style="width:70px;padding:4px 8px;border:1.5px solid #8b5cf6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
         h += '<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
@@ -2828,10 +2828,10 @@ async function _bpcSubmitGDone() {
 
 // ========== DYNAMIC ADD/REMOVE ROLLS (Desktop) ==========
 async function _bpcRemoveRoll(recordId, rollId) {
-    if (!confirm('Bạn có chắc chắn muốn xóa cây vải này ra khỏi đơn cắt?')) return;
+    if (!confirm('Bạn có chắc chắn không cắt cây vải này?')) return;
     try {
         const res = await apiCall('/api/cutting/records/' + recordId + '/remove-roll', 'POST', { roll_id: rollId });
-        showToast('✅ Đã xóa cây vải!');
+        showToast('✅ Đã chọn không cắt cây vải!');
         if (window._bpcDoneData && window._bpcDoneData.recordId === recordId) {
             window._bpcDoneData.rolls = res.selected_roll_ids;
             window._bpcDoneData.kgStart = Number(res.kg_start) || 0;
@@ -2843,7 +2843,7 @@ async function _bpcRemoveRoll(recordId, rollId) {
         }
         _bpcOpenDoneModal(recordId, true);
     } catch (e) {
-        showToast(e.message || 'Lỗi khi xóa cây vải', 'error');
+        showToast(e.message || 'Lỗi khi chọn không cắt cây vải', 'error');
     }
 }
 
@@ -2896,12 +2896,12 @@ async function _bpcDoAddRoll(recordId) {
 }
 
 async function _bpcRemoveRollGroup(groupId, rollId) {
-    if (!confirm('Bạn có chắc chắn muốn xóa cây vải này ra khỏi nhóm cắt?')) return;
+    if (!confirm('Bạn có chắc chắn không cắt cây vải này khỏi nhóm?')) return;
     const refRecord = window._bpcGDone && window._bpcGDone.records[0];
     if (!refRecord) return;
     try {
         const res = await apiCall('/api/cutting/records/' + refRecord.id + '/remove-roll', 'POST', { roll_id: rollId });
-        showToast('✅ Đã xóa cây vải khỏi nhóm!');
+        showToast('✅ Đã chọn không cắt cây vải khỏi nhóm!');
         if (window._bpcGDone && window._bpcGDone.groupId === groupId) {
             window._bpcGDone.rolls = res.selected_roll_ids;
             window._bpcGDone.kgStart = Number(res.kg_start) || 0;
@@ -2915,7 +2915,7 @@ async function _bpcRemoveRollGroup(groupId, rollId) {
         });
         _bpcOpenGroupDoneModal(groupId, true);
     } catch (e) {
-        showToast(e.message || 'Lỗi khi xóa cây vải', 'error');
+        showToast(e.message || 'Lỗi khi chọn không cắt cây vải', 'error');
     }
 }
 

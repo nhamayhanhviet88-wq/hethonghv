@@ -1506,9 +1506,18 @@ module.exports = async function(fastify) {
         }
 
         const removedRoll = snapshot[idx];
+        const rollInfo = await db.get(
+            `SELECT weight, original_weight FROM kv_rolls WHERE id = $1`,
+            [roll_id]
+        );
+        let newLocation = '';
+        if (rollInfo) {
+            const isOriginal = Number(rollInfo.weight) >= Number(rollInfo.original_weight);
+            newLocation = isOriginal ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
+        }
         await db.run(
-            `UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = '' WHERE id = $1 AND locked_by_cutting_id = $2`,
-            [roll_id, lockId]
+            `UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = $1 WHERE id = $2 AND locked_by_cutting_id = $3`,
+            [newLocation, roll_id, lockId]
         );
 
         snapshot.splice(idx, 1);
@@ -1519,7 +1528,7 @@ module.exports = async function(fastify) {
             [JSON.stringify(snapshot), newKgStart, now, targetIds]
         );
 
-        const historyDetail = `🗑️ Xóa cây vải: ${removedRoll.roll_code || removedRoll.roll_id} (${removedRoll.weight}kg)`;
+        const historyDetail = `❌ Không cắt cây vải: ${removedRoll.roll_code || removedRoll.roll_id} (${removedRoll.weight}kg)`;
         for (const tId of targetIds) {
             await db.run(
                 `INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at)
