@@ -1526,7 +1526,8 @@ module.exports = async function(fastify) {
             roll_code: roll.roll_code,
             label: (roll.material_name || '') + ' - ' + (roll.color_name || '') + ' - ' + Number(roll.weight) + 'kg',
             roll_loc_name: resolveRollLocationName(roll),
-            image_path: roll.image_path
+            image_path: roll.image_path,
+            is_added_roll: true
         };
         snapshot.push(newRollSnapshot);
         const newKgStart = Number(rec.kg_start) + Number(roll.weight);

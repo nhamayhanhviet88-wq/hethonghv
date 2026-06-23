@@ -2060,14 +2060,6 @@ async function _bpcOpenDetail(recordId) {
 async function _bpcOpenDoneModal(recordId, isRefresh = false) {
     var r = _bpc.records.find(function(x) { return x.id === recordId; });
     if (!r) return;
-    function isCalledRollForThisOrder(rl, orderCode) {
-        var calledOrders = rl.called_for_orders || [];
-        if (typeof calledOrders === 'string') {
-            try { calledOrders = JSON.parse(calledOrders); } catch(e) { calledOrders = []; }
-        }
-        if (!Array.isArray(calledOrders)) calledOrders = [];
-        return calledOrders.indexOf(orderCode) >= 0;
-    }
     // Multi-cut group → open group done modal
     if (r.multi_cut_group_id) { return _bpcOpenGroupDoneModal(r.multi_cut_group_id, isRefresh); }
     
@@ -2147,7 +2139,8 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                     available: live.available,
                     called_for_orders: live.called_for_orders,
                     is_original_tree: live.is_original_tree,
-                    is_newly_synced: isNewlySynced
+                    is_newly_synced: isNewlySynced,
+                    is_added_roll: sr.is_added_roll || false
                 };
             } else {
                 return {
@@ -2161,7 +2154,8 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                     available: sr.weight,
                     called_for_orders: [],
                     is_original_tree: sr.is_original_tree || false,
-                    is_newly_synced: isNewlySynced
+                    is_newly_synced: isNewlySynced,
+                    is_added_roll: sr.is_added_roll || false
                 };
             }
         });
@@ -2235,7 +2229,7 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                 }
                 locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
             }
-            var isArrivedCalled = isCalledRollForThisOrder(rl, r.order_code) || rl.is_newly_synced;
+            var isArrivedCalled = rl.is_added_roll || rl.is_newly_synced;
             var calledBadge = isArrivedCalled ? '<span style="background:#10b981;color:#fff;font-size:9.5px;padding:2px 6px;border-radius:6px;font-weight:800;margin-top:4px;display:inline-block">✨ CÂY GỌI THÊM ĐÃ VỀ</span>' : '';
 
             h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
