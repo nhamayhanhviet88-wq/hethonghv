@@ -716,7 +716,8 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     var icon = isUnassigned ? '⚠️' : '📍';
     var descHtml = group.description ? `<div style="font-size:10px;color:#64748b;margin-top:2px;">${escapeHTML(group.description)}</div>` : '';
     
-    var countBadge = group.items.length > 0 ? `<span class="qkv-card-count">${group.items.length} mặt hàng</span>` : '';
+    var totalRolls = group.items.reduce(function(sum, item) { return sum + (Number(item.so_cuc) || 0); }, 0);
+    var countBadge = group.items.length > 0 ? `<span class="qkv-card-count">${group.items.length} mặt hàng / ${totalRolls} cây</span>` : '';
     if (searchKey && matchCount > 0) {
         countBadge = `<span class="qkv-card-count" style="background:#fef3c7;color:#d97706;">Tìm thấy ${matchCount}</span>`;
     }

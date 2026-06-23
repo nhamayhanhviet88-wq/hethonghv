@@ -914,12 +914,8 @@
             var titleClass = isUnassigned ? 'card-title unassigned-title' : 'card-title';
             var countText = '';
             if (group.items.length > 0) {
-                if (isUnassigned) {
-                    var totalRolls = group.items.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
-                    countText = `<span class="card-count">Tổng ${totalRolls} cây</span>`;
-                } else {
-                    countText = `<span class="card-count">${group.items.length} mặt hàng</span>`;
-                }
+                var totalRolls = group.items.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
+                countText = `<span class="card-count">${group.items.length} mặt hàng / ${totalRolls} cây</span>`;
             }
             if (searchKey && matchCount > 0) {
                 countText = `<span class="card-count" style="background:#fbbf24; color:#78350f;">Tìm thấy ${matchCount}</span>`;
