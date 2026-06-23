@@ -901,20 +901,19 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                     <div class="roll-row-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #e2e8f0;">
                                         <div style="flex:1; min-width:0;">
                                             <div style="font-size:12px; font-weight:700; color:#334155; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-                                                <span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
-                                                    ${_qkvCanViewBill() ? (
+                                                <span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">                                                    ${_qkvCanViewBill() ? (
                                                         r.source_import_id ? `
                                                             <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
-                                                                Cây ${r.w}kg
+                                                                ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
                                                             </span>
                                                         ` : `
                                                             <span style="cursor:pointer; color:#334155;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
-                                                                Cây ${r.w}kg
+                                                                ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
                                                             </span>
                                                         `
                                                     ) : `
                                                         <span style="color:#334155;">
-                                                            Cây ${r.w}kg
+                                                            ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
                                                         </span>
                                                     `}
                                                     ${locText}

@@ -868,68 +868,35 @@ module.exports = async function (fastify) {
                              AND r.weight = r.original_weight), 0) AS cay_nguyen,
                          COALESCE((
                         SELECT json_agg(json_build_object(
-                            'id', r.id, 
-                            'w', r.weight, 
-                            'ow', r.original_weight, 
-                            'loc', r.location, 
-                            'code', r.roll_code, 
-                            'img', r.image_path,
-                            'locked_by_cutting_id', r.locked_by_cutting_id,
-                            'source_import_id', r.source_import_id,
-                            'active_cut', (
-                                SELECT json_build_object(
-                                    'id', cr.id,
-                                    'product_name', cr.product_name,
-                                    'order_code', o.order_code,
-                                    'is_cut_done', cr.is_cut_done,
-                                    'phoi_index', COALESCE(cr.phoi_index, 0),
-                                    'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = cr.dht_order_id AND it2.id <= cr.order_item_id), 1)
-                                )
-                                FROM cutting_records cr
-                                LEFT JOIN dht_orders o ON o.id = cr.dht_order_id
-                                WHERE cr.id = r.locked_by_cutting_id AND cr.is_cut_done = false
-                            ),
+                            'id', 'call_' || res.id,
+                            'w', COALESCE(res.call_amount, 0),
+                            'ow', 0,
+                            'loc', 'Chờ về',
+                            'code', 'Yêu cầu gọi vải (' || COALESCE(res.call_trees, 0) || ' cây)',
+                            'is_called', true,
                             'active_reservations', (
                                 SELECT json_agg(json_build_object(
-                                    'order_id', res.dht_order_id,
-                                    'order_code', o.order_code,
-                                    'status', res.status,
-                                    'res_id', res.id,
-                                    'phoi_index', COALESCE(res.phoi_index, 0),
-                                    'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id), 1)
+                                    'order_id', r_all.dht_order_id,
+                                    'order_code', o_all.order_code,
+                                    'status', r_all.status,
+                                    'res_id', r_all.id,
+                                    'phoi_index', COALESCE(r_all.phoi_index, 0),
+                                    'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = r_all.dht_order_id AND it2.id <= r_all.item_id), 1)
                                 ))
-                                FROM qlx_fabric_reservations res
-                                LEFT JOIN dht_orders o ON o.id = res.dht_order_id
-                                WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
+                                FROM qlx_fabric_reservations r_all
+                                JOIN dht_orders o_all ON o_all.id = r_all.dht_order_id
+                                WHERE (r_all.id = res.id OR r_all.linked_call_id = res.id)
+                                  AND r_all.status = 'reserved'
                             )
-                        ) ORDER BY r.weight DESC)
-                        FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0
-                    ), '[]') AS roll_weights,
-                    (
-                       SELECT json_agg(json_build_object(
-                           'id', 'call_' || res.id,
-                           'w', COALESCE(res.call_amount, 0),
-                           'ow', 0,
-                           'loc', 'Chờ về',
-                           'code', 'Yêu cầu gọi vải (' || COALESCE(res.call_trees, 0) || ' cây)',
-                           'is_called', true,
-                           'active_reservations', json_build_array(json_build_object(
-                               'order_id', res.dht_order_id,
-                               'order_code', o.order_code,
-                               'status', res.status,
-                               'res_id', res.id,
-                               'phoi_index', COALESCE(res.phoi_index, 0),
-                               'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id), 1)
-                           ))
-                       ))
-                       FROM qlx_fabric_reservations res
-                       LEFT JOIN dht_orders o ON o.id = res.dht_order_id
-                       WHERE res.roll_id IS NULL 
-                         AND res.status = 'reserved' 
-                         AND res.reservation_type IN ('new_call', 'linked_call')
-                         AND UPPER(res.material_name) = UPPER(m.name)
-                         AND UPPER(res.color_name) = UPPER(fc.color_name)
-                    ) AS pending_calls
+                        ))
+                        FROM qlx_fabric_reservations res
+                        LEFT JOIN dht_orders o ON o.id = res.dht_order_id
+                        WHERE res.roll_id IS NULL 
+                          AND res.status = 'reserved' 
+                          AND res.reservation_type = 'new_call'
+                          AND UPPER(res.material_name) = UPPER(m.name)
+                          AND UPPER(res.color_name) = UPPER(fc.color_name)
+                     ) AS pending_calls
             FROM kv_fabric_colors fc
             JOIN kv_materials m ON m.id = fc.material_id
             JOIN kv_warehouses w ON w.id = m.warehouse_id
