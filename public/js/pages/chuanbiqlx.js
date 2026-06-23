@@ -737,7 +737,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     var lbl = ex.reservation_type === 'from_stock'
                         ? '📦 ' + (ex.material_name||ph.material_name||'') + ' - ' + (ex.color_name||ph.color_name||'') + ': ' + ex.kg_reserved + unitLabel
                         : (ex.reservation_type === 'linked_call'
-                            ? '📎 Liên kết: ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name) + (ex.linked_from_order_code ? ' (từ 🔖 ' + ex.linked_from_order_code + ')' : '')
+                            ? '📎 Liên kết: ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name)
                             : '📞 ' + (ex.call_content || ex.material_name + ' - ' + ex.color_name));
                     // Build inline date + confirmer
                     var inlineDate = '';
@@ -781,9 +781,11 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                         html += '<button onclick="_qlxFabRelease(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:9px;cursor:pointer;color:#dc2626;font-weight:600;white-space:nowrap">🔓 Hủy</button>';
                     }
                     html += '</div>';
-                    // Show linked orders for new_call reservations
+                    // Show linked orders for new_call / linked_call reservations
                     if (ex.reservation_type === 'new_call' && ex.linked_order_codes) {
                         html += '<div style="font-size:9px;color:#7c3aed;margin-top:3px;padding-left:28px;font-weight:600">🔗 Đã liên kết: ' + ex.linked_order_codes + ' (' + (ex.linked_count||0) + ' đơn)</div>';
+                    } else if (ex.reservation_type === 'linked_call' && ex.linked_from_order_code) {
+                        html += '<div style="font-size:9px;color:#7c3aed;margin-top:3px;padding-left:28px;font-weight:600">🔗 Đã liên kết: ' + ex.linked_from_order_code + '</div>';
                     }
                     html += '</div>';
                 });
