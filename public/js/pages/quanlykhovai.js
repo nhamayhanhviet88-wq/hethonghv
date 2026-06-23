@@ -100,7 +100,9 @@ async function renderQuanlykhovaiPage(content) {
             '.qkv-btn-qr:hover { opacity: 0.95; transform: translateY(-1px); }',
             
             // Layout Grid
-            '.qkv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 20px; align-items: start; }',
+            '.qkv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 20px; align-items: start; margin-bottom: 25px; }',
+            '.qkv-section-title { font-size: 15px; font-weight: 800; color: #1e293b; margin: 24px 0 12px 0; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.5px; }',
+            '.qkv-section-title:first-child { margin-top: 0; }',
             
             // Shelf Cards
             '.qkv-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.01), 0 2px 4px -1px rgba(0,0,0,0.01); overflow: hidden; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }',
@@ -282,7 +284,7 @@ async function renderQuanlykhovaiPage(content) {
                 </div>
                 
                 <!-- Map / Grid of locations -->
-                <div class="qkv-grid" id="qkvGrid">
+                <div id="qkvGrid">
                     <!-- Cards will be rendered here -->
                 </div>
             </div>
@@ -647,38 +649,44 @@ function _qkvRenderMap() {
     var html = '';
     var searchKey = (_qkv.searchText || '').toLowerCase().trim();
     
-    // 1. RENDER PREDEFINED LOCATION CARDS (Các Kệ)
+    // 1. SECTION 1: PREDEFINED LOCATION CARDS (Các Kệ)
+    var htmlShelves = '';
     _qkv.locations.forEach(function(loc) {
         var group = groups[loc.name] || { items: [] };
-        var cardHtml = _qkvBuildCardHtml(group, false, searchKey);
-        html += cardHtml;
+        htmlShelves += _qkvBuildCardHtml(group, false, searchKey);
     });
-
-    // 2. RENDER WAITING/CUTTING CARD (Các Cây Chờ Cắt / Đang Cắt)
-    if (waitingGroup.items.length > 0) {
-        var cardHtml = _qkvBuildCardHtml(waitingGroup, 'waiting', searchKey);
-        html += cardHtml;
+    if (htmlShelves) {
+        html += '<div class="qkv-section-title">📍 SƠ ĐỒ CÁC KỆ VẢI</div>';
+        html += '<div class="qkv-grid">' + htmlShelves + '</div>';
     }
-    
-    // 3. RENDER PROCESSED CARDS (Cần Xử Lý Kho)
+
+    // 2. SECTION 2: CÂY VẢI CẦN XỬ LÝ KHO & CHỜ CẮT
+    var htmlProcessed = '';
     if (processedLe.items.length > 0) {
-        var cardHtml = _qkvBuildCardHtml(processedLe, 'processed_le', searchKey);
-        html += cardHtml;
+        htmlProcessed += _qkvBuildCardHtml(processedLe, 'processed_le', searchKey);
     }
     if (processedNguyen.items.length > 0) {
-        var cardHtml = _qkvBuildCardHtml(processedNguyen, 'processed_nguyen', searchKey);
-        html += cardHtml;
+        htmlProcessed += _qkvBuildCardHtml(processedNguyen, 'processed_nguyen', searchKey);
+    }
+    if (waitingGroup.items.length > 0) {
+        htmlProcessed += _qkvBuildCardHtml(waitingGroup, 'waiting', searchKey);
+    }
+    if (htmlProcessed) {
+        html += '<div class="qkv-section-title">⚙️ CÂY VẢI CẦN XỬ LÝ KHO & CHỜ CẮT</div>';
+        html += '<div class="qkv-grid">' + htmlProcessed + '</div>';
     }
     
-    // 4. RENDER UNASSIGNED CARDS AT THE END (Chưa Phân Vị Trí)
+    // 3. SECTION 3: VẢI CHƯA PHÂN VỊ TRÍ (CŨ)
+    var htmlUnassigned = '';
     if (unassignedLe.items.length > 0 || _qkv.locations.length === 0) {
-        var cardHtml = _qkvBuildCardHtml(unassignedLe, 'le', searchKey);
-        html += cardHtml;
+        htmlUnassigned += _qkvBuildCardHtml(unassignedLe, 'le', searchKey);
     }
-    
     if (unassignedNguyen.items.length > 0 || (_qkv.locations.length === 0 && unassignedLe.items.length === 0)) {
-        var cardHtml = _qkvBuildCardHtml(unassignedNguyen, 'nguyen', searchKey);
-        html += cardHtml;
+        htmlUnassigned += _qkvBuildCardHtml(unassignedNguyen, 'nguyen', searchKey);
+    }
+    if (htmlUnassigned) {
+        html += '<div class="qkv-section-title">⚠️ VẢI CHƯA PHÂN VỊ TRÍ (CŨ)</div>';
+        html += '<div class="qkv-grid">' + htmlUnassigned + '</div>';
     }
     
     grid.innerHTML = html;
