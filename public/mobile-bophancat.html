@@ -274,6 +274,62 @@ function mFmtKg(val) {
     return parts[0];
 }
 
+function mSortRollsForCutting(rolls, orderCode) {
+    if (!rolls || !rolls.length) return rolls || [];
+    var codes = Array.isArray(orderCode) ? orderCode : [orderCode];
+    rolls.sort(function(a, b) {
+        var aLocked = a.locked_by_cutting_id ? 1 : 0;
+        var bLocked = b.locked_by_cutting_id ? 1 : 0;
+        if (aLocked !== bLocked) return bLocked - aLocked;
+
+        var aHas = (a.available !== undefined ? a.available : a.weight) > 0 ? 1 : 0;
+        var bHas = (b.available !== undefined ? b.available : b.weight) > 0 ? 1 : 0;
+        if (aHas !== bHas) return bHas - aHas;
+
+        var aOrders = a.called_for_orders || [];
+        var bOrders = b.called_for_orders || [];
+        if (typeof aOrders === 'string') try { aOrders = JSON.parse(aOrders); } catch(e) { aOrders = []; }
+        if (typeof bOrders === 'string') try { bOrders = JSON.parse(bOrders); } catch(e) { bOrders = []; }
+
+        var aActive = (a.reservations || []).map(function(rv) { return rv.order_code; });
+        var bActive = (b.reservations || []).map(function(rv) { return rv.order_code; });
+        aOrders = aOrders.filter(function(ord) { return aActive.indexOf(ord) >= 0; });
+        bOrders = bOrders.filter(function(ord) { return bActive.indexOf(ord) >= 0; });
+
+        var aMatch = aOrders.some(function(ord) { return codes.indexOf(ord) >= 0; }) ? 2 : (aOrders.length > 0 ? 1 : 0);
+        var bMatch = bOrders.some(function(ord) { return codes.indexOf(ord) >= 0; }) ? 2 : (bOrders.length > 0 ? 1 : 0);
+        if (aMatch !== bMatch) return bMatch - aMatch;
+
+        var aTag = aOrders.length ? aOrders[0] : 'zzz';
+        var bTag = bOrders.length ? bOrders[0] : 'zzz';
+        if (aTag !== bTag) return aTag.localeCompare(bTag);
+
+        var aAvail = a.available !== undefined ? a.available : a.weight;
+        var bAvail = b.available !== undefined ? b.available : b.weight;
+        return aAvail - bAvail;
+    });
+    return rolls;
+}
+
+function mRenderRollReservations(roll, currentOrderCodeOrCodes) {
+    if (!roll.reservations || !roll.reservations.length) return '';
+    let html = '';
+    const codes = Array.isArray(currentOrderCodeOrCodes) ? currentOrderCodeOrCodes : [currentOrderCodeOrCodes];
+    roll.reservations.forEach(function(rv) {
+        var isThisOrder = codes.indexOf(rv.order_code) >= 0;
+        var badge = isThisOrder
+            ? '<span style="background:rgba(22,163,74,0.15);color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🏷️ Đơn này</span>'
+            : '<span style="background:rgba(37,99,235,0.15);color:#2563eb;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🔖 ' + rv.order_code + '</span>';
+        var phoiLabel = (isThisOrder ? ' ' : ' — ') + 'Phiếu ' + (rv.item_index || 1) + ' — P' + ((rv.phoi_index || 0) + 1);
+        var prodName = rv.product_name ? ' — ' + rv.product_name : '';
+        html += '<div style="font-size:11px;color:#a0aec0;margin-top:4px;padding-left:12px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;line-height:1.4">'
+            + badge
+            + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b style="color:#f56565">' + rv.kg_reserved + 'kg</b>' + (rv.order_qty ? ' : ' + rv.order_qty + ' sp' : '') + '</span>'
+            + '</div>';
+    });
+    return html;
+}
+
 function mFormatOrderQty(qty, productName, cuttingCategory) {
     if (qty === null || qty === undefined || qty === '' || qty === '—') return '—';
     var phoiInItem = 1;
