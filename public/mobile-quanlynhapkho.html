@@ -591,7 +591,7 @@
                 cu = me.user;
                 
                 // Permission check
-                if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.kho_vai || !cu.permissions.kho_vai.can_view)) {
+                if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.quan_ly_nhap_kho_vai || !cu.permissions.quan_ly_nhap_kho_vai.can_view)) {
                     sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Quản Lý Nhập Kho Vải!');
                     window.location.href = '/';
                     return;
@@ -1534,6 +1534,6 @@
     <input type="file" id="qkvGlobalCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleCameraFileSelected(event)" />
 
     <!-- Unified Mobile Navigation Script -->
-    <script src="/js/mobile-nav.js?v=20260623"></script>
+    <script src="/js/mobile-nav.js?v=20260623_perms"></script>
 </body>
 </html>

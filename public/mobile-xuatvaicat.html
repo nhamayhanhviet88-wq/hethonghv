@@ -498,7 +498,14 @@
                     location.href = '/index.html';
                     return;
                 }
-                document.getElementById('mU').textContent = a.user.full_name || a.user.username;
+                const cu = a.user;
+                // Permission check
+                if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.xuat_vai_cat || !cu.permissions.xuat_vai_cat.can_view)) {
+                    sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Xuất Vải Để Cắt!');
+                    window.location.href = '/';
+                    return;
+                }
+                document.getElementById('mU').textContent = cu.full_name || cu.username;
                 
                 // Sound button state
                 const sndBtn = document.getElementById('mToggleSound');
@@ -703,6 +710,6 @@
     </script>
 
     <!-- Unified Mobile Navigation Script -->
-    <script src="/js/mobile-nav.js?v=20260623"></script>
+    <script src="/js/mobile-nav.js?v=20260623_perms"></script>
 </body>
 </html>
