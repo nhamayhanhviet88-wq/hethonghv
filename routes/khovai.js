@@ -866,15 +866,63 @@ module.exports = async function (fastify) {
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false
                              AND r.weight = r.original_weight), 0) AS cay_nguyen,
-                   COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
-                             WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0) AS cuoi_ky,
-                   (SELECT json_build_object('name', u.full_name, 'role', u.role, 'at', t2.created_at)
-                    FROM kv_transactions t2
-                    LEFT JOIN users u ON u.id = t2.created_by
-                    WHERE t2.fabric_color_id = fc.id
-                    ORDER BY t2.created_at DESC LIMIT 1) AS last_update,
-                   COALESCE((SELECT json_agg(json_build_object('id', r.id, 'w', r.weight, 'ow', r.original_weight, 'loc', r.location, 'code', r.roll_code, 'img', r.image_path) ORDER BY r.weight DESC)
-                    FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0), '[]') AS roll_weights
+                         COALESCE((
+                        SELECT json_agg(json_build_object(
+                            'id', r.id, 
+                            'w', r.weight, 
+                            'ow', r.original_weight, 
+                            'loc', r.location, 
+                            'code', r.roll_code, 
+                            'img', r.image_path,
+                            'locked_by_cutting_id', r.locked_by_cutting_id,
+                            'active_cut', (
+                                SELECT json_build_object(
+                                    'id', cr.id,
+                                    'product_name', cr.product_name,
+                                    'order_code', o.order_code,
+                                    'is_cut_done', cr.is_cut_done
+                                )
+                                FROM cutting_records cr
+                                LEFT JOIN dht_orders o ON o.id = cr.dht_order_id
+                                WHERE cr.id = r.locked_by_cutting_id AND cr.is_cut_done = false
+                            ),
+                            'active_reservations', (
+                                SELECT json_agg(json_build_object(
+                                    'order_id', res.dht_order_id,
+                                    'order_code', o.order_code,
+                                    'status', res.status,
+                                    'res_id', res.id
+                                ))
+                                FROM qlx_fabric_reservations res
+                                LEFT JOIN dht_orders o ON o.id = res.dht_order_id
+                                WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
+                            )
+                        ) ORDER BY r.weight DESC)
+                        FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0
+                    ), '[]') AS roll_weights,
+                    (
+                       SELECT json_agg(json_build_object(
+                           'id', 'call_' || res.id,
+                           'w', COALESCE(res.call_amount, 0),
+                           'ow', 0,
+                           'loc', 'Chờ về',
+                           'code', 'Yêu cầu gọi vải (' || COALESCE(res.call_trees, 0) || ' cây)',
+                           'is_called', true,
+                           'active_reservations', json_build_array(json_build_object(
+                               'order_id', res.dht_order_id,
+                               'order_code', o.order_code,
+                               'status', res.status,
+                               'res_id', res.id
+                           ))
+                       ))
+                       FROM qlx_fabric_reservations res
+                       LEFT JOIN dht_orders o ON o.id = res.dht_order_id
+                       WHERE res.roll_id IS NULL 
+                         AND res.status = 'reserved' 
+                         AND res.reservation_type IN ('new_call', 'linked_call')
+                         AND UPPER(res.material_name) = UPPER(m.name)
+                         AND UPPER(res.color_name) = UPPER(fc.color_name)
+                    ) AS pending_calls
             FROM kv_fabric_colors fc
             JOIN kv_materials m ON m.id = fc.material_id
             JOIN kv_warehouses w ON w.id = m.warehouse_id
@@ -888,7 +936,6 @@ module.exports = async function (fastify) {
 
         const rows = await db.all(sql, params);
 
-        // Parse last_update JSON
         rows.forEach(r => {
             r.cuoi_ky = Number(r.cuoi_ky); // Roll-based: SUM(roll weights)
             r.label = r.material_name + ' - ' + r.color_name;
@@ -899,6 +946,11 @@ module.exports = async function (fastify) {
                 try { r.roll_weights = JSON.parse(r.roll_weights); } catch(e) { r.roll_weights = []; }
             }
             if (!Array.isArray(r.roll_weights)) r.roll_weights = [];
+            
+            if (r.pending_calls && typeof r.pending_calls === 'string') {
+                try { r.pending_calls = JSON.parse(r.pending_calls); } catch(e) { r.pending_calls = []; }
+            }
+            if (!Array.isArray(r.pending_calls)) r.pending_calls = [];
         });
 
         return { summary: rows };

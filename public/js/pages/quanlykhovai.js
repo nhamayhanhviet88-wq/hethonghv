@@ -164,6 +164,18 @@ async function renderQuanlykhovaiPage(content) {
             '}',
             '.qkv-card-unassigned-le-header .qkv-card-title { color: #ffffff !important; animation: qkvSparkleStars 2s infinite ease-in-out; }',
             '.qkv-card-unassigned-le-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
+            '.qkv-card-waiting { border-color: #6366f1 !important; border-width: 2px !important; }',
+            '.qkv-card-waiting-header {',
+            '  background: linear-gradient(135deg, #6366f1, #4f46e5, #6366f1, #3730a3) !important;',
+            '  background-size: 300% 300% !important;',
+            '  animation: qkvShimmerGlow 6s ease infinite !important;',
+            '  color: #ffffff !important;',
+            '  font-weight: 900 !important;',
+            '  text-shadow: 0 1px 2px rgba(0,0,0,0.2);',
+            '  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);',
+            '}',
+            '.qkv-card-waiting-header .qkv-card-title { color: #ffffff !important; animation: qkvSparkleStars 2s infinite ease-in-out; }',
+            '.qkv-card-waiting-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
             ' ',
             
             // Mobile Specific Styles
@@ -569,9 +581,41 @@ function _qkvRenderMap() {
     _qkv.unassignedLe = unassignedLe.items || [];
     _qkv.unassignedNguyen = unassignedNguyen.items || [];
     
+    // Group waiting/cutting items
+    var waitingItems = [];
+    _qkv.summary.forEach(function(item) {
+        var reservedRolls = (item.roll_weights || []).filter(function(r) {
+            return (r.active_reservations && r.active_reservations.length > 0) || r.active_cut;
+        });
+        var pendingCalls = item.pending_calls || [];
+        
+        if (reservedRolls.length > 0 || pendingCalls.length > 0) {
+            if (_qkv.selectedWid !== 'all' && item.warehouse_id !== _qkv.selectedWid) {
+                return;
+            }
+            var subItem = Object.assign({}, item);
+            subItem.roll_weights = reservedRolls.concat(pendingCalls);
+            subItem.so_cuc = subItem.roll_weights.length;
+            subItem.cuoi_ky = subItem.roll_weights.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+            waitingItems.push(subItem);
+        }
+    });
+
+    var waitingGroup = {
+        name: 'Các Cây Đang Chờ Cắt / Đang Cắt',
+        description: 'Tổng hợp các cây vải đang chờ cắt, đang cắt, hoặc gọi vải chưa về',
+        items: waitingItems
+    };
+
     // Build Cards HTML
     var html = '';
     var searchKey = (_qkv.searchText || '').toLowerCase().trim();
+    
+    // RENDER WAITING/CUTTING CARD AT THE BEGINNING
+    if (waitingGroup.items.length > 0) {
+        var cardHtml = _qkvBuildCardHtml(waitingGroup, 'waiting', searchKey);
+        html += cardHtml;
+    }
     
     // RENDER PREDEFINED LOCATION CARDS
     _qkv.locations.forEach(function(loc) {
@@ -607,6 +651,9 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     } else if (isUnassigned === 'le') {
         headerClass = 'qkv-card-unassigned-le-header';
         cardClass = 'qkv-card qkv-card-unassigned qkv-card-unassigned-le';
+    } else if (isUnassigned === 'waiting') {
+        headerClass = 'qkv-card-waiting-header';
+        cardClass = 'qkv-card qkv-card-waiting';
     } else if (isUnassigned) {
         headerClass = 'qkv-card-unassigned-header';
         cardClass = 'qkv-card qkv-card-unassigned';
@@ -710,7 +757,10 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                             ${item.roll_weights && item.roll_weights.length > 0 ? item.roll_weights.map(r => {
                                 var photoHtml = '';
                                 var moveHtml = '';
-                                if (r.img) {
+                                if (r.is_called) {
+                                    photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
+                                    moveHtml = `<span style="font-size:11px; color:#d97706; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
+                                } else if (r.img) {
                                     photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
                                     if (isGD) {
                                         moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
@@ -719,11 +769,35 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                     photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
                                     moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
                                 }
+
+                                var tagsHtml = '';
+                                if (r.active_reservations && r.active_reservations.length > 0) {
+                                    r.active_reservations.forEach(function(res) {
+                                        tagsHtml += `<span class="qkv-badge-res" style="background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" title="Chờ cắt cho đơn">🔖 ${escapeHTML(res.order_code)}</span>`;
+                                    });
+                                }
+                                if (r.active_cut) {
+                                    tagsHtml += `<span class="qkv-badge-cut" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" title="Đang cắt cho đơn">🔒 ${escapeHTML(r.active_cut.order_code)}</span>`;
+                                }
+
+                                var locText = '';
+                                if (r.is_called) {
+                                    locText = '';
+                                } else {
+                                    locText = ` <span style="font-size:10px; background:#e2e8f0; color:#475569; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(r.loc || 'Chưa xếp kệ')}</span>`;
+                                }
+
                                 return `
                                     <div class="roll-row-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #e2e8f0;">
                                         <div style="flex:1; min-width:0;">
-                                            <div style="font-size:12px; font-weight:700; color:#334155;">Cây ${r.w}kg</div>
-                                            <div style="font-size:10px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
+                                            <div style="font-size:12px; font-weight:700; color:#334155; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                                                Cây ${r.w}kg
+                                                ${locText}
+                                                ${tagsHtml}
+                                            </div>
+                                            <div style="font-size:10px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                                ${r.code || 'không mã'}
+                                            </div>
                                         </div>
                                         <div style="display:flex; align-items:center; gap:8px;">
                                             ${photoHtml}
@@ -758,7 +832,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
         cardClass += ' highlighted';
     }
     
-    var icon = isUnassigned ? '⚠️' : '📍';
+    var icon = isUnassigned ? (isUnassigned === 'waiting' ? '⏳' : '⚠️') : '📍';
     var descHtml = group.description ? `<div style="font-size:10px;color:#64748b;margin-top:2px;">${escapeHTML(group.description)}</div>` : '';
     
     var totalRolls = group.items.reduce(function(sum, item) { return sum + (Number(item.so_cuc) || 0); }, 0);

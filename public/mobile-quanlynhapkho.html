@@ -347,6 +347,52 @@
             font-weight: 900 !important;
             border: 1px solid rgba(255,255,255,0.3) !important;
         }
+        .card-waiting {
+            border: 2px solid #6366f1 !important;
+        }
+        .card-header-waiting {
+            padding: 12px 14px !important;
+            background: linear-gradient(135deg, #6366f1, #4f46e5, #6366f1, #3730a3) !important;
+            background-size: 300% 300% !important;
+            animation: shimmerGlow 6s ease infinite !important;
+            border-bottom: 2px solid rgba(99, 102, 241, 0.4) !important;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 10px rgba(79, 70, 229, 0.25) !important;
+        }
+        .card-header-waiting .card-title {
+            color: #ffffff !important;
+            font-size: 13px !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.5px;
+            animation: sparkleStars 2s infinite ease-in-out;
+        }
+        .card-header-waiting .card-count {
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: #ffffff !important;
+            font-size: 10px !important;
+            font-weight: 900 !important;
+            border: 1px solid rgba(255,255,255,0.3) !important;
+        }
+        .qkv-badge-res {
+            background: #dbeafe !important;
+            color: #1e40af !important;
+            border: 1px solid #bfdbfe !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+        }
+        .qkv-badge-cut {
+            background: #fee2e2 !important;
+            color: #991b1b !important;
+            border: 1px solid #fecaca !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+        }
 
         .material-color-frame {
             border: 1.5px solid rgba(94, 234, 212, 0.15) !important;
@@ -793,8 +839,39 @@
                 }
             });
 
+            // Group waiting/cutting items
+            var waitingItems = [];
+            summary.forEach(item => {
+                var reservedRolls = (item.roll_weights || []).filter(r => {
+                    return (r.active_reservations && r.active_reservations.length > 0) || r.active_cut;
+                });
+                var pendingCalls = item.pending_calls || [];
+                
+                if (reservedRolls.length > 0 || pendingCalls.length > 0) {
+                    if (selectedWid !== 'all' && item.warehouse_id !== selectedWid) {
+                        return;
+                    }
+                    var subItem = Object.assign({}, item);
+                    subItem.roll_weights = reservedRolls.concat(pendingCalls);
+                    subItem.so_cuc = subItem.roll_weights.length;
+                    subItem.cuoi_ky = subItem.roll_weights.reduce((sum, r) => sum + Number(r.w), 0);
+                    waitingItems.push(subItem);
+                }
+            });
+
+            var waitingGroup = {
+                name: 'Các Cây Đang Chờ Cắt / Đang Cắt',
+                description: 'Tổng hợp các cây vải đang chờ cắt, đang cắt, hoặc gọi vải chưa về',
+                items: waitingItems
+            };
+
             var html = '';
             var searchKey = (searchText || '').toLowerCase().trim();
+
+            // RENDER WAITING/CUTTING CARD AT THE BEGINNING
+            if (waitingGroup.items.length > 0) {
+                html += buildCardHtml(waitingGroup, 'waiting', searchKey);
+            }
 
             // Locations
             locations.forEach(loc => {
@@ -868,18 +945,45 @@
                                 ${item.roll_weights.map(r => {
                                     var photoHtml = '';
                                     var moveHtml = '';
-                                    if (r.img) {
+                                    if (r.is_called) {
+                                        photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
+                                        moveHtml = `<span style="font-size:11px; color:#f59e0b; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
+                                    } else if (r.img) {
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
                                         moveHtml = ``;
                                     } else {
                                         photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
                                         moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
                                     }
+
+                                    var tagsHtml = '';
+                                    if (r.active_reservations && r.active_reservations.length > 0) {
+                                        r.active_reservations.forEach(function(res) {
+                                            tagsHtml += `<span class="qkv-badge-res" style="background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; font-size:10px; font-weight:700; padding:1px 4px; border-radius:4px; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" title="Chờ cắt cho đơn">🔖 ${escapeHTML(res.order_code)}</span>`;
+                                        });
+                                    }
+                                    if (r.active_cut) {
+                                        tagsHtml += `<span class="qkv-badge-cut" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-size:10px; font-weight:700; padding:1px 4px; border-radius:4px; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" title="Đang cắt cho đơn">🔒 ${escapeHTML(r.active_cut.order_code)}</span>`;
+                                    }
+
+                                    var locText = '';
+                                    if (r.is_called) {
+                                        locText = '';
+                                    } else {
+                                        locText = ` <span style="font-size:10px; background:rgba(255,255,255,0.15); color:#ffffff; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(r.loc || 'Chưa xếp kệ')}</span>`;
+                                    }
+
                                     return `
                                         <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
                                             <div style="flex:1; min-width:0;">
-                                                <div style="font-size:12px; font-weight:700; color:white;">Cây ${r.w}kg</div>
-                                                <div style="font-size:11px; color:#94a3b8; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
+                                                <div style="font-size:12px; font-weight:700; color:white; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                                                    Cây ${r.w}kg
+                                                    ${locText}
+                                                    ${tagsHtml}
+                                                </div>
+                                                <div style="font-size:11px; color:#94a3b8; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                                    ${r.code || 'không mã'}
+                                                </div>
                                             </div>
                                             <div style="display:flex; align-items:center; gap:8px;">
                                                 ${photoHtml}
@@ -910,8 +1014,8 @@
             if (isCardHighlighted) cardClass += ' highlighted';
             if (isCollapsed) cardClass += ' collapsed';
             
-            var icon = isUnassigned ? '⚠️' : '📍';
-            var titleClass = isUnassigned ? 'card-title unassigned-title' : 'card-title';
+            var icon = isUnassigned ? (isUnassigned === 'waiting' ? '⏳' : '⚠️') : '📍';
+            var titleClass = isUnassigned ? (isUnassigned === 'waiting' ? 'card-title' : 'card-title unassigned-title') : 'card-title';
             var countText = '';
             if (group.items.length > 0) {
                 var totalRolls = group.items.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
@@ -924,7 +1028,9 @@
             var qrBtn = !isUnassigned ? `<button class="card-qr-btn" onclick="event.stopPropagation(); showQrCodeModal('${escapeHTML(group.name)}')">📷 QR</button>` : '';
 
             var headerClass = 'card-header';
-            if (isUnassigned) {
+            if (isUnassigned === 'waiting') {
+                headerClass = 'card-header-waiting';
+            } else if (isUnassigned) {
                 if (group.name === 'Chưa Phân Vị Trí Cây Nguyên') {
                     headerClass = 'card-header-nguyen';
                 } else if (group.name === 'Chưa Phân Vị Trí Cây Lẻ') {
