@@ -2439,7 +2439,7 @@ module.exports = async function(fastify) {
 
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
-            item: { id: item.id, description: item.description, quantity: item.quantity },
+            item: { id: item.id, description: item.description, quantity: item.quantity, item_index: item.item_index },
             phoi: { material_name: phoi.material_name, color_name: phoi.color_name, phoi_index: pi },
             warehouse,
             rolls,
