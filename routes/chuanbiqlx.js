@@ -2314,7 +2314,7 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Fetch pending new_call reservations from OTHER orders with same material/color
+        // Fetch pending new_call reservations with same material/color (from other orders OR from different items/phoi of the same order)
         let pendingCalls = [];
         if (phoi.material_name && phoi.color_name) {
             pendingCalls = await db.all(`
@@ -2332,11 +2332,11 @@ module.exports = async function(fastify) {
                 LEFT JOIN users u ON u.id = res.created_by
                 WHERE res.reservation_type = 'new_call'
                   AND res.status = 'reserved'
-                  AND res.dht_order_id != $1
+                  AND (res.dht_order_id != $1 OR res.item_id != $4 OR res.phoi_index != $5)
                   AND UPPER(res.material_name) = UPPER($2)
                   AND UPPER(res.color_name) = UPPER($3)
                 ORDER BY res.created_at DESC
-            `, [orderId, phoi.material_name.trim(), phoi.color_name.trim()]);
+            `, [orderId, phoi.material_name.trim(), phoi.color_name.trim(), itemId, pi]);
         }
 
         // Check if this order already linked to any call
@@ -2728,8 +2728,8 @@ module.exports = async function(fastify) {
 
             // Check if already linked
             const alreadyLinked = await db.get(
-                'SELECT id FROM qlx_fabric_reservations WHERE dht_order_id=$1 AND linked_call_id=$2 AND status!=$3',
-                [dht_order_id, linked_call_id, 'released']);
+                'SELECT id FROM qlx_fabric_reservations WHERE dht_order_id=$1 AND item_id=$2 AND phoi_index=$3 AND linked_call_id=$4 AND status!=$5',
+                [dht_order_id, item_id, pi, linked_call_id, 'released']);
             if (alreadyLinked) return reply.code(400).send({ error: 'Đã liên kết rồi!' });
 
             await db.run(`
