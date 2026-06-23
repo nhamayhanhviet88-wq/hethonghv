@@ -1786,6 +1786,12 @@ function closeImagePreviewModal() {
     if (modal) modal.style.display = 'none';
 }
 
+var _qkvModalState = {
+    shelfName: '',
+    activeMaterial: '',
+    searchQuery: ''
+};
+
 function _qkvShowShelfDetailModal(shelfName) {
     var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
     
@@ -1798,132 +1804,55 @@ function _qkvShowShelfDetailModal(shelfName) {
     var group = _qkv.groups && _qkv.groups[shelfName] ? _qkv.groups[shelfName] : { items: [] };
     var shelfItems = group.items;
 
-    var bodyHTML = '';
-    if (shelfItems.length === 0) {
-        bodyHTML = `
-            <div style="text-align:center; padding:40px; color:#64748b;">
-                <div style="font-size:48px; margin-bottom:12px;">📦</div>
-                <div style="font-size:16px; font-weight:700;">Kệ Trống</div>
-                <div style="font-size:12px; margin-top:4px;">Chưa có cây vải nào được xếp vào kệ này.</div>
-            </div>
-        `;
-    } else {
-        // Group by material
-        var materialGroups = {};
-        shelfItems.forEach(function(item) {
-            var matName = item.material_name;
-            if (!materialGroups[matName]) {
-                materialGroups[matName] = {
-                    material_name: matName,
-                    unit: item.unit,
-                    items: []
-                };
-            }
-            materialGroups[matName].items.push(item);
-        });
+    // Compute totals
+    var totalWeight = shelfItems.reduce((sum, item) => sum + Number(item.cuoi_ky || 0), 0);
+    var totalRolls = shelfItems.reduce((sum, item) => sum + Number(item.so_cuc || 0), 0);
 
-        // Compute totals
-        var totalWeight = shelfItems.reduce((sum, item) => sum + Number(item.cuoi_ky || 0), 0);
-        var totalRolls = shelfItems.reduce((sum, item) => sum + Number(item.so_cuc || 0), 0);
+    // Initialize state
+    _qkvModalState.shelfName = shelfName;
+    _qkvModalState.searchQuery = '';
+    
+    // Default to first material
+    var matNames = [];
+    shelfItems.forEach(function(item) {
+        if (!matNames.includes(item.material_name)) {
+            matNames.push(item.material_name);
+        }
+    });
+    _qkvModalState.activeMaterial = matNames[0] || '';
 
-        bodyHTML += `
-            <div style="font-family:'Inter',sans-serif; color:#1e293b;">
-                <!-- Shelf Info Bar -->
-                <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:12px 16px; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;">Thông tin kệ</div>
-                        <div style="font-size:14px; font-weight:700; color:#0f766e; margin-top:2px;">📍 Kệ: ${escapeHTML(shelfName)} (${escapeHTML(restrictText)})</div>
-                        <div style="font-size:11px; color:#94a3b8; margin-top:2px;">${escapeHTML(descText)}</div>
-                    </div>
-                    <div style="text-align:right; font-size:13px; font-weight:800; color:#334155;">
-                        <span style="background:#e0f2fe; color:#0369a1; padding:4px 10px; border-radius:8px; display:inline-block; margin-right:6px;">${shelfItems.length} chất liệu/màu</span>
-                        <span style="background:#ccfbf1; color:#0f766e; padding:4px 10px; border-radius:8px; display:inline-block;">${_qkvFmt(totalWeight)} kg (${totalRolls} cây)</span>
-                    </div>
+    var bodyHTML = `
+        <div style="font-family:'Inter',sans-serif; color:#1e293b; display: flex; flex-direction: column; gap: 16px;">
+            <!-- Shelf Info Bar -->
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:12px 16px; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;">Thông tin kệ</div>
+                    <div style="font-size:14px; font-weight:700; color:#0f766e; margin-top:2px;">📍 Kệ: ${escapeHTML(shelfName)} (${escapeHTML(restrictText)})</div>
+                    <div style="font-size:11px; color:#94a3b8; margin-top:2px;">${escapeHTML(descText)}</div>
                 </div>
-
-                <!-- Search box inside detail modal -->
-                <div style="margin-bottom:16px; position:relative;">
-                    <input type="text" id="qkvModalSearch" placeholder="Tìm chất liệu, màu hoặc mã cây vải..." oninput="_qkvFilterModalItems(this.value)" style="width:100%; padding:10px 14px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:13px; outline:none; transition:border-color 0.2s;" />
-                </div>
-
-                <!-- Materials & Colors List -->
-                <div id="qkvModalListContainer" style="display:flex; flex-direction:column; gap:16px; padding-bottom:12px;">
-        `;
-
-        Object.keys(materialGroups).forEach(function(matName) {
-            var materialGroup = materialGroups[matName];
-            var matWeight = materialGroup.items.reduce((sum, item) => sum + Number(item.cuoi_ky || 0), 0);
-            var matRolls = materialGroup.items.reduce((sum, item) => sum + Number(item.so_cuc || 0), 0);
-            
-            bodyHTML += `
-                <div class="qkv-modal-mat-card" data-material="${escapeHTML(matName)}" style="border: 1px solid #e2e8f0; border-radius:12px; background:white; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.02);">
-                    <div style="background:#f1f5f9; padding:10px 16px; border-bottom:1px solid #e2e8f0; font-weight:800; font-size:14px; color:#1e293b; display:flex; justify-content:space-between; align-items:center;">
-                        <span>🧵 ${escapeHTML(matName)}</span>
-                        <span style="font-size:12px; color:#475569; font-weight:700;">${_qkvFmt(matWeight)} ${escapeHTML(materialGroup.unit || 'kg')} (${matRolls} cây)</span>
-                    </div>
-                    <div style="padding:12px; display:flex; flex-direction:column; gap:12px;">
-            `;
-
-            materialGroup.items.forEach(function(item) {
-                bodyHTML += `
-                    <div class="qkv-modal-color-card" data-color="${escapeHTML(item.color_name)}" style="border:1px solid #f1f5f9; border-radius:8px; background:#fafafa; padding:10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px dashed #e2e8f0; padding-bottom:6px;">
-                            <span style="font-weight:800; color:white; background:#e65100; padding:3px 8px; border-radius:6px; font-size:11px;">Màu: ${escapeHTML(item.color_name)}</span>
-                            <span style="font-size:12px; font-weight:800; color:#334155;">${_qkvFmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')} (${item.so_cuc} cây)</span>
-                        </div>
-                        
-                        <!-- Rolls Grid -->
-                        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:10px;">
-                `;
-
-                if (item.roll_weights && item.roll_weights.length > 0) {
-                    item.roll_weights.forEach(function(r) {
-                        var photoHtml = '';
-                        var moveHtml = '';
-                        if (r.img) {
-                            photoHtml = `<img src="${escapeHTML(r.img)}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; border:1.5px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                            if (isGD) {
-                                moveHtml = `<button class="btn btn-xs btn-outline-secondary" style="padding:4px 8px; font-size:11px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚 Chuyển</button>`;
-                            }
-                        } else {
-                            photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:4px 8px; font-size:11px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp ảnh</button>`;
-                            moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp</span>`;
-                        }
-
-                        bodyHTML += `
-                            <div class="qkv-modal-roll-card" data-code="${escapeHTML(r.code || '')}" style="display:flex; align-items:center; justify-content:space-between; background:white; border:1px solid #e2e8f0; border-radius:6px; padding:8px; gap:8px;">
-                                <div style="min-width:0; flex:1;">
-                                    <div style="font-size:13px; font-weight:800; color:#0f766e;">${r.w} kg</div>
-                                    <div style="font-size:10px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Mã: ${escapeHTML(r.code || 'không mã')}</div>
-                                </div>
-                                <div style="display:flex; align-items:center; gap:6px;">
-                                    ${photoHtml}
-                                    ${moveHtml}
-                                </div>
-                            </div>
-                        `;
-                    });
-                } else {
-                    bodyHTML += `<div style="font-size:11px; color:#94a3b8; font-style:italic;">Không có cây vải</div>`;
-                }
-
-                bodyHTML += `
-                        </div>
-                    </div>
-                `;
-            });
-
-            bodyHTML += `
-                    </div>
-                </div>
-            `;
-        });
-
-        bodyHTML += `
+                <div style="text-align:right; font-size:13px; font-weight:800; color:#334155;">
+                    <span style="background:#e0f2fe; color:#0369a1; padding:4px 10px; border-radius:8px; display:inline-block; margin-right:6px;">${matNames.length} chất liệu</span>
+                    <span style="background:#ccfbf1; color:#0f766e; padding:4px 10px; border-radius:8px; display:inline-block;">${_qkvFmt(totalWeight)} kg (${totalRolls} cây)</span>
                 </div>
             </div>
-        `;
-    }
+
+            <!-- Search box inside detail modal -->
+            <div style="position:relative;">
+                <input type="text" id="qkvModalSearch" placeholder="Tìm chất liệu, màu hoặc mã cây vải..." oninput="_qkvOnModalSearch(this.value)" style="width:100%; padding:10px 14px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:13px; outline:none; transition:border-color 0.2s;" />
+            </div>
+
+            <!-- Two-Column Layout -->
+            <div style="display:flex; gap:20px; max-height: calc(85vh - 260px); min-height: 380px; overflow: hidden; align-items: stretch;">
+                <!-- Left Panel: Materials Tab List -->
+                <div id="qkvModalLeftCol" style="width:30%; min-width:200px; border-right:1.5px solid #e2e8f0; padding-right:16px; display:flex; flex-direction:column; gap:8px; overflow-y:auto;">
+                </div>
+                
+                <!-- Right Panel: Colors & Rolls Grid -->
+                <div id="qkvModalRightCol" style="width:70%; flex:1; padding-left:4px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
+                </div>
+            </div>
+        </div>
+    `;
 
     openModal(
         `🔍 Chi Tiết Kệ - ${escapeHTML(shelfName)}`,
@@ -1937,51 +1866,189 @@ function _qkvShowShelfDetailModal(shelfName) {
     // Expand width of modal for detailed shelf view
     var container = document.getElementById('modalContainer');
     if (container) {
-        container.style.maxWidth = '900px';
+        container.style.maxWidth = '950px';
         container.style.width = '95%';
     }
+
+    // Initial render of tabs and items
+    _qkvUpdateModalView();
 }
 
-function _qkvFilterModalItems(val) {
-    var query = (val || '').toLowerCase().trim();
-    var cards = document.querySelectorAll('.qkv-modal-mat-card');
-    
-    cards.forEach(function(card) {
-        var matName = (card.getAttribute('data-material') || '').toLowerCase();
-        var colors = card.querySelectorAll('.qkv-modal-color-card');
-        var anyColorVisible = false;
+function _qkvUpdateModalView() {
+    var shelfName = _qkvModalState.shelfName;
+    var query = (_qkvModalState.searchQuery || '').toLowerCase().trim();
+    var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+
+    var group = _qkv.groups && _qkv.groups[shelfName] ? _qkv.groups[shelfName] : { items: [] };
+    var shelfItems = group.items;
+
+    if (shelfItems.length === 0) {
+        document.getElementById('qkvModalLeftCol').innerHTML = '';
+        document.getElementById('qkvModalRightCol').innerHTML = `
+            <div style="text-align:center; padding:40px; color:#64748b; width:100%;">
+                <div style="font-size:48px; margin-bottom:12px;">📦</div>
+                <div style="font-size:16px; font-weight:700;">Kệ Trống</div>
+            </div>
+        `;
+        return;
+    }
+
+    // Group items by material
+    var materialGroups = {};
+    shelfItems.forEach(function(item) {
+        var matName = item.material_name;
         
-        colors.forEach(function(colorCard) {
-            var colorName = (colorCard.getAttribute('data-color') || '').toLowerCase();
-            var rolls = colorCard.querySelectorAll('.qkv-modal-roll-card');
-            var anyRollVisible = false;
-            
-            rolls.forEach(function(rollCard) {
-                var rollCode = (rollCard.getAttribute('data-code') || '').toLowerCase();
-                var rollText = rollCard.textContent.toLowerCase();
-                
-                // Match roll code, weight, or parent text
-                if (rollCode.includes(query) || rollText.includes(query) || colorName.includes(query) || matName.includes(query)) {
-                    rollCard.style.display = 'flex';
-                    anyRollVisible = true;
-                } else {
-                    rollCard.style.display = 'none';
-                }
+        // Filter rolls matching search key if query is not empty
+        var matchedRolls = item.roll_weights || [];
+        if (query.length > 0) {
+            matchedRolls = (item.roll_weights || []).filter(function(r) {
+                var rollText = `${r.w} kg ${r.code || ''}`.toLowerCase();
+                return rollText.includes(query) || item.color_name.toLowerCase().includes(query) || matName.toLowerCase().includes(query);
             });
-            
-            if (anyRollVisible || colorName.includes(query) || matName.includes(query)) {
-                colorCard.style.display = 'block';
-                anyColorVisible = true;
-            } else {
-                colorCard.style.display = 'none';
-            }
-        });
-        
-        if (anyColorVisible || matName.includes(query)) {
-            card.style.display = 'block';
-        } else {
-            card.style.display = 'none';
         }
+
+        // If query is present and no rolls match, and color/material name doesn't match, skip
+        var matOrColorMatch = matName.toLowerCase().includes(query) || item.color_name.toLowerCase().includes(query);
+        if (query.length > 0 && matchedRolls.length === 0 && !matOrColorMatch) {
+            return;
+        }
+
+        // Use original rolls if it matched on name but has no rolls (empty color)
+        var finalRolls = matchedRolls;
+        if (query.length > 0 && finalRolls.length === 0 && matOrColorMatch) {
+            finalRolls = item.roll_weights || [];
+        }
+
+        if (!materialGroups[matName]) {
+            materialGroups[matName] = {
+                material_name: matName,
+                unit: item.unit,
+                items: []
+            };
+        }
+        
+        var subItem = Object.assign({}, item);
+        subItem.roll_weights = finalRolls;
+        subItem.so_cuc = finalRolls.length;
+        subItem.cuoi_ky = finalRolls.reduce(function(sum, r) { return sum + Number(r.w); }, 0);
+        materialGroups[matName].items.push(subItem);
     });
+
+    var matNames = Object.keys(materialGroups);
+    if (matNames.length === 0) {
+        document.getElementById('qkvModalLeftCol').innerHTML = `
+            <div style="font-size:12px; color:#94a3b8; text-align:center; padding:20px; width:100%;">Không có kết quả</div>
+        `;
+        document.getElementById('qkvModalRightCol').innerHTML = '';
+        return;
+    }
+
+    // Auto switch active material if the current active one is filtered out
+    if (!materialGroups[_qkvModalState.activeMaterial]) {
+        _qkvModalState.activeMaterial = matNames[0];
+    }
+
+    // Render Left Panel (Tabs)
+    var leftHtml = '';
+    matNames.forEach(function(matName) {
+        var mg = materialGroups[matName];
+        var totalWeight = mg.items.reduce((sum, item) => sum + Number(item.cuoi_ky || 0), 0);
+        var totalRolls = mg.items.reduce((sum, item) => sum + Number(item.so_cuc || 0), 0);
+        
+        var isActive = matName === _qkvModalState.activeMaterial;
+        var activeStyle = isActive 
+            ? 'background:#e0f2fe; border-color:#0284c7; box-shadow:0 4px 12px rgba(2, 132, 199, 0.08); font-weight:800;' 
+            : 'background:#f8fafc; border-color:#cbd5e1;';
+
+        leftHtml += `
+            <div class="qkv-modal-mat-tab" onclick="_qkvSelectModalMaterial('${escapeJS(matName)}')" style="padding:12px 14px; border-radius:8px; border:1.5px solid; cursor:pointer; transition:all 0.2s; display:flex; flex-direction:column; gap:4px; ${activeStyle}">
+                <div style="font-size:13px; color:#1e293b; word-break:break-word;">🧵 ${escapeHTML(matName)}</div>
+                <div style="font-size:11px; font-weight:700; color:#64748b; margin-top:2px;">
+                    ${_qkvFmt(totalWeight)} ${escapeHTML(mg.unit || 'kg')} (${totalRolls} cây)
+                </div>
+            </div>
+        `;
+    });
+    document.getElementById('qkvModalLeftCol').innerHTML = leftHtml;
+
+    // Render Right Panel (Detail of active material)
+    var rightHtml = '';
+    var activeGroup = materialGroups[_qkvModalState.activeMaterial];
+    if (activeGroup) {
+        var matWeight = activeGroup.items.reduce((sum, item) => sum + Number(item.cuoi_ky || 0), 0);
+        var matRolls = activeGroup.items.reduce((sum, item) => sum + Number(item.so_cuc || 0), 0);
+
+        rightHtml += `
+            <div style="background:#f1f5f9; padding:12px 16px; border-radius:10px; font-weight:800; font-size:15px; color:#0f766e; display:flex; justify-content:space-between; align-items:center; border:1px solid #cbd5e1; position:sticky; top:0; z-index:5;">
+                <span>🧵 ${escapeHTML(_qkvModalState.activeMaterial)}</span>
+                <span style="font-size:12px; color:#475569; font-weight:700;">Tổng: ${_qkvFmt(matWeight)} ${escapeHTML(activeGroup.unit || 'kg')} (${matRolls} cây)</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:16px;">
+        `;
+
+        activeGroup.items.forEach(function(item) {
+            rightHtml += `
+                <div style="border:1px solid #e2e8f0; border-radius:10px; background:#ffffff; padding:14px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1.5px dashed #e2e8f0; padding-bottom:8px;">
+                        <span style="font-weight:800; color:white; background:#e65100; padding:4px 10px; border-radius:6px; font-size:11px; letter-spacing:0.5px;">Màu: ${escapeHTML(item.color_name)}</span>
+                        <span style="font-size:12px; font-weight:800; color:#334155;">${_qkvFmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')} (${item.so_cuc} cây)</span>
+                    </div>
+                    
+                    <!-- Rolls Grid -->
+                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:10px;">
+            `;
+
+            if (item.roll_weights && item.roll_weights.length > 0) {
+                item.roll_weights.forEach(function(r) {
+                    var photoHtml = '';
+                    var moveHtml = '';
+                    if (r.img) {
+                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; border:1.5px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                        if (isGD) {
+                            moveHtml = `<button class="btn btn-xs btn-outline-secondary" style="padding:4px 8px; font-size:11px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚 Chuyển</button>`;
+                        }
+                    } else {
+                        photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:4px 8px; font-size:11px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp ảnh</button>`;
+                        moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp</span>`;
+                    }
+
+                    rightHtml += `
+                        <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; gap:8px;">
+                            <div style="min-width:0; flex:1;">
+                                <div style="font-size:13px; font-weight:800; color:#0f766e;">${r.w} kg</div>
+                                <div style="font-size:10px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Mã: ${escapeHTML(r.code || 'không mã')}</div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                ${photoHtml}
+                                ${moveHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                rightHtml += `<div style="grid-column: 1 / -1; font-size:11px; color:#94a3b8; font-style:italic;">Không có cây vải phù hợp</div>`;
+            }
+
+            rightHtml += `
+                    </div>
+                </div>
+            `;
+        });
+
+        rightHtml += `
+            </div>
+        `;
+    }
+    document.getElementById('qkvModalRightCol').innerHTML = rightHtml;
+}
+
+function _qkvSelectModalMaterial(matName) {
+    _qkvModalState.activeMaterial = matName;
+    _qkvUpdateModalView();
+}
+
+function _qkvOnModalSearch(val) {
+    _qkvModalState.searchQuery = val;
+    _qkvUpdateModalView();
 }
 
