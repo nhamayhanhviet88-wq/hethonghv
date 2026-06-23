@@ -592,6 +592,7 @@ function _qkvRenderMap() {
     }
     
     grid.innerHTML = html;
+    _qkv.groups = groups;
 }
 
 // 6. Build single Card HTML
@@ -1794,9 +1795,8 @@ function _qkvShowShelfDetailModal(shelfName) {
     var restrictText = loc && loc.is_restricted ? '🔒 Chỉ các chất liệu nhất định' : '🔓 Đa năng (Chất liệu nào cũng được)';
 
     // Group items inside this shelf
-    var shelfItems = (_qkv.summary || []).filter(function(item) {
-        return item.location && item.location.trim().toLowerCase() === shelfName.trim().toLowerCase();
-    });
+    var group = _qkv.groups && _qkv.groups[shelfName] ? _qkv.groups[shelfName] : { items: [] };
+    var shelfItems = group.items;
 
     var bodyHTML = '';
     if (shelfItems.length === 0) {
