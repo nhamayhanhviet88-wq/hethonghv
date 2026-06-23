@@ -781,10 +781,13 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 }
 
                                 var locText = '';
-                                if (r.is_called) {
-                                    locText = '';
-                                } else {
-                                    locText = ` <span style="font-size:10px; background:#e2e8f0; color:#475569; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(r.loc || 'Chưa xếp kệ')}</span>`;
+                                if (!r.is_called) {
+                                    if (isUnassigned === 'waiting') {
+                                        var displayLoc = r.loc || item.location || 'Chưa xếp kệ';
+                                        locText = ` <span style="font-size:10px; background:#e2e8f0; color:#475569; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(displayLoc)}</span>`;
+                                    } else if (r.loc && r.loc !== item.location) {
+                                        locText = ` <span style="font-size:10px; background:#e2e8f0; color:#475569; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(r.loc)}</span>`;
+                                    }
                                 }
 
                                 return `
