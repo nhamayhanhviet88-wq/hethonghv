@@ -1600,17 +1600,25 @@ module.exports = async function(fastify) {
 
         // Giải phóng giữ vải tương ứng cho các đơn hàng trong lượt cắt này
         const groupRecs = await db.all(
-            `SELECT dht_order_id FROM cutting_records WHERE id = ANY($1)`,
+            `SELECT dht_order_id, order_item_id, phoi_index FROM cutting_records WHERE id = ANY($1)`,
             [targetIds]
         );
         const orderIds = [...new Set(groupRecs.map(r => r.dht_order_id).filter(oid => oid !== null))];
         if (orderIds.length > 0) {
-            await db.run(
-                `UPDATE qlx_fabric_reservations 
-                 SET status = 'released', updated_at = $1 
-                 WHERE roll_id = $2 AND dht_order_id = ANY($3) AND status IN ('reserved', 'arrived')`,
-                [now, roll_id, orderIds]
-            );
+            for (const gr of groupRecs) {
+                if (gr.dht_order_id) {
+                    await db.run(
+                        `UPDATE qlx_fabric_reservations 
+                         SET status = 'released', updated_at = $1 
+                         WHERE roll_id = $2 
+                           AND dht_order_id = $3 
+                           AND COALESCE(item_id, 0) = COALESCE($4, 0) 
+                           AND COALESCE(phoi_index, 0) = COALESCE($5, 0) 
+                           AND status IN ('reserved', 'arrived')`,
+                        [now, roll_id, gr.dht_order_id, gr.order_item_id || 0, gr.phoi_index || 0]
+                    );
+                }
+            }
             for (const orderId of orderIds) {
                 await db.run(
                     `INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
