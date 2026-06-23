@@ -870,12 +870,12 @@ module.exports = async function(fastify) {
             phoiFabRows = await db.all(`
                 SELECT r.dht_order_id, r.item_id, r.phoi_index,
                        COUNT(*)::int AS total,
-                       COUNT(*) FILTER (WHERE r.status IN ('arrived', 'fulfilled'))::int AS arrived,
+                       COUNT(*) FILTER (WHERE r.status = 'arrived')::int AS arrived,
                        COUNT(*) FILTER (WHERE r.status = 'reserved')::int AS pending
                 FROM qlx_fabric_reservations r
                 LEFT JOIN kv_rolls roll ON r.roll_id = roll.id
                 WHERE r.dht_order_id = ANY($1) 
-                  AND r.status NOT IN ('released')
+                  AND r.status NOT IN ('released', 'fulfilled')
                   AND (r.roll_id IS NULL OR roll.weight > 0)
                 GROUP BY r.dht_order_id, r.item_id, r.phoi_index
             `, [orderIds]);
@@ -981,7 +981,7 @@ module.exports = async function(fastify) {
                                     arrivedPhois++;
                                     calledPhois++;
                                 } else {
-                                    const key = `${o.id}_${item.id}_${pIdx}`;
+                                    const key = `${o.id}_${it.id}_${pIdx}`;
                                     const pfs = phoiFabStatus[key];
                                     if (pfs && pfs.pending === 0 && pfs.arrived > 0) {
                                         arrivedPhois++;

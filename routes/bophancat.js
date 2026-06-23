@@ -244,10 +244,10 @@ module.exports = async function(fastify) {
         for (const r of records) {
             const reservations = await db.all(`
                 SELECT status FROM qlx_fabric_reservations
-                WHERE item_id = $1 AND phoi_index = $2 AND status != 'released'
+                WHERE item_id = $1 AND phoi_index = $2 AND status NOT IN ('released', 'fulfilled')
             `, [r.order_item_id, r.phoi_index]);
             const hasRes = reservations.length > 0;
-            const allArrived = hasRes && reservations.every(res => res.status === 'arrived' || res.status === 'fulfilled');
+            const allArrived = hasRes && reservations.every(res => res.status === 'arrived');
             if (!allArrived) {
                 console.log(`[BPC Startup Cleanup] Releasing invalid claim: ${r.product_name} (ID: ${r.id})`);
                 await db.run(`DELETE FROM cutting_records WHERE id = $1`, [r.id]);
@@ -324,8 +324,9 @@ module.exports = async function(fastify) {
             FROM cutting_records cr
             WHERE res.dht_order_id = cr.dht_order_id
               AND res.item_id = cr.order_item_id
+              AND res.phoi_index = cr.phoi_index
               AND cr.is_cut_done = TRUE
-              AND res.status IN ('reserved', 'arrived')
+              AND res.status IN ('reserved', 'arrived', 'fulfilled')
         `);
         if (releasedCount && releasedCount.changes > 0) {
             console.log('[BPC] Released', releasedCount.changes, 'stale reservations for completed cuts.');
@@ -983,8 +984,8 @@ module.exports = async function(fastify) {
                         await db.run(`
                             UPDATE qlx_fabric_reservations 
                             SET status = 'released', updated_at = $1 
-                            WHERE dht_order_id = $2 AND item_id = $3 AND status IN ('reserved', 'arrived')
-                        `, [now, rec.dht_order_id, rec.order_item_id]);
+                            WHERE dht_order_id = $2 AND item_id = $3 AND phoi_index = $4 AND status IN ('reserved', 'arrived', 'fulfilled')
+                        `, [now, rec.dht_order_id, rec.order_item_id, rec.phoi_index]);
                     }
                     detail = '✅ Cắt xong (nhóm, chờ đơn cuối) — SL: ' + cutQty;
                 } else {
@@ -1006,7 +1007,7 @@ module.exports = async function(fastify) {
 
                     // Get all done records in group to distribute kg
                     const allGroupDone = await db.all(
-                        `SELECT id, cut_quantity, dht_order_id, order_item_id FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cut_done = true`,
+                        `SELECT id, cut_quantity, dht_order_id, order_item_id, phoi_index FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cut_done = true`,
                         [rec.multi_cut_group_id, id]
                     );
                     const totalQtyOthers = allGroupDone.reduce((s, r) => s + (Number(r.cut_quantity) || 0), 0);
@@ -1050,8 +1051,8 @@ module.exports = async function(fastify) {
                         await db.run(`
                             UPDATE qlx_fabric_reservations 
                             SET status = 'released', updated_at = $1 
-                            WHERE dht_order_id = $2 AND item_id = $3 AND status IN ('reserved', 'arrived')
-                        `, [now, rec.dht_order_id, rec.order_item_id]);
+                            WHERE dht_order_id = $2 AND item_id = $3 AND phoi_index = $4 AND status IN ('reserved', 'arrived', 'fulfilled')
+                        `, [now, rec.dht_order_id, rec.order_item_id, rec.phoi_index]);
                     }
 
                     // Distribute kg to other group members
@@ -1090,8 +1091,8 @@ module.exports = async function(fastify) {
                             await db.run(`
                                 UPDATE qlx_fabric_reservations 
                                 SET status = 'released', updated_at = $1 
-                                WHERE dht_order_id = $2 AND item_id = $3 AND status IN ('reserved', 'arrived')
-                            `, [now, gr.dht_order_id, gr.order_item_id]);
+                                WHERE dht_order_id = $2 AND item_id = $3 AND phoi_index = $4 AND status IN ('reserved', 'arrived', 'fulfilled')
+                            `, [now, gr.dht_order_id, gr.order_item_id, gr.phoi_index]);
                         }
                     }
 
@@ -1102,12 +1103,12 @@ module.exports = async function(fastify) {
                         const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
                         const finalWeight = rem <= 0 ? 0 : rem;
                         await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '' WHERE id = $2`, [finalWeight, s.roll_id]);
-                        if (groupItemIds.length > 0) {
+                        for (const member of [rec, ...allGroupDone]) {
                             await db.run(`
                                 UPDATE qlx_fabric_reservations 
                                 SET status = 'released', updated_at = $1 
-                                WHERE roll_id = $2 AND item_id = ANY($3) AND status IN ('reserved', 'arrived')
-                            `, [now, s.roll_id, groupItemIds]);
+                                WHERE roll_id = $2 AND dht_order_id = $3 AND item_id = $4 AND phoi_index = $5 AND status IN ('reserved', 'arrived', 'fulfilled')
+                            `, [now, s.roll_id, member.dht_order_id, member.order_item_id, member.phoi_index]);
                         }
                         if (finalWeight === 0) {
                             if (groupOrderIds.length > 0) {
@@ -1178,8 +1179,8 @@ module.exports = async function(fastify) {
                     await db.run(`
                         UPDATE qlx_fabric_reservations 
                         SET status = 'released', updated_at = $1 
-                        WHERE dht_order_id = $2 AND item_id = $3 AND status IN ('reserved', 'arrived')
-                    `, [now, rec.dht_order_id, rec.order_item_id]);
+                        WHERE dht_order_id = $2 AND item_id = $3 AND phoi_index = $4 AND status IN ('reserved', 'arrived', 'fulfilled')
+                    `, [now, rec.dht_order_id, rec.order_item_id, rec.phoi_index]);
                 }
                 for (const s of snapshot) {
                     const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
@@ -1189,13 +1190,13 @@ module.exports = async function(fastify) {
                     await db.run(`
                         UPDATE qlx_fabric_reservations 
                         SET status = 'released', updated_at = $1 
-                        WHERE roll_id = $2 AND dht_order_id = $3 AND item_id = $4 AND status IN ('reserved', 'arrived')
-                    `, [now, s.roll_id, rec.dht_order_id, rec.order_item_id]);
+                        WHERE roll_id = $2 AND dht_order_id = $3 AND item_id = $4 AND phoi_index = $5 AND status IN ('reserved', 'arrived', 'fulfilled')
+                    `, [now, s.roll_id, rec.dht_order_id, rec.order_item_id, rec.phoi_index]);
                     if (finalWeight === 0) {
                         await db.run(`
                             UPDATE qlx_fabric_reservations 
                             SET status = 'released', updated_at = $1 
-                            WHERE roll_id = $2 AND status IN ('reserved', 'arrived')
+                            WHERE roll_id = $2 AND status IN ('reserved', 'arrived', 'fulfilled')
                         `, [now, s.roll_id]);
                     } else {
                         // Adjust other active reservations on this roll if their sum exceeds finalWeight
@@ -1899,7 +1900,7 @@ module.exports = async function(fastify) {
             reservations = await db.all(`
                 SELECT id, dht_order_id, item_id, phoi_index, status
                 FROM qlx_fabric_reservations
-                WHERE dht_order_id = ANY($1) AND status != 'released'
+                WHERE dht_order_id = ANY($1) AND status NOT IN ('released', 'fulfilled')
             `, [orderIds]);
 
             // Total items in order (including already claimed) for display logic
@@ -1974,7 +1975,7 @@ module.exports = async function(fastify) {
                             
                             // Calculate coordinate-level fabric_arrived
                             const phoiRes = reservations.filter(r => r.item_id === it.id && r.phoi_index === pi);
-                            const isPhoiFabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+                            const isPhoiFabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived');
                             const fabric_status = phoiRes.length === 0 ? 'chua_goi' : (isPhoiFabricArrived ? 'arrived' : 'chua_ve');
 
                             rows.push({
@@ -2011,7 +2012,7 @@ module.exports = async function(fastify) {
                         
                         // Calculate coordinate-level fabric_arrived for phoi_index = 0
                         const phoiRes = reservations.filter(r => r.item_id === it.id && r.phoi_index === 0);
-                        const isPhoiFabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+                        const isPhoiFabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived');
                         const fabric_status = phoiRes.length === 0 ? 'chua_goi' : (isPhoiFabricArrived ? 'arrived' : 'chua_ve');
 
                         rows.push({
@@ -2060,12 +2061,12 @@ module.exports = async function(fastify) {
         // Check coordinator-level fabric arrival
         const reservations = await db.all(`
             SELECT status FROM qlx_fabric_reservations
-            WHERE item_id = $1 AND phoi_index = $2 AND status != 'released'
+            WHERE item_id = $1 AND phoi_index = $2 AND status NOT IN ('released', 'fulfilled')
         `, [order_item_id, phoi_index]);
         if (reservations.length === 0) {
             return reply.code(400).send({ error: 'Vải phối này chưa được gọi — không thể nhận cắt!' });
         }
-        const allArrived = reservations.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+        const allArrived = reservations.every(r => r.status === 'arrived');
         if (!allArrived) {
             return reply.code(400).send({ error: 'Vải phối này chưa về đủ — không thể nhận cắt!' });
         }

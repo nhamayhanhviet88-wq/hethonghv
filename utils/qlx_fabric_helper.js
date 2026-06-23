@@ -5,10 +5,12 @@ async function recalculateOrderFabricStatus(orderId) {
 
     try {
         // Fetch items
-        const oItems = await db.all(
-            'SELECT id, material_pairs, material_called, material_arrived FROM dht_order_items WHERE dht_order_id = $1',
-            [orderId]
-        );
+        const oItems = await db.all(`
+            SELECT doi.id, doi.material_pairs, qp.material_called, qp.material_arrived 
+            FROM dht_order_items doi
+            LEFT JOIN qlx_preparation qp ON doi.id = qp.item_id
+            WHERE doi.dht_order_id = $1
+        `, [orderId]);
 
         // Fetch cutting records
         const cuttingRows = await db.all(
@@ -23,7 +25,7 @@ async function recalculateOrderFabricStatus(orderId) {
             FROM qlx_fabric_reservations r
             LEFT JOIN kv_rolls roll ON r.roll_id = roll.id
             WHERE r.dht_order_id = $1 
-              AND r.status NOT IN ('released') 
+              AND r.status NOT IN ('released', 'fulfilled') 
               AND (r.roll_id IS NULL OR roll.weight > 0)
         `, [orderId]);
 
@@ -34,7 +36,7 @@ async function recalculateOrderFabricStatus(orderId) {
                 phoiFabStatus[key] = { total: 0, arrived: 0, pending: 0 };
             }
             phoiFabStatus[key].total++;
-            if (r.status === 'arrived' || r.status === 'fulfilled') {
+            if (r.status === 'arrived') {
                 phoiFabStatus[key].arrived++;
             } else if (r.status === 'reserved') {
                 phoiFabStatus[key].pending++;
