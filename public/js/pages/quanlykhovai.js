@@ -843,8 +843,13 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                         moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
                                     }
                                 } else {
-                                    photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                                    moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                                    if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
+                                        photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                        moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                                    } else {
+                                        photoHtml = '';
+                                        moveHtml = '';
+                                    }
                                 }
 
                                 var tagsHtml = '';
@@ -2183,8 +2188,8 @@ function _qkvUpdateModalView() {
                             moveHtml = `<button class="btn btn-xs btn-outline-secondary" style="padding:4px 8px; font-size:11px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚 Chuyển</button>`;
                         }
                     } else {
-                        photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:4px 8px; font-size:11px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp ảnh</button>`;
-                        moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp</span>`;
+                        photoHtml = '';
+                        moveHtml = '';
                     }
 
                     rightHtml += `

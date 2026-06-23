@@ -1046,8 +1046,13 @@
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
                                         moveHtml = ``;
                                     } else {
-                                        photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                                        moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                                        if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
+                                            photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                            moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                                        } else {
+                                            photoHtml = ``;
+                                            moveHtml = ``;
+                                        }
                                     }
 
                                     var tagsHtml = '';
@@ -1463,7 +1468,7 @@
                                     if (r.img) {
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #64748b; cursor:not-allowed;" onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!', 'warning')" />`;
                                     } else {
-                                        photoHtml = `<button class="btn-camera" style="background:#475569; border:none; padding:6px 10px; border-radius:6px; color:#cbd5e1; font-size:12px; font-weight:700; cursor:not-allowed;" onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!', 'warning')">📷 Chụp</button>`;
+                                        photoHtml = ``;
                                     }
                                     actionHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Bị giới hạn</span>`;
                                 } else {
@@ -1471,8 +1476,8 @@
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
                                         actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
                                     } else {
-                                        photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                                        actionHtml = `<span style="font-size:11px; color:#64748b; font-style:italic; white-space:nowrap;">Chờ chụp ảnh</span>`;
+                                        photoHtml = ``;
+                                        actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
                                     }
                                 }
 
