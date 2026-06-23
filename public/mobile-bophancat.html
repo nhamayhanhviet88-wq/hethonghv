@@ -1605,6 +1605,7 @@ async function mOpenCutModal(recordId){
 
         const [rollsData, remData] = await Promise.all([rollsRes, remRes]);
         const rolls=rollsData.rolls||[];
+        mSortRollsForCutting(rolls, rec.order_code);
         window._mAvailableRolls = rolls;
         const cutReminders = remData.reminders || [];
         const cutReminderIds = remData.reminder_ids || [];
@@ -1627,7 +1628,7 @@ async function mOpenCutModal(recordId){
                 b += '  <span>⚠️ QLX chỉ định nhiều cây dự phòng. Vui lòng tích chọn đúng cây vải bạn dùng thực tế!</span>';
                 b += '</div>';
             }
-            rolls.forEach(r=>{
+            rolls.forEach((r, idx)=>{
                 const dis=r.locked?' disabled':'';
                 const isReserved = !!r.is_reserved_for_this_order;
                 const chk = (isReserved && !r.locked) ? ' checked' : '';
@@ -1653,9 +1654,10 @@ async function mOpenCutModal(recordId){
                 b+='  <div style="display:flex;align-items:center;gap:12px">';
                 b+='    <input type="checkbox" class="_mRollCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mRecalcKg()" style="width:22px;height:22px;accent-color:#ef4444">';
                 if (imgHtml) b+= imgHtml;
-                b+='    <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">'+r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</div>'+lk+'</div>';
+                b+='    <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">' + (idx+1) + '. ' + r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</div>'+lk+'</div>';
                 b+='  </div>';
                 b+=resHtml;
+                b+=mRenderRollReservations(r, rec.order_code);
                 b+='</label>';
             });
         }
@@ -1935,7 +1937,7 @@ async function mOpenDetail(recordId){
                 }
                 h+='<div style="padding:10px 14px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#e2e8f0;display:flex;align-items:center">';
                 if (imgHtml) h+= imgHtml;
-                var rollText = rl.label || rl.roll_code || 'Cây '+(i+1);
+                var rollText = (i+1) + '. ' + (rl.label || rl.roll_code || 'Cây '+(i+1));
                 var rollHtml = '';
                 if (mCanViewBill()) {
                     if (rl.source_import_id) {
@@ -2042,7 +2044,7 @@ async function mOpenDetail(recordId){
     }
 }
 
-function mOpenDoneModal(recordId, isRefresh = false){
+async function mOpenDoneModal(recordId, isRefresh = false){
     const r=mMine.find(x=>x.id===recordId);if(!r)return;
     // If multi-cut group → open GROUP done modal
     if(r.multi_cut_group_id){return mOpenGroupDoneModal(r.multi_cut_group_id, isRefresh);}
@@ -2065,7 +2067,53 @@ function mOpenDoneModal(recordId, isRefresh = false){
         if (imgPrev) preservedImgHtml = imgPrev.innerHTML;
     }
 
-    let rolls=[];try{rolls=typeof r.selected_roll_ids==='string'?JSON.parse(r.selected_roll_ids):(r.selected_roll_ids||[]);}catch(e){}
+    let liveRolls = [];
+    try {
+        const rollsRes = await mApi('/api/cutting/available-rolls?material_name=' + encodeURIComponent(r.material_name || '') + '&color_name=' + encodeURIComponent(r.fabric_color || '') + '&order_id=' + r.dht_order_id + '&order_item_id=' + (r.order_item_id || '') + '&phoi_index=' + (r.phoi_index || 0));
+        liveRolls = rollsRes.rolls || [];
+    } catch(e) {
+        console.error('[BPC] Fetch live rolls error:', e);
+    }
+
+    let rolls = [];
+    try {
+        const snapRolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []);
+        rolls = snapRolls.map(sr => {
+            const live = liveRolls.find(lr => lr.id === sr.roll_id);
+            if (live) {
+                return {
+                    roll_id: sr.roll_id,
+                    weight: live.weight,
+                    roll_code: live.roll_code,
+                    label: live.label || sr.label,
+                    roll_loc_name: live.location_name || sr.roll_loc_name,
+                    image_path: live.image_path || sr.image_path,
+                    reservations: live.reservations || [],
+                    available: live.available,
+                    called_for_orders: live.called_for_orders,
+                    is_original_tree: live.is_original_tree
+                };
+            } else {
+                return {
+                    roll_id: sr.roll_id,
+                    weight: sr.weight,
+                    roll_code: sr.roll_code,
+                    label: sr.label,
+                    roll_loc_name: sr.roll_loc_name,
+                    image_path: sr.image_path,
+                    reservations: [],
+                    available: sr.weight,
+                    called_for_orders: [],
+                    is_original_tree: sr.is_original_tree || false
+                };
+            }
+        });
+    } catch(e) {
+        console.error('[BPC] Parse rolls error:', e);
+    }
+
+    mSortRollsForCutting(rolls, r.order_code);
+
     let prevImgData = null;
     if (isRefresh && window._mDoneData && window._mDoneData.recordId === recordId) {
         prevImgData = window._mDoneData.imgData;
@@ -2131,9 +2179,10 @@ function mOpenDoneModal(recordId, isRefresh = false){
         sheetHtml+='<div style="border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px;margin-bottom:8px">';
         sheetHtml+='<label style="display:flex;align-items:center;gap:12px;cursor:pointer">';
         sheetHtml+='<input type="checkbox" class="_mDoneRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#3b82f6">';
-        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+'</span>';
+        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(idx+1)+'. '+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+'</span>';
         sheetHtml+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
         sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRoll('+recordId+','+rl.roll_id+')" style="border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
+        sheetHtml+=mRenderRollReservations(rl, r.order_code);
         sheetHtml+='<div id="_mDoneRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         sheetHtml+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
         sheetHtml+='<input id="_mDoneRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)">';
@@ -2353,7 +2402,7 @@ async function mSubmitDone(recordId){
 function mUpdateFab(){var f=document.getElementById('mFab');if(f)f.style.display=(mTab==='mine'&&mMine.length>0)?'block':'none';}
 
 // ========== GROUP DONE MODAL (Multi-cut) ==========
-function mOpenGroupDoneModal(groupId, isRefresh = false){
+async function mOpenGroupDoneModal(groupId, isRefresh = false){
     if(window._mBusy && !isRefresh)return;
     window._mBusy=true;
     const groupRecs=mMine.filter(x=>x.multi_cut_group_id===groupId);
@@ -2378,7 +2427,54 @@ function mOpenGroupDoneModal(groupId, isRefresh = false){
         if (imgPrev) preservedImgHtml = imgPrev.innerHTML;
     }
 
-    let rolls=[];try{rolls=typeof ref.selected_roll_ids==='string'?JSON.parse(ref.selected_roll_ids):(ref.selected_roll_ids||[]);}catch(e){}
+    let liveRolls = [];
+    try {
+        const rollsRes = await mApi('/api/cutting/available-rolls?material_name=' + encodeURIComponent(ref.material_name || '') + '&color_name=' + encodeURIComponent(ref.fabric_color || '') + '&order_id=' + ref.dht_order_id + '&order_item_id=' + (ref.order_item_id || '') + '&phoi_index=' + (ref.phoi_index || 0));
+        liveRolls = rollsRes.rolls || [];
+    } catch(e) {
+        console.error('[BPC] Fetch live rolls error:', e);
+    }
+
+    let rolls = [];
+    try {
+        const snapRolls = typeof ref.selected_roll_ids === 'string' ? JSON.parse(ref.selected_roll_ids) : (ref.selected_roll_ids || []);
+        rolls = snapRolls.map(sr => {
+            const live = liveRolls.find(lr => lr.id === sr.roll_id);
+            if (live) {
+                return {
+                    roll_id: sr.roll_id,
+                    weight: live.weight,
+                    roll_code: live.roll_code,
+                    label: live.label || sr.label,
+                    roll_loc_name: live.location_name || sr.roll_loc_name,
+                    image_path: live.image_path || sr.image_path,
+                    reservations: live.reservations || [],
+                    available: live.available,
+                    called_for_orders: live.called_for_orders,
+                    is_original_tree: live.is_original_tree
+                };
+            } else {
+                return {
+                    roll_id: sr.roll_id,
+                    weight: sr.weight,
+                    roll_code: sr.roll_code,
+                    label: sr.label,
+                    roll_loc_name: sr.roll_loc_name,
+                    image_path: sr.image_path,
+                    reservations: [],
+                    available: sr.weight,
+                    called_for_orders: [],
+                    is_original_tree: sr.is_original_tree || false
+                };
+            }
+        });
+    } catch(e) {
+        console.error('[BPC] Parse rolls error:', e);
+    }
+
+    const groupOrderCodes = groupRecs.map(x => x.order_code);
+    mSortRollsForCutting(rolls, groupOrderCodes);
+
     const kgStart=Number(ref.kg_start)||0;
     let prevImgData = null;
     if (isRefresh && window._mGDone && window._mGDone.groupId === groupId) {
@@ -2453,9 +2549,10 @@ function mOpenGroupDoneModal(groupId, isRefresh = false){
         sheetHtml+='<div style="border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px;margin-bottom:8px">';
         sheetHtml+='<label style="display:flex;align-items:center;gap:12px;cursor:pointer">';
         sheetHtml+='<input type="checkbox" class="_mGRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mGDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#8b5cf6">';
-        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+'</span>';
+        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(idx+1)+'. '+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+'</span>';
         sheetHtml+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
         sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRollGroup('+groupId+','+rl.roll_id+')" style="border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
+        sheetHtml+=mRenderRollReservations(rl, groupOrderCodes);
         sheetHtml+='<div id="_mGRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         sheetHtml+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
         sheetHtml+='<input id="_mGRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mGDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#c4b5fd;background:rgba(255,255,255,0.06)">';

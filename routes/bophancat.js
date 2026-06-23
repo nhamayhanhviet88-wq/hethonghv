@@ -1600,6 +1600,7 @@ module.exports = async function(fastify) {
 
         const rolls = await db.all(`
             SELECT r.id, r.roll_code, r.weight, r.original_weight, r.locked_by_cutting_id, r.image_path,
+                   r.called_for_orders,
                    m.name AS material_name, fc.color_name,
                    u_lock.full_name AS locked_by_name,
                    cr_lock.product_name AS locked_product,
@@ -1649,6 +1650,31 @@ module.exports = async function(fastify) {
               r.weight ASC
         `, ['%' + material_name.trim() + '%', '%' + color_name.trim() + '%', orderId, orderItemId, phoiIdx]);
 
+        for (const r of rolls) {
+            const resTotalObj = await db.get(`
+                SELECT COALESCE(SUM(res.kg_reserved), 0) AS reserved_total
+                FROM qlx_fabric_reservations res
+                WHERE res.roll_id = $1 
+                  AND res.status IN ('reserved', 'arrived')
+            `, [r.id]);
+            r.reserved_total = Number(resTotalObj?.reserved_total || 0);
+            r.available = Number(r.weight) - r.reserved_total;
+
+            r.reservations = await db.all(`
+                SELECT res.id, res.kg_reserved, res.dht_order_id,
+                       o.order_code, res.phoi_index, res.item_id,
+                       it.description AS product_name,
+                       it.quantity AS order_qty,
+                       (SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id) AS item_index,
+                       res.arrived_at, res.status AS res_status
+                FROM qlx_fabric_reservations res
+                LEFT JOIN dht_orders o ON o.id = res.dht_order_id
+                LEFT JOIN dht_order_items it ON it.id = res.item_id
+                WHERE res.roll_id = $1 AND res.status IN ('reserved', 'arrived')
+                ORDER BY res.created_at
+            `, [r.id]);
+        }
+
         return {
             rolls: rolls.map(r => ({
                 id: r.id,
@@ -1662,7 +1688,10 @@ module.exports = async function(fastify) {
                 kg_reserved: r.kg_reserved !== null ? Number(r.kg_reserved) : null,
                 label: r.material_name + ' - ' + r.color_name + ' - ' + Number(r.weight) + 'kg',
                 roll_loc_name: resolveRollLocationName(r),
-                image_path: r.image_path
+                image_path: r.image_path,
+                available: Number(r.available),
+                called_for_orders: r.called_for_orders,
+                reservations: r.reservations || []
             }))
         };
     });

@@ -29,6 +29,62 @@ function _bpcFormatOrderQty(qty, productName, cuttingCategory) {
     }
 }
 
+function _bpcSortRollsForCutting(rolls, orderCode) {
+    if (!rolls || !rolls.length) return rolls || [];
+    var codes = Array.isArray(orderCode) ? orderCode : [orderCode];
+    rolls.sort(function(a, b) {
+        var aLocked = a.locked_by_cutting_id ? 1 : 0;
+        var bLocked = b.locked_by_cutting_id ? 1 : 0;
+        if (aLocked !== bLocked) return bLocked - aLocked;
+
+        var aHas = (a.available !== undefined ? a.available : a.weight) > 0 ? 1 : 0;
+        var bHas = (b.available !== undefined ? b.available : b.weight) > 0 ? 1 : 0;
+        if (aHas !== bHas) return bHas - aHas;
+
+        var aOrders = a.called_for_orders || [];
+        var bOrders = b.called_for_orders || [];
+        if (typeof aOrders === 'string') try { aOrders = JSON.parse(aOrders); } catch(e) { aOrders = []; }
+        if (typeof bOrders === 'string') try { bOrders = JSON.parse(bOrders); } catch(e) { bOrders = []; }
+
+        var aActive = (a.reservations || []).map(function(rv) { return rv.order_code; });
+        var bActive = (b.reservations || []).map(function(rv) { return rv.order_code; });
+        aOrders = aOrders.filter(function(ord) { return aActive.indexOf(ord) >= 0; });
+        bOrders = bOrders.filter(function(ord) { return bActive.indexOf(ord) >= 0; });
+
+        var aMatch = aOrders.some(function(ord) { return codes.indexOf(ord) >= 0; }) ? 2 : (aOrders.length > 0 ? 1 : 0);
+        var bMatch = bOrders.some(function(ord) { return codes.indexOf(ord) >= 0; }) ? 2 : (bOrders.length > 0 ? 1 : 0);
+        if (aMatch !== bMatch) return bMatch - aMatch;
+
+        var aTag = aOrders.length ? aOrders[0] : 'zzz';
+        var bTag = bOrders.length ? bOrders[0] : 'zzz';
+        if (aTag !== bTag) return aTag.localeCompare(bTag);
+
+        var aAvail = a.available !== undefined ? a.available : a.weight;
+        var bAvail = b.available !== undefined ? b.available : b.weight;
+        return aAvail - bAvail;
+    });
+    return rolls;
+}
+
+function _bpcRenderRollReservations(roll, currentOrderCodeOrCodes) {
+    if (!roll.reservations || !roll.reservations.length) return '';
+    let html = '';
+    const codes = Array.isArray(currentOrderCodeOrCodes) ? currentOrderCodeOrCodes : [currentOrderCodeOrCodes];
+    roll.reservations.forEach(function(rv) {
+        var isThisOrder = codes.indexOf(rv.order_code) >= 0;
+        var badge = isThisOrder
+            ? '<span style="background:rgba(22,163,74,0.15);color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🏷️ Đơn này</span>'
+            : '<span style="background:rgba(37,99,235,0.15);color:#2563eb;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🔖 ' + rv.order_code + '</span>';
+        var phoiLabel = (isThisOrder ? ' ' : ' — ') + 'Phiếu ' + (rv.item_index || 1) + ' — P' + ((rv.phoi_index || 0) + 1);
+        var prodName = rv.product_name ? ' — ' + rv.product_name : '';
+        html += '<div style="font-size:11px;color:#64748b;margin-top:4px;padding-left:12px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;line-height:1.4">'
+            + badge
+            + '<span style="font-weight:600">' + phoiLabel + prodName + ': <b style="color:#dc2626">' + rv.kg_reserved + 'kg</b>' + (rv.order_qty ? ' : ' + rv.order_qty + ' sp' : '') + '</span>'
+            + '</div>';
+    });
+    return html;
+}
+
 
 function renderBophancatPage(content) {
     if (!document.getElementById('_bpcFontLink')) {
@@ -1465,6 +1521,7 @@ async function _bpcOpenCutModal(recordId) {
         
         var results = await Promise.all([rollsRes, remRes]);
         var rolls = results[0].rolls || [];
+        _bpcSortRollsForCutting(rolls, rec.order_code);
         window._bpcAvailableRolls = rolls;
         var cutReminders = results[1].reminders || [];
         var cutReminderIds = results[1].reminder_ids || [];
@@ -1488,7 +1545,7 @@ async function _bpcOpenCutModal(recordId) {
                 bh += '  <span>⚠️ QLX chỉ định nhiều cây dự phòng. Vui lòng tích chọn đúng cây vải bạn dùng thực tế!</span>';
                 bh += '</div>';
             }
-            rolls.forEach(function(roll) {
+            rolls.forEach(function(roll, idx) {
                 var disabled = roll.locked ? ' disabled' : '';
                 var isReserved = !!roll.is_reserved_for_this_order;
                 var checked = (isReserved && !roll.locked) ? ' checked' : '';
@@ -1524,7 +1581,7 @@ async function _bpcOpenCutModal(recordId) {
                 bh += '  <div style="display:flex;align-items:center;gap:10px">';
                 bh += '    <input type="checkbox" class="_bpcRollCb" value="' + roll.id + '" data-weight="' + roll.weight + '"' + disabled + checked + ' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
                 if (imgPreview) bh += '    ' + imgPreview;
-                bh += '    <span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>' + locBadge + '</span>';
+                bh += '    <span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (idx+1) + '. ' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>' + locBadge + '</span>';
                 bh += lockInfo;
                 bh += '  </div>';
                 if (isReserved) {
@@ -1536,6 +1593,7 @@ async function _bpcOpenCutModal(recordId) {
                     bh += '    </div>';
                     bh += '  </div>';
                 }
+                bh += _bpcRenderRollReservations(roll, rec.order_code);
                 bh += '</label>';
             });
         }
@@ -1854,7 +1912,7 @@ async function _bpcOpenDetail(recordId) {
                 }
                 h += '<div style="padding:8px 14px;border:1.5px solid #f1f5f9;border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#1e293b;display:flex;align-items:center">';
                 if (imgHtml) h += imgHtml;
-                var rollText = rl.label || rl.roll_code || 'Cây '+(idx+1);
+                var rollText = (idx+1) + '. ' + (rl.label || rl.roll_code || 'Cây '+(idx+1));
                 var rollHtml = '';
                 if (_bpcCanViewBill()) {
                     if (rl.source_import_id) {
@@ -1979,7 +2037,7 @@ async function _bpcOpenDetail(recordId) {
 }
 
 // ========== CẮT XONG MODAL ==========
-function _bpcOpenDoneModal(recordId, isRefresh = false) {
+async function _bpcOpenDoneModal(recordId, isRefresh = false) {
     var r = _bpc.records.find(function(x) { return x.id === recordId; });
     if (!r) return;
     // Multi-cut group → open group done modal
@@ -2001,8 +2059,52 @@ function _bpcOpenDoneModal(recordId, isRefresh = false) {
         if (imgPrev) preservedImgHtml = imgPrev.innerHTML;
     }
 
+    var liveRolls = [];
+    try {
+        var rollsRes = await apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(r.material_name || '') + '&color_name=' + encodeURIComponent(r.fabric_color || '') + '&order_id=' + r.dht_order_id + '&order_item_id=' + (r.order_item_id || '') + '&phoi_index=' + (r.phoi_index || 0));
+        liveRolls = rollsRes.rolls || [];
+    } catch(e) {
+        console.error('[BPC] Fetch live rolls error:', e);
+    }
+
     var rolls = [];
-    try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
+    try {
+        var snapRolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []);
+        rolls = snapRolls.map(sr => {
+            const live = liveRolls.find(lr => lr.id === sr.roll_id);
+            if (live) {
+                return {
+                    roll_id: sr.roll_id,
+                    weight: live.weight,
+                    roll_code: live.roll_code,
+                    label: live.label || sr.label,
+                    roll_loc_name: live.location_name || sr.roll_loc_name,
+                    image_path: live.image_path || sr.image_path,
+                    reservations: live.reservations || [],
+                    available: live.available,
+                    called_for_orders: live.called_for_orders,
+                    is_original_tree: live.is_original_tree
+                };
+            } else {
+                return {
+                    roll_id: sr.roll_id,
+                    weight: sr.weight,
+                    roll_code: sr.roll_code,
+                    label: sr.label,
+                    roll_loc_name: sr.roll_loc_name,
+                    image_path: sr.image_path,
+                    reservations: [],
+                    available: sr.weight,
+                    called_for_orders: [],
+                    is_original_tree: sr.is_original_tree || false
+                };
+            }
+        });
+    } catch(e) {
+        console.error('[BPC] Parse rolls error:', e);
+    }
+
+    _bpcSortRollsForCutting(rolls, r.order_code);
     
     let prevImgData = null;
     if (isRefresh && window._bpcDoneData && window._bpcDoneData.recordId === recordId) {
@@ -2071,9 +2173,10 @@ function _bpcOpenDoneModal(recordId, isRefresh = false) {
             h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
             h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
             h += '<input type="checkbox" class="_bpcDoneRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#3b82f6">';
-            h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#1e293b">' + (rl.label || 'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
+            h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#1e293b">' + (idx+1) + '. ' + (rl.label || 'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
             h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
             h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRoll(' + recordId + ', ' + rl.roll_id + ')" style="border:1.5px solid #dc2626;background:rgba(220,38,38,0.06);color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;line-height:1.2;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
+            h += _bpcRenderRollReservations(rl, r.order_code);
             h += '<div id="_bpcDoneRollInput_' + idx + '" style="display:none;margin-top:8px;padding-left:28px">';
             h += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn lại:</span>';
             h += '<input id="_bpcDoneRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" placeholder="0" oninput="_bpcDoneRecalc()" style="width:70px;padding:4px 8px;border:1.5px solid #3b82f6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
@@ -2518,7 +2621,7 @@ async function _bpcSubmitDone(recordId) {
 }
 
 // ========== GROUP DONE MODAL (Multi-cut Desktop) ==========
-function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
+async function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
     if (window._bpcBusy && !isRefresh) return;
     window._bpcBusy = true;
     var groupRecs = _bpc.records.filter(function(x) { return x.multi_cut_group_id === groupId; });
@@ -2543,7 +2646,54 @@ function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
         if (imgPrev) preservedImgHtml = imgPrev.innerHTML;
     }
     
-    var rolls = []; try { rolls = typeof ref.selected_roll_ids === 'string' ? JSON.parse(ref.selected_roll_ids) : (ref.selected_roll_ids || []); } catch(e) {}
+    var liveRolls = [];
+    try {
+        var rollsRes = await apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(ref.material_name || '') + '&color_name=' + encodeURIComponent(ref.fabric_color || '') + '&order_id=' + ref.dht_order_id + '&order_item_id=' + (ref.order_item_id || '') + '&phoi_index=' + (ref.phoi_index || 0));
+        liveRolls = rollsRes.rolls || [];
+    } catch(e) {
+        console.error('[BPC] Fetch live rolls error:', e);
+    }
+
+    var rolls = [];
+    try {
+        var snapRolls = typeof ref.selected_roll_ids === 'string' ? JSON.parse(ref.selected_roll_ids) : (ref.selected_roll_ids || []);
+        rolls = snapRolls.map(sr => {
+            const live = liveRolls.find(lr => lr.id === sr.roll_id);
+            if (live) {
+                return {
+                    roll_id: sr.roll_id,
+                    weight: live.weight,
+                    roll_code: live.roll_code,
+                    label: live.label || sr.label,
+                    roll_loc_name: live.location_name || sr.roll_loc_name,
+                    image_path: live.image_path || sr.image_path,
+                    reservations: live.reservations || [],
+                    available: live.available,
+                    called_for_orders: live.called_for_orders,
+                    is_original_tree: live.is_original_tree
+                };
+            } else {
+                return {
+                    roll_id: sr.roll_id,
+                    weight: sr.weight,
+                    roll_code: sr.roll_code,
+                    label: sr.label,
+                    roll_loc_name: sr.roll_loc_name,
+                    image_path: sr.image_path,
+                    reservations: [],
+                    available: sr.weight,
+                    called_for_orders: [],
+                    is_original_tree: sr.is_original_tree || false
+                };
+            }
+        });
+    } catch(e) {
+        console.error('[BPC] Parse rolls error:', e);
+    }
+
+    var groupOrderCodes = groupRecs.map(function(x) { return x.order_code; });
+    _bpcSortRollsForCutting(rolls, groupOrderCodes);
+
     var kgStart = Number(ref.kg_start) || 0;
     
     let prevImgData = null;
@@ -2609,9 +2759,10 @@ function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
         h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
         h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
         h += '<input type="checkbox" class="_bpcGRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcGDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#8b5cf6">';
-        h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (rl.label||'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
+        h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (idx+1) + '. ' + (rl.label||'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
         h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
         h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRollGroup(\'' + groupId + '\', ' + rl.roll_id + ')" style="border:1.5px solid #dc2626;background:rgba(220,38,38,0.06);color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;line-height:1.2;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
+        h += _bpcRenderRollReservations(rl, groupOrderCodes);
         h += '<div id="_bpcGRollInp_' + idx + '" style="display:none;margin-top:8px;padding-left:28px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn:</span>';
         h += '<input id="_bpcGRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" oninput="_bpcGDoneValidKg(this,' + w + ')" style="width:70px;padding:4px 8px;border:1.5px solid #8b5cf6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
         h += '<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
@@ -3035,13 +3186,17 @@ function _mcRenderStep() {
         h += '<div style="font-size:12px;color:#475569;margin-bottom:12px">🧵 ' + _mcData.selMat + ' · 🎨 ' + _mcData.selColor + '</div>';
         if (!_mcData.rolls.length) { h += '<div style="text-align:center;padding:20px;color:#f59e0b;background:#fef3c7;border-radius:8px">⚠️ Không tìm thấy cây vải khả dụng</div>'; }
         else {
-            _mcData.rolls.forEach(function(r) {
+            var candidateCodes = _mcData.candidates.map(function(c) { return c.order_code; });
+            _mcData.rolls.forEach(function(r, idx) {
                 var dis = r.locked ? ' disabled' : '', op = r.locked ? 'opacity:0.4;' : '';
                 var chk = _mcData.selRolls.indexOf(r.id) >= 0 ? ' checked' : '';
-                h += '<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:6px;cursor:' + (r.locked?'not-allowed':'pointer') + ';' + op + '">';
-                h += '<input type="checkbox" class="_mcRollCb" value="' + r.id + '" data-weight="' + r.weight + '"' + dis + chk + ' onchange="_mcRollChanged()" style="width:18px;height:18px;accent-color:#ea580c">';
-                h += '<span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + r.label + (r.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>';
-                if (r.locked) h += '<span style="color:#ef4444;font-size:10px">🔒 ' + (r.locked_order ? r.locked_order + ' — ' : '') + (r.locked_by||'') + '</span>';
+                h += '<label style="display:block;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:6px;cursor:' + (r.locked?'not-allowed':'pointer') + ';' + op + '">';
+                h += '  <div style="display:flex;align-items:center;gap:10px">';
+                h += '    <input type="checkbox" class="_mcRollCb" value="' + r.id + '" data-weight="' + r.weight + '"' + dis + chk + ' onchange="_mcRollChanged()" style="width:18px;height:18px;accent-color:#ea580c">';
+                h += '    <span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + (idx+1) + '. ' + r.label + (r.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>';
+                if (r.locked) h += '    <span style="color:#ef4444;font-size:10px">🔒 ' + (r.locked_order ? r.locked_order + ' — ' : '') + (r.locked_by||'') + '</span>';
+                h += '  </div>';
+                h += _bpcRenderRollReservations(r, candidateCodes);
                 h += '</label>';
             });
         }
@@ -3206,9 +3361,13 @@ async function _mcNext() {
         // Load rolls + candidates
         try {
             var r1 = await apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(_mcData.selMat) + '&color_name=' + encodeURIComponent(_mcData.selColor));
-            _mcData.rolls = r1.rolls || [];
+            var rolls = r1.rolls || [];
             var r2 = await apiCall('/api/cutting/multi-cut/candidates?material_name=' + encodeURIComponent(_mcData.selMat) + '&fabric_color=' + encodeURIComponent(_mcData.selColor));
-            _mcData.candidates = r2.candidates || [];
+            var candidates = r2.candidates || [];
+            var candidateCodes = candidates.map(function(c) { return c.order_code; });
+            _bpcSortRollsForCutting(rolls, candidateCodes);
+            _mcData.rolls = rolls;
+            _mcData.candidates = candidates;
         } catch(e) { showToast(e.message, 'error'); return; }
         _mcData.step = 2; _mcRenderStep();
     } else if (_mcData.step === 2) {
