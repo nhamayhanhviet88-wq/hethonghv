@@ -1473,12 +1473,34 @@
                                 var actionHtml = '';
                                 
                                 if (!isAllowed) {
+                                    var assignedShelves = [];
+                                    if (typeof locations !== 'undefined') {
+                                        locations.forEach(function(loc) {
+                                            if (loc.restricted_material_id && Number(loc.restricted_material_id) === Number(item.material_id)) {
+                                                assignedShelves.push(loc.name);
+                                            }
+                                        });
+                                    }
+                                    if (typeof summary !== 'undefined') {
+                                        summary.forEach(function(x) {
+                                            if (Number(x.material_id) === Number(item.material_id) && x.material_location) {
+                                                x.material_location.split(',').forEach(function(s) {
+                                                    var name = s.trim();
+                                                    if (name && !assignedShelves.includes(name)) {
+                                                        assignedShelves.push(name);
+                                                    }
+                                                });
+                                            }
+                                        });
+                                    }
+                                    var shelfLabel = assignedShelves.length > 0 ? 'Kệ: ' + assignedShelves.join(', ') : 'Chưa Có Kệ';
+
                                     if (r.img) {
-                                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #64748b; cursor:not-allowed;" onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!', 'warning')" />`;
+                                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #64748b; cursor:not-allowed;" onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào! (${shelfLabel})', 'warning')" />`;
                                     } else {
                                         photoHtml = ``;
                                     }
-                                    actionHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Bị giới hạn</span>`;
+                                    actionHtml = `<span style="font-size:11px; color:#ef4444; font-style:italic; font-weight:700; white-space:nowrap;">Bị giới hạn (${shelfLabel})</span>`;
                                 } else {
                                     if (r.img) {
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
