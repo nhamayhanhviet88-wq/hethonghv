@@ -1252,6 +1252,7 @@
                                 ${item.roll_weights.map(r => {
                                     var photoHtml = '';
                                     var moveHtml = '';
+                                    var returnHtml = '';
                                     if (r.is_called) {
                                         photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
                                         moveHtml = `<span style="font-size:11px; color:#f59e0b; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
@@ -1263,6 +1264,10 @@
                                         if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
                                             photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
                                         }
+                                    }
+
+                                    if (isUnassigned === 'processed_nguyen') {
+                                        returnHtml = `<button class="btn-camera" style="background:#ef4444; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer;" onclick="event.stopPropagation(); showToast('Tính năng hoàn trả nhà cung cấp đang được phát triển', 'info');" title="Hoàn trả nhà cung cấp">↩️ Trả</button>`;
                                     }
 
                                     var tagsHtml = '';
@@ -1337,6 +1342,7 @@
                                             <div style="display:flex; align-items:center; gap:8px;">
                                                 ${photoHtml}
                                                 ${moveHtml}
+                                                ${returnHtml}
                                             </div>
                                         </div>
                                     `;

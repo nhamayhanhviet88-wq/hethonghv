@@ -826,6 +826,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                             ${item.roll_weights && item.roll_weights.length > 0 ? item.roll_weights.map(r => {
                                 var photoHtml = '';
                                 var moveHtml = '';
+                                var returnHtml = '';
                                 if (r.is_called) {
                                     photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
                                     moveHtml = `<span style="font-size:11px; color:#d97706; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
@@ -837,6 +838,10 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                     if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
                                         photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
                                     }
+                                }
+
+                                if (isUnassigned === 'processed_nguyen') {
+                                    returnHtml = `<button class="btn btn-xs btn-outline-danger" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); showToast('Tính năng hoàn trả nhà cung cấp đang được phát triển', 'info');" title="Hoàn trả nhà cung cấp">↩️ Trả NCC</button>`;
                                 }
 
                                 var tagsHtml = '';
@@ -903,6 +908,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                         <div style="display:flex; align-items:center; gap:8px;">
                                             ${photoHtml}
                                             ${moveHtml}
+                                            ${returnHtml}
                                         </div>
                                     </div>
                                 `;
