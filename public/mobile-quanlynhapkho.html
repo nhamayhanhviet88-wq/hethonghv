@@ -1493,14 +1493,14 @@
                                             }
                                         });
                                     }
-                                    var shelfLabel = assignedShelves.length > 0 ? 'Kệ: ' + assignedShelves.join(', ') : 'Chưa Có Kệ';
+                                    var shelfLabel = assignedShelves.length > 0 ? assignedShelves.join(', ') : 'Chưa Có Kệ';
 
                                     if (r.img) {
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #64748b; cursor:not-allowed;" onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào! (${shelfLabel})', 'warning')" />`;
                                     } else {
                                         photoHtml = ``;
                                     }
-                                    actionHtml = `<span style="font-size:11px; color:#ef4444; font-style:italic; font-weight:700; white-space:nowrap;">Bị giới hạn (${shelfLabel})</span>`;
+                                    actionHtml = `<span style="font-size:11px; color:#ef4444; font-style:italic; font-weight:700; white-space:nowrap;">${shelfLabel}</span>`;
                                 } else {
                                     if (r.img) {
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
