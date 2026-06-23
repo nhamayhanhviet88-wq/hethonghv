@@ -831,9 +831,8 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                     moveHtml = `<span style="font-size:11px; color:#d97706; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
                                 } else if (r.img) {
                                     photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                                    if (_qkvCanViewBill() && (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le')) {
-                                        moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
-                                    }
+                                    // Hidden on main screen per request: only allow move via QR scanning
+                                    moveHtml = ``;
                                 } else {
                                     if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
                                         photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
@@ -1622,6 +1621,7 @@ function _qkvOnQRScanSuccess(decodedText) {
 
 // 20. Open Quick Import Modal
 function _qkvOpenQuickImportModal(shelfName) {
+    _qkv.activeImportShelfName = shelfName;
     // Check if location exists
     var shelfExists = _qkv.locations.some(l => l.name === shelfName);
     var warnHtml = '';
@@ -1640,35 +1640,26 @@ function _qkvOpenQuickImportModal(shelfName) {
             ${warnHtml}
             
             <div class="form-group" style="margin-bottom:12px;">
-                <label class="form-label" style="font-weight:700; font-size:11px; text-transform:uppercase; color:#475569;">Phạm vi áp dụng</label>
-                <div style="display:flex; gap:16px; margin-top:4px;">
-                    <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">
-                        <input type="radio" name="qkvQuickScope" value="color" checked />
-                        <span>Chỉ riêng màu này</span>
-                    </label>
-                    <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">
-                        <input type="radio" name="qkvQuickScope" value="material" />
-                        <span>Toàn bộ chất liệu</span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="form-group" style="margin-bottom:12px;">
                 <input type="text" id="qkvQuickSearch" class="form-control" placeholder="🔍 Tìm kiếm chất liệu hoặc màu vải..." oninput="_qkvRenderQuickImportList('${escapeJS(shelfName)}')" style="height:36px; font-size:12px;" />
             </div>
             
             <div style="font-size:11px; font-weight:800; color:#64748b; margin-bottom:6px; text-transform:uppercase;">Danh sách vải đề xuất (Chưa xếp vị trí)</div>
-            <div id="qkvQuickImportList" style="max-height:280px; overflow-y:auto; padding-right:4px;">
+            <div id="qkvQuickImportList" style="max-height:320px; overflow-y:auto; padding-right:4px;">
                 <!-- List will be rendered dynamically -->
             </div>
         `,
         `
-            <button class="btn btn-secondary" onclick="closeModal()">Hoàn thành</button>
+            <button class="btn btn-secondary" onclick="_qkvCloseQuickImportModal()">Hoàn thành</button>
         `
     );
 
     // Initial render of the quick import list
     _qkvRenderQuickImportList(shelfName);
+}
+
+function _qkvCloseQuickImportModal() {
+    _qkv.activeImportShelfName = null;
+    closeModal();
 }
 
 // 21. Render Quick Import List inside modal
@@ -1699,26 +1690,84 @@ function _qkvRenderQuickImportList(shelfName) {
     }
 
     function buildImportItemHtml(item, isAllowed) {
-        var currentLocText = item.location ? `(Ở kệ: ${item.location})` : '(Chưa xếp vị trí)';
-        var opacityStyle = isAllowed ? '' : 'opacity:0.35; filter:grayscale(0.5); cursor:not-allowed;';
-        var clickHandler = isAllowed
-            ? `onclick="_qkvOnQuickSelectClick(${item.id}, ${item.material_id}, '${escapeJS(item.color_name)}', '${escapeJS(item.material_name)}', '${escapeJS(shelfName)}')"`
-            : `onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào!', 'warning')"` ;
+        var rollsHtml = '';
+        
+        if (item.roll_weights && item.roll_weights.length > 0) {
+            rollsHtml = `
+                <div style="background:#f8fafc; border-radius:6px; padding:6px; margin-top:6px; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:4px; width:100%; box-sizing:border-box;">
+                    ${item.roll_weights.map(r => {
+                        var photoHtml = '';
+                        var actionHtml = '';
+                        
+                        if (!isAllowed) {
+                            var assignedShelves = [];
+                            if (typeof _qkv !== 'undefined' && _qkv.locations) {
+                                _qkv.locations.forEach(function(loc) {
+                                    if (loc.restricted_material_id && Number(loc.restricted_material_id) === Number(item.material_id)) {
+                                        assignedShelves.push(loc.name);
+                                    }
+                                });
+                            }
+                            if (typeof _qkv !== 'undefined' && _qkv.summary) {
+                                _qkv.summary.forEach(function(x) {
+                                    if (Number(x.material_id) === Number(item.material_id) && x.material_location) {
+                                        x.material_location.split(',').forEach(function(s) {
+                                            var name = s.trim();
+                                            if (name && !assignedShelves.includes(name)) {
+                                                assignedShelves.push(name);
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                            var shelfLabel = assignedShelves.length > 0 ? assignedShelves.join(', ') : 'Chưa Có Kệ';
+
+                            if (r.img) {
+                                photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #64748b; cursor:not-allowed;" onclick="showToast('Kệ này giới hạn chất liệu khác, không thể xếp loại vải này vào! (${shelfLabel})', 'warning')" />`;
+                            }
+                            actionHtml = `<span style="font-size:11px; color:#ef4444; font-style:italic; font-weight:700; white-space:nowrap;">${shelfLabel}</span>`;
+                        } else {
+                            if (r.img) {
+                                photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                                actionHtml = `<button class="btn btn-xs btn-primary" onclick="event.stopPropagation(); _qkvConfirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', '${escapeJS(shelfName)}')">🚚 Xếp</button>`;
+                            } else {
+                                photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                            }
+                        }
+
+                        return `
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #e2e8f0;">
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-size:12px; font-weight:700; color:#334155;">Cây ${r.w}kg</div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    ${photoHtml}
+                                    ${actionHtml}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        var opacityStyle = isAllowed ? '' : 'opacity:0.35; filter:grayscale(0.5);';
 
         return `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #f1f5f9; background:#fff; border-radius:8px; margin-bottom:6px; border:1px solid #e2e8f0; ${opacityStyle}" ${clickHandler} onmouseover="if(${isAllowed}) this.style.borderColor='#0d9488'" onmouseout="if(${isAllowed}) this.style.borderColor='#e2e8f0'">
-                <div style="min-width:0; flex:1;">
-                    <div style="font-size:12px; font-weight:700; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(item.material_name)}</div>
-                    <div style="font-size:10px; color:#64748b; margin-top:2px;">
-                        Màu: <span style="font-weight:700; color:#0f766e;">${escapeHTML(item.color_name)}</span> 
-                        <span style="margin-left:4px; font-size:9px; color:#94a3b8;">${currentLocText}</span>
+            <div style="border: 1px solid #e2e8f0; background: #fafafa; border-radius: 8px; padding: 8px; margin-bottom: 8px; ${opacityStyle}">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="min-width:0; flex:1;">
+                        <div style="font-size:12px; font-weight:700; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(item.material_name)}</div>
+                        <div style="font-size:10px; color:#64748b; margin-top:2px;">
+                            Màu: <span style="font-weight:700; color:#0f766e;">${escapeHTML(item.color_name)}</span> 
+                        </div>
+                    </div>
+                    <div style="font-size:11px; font-weight:800; color:#1e293b; margin-left:8px; text-align:right;">
+                        ${_qkvFmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
+                        <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
                     </div>
                 </div>
-                <div style="font-size:11px; font-weight:800; color:#1e293b; margin-left:8px; text-align:right;">
-                    ${_qkvFmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
-                    <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
-                </div>
-                <div style="font-size:16px; margin-left:12px; color:#0d9488; font-weight:bold;">📥</div>
+                ${rollsHtml}
             </div>
         `;
     }
@@ -1775,41 +1824,35 @@ function _qkvRenderQuickImportList(shelfName) {
     listEl.innerHTML = html;
 }
 
-// 22. Handle click in quick select
-function _qkvOnQuickSelectClick(colorId, materialId, colorName, materialName, shelfName) {
-    var scope = document.querySelector('input[name="qkvQuickScope"]:checked').value;
-    _qkvExecuteQuickImport(colorId, materialId, colorName, materialName, shelfName, scope);
+function _qkvConfirmImportRoll(rollId, rollWeight, rollCode, matName, colorName, shelfName) {
+    var message = `Bạn có chắc chắn muốn xếp cây vải này vào kệ "${shelfName}"?\n`
+                + `- Chất liệu: ${matName}\n`
+                + `- Màu: ${colorName}\n`
+                + `- Trọng lượng: Cây ${rollWeight}kg\n`
+                + `- Mã: ${rollCode || 'không mã'}`;
+    if (confirm(message)) {
+        _qkvExecuteImportSingleRoll(rollId, rollWeight, shelfName);
+    }
 }
 
-// 23. Run quick import update API call
-async function _qkvExecuteQuickImport(colorId, materialId, colorName, materialName, shelfName, scope) {
+async function _qkvExecuteImportSingleRoll(rollId, rollWeight, shelfName) {
     try {
-        var res;
-        if (scope === 'material') {
-            res = await apiCall(`/api/khovai/materials/${materialId}`, 'PUT', {
-                location: shelfName
-            });
-        } else {
-            res = await apiCall(`/api/khovai/colors/${colorId}`, 'PUT', {
-                location: shelfName
-            });
-        }
+        var res = await apiCall(`/api/khovai/rolls/batch`, 'PUT', {
+            roll_ids: [Number(rollId)],
+            location: shelfName
+        });
         
         if (res.error) {
             showToast(res.error, 'error');
             return;
         }
         
-        showToast(`Đã xếp "${materialName} - ${colorName}" vào kệ "${shelfName}"`, 'success');
-        
-        // Reload data
+        showToast(`Đã xếp cây vải ${rollWeight}kg vào kệ "${shelfName}" thành công!`, 'success');
         await _qkvLoadData();
-        
-        // Re-render quick import list inside modal
         _qkvRenderQuickImportList(shelfName);
-    } catch(err) {
+    } catch (err) {
         console.error(err);
-        showToast('Lỗi khi lưu vị trí vải', 'error');
+        showToast('Lỗi khi xếp vải vào kệ', 'error');
     }
 }
 
@@ -1895,6 +1938,9 @@ async function handleCameraFileSelected(event) {
         } else {
             showToast('Đã chụp ảnh thành công!', 'success');
             await _qkvLoadData();
+            if (typeof _qkv !== 'undefined' && _qkv.activeImportShelfName) {
+                _qkvRenderQuickImportList(_qkv.activeImportShelfName);
+            }
         }
     } catch (e) {
         console.error(e);
