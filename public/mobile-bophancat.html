@@ -1706,11 +1706,30 @@ async function mOpenCutModal(recordId){
                     imgHtml = '<img src="' + r.image_path + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15);flex-shrink:0" onclick="event.preventDefault(); event.stopPropagation(); window.open(\'' + r.image_path + '\',\'_blank\')">';
                 }
 
+                let locBadge = '';
+                if (r.roll_loc_name) {
+                    let bColor = '#94a3b8';
+                    let bBg = 'rgba(148,163,184,0.08)';
+                    if (r.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
+                        if (r.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
+                            bColor = '#fb923c';
+                            bBg = 'rgba(251,146,60,0.15)';
+                        } else {
+                            bColor = '#f87171';
+                            bBg = 'rgba(248,113,113,0.15)';
+                        }
+                    } else {
+                        bColor = '#60a5fa';
+                        bBg = 'rgba(96,165,250,0.15)';
+                    }
+                    locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+r.roll_loc_name+'</div>';
+                }
+
                 b+='<label style="display:block;padding:12px;border-radius:12px;margin-bottom:8px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+border+'">';
                 b+='  <div style="display:flex;align-items:center;gap:12px">';
                 b+='    <input type="checkbox" class="_mRollCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mRecalcKg()" style="width:22px;height:22px;accent-color:#ef4444">';
                 if (imgHtml) b+= imgHtml;
-                b+='    <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">' + (idx+1) + '. ' + r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</div>'+lk+'</div>';
+                b+='    <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">' + (idx+1) + '. ' + r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</div>'+locBadge+lk+'</div>';
                 b+='  </div>';
                 b+=resHtml;
                 b+=mRenderRollReservations(r, rec.order_code);
