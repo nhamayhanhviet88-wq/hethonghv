@@ -881,7 +881,9 @@ module.exports = async function (fastify) {
                                     'id', cr.id,
                                     'product_name', cr.product_name,
                                     'order_code', o.order_code,
-                                    'is_cut_done', cr.is_cut_done
+                                    'is_cut_done', cr.is_cut_done,
+                                    'phoi_index', COALESCE(cr.phoi_index, 0),
+                                    'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = cr.dht_order_id AND it2.id <= cr.order_item_id), 1)
                                 )
                                 FROM cutting_records cr
                                 LEFT JOIN dht_orders o ON o.id = cr.dht_order_id
@@ -892,7 +894,9 @@ module.exports = async function (fastify) {
                                     'order_id', res.dht_order_id,
                                     'order_code', o.order_code,
                                     'status', res.status,
-                                    'res_id', res.id
+                                    'res_id', res.id,
+                                    'phoi_index', COALESCE(res.phoi_index, 0),
+                                    'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id), 1)
                                 ))
                                 FROM qlx_fabric_reservations res
                                 LEFT JOIN dht_orders o ON o.id = res.dht_order_id
@@ -913,7 +917,9 @@ module.exports = async function (fastify) {
                                'order_id', res.dht_order_id,
                                'order_code', o.order_code,
                                'status', res.status,
-                               'res_id', res.id
+                               'res_id', res.id,
+                               'phoi_index', COALESCE(res.phoi_index, 0),
+                               'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id), 1)
                            ))
                        ))
                        FROM qlx_fabric_reservations res

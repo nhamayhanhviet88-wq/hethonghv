@@ -855,11 +855,19 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 var tagsHtml = '';
                                 if (r.active_reservations && r.active_reservations.length > 0) {
                                     r.active_reservations.forEach(function(res) {
-                                        tagsHtml += `<span class="qkv-badge-res" style="background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" title="Chờ cắt cho đơn">🔖 ${escapeHTML(res.order_code)}</span>`;
+                                        var resText = res.order_code;
+                                        if (res.item_index && res.phoi_index !== undefined) {
+                                            resText += ` - P${res.item_index}.${res.phoi_index + 1}`;
+                                        }
+                                        tagsHtml += `<span class="qkv-badge-res" style="background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" title="Chờ cắt cho đơn">🔖 ${escapeHTML(resText)}</span>`;
                                     });
                                 }
                                 if (r.active_cut) {
-                                    tagsHtml += `<span class="qkv-badge-cut" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" title="Đang cắt cho đơn">🔒 ${escapeHTML(r.active_cut.order_code)}</span>`;
+                                    var cutText = r.active_cut.order_code;
+                                    if (r.active_cut.item_index && r.active_cut.phoi_index !== undefined) {
+                                        cutText += ` - P${r.active_cut.item_index}.${r.active_cut.phoi_index + 1}`;
+                                    }
+                                    tagsHtml += `<span class="qkv-badge-cut" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" title="Đang cắt cho đơn">🔒 ${escapeHTML(cutText)}</span>`;
                                 }
 
                                 var locText = '';
