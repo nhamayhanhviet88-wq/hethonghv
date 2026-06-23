@@ -939,8 +939,10 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     html += resInfo;
                     // Check if roll has any arrived reservations (fabric physically in warehouse)
                     var hasArrived = rl.reservations && rl.reservations.some(function(rv) { return rv.res_status === 'arrived'; });
-                    // Check if this order already has a reservation on this roll
-                    var alreadyMarked = rl.reservations && rl.reservations.some(function(rv) { return rv.order_code === orderCode; });
+                    // Check if this coordination index (order + item + phoi) already has a reservation on this roll
+                    var alreadyMarked = rl.reservations && rl.reservations.some(function(rv) {
+                        return rv.order_code === orderCode && Number(rv.item_id) === Number(itemId) && Number(rv.phoi_index) === Number(pairIndex);
+                    });
                     if (avail > 0 && !alreadyMarked) {
                         html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
                         html += '<span style="font-size:10px;color:#475569;font-weight:700">Sử dụng:<span style="color:#dc2626"> *</span></span>';

@@ -2661,10 +2661,10 @@ module.exports = async function(fastify) {
                     continue;
                 }
 
-                // Check if reservation already exists for this roll+order+phoi (prevent duplicate key)
+                // Check if reservation already exists for this roll+order+item+phoi (prevent duplicate key)
                 const existingRes = await db.get(
-                    'SELECT id FROM qlx_fabric_reservations WHERE roll_id = $1 AND dht_order_id = $2 AND phoi_index = $3 AND status IN ($4,$5)',
-                    [rId, dht_order_id, phoi_index||0, 'reserved', 'arrived']
+                    'SELECT id FROM qlx_fabric_reservations WHERE roll_id = $1 AND dht_order_id = $2 AND item_id = $3 AND phoi_index = $4 AND status IN ($5,$6)',
+                    [rId, dht_order_id, item_id, phoi_index||0, 'reserved', 'arrived']
                 );
                 if (existingRes) {
                     lastError = `Đơn này đã đánh dấu cây vải ${roll.roll_code} rồi!`;

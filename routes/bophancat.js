@@ -1097,17 +1097,18 @@ module.exports = async function(fastify) {
                     }
 
                     const groupOrderIds = [rec.dht_order_id, ...allGroupDone.map(r => r.dht_order_id)].filter(Boolean);
+                    const groupItemIds = [rec.order_item_id, ...allGroupDone.map(r => r.order_item_id)].filter(Boolean);
                     // Update rolls + unlock
                     for (const s of snapshot) {
                         const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
                         const finalWeight = rem <= 0 ? 0 : rem;
                         await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '' WHERE id = $2`, [finalWeight, s.roll_id]);
-                        if (groupOrderIds.length > 0) {
+                        if (groupItemIds.length > 0) {
                             await db.run(`
                                 UPDATE qlx_fabric_reservations 
                                 SET status = 'released', updated_at = $1 
-                                WHERE roll_id = $2 AND dht_order_id = ANY($3) AND status IN ('reserved', 'arrived')
-                            `, [now, s.roll_id, groupOrderIds]);
+                                WHERE roll_id = $2 AND item_id = ANY($3) AND status IN ('reserved', 'arrived')
+                            `, [now, s.roll_id, groupItemIds]);
                         }
                         if (finalWeight === 0) {
                             if (groupOrderIds.length > 0) {
@@ -1185,12 +1186,12 @@ module.exports = async function(fastify) {
                     const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
                     const finalWeight = rem <= 0 ? 0 : rem;
                     await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '' WHERE id = $2`, [finalWeight, s.roll_id]);
-                    // Release the reservation for the current order on this roll since it's cut
+                    // Release the reservation for the current order and item on this roll since it's cut
                     await db.run(`
                         UPDATE qlx_fabric_reservations 
                         SET status = 'released', updated_at = $1 
-                        WHERE roll_id = $2 AND dht_order_id = $3 AND status IN ('reserved', 'arrived')
-                    `, [now, s.roll_id, rec.dht_order_id]);
+                        WHERE roll_id = $2 AND dht_order_id = $3 AND item_id = $4 AND status IN ('reserved', 'arrived')
+                    `, [now, s.roll_id, rec.dht_order_id, rec.order_item_id]);
                     if (finalWeight === 0) {
                         await db.run(`
                             UPDATE qlx_fabric_reservations 
