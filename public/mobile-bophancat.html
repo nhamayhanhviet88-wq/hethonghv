@@ -282,6 +282,14 @@ function mSortRollsForCutting(rolls, orderCode) {
         var bLocked = b.locked_by_cutting_id ? 1 : 0;
         if (aLocked !== bLocked) return bLocked - aLocked;
 
+        var aIsLocked = a.locked ? 1 : 0;
+        var bIsLocked = b.locked ? 1 : 0;
+        if (aIsLocked !== bIsLocked) return aIsLocked - bIsLocked;
+
+        var aRes = a.is_reserved_for_this_order ? 1 : 0;
+        var bRes = b.is_reserved_for_this_order ? 1 : 0;
+        if (aRes !== bRes) return bRes - aRes;
+
         var aHas = (a.available !== undefined ? a.available : a.weight) > 0 ? 1 : 0;
         var bHas = (b.available !== undefined ? b.available : b.weight) > 0 ? 1 : 0;
         if (aHas !== bHas) return bHas - aHas;
