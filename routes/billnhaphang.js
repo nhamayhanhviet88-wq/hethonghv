@@ -1121,6 +1121,24 @@ module.exports = async function(fastify) {
                                  target.material_name, target.color_name, target.unit || 'kg',
                                  newRollId, rollCode, w, now, req.user.id, req.user.id]
                             );
+
+                            // Also create from_stock reservation for any linked children
+                            const childRes = await client.query(
+                                `SELECT id, dht_order_id, item_id, phoi_index, material_name, color_name, unit
+                                 FROM qlx_fabric_reservations
+                                 WHERE linked_call_id = $1 AND status = 'reserved'`,
+                                [target.id]
+                            );
+                            for (const child of childRes.rows) {
+                                await client.query(
+                                    `INSERT INTO qlx_fabric_reservations (dht_order_id, item_id, phoi_index, material_name, color_name, unit,
+                                        reservation_type, roll_id, roll_code, kg_reserved, status, arrived_at, arrived_by, created_by)
+                                     VALUES ($1,$2,$3,$4,$5,$6,'from_stock',$7,$8,$9,'arrived',$10,$11,$12)`,
+                                    [child.dht_order_id, child.item_id, child.phoi_index,
+                                     child.material_name, child.color_name, child.unit || 'kg',
+                                     newRollId, rollCode, w, now, req.user.id, req.user.id]
+                                );
+                            }
                         }
 
                         await client.query(
@@ -1230,7 +1248,7 @@ module.exports = async function(fastify) {
                     if (linkedChildren.rows.length > 0) {
                         const childResIds = linkedChildren.rows.map(c => c.id);
                         await client.query(
-                            `UPDATE qlx_fabric_reservations SET status = 'arrived', arrived_at = $1, arrived_by = $2, updated_at = $1 WHERE id = ANY($3)`,
+                            `UPDATE qlx_fabric_reservations SET status = 'fulfilled', arrived_at = $1, arrived_by = $2, updated_at = $1 WHERE id = ANY($3)`,
                             [now, req.user.id, childResIds]
                         );
                     }

@@ -535,20 +535,15 @@ function _qkvRenderMap() {
                 var isNguyen = Number(r.w) >= Number(r.ow);
                 
                 var targetBucket = '';
+                var isCleanLoc = rollLoc && rollLoc !== 'Chưa Phân Vị Trí Cây Nguyên' && rollLoc !== 'Chưa xếp kệ' && rollLoc !== 'Chưa xếp vị trí';
                 if (isNguyen) {
-                    if (rollLoc && _qkv.locations.some(l => l.name === rollLoc)) {
+                    if (isCleanLoc && _qkv.locations.some(l => l.name === rollLoc)) {
                         targetBucket = rollLoc;
-                    } else if (rollLoc === '') {
-                        targetBucket = 'unassignedNguyen';
                     } else {
-                        if (key && isPredefined) {
-                            targetBucket = key;
-                        } else {
-                            targetBucket = 'unassignedNguyen';
-                        }
+                        targetBucket = 'unassignedNguyen';
                     }
                 } else {
-                    if (rollLoc && _qkv.locations.some(l => l.name === rollLoc)) {
+                    if (isCleanLoc && _qkv.locations.some(l => l.name === rollLoc)) {
                         targetBucket = rollLoc;
                     } else {
                         targetBucket = 'unassignedLe';
@@ -873,20 +868,12 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 var locText = '';
                                 if (!r.is_called) {
                                     var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : '';
+                                    var isCleanLoc = rollLoc && rollLoc !== 'Chưa Phân Vị Trí Cây Nguyên' && rollLoc !== 'Chưa xếp kệ' && rollLoc !== 'Chưa xếp vị trí';
                                     var isPredefined = _qkv.locations.some(l => l.name === rollLoc);
                                     
                                     var actualLoc = '';
-                                    if (rollLoc && isPredefined) {
+                                    if (isCleanLoc && isPredefined) {
                                         actualLoc = rollLoc;
-                                    } else {
-                                        var isNguyen = Number(r.w) >= Number(r.ow);
-                                        if (isNguyen) {
-                                            var itemLoc = (item.location || '').trim();
-                                            var isItemLocPredefined = _qkv.locations.some(l => l.name === itemLoc);
-                                            if (itemLoc && isItemLocPredefined) {
-                                                actualLoc = itemLoc;
-                                            }
-                                        }
                                     }
                                     
                                     if (isUnassigned === 'waiting') {
