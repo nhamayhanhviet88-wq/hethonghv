@@ -140,30 +140,16 @@ async function renderQuanlykhovaiPage(content) {
             '.qkv-card-unassigned { border-style: dashed; border-width: 2px; }',
             '.qkv-card-unassigned .qkv-card-header { background: linear-gradient(135deg, #fff, #f8fafc); }',
             '.qkv-card-unassigned-header { color: #f59e0b; }',
-            '.qkv-card-unassigned-nguyen { border-color: #f59e0b !important; }',
-            '.qkv-card-unassigned-nguyen-header {',
-            '  background: linear-gradient(135deg, #f59e0b, #d97706, #f59e0b, #b45309) !important;',
-            '  background-size: 300% 300% !important;',
-            '  animation: qkvShimmerGlow 6s ease infinite !important;',
+            '.qkv-card-unassigned-nguyen, .qkv-card-unassigned-le { border-color: #64748b !important; }',
+            '.qkv-card-unassigned-nguyen-header, .qkv-card-unassigned-le-header {',
+            '  background: linear-gradient(135deg, #64748b, #475569) !important;',
             '  color: #ffffff !important;',
             '  font-weight: 900 !important;',
             '  text-shadow: 0 1px 2px rgba(0,0,0,0.2);',
             '  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);',
             '}',
-            '.qkv-card-unassigned-nguyen-header .qkv-card-title { color: #ffffff !important; animation: qkvSparkleStars 2s infinite ease-in-out; }',
-            '.qkv-card-unassigned-nguyen-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
-            '.qkv-card-unassigned-le { border-color: #ec4899 !important; }',
-            '.qkv-card-unassigned-le-header {',
-            '  background: linear-gradient(135deg, #ec4899, #be185d, #ec4899, #9d174d) !important;',
-            '  background-size: 300% 300% !important;',
-            '  animation: qkvShimmerGlow 6s ease infinite !important;',
-            '  color: #ffffff !important;',
-            '  font-weight: 900 !important;',
-            '  text-shadow: 0 1px 2px rgba(0,0,0,0.2);',
-            '  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);',
-            '}',
-            '.qkv-card-unassigned-le-header .qkv-card-title { color: #ffffff !important; animation: qkvSparkleStars 2s infinite ease-in-out; }',
-            '.qkv-card-unassigned-le-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
+            '.qkv-card-unassigned-nguyen-header .qkv-card-title, .qkv-card-unassigned-le-header .qkv-card-title { color: #ffffff !important; }',
+            '.qkv-card-unassigned-nguyen-header .qkv-card-count, .qkv-card-unassigned-le-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
             '.qkv-card-waiting { border-color: #6366f1 !important; border-width: 2px !important; }',
             '.qkv-card-waiting-header {',
             '  background: linear-gradient(135deg, #6366f1, #4f46e5, #6366f1, #3730a3) !important;',
@@ -661,20 +647,20 @@ function _qkvRenderMap() {
     var html = '';
     var searchKey = (_qkv.searchText || '').toLowerCase().trim();
     
-    // RENDER WAITING/CUTTING CARD AT THE BEGINNING
-    if (waitingGroup.items.length > 0) {
-        var cardHtml = _qkvBuildCardHtml(waitingGroup, 'waiting', searchKey);
-        html += cardHtml;
-    }
-    
-    // RENDER PREDEFINED LOCATION CARDS
+    // 1. RENDER PREDEFINED LOCATION CARDS (Các Kệ)
     _qkv.locations.forEach(function(loc) {
         var group = groups[loc.name] || { items: [] };
         var cardHtml = _qkvBuildCardHtml(group, false, searchKey);
         html += cardHtml;
     });
+
+    // 2. RENDER WAITING/CUTTING CARD (Các Cây Chờ Cắt / Đang Cắt)
+    if (waitingGroup.items.length > 0) {
+        var cardHtml = _qkvBuildCardHtml(waitingGroup, 'waiting', searchKey);
+        html += cardHtml;
+    }
     
-    // RENDER PROCESSED CARDS (Cần Xử Lý Kho)
+    // 3. RENDER PROCESSED CARDS (Cần Xử Lý Kho)
     if (processedLe.items.length > 0) {
         var cardHtml = _qkvBuildCardHtml(processedLe, 'processed_le', searchKey);
         html += cardHtml;
@@ -684,7 +670,7 @@ function _qkvRenderMap() {
         html += cardHtml;
     }
     
-    // RENDER UNASSIGNED CARDS AT THE END (Chưa Phân Vị Trí)
+    // 4. RENDER UNASSIGNED CARDS AT THE END (Chưa Phân Vị Trí)
     if (unassignedLe.items.length > 0 || _qkv.locations.length === 0) {
         var cardHtml = _qkvBuildCardHtml(unassignedLe, 'le', searchKey);
         html += cardHtml;

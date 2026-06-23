@@ -296,7 +296,30 @@
             0%, 100% { opacity: 0.8; text-shadow: 0 0 4px rgba(255,255,255,0.4), 0 0 12px rgba(255,255,255,0.2); }
             50% { opacity: 1; text-shadow: 0 0 8px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.5); }
         }
-        .card-header-nguyen {
+        .card-header-nguyen, .card-header-le {
+            padding: 12px 14px !important;
+            background: linear-gradient(135deg, #64748b, #475569) !important;
+            border-bottom: 2px solid rgba(100, 116, 139, 0.4) !important;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 10px rgba(71, 85, 105, 0.25) !important;
+        }
+        .card-header-nguyen .card-title, .card-header-le .card-title {
+            color: #ffffff !important;
+            font-size: 13px !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.5px;
+        }
+        .card-header-nguyen .card-count, .card-header-le .card-count {
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: #ffffff !important;
+            font-size: 10px !important;
+            font-weight: 900 !important;
+            border: 1px solid rgba(255,255,255,0.3) !important;
+        }
+
+        .card-header-processed-nguyen {
             padding: 12px 14px !important;
             background: linear-gradient(135deg, #f59e0b, #d97706, #f59e0b, #b45309) !important;
             background-size: 300% 300% !important;
@@ -307,14 +330,14 @@
             justify-content: space-between;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 10px rgba(217, 119, 6, 0.25) !important;
         }
-        .card-header-nguyen .card-title {
+        .card-header-processed-nguyen .card-title {
             color: #ffffff !important;
             font-size: 13px !important;
             font-weight: 900 !important;
             letter-spacing: 0.5px;
             animation: sparkleStars 2s infinite ease-in-out;
         }
-        .card-header-nguyen .card-count {
+        .card-header-processed-nguyen .card-count {
             background: rgba(255, 255, 255, 0.2) !important;
             color: #ffffff !important;
             font-size: 10px !important;
@@ -322,7 +345,7 @@
             border: 1px solid rgba(255,255,255,0.3) !important;
         }
 
-        .card-header-le {
+        .card-header-processed-le {
             padding: 12px 14px !important;
             background: linear-gradient(135deg, #ec4899, #be185d, #ec4899, #9d174d) !important;
             background-size: 300% 300% !important;
@@ -333,14 +356,14 @@
             justify-content: space-between;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 10px rgba(190, 24, 93, 0.25) !important;
         }
-        .card-header-le .card-title {
+        .card-header-processed-le .card-title {
             color: #ffffff !important;
             font-size: 13px !important;
             font-weight: 900 !important;
             letter-spacing: 0.5px;
             animation: sparkleStars 2s infinite ease-in-out;
         }
-        .card-header-le .card-count {
+        .card-header-processed-le .card-count {
             background: rgba(255, 255, 255, 0.2) !important;
             color: #ffffff !important;
             font-size: 10px !important;
@@ -906,18 +929,18 @@
             var html = '';
             var searchKey = (searchText || '').toLowerCase().trim();
 
-            // RENDER WAITING/CUTTING CARD AT THE BEGINNING
-            if (waitingGroup.items.length > 0) {
-                html += buildCardHtml(waitingGroup, 'waiting', searchKey);
-            }
-
-            // Locations
+            // 1. Locations (Các Kệ)
             locations.forEach(loc => {
                 var grp = groups[loc.name] || { name: loc.name, description: loc.description, items: [] };
                 html += buildCardHtml(grp, false, searchKey);
             });
 
-            // Processed categories (Cần xử lý kho)
+            // 2. RENDER WAITING/CUTTING CARD (Các Cây Chờ Cắt / Đang Cắt)
+            if (waitingGroup.items.length > 0) {
+                html += buildCardHtml(waitingGroup, 'waiting', searchKey);
+            }
+
+            // 3. Processed categories (Cần xử lý kho)
             if (processedLe.items.length > 0) {
                 html += buildCardHtml(processedLe, 'processed_le', searchKey);
             }
@@ -925,7 +948,7 @@
                 html += buildCardHtml(processedNguyen, 'processed_nguyen', searchKey);
             }
 
-            // Unassigned: Lẻ first, then Nguyên
+            // 4. Unassigned: Lẻ first, then Nguyên
             if (unassignedLe.items.length > 0 || locations.length === 0) {
                 html += buildCardHtml(unassignedLe, 'le', searchKey);
             }
@@ -1098,12 +1121,14 @@
             var headerClass = 'card-header';
             if (isUnassigned === 'waiting') {
                 headerClass = 'card-header-waiting';
-            } else if (isUnassigned) {
-                if (group.name === 'Chưa Phân Vị Trí Cây Nguyên' || group.name === 'Cây Nguyên Cần Xử Lý Kho') {
-                    headerClass = 'card-header-nguyen';
-                } else if (group.name === 'Chưa Phân Vị Trí Cây Lẻ' || group.name === 'Cây Lẻ Cần Xử Lý Kho') {
-                    headerClass = 'card-header-le';
-                }
+            } else if (isUnassigned === 'processed_nguyen') {
+                headerClass = 'card-header-processed-nguyen';
+            } else if (isUnassigned === 'processed_le') {
+                headerClass = 'card-header-processed-le';
+            } else if (isUnassigned === 'nguyen') {
+                headerClass = 'card-header-nguyen';
+            } else if (isUnassigned === 'le') {
+                headerClass = 'card-header-le';
             }
 
             return `
