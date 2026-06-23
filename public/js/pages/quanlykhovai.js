@@ -817,9 +817,6 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 ${_qkvFmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')} / <span style="font-size:10px;color:#64748b;font-weight:normal;">${item.so_cuc} cây</span>
                             </div>
                             <div class="qkv-loc-actions" style="margin-left:8px; display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                                ${(!isUnassigned && isGD) ? `
-                                <button class="qkv-btn-icon" style="padding:4px; font-size:11px;" onclick="event.stopPropagation(); _qkvOnChangeItemLocationByIndex(${item._itemIdx})" title="Di chuyển vị trí">🚚</button>
-                                ` : ''}
                                 <span class="qkv-color-arrow" style="font-size:10px; color:#94a3b8; font-weight:bold; margin-left:2px;">${colorArrowText}</span>
                             </div>
                         </div>
@@ -834,16 +831,12 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                     moveHtml = `<span style="font-size:11px; color:#d97706; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
                                 } else if (r.img) {
                                     photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                                    if (isGD) {
+                                    if (_qkvCanViewBill() && (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le')) {
                                         moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
                                     }
                                 } else {
                                     if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
                                         photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                                        moveHtml = '';
-                                    } else {
-                                        photoHtml = '';
-                                        moveHtml = '';
                                     }
                                 }
 
@@ -2199,13 +2192,10 @@ function _qkvUpdateModalView() {
                     var moveHtml = '';
                     if (r.img) {
                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; border:1.5px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                        if (isGD) {
-                            moveHtml = `<button class="btn btn-xs btn-outline-secondary" style="padding:4px 8px; font-size:11px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚 Chuyển</button>`;
-                        }
                     } else {
                         photoHtml = '';
-                        moveHtml = '';
                     }
+                    moveHtml = '';
 
                     rightHtml += `
                         <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; gap:8px;">

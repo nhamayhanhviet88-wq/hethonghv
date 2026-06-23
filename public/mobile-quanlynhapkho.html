@@ -1243,7 +1243,7 @@
                                     ${fmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
                                     <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
                                 </div>
-                                ${!isUnassigned ? `
+                                ${false ? `
                                 <button class="btn-move" onclick="openMoveModal('${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, '${escapeHTML(item.location || '')}', '${escapeHTML(JSON.stringify(item.roll_weights || []))}')">🚚</button>
                                 ` : ''}
                             </div>
@@ -1257,14 +1257,14 @@
                                         moveHtml = `<span style="font-size:11px; color:#f59e0b; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
                                     } else if (r.img) {
                                         photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                                        moveHtml = ``;
+                                        if (canViewBill() && (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le')) {
+                                            moveHtml = `<button class="btn-camera" style="background:#4f46e5; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer;" onclick="event.stopPropagation(); openSingleMoveModal(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Lên kệ">🚚</button>`;
+                                        } else {
+                                            moveHtml = ``;
+                                        }
                                     } else {
                                         if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
                                             photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                                            moveHtml = ``;
-                                        } else {
-                                            photoHtml = ``;
-                                            moveHtml = ``;
                                         }
                                     }
 
