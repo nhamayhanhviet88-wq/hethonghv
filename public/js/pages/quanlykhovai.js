@@ -1859,7 +1859,7 @@ function _qkvShowShelfDetailModal(shelfName) {
         bodyHTML,
         `
             <button class="btn btn-secondary" onclick="closeModal()">Đóng chi tiết</button>
-            ${isGD ? `<button class="btn btn-primary" onclick="_qkvShowLocationQRCode('${escapeJS(shelfName)}')" style="background:#0f766e; border-color:#0f766e;">📷 Xem QR</button>` : ''}
+            ${isGD ? `<button class="btn btn-primary" onclick="_qkvShowLocationQRCode('${escapeJS(shelfName)}')" style="background:#0f766e; border-color:#0f766e; color:white !important;">📷 Xem QR</button>` : ''}
         `
     );
 
