@@ -9,13 +9,12 @@ module.exports = async function(fastify) {
         const rawLoc = (r.roll_loc !== null && r.roll_loc !== undefined) ? r.roll_loc.trim() : null;
         const isNguyen = Number(r.weight) >= Number(r.original_weight);
         
-        if (rawLoc !== null && rawLoc !== '') {
+        if (rawLoc !== null && rawLoc !== '' && rawLoc !== 'Chưa Phân Vị Trí Cây Nguyên' && rawLoc !== 'Chưa Phân Vị Trí Cây Lẻ') {
             return rawLoc;
         }
         
         if (isNguyen) {
-            const fallback = (r.color_loc || r.mat_loc || '').trim();
-            return fallback || 'Chưa Phân Vị Trí Cây Nguyên';
+            return 'Chưa Phân Vị Trí Cây Nguyên';
         } else {
             return 'Chưa Phân Vị Trí Cây Lẻ';
         }
