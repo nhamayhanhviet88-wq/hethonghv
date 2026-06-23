@@ -1017,6 +1017,9 @@ module.exports = async function(fastify) {
                 if (!fi.trees[t].weight || Number(fi.trees[t].weight) <= 0) {
                     return reply.code(400).send({ error: `${fi.material_name}: Cây ${t+1} phải có trọng lượng > 0` });
                 }
+                if (!fi.trees[t].image_path) {
+                    return reply.code(400).send({ error: `${fi.material_name} - ${fi.color_name}: Cây ${t+1} bắt buộc phải chụp ảnh định danh` });
+                }
             }
         }
         // Validate extra_costs
@@ -1070,13 +1073,13 @@ module.exports = async function(fastify) {
                     const w = Number(tree.weight);
                     const treeCost = Math.round(w * unitPrice);
                     itemTotalWeight += w;
-                    treesWithCost.push({ weight: w, cost: treeCost });
+                    treesWithCost.push({ weight: w, cost: treeCost, image_path: tree.image_path || null });
                     if (fi.fabric_color_id) {
                         const rollCode = 'KV' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 10);
                         const rollResult = await client.query(
-                            `INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, source, note, created_by)
-                             VALUES ($1, $2, $3, $3, 'nhap_vai', $4, $5) RETURNING id`,
-                            [fi.fabric_color_id, rollCode, w, `Nhập vải từ bill ${fabricCode}`, req.user.id]
+                            `INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, source, note, created_by, image_path)
+                             VALUES ($1, $2, $3, $3, 'nhap_vai', $4, $5, $6) RETURNING id`,
+                            [fi.fabric_color_id, rollCode, w, `Nhập vải từ bill ${fabricCode}`, req.user.id, tree.image_path || null]
                         );
                         const newRollId = rollResult.rows[0].id;
                         rollIds.push(newRollId);

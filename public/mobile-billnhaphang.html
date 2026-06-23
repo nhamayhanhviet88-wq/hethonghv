@@ -12,13 +12,16 @@
         .mh{background:linear-gradient(135deg,#4f46e5,#6366f1);padding:14px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);position:sticky;top:0;z-index:100}
         .mh img{width:32px;height:32px;border-radius:8px}.mh h1{font-size:15px;font-weight:800;color:#e0e7ff;flex:1}
         .mu{font-size:10px;color:#c7d2fe;font-weight:600;background:rgba(255,255,255,.1);padding:4px 8px;border-radius:6px}
+        
         .mf{background:rgba(255,255,255,.05);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.08)}
         .mf select,.mf input{flex:1;min-width:100px;padding:10px 12px;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;font-size:14px;font-family:inherit;background:rgba(255,255,255,.06);color:#e2e8f0;appearance:none}
         .mf select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
         .mf option{background:#312e81;color:#e2e8f0}
+        
         .ms{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:12px 16px}
         .ms>div{text-align:center;padding:12px 8px;border-radius:12px;color:#fff}
         .ms .mv{font-size:16px;font-weight:900}.ms .ml{font-size:8px;font-weight:700;letter-spacing:.5px;opacity:.85;margin-top:2px}
+        
         .mc{padding:0 12px 80px}
         .card{background:rgba(255,255,255,.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:16px;margin-bottom:12px;overflow:hidden;transition:transform .1s}
         .card:active{transform:scale(.98)}
@@ -34,13 +37,66 @@
         .ab{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:14px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;font-size:14px;font-weight:700;color:#c7d2fe}
         .ab:active{transform:scale(.95)}.ab.on{border-color:#6366f1;background:rgba(99,102,241,.15);color:#a5b4fc}
         .ch{padding:8px 16px;font-size:10px;color:#64748b;border-top:1px solid rgba(255,255,255,.04)}.ch span{color:#a5b4fc;font-weight:700}
-        .tc{position:fixed;top:60px;left:10px;right:10px;z-index:999;display:flex;flex-direction:column;gap:8px}
+        
+        .tc{position:fixed;top:60px;left:10px;right:10px;z-index:9999;display:flex;flex-direction:column;gap:8px}
         .tt{padding:14px 18px;border-radius:12px;color:#fff;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:si .3s ease}
         .ts{background:linear-gradient(135deg,#6366f1,#4f46e5)}.te{background:linear-gradient(135deg,#ef4444,#dc2626)}
         @keyframes si{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+        
         .sp{width:28px;height:28px;border:3px solid rgba(255,255,255,.1);border-top-color:#6366f1;border-radius:50%;animation:sn .6s linear infinite;display:inline-block;margin-bottom:8px}
         @keyframes sn{to{transform:rotate(360deg)}}
         .mb{display:inline-flex;align-items:center;gap:6px;color:#a5b4fc;font-size:12px;font-weight:600;text-decoration:none;margin:12px 16px;padding:8px 14px;background:rgba(255,255,255,.05);border-radius:8px}
+
+        /* FAB Button */
+        .fab-btn{position:fixed;bottom:75px;right:16px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;display:none;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 16px rgba(124,58,237,0.4);border:none;cursor:pointer;z-index:999;transition:all .2s;-webkit-tap-highlight-color:transparent}
+        .fab-btn:active{transform:scale(0.92);box-shadow:0 2px 8px rgba(124,58,237,0.3)}
+
+        /* Sheet Overlays */
+        .mov{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.75);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:10000;display:flex;flex-direction:column;animation:fadeIn 0.2s ease-out}
+        .mov-content{background:#1e1b4b;border-radius:24px 24px 0 0;margin-top:auto;max-height:93%;display:flex;flex-direction:column;overflow:hidden;border-top:1px solid rgba(255,255,255,0.12);box-shadow:0 -10px 40px rgba(0,0,0,0.5);transform:translateY(100%);animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1) forwards}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideUp{to{transform:translateY(0)}}
+        .mov-header{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08)}
+        .mov-header h2{font-size:16px;font-weight:800;color:#a5b4fc;flex:1}
+        .mov-close{background:rgba(255,255,255,0.1);border:none;font-size:22px;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer}
+        .mov-body{padding:16px;overflow-y:auto;flex:1;background:linear-gradient(180deg,#1e1b4b,#151336)}
+        .mov-label{font-size:11px;font-weight:700;color:#c7d2fe;margin-bottom:6px;display:block}
+        .mov-input{width:100%;padding:11px 13px;border:1.5px solid rgba(255,255,255,0.15);border-radius:10px;font-size:13px;font-family:inherit;background:rgba(255,255,255,0.04);color:#fff;outline:none;margin-bottom:12px;box-sizing:border-box}
+        .mov-input:focus{border-color:#6366f1;background:rgba(99,102,241,0.06)}
+        .mov-section{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:12px;margin-bottom:12px}
+
+        /* Detail/Form Styling */
+        .info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+        .info-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);padding:10px;border-radius:10px}
+        .info-lbl{font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px}
+        .info-val{font-size:12px;font-weight:800;color:#e2e8f0}
+
+        /* Form Controls */
+        .upload-area{border:2px dashed rgba(255,255,255,0.15);border-radius:12px;height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:#a5b4fc;background:rgba(255,255,255,0.02);transition:all 0.2s}
+        .upload-area:active{border-color:#6366f1;background:rgba(99,102,241,0.05)}
+        .upload-icon{font-size:22px;margin-bottom:2px}
+        .upload-text{font-size:10px;font-weight:600}
+        .preview-img{max-height:100px;border-radius:8px;margin-top:6px;border:1px solid rgba(255,255,255,0.1);cursor:pointer}
+
+        .btn-sub{background:rgba(99,102,241,0.15);border:1.5px solid rgba(99,102,241,0.3);color:#a5b4fc;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer}
+        .btn-submit{background:linear-gradient(135deg,#6366f1,#4f46e5);border:none;color:#fff;padding:12px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;flex:1;text-align:center;box-shadow:0 4px 12px rgba(79,70,229,0.3)}
+        .btn-cancel{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
+
+        .form-item-box{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px;margin-bottom:8px}
+        .summary-box{background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:10px;padding:10px;margin-bottom:12px}
+        .summary-row{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:2px}
+        .summary-row.grand{border-top:1px solid rgba(16,185,129,0.2);margin-top:4px;padding-top:4px;font-size:13px;font-weight:900;color:#10b981}
+
+        /* Detail Items List */
+        .det-item{border-bottom:1px solid rgba(255,255,255,0.05);padding:10px 0}
+        .det-trees-wrap{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;margin-left:8px}
+        .det-tree-card{display:inline-flex;flex-direction:column;align-items:center;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:8px;gap:4px}
+        .det-tree-img{width:42px;height:42px;object-fit:cover;border-radius:4px;border:1px solid rgba(255,255,255,0.1)}
+        .det-tree-lbl{font-size:8px;font-weight:700;color:#a5b4fc}
+
+        /* Image lightbox */
+        .lightbox{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:20000;display:flex;align-items:center;justify-content:center}
+        .lightbox img{max-width:98%;max-height:98%;object-fit:contain}
     </style>
     <!-- Unified Mobile Style -->
     <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
@@ -62,63 +118,746 @@
     </div>
     <div class="mc" id="mC"><div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div></div>
     <a href="/billnhaphang" class="mb">← Về trang Desktop</a>
-<script>
-let cu=null,mr=[],srcs=[];
-async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
-function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
-function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
-function fn(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN')}
-function fns(n){const v=Number(n)||0;if(v>=1e9)return(v/1e9).toFixed(1)+'tỷ';if(v>=1e6)return(v/1e6).toFixed(1)+'tr';if(v>=1e3)return(v/1e3).toFixed(0)+'k';return v.toString()}
-function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
-function debt(d){const n=Number(d)||0;if(n>0)return'<span class="bd red">🔴 '+fn(n)+'₫</span>';if(n===0)return'<span class="bd green">✅ Đã TT</span>';return'<span class="bd blue">🔵 Dư '+fn(Math.abs(n))+'₫</span>';}
-function mTreeInfo(r){
-    if(r.record_type!=='fabric'||!r.fabric_items)return{trees:Number(r.fabric_quantity)||0,qty:'—'};
-    let items;try{items=typeof r.fabric_items==='string'?JSON.parse(r.fabric_items):(r.fabric_items||[]);}catch(e){return{trees:Number(r.fabric_quantity)||0,qty:'—'};}
-    if(!items.length)return{trees:Number(r.fabric_quantity)||0,qty:'—'};
-    let tc=0,byUnit={};
-    items.forEach(it=>{const trees=it.trees||[];tc+=trees.length;const u=it.unit||'kg';const total=trees.reduce((s,t)=>s+(Number(t.weight)||0),0);byUnit[u]=(byUnit[u]||0)+total;});
-    const parts=[];Object.keys(byUnit).forEach(u=>{if(byUnit[u]>0)parts.push(fn(byUnit[u])+' '+u);});
-    return{trees:tc,qty:parts.join(' + ')||'—',byUnit};
-}
-async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
-        if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.bill_nhap_hang || !cu.permissions.bill_nhap_hang.can_view)) {
-            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Bill Nhập Vải!');
-            window.location.href = '/';
+
+    <!-- Floating Action Button -->
+    <button class="fab-btn" id="mFAB" onclick="openImport()">➕</button>
+
+    <!-- Detail Sheet Overlay -->
+    <div id="mDetailOverlay" class="mov" style="display:none">
+        <div class="mov-content">
+            <div class="mov-header">
+                <h2 id="mDetailTitle">Chi tiết Bill</h2>
+                <button onclick="closeDetail()" class="mov-close">&times;</button>
+            </div>
+            <div class="mov-body" id="mDetailBody"></div>
+        </div>
+    </div>
+
+    <!-- Import Sheet Overlay -->
+    <div id="mImportOverlay" class="mov" style="display:none">
+        <div class="mov-content">
+            <div class="mov-header">
+                <h2>Nhập Vải Mới</h2>
+                <button onclick="closeImport()" class="mov-close">&times;</button>
+            </div>
+            <div class="mov-body" id="mImportBody">
+                <div class="mov-section">
+                    <label class="mov-label">🏪 Nguồn Nhà Cung Cấp *</label>
+                    <select id="mFormSrc" class="mov-input">
+                        <option value="">-- Chọn nguồn NCC --</option>
+                    </select>
+                </div>
+
+                <div class="mov-section">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-size:12px; font-weight:800; color:#c7d2fe;">🧵 DANH SÁCH VẢI NHẬP</span>
+                        <button onclick="openPick()" class="btn-sub">+ Thêm Vải</button>
+                    </div>
+                    <div id="mFormItems">
+                        <div style="text-align:center; padding:16px; color:#94a3b8; font-size:11px;">Chưa chọn loại vải nào</div>
+                    </div>
+                </div>
+
+                <div class="mov-section">
+                    <label class="mov-label">📸 Ảnh Hóa Đơn Bill Nhập Vải *</label>
+                    <div id="mBillUploadArea" class="upload-area" onclick="triggerMainFile('bill')">
+                        <span class="upload-icon">📷</span>
+                        <span class="upload-text">Chụp / Chọn ảnh bill</span>
+                        <input type="file" id="mBillFile" accept="image/*" capture="environment" style="display:none" onchange="uploadMainImg('bill', this)">
+                    </div>
+                    <div id="mBillPreview"></div>
+                </div>
+
+                <div class="mov-section">
+                    <label class="mov-label">🚚 Phí Ship</label>
+                    <input type="number" id="mFormShip" placeholder="Không có phí ship" class="mov-input" onchange="toggleShipSection(); updateSummaryInfo()">
+                    <div id="mShipImgSection" style="display:none;">
+                        <label class="mov-label">📸 Ảnh Phí Ship *</label>
+                        <div id="mShipUploadArea" class="upload-area" onclick="triggerMainFile('ship')">
+                            <span class="upload-icon">📷</span>
+                            <span class="upload-text">Chụp / Chọn ảnh phí ship</span>
+                            <input type="file" id="mShipFile" accept="image/*" capture="environment" style="display:none" onchange="uploadMainImg('ship', this)">
+                        </div>
+                        <div id="mShipPreview"></div>
+                    </div>
+                </div>
+
+                <div class="mov-section">
+                    <label class="mov-label">📊 Tiền VAT</label>
+                    <input type="number" id="mFormVat" placeholder="0" class="mov-input" oninput="updateSummaryInfo()">
+                </div>
+
+                <div class="mov-section">
+                    <label class="mov-label"> Ghi Chú Chi Phí / Hóa Đơn</label>
+                    <textarea id="mFormNotes" class="mov-input" rows="2" placeholder="Ghi chú thêm..."></textarea>
+                </div>
+
+                <div class="summary-box">
+                    <div class="summary-row"><span>Tiền vải:</span><span id="mSummaryFab">0₫</span></div>
+                    <div class="summary-row"><span>VAT:</span><span id="mSummaryVat">0₫</span></div>
+                    <div class="summary-row"><span>Phí ship:</span><span id="mSummaryShip">0₫</span></div>
+                    <div class="summary-row grand"><span>TỔNG THÀNH TIỀN:</span><span id="mSummaryTotal">0₫</span></div>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:16px;">
+                    <button onclick="closeImport()" class="btn-cancel">Hủy</button>
+                    <button id="mFormSubmitBtn" onclick="submitImportForm()" class="btn-submit">💾 Lưu Nhập Vải</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fabric Picker Overlay -->
+    <div id="mPickOverlay" class="mov" style="display:none; z-index:10002">
+        <div class="mov-content" style="max-height:85%">
+            <div class="mov-header">
+                <h2>Chọn Chất Liệu & Màu Vải</h2>
+                <button onclick="closePick()" class="mov-close">&times;</button>
+            </div>
+            <div class="mov-body">
+                <input type="text" id="mPickSearch" placeholder="🔍 Tìm chất liệu hoặc màu..." class="mov-input" oninput="renderPickList(this.value)">
+                <div id="mPickList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let cu=null,mr=[],srcs=[];
+    let mFormState = { source_id: null, items: [], extraCosts: [], vat: 0, billImg: null, shipImg: null, notes: '' };
+    let pickerGroups = [];
+    let isSubmittingForm = false;
+
+    async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
+    function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
+    function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
+    function fn(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN')}
+    function fns(n){const v=Number(n)||0;if(v>=1e9)return(v/1e9).toFixed(1)+'tỷ';if(v>=1e6)return(v/1e6).toFixed(1)+'tr';if(v>=1e3)return(v/1e3).toFixed(0)+'k';return v.toString()}
+    function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
+    function debt(d){const n=Number(d)||0;if(n>0)return'<span class="bd red">🔴 '+fn(n)+'₫</span>';if(n===0)return'<span class="bd green">✅ Đã TT</span>';return'<span class="bd blue">🔵 Dư '+fn(Math.abs(n))+'₫</span>';}
+    
+    function mTreeInfo(r){
+        if(r.record_type!=='fabric'||!r.fabric_items)return{trees:Number(r.fabric_quantity)||0,qty:'—'};
+        let items;try{items=typeof r.fabric_items==='string'?JSON.parse(r.fabric_items):(r.fabric_items||[]);}catch(e){return{trees:Number(r.fabric_quantity)||0,qty:'—'};}
+        if(!items.length)return{trees:Number(r.fabric_quantity)||0,qty:'—'};
+        let tc=0,byUnit={};
+        items.forEach(it=>{const trees=it.trees||[];tc+=trees.length;const u=it.unit||'kg';const total=trees.reduce((s,t)=>s+(Number(t.weight)||0),0);byUnit[u]=(byUnit[u]||0)+total;});
+        const parts=[];Object.keys(byUnit).forEach(u=>{if(byUnit[u]>0)parts.push(fn(byUnit[u])+' '+u);});
+        return{trees:tc,qty:parts.join(' + ')||'—',byUnit};
+    }
+    
+    async function mInit(){
+        try{
+            const a=await api('/api/auth/me');
+            if(!a.user){location.href='/index.html';return}
+            cu=a.user;
+            if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.bill_nhap_hang || !cu.permissions.bill_nhap_hang.can_view)) {
+                sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Bill Nhập Vải!');
+                window.location.href = '/';
+                return;
+            }
+            document.getElementById('mU').textContent=cu.full_name||cu.username;
+            
+            // Check write permission to show FAB
+            const perm = await api('/api/import/fabric-check-perm');
+            if (perm.allowed) {
+                document.getElementById('mFAB').style.display = 'flex';
+            }
+
+            const sR=await api('/api/import/sources?source_type=fabric');
+            srcs=sR.sources||[];
+            
+            const sel=document.getElementById('mFSrc');
+            const fSrc=document.getElementById('mFormSrc');
+            srcs.forEach(s=>{
+                const o=document.createElement('option');
+                o.value=s.id;
+                o.textContent='🏪 '+s.name;
+                sel.appendChild(o);
+                
+                const o2=o.cloneNode(true);
+                fSrc.appendChild(o2);
+            });
+            document.getElementById('mFB').style.display='';
+            document.getElementById('mSB').style.display='';
+            await mLoad();
+        }catch(e){
+            document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>';
+        }
+    }
+    
+    async function mLoad(){
+        const st=document.getElementById('mFS')?.value||'',src=document.getElementById('mFSrc')?.value||'';
+        let q='?_=1';if(st)q+='&status='+st;if(src)q+='&source_id='+src;
+        try{
+            const r=await api('/api/import/records'+q);
+            mr=r.records||[];
+            mStats();
+            mCards();
+        }catch(e){
+            document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>';
+        }
+    }
+    
+    function mStats(){
+        const t=mr.length;let sm=0,sp=0,sd=0,strees=0,sqU={};mr.forEach(r=>{sm+=Number(r.total_amount)||0;sp+=Number(r.paid)||0;sd+=Number(r.debt)||0;const info=mTreeInfo(r);strees+=info.trees;if(info.byUnit)Object.keys(info.byUnit).forEach(u=>{sqU[u]=(sqU[u]||0)+info.byUnit[u];});});
+        const qP=[];Object.keys(sqU).forEach(u=>{if(sqU[u]>0)qP.push(fn(sqU[u])+' '+u);});
+        document.getElementById('sT').textContent=t;document.getElementById('sTR').textContent=strees;document.getElementById('sM').textContent=fns(sm);document.getElementById('sP').textContent=fns(sp);document.getElementById('sD').textContent=fns(sd);document.getElementById('sQ').textContent=qP.join(' + ')||'—';
+    }
+    
+    function mCards(){
+        const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🧾</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có bill nhập vải</div></div>';return}
+        c.innerHTML=mr.map(r=>{
+            const ic=r.is_checked?'✅':'🧾';const cA=r.is_checked?'uncheck':'check';
+            const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
+            const info=mTreeInfo(r);
+            return '<div class="card" onclick="openDetail('+r.id+')"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.source_name||'Nguồn')+'</div><div class="cc">'+fd(r.import_date)+'</div></div>'
+            +'<div class="cb">'
+            +'<div class="cr"><span class="cl">👤 NV Nhập</span><span class="cv" style="color:#a5b4fc">'+(r.importer_name||'—')+'</span></div>'
+            +'<div class="cr"><span class="cl">🧵 Chất liệu</span><span class="cv" style="font-size:11px">'+(r.fabric_material||'—')+'</span></div>'
+            +'<div class="cr"><span class="cl">🌲 Số Cây Vải</span><span class="cv" style="color:#a5b4fc">'+fn(info.trees)+'</span></div>'
+            +'<div class="cr"><span class="cl">📏 SL Nhập</span><span class="cv" style="color:#c4b5fd;font-size:11px">'+info.qty+'</span></div>'
+            +'<div class="cd"></div>'
+            +'<div class="cr"><span class="cl">💵 Chi phí</span><span class="cv">'+fn(r.cost)+'₫</span></div>'
+            +(Number(r.refund)?'<div class="cr"><span class="cl">↩️ Hoàn</span><span class="cv" style="color:#fbbf24">'+fn(r.refund)+'₫</span></div>':'')
+            +'<div class="cr"><span class="cl">💰 Thành tiền</span><span class="cv" style="font-size:16px;font-weight:900;color:#e2e8f0">'+fn(r.total_amount)+'₫</span></div>'
+            +'<div class="cr"><span class="cl">✅ Thanh toán</span><span class="cv" style="color:#6ee7b7">'+fn(r.paid)+'₫</span></div>'
+            +'<div class="cr"><span class="cl">📊 Công nợ</span>'+debt(r.debt)+'</div>'
+            +(r.cost_notes?'<div class="cr"><span class="cl">📝 Ghi chú</span><span class="cv" style="font-size:11px">'+r.cost_notes+'</span></div>':'')
+            +'</div>'
+            +'<div class="ca"><button class="ab'+(r.is_checked?' on':'')+'" onclick="event.stopPropagation(); mTog('+r.id+',\''+cA+'\')">✅ '+(r.is_checked?'ĐÃ DUYỆT':'DUYỆT KIỂM TRA')+'</button></div>'
+            +(hl?'<div class="ch">'+hl+'</div>':'')
+            +'</div>';
+        }).join('');
+    }
+    
+    async function mTog(id,a){try{await api('/api/import/toggle/'+id,'POST',{action:a});toast('✅ Cập nhật');await mLoad()}catch(e){toast(e.message||'Lỗi','error')}}
+    
+    // Lightbox / Zoom image Helper
+    function showZoom(url) {
+        const div = document.createElement('div');
+        div.className = 'lightbox';
+        div.onclick = () => div.remove();
+        div.innerHTML = `<img src="${url}">`;
+        document.body.appendChild(div);
+    }
+
+    // Client-side image compressor (resizes to max 800px width, exports as JPEG Blob)
+    function compressImg(file, maxW = 800) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > maxW) {
+                        h = Math.round(h * maxW / w);
+                        w = maxW;
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob((blob) => {
+                        resolve(blob || file);
+                    }, 'image/jpeg', 0.75);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Detail Modal Handlers
+    async function openDetail(id) {
+        try {
+            document.getElementById('mDetailBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8"><div class="sp"></div><div>Đang tải chi tiết...</div></div>';
+            document.getElementById('mDetailOverlay').style.display = 'flex';
+            
+            const res = await api('/api/import/fabric-detail/' + id);
+            const r = res.record;
+            if(!r) { closeDetail(); return; }
+
+            document.getElementById('mDetailTitle').textContent = '🧾 Bill ' + (r.fabric_import_code || 'Nhập Vải');
+            
+            const items = typeof r.fabric_items === 'string' ? JSON.parse(r.fabric_items) : (r.fabric_items || []);
+            const extras = typeof r.extra_costs === 'string' ? JSON.parse(r.extra_costs) : (r.extra_costs || []);
+            
+            let h = '';
+            
+            // Header stats
+            h += `<div class="info-grid">`;
+            h += `<div class="info-card"><div class="info-lbl">NGÀY NHẬP</div><div class="info-val">${fd(r.import_date)}</div></div>`;
+            h += `<div class="info-card"><div class="info-lbl">NHÂN VIÊN</div><div class="info-val">${r.importer_name || '—'}</div></div>`;
+            h += `<div class="info-card" style="grid-column: span 2"><div class="info-lbl">NGUỒN NCC</div><div class="info-val" style="color:#a5b4fc">🏪 ${r.source_name || '—'}</div></div>`;
+            h += `</div>`;
+
+            // Fabric items
+            h += `<div class="mov-section">`;
+            h += `<div style="font-size:12px;font-weight:800;color:#a5b4fc;margin-bottom:8px">🧵 DANH SÁCH CÂY VẢI</div>`;
+            items.forEach((it, idx) => {
+                const trees = it.trees || [];
+                const qty = Number(it.actual_total) || 0;
+                const unit = it.unit || 'kg';
+                const price = Number(it.unit_price) || 0;
+                const cost = Number(it.item_cost) || (qty * price);
+                
+                h += `<div class="det-item">`;
+                h += `<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#e2e8f0"><span>${it.material_name} - ${it.color_name}</span><span>${fn(price)}đ/${unit}</span></div>`;
+                h += `<div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:2px"><span>Cân nặng: ${fn(qty)} ${unit}</span><span style="color:#10b981;font-weight:700">${fn(cost)}₫</span></div>`;
+                
+                if (trees.length > 0) {
+                    h += `<div class="det-trees-wrap">`;
+                    trees.forEach((t, ti) => {
+                        h += `<div class="det-tree-card">`;
+                        if (t.image_path) {
+                            h += `<img src="${t.image_path}" class="det-tree-img" onclick="showZoom('${t.image_path}')">`;
+                        } else {
+                            h += `<div style="width:42px;height:42px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:16px">📷</div>`;
+                        }
+                        h += `<span class="det-tree-lbl">Cây ${ti+1}: ${t.weight}${unit}</span>`;
+                        h += `</div>`;
+                    });
+                    h += `</div>`;
+                }
+                h += `</div>`;
+            });
+            h += `</div>`;
+
+            // Extras
+            if (extras.length > 0) {
+                h += `<div class="mov-section" style="border-color:#fde68a;background:rgba(253,230,138,0.02)">`;
+                h += `<div style="font-size:11px;font-weight:800;color:#fbbf24;margin-bottom:6px">📋 CHI PHÍ KHÁC</div>`;
+                extras.forEach(ec => {
+                    h += `<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>${ec.content}</span><span style="font-weight:700;color:#fbbf24">${fn(ec.amount)}₫</span></div>`;
+                });
+                h += `</div>`;
+            }
+
+            // Summary Totals
+            const totalCostVal = Number(r.total_amount) || 0;
+            h += `<div class="summary-box">`;
+            h += `<div class="summary-row"><span>Chi phí gốc:</span><span>${fn(r.cost)}₫</span></div>`;
+            if (Number(r.vat_amount) > 0) h += `<div class="summary-row"><span>Tiền VAT:</span><span>${fn(r.vat_amount)}₫</span></div>`;
+            h += `<div class="summary-row grand"><span>TỔNG THÀNH TIỀN:</span><span>${fn(totalCostVal)}₫</span></div>`;
+            h += `<div class="summary-row" style="color:#6ee7b7;font-weight:700"><span>Đã thanh toán:</span><span>${fn(r.paid)}₫</span></div>`;
+            h += `<div class="summary-row" style="color:#fca5a5;font-weight:700"><span>Còn nợ:</span><span>${fn(r.debt)}₫</span></div>`;
+            h += `</div>`;
+
+            // Bill Image
+            if (r.bill_image_url) {
+                h += `<div class="mov-section">`;
+                h += `<label class="mov-label">📸 ẢNH HÓA ĐƠN BILL</label>`;
+                h += `<img src="${r.bill_image_url}" class="preview-img" style="max-height:120px" onclick="showZoom('${r.bill_image_url}')">`;
+                h += `</div>`;
+            }
+
+            // Ship Cost
+            if (Number(r.ship_cost) > 0) {
+                h += `<div class="mov-section" style="border-color:#7dd3fc">`;
+                h += `<div style="font-size:11px;font-weight:800;color:#38bdf8;margin-bottom:6px">🚚 PHÍ SHIP: ${fn(r.ship_cost)}₫</div>`;
+                if (r.ship_cashflow_code) h += `<div style="font-size:9px;color:#94a3b8;margin-bottom:4px">Mã phiếu chi: ${r.ship_cashflow_code}</div>`;
+                if (r.ship_image_url) h += `<img src="${r.ship_image_url}" class="preview-img" style="max-height:100px" onclick="showZoom('${r.ship_image_url}')">`;
+                h += `</div>`;
+            }
+
+            // Notes
+            if (r.cost_notes) {
+                h += `<div class="mov-section"><label class="mov-label"> Ghi chú</label><div style="font-size:12px;color:#cbd5e1">${r.cost_notes}</div></div>`;
+            }
+
+            // Action
+            const cA = r.is_checked ? 'uncheck' : 'check';
+            h += `<div style="margin-top:16px"><button class="ab${r.is_checked ? ' on' : ''}" onclick="closeDetail(); mTog(${r.id},'${cA}')">✅ ${r.is_checked ? 'ĐÃ DUYỆT' : 'DUYỆT KIỂM TRA'}</button></div>`;
+
+            document.getElementById('mDetailBody').innerHTML = h;
+
+        } catch (e) {
+            document.getElementById('mDetailBody').innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444">⚠️ Lỗi: ${e.message}</div>`;
+        }
+    }
+
+    function closeDetail() {
+        document.getElementById('mDetailOverlay').style.display = 'none';
+    }
+
+    // Import Modal Handlers
+    function openImport() {
+        // Reset state
+        mFormState = { source_id: null, items: [], extraCosts: [], vat: 0, billImg: null, shipImg: null, notes: '' };
+        document.getElementById('mFormSrc').value = '';
+        document.getElementById('mFormShip').value = '';
+        document.getElementById('mFormVat').value = '';
+        document.getElementById('mFormNotes').value = '';
+        
+        document.getElementById('mBillPreview').style.display = 'none';
+        document.getElementById('mBillPreview').innerHTML = '';
+        document.getElementById('mShipPreview').style.display = 'none';
+        document.getElementById('mShipPreview').innerHTML = '';
+        document.getElementById('mShipImgSection').style.display = 'none';
+
+        renderFormItems();
+        updateSummaryInfo();
+        
+        document.getElementById('mImportOverlay').style.display = 'flex';
+        mLoadPickerGroups();
+    }
+
+    function closeImport() {
+        if (mFormState.items.length > 0 || mFormState.billImg) {
+            if (!confirm('Bạn đang nhập dở bill, chắc chắn muốn hủy bỏ?')) return;
+        }
+        document.getElementById('mImportOverlay').style.display = 'none';
+    }
+
+    function triggerMainFile(type) {
+        const input = document.getElementById(type === 'bill' ? 'mBillFile' : 'mShipFile');
+        if (input) input.click();
+    }
+
+    async function uploadMainImg(type, input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        toast('⏳ Đang tải ảnh hóa đơn...');
+        
+        try {
+            const compressed = await compressImg(file, 900);
+            const fd = new FormData();
+            fd.append('file', compressed, file.name);
+            
+            const res = await fetch('/api/import/upload-image', { method: 'POST', body: fd, credentials: 'include' });
+            const data = await res.json();
+            
+            if (data.success) {
+                const imgObj = { url: data.url, path: data.path };
+                const prev = document.getElementById(type === 'bill' ? 'mBillPreview' : 'mShipPreview');
+                
+                if (type === 'bill') mFormState.billImg = imgObj;
+                else mFormState.shipImg = imgObj;
+                
+                prev.innerHTML = `<img src="${data.url}" class="preview-img" onclick="showZoom('${data.url}')">`;
+                prev.style.display = 'block';
+                toast('✅ Tải ảnh thành công');
+            } else {
+                toast(data.error || 'Lỗi tải ảnh', 'error');
+            }
+        } catch(e) {
+            toast('Lỗi upload: ' + e.message, 'error');
+        }
+    }
+
+    function toggleShipSection() {
+        const shipCost = Number(document.getElementById('mFormShip').value) || 0;
+        document.getElementById('mShipImgSection').style.display = shipCost > 0 ? 'block' : 'none';
+    }
+
+    // Fabric Picker Functions
+    async function mLoadPickerGroups() {
+        try {
+            const res = await api('/api/import/tree?record_type=fabric');
+            pickerGroups = res.groups || [];
+        } catch(e) {
+            console.error('Lỗi tải yêu cầu gọi vải:', e);
+        }
+    }
+
+    function openPick() {
+        document.getElementById('mPickSearch').value = '';
+        renderPickList('');
+        document.getElementById('mPickOverlay').style.display = 'flex';
+    }
+
+    function closePick() {
+        document.getElementById('mPickOverlay').style.display = 'none';
+    }
+
+    function renderPickList(q) {
+        const query = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').trim();
+        const container = document.getElementById('mPickList');
+        
+        // Filter groups not already selected in form
+        const available = pickerGroups.filter(g => {
+            const gk = (g.material_name+'|'+g.color_name).toUpperCase();
+            return !mFormState.items.some(it => (it.material_name+'|'+it.color_name).toUpperCase() === gk);
+        });
+
+        if (!available.length) {
+            container.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:11px;">Không còn chất liệu nào cần nhập</div>';
             return;
         }
-    document.getElementById('mU').textContent=cu.full_name||cu.username;
-const sR=await api('/api/import/sources');srcs=sR.sources||[];const sel=document.getElementById('mFSrc');srcs.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent='🏪 '+s.name;sel.appendChild(o);});
-document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi kết nối</div></div>'}}
-async function mLoad(){const st=document.getElementById('mFS')?.value||'',src=document.getElementById('mFSrc')?.value||'';let q='?_=1';if(st)q+='&status='+st;if(src)q+='&source_id='+src;
-try{const r=await api('/api/import/records'+q);mr=r.records||[];mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
-function mStats(){const t=mr.length;let sm=0,sp=0,sd=0,strees=0,sqU={};mr.forEach(r=>{sm+=Number(r.total_amount)||0;sp+=Number(r.paid)||0;sd+=Number(r.debt)||0;const info=mTreeInfo(r);strees+=info.trees;if(info.byUnit)Object.keys(info.byUnit).forEach(u=>{sqU[u]=(sqU[u]||0)+info.byUnit[u];});});
-const qP=[];Object.keys(sqU).forEach(u=>{if(sqU[u]>0)qP.push(fn(sqU[u])+' '+u);});
-document.getElementById('sT').textContent=t;document.getElementById('sTR').textContent=strees;document.getElementById('sM').textContent=fns(sm);document.getElementById('sP').textContent=fns(sp);document.getElementById('sD').textContent=fns(sd);document.getElementById('sQ').textContent=qP.join(' + ')||'—'}
-function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🧾</div><div style="font-size:16px;font-weight:700;margin-bottom:4px">Chưa có bill nhập vải</div></div>';return}
-c.innerHTML=mr.map(r=>{
-const ic=r.is_checked?'✅':'🧾';const cA=r.is_checked?'uncheck':'check';
-const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
-const info=mTreeInfo(r);
-return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.source_name||'Nguồn')+'</div><div class="cc">'+fd(r.import_date)+'</div></div>'
-+'<div class="cb">'
-+'<div class="cr"><span class="cl">👤 NV Nhập</span><span class="cv" style="color:#a5b4fc">'+(r.importer_name||'—')+'</span></div>'
-+'<div class="cr"><span class="cl">🧵 Chất liệu</span><span class="cv" style="font-size:11px">'+(r.fabric_material||'—')+'</span></div>'
-+'<div class="cr"><span class="cl">🌲 Số Cây Vải</span><span class="cv" style="color:#a5b4fc">'+fn(info.trees)+'</span></div>'
-+'<div class="cr"><span class="cl">📏 SL Nhập</span><span class="cv" style="color:#c4b5fd;font-size:11px">'+info.qty+'</span></div>'
-+'<div class="cd"></div>'
-+'<div class="cr"><span class="cl">💵 Chi phí</span><span class="cv">'+fn(r.cost)+'₫</span></div>'
-+(Number(r.refund)?'<div class="cr"><span class="cl">↩️ Hoàn</span><span class="cv" style="color:#fbbf24">'+fn(r.refund)+'₫</span></div>':'')
-+'<div class="cr"><span class="cl">💰 Thành tiền</span><span class="cv" style="font-size:16px;font-weight:900;color:#e2e8f0">'+fn(r.total_amount)+'₫</span></div>'
-+'<div class="cr"><span class="cl">✅ Thanh toán</span><span class="cv" style="color:#6ee7b7">'+fn(r.paid)+'₫</span></div>'
-+'<div class="cr"><span class="cl">📊 Công nợ</span>'+debt(r.debt)+'</div>'
-+(r.cost_notes?'<div class="cr"><span class="cl">📝 Ghi chú</span><span class="cv" style="font-size:11px">'+r.cost_notes+'</span></div>':'')
-+'</div>'
-+'<div class="ca"><button class="ab'+(r.is_checked?' on':'')+'" onclick="mTog('+r.id+',\''+cA+'\')">✅ '+(r.is_checked?'ĐÃ DUYỆT':'DUYỆT KIỂM TRA')+'</button></div>'
-+(hl?'<div class="ch">'+hl+'</div>':'')
-+'</div>'}).join('')}
-async function mTog(id,a){try{await api('/api/import/toggle/'+id,'POST',{action:a});toast('✅ Cập nhật');await mLoad()}catch(e){toast(e.message||'Lỗi','error')}}
-mInit();
-</script>
+
+        let h = '';
+        available.forEach((g, gi) => {
+            const mat = g.material_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd');
+            const col = g.color_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd');
+            
+            if (query && mat.indexOf(query) === -1 && col.indexOf(query) === -1) return;
+
+            h += `<div onclick="pickGroup(${gi})" style="padding:12px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:rgba(255,255,255,0.02);margin-bottom:8px;cursor:pointer;">`;
+            h += `<div style="font-size:12px;font-weight:800;color:#c7d2fe;">🧵 ${g.material_name} - ${g.color_name}</div>`;
+            h += `<div style="font-size:10px;color:#94a3b8;margin-top:4px;">Cần: ${g.needed_trees} cây | Còn thiếu: ${g.remaining_trees} cây</div>`;
+            h += `</div>`;
+        });
+
+        container.innerHTML = h || '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:11px;">Không tìm thấy kết quả phù hợp</div>';
+    }
+
+    function pickGroup(gi) {
+        const g = pickerGroups[gi];
+        if (!g) return;
+
+        mFormState.items.push({
+            reservation_ids: g.reservations.map(r => r.id),
+            material_name: g.material_name,
+            color_name: g.color_name,
+            unit: g.unit || 'kg',
+            needed_trees: g.needed_trees,
+            imported_trees: g.imported_trees,
+            remaining_trees: g.remaining_trees,
+            fabric_color_id: g.fabric_color_id || null,
+            unit_price: 0,
+            trees: [{ weight: '', image_path: null }]
+        });
+
+        closePick();
+        renderFormItems();
+        updateSummaryInfo();
+    }
+
+    // Form Items Controls
+    function renderFormItems() {
+        const container = document.getElementById('mFormItems');
+        if (!mFormState.items.length) {
+            container.innerHTML = '<div style="text-align:center;padding:16px;color:#94a3b8;font-size:11px;">Chưa chọn loại vải nào</div>';
+            return;
+        }
+
+        container.innerHTML = mFormState.items.map((it, idx) => {
+            return `
+            <div class="form-item-box" style="margin-bottom: 12px; border-color: rgba(255,255,255,0.1)">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px; margin-bottom: 10px;">
+                    <span style="font-size:12px; font-weight:800; color:#c7d2fe;">🧵 ${it.material_name} - ${it.color_name}</span>
+                    <button onclick="removeFormItem(${idx})" style="background:none; border:none; color:#ef4444; font-size:11px; font-weight:700; cursor:pointer;">Xóa loại</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px;">
+                    <span style="font-size:11px; color:#94a3b8;">Đơn giá:</span>
+                    <input type="number" step="1000" placeholder="0" value="${it.unit_price || ''}" onchange="updateFormItemPrice(${idx}, this.value)" style="width:100px; padding:6px 10px; border:1px solid rgba(255,255,255,0.12); border-radius:8px; font-size:12px; background:rgba(0,0,0,0.2); color:#fff; font-weight:700; outline:none">
+                    <span style="font-size:11px; color:#94a3b8;">đ / ${it.unit}</span>
+                </div>
+                
+                <div id="mFormTrees_${idx}">
+                    ${renderFormTrees(it, idx)}
+                </div>
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px">
+                    <button onclick="addFormTree(${idx})" class="btn-sub">+ Thêm Cây</button>
+                    <span style="font-size:10px; color:#818cf8; font-weight:700;" id="mFormItemSummary_${idx}">
+                        ${it.trees.length} cây | ${fn(it.trees.reduce((s,t) => s + (Number(t.weight) || 0), 0))} ${it.unit}
+                    </span>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    function renderFormTrees(it, idx) {
+        return it.trees.map((t, ti) => {
+            const imgHtml = t.image_path 
+                ? `<img src="${t.image_path}" style="width:28px;height:28px;object-fit:cover;border-radius:4px" onclick="showZoom('${t.image_path}')">
+                   <button onclick="clearTreeImg(${idx}, ${ti})" style="background:none;border:none;color:#ef4444;font-size:12px;padding:0;margin-left:2px">✕</button>`
+                : `<button onclick="triggerTreeCamera(${idx}, ${ti})" style="padding:4px 8px;border-radius:6px;border:1.5px solid #818cf8;background:rgba(129,140,248,0.15);color:#a5b4fc;font-size:9px;font-weight:800;display:flex;align-items:center;gap:3px;cursor:pointer">
+                     📸 Chụp ảnh *
+                   </button>
+                   <input type="file" id="mTreeFile_${idx}_${ti}" accept="image/*" capture="environment" style="display:none" onchange="uploadTreeImg(${idx}, ${ti}, this)">`;
+
+            return `
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;" id="mFormTree_${idx}_${ti}">
+                <span style="font-size:10px; color:#94a3b8; width:45px;">Cây ${ti+1}:</span>
+                <input type="number" step="0.1" min="0.1" placeholder="Số cân" value="${t.weight || ''}" onchange="updateFormTreeWeight(${idx}, ${ti}, this.value)" style="width:75px; padding:5px 8px; border:1px solid rgba(255,255,255,0.12); border-radius:6px; font-size:12px; background:rgba(0,0,0,0.2); color:#fff; outline:none">
+                <span style="font-size:10px; color:#94a3b8;">${it.unit}</span>
+                
+                <div style="display:flex; align-items:center; gap:4px; margin-left:auto;">
+                    ${imgHtml}
+                </div>
+                
+                <button onclick="deleteFormTree(${idx}, ${ti})" style="background:rgba(239,68,68,0.1); border:none; color:#ef4444; width:24px; height:24px; border-radius:6px; font-size:9px; display:flex; align-items:center; justify-content:center; cursor:pointer;">🗑</button>
+            </div>
+            `;
+        }).join('');
+    }
+
+    function removeFormItem(idx) {
+        mFormState.items.splice(idx, 1);
+        renderFormItems();
+        updateSummaryInfo();
+    }
+
+    function updateFormItemPrice(idx, price) {
+        mFormState.items[idx].unit_price = Number(price) || 0;
+        updateSummaryInfo();
+    }
+
+    function addFormTree(idx) {
+        const it = mFormState.items[idx];
+        const total = (it.imported_trees || 0) + it.trees.length;
+        if (it.needed_trees > 0 && total >= it.needed_trees) {
+            toast(`⚠️ Đã đủ ${it.needed_trees} cây theo yêu cầu QLX`, 'error');
+            return;
+        }
+        it.trees.push({ weight: '', image_path: null });
+        renderFormItems();
+        updateSummaryInfo();
+    }
+
+    function deleteFormTree(idx, ti) {
+        const it = mFormState.items[idx];
+        if (it.trees.length > 1) {
+            it.trees.splice(ti, 1);
+            renderFormItems();
+            updateSummaryInfo();
+        } else {
+            toast('⚠️ Phải có ít nhất 1 cây vải', 'error');
+        }
+    }
+
+    function updateFormTreeWeight(idx, ti, val) {
+        mFormState.items[idx].trees[ti].weight = Number(val) || 0;
+        
+        // Update small counter dynamically without full render
+        const sumEl = document.getElementById(`mFormItemSummary_${idx}`);
+        if (sumEl) {
+            const it = mFormState.items[idx];
+            const totalW = it.trees.reduce((s,t) => s + (Number(t.weight) || 0), 0);
+            sumEl.textContent = `${it.trees.length} cây | ${fn(totalW)} ${it.unit}`;
+        }
+        updateSummaryInfo();
+    }
+
+    // Camera Handlers for Trees
+    function triggerTreeCamera(idx, ti) {
+        const input = document.getElementById(`mTreeFile_${idx}_${ti}`);
+        if (input) input.click();
+    }
+
+    async function uploadTreeImg(idx, ti, input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        toast('⏳ Đang tải ảnh cây vải...');
+        
+        try {
+            const compressed = await compressImg(file, 800);
+            const fd = new FormData();
+            fd.append('file', compressed, file.name);
+            
+            const res = await fetch('/api/import/upload-image', { method: 'POST', body: fd, credentials: 'include' });
+            const data = await res.json();
+            
+            if (data.success) {
+                mFormState.items[idx].trees[ti].image_path = data.url;
+                renderFormItems();
+                toast('✅ Đã tải ảnh cây vải');
+            } else {
+                toast(data.error || 'Lỗi tải ảnh', 'error');
+            }
+        } catch(e) {
+            toast('Lỗi upload: ' + e.message, 'error');
+        }
+    }
+
+    function clearTreeImg(idx, ti) {
+        mFormState.items[idx].trees[ti].image_path = null;
+        renderFormItems();
+    }
+
+    // Summary calculations
+    function updateSummaryInfo() {
+        const vatVal = Number(document.getElementById('mFormVat').value) || 0;
+        const shipCost = Number(document.getElementById('mFormShip').value) || 0;
+        
+        const totalFabCost = mFormState.items.reduce((sum, it) => {
+            const itCost = it.trees.reduce((s, t) => s + (Number(t.weight) || 0), 0) * (Number(it.unit_price) || 0);
+            return sum + itCost;
+        }, 0);
+
+        const grandTotal = totalFabCost + vatVal + shipCost;
+
+        document.getElementById('mSummaryFab').textContent = fn(totalFabCost) + '₫';
+        document.getElementById('mSummaryVat').textContent = fn(vatVal) + '₫';
+        document.getElementById('mSummaryShip').textContent = fn(shipCost) + '₫';
+        document.getElementById('mSummaryTotal').textContent = fn(grandTotal) + '₫';
+    }
+
+    // Submit Logic
+    async function submitImportForm() {
+        if (isSubmittingForm) return;
+        
+        const btn = document.getElementById('mFormSubmitBtn');
+        
+        // 1. Validations
+        const srcId = document.getElementById('mFormSrc').value;
+        if (!srcId) { toast('⚠️ Hãy chọn nguồn NCC', 'error'); return; }
+        if (!mFormState.items.length) { toast('⚠️ Hãy thêm ít nhất 1 loại vải', 'error'); return; }
+        
+        for (let i = 0; i < mFormState.items.length; i++) {
+            const it = mFormState.items[i];
+            if (!it.unit_price || it.unit_price <= 0) { toast(`⚠️ ${it.material_name}: Nhập đơn giá > 0`, 'error'); return; }
+            for (let t = 0; t < it.trees.length; t++) {
+                if (!it.trees[t].weight || it.trees[t].weight <= 0) { toast(`⚠️ ${it.material_name} - Cây ${t+1}: Nhập trọng lượng > 0`, 'error'); return; }
+                if (!it.trees[t].image_path) { toast(`⚠️ ${it.material_name} - Cây ${t+1}: Bắt buộc chụp ảnh cây vải để định danh`, 'error'); return; }
+            }
+        }
+        
+        if (!mFormState.billImg) { toast('⚠️ Bắt buộc chụp/tải ảnh hóa đơn bill', 'error'); return; }
+        
+        const shipCost = Number(document.getElementById('mFormShip').value) || 0;
+        if (shipCost > 0 && !mFormState.shipImg) { toast('⚠️ Có phí ship thì bắt buộc chụp/tải ảnh phí ship', 'error'); return; }
+
+        // 2. Build Payload
+        const body = {
+            source_id: Number(srcId),
+            fabric_items: mFormState.items.map(it => {
+                return {
+                    reservation_ids: it.reservation_ids || [],
+                    material_name: it.material_name,
+                    color_name: it.color_name,
+                    unit: it.unit || 'kg',
+                    unit_price: Number(it.unit_price) || 0,
+                    fabric_color_id: it.fabric_color_id,
+                    trees: it.trees.map(t => ({ weight: Number(t.weight) || 0, image_path: t.image_path }))
+                };
+            }),
+            extra_costs: [],
+            ship_cost: shipCost,
+            ship_image_url: mFormState.shipImg ? mFormState.shipImg.url : null,
+            ship_image_path: mFormState.shipImg ? mFormState.shipImg.path : null,
+            bill_image_url: mFormState.billImg.url,
+            bill_image_path: mFormState.billImg.path,
+            vat_amount: Number(document.getElementById('mFormVat').value) || 0,
+            cost_notes: document.getElementById('mFormNotes').value || ''
+        };
+
+        // 3. Submit request
+        isSubmittingForm = true;
+        btn.disabled = true;
+        btn.textContent = '⏳ Đang lưu...';
+
+        try {
+            const res = await api('/api/import/fabric-submit', 'POST', body);
+            toast('✅ Nhập vải thành công! Mã: ' + res.fabric_import_code);
+            document.getElementById('mImportOverlay').style.display = 'none';
+            await mLoad();
+        } catch(e) {
+            toast(e.message || 'Lỗi khi lưu', 'error');
+        } finally {
+            isSubmittingForm = false;
+            btn.disabled = false;
+            btn.textContent = '💾 Lưu Nhập Vải';
+        }
+    }
+
+    mInit();
+    </script>
     <!-- Unified Mobile Navigation Script -->
     <script src="/js/mobile-nav.js?v=20260623"></script>
 </body>

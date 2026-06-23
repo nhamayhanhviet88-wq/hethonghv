@@ -98,6 +98,18 @@ function _bnhFabRenderBody() {
                     + '<input type="number" step="0.1" min="0.1" value="'+(tr.weight||'')+'" placeholder="0" onchange="_bnhFabTreeW('+idx+','+ti+',this.value)" style="width:90px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'
                     + '<span style="font-size:10px;color:#6b7280">'+(it.unit||'kg')+'</span>'
                     + (up > 0 ? '<span style="font-size:10px;color:#059669;font-weight:600">→ '+tc.toLocaleString('vi-VN')+'đ</span>' : '');
+                
+                // Roll image upload
+                h += '<div style="display:flex;align-items:center;gap:4px;margin-left:8px">';
+                if (tr.image_path) {
+                    h += '<img src="' + tr.image_path + '" style="height:24px;width:24px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src)">'
+                        + '<button onclick="_bnhFabTreeImg('+idx+','+ti+',null)" style="background:none;border:none;color:#dc2626;font-size:11px;cursor:pointer;padding:0">✕</button>';
+                } else {
+                    h += '<button onclick="_bnhFabTreeUploadTrigger('+idx+','+ti+')" style="padding:2px 6px;border-radius:4px;border:1px solid #7c3aed;background:#ede9fe;color:#7c3aed;font-size:9px;font-weight:700;cursor:pointer">📸 Ảnh *</button>'
+                        + '<input type="file" id="_fabTreeFile_'+idx+'_'+ti+'" accept="image/*" style="display:none" onchange="_bnhFabTreeImgChange('+idx+','+ti+',this)">';
+                }
+                h += '</div>';
+
                 if (trees.length > 1) h += '<button onclick="_bnhFabDelTree('+idx+','+ti+')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:1px 6px;font-size:9px;cursor:pointer">🗑</button>';
                 h += '</div>';
             });
@@ -384,6 +396,7 @@ async function _bnhFabSubmit() {
         if (!it.unit_price || Number(it.unit_price) <= 0) { showToast(it.material_name+': nhập đơn giá', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
         for (var t = 0; t < it.trees.length; t++) {
             if (!it.trees[t].weight || Number(it.trees[t].weight) <= 0) { showToast(it.material_name+': Cây '+(t+1)+' phải > 0', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
+            if (!it.trees[t].image_path) { showToast(it.material_name+': Cây '+(t+1)+' bắt buộc phải chụp ảnh định danh', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
         }
     }
     for (var j = 0; j < f.extraCosts.length; j++) {
@@ -401,7 +414,7 @@ async function _bnhFabSubmit() {
             fabric_items: f.items.map(function(it){
                 return { reservation_ids: it.reservation_ids||[], material_name: it.material_name, color_name: it.color_name,
                     unit: it.unit||'kg', unit_price: Number(it.unit_price)||0, fabric_color_id: it.fabric_color_id,
-                    trees: it.trees.map(function(t){return {weight:Number(t.weight)||0};}) };
+                    trees: it.trees.map(function(t){return {weight:Number(t.weight)||0, image_path: t.image_path || null};}) };
             }),
             extra_costs: f.extraCosts,
             ship_cost: shipCost,
@@ -426,6 +439,37 @@ async function _bnhFabSubmit() {
         _bnhFab.submitting = false;
         if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; }
     }
+}
+
+function _bnhFabTreeUploadTrigger(idx, ti) {
+    var input = document.getElementById('_fabTreeFile_' + idx + '_' + ti);
+    if (input) input.click();
+}
+
+async function _bnhFabTreeImgChange(idx, ti, input) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    var fd = new FormData();
+    fd.append('file', file);
+    try {
+        showToast('⏳ Đang tải ảnh cây vải...');
+        var res = await fetch('/api/import/upload-image', { method: 'POST', body: fd, credentials: 'include' });
+        var data = await res.json();
+        if (data.success) {
+            _bnhFab.items[idx].trees[ti].image_path = data.url;
+            _bnhFabRenderBody();
+            showToast('✅ Đã tải ảnh cây vải');
+        } else {
+            showToast(data.error || 'Lỗi tải ảnh', 'error');
+        }
+    } catch (err) {
+        showToast('Lỗi upload: ' + err.message, 'error');
+    }
+}
+
+function _bnhFabTreeImg(idx, ti, path) {
+    _bnhFab.items[idx].trees[ti].image_path = path;
+    _bnhFabRenderBody();
 }
 
 // ========== beforeunload warning ==========
@@ -504,7 +548,12 @@ async function _bnhFabDetail(id) {
             h += '<tr><td colspan="6" style="padding:2px 8px 6px 20px">'
                 + '<div style="display:flex;gap:4px;flex-wrap:wrap">';
             trees.forEach(function(t, ti) {
-                h += '<span style="background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600">Cây ' + (ti+1) + ': ' + (t.weight||0) + unit + '</span>';
+                h += '<div style="display:inline-flex;flex-direction:column;align-items:center;background:#ede9fe;color:#7c3aed;padding:4px;border-radius:6px;font-size:9px;font-weight:600;gap:2px">';
+                if (t.image_path) {
+                    h += '<img src="' + t.image_path + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src)">';
+                }
+                h += '<span>Cây ' + (ti+1) + ': ' + (t.weight||0) + unit + '</span>';
+                h += '</div>';
             });
             h += '</div>';
             if (it.roll_ids_created && it.roll_ids_created.length) h += '<div style="font-size:9px;color:#059669;margin-top:2px">✅ Đã tạo ' + it.roll_ids_created.length + ' cây vải trong kho</div>';
