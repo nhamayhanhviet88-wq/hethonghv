@@ -187,6 +187,7 @@ async function renderQuanlykhovaiPage(content) {
     }
 
     // Set page layout structure
+    var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
     content.innerHTML = `
         <div class="qkv-wrap">
             <!-- Sidebar -->
@@ -226,6 +227,7 @@ async function renderQuanlykhovaiPage(content) {
                         </form>
                     </div>
 
+                    ${isGD ? `
                     <!-- Assign Material to Shelf Form -->
                     <div class="qkv-sb-section">
                         <div class="qkv-sb-title">🚚 Xếp Chất Liệu Vào Kệ</div>
@@ -245,6 +247,7 @@ async function renderQuanlykhovaiPage(content) {
                             <button type="submit" class="qkv-btn-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1);">🚚 Xếp vào kệ</button>
                         </form>
                     </div>
+                    ` : ''}
                     
                     <!-- Locations List -->
                     <div style="padding: 16px 20px 0 20px; font-weight: 800; font-size: 11px; color: #475569; text-transform: uppercase; border-bottom: none;">📋 Vị trí đã thiết lập</div>
@@ -593,6 +596,7 @@ function _qkvRenderMap() {
 
 // 6. Build single Card HTML
 function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
+    var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
     var headerClass = '';
     var cardClass = 'qkv-card';
     
@@ -657,7 +661,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                             <span style="font-size:9px;color:#94a3b8;font-weight:normal;">${item.so_cuc} cây</span>
                         </div>
                         <div class="qkv-loc-actions">
-                            ${!isUnassigned ? `
+                            ${(!isUnassigned && isGD) ? `
                             <button class="qkv-btn-icon" onclick="_qkvOnChangeItemLocationByIndex(${itemIdx})" title="Di chuyển vị trí">🚚</button>
                             ` : ''}
                         </div>
