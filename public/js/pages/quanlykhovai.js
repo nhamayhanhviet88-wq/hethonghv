@@ -845,7 +845,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 } else {
                                     if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
                                         photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                                        moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                                        moveHtml = '';
                                     } else {
                                         photoHtml = '';
                                         moveHtml = '';
