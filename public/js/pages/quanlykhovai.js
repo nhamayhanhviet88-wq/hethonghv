@@ -894,12 +894,18 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                         <div style="flex:1; min-width:0;">
                                             <div style="font-size:12px; font-weight:700; color:#334155; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
                                                 <span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
-                                                    ${r.source_import_id ? `
-                                                        <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
-                                                            Cây ${r.w}kg
-                                                        </span>
-                                                    ` : `
-                                                        <span style="cursor:pointer; color:#334155;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                                    ${_qkvCanViewBill() ? (
+                                                        r.source_import_id ? `
+                                                            <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
+                                                                Cây ${r.w}kg
+                                                            </span>
+                                                        ` : `
+                                                            <span style="cursor:pointer; color:#334155;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                                                Cây ${r.w}kg
+                                                            </span>
+                                                        `
+                                                    ) : `
+                                                        <span style="color:#334155;">
                                                             Cây ${r.w}kg
                                                         </span>
                                                     `}
@@ -2204,12 +2210,18 @@ function _qkvUpdateModalView() {
                         <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; gap:8px;">
                             <div style="min-width:0; flex:1;">
                                 <div style="font-size:13px; font-weight:800; color:#0f766e;">
-                                    ${r.source_import_id ? `
-                                        <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
-                                            ${r.w} kg
-                                        </span>
-                                    ` : `
-                                        <span style="cursor:pointer;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                    ${_qkvCanViewBill() ? (
+                                        r.source_import_id ? `
+                                            <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
+                                                ${r.w} kg
+                                            </span>
+                                        ` : `
+                                            <span style="cursor:pointer;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                                ${r.w} kg
+                                            </span>
+                                        `
+                                    ) : `
+                                        <span>
                                             ${r.w} kg
                                         </span>
                                     `}
@@ -2261,5 +2273,16 @@ function _qkvOpenImportBill(importId) {
     }
 }
 window._qkvOpenImportBill = _qkvOpenImportBill;
+
+function _qkvCanViewBill() {
+    var u = typeof currentUser !== 'undefined' ? currentUser : null;
+    if (!u) return false;
+    if (u.role === 'giam_doc') return true;
+    if (u.role === 'quan_ly_xuong') return true;
+    if (u.username === 'ketoan' || u.username === 'ketoan1' || u.role === 'ke_toan') return true;
+    if (u.role === 'quan_ly_cap_cao' && (u.username === 'trinh' || u.username === 'quanlyxuong')) return true;
+    return false;
+}
+window._qkvCanViewBill = _qkvCanViewBill;
 
 
