@@ -980,6 +980,13 @@ module.exports = async function(fastify) {
                     if (need_compensate) {
                         await createCompensationTicket(rec, cutQty, request.user.id, now);
                     }
+                    if (rec.dht_order_id && rec.order_item_id) {
+                        await db.run(`
+                            UPDATE qlx_fabric_reservations 
+                            SET status = 'released', updated_at = $1 
+                            WHERE dht_order_id = $2 AND item_id = $3 AND status IN ('reserved', 'arrived')
+                        `, [now, rec.dht_order_id, rec.order_item_id]);
+                    }
                     detail = '✅ Cắt xong (nhóm, chờ đơn cuối) — SL: ' + cutQty;
                 } else {
                     // LAST in group: handle roll weights + distribute kg proportionally
@@ -1000,7 +1007,7 @@ module.exports = async function(fastify) {
 
                     // Get all done records in group to distribute kg
                     const allGroupDone = await db.all(
-                        `SELECT id, cut_quantity FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cut_done = true`,
+                        `SELECT id, cut_quantity, dht_order_id, order_item_id FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cut_done = true`,
                         [rec.multi_cut_group_id, id]
                     );
                     const totalQtyOthers = allGroupDone.reduce((s, r) => s + (Number(r.cut_quantity) || 0), 0);
@@ -1040,6 +1047,13 @@ module.exports = async function(fastify) {
                     if (need_compensate) {
                         await createCompensationTicket(rec, cutQty, request.user.id, now);
                     }
+                    if (rec.dht_order_id && rec.order_item_id) {
+                        await db.run(`
+                            UPDATE qlx_fabric_reservations 
+                            SET status = 'released', updated_at = $1 
+                            WHERE dht_order_id = $2 AND item_id = $3 AND status IN ('reserved', 'arrived')
+                        `, [now, rec.dht_order_id, rec.order_item_id]);
+                    }
 
                     // Distribute kg to other group members
                     for (const gr of allGroupDone) {
@@ -1072,6 +1086,14 @@ module.exports = async function(fastify) {
 
                         await db.run(`UPDATE cutting_records SET kg_end = $1, kg_cut = $2, cut_ratio = $3, selected_roll_ids = $4, updated_at = $5 WHERE id = $6`,
                             [kgEnd, grKgCut, grRatio, JSON.stringify(grUpdatedSnapshot), now, gr.id]);
+                        
+                        if (gr.dht_order_id && gr.order_item_id) {
+                            await db.run(`
+                                UPDATE qlx_fabric_reservations 
+                                SET status = 'released', updated_at = $1 
+                                WHERE dht_order_id = $2 AND item_id = $3 AND status IN ('reserved', 'arrived')
+                            `, [now, gr.dht_order_id, gr.order_item_id]);
+                        }
                     }
 
                     const groupOrderIds = [rec.dht_order_id, ...allGroupDone.map(r => r.dht_order_id)].filter(Boolean);
@@ -1151,6 +1173,13 @@ module.exports = async function(fastify) {
                     [now, request.user.id, kgEnd, kgCut, cutQty, cutRatio, ratio_reason || null, ratio_image || null, salInfo.unit_price, salInfo.salary, JSON.stringify(updatedSnapshot), id]);
                 if (need_compensate) {
                     await createCompensationTicket(rec, cutQty, request.user.id, now);
+                }
+                if (rec.dht_order_id && rec.order_item_id) {
+                    await db.run(`
+                        UPDATE qlx_fabric_reservations 
+                        SET status = 'released', updated_at = $1 
+                        WHERE dht_order_id = $2 AND item_id = $3 AND status IN ('reserved', 'arrived')
+                    `, [now, rec.dht_order_id, rec.order_item_id]);
                 }
                 for (const s of snapshot) {
                     const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
