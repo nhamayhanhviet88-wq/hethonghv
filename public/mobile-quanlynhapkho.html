@@ -1124,8 +1124,12 @@
                 if (collapsedShelves[group.name] !== undefined) {
                     isCollapsed = collapsedShelves[group.name] === true;
                 } else {
-                    // Default states: collapse all on mobile by default
-                    isCollapsed = true;
+                    // Default states: open only processed_nguyen and processed_le by default, collapse others
+                    if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
+                        isCollapsed = false;
+                    } else {
+                        isCollapsed = true;
+                    }
                 }
             }
 
