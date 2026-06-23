@@ -16,6 +16,24 @@ const pool = new Pool({
     max: 2,
 });
 
+async function queryWithRetry(client, queryText, params = [], maxRetries = 3, delayMs = 2000) {
+    let retries = maxRetries;
+    while (true) {
+        try {
+            return await client.query(queryText, params);
+        } catch (err) {
+            const isDeadlock = err.code === '40P01' || err.message.toLowerCase().includes('deadlock');
+            if (isDeadlock && retries > 1) {
+                retries--;
+                console.warn(`[WARNING] Deadlock detected for query. Retrying in ${delayMs}ms... (Remaining retries: ${retries})`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            } else {
+                throw err;
+            }
+        }
+    }
+}
+
 (async () => {
     try {
         const client = await pool.connect();
@@ -27,7 +45,7 @@ const pool = new Pool({
         sql += `SET client_encoding = 'UTF8';\n\n`;
 
         // Get all tables
-        const tablesRes = await client.query(`
+        const tablesRes = await queryWithRetry(client, `
             SELECT tablename FROM pg_tables 
             WHERE schemaname = 'public' 
             ORDER BY tablename
@@ -37,7 +55,7 @@ const pool = new Pool({
             const table = row.tablename;
 
             // Get CREATE TABLE statement
-            const colsRes = await client.query(`
+            const colsRes = await queryWithRetry(client, `
                 SELECT column_name, data_type, column_default, is_nullable, character_maximum_length
                 FROM information_schema.columns 
                 WHERE table_name = $1 AND table_schema = 'public'
@@ -57,7 +75,7 @@ const pool = new Pool({
             sql += colDefs.join(',\n');
 
             // Primary key
-            const pkRes = await client.query(`
+            const pkRes = await queryWithRetry(client, `
                 SELECT kcu.column_name
                 FROM information_schema.table_constraints tc
                 JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
@@ -69,7 +87,7 @@ const pool = new Pool({
             sql += `\n);\n\n`;
 
             // Get data
-            const dataRes = await client.query(`SELECT * FROM "${table}"`);
+            const dataRes = await queryWithRetry(client, `SELECT * FROM "${table}"`);
             if (dataRes.rows.length > 0) {
                 const cols = Object.keys(dataRes.rows[0]);
                 for (const dataRow of dataRes.rows) {
@@ -87,7 +105,7 @@ const pool = new Pool({
             }
 
             // Reset sequences
-            const seqRes = await client.query(`
+            const seqRes = await queryWithRetry(client, `
                 SELECT pg_get_serial_sequence($1, column_name) as seq, column_name
                 FROM information_schema.columns 
                 WHERE table_name = $1 AND column_default LIKE 'nextval%'
