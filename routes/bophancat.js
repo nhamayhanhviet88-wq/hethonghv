@@ -21,6 +21,54 @@ module.exports = async function(fastify) {
         }
     }
 
+    async function populateSourceImportIds(records) {
+        if (!records || records.length === 0) return;
+        const rollIds = [];
+        records.forEach(r => {
+            if (!r.selected_roll_ids) return;
+            let rolls = [];
+            try {
+                rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : r.selected_roll_ids;
+            } catch(e) {}
+            if (Array.isArray(rolls)) {
+                rolls.forEach(rl => {
+                    if (rl && rl.roll_id && !rollIds.includes(rl.roll_id)) {
+                        rollIds.push(rl.roll_id);
+                    }
+                });
+            }
+        });
+        if (rollIds.length === 0) return;
+        try {
+            const rollsDb = await db.all(`SELECT id, source_import_id FROM kv_rolls WHERE id = ANY($1)`, [rollIds]);
+            const importIdMap = {};
+            rollsDb.forEach(rl => {
+                importIdMap[rl.id] = rl.source_import_id;
+            });
+            records.forEach(r => {
+                if (!r.selected_roll_ids) return;
+                let rolls = [];
+                try {
+                    rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : r.selected_roll_ids;
+                } catch(e) {}
+                if (Array.isArray(rolls)) {
+                    let changed = false;
+                    rolls.forEach(rl => {
+                        if (rl && rl.roll_id && importIdMap[rl.roll_id] !== undefined) {
+                            rl.source_import_id = importIdMap[rl.roll_id];
+                            changed = true;
+                        }
+                    });
+                    if (changed) {
+                        r.selected_roll_ids = rolls;
+                    }
+                }
+            });
+        } catch(e) {
+            console.error('[BPC] populateSourceImportIds error:', e.message);
+        }
+    }
+
     async function createCompensationTicket(rec, cutQty, performedBy, timeStr) {
         const remQty = Number(rec.order_quantity) - Number(cutQty);
         if (remQty <= 0) return;
@@ -647,6 +695,7 @@ module.exports = async function(fastify) {
              ORDER BY cr.is_cutting DESC, COALESCE(cr.multi_cut_group_id, 'ZZZ') ASC, o.order_code ASC NULLS LAST, (CASE WHEN COALESCE(cr.cut_warning, '') LIKE '%Cắt bù%' THEN 1 ELSE 0 END) ASC, cr.product_name ASC, cr.created_at DESC
         `, params);
 
+        await populateSourceImportIds(records);
         return { records };
     });
 
@@ -718,6 +767,7 @@ module.exports = async function(fastify) {
         `, [Number(request.params.id)]);
 
         if (!record) return reply.code(404).send({ error: 'Không tìm thấy đơn cắt' });
+        await populateSourceImportIds([record]);
         return { record };
     });
 
@@ -810,7 +860,7 @@ module.exports = async function(fastify) {
             const rollDetails = await db.all(`
                 SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name,
                        r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
-                       r.original_weight, r.image_path
+                       r.original_weight, r.image_path, r.source_import_id
                 FROM kv_rolls r
                 JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                 JOIN kv_materials m ON m.id = fc.material_id
@@ -822,7 +872,8 @@ module.exports = async function(fastify) {
                 roll_id: r.id, weight: Number(r.weight), roll_code: r.roll_code,
                 label: (r.material_name || '') + ' - ' + (r.color_name || '') + ' - ' + Number(r.weight) + 'kg',
                 roll_loc_name: resolveRollLocationName(r),
-                image_path: r.image_path
+                image_path: r.image_path,
+                source_import_id: r.source_import_id
             }));
             await db.run(
                 `UPDATE cutting_records SET is_cutting = true, cutting_at = $1, cutting_by = $2, kg_start = $3, selected_roll_ids = $4, updated_at = $1 WHERE id = $5`,
@@ -2475,7 +2526,7 @@ module.exports = async function(fastify) {
         const rollDetails = await db.all(`
             SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name,
                    r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
-                   r.original_weight
+                   r.original_weight, r.image_path, r.source_import_id
             FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id WHERE r.id = ANY($1)
         `, [locked.map(r => r.id)]);
@@ -2483,7 +2534,9 @@ module.exports = async function(fastify) {
         const rollSnapshot = rollDetails.map(r => ({
             roll_id: r.id, weight: Number(r.weight), roll_code: r.roll_code,
             label: (r.material_name||'') + ' - ' + (r.color_name||'') + ' - ' + Number(r.weight) + 'kg',
-            roll_loc_name: resolveRollLocationName(r)
+            roll_loc_name: resolveRollLocationName(r),
+            image_path: r.image_path,
+            source_import_id: r.source_import_id
         }));
 
         // Generate group ID + update all records

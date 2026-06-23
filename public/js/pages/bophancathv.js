@@ -1854,7 +1854,18 @@ async function _bpcOpenDetail(recordId) {
                 }
                 h += '<div style="padding:8px 14px;border:1.5px solid #f1f5f9;border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#1e293b;display:flex;align-items:center">';
                 if (imgHtml) h += imgHtml;
-                h += '<div style="flex:1;display:flex;flex-direction:column;align-items:flex-start">' + (rl.label || rl.roll_code || 'Cây '+(idx+1)) + locBadge + '</div></div>';
+                var rollText = rl.label || rl.roll_code || 'Cây '+(idx+1);
+                var rollHtml = '';
+                if (_bpcCanViewBill()) {
+                    if (rl.source_import_id) {
+                        rollHtml = '<span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.preventDefault(); event.stopPropagation(); _bpcOpenImportBill(' + rl.source_import_id + ')" title="Nhấp để xem chi tiết bill nhập vải">' + rollText + '</span>';
+                    } else {
+                        rollHtml = '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); showToast(\'Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.\', \'info\')" title="Không có hóa đơn nhập">' + rollText + '</span>';
+                    }
+                } else {
+                    rollHtml = '<span>' + rollText + '</span>';
+                }
+                h += '<div style="flex:1;display:flex;flex-direction:column;align-items:flex-start">' + rollHtml + locBadge + '</div></div>';
             });
         } else {
             h += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Chưa có dữ liệu cây vải</div>';
@@ -3515,3 +3526,26 @@ async function _bpcDoSearch(query) {
         console.error('[BPC] search failed:', e);
     }
 }
+
+function _bpcOpenImportBill(importId) {
+    if (typeof _bnhFabDetail === 'function') {
+        _bnhFabDetail(importId);
+    } else {
+        var s = document.createElement('script');
+        s.src = '/js/pages/fab-import-v4.js?v=20260616a';
+        s.onload = function() { _bnhFabDetail(importId); };
+        document.head.appendChild(s);
+    }
+}
+window._bpcOpenImportBill = _bpcOpenImportBill;
+
+function _bpcCanViewBill() {
+    var u = typeof currentUser !== 'undefined' ? currentUser : null;
+    if (!u) return false;
+    if (u.role === 'giam_doc') return true;
+    if (u.role === 'quan_ly_xuong') return true;
+    if (u.username === 'ketoan' || u.username === 'ketoan1' || u.role === 'ke_toan') return true;
+    if (u.role === 'quan_ly_cap_cao' && (u.username === 'trinh' || u.username === 'quanlyxuong')) return true;
+    return false;
+}
+window._bpcCanViewBill = _bpcCanViewBill;

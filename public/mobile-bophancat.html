@@ -1437,6 +1437,22 @@ function mmRemoveErrorImage(index) {
     mmRenderErrorImagePreviews();
 }
 
+function mCanViewBill() {
+    var u = typeof mUser !== 'undefined' ? mUser : null;
+    if (!u) return false;
+    if (u.role === 'giam_doc') return true;
+    if (u.role === 'quan_ly_xuong') return true;
+    if (u.username === 'ketoan' || u.username === 'ketoan1' || u.role === 'ke_toan') return true;
+    if (u.role === 'quan_ly_cap_cao' && (u.username === 'trinh' || u.username === 'quanlyxuong')) return true;
+    return false;
+}
+window.mCanViewBill = mCanViewBill;
+
+function mOpenImportBill(importId) {
+    window.open('/m/billnhaphang?id=' + importId, '_blank');
+}
+window.mOpenImportBill = mOpenImportBill;
+
 function mDataURLtoBlob(dataurl) {
     var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
         bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
@@ -1919,7 +1935,18 @@ async function mOpenDetail(recordId){
                 }
                 h+='<div style="padding:10px 14px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#e2e8f0;display:flex;align-items:center">';
                 if (imgHtml) h+= imgHtml;
-                h+='<div style="flex:1;display:flex;flex-direction:column;align-items:flex-start">'+(rl.label||rl.roll_code||'Cây '+(i+1))+locBadge+'</div></div>';
+                var rollText = rl.label || rl.roll_code || 'Cây '+(i+1);
+                var rollHtml = '';
+                if (mCanViewBill()) {
+                    if (rl.source_import_id) {
+                        rollHtml = '<span style="cursor:pointer; color:#60a5fa; text-decoration:underline;" onclick="event.preventDefault(); event.stopPropagation(); mOpenImportBill(' + rl.source_import_id + ')" title="Nhấp để xem chi tiết bill nhập vải">' + rollText + '</span>';
+                    } else {
+                        rollHtml = '<span style="cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); mToast(\'Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.\', false)" title="Không có hóa đơn nhập">' + rollText + '</span>';
+                    }
+                } else {
+                    rollHtml = '<span>' + rollText + '</span>';
+                }
+                h+='<div style="flex:1;display:flex;flex-direction:column;align-items:flex-start">'+rollHtml+locBadge+'</div></div>';
             });
         } else {
             h+='<div style="text-align:center;padding:12px;color:#64748b;font-size:12px">Chưa có dữ liệu cây vải</div>';
