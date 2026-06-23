@@ -623,11 +623,23 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
             </div>
         `;
     } else {
-        var itemIndex = 0;
+        // Group the items inside the card by material_name
+        var materialGroups = {};
         group.items.forEach(function(item) {
-            itemIndex++;
+            var matName = item.material_name;
+            if (!materialGroups[matName]) {
+                materialGroups[matName] = {
+                    material_name: matName,
+                    unit: item.unit,
+                    warehouse_name: item.warehouse_name,
+                    items: [],
+                    anyMatched: false
+                };
+            }
+            
             _qkv.activeItems.push(item);
             var itemIdx = _qkv.activeItems.length - 1;
+            item._itemIdx = itemIdx;
 
             var matched = false;
             if (searchKey) {
@@ -637,67 +649,95 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                 if (matched) {
                     isCardHighlighted = true;
                     matchCount++;
+                    materialGroups[matName].anyMatched = true;
                 }
             }
             
-            var badgeHtml = '';
-            var prefix = isUnassigned ? `${itemIndex}. ` : '';
+            item._matched = matched;
+            materialGroups[matName].items.push(item);
+        });
+
+        // Generate HTML for grouped materials
+        Object.keys(materialGroups).forEach(function(matName) {
+            var materialGroup = materialGroups[matName];
+            var totalWeight = materialGroup.items.reduce((sum, item) => sum + Number(item.cuoi_ky || 0), 0);
+            var totalRolls = materialGroup.items.reduce((sum, item) => sum + Number(item.so_cuc || 0), 0);
+            
+            var groupBodyStyle = (searchKey && materialGroup.anyMatched) ? 'display: block;' : 'display: none;';
+            var groupArrowText = (searchKey && materialGroup.anyMatched) ? '▼' : '▶';
 
             itemsHtml += `
-                <div class="qkv-material-color-frame" style="border: 1px solid #e2e8f0; background: #fafafa; border-radius: 10px; padding: 10px; margin-bottom: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
-                    <div class="qkv-item-row ${matched ? 'matched' : ''}" style="border:none; background:transparent; margin-bottom:0; padding:0;">
-                        <div class="qkv-item-main">
-                            <div class="qkv-item-name" title="${escapeHTML(item.material_name)} - ${escapeHTML(item.color_name)}" style="font-size:12.5px; font-weight:800;">
-                                ${prefix}${escapeHTML(item.material_name)}
-                                ${isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : ''}
-                            </div>
-                            <div class="qkv-item-sub" style="margin-top:4px;">
-                                Màu: <span style="font-weight:700;color:#ffffff;background:#e65100;padding:2px 6px;border-radius:4px;font-size:11px;box-shadow: 0 0 6px rgba(230,81,0,0.4);display:inline-block;margin-left:2px;">${escapeHTML(item.color_name)}</span>
-                                ${badgeHtml}
-                            </div>
-                        </div>
-                        <div class="qkv-item-balance">
-                            ${_qkvFmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
-                            <span style="font-size:9px;color:#94a3b8;font-weight:normal;">${item.so_cuc} cây</span>
-                        </div>
-                        <div class="qkv-loc-actions">
-                            ${(!isUnassigned && isGD) ? `
-                            <button class="qkv-btn-icon" onclick="_qkvOnChangeItemLocationByIndex(${itemIdx})" title="Di chuyển vị trí">🚚</button>
-                            ` : ''}
+                <div class="qkv-material-group" data-material="${escapeHTML(matName)}" style="margin-bottom: 8px;">
+                    <div class="qkv-material-group-header" onclick="_qkvToggleMaterialGroup(this)" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; font-weight:800; font-size:12.5px; color:#1e293b; user-select:none;">
+                        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">🧵 ${escapeHTML(matName)}</span>
+                        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                            <span style="font-size:11px; color:#475569; font-weight:700;">${_qkvFmt(totalWeight)} ${escapeHTML(materialGroup.unit || 'kg')} (${totalRolls} cây)</span>
+                            <span class="qkv-group-arrow" style="font-size:10px; color:#64748b;">${groupArrowText}</span>
                         </div>
                     </div>
-                    ${isUnassigned && item.roll_weights && item.roll_weights.length > 0 ? `
-                    <div class="roll-list-unassigned" style="background:#f8fafc; border-radius:6px; padding:6px; margin:8px 0 0 0; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:4px; width:100%; box-sizing:border-box;">
-                        ${item.roll_weights.map(r => {
-                            var photoHtml = '';
-                            var moveHtml = '';
-                            var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
-                            if (r.img) {
-                                photoHtml = `<img src="${escapeHTML(r.img)}" style="width:32px; height:32px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                                if (isGD) {
-                                    moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="_qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
-                                } else {
-                                    moveHtml = ``;
-                                }
-                            } else {
-                                photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:11px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                                moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
-                            }
-                            return `
-                                <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #f1f5f9;">
-                                    <div style="flex:1; min-width:0;">
-                                        <div style="font-size:12px; font-weight:700;">Cây ${r.w}kg</div>
-                                        <div style="font-size:11px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
-                                    </div>
-                                    <div style="display:flex; align-items:center; gap:8px;">
-                                        ${photoHtml}
-                                        ${moveHtml}
-                                    </div>
+                    <div class="qkv-material-group-body" style="${groupBodyStyle} padding-left:6px; border-left:2px dashed #cbd5e1; margin-top:6px; margin-left:8px;">
+            `;
+
+            materialGroup.items.forEach(function(item) {
+                var prefix = isUnassigned ? `<span style="font-size:10px; background:#0f766e; color:#ffffff; padding:2px 6px; border-radius:4px; margin-right:6px; font-weight:normal; text-transform:uppercase;">${escapeHTML(item.warehouse_name)}</span>` : '';
+                
+                var colorBodyStyle = (searchKey && item._matched) ? 'display: flex;' : 'display: none;';
+                var colorArrowText = (searchKey && item._matched) ? '▼' : '▶';
+
+                itemsHtml += `
+                    <div class="qkv-material-color-frame" style="border: 1px solid #e2e8f0; background: #fafafa; border-radius: 8px; padding: 8px; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div class="qkv-item-row ${item._matched ? 'matched' : ''}" onclick="_qkvToggleColorRolls(this)" style="border:none; background:transparent; margin-bottom:0; padding:0; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none;">
+                            <div class="qkv-item-main" style="min-width:0; flex:1;">
+                                <div class="qkv-item-sub" style="margin-top:0; font-size:12px; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                                    ${prefix}
+                                    Màu: <span style="font-weight:700;color:#ffffff;background:#e65100;padding:2px 6px;border-radius:4px;font-size:11px;box-shadow: 0 0 6px rgba(230,81,0,0.4);display:inline-block;">${escapeHTML(item.color_name)}</span>
                                 </div>
-                            `;
-                        }).join('')}
+                            </div>
+                            <div class="qkv-item-balance" style="font-size:12px; text-align:right; font-weight:700; color:#334155; margin-left:8px; flex-shrink:0;">
+                                ${_qkvFmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')} / <span style="font-size:10px;color:#64748b;font-weight:normal;">${item.so_cuc} cây</span>
+                            </div>
+                            <div class="qkv-loc-actions" style="margin-left:8px; display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                                ${(!isUnassigned && isGD) ? `
+                                <button class="qkv-btn-icon" style="padding:4px; font-size:11px;" onclick="event.stopPropagation(); _qkvOnChangeItemLocationByIndex(${item._itemIdx})" title="Di chuyển vị trí">🚚</button>
+                                ` : ''}
+                                <span class="qkv-color-arrow" style="font-size:10px; color:#94a3b8; font-weight:bold; margin-left:2px;">${colorArrowText}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Rolls list for this color (collapsible!) -->
+                        <div class="roll-list-container" style="${colorBodyStyle} background:#f8fafc; border-radius:6px; padding:6px; margin-top:8px; border:1px solid #e2e8f0; flex-direction:column; gap:4px; width:100%; box-sizing:border-box;">
+                            ${item.roll_weights && item.roll_weights.length > 0 ? item.roll_weights.map(r => {
+                                var photoHtml = '';
+                                var moveHtml = '';
+                                if (r.img) {
+                                    photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                                    if (isGD) {
+                                        moveHtml = `<button class="qkv-btn-icon" style="padding:2px 6px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeHTML(r.code || '')}')" title="Di chuyển vị trí">🚚</button>`;
+                                    }
+                                } else {
+                                    photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                    moveHtml = `<span style="font-size:11px; color:#64748b; font-style:italic;">Chờ chụp ảnh</span>`;
+                                }
+                                return `
+                                    <div class="roll-row-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #e2e8f0;">
+                                        <div style="flex:1; min-width:0;">
+                                            <div style="font-size:12px; font-weight:700; color:#334155;">Cây ${r.w}kg</div>
+                                            <div style="font-size:10px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.code || 'không mã'}</div>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            ${photoHtml}
+                                            ${moveHtml}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('') : `<div style="font-size:11px; color:#94a3b8; font-style:italic; text-align:center;">Không có dữ liệu cây vải</div>`}
+                        </div>
                     </div>
-                    ` : ''}
+                `;
+            });
+
+            itemsHtml += `
+                    </div>
                 </div>
             `;
         });
@@ -757,17 +797,73 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     `;
 }
 
+function _qkvToggleMaterialGroup(headerEl) {
+    var body = headerEl.nextElementSibling;
+    var arrow = headerEl.querySelector('.qkv-group-arrow');
+    if (!body || !arrow) return;
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.textContent = '▼';
+    } else {
+        body.style.display = 'none';
+        arrow.textContent = '▶';
+    }
+}
+
+function _qkvToggleColorRolls(rowEl) {
+    var frame = rowEl.closest('.qkv-material-color-frame');
+    if (!frame) return;
+    var container = frame.querySelector('.roll-list-container');
+    var arrow = frame.querySelector('.qkv-color-arrow');
+    if (!container || !arrow) return;
+    if (container.style.display === 'none') {
+        container.style.display = 'flex';
+        arrow.textContent = '▼';
+    } else {
+        container.style.display = 'none';
+        arrow.textContent = '▶';
+    }
+}
+
 function _qkvFilterCardItems(input) {
     var val = (input.value || '').toLowerCase().trim();
     var cardBody = input.closest('.qkv-card-body');
     if (!cardBody) return;
-    var items = cardBody.querySelectorAll('.qkv-material-color-frame');
-    items.forEach(function(item) {
-        var text = (item.textContent || '').toLowerCase();
-        if (text.includes(val)) {
-            item.style.setProperty('display', 'block', 'important');
+    
+    var groups = cardBody.querySelectorAll('.qkv-material-group');
+    groups.forEach(function(group) {
+        var groupBody = group.querySelector('.qkv-material-group-body');
+        var groupHeader = group.querySelector('.qkv-material-group-header');
+        var arrow = group.querySelector('.qkv-group-arrow');
+        var items = group.querySelectorAll('.qkv-material-color-frame');
+        
+        var anyVisible = false;
+        items.forEach(function(item) {
+            var text = (item.textContent || '').toLowerCase();
+            if (text.includes(val)) {
+                item.style.setProperty('display', 'block', 'important');
+                anyVisible = true;
+                
+                // If filtering is active, auto-expand color rolls if they match search exactly
+                var container = item.querySelector('.roll-list-container');
+                var colorArrow = item.querySelector('.qkv-color-arrow');
+                if (val.length > 0 && container && colorArrow) {
+                    container.style.display = 'flex';
+                    colorArrow.textContent = '▼';
+                }
+            } else {
+                item.style.setProperty('display', 'none', 'important');
+            }
+        });
+        
+        if (anyVisible) {
+            group.style.setProperty('display', 'block', 'important');
+            if (val.length > 0 && groupBody && arrow) {
+                groupBody.style.display = 'block';
+                arrow.textContent = '▼';
+            }
         } else {
-            item.style.setProperty('display', 'none', 'important');
+            group.style.setProperty('display', 'none', 'important');
         }
     });
 }
