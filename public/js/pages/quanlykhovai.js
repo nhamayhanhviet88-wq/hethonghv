@@ -1464,10 +1464,12 @@ function _qkvShowLocationQRCode(locName) {
         `📷 Mã QR - Kệ ${escapeHTML(locName)}`,
         `
             <div style="text-align:center; padding: 16px;">
-                <div id="qkvPrintArea" style="display:inline-block; padding: 24px; background: white; border: 2px solid #e2e8f0; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                    <img src="${qrUrl}" alt="QR Code" style="width:200px; height:200px;" />
-                    <div style="font-family:'Inter',sans-serif; font-size:14px; font-weight:800; color:#475569; margin-top:16px; text-transform:uppercase; letter-spacing:0.5px;">ĐỒNG PHỤC HV - KHO VẢI</div>
-                    <div style="font-family:'Inter',sans-serif; font-size:26px; font-weight:900; color:#0f766e; margin-top:4px;">KỆ: ${escapeHTML(locName)}</div>
+                <div id="qkvPrintArea" style="display:inline-block; padding: 24px 32px; background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-radius: 16px; text-align: center; box-shadow: 0 10px 25px rgba(30,58,138,0.25); color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                    <div style="background: white; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 8px;">
+                        <img src="${qrUrl}" alt="QR Code" style="width:200px; height:200px; display: block;" />
+                    </div>
+                    <div style="font-family:'Inter',sans-serif; font-size:14px; font-weight:800; color:rgba(255,255,255,0.85); margin-top:12px; text-transform:uppercase; letter-spacing:0.5px;">ĐỒNG PHỤC HV - KHO VẢI</div>
+                    <div style="font-family:'Inter',sans-serif; font-size:26px; font-weight:900; color:#ffffff; margin-top:4px;">KỆ: ${escapeHTML(locName)}</div>
                 </div>
                 <div style="margin-top:16px; font-size:12px; color:#64748b; font-weight:500; max-width: 280px; margin-left: auto; margin-right: auto; line-height: 1.5;">
                     Quét nhãn này dán ở đầu kệ vật lý để tự động mở nhanh giao diện xếp vải vào kệ này.
@@ -1476,14 +1478,14 @@ function _qkvShowLocationQRCode(locName) {
         `,
         `
             <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-            <button class="btn btn-primary" onclick="_qkvPrintQRCode('${escapeJS(locName)}')" style="background:#0f766e;">🖨️ In mã QR</button>
+            <button class="btn btn-primary" onclick="_qkvPrintQRCode('${escapeJS(locName)}')" style="background:#0f766e; border-color:#0f766e; color:white !important;">🖨️ In mã QR</button>
         `
     );
 }
 
 // 16. Print QR Code Helper
 function _qkvPrintQRCode(locName) {
-    var printContent = document.getElementById('qkvPrintArea').innerHTML;
+    var qrImgSrc = document.getElementById('qkvPrintArea').querySelector('img').src;
     var printWindow = window.open('', '_blank', 'width=600,height=600');
     printWindow.document.write(`
         <html>
@@ -1491,15 +1493,20 @@ function _qkvPrintQRCode(locName) {
                 <title>In mã QR Kệ ${locName}</title>
                 <style>
                     body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Inter', sans-serif; text-align: center; }
-                    #printCard { padding: 40px; border: 3px solid #cbd5e1; border-radius: 20px; width: 280px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-                    img { width: 240px; height: 240px; }
-                    .title { font-size: 14px; font-weight: 800; color:#64748b; margin-top: 20px; letter-spacing:0.5px; text-transform:uppercase; }
-                    .shelf { font-size: 30px; font-weight: 900; margin-top: 4px; color: #0f766e; }
+                    #printCard { padding: 32px; background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-radius: 20px; width: 280px; display: inline-block; box-shadow: 0 10px 25px rgba(30,58,138,0.15); color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .qr-bg { background: white; padding: 16px; border-radius: 12px; display: inline-block; margin-bottom: 8px; }
+                    img { width: 240px; height: 240px; display: block; }
+                    .title { font-size: 14px; font-weight: 800; color: rgba(255,255,255,0.85); margin-top: 16px; letter-spacing:0.5px; text-transform:uppercase; }
+                    .shelf { font-size: 32px; font-weight: 900; margin-top: 4px; color: #ffffff; }
                 </style>
             </head>
             <body onload="window.print(); window.close();">
                 <div id="printCard">
-                    ${printContent}
+                    <div class="qr-bg">
+                        <img src="${qrImgSrc}" />
+                    </div>
+                    <div class="title">ĐỒNG PHỤC HV - KHO VẢI</div>
+                    <div class="shelf">KỆ: ${locName}</div>
                 </div>
             </body>
         </html>

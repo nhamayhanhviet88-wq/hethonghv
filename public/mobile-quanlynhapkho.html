@@ -776,10 +776,12 @@
                 <h3 style="margin:0; font-size:15px; font-weight:800; color:#1e293b;">Mã QR Kệ</h3>
                 <button onclick="closeQrViewModal()" style="background:#f1f5f9; border:none; width:32px; height:32px; border-radius:50%; font-size:12px; cursor:pointer; color:#1e293b;">✕</button>
             </div>
-            <div id="qrPrintArea" style="padding:20px; background:white; border:2px solid #e2e8f0; border-radius:12px; text-align:center;">
-                <img id="qrViewImage" src="" alt="QR" style="width:180px; height:180px;" />
-                <div style="font-size:11px; font-weight:800; color:#475569; margin-top:12px; text-transform:uppercase; letter-spacing:0.5px;">ĐỒNG PHỤC HV - KHO VẢI</div>
-                <div id="qrViewShelfName" style="font-size:24px; font-weight:900; color:#0f766e; margin-top:2px;"></div>
+            <div id="qrPrintArea" style="padding: 24px 32px; background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-radius: 16px; text-align:center; box-shadow: 0 10px 25px rgba(30,58,138,0.25); display: inline-block; color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                <div style="background: white; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 8px;">
+                    <img id="qrViewImage" src="" alt="QR" style="width:180px; height:180px; display: block;" />
+                </div>
+                <div style="font-size:12px; font-weight:800; color:rgba(255,255,255,0.85); margin-top:12px; text-transform:uppercase; letter-spacing:0.5px; font-family:sans-serif;">ĐỒNG PHỤC HV - KHO VẢI</div>
+                <div id="qrViewShelfName" style="font-size:26px; font-weight:900; color:#ffffff; margin-top:4px; font-family:sans-serif;"></div>
             </div>
             <div style="display:flex; gap:10px; width:100%;">
                 <button onclick="closeQrViewModal()" style="flex:1; padding:12px; background:#f3f4f6; border:1px solid #cbd5e1; border-radius:10px; font-size:13px; font-weight:700; color:#374151; cursor:pointer;">Đóng</button>
@@ -1882,8 +1884,8 @@
         }
 
         function printQr() {
-            var printContent = document.getElementById('qrPrintArea').innerHTML;
             var shelfName = document.getElementById('qrViewShelfName').textContent;
+            var qrSrc = document.getElementById('qrViewImage').src;
             var printWindow = window.open('', '_blank', 'width=600,height=600');
             printWindow.document.write(`
                 <html>
@@ -1891,15 +1893,20 @@
                         <title>In mã QR Kệ ${shelfName}</title>
                         <style>
                             body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Inter', sans-serif; text-align: center; }
-                            #printCard { padding: 40px; border: 3px solid #000; border-radius: 20px; width: 280px; display: inline-block; }
-                            img { width: 240px; height: 240px; }
-                            .title { font-size: 14px; font-weight: 800; color:#64748b; margin-top: 20px; letter-spacing:0.5px; text-transform:uppercase; }
-                            .shelf { font-size: 32px; font-weight: 900; margin-top: 4px; color: #0f766e; }
+                            #printCard { padding: 32px; background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-radius: 20px; width: 280px; display: inline-block; color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                            .qr-container { background: white; padding: 16px; border-radius: 12px; display: inline-block; margin-bottom: 8px; }
+                            img { width: 240px; height: 240px; display: block; }
+                            .title { font-size: 14px; font-weight: 800; color: rgba(255,255,255,0.85); margin-top: 16px; letter-spacing:0.5px; text-transform:uppercase; }
+                            .shelf { font-size: 32px; font-weight: 900; margin-top: 4px; color: #ffffff; }
                         </style>
                     </head>
                     <body onload="window.print(); window.close();">
                         <div id="printCard">
-                            ${printContent}
+                            <div class="qr-container">
+                                <img src="${qrSrc}" />
+                            </div>
+                            <div class="title">ĐỒNG PHỤC HV - KHO VẢI</div>
+                            <div class="shelf">KỆ: ${shelfName}</div>
                         </div>
                     </body>
                 </html>
