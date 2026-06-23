@@ -1528,7 +1528,7 @@ async function _bpcOpenCutModal(recordId) {
                 bh += lockInfo;
                 bh += '  </div>';
                 if (isReserved) {
-                    var kgReservedText = roll.kg_reserved ? ' (Báo lấy: ' + roll.kg_reserved + 'kg, hiện còn ' + roll.weight + 'kg)' : '';
+                    var kgReservedText = roll.kg_reserved ? ' (Báo lấy: ' + roll.kg_reserved + 'kg)' : '';
                     bh += '  <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; border-top: 1.5px dashed rgba(234, 88, 12, 0.2); padding-top: 6px;">';
                     bh += '    <div style="display:flex; align-items:center; gap:6px">';
                     bh += '      <span style="background:#ea580c; color:#fff; font-size:9px; padding:1px 6px; border-radius:4px; font-weight:800">📍 QLX CHỈ ĐỊNH</span>';

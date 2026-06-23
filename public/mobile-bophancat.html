@@ -1637,7 +1637,7 @@ async function mOpenCutModal(recordId){
                 
                 let resHtml = '';
                 if (isReserved) {
-                    const kgReservedText = r.kg_reserved ? ' (Báo lấy: ' + r.kg_reserved + 'kg, hiện còn ' + r.weight + 'kg)' : '';
+                    const kgReservedText = r.kg_reserved ? ' (Báo lấy: ' + r.kg_reserved + 'kg)' : '';
                     resHtml += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;border-top:1px dashed rgba(234,88,12,0.2);padding-top:6px">';
                     resHtml += '<span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800">📍 QLX CHỈ ĐỊNH</span>';
                     resHtml += '<span style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);padding:1px 6px;border-radius:6px;font-size:9.5px;font-weight:800;display:inline-flex;align-items:center;gap:3px">🔔 QLX báo lấy ra để cắt' + kgReservedText + '</span>';
