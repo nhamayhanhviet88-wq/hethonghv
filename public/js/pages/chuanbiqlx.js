@@ -943,7 +943,11 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
                     var alreadyMarked = rl.reservations && rl.reservations.some(function(rv) {
                         return rv.order_code === orderCode && Number(rv.item_id) === Number(itemId) && Number(rv.phoi_index) === Number(pairIndex);
                     });
-                    if (avail > 0 && !alreadyMarked) {
+                    var isLockedSameCoord = rl.locked_by_cutting_id &&
+                                             Number(rl.lock_order_id) === Number(orderId) &&
+                                             Number(rl.lock_item_id) === Number(itemId) &&
+                                             Number(rl.lock_phoi_index) === Number(pairIndex);
+                    if (avail > 0 && !alreadyMarked && !isLockedSameCoord) {
                         html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
                         html += '<span style="font-size:10px;color:#475569;font-weight:700">Sử dụng:<span style="color:#dc2626"> *</span></span>';
                         html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="Tối đa ' + avail + '" required style="width:90px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';

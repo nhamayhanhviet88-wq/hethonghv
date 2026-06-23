@@ -2231,6 +2231,9 @@ module.exports = async function(fastify) {
                        r.locked_by_cutting_id,
                        cr_lock.product_name AS cutting_order_name,
                        cr_lock.order_quantity AS cutting_order_qty,
+                       cr_lock.dht_order_id AS lock_order_id,
+                       cr_lock.order_item_id AS lock_item_id,
+                       cr_lock.phoi_index AS lock_phoi_index,
                        u_lock.full_name AS cutting_by_name,
                        (r.weight = r.original_weight) AS is_original_tree,
                        COALESCE((
@@ -2634,6 +2637,17 @@ module.exports = async function(fastify) {
                 if (!roll) {
                     lastError = 'Cây vải không tồn tại hoặc đã trả NCC';
                     continue;
+                }
+
+                if (roll.locked_by_cutting_id) {
+                    const activeCut = await db.get('SELECT dht_order_id, order_item_id, phoi_index FROM cutting_records WHERE id = $1', [roll.locked_by_cutting_id]);
+                    if (activeCut && 
+                        Number(activeCut.dht_order_id) === Number(dht_order_id) && 
+                        Number(activeCut.order_item_id) === Number(item_id) && 
+                        Number(activeCut.phoi_index) === Number(pi)) {
+                        lastError = `Cây ${roll.roll_code} đang được cắt cho phối này, không thể đánh dấu thêm`;
+                        continue;
+                    }
                 }
 
                 // Also count 'arrived' from_stock reservations (they don't reduce available for other orders)
