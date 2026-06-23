@@ -841,7 +841,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 }
 
                                 if (isUnassigned === 'processed_nguyen') {
-                                    returnHtml = `<button class="btn btn-xs btn-outline-danger" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); showToast('Tính năng hoàn trả nhà cung cấp đang được phát triển', 'info');" title="Hoàn trả nhà cung cấp">↩️ Trả NCC</button>`;
+                                    returnHtml = `<button class="btn btn-xs btn-outline-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); showToast('Tính năng hoàn trả nhà cung cấp đang được phát triển', 'info');" title="Hoàn trả nhà cung cấp">🔄 Hoàn</button>`;
                                 }
 
                                 var tagsHtml = '';
