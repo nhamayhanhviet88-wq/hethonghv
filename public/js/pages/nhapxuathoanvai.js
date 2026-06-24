@@ -160,7 +160,7 @@ async function openCreateReturnModal() {
                     </div>
                 </div>
                 
-                <div style="display:grid; grid-template-columns:1fr; gap:12px; align-items:center;">
+                <div style="display:none;">
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú:</label>
                         <textarea id="nxhv_m_notes" class="form-control" placeholder="Ghi chú thêm..." style="width:100%; height:34px; resize:vertical; font-size:12px; padding:6px 10px;"></textarea>
@@ -181,13 +181,13 @@ async function openCreateReturnModal() {
                                 <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">🛠️ LOẠI 1</span>
                                 <span style="color:#64748b; font-size:10px; font-weight:500;">CÂY NGUYÊN CẦN XỬ LÝ KHO</span>
                             </button>
-                            <button type="button" id="nxhv_btn_type2" class="btn btn-outline" onclick="selectRetType(2)" style="font-size:11px; padding:8px; text-align:left; border:2px solid #e2e8f0; border-radius:8px; background:#fff; font-weight:700; display:flex; flex-direction:column; gap:2px; transition:all 0.2s;">
-                                <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">📍 Loại 2</span>
-                                <span style="color:#64748b; font-size:10px; font-weight:500;">Cây nguyên đã lên kệ</span>
-                            </button>
                             <button type="button" id="nxhv_btn_type3" class="btn btn-outline" onclick="selectRetType(3)" style="font-size:11px; padding:8px; text-align:left; border:2px solid #e2e8f0; border-radius:8px; background:#fff; font-weight:700; display:flex; flex-direction:column; gap:2px; transition:all 0.2s;">
                                 <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">✂️ Loại 3</span>
                                 <span style="color:#64748b; font-size:10px; font-weight:500;">Cây lẻ / cắt dở</span>
+                            </button>
+                            <button type="button" id="nxhv_btn_type2" class="btn btn-outline" onclick="selectRetType(2)" style="font-size:11px; padding:8px; text-align:left; border:2px solid #e2e8f0; border-radius:8px; background:#fff; font-weight:700; display:flex; flex-direction:column; gap:2px; transition:all 0.2s;">
+                                <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">📍 Loại 2</span>
+                                <span style="color:#64748b; font-size:10px; font-weight:500;">Cây nguyên đã lên kệ</span>
                             </button>
                         </div>
                     </div>
