@@ -831,7 +831,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                     photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
                                     moveHtml = `<span style="font-size:11px; color:#d97706; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
                                 } else if (r.img) {
-                                    photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                                    photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`;
                                     // Hidden on main screen per request: only allow move via QR scanning
                                     moveHtml = ``;
                                 } else {
@@ -1746,7 +1746,7 @@ function _qkvRenderQuickImportList(shelfName) {
                             actionHtml = `<span style="font-size:11px; color:#ef4444; font-style:italic; font-weight:700; white-space:nowrap;">${shelfLabel}</span>`;
                         } else {
                             if (r.img) {
-                                photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                                photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`;
                                 actionHtml = `<button class="btn btn-xs btn-primary" onclick="event.stopPropagation(); _qkvConfirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', '${escapeJS(shelfName)}')">🚚 Xếp</button>`;
                             } else {
                                 photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
@@ -2008,29 +2008,130 @@ function resizeImageFile(file, maxSide, quality) {
     });
 }
 
-function openImagePreviewModal(imgUrl) {
+function openImagePreviewModal(imgUrl, rollId = null) {
     var modal = document.getElementById('qkvImagePreviewModal');
     if (!modal) {
         // Create dynamically if not exists in DOM yet
         modal = document.createElement('div');
         modal.id = 'qkvImagePreviewModal';
-        modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; justify-content:center; align-items:center; padding:16px;';
-        modal.onclick = closeImagePreviewModal;
+        modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.95); z-index:10000; flex-direction:column; justify-content:center; align-items:center; padding:24px; backdrop-filter:blur(8px); transition: all 0.3s;';
+        modal.onclick = function(e) {
+            if (e.target === modal || e.target.id === 'qkvImagePreviewModal') {
+                closeImagePreviewModal();
+            }
+        };
+        
+        var wrapper = document.createElement('div');
+        wrapper.id = 'qkvImagePreviewWrapper';
+        wrapper.style.cssText = 'display:flex; flex-direction:column; align-items:center; max-width:800px; width:100%; background:rgba(30,41,59,0.8); border:1px solid rgba(255,255,255,0.15); padding:20px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); position:relative;';
+        wrapper.onclick = function(e) { e.stopPropagation(); };
+
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = 'position:absolute; top:-12px; right:-12px; width:32px; height:32px; border-radius:50%; background:#ef4444; color:#fff; border:none; font-size:14px; font-weight:bold; cursor:pointer; box-shadow:0 4px 14px rgba(239,68,68,0.4); display:flex; align-items:center; justify-content:center; z-index:10;';
+        closeBtn.onclick = closeImagePreviewModal;
+        wrapper.appendChild(closeBtn);
         
         var img = document.createElement('img');
         img.id = 'qkvImagePreviewContent';
-        img.style.cssText = 'max-width:100%; max-height:80%; border-radius:8px; object-fit:contain; box-shadow:0 10px 25px rgba(0,0,0,0.5);';
+        img.style.cssText = 'max-width:100%; max-height:55vh; border-radius:8px; object-fit:contain; border:2px solid rgba(255,255,255,0.15); background:#0f172a;';
+        wrapper.appendChild(img);
+
+        // Gallery Container
+        var galleryContainer = document.createElement('div');
+        galleryContainer.id = 'qkvImageGalleryContainer';
+        galleryContainer.style.cssText = 'width:100%; margin-top:20px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px; display:none;';
         
+        var galleryTitle = document.createElement('div');
+        galleryTitle.style.cssText = 'color:#f8fafc; font-size:12px; font-weight:800; letter-spacing:0.5px; margin-bottom:10px; text-transform:uppercase; display:flex; align-items:center; gap:6px; justify-content:center;';
+        galleryTitle.innerHTML = '📷 Lịch sử ảnh cây vải <span id="qkvGalleryInfo" style="background:#0ea5e9; color:#fff; padding:1px 6px; border-radius:4px; font-size:10px;"></span>';
+        galleryContainer.appendChild(galleryTitle);
+
+        var galleryThumbs = document.createElement('div');
+        galleryThumbs.id = 'qkvImageGalleryThumbs';
+        galleryThumbs.style.cssText = 'display:flex; gap:12px; overflow-x:auto; padding:8px 4px; justify-content:center; max-width:100%;';
+        galleryContainer.appendChild(galleryThumbs);
+        
+        wrapper.appendChild(galleryContainer);
+
         var text = document.createElement('div');
-        text.style.cssText = 'color:white; margin-top:16px; font-size:14px; font-weight:500;';
-        text.innerText = 'Chạm hoặc click bất kỳ đâu để đóng';
+        text.style.cssText = 'color:#94a3b8; margin-top:12px; font-size:11px; font-weight:500; text-align:center;';
+        text.innerText = 'Click vùng trống bên ngoài hoặc nút ✕ để đóng';
+        wrapper.appendChild(text);
         
-        modal.appendChild(img);
-        modal.appendChild(text);
+        modal.appendChild(wrapper);
         document.body.appendChild(modal);
     }
+    
     document.getElementById('qkvImagePreviewContent').src = imgUrl;
     modal.style.display = 'flex';
+
+    var galleryContainer = document.getElementById('qkvImageGalleryContainer');
+    var galleryThumbs = document.getElementById('qkvImageGalleryThumbs');
+    var galleryInfo = document.getElementById('qkvGalleryInfo');
+    
+    if (galleryContainer && galleryThumbs) {
+        galleryContainer.style.display = 'none';
+        galleryThumbs.innerHTML = '';
+        
+        if (rollId) {
+            fetch('/api/khovai/rolls/' + rollId + '/images')
+                .then(function(res) { return res.json(); })
+                .then(function(res) {
+                    if (res && res.images && res.images.length > 0) {
+                        galleryInfo.textContent = res.images.length + ' ảnh';
+                        galleryContainer.style.display = 'block';
+                        
+                        var html = '';
+                        res.images.forEach(function(imgItem) {
+                            var dateStr = '';
+                            try {
+                                if (imgItem.created_at) {
+                                    var dateObj = new Date(imgItem.created_at);
+                                    dateStr = dateObj.toLocaleDateString('vi-VN', {
+                                        timeZone: 'Asia/Ho_Chi_Minh',
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                }
+                            } catch (e) { console.error(e); }
+                            
+                            var isSelected = imgItem.image_path === imgUrl;
+                            var borderStyle = isSelected ? 'border: 2.5px solid #0ea5e9; box-shadow:0 0 8px rgba(14,165,233,0.6);' : 'border: 1px solid rgba(255,255,255,0.2);';
+                            
+                            html += '<div style="flex: 0 0 auto; display:flex; flex-direction:column; align-items:center; gap:4px; width:75px; cursor:pointer;" onclick="changeQkvPreviewImage(this, \'' + imgItem.image_path.replace(/'/g, "\\'") + '\')">'
+                                 + '<img src="' + imgItem.image_path + '" style="width:55px; height:55px; border-radius:6px; object-fit:cover; ' + borderStyle + ' transition: all 0.2s;" />'
+                                 + '<span style="color:#f8fafc; font-size:10px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;">' + imgItem.weight + 'kg</span>'
+                                 + '<span style="color:#94a3b8; font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="' + dateStr + '">' + dateStr + '</span>'
+                                 + '</div>';
+                        });
+                        galleryThumbs.innerHTML = html;
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Error fetching roll images:', err);
+                });
+        }
+    }
+}
+
+function changeQkvPreviewImage(element, imgUrl) {
+    document.getElementById('qkvImagePreviewContent').src = imgUrl;
+    var thumbs = element.parentNode.children;
+    for (var i = 0; i < thumbs.length; i++) {
+        var img = thumbs[i].querySelector('img');
+        if (img) {
+            img.style.border = '1px solid rgba(255,255,255,0.2)';
+            img.style.boxShadow = 'none';
+        }
+    }
+    var myImg = element.querySelector('img');
+    if (myImg) {
+        myImg.style.border = '2.5px solid #0ea5e9';
+        myImg.style.boxShadow = '0 0 8px rgba(14,165,233,0.6)';
+    }
 }
 
 function closeImagePreviewModal() {
@@ -2255,7 +2356,7 @@ function _qkvUpdateModalView() {
                     var photoHtml = '';
                     var moveHtml = '';
                     if (r.img) {
-                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; border:1.5px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}')" />`;
+                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; border:1.5px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`;
                     } else {
                         photoHtml = '';
                     }
