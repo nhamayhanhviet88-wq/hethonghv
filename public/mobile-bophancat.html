@@ -336,7 +336,7 @@ function mRenderRollReservations(roll, currentOrderCodeOrCodes) {
     const codes = Array.isArray(currentOrderCodeOrCodes) ? currentOrderCodeOrCodes : [currentOrderCodeOrCodes];
     roll.reservations.forEach(function(rv) {
         var isThisOrder = codes.indexOf(rv.order_code) >= 0;
-        var labelText = (isThisOrder ? 'Đơn này' : rv.order_code) + ' - P' + (rv.item_index || 1) + '.' + ((rv.phoi_index || 0) + 1);
+        var labelText = (isThisOrder ? (codes.length === 1 ? 'Đơn này' : rv.order_code) : rv.order_code) + ' - P' + (rv.item_index || 1) + '.' + ((rv.phoi_index || 0) + 1);
         var badge = isThisOrder
             ? '<span style="background:rgba(22,163,74,0.15);color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🏷️ ' + labelText + '</span>'
             : '<span style="background:rgba(37,99,235,0.15);color:#2563eb;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🔖 ' + labelText + '</span>';
