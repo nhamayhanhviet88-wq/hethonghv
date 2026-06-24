@@ -89,13 +89,45 @@ function _bpcRenderRollReservations(roll, currentOrderCodeOrCodes) {
     if (!roll.reservations || !roll.reservations.length) return '';
     let html = '';
     const codes = Array.isArray(currentOrderCodeOrCodes) ? currentOrderCodeOrCodes : [currentOrderCodeOrCodes];
+    
+    // Calculate total reserved kg and total qty of ALL reservations on this roll
+    var totalKgReserved = 0;
+    var totalQty = 0;
+    var allHaveQty = true;
+    roll.reservations.forEach(function(rv) {
+        totalKgReserved += Number(rv.kg_reserved) || 0;
+        var qty = Number(rv.order_qty) || 0;
+        if (qty > 0) {
+            totalQty += qty;
+        } else {
+            allHaveQty = false;
+        }
+    });
+
+    var rollWeight = Number(roll.weight) || 0;
+    var needsAdjustment = totalKgReserved > rollWeight && roll.reservations.length > 1;
+
     roll.reservations.forEach(function(rv) {
         var isThisOrder = codes.indexOf(rv.order_code) >= 0;
+        var displayKg = Number(rv.kg_reserved);
+        
+        var isAdjustedStr = '';
+        if (needsAdjustment) {
+            if (allHaveQty && totalQty > 0) {
+                var qty = Number(rv.order_qty) || 0;
+                displayKg = rollWeight * (qty / totalQty);
+                isAdjustedStr = ' (chia tỷ lệ)';
+            } else if (totalKgReserved > 0) {
+                displayKg = rollWeight * ((Number(rv.kg_reserved) || 0) / totalKgReserved);
+                isAdjustedStr = ' (chia tỷ lệ)';
+            }
+        }
+
         var labelText = (isThisOrder ? (codes.length === 1 ? 'Đơn này' : rv.order_code) : rv.order_code) + ' - P' + (rv.item_index || 1) + '.' + ((rv.phoi_index || 0) + 1);
         var badge = isThisOrder
             ? '<span style="background:rgba(22,163,74,0.15);color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🏷️ ' + labelText + '</span>'
             : '<span style="background:rgba(37,99,235,0.15);color:#2563eb;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap">🔖 ' + labelText + '</span>';
-        var weightText = ' : lấy <b style="color:#dc2626">' + Number(rv.kg_reserved).toFixed(2) + 'kg</b>';
+        var weightText = ' : lấy <b style="color:#dc2626">' + displayKg.toFixed(2) + 'kg</b>' + isAdjustedStr;
         var qtyText = rv.order_qty ? '/' + rv.order_qty + 'sp' : '';
         html += '<div style="font-size:11px;color:#64748b;margin-top:4px;padding-left:12px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;line-height:1.4">'
             + badge
@@ -3262,6 +3294,9 @@ function _mcRenderStep() {
                         matchedReservations.forEach(function(res) {
                             sumKg += Number(res.kg_reserved) || 0;
                         });
+                        if (sumKg > Number(r.weight)) {
+                            sumKg = Number(r.weight);
+                        }
                         reservedKg = sumKg > 0 ? sumKg : null;
                     }
                 }
