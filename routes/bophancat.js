@@ -61,12 +61,8 @@ module.exports = async function(fastify) {
             
             let targetLocation = customLocation;
             if (targetLocation === undefined) {
-                if (!wasCut && roll.original_location) {
-                    targetLocation = roll.original_location;
-                } else {
-                    const isOriginal = Number(roll.weight) >= Number(roll.original_weight);
-                    targetLocation = isOriginal ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
-                }
+                const isOriginal = Number(roll.weight) >= Number(roll.original_weight);
+                targetLocation = isOriginal ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
             }
             
             await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = $1, original_location = NULL WHERE id = $2`, [targetLocation, rId]);
