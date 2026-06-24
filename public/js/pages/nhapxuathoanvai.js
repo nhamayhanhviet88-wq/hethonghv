@@ -115,59 +115,7 @@ async function openCreateReturnModal() {
         
         const bodyHTML = `
             <div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Nguồn Vải (Nhà cung cấp):</label>
-                        <input type="text" id="nxhv_m_source" class="form-control" readonly placeholder="Tự động chọn..." style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
-                    </div>
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Ngày Hoàn Vải:</label>
-                        <input type="date" id="nxhv_m_date" class="form-control" disabled style="width:100%; font-size:12px; padding:5px 10px; background:#f1f5f9; cursor:not-allowed;" />
-                    </div>
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Thực Hiện:</label>
-                        <select id="nxhv_m_staff" class="form-control" disabled style="width:100%; font-size:12px; padding:5px 10px; background:#f1f5f9; cursor:not-allowed;"></select>
-                    </div>
-                </div>
-                
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Chất Liệu:</label>
-                        <input type="text" id="nxhv_m_material" class="form-control" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" readonly placeholder="Tự động chọn..." />
-                    </div>
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Màu Vải:</label>
-                        <input type="text" id="nxhv_m_color" class="form-control" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" readonly placeholder="Tự động chọn..." />
-                    </div>
-                </div>
-                
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Số Lượng:</label>
-                        <input type="text" id="nxhv_m_unit" class="form-control" value="0 kg" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
-                    </div>
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>
-                        <input type="number" id="nxhv_m_price" class="form-control" value="0" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
-                    </div>
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Thanh Toán:</label>
-                        <input type="number" id="nxhv_m_payment" class="form-control" value="0" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
-                    </div>
-                    <div style="display:none;">
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Công Nợ:</label>
-                        <input type="text" id="nxhv_m_debt" class="form-control" value="0" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; font-weight:700; color:#dc2626;" readonly />
-                    </div>
-                </div>
-                
-                <div style="display:none;">
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú:</label>
-                        <textarea id="nxhv_m_notes" class="form-control" placeholder="Ghi chú thêm..." style="width:100%; height:34px; resize:vertical; font-size:12px; padding:6px 10px;"></textarea>
-                    </div>
-                </div>
-                
-                <div style="border-top:1px solid #e2e8f0; margin-top:4px; padding-top:8px;">
+                <div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                         <span style="font-size:13px; font-weight:800; color:#0f766e;">📋 Chọn Cây Vải Từ Kho Vải</span>
                         <span id="nxhv_m_selection_summary" style="font-weight:700; color:#0891b2;">Đã chọn: 0 cây (0 kg)</span>
@@ -196,6 +144,60 @@ async function openCreateReturnModal() {
                         <input type="text" id="nxhv_m_search_rolls" disabled class="form-control" placeholder="🔍 Vui lòng chọn loại cây vải trước..." style="width:100%; font-size:12px; padding:6px 10px;" />
                     </div>
                     <div id="nxhv_m_rolls_container" style="max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:10px; background:#f8fafc;">
+                    </div>
+                </div>
+                
+                <div style="border-top:1px solid #e2e8f0; margin-top:4px; padding-top:8px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div>
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Nguồn Vải (Nhà cung cấp):</label>
+                            <input type="text" id="nxhv_m_source" class="form-control" readonly placeholder="Tự động chọn..." style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                        </div>
+                        <div>
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Ngày Hoàn Vải:</label>
+                            <input type="date" id="nxhv_m_date" class="form-control" disabled style="width:100%; font-size:12px; padding:5px 10px; background:#f1f5f9; cursor:not-allowed;" />
+                        </div>
+                        <div>
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Thực Hiện:</label>
+                            <select id="nxhv_m_staff" class="form-control" disabled style="width:100%; font-size:12px; padding:5px 10px; background:#f1f5f9; cursor:not-allowed;"></select>
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div>
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Chất Liệu:</label>
+                            <input type="text" id="nxhv_m_material" class="form-control" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" readonly placeholder="Tự động chọn..." />
+                        </div>
+                        <div>
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Màu Vải:</label>
+                            <input type="text" id="nxhv_m_color" class="form-control" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" readonly placeholder="Tự động chọn..." />
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                        <div>
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Số Lượng:</label>
+                            <input type="text" id="nxhv_m_unit" class="form-control" value="0 kg" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                        </div>
+                        <div>
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>
+                            <input type="number" id="nxhv_m_price" class="form-control" value="0" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                        </div>
+                        <div>
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Thanh Toán:</label>
+                            <input type="number" id="nxhv_m_payment" class="form-control" value="0" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                        </div>
+                        <div style="display:none;">
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Công Nợ:</label>
+                            <input type="text" id="nxhv_m_debt" class="form-control" value="0" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; font-weight:700; color:#dc2626;" readonly />
+                        </div>
+                    </div>
+                    
+                    <div style="display:none;">
+                        <div>
+                            <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú:</label>
+                            <textarea id="nxhv_m_notes" class="form-control" placeholder="Ghi chú thêm..." style="width:100%; height:34px; resize:vertical; font-size:12px; padding:6px 10px;"></textarea>
+                        </div>
                     </div>
                 </div>
             </div>
