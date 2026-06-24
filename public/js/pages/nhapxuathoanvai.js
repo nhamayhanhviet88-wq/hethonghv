@@ -182,8 +182,8 @@ async function openCreateReturnModal() {
                         <label style="font-weight:800; display:block; margin-bottom:6px; color:#0f766e;">👉 BƯỚC 1: Chọn loại cây vải muốn hoàn trả:</label>
                         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
                             <button type="button" id="nxhv_btn_type1" class="btn btn-outline" onclick="selectRetType(1)" style="font-size:11px; padding:8px; text-align:left; border:2px solid #e2e8f0; border-radius:8px; background:#fff; font-weight:700; display:flex; flex-direction:column; gap:2px; transition:all 0.2s;">
-                                <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">🛠️ Loại 1</span>
-                                <span style="color:#64748b; font-size:10px; font-weight:500;">Cây nguyên chưa xếp kệ</span>
+                                <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">🛠️ LOẠI 1</span>
+                                <span style="color:#64748b; font-size:10px; font-weight:500;">CÂY NGUYÊN CẦN XỬ LÝ KHO</span>
                             </button>
                             <button type="button" id="nxhv_btn_type2" class="btn btn-outline" onclick="selectRetType(2)" style="font-size:11px; padding:8px; text-align:left; border:2px solid #e2e8f0; border-radius:8px; background:#fff; font-weight:700; display:flex; flex-direction:column; gap:2px; transition:all 0.2s;">
                                 <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">📍 Loại 2</span>
@@ -363,7 +363,7 @@ function renderAllRollsList(searchTerm = '') {
                     <div style="font-weight:700; font-size:10px; margin-bottom:4px; color:${groupColor};">${groupTitle}</div>
                     <div style="display:flex; flex-direction:column; gap:3px;">
                         ${filtered.map(r => {
-                            const shelf = r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ';
+                            const shelf = _selectedRetType === 1 ? '' : (r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ');
                             const photoBadge = r.needs_photo ? `<span style="background:#fee2e2; color:#dc2626; padding:1px 4px; border-radius:4px; font-size:8px; font-weight:700; margin-left:4px;">📷 Cần ảnh</span>` : '';
                             const isChecked = activeCbs && Array.from(activeCbs).some(cb => cb.value == r.id);
                             return `

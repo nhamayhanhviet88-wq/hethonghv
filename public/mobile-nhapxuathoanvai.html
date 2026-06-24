@@ -295,7 +295,7 @@ function mRenderAllRollsList(searchTerm = '') {
                     <div style="font-weight:700; font-size:9px; margin-bottom:2px; color:${groupColor};">${groupTitle}</div>
                     <div style="display:flex; flex-direction:column; gap:3px;">
                         ${filtered.map(r => {
-                            const shelf = r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ';
+                            const shelf = mSelectedRetType === 1 ? '' : (r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ');
                             const photoBadge = r.needs_photo ? `<span style="background:#fee2e2; color:#dc2626; padding:1px 4px; border-radius:4px; font-size:8px; font-weight:700; margin-left:4px;">📷 Cần ảnh</span>` : '';
                             const isChecked = activeCbs && Array.from(activeCbs).some(cb => cb.value == r.id);
                             return `
@@ -549,7 +549,7 @@ mInit();
                     <label style="font-weight:800; display:block; margin-bottom:6px; color:#a5f3fc;">👉 BƯỚC 1: Chọn loại cây vải:</label>
                     <div style="display:grid; grid-template-columns:1fr; gap:6px;">
                         <button type="button" id="mr_btn_type1" onclick="mSelectRetType(1)" style="font-size:11px; padding:10px; text-align:left; border:2px solid rgba(255,255,255,0.15); border-radius:10px; background:rgba(255,255,255,0.05); color:#fff; font-weight:700; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;">
-                            <span>🛠️ Loại 1: Cây nguyên chưa xếp kệ</span>
+                            <span>🛠️ LOẠI 1: CÂY NGUYÊN CẦN XỬ LÝ KHO</span>
                             <span style="color:#22d3ee; font-size:10px;">➔</span>
                         </button>
                         <button type="button" id="mr_btn_type2" onclick="mSelectRetType(2)" style="font-size:11px; padding:10px; text-align:left; border:2px solid rgba(255,255,255,0.15); border-radius:10px; background:rgba(255,255,255,0.05); color:#fff; font-weight:700; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;">
