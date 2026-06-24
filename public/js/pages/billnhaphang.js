@@ -34,7 +34,7 @@ function renderBillnhaphangPage(content){
 
 async function _bnhLoadAll(){
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260623b';document.head.appendChild(s);}
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260624';document.head.appendChild(s);}
     try{
         var u=window._currentUser||window.currentUser||{};
         var promises = [
@@ -190,7 +190,7 @@ function _bnhRender(){
 
         var imgHtml = '';
         if (r.bill_image_url) {
-            imgHtml = '<img src="' + r.bill_image_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;transition:transform .15s" onclick="event.stopPropagation();window.open(this.src)" title="Click để xem ảnh gốc" onmouseover="this.style.transform=\'scale(1.15)\'" onmouseout="this.style.transform=\'none\'">';
+            imgHtml = '<img src="' + r.bill_image_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;transition:transform .15s" onclick="event.stopPropagation();_bnhViewImage(this.src)" title="Xem ảnh trực tiếp" onmouseover="this.style.transform=\'scale(1.15)\'" onmouseout="this.style.transform=\'none\'">';
         } else {
             imgHtml = '<span style="color:#94a3b8">—</span>';
         }
@@ -361,7 +361,7 @@ async function _bnhShowPaymentHistoryModal(importId) {
                 if (p.image_url) {
                     h += '<div style="margin-top:10px;text-align:center;border-top:1px solid #f1f5f9;padding-top:10px">'
                         + '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:6px;text-align:left">📸 BILL THANH TOÁN</div>'
-                        + '<img src="' + p.image_url + '" style="max-width:100%;max-height:240px;border-radius:10px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1.5px solid #e2e8f0" onclick="window.open(this.src)"></div>';
+                        + '<img src="' + p.image_url + '" style="max-width:100%;max-height:240px;border-radius:10px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1.5px solid #e2e8f0" onclick="_bnhViewImage(this.src)"></div>';
                 }
                 h += '</div>';
             });
@@ -387,3 +387,43 @@ async function _bnhTogglePhotoRequirement(checked) {
         _bnhRenderSb();
     }
 }
+
+window._bnhViewImage = function(src) {
+    if (!src) return;
+    var ov = document.createElement('div');
+    ov.id = '_bnhImgOv';
+    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity 0.2s ease-out;';
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(0,0,0,0.3);outline:none;z-index:1000000;';
+    closeBtn.onmouseover = function() {
+        closeBtn.style.background = 'rgba(255,255,255,0.3)';
+        closeBtn.style.transform = 'scale(1.1) rotate(90deg)';
+    };
+    closeBtn.onmouseout = function() {
+        closeBtn.style.background = 'rgba(255,255,255,0.15)';
+        closeBtn.style.transform = 'scale(1) rotate(0deg)';
+    };
+    var img = document.createElement('img');
+    img.src = src;
+    img.style.cssText = 'max-width:90%;max-height:90%;object-fit:contain;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6);border:3px solid rgba(255,255,255,0.95);transform:scale(0.95);transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1);';
+    ov.appendChild(closeBtn);
+    ov.appendChild(img);
+    var close = function() {
+        ov.style.opacity = '0';
+        img.style.transform = 'scale(0.95)';
+        document.removeEventListener('keydown', escClose);
+        setTimeout(function() { ov.remove(); }, 200);
+    };
+    var escClose = function(e) { if (e.key === 'Escape') close(); };
+    ov.onclick = close;
+    closeBtn.onclick = function(e) { e.stopPropagation(); close(); };
+    img.onclick = function(e) { e.stopPropagation(); };
+    document.addEventListener('keydown', escClose);
+    document.body.appendChild(ov);
+    requestAnimationFrame(function() {
+        ov.style.opacity = '1';
+        img.style.transform = 'scale(1)';
+    });
+};
+

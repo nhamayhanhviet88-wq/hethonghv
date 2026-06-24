@@ -107,7 +107,7 @@ function _bnhFabRenderBody() {
                 // Roll image upload
                 h += '<div style="display:flex;align-items:center;gap:4px;margin-left:8px">';
                 if (tr.image_path) {
-                    h += '<img src="' + tr.image_path + '" style="height:24px;width:24px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src)">'
+                    h += '<img src="' + tr.image_path + '" style="height:24px;width:24px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="_bnhViewImage(this.src)">'
                         + '<button onclick="_bnhFabTreeImg('+idx+','+ti+',null)" style="background:none;border:none;color:#dc2626;font-size:11px;cursor:pointer;padding:0">✕</button>';
                 } else {
                     var imgLabel = f.requireRollPhoto ? '📸 Ảnh *' : '📸 Ảnh';
@@ -556,7 +556,7 @@ async function _bnhFabDetail(id) {
             trees.forEach(function(t, ti) {
                 h += '<div style="display:inline-flex;flex-direction:column;align-items:center;background:#ede9fe;color:#7c3aed;padding:4px;border-radius:6px;font-size:9px;font-weight:600;gap:2px">';
                 if (t.image_path) {
-                    h += '<img src="' + t.image_path + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src)">';
+                    h += '<img src="' + t.image_path + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="_bnhViewImage(this.src)">';
                 }
                 h += '<span>Cây ' + (ti+1) + ': ' + (t.weight||0) + unit + '</span>';
                 h += '</div>';
@@ -620,7 +620,7 @@ async function _bnhFabDetail(id) {
     if (r.bill_image_url) {
         h += '<div style="border:1.5px solid #fca5a5;border-radius:10px;padding:10px;margin-bottom:12px;background:#fef2f2">'
             + '<div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:6px">📸 ẢNH HÓA ĐƠN BILL</div>'
-            + '<img src="' + r.bill_image_url + '" style="max-height:200px;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">'
+            + '<img src="' + r.bill_image_url + '" style="max-height:200px;border-radius:8px;cursor:pointer" onclick="_bnhViewImage(this.src)">'
             + '</div>';
     }
 
@@ -629,7 +629,7 @@ async function _bnhFabDetail(id) {
         h += '<div style="border:1.5px solid #bae6fd;border-radius:10px;padding:10px;margin-bottom:12px;background:#f0f9ff">'
             + '<div style="font-size:11px;font-weight:800;color:#0284c7;margin-bottom:6px">🚚 PHÍ SHIP: <span style="font-size:14px">' + _bnhFM(r.ship_cost) + 'đ</span></div>';
         if (r.ship_cashflow_code) h += '<div style="font-size:10px;color:#0284c7">📝 Mã Sổ Thu Chi: <b>' + r.ship_cashflow_code + '</b></div>';
-        if (r.ship_image_url) h += '<div style="margin-top:6px"><img src="' + r.ship_image_url + '" style="max-height:120px;border-radius:8px;cursor:pointer" onclick="window.open(this.src)"></div>';
+        if (r.ship_image_url) h += '<div style="margin-top:6px"><img src="' + r.ship_image_url + '" style="max-height:120px;border-radius:8px;cursor:pointer" onclick="_bnhViewImage(this.src)"></div>';
         h += '</div>';
     }
 
@@ -654,7 +654,7 @@ async function _bnhFabDetail(id) {
                     + '<span style="font-size:10px;color:#4f46e5;margin-left:8px;font-weight:600">' + (p.paid_by_name||'') + '</span></div>'
                     + '<div style="font-size:14px;font-weight:900;color:#059669">' + _bnhFM(p.amount) + '₫</div></div>';
                 if (p.note) h += '<div style="font-size:10px;color:#6b7280;margin-bottom:4px">📝 ' + _escAttr(p.note) + '</div>';
-                if (p.image_url) h += '<div><img src="' + p.image_url + '" style="max-height:120px;border-radius:8px;cursor:pointer" onclick="window.open(this.src)"></div>';
+                if (p.image_url) h += '<div><img src="' + p.image_url + '" style="max-height:120px;border-radius:8px;cursor:pointer" onclick="_bnhViewImage(this.src)"></div>';
                 h += '</div>';
             });
             h += '</div>';
@@ -673,3 +673,45 @@ async function _bnhFabDetail(id) {
         + '</div><div style="padding:16px 20px">' + h + '</div></div>';
     document.body.appendChild(ov);
 }
+
+if (!window._bnhViewImage) {
+    window._bnhViewImage = function(src) {
+        if (!src) return;
+        var ov = document.createElement('div');
+        ov.id = '_bnhImgOv';
+        ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity 0.2s ease-out;';
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(0,0,0,0.3);outline:none;z-index:1000000;';
+        closeBtn.onmouseover = function() {
+            closeBtn.style.background = 'rgba(255,255,255,0.3)';
+            closeBtn.style.transform = 'scale(1.1) rotate(90deg)';
+        };
+        closeBtn.onmouseout = function() {
+            closeBtn.style.background = 'rgba(255,255,255,0.15)';
+            closeBtn.style.transform = 'scale(1) rotate(0deg)';
+        };
+        var img = document.createElement('img');
+        img.src = src;
+        img.style.cssText = 'max-width:90%;max-height:90%;object-fit:contain;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6);border:3px solid rgba(255,255,255,0.95);transform:scale(0.95);transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1);';
+        ov.appendChild(closeBtn);
+        ov.appendChild(img);
+        var close = function() {
+            ov.style.opacity = '0';
+            img.style.transform = 'scale(0.95)';
+            document.removeEventListener('keydown', escClose);
+            setTimeout(function() { ov.remove(); }, 200);
+        };
+        var escClose = function(e) { if (e.key === 'Escape') close(); };
+        ov.onclick = close;
+        closeBtn.onclick = function(e) { e.stopPropagation(); close(); };
+        img.onclick = function(e) { e.stopPropagation(); };
+        document.addEventListener('keydown', escClose);
+        document.body.appendChild(ov);
+        requestAnimationFrame(function() {
+            ov.style.opacity = '1';
+            img.style.transform = 'scale(1)';
+        });
+    };
+}
+
