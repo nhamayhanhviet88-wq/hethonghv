@@ -143,8 +143,8 @@ async function openCreateReturnModal() {
                 
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                     <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">ĐVT:</label>
-                        <input type="text" id="nxhv_m_unit" class="form-control" value="kg" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Số Lượng:</label>
+                        <input type="text" id="nxhv_m_unit" class="form-control" value="0 kg" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                     </div>
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>
@@ -422,7 +422,6 @@ function renderAllRollsList(searchTerm = '') {
                 const first = allChecked[0];
                 document.getElementById('nxhv_m_material').value = first.getAttribute('data-material');
                 document.getElementById('nxhv_m_color').value = first.getAttribute('data-color');
-                document.getElementById('nxhv_m_unit').value = first.getAttribute('data-unit');
                 document.getElementById('nxhv_m_source').value = first.getAttribute('data-source') || '';
                 
                 const priceInput = document.getElementById('nxhv_m_price');
@@ -456,6 +455,10 @@ function updateFinValues() {
     const payment = Number(paymentInput.value) || 0;
     const debt = Math.max(0, totalAmount - payment);
     document.getElementById('nxhv_m_debt').value = debt.toLocaleString('vi-VN');
+    
+    const first = cbs[0];
+    const baseUnit = first ? (first.getAttribute('data-unit') || 'kg') : 'kg';
+    document.getElementById('nxhv_m_unit').value = cbs.length > 0 ? `${totalWeight} ${baseUnit}` : `0 ${baseUnit}`;
 }
 
 async function submitCreateReturn() {
@@ -464,7 +467,8 @@ async function submitCreateReturn() {
     const staffId = document.getElementById('nxhv_m_staff').value;
     const material = document.getElementById('nxhv_m_material').value;
     const color = document.getElementById('nxhv_m_color').value;
-    const unit = document.getElementById('nxhv_m_unit').value.trim();
+    const firstCb = document.querySelector('.nxhv-roll-cb:checked');
+    const unit = firstCb ? (firstCb.getAttribute('data-unit') || 'kg') : 'kg';
     const price = Number(document.getElementById('nxhv_m_price').value) || 0;
     const payment = Number(document.getElementById('nxhv_m_payment').value) || 0;
     const notes = document.getElementById('nxhv_m_notes').value.trim();

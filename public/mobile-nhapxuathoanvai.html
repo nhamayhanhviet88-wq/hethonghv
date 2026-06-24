@@ -354,7 +354,6 @@ function mRenderAllRollsList(searchTerm = '') {
                 const first = allChecked[0];
                 document.getElementById('mr_material').value = first.getAttribute('data-material');
                 document.getElementById('mr_color').value = first.getAttribute('data-color');
-                document.getElementById('mr_unit').value = first.getAttribute('data-unit');
                 
                 const priceInput = document.getElementById('mr_price');
                 if (priceInput.value === '0' || !priceInput.dataset.userEdited) {
@@ -390,6 +389,10 @@ function mUpdateFin() {
     const payment = Number(paymentInput.value) || 0;
     const debt = Math.max(0, totalAmount - payment);
     document.getElementById('mr_debt').value = fn(debt) + '₫';
+    
+    const first = cbs[0];
+    const baseUnit = first ? (first.getAttribute('data-unit') || 'kg') : 'kg';
+    document.getElementById('mr_unit').value = cbs.length > 0 ? `${totalWeight} ${baseUnit}` : `0 ${baseUnit}`;
 }
 
 function mOnPaymentInput() {
@@ -404,7 +407,8 @@ async function mSubmitRet() {
     const staffId = document.getElementById('mr_staff').value;
     const material = document.getElementById('mr_material').value;
     const color = document.getElementById('mr_color').value;
-    const unit = document.getElementById('mr_unit').value.trim();
+    const firstCb = document.querySelector('.mr-roll-cb:checked');
+    const unit = firstCb ? (firstCb.getAttribute('data-unit') || 'kg') : 'kg';
     const price = Number(document.getElementById('mr_price').value) || 0;
     const payment = Number(document.getElementById('mr_payment').value) || 0;
     const notes = document.getElementById('mr_notes').value.trim();
@@ -671,8 +675,8 @@ mInit();
             </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
                 <div>
-                    <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">ĐVT:</label>
-                    <input type="text" id="mr_unit" value="kg" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none;" />
+                    <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Số Lượng:</label>
+                    <input type="text" id="mr_unit" value="0 kg" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#94a3b8; outline:none;" />
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Đơn giá hoàn:</label>
