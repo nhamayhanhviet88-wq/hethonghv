@@ -1189,7 +1189,6 @@ async function openPostponeModal(id) {
                 '<div id="postponePastePlaceholder">' +
                     '<span style="font-size:24px; display:block; margin-bottom:6px;">📋</span>' +
                     '<span style="font-weight:700; color:#475569; display:block; font-size:12px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>' +
-                    '<span style="font-size:11px; color:#64748b; margin-top:2px; display:block;">hoặc nhấp trực tiếp để chọn tệp tin ảnh</span>' +
                 '</div>' +
                 '<div id="postponeImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">' +
                     '<img id="postponeImagePreview" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05); object-fit:contain;" />' +
