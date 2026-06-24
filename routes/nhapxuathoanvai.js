@@ -117,6 +117,14 @@ module.exports = async function(fastify) {
             
             const tx = await db.get('SELECT tx_type FROM fabric_transactions WHERE id=$1', [id]);
             if (tx && tx.tx_type === 'HOAN') {
+                const rolls = await db.all(`SELECT id, fabric_color_id, weight FROM kv_rolls WHERE return_tx_id = $1 AND is_returned = false`, [id]);
+                for (const roll of rolls) {
+                    await db.run(
+                        `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by, created_at)
+                         VALUES ($1, 'XUAT', $2, $3, $4, $5)`,
+                        [roll.fabric_color_id, 'XUAT', Number(roll.weight), `Trả NCC (Duyệt hoàn #${id}): cục ${roll.weight}`, req.user.id, now]
+                    );
+                }
                 await db.run(`UPDATE kv_rolls SET is_returned=true, location=NULL WHERE return_tx_id=$1`, [id]);
             }
 
@@ -127,6 +135,7 @@ module.exports = async function(fastify) {
             
             const tx = await db.get('SELECT tx_type FROM fabric_transactions WHERE id=$1', [id]);
             if (tx && tx.tx_type === 'HOAN') {
+                await db.run(`DELETE FROM kv_transactions WHERE description LIKE 'Trả NCC (Duyệt hoàn ' || $1 || '):%'`, [id]);
                 await db.run(`UPDATE kv_rolls SET is_returned=false, location='📍 Kệ Dự Định Hoàn Vải' WHERE return_tx_id=$1`, [id]);
             }
 
@@ -200,6 +209,7 @@ module.exports = async function(fastify) {
     fastify.delete('/api/fabrictx/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Chỉ QLX/GĐ/KT' });
         const id = Number(req.params.id);
+        await db.run(`DELETE FROM kv_transactions WHERE description LIKE 'Trả NCC (Duyệt hoàn ' || $1 || '):%'`, [id]);
         await db.run(`UPDATE kv_rolls SET location = original_location, original_location = NULL, return_tx_id = NULL WHERE return_tx_id = $1`, [id]);
         await db.run('DELETE FROM fabric_transactions WHERE id=$1', [id]);
         return { success: true };
