@@ -808,7 +808,9 @@ function clearPostponeImage() {
 }
 window.clearPostponeImage = clearPostponeImage;
 
-function openPostponeModal(id) {
+var _postponeHolidays = [];
+
+async function openPostponeModal(id) {
     var tx = _nxhv.records.find(function(item) { return item.id === id; });
     if (!tx) {
         showToast('Không tìm thấy giao dịch', 'error');
@@ -822,12 +824,26 @@ function openPostponeModal(id) {
     }
     
     _postponeImageBlob = null;
+    _postponeHolidays = [];
+    
+    try {
+        var res = await apiCall('/api/penalty/holidays');
+        _postponeHolidays = res.holidays || [];
+    } catch(e) {
+        console.error('Failed to load holidays:', e);
+    }
     
     if (tx.is_postponed) {
         // CASE: Already postponed - show detail & option to unpostpone
         var dateStr = '—';
         if (tx.postponed_at) {
             dateStr = formatDateTimeHM(tx.postponed_at);
+        }
+        
+        var targetDateStr = '—';
+        if (tx.postponed_target_date) {
+            var tParts = tx.postponed_target_date.split('T')[0].split('-');
+            targetDateStr = tParts[2] + '/' + tParts[1] + '/' + tParts[0];
         }
         
         var imgHtml = '—';
@@ -853,9 +869,13 @@ function openPostponeModal(id) {
                     '<input type="text" value="' + (tx.postponed_by_name || 'Hệ thống') + '" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />' +
                 '</div>' +
                 '<div>' +
-                    '<label style="font-weight:700; display:block; margin-bottom:2px;">Thời gian:</label>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:2px;">Thời gian thực hiện:</label>' +
                     '<input type="text" value="' + dateStr + '" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />' +
                 '</div>' +
+            '</div>' +
+            '<div style="margin-top:4px;">' +
+                '<label style="font-weight:700; display:block; margin-bottom:2px; color:#b45309;">📅 Ngày hẹn hoàn vải:</label>' +
+                '<input type="text" value="' + targetDateStr + '" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; font-weight:700; color:#d97706; background:#fffbeb; border:1px solid #fcd34d; cursor:not-allowed;" />' +
             '</div>' +
             '<div style="margin-top:4px;">' +
                 '<label style="font-weight:700; display:block; margin-bottom:2px;">Ghi chú / Lý do:</label>' +
@@ -893,6 +913,10 @@ function openPostponeModal(id) {
                 '<button class="btn btn-danger" style="display:block; margin:6px auto 0; padding:2px 10px; font-size:11px; background:#ef4444; border:none; color:#fff;" onclick="clearPostponeImage()">❌ Xóa ảnh</button>' +
             '</div>' +
             '<div style="margin-top:4px;">' +
+                '<label style="font-weight:700; display:block; margin-bottom:4px;">📅 Chọn ngày hẹn hoàn vải (Bắt buộc):</label>' +
+                '<input type="date" id="postponeDate" class="form-control" style="width:100%; font-size:12px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none;" />' +
+            '</div>' +
+            '<div style="margin-top:4px;">' +
                 '<label style="font-weight:700; display:block; margin-bottom:4px;">Ghi chú / Lý do lùi lịch:</label>' +
                 '<textarea id="postponeNotes" class="form-control" placeholder="Nhập lý do lùi lịch (bắt buộc)..." style="width:100%; font-size:12px; padding:6px 10px; height:55px; border-radius:6px; border:1px solid #cbd5e1; outline:none; resize:none;"></textarea>' +
             '</div>' +
@@ -906,6 +930,37 @@ function openPostponeModal(id) {
         if (container) {
             container.style.width = '480px';
             container.style.maxWidth = '95%';
+        }
+        
+        // Set min date constraint to tomorrow/today
+        var inputDate = document.getElementById('postponeDate');
+        if (inputDate) {
+            var today = new Date();
+            var y = today.getFullYear();
+            var m = String(today.getMonth() + 1).padStart(2, '0');
+            var d = String(today.getDate()).padStart(2, '0');
+            inputDate.min = y + '-' + m + '-' + d;
+            
+            inputDate.addEventListener('change', function() {
+                var val = this.value;
+                if (!val) return;
+                var parts = val.split('-');
+                var dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                if (dateObj.getDay() === 0) {
+                    showToast('Không được lùi lịch vào ngày Chủ Nhật', 'warning');
+                    this.value = '';
+                    return;
+                }
+                var isHoliday = _postponeHolidays.some(function(h) {
+                    return h.holiday_date === val;
+                });
+                if (isHoliday) {
+                    var hName = _postponeHolidays.find(function(h) { return h.holiday_date === val; })?.holiday_name || '';
+                    showToast('Không được lùi lịch vào ngày nghỉ lễ: ' + hName, 'warning');
+                    this.value = '';
+                    return;
+                }
+            });
         }
         
         // Event listeners
@@ -938,6 +993,28 @@ function openPostponeModal(id) {
 window.openPostponeModal = openPostponeModal;
 
 async function submitPostpone(id) {
+    var targetDate = document.getElementById('postponeDate').value;
+    if (!targetDate) {
+        showToast('Vui lòng chọn ngày hẹn hoàn vải', 'warning');
+        return;
+    }
+    
+    var parts = targetDate.split('-');
+    var dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    if (dateObj.getDay() === 0) {
+        showToast('Không được lùi lịch vào ngày Chủ Nhật', 'warning');
+        return;
+    }
+    
+    var isHoliday = _postponeHolidays.some(function(h) {
+        return h.holiday_date === targetDate;
+    });
+    if (isHoliday) {
+        var hName = _postponeHolidays.find(function(h) { return h.holiday_date === targetDate; })?.holiday_name || '';
+        showToast('Không được lùi lịch vào ngày nghỉ lễ: ' + hName, 'warning');
+        return;
+    }
+
     var notes = document.getElementById('postponeNotes').value.trim();
     if (!notes) {
         showToast('Vui lòng nhập ghi chú / lý do lùi lịch', 'warning');
@@ -969,7 +1046,8 @@ async function submitPostpone(id) {
         // 2. Submit postpone request
         var postponeRes = await apiCall('/api/fabrictx/postpone/' + id, 'POST', {
             images: [uploadRes.url],
-            notes: notes
+            notes: notes,
+            target_date: targetDate
         });
         
         if (postponeRes.error) {

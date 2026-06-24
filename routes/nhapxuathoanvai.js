@@ -19,10 +19,31 @@ module.exports = async function(fastify) {
         total_quantity NUMERIC DEFAULT 0, price NUMERIC DEFAULT 0,
         total_amount NUMERIC DEFAULT 0, debt NUMERIC DEFAULT 0, payment NUMERIC DEFAULT 0,
         notes TEXT, created_by INTEGER REFERENCES users(id),
-        created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(),
+        is_postponed BOOLEAN DEFAULT false,
+        postponed_at TIMESTAMPTZ,
+        postponed_by INTEGER REFERENCES users(id),
+        postponed_images JSONB DEFAULT '[]'::jsonb,
+        postponed_notes TEXT,
+        postponed_target_date DATE
     )`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ftx_type ON fabric_transactions(tx_type)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ftx_date ON fabric_transactions(tx_date)`);
+    
+    // Add columns dynamically for existing DBs
+    const cols = [
+        'is_postponed BOOLEAN DEFAULT false',
+        'postponed_at TIMESTAMPTZ',
+        'postponed_by INTEGER REFERENCES users(id)',
+        'postponed_images JSONB DEFAULT \'[]\'::jsonb',
+        'postponed_notes TEXT',
+        'postponed_target_date DATE'
+    ];
+    for (const col of cols) {
+        try {
+            await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS ${col}`);
+        } catch(e) { console.error('[NXHV] alter column:', e.message); }
+    }
     } catch(e) { console.error('[NXHV] tx:', e.message); }
 
     try { await db.exec(`CREATE TABLE IF NOT EXISTS fabric_tx_history (
@@ -150,18 +171,40 @@ module.exports = async function(fastify) {
     // ========== POSTPONE RETURN ==========
     fastify.post('/api/fabrictx/postpone/:id', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Không có quyền thực hiện thao tác này' });
-        const id = Number(req.params.id), { images, notes } = req.body || {}, now = vnNow();
+        const id = Number(req.params.id), { images, notes, target_date } = req.body || {}, now = vnNow();
+        
+        if (!target_date) {
+            return reply.code(400).send({ error: 'Vui lòng chọn thời gian lùi lịch hoàn vải' });
+        }
+        const [y, m, day] = target_date.split('-').map(Number);
+        if (isNaN(y) || isNaN(m) || isNaN(day)) {
+            return reply.code(400).send({ error: 'Thời gian lùi lịch không hợp lệ' });
+        }
+        
+        // Sunday validation
+        const d = new Date(y, m - 1, day);
+        if (d.getDay() === 0) {
+            return reply.code(400).send({ error: 'Không được lùi lịch vào ngày Chủ Nhật' });
+        }
+        
+        // Holiday validation
+        const isHoliday = await db.get(`SELECT 1 FROM holidays WHERE holiday_date = $1`, [target_date]);
+        if (isHoliday) {
+            return reply.code(400).send({ error: 'Không được lùi lịch vào ngày nghỉ lễ' });
+        }
+        
         await db.run(
             `UPDATE fabric_transactions
              SET is_postponed = true, postponed_at = $1, postponed_by = $2,
-                 postponed_images = $3::jsonb, postponed_notes = $4, updated_at = $1
-             WHERE id = $5`,
-            [now, req.user.id, JSON.stringify(images || []), notes || null, id]
+                 postponed_images = $3::jsonb, postponed_notes = $4,
+                 postponed_target_date = $5, updated_at = $1
+             WHERE id = $6`,
+            [now, req.user.id, JSON.stringify(images || []), notes || null, target_date, id]
         );
         await db.run(
             `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
              VALUES ($1, 'postpone', $2, $3, $4)`,
-            [id, 'postpone', `Lùi lịch hoàn vải: ${notes || ''}`, req.user.id, now]
+            [id, 'postpone', `Lùi lịch hoàn vải đến ngày ${target_date}: ${notes || ''}`, req.user.id, now]
         );
         return { success: true };
     });
@@ -173,7 +216,8 @@ module.exports = async function(fastify) {
         await db.run(
             `UPDATE fabric_transactions
              SET is_postponed = false, postponed_at = NULL, postponed_by = NULL,
-                 postponed_images = '[]'::jsonb, postponed_notes = NULL, updated_at = $1
+                 postponed_images = '[]'::jsonb, postponed_notes = NULL,
+                 postponed_target_date = NULL, updated_at = $1
              WHERE id = $2`,
             [now, id]
         );
