@@ -2390,6 +2390,12 @@ module.exports = async function(fastify) {
                 has_pc_in
             });
         }
+        // Sort candidates: ready (canSelect = true) on top, not ready (canSelect = false) at the bottom
+        candidates.sort((a, b) => {
+            if (a.canSelect && !b.canSelect) return -1;
+            if (!a.canSelect && b.canSelect) return 1;
+            return 0;
+        });
         return { candidates };
     });
 
