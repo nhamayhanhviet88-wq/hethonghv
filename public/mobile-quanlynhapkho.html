@@ -1776,7 +1776,11 @@
                                      }
                                      photoHtml = `<div style="display:flex; align-items:center; gap:6px;">${photoItems.join('')}</div>`;
                                      
-                                     actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
+                                     if (r.needs_photo) {
+                                         actionHtml = ``;
+                                     } else {
+                                         actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
+                                     }
                                  }
 
                                 return `
