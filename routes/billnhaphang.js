@@ -970,17 +970,24 @@ module.exports = async function(fastify) {
 
         const todayStr = vnDateStr(vnNow());
         const violatingReturns = await db.all(`
-            SELECT id, tx_date, source_name, material_name, color_name, is_postponed, postponed_target_date
-            FROM fabric_transactions
-            WHERE tx_type = 'HOAN'
-              AND COALESCE(is_approved, false) = false
-              AND COALESCE(is_canceled, false) = false
+            WITH seq_hoan AS (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY tx_date ASC NULLS FIRST, created_at ASC, id ASC) as seq_num
+                FROM fabric_transactions
+                WHERE tx_type = 'HOAN'
+            )
+            SELECT ft.id, ft.tx_date, ft.source_name, ft.material_name, ft.color_name, 
+                   ft.is_postponed, ft.postponed_target_date, s.seq_num
+            FROM fabric_transactions ft
+            JOIN seq_hoan s ON ft.id = s.id
+            WHERE ft.tx_type = 'HOAN'
+              AND COALESCE(ft.is_approved, false) = false
+              AND COALESCE(ft.is_canceled, false) = false
               AND (
-                  COALESCE(is_postponed, false) = false
-                  OR postponed_target_date IS NULL
-                  OR postponed_target_date <= $1
+                  COALESCE(ft.is_postponed, false) = false
+                  OR ft.postponed_target_date IS NULL
+                  OR ft.postponed_target_date <= $1
               )
-            ORDER BY id ASC
+            ORDER BY ft.id ASC
         `, [todayStr]);
 
         return { groups, violatingReturns };
@@ -1023,24 +1030,31 @@ module.exports = async function(fastify) {
         // Block submit if there are active violating returns
         const todayStr = vnDateStr(vnNow());
         const violatingReturns = await db.all(`
-            SELECT id, source_name, material_name, color_name, is_postponed, postponed_target_date
-            FROM fabric_transactions
-            WHERE tx_type = 'HOAN'
-              AND COALESCE(is_approved, false) = false
-              AND COALESCE(is_canceled, false) = false
+            WITH seq_hoan AS (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY tx_date ASC NULLS FIRST, created_at ASC, id ASC) as seq_num
+                FROM fabric_transactions
+                WHERE tx_type = 'HOAN'
+            )
+            SELECT ft.id, ft.source_name, ft.material_name, ft.color_name, 
+                   ft.is_postponed, ft.postponed_target_date, s.seq_num
+            FROM fabric_transactions ft
+            JOIN seq_hoan s ON ft.id = s.id
+            WHERE ft.tx_type = 'HOAN'
+              AND COALESCE(ft.is_approved, false) = false
+              AND COALESCE(ft.is_canceled, false) = false
               AND (
-                  COALESCE(is_postponed, false) = false
-                  OR postponed_target_date IS NULL
-                  OR postponed_target_date <= $1
+                  COALESCE(ft.is_postponed, false) = false
+                  OR ft.postponed_target_date IS NULL
+                  OR ft.postponed_target_date <= $1
               )
-            ORDER BY id ASC
+            ORDER BY ft.id ASC
         `, [todayStr]);
 
         if (violatingReturns.length > 0) {
             const listStr = violatingReturns.map(r => {
                 const dateStr = r.postponed_target_date ? (r.postponed_target_date.split('T')[0].split('-').reverse().join('/')) : '';
                 const reason = r.is_postponed ? `hết hạn lùi (${dateStr})` : 'chưa lùi lịch';
-                return `- Bill hoàn #${r.id} (${r.source_name || 'N/A'} - ${r.material_name || 'N/A'}: ${reason})`;
+                return `- Bill hoàn #${r.seq_num} (${r.source_name || 'N/A'} - ${r.material_name || 'N/A'}: ${reason})`;
             }).join('\n');
             return reply.code(400).send({ 
                 error: `Yêu cầu xử lý các cây hoàn vải ở Nhập Xuất Hoàn Vải trước khi nhập vải:\n${listStr}` 

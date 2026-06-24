@@ -886,7 +886,7 @@
             
             return '<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">'
                 + '<div style="flex:1;min-width:0;margin-right:10px;">'
-                + '<div style="font-size:12px;font-weight:800;color:#fff;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;">🔄 Bill Hoàn #' + r.id + ' (' + escapeHTML(r.source_name || 'Không rõ') + ')</div>'
+                + '<div style="font-size:12px;font-weight:800;color:#fff;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;">🔄 Bill Hoàn #' + (r.seq_num || r.id) + ' (' + escapeHTML(r.source_name || 'Không rõ') + ')</div>'
                 + '<div style="font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:4px;text-align:left;">Chất liệu: ' + escapeHTML(r.material_name || '—') + ' | ' + dateFormatted + '</div>'
                 + '<div style="text-align:left;">' + statusText + '</div>'
                 + '</div>'

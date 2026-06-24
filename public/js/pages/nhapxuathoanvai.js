@@ -162,7 +162,7 @@ function _nxhvRender(){
         +'<td style="text-align:center;font-weight:700;color:#0f766e">'+billHoanCode+'</td>'
         +'<td style="text-align:center">'+btnHTML+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#d97706">'+postponeDateStr+'</td>'
-        +'<td style="font-size:10px;font-weight:600">'+formatDateTimeHM(r.created_at)+'</td>'
+        +'<td style="font-size:10px;font-weight:600;text-align:center">'+formatDateTimeHM(r.created_at)+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td><span class="nxhv-tag" style="background:'+cl+'">'+(_nxhvTL[r.tx_type]||r.tx_type)+'</span></td>'
         +'<td style="font-size:10px;color:#0891b2;font-weight:700">'+(r.source_name||'—')+'</td>'

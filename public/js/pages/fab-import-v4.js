@@ -732,7 +732,7 @@ function _bnhFabShowViolationModal(violatingReturns) {
         
         return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,0.02);">'
             + '<div>'
-            + '<div style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:4px;text-align:left;">🔄 Bill Hoàn #' + r.id + ' (' + _escAttr(r.source_name || 'Không rõ nguồn') + ')</div>'
+            + '<div style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:4px;text-align:left;">🔄 Bill Hoàn #' + (r.seq_num || r.id) + ' (' + _escAttr(r.source_name || 'Không rõ nguồn') + ')</div>'
             + '<div style="font-size:11px;color:#64748b;margin-bottom:6px;text-align:left;">Chất liệu: ' + _escAttr(r.material_name || '—') + ' | Ngày hoàn: ' + dateFormatted + '</div>'
             + '<div style="font-size:11px;text-align:left;">' + statusText + '</div>'
             + '</div>'
