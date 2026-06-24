@@ -110,6 +110,7 @@ function renderQuanlyxuongqlxPage(content) {
 
 async function _qlxLoadHolidays() {
     try {
+        console.log('[QLX] Loading holidays...');
         var res = await apiCall('/api/penalty/holidays');
         var list = res.holidays || [];
         var holidaySet = new Set();
@@ -123,6 +124,7 @@ async function _qlxLoadHolidays() {
         });
         window._qlxHolidaysSet = holidaySet;
         window._qlxHolidaysNamesMap = holidayNamesMap;
+        console.log('[QLX] Holidays loaded successfully. Count:', holidaySet.size, holidaySet);
     } catch(e) {
         console.error('[QLX] Failed to load holidays:', e);
     }
@@ -1114,8 +1116,8 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
     var inputBg = isLocked ? '#f1f5f9' : '#ffffff';
 
     html += '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
-    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số cây</label><input id="_qlxFabCallTrees" type="number" min="0" value="0" ' + oninput + ' ' + disabledAttr + ' style="display:block;width:70px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px;background:' + inputBg + '"></div>';
-    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số ' + unitLabel + '</label><input id="_qlxFabCallAmount" type="number" min="0" step="0.1" value="0" ' + oninput + ' ' + disabledAttr + ' style="display:block;width:80px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px;background:' + inputBg + '"></div>';
+    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số cây</label><input id="_qlxFabCallTrees" type="number" min="0" value="" ' + oninput + ' ' + disabledAttr + ' style="display:block;width:70px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px;background:' + inputBg + '"></div>';
+    html += '<div><label style="font-size:10px;font-weight:600;color:#475569">Số ' + unitLabel + '</label><input id="_qlxFabCallAmount" type="number" min="0" step="0.1" value="" ' + oninput + ' ' + disabledAttr + ' style="display:block;width:80px;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;margin-top:2px;background:' + inputBg + '"></div>';
     html += '<div style="flex:1;min-width:150px"><label style="font-size:10px;font-weight:600;color:#475569">Ghi chú</label><input id="_qlxFabCallNote" placeholder="..." ' + oninput + ' ' + disabledAttr + ' style="display:block;width:100%;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px;background:' + inputBg + '"></div>';
     html += '</div>';
     html += '<div style="margin-bottom:8px"><label style="font-size:10px;font-weight:600;color:#475569">Ngày gọi</label><input id="_qlxFabCallDate" type="date" value="' + new Date(new Date().getTime() + 7*3600000).toISOString().slice(0,10) + '" readonly style="display:block;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px;background:#f1f5f9;color:#475569;cursor:not-allowed"></div>';
@@ -1350,11 +1352,13 @@ function _qlxCutReminderChanged() {
     var rawEl = document.getElementById('qlx_cut_schedule_raw');
     var displayEl = document.getElementById('qlx_cut_schedule_raw_display');
     if (rawEl && displayEl) {
+        console.log('[QLX] Date picker value changed:', rawEl.value);
         if (rawEl.value) {
             if (window._qlxHolidaysSet && window._qlxHolidaysSet.has(rawEl.value)) {
                 var hName = (window._qlxHolidaysNamesMap && window._qlxHolidaysNamesMap[rawEl.value]) || 'Ngày nghỉ lễ';
                 var dParts = rawEl.value.split('-');
                 var dateFormatted = dParts[2] + '/' + dParts[1] + '/' + dParts[0];
+                console.log('[QLX] Holiday detected:', rawEl.value, hName);
                 showToast('⚠️ Ngày ' + dateFormatted + ' là ngày lễ (' + hName + '), không thể chọn!', 'error');
                 rawEl.value = '';
                 displayEl.style.color = '#94a3b8';
@@ -1554,6 +1558,16 @@ async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
                 + '</div>';
         }
         showToast('✅ Đã xác nhận gọi vải!');
+        // Reset inputs to avoid double calling
+        var tEl = document.getElementById('_qlxFabCallTrees');
+        if (tEl) tEl.value = '';
+        var aEl = document.getElementById('_qlxFabCallAmount');
+        if (aEl) aEl.value = '';
+        var nEl = document.getElementById('_qlxFabCallNote');
+        if (nEl) nEl.value = '';
+        var pEl = document.getElementById('_qlxFabCallPreview');
+        if (pEl) pEl.innerHTML = '';
+
         // Refresh popup after short delay
         setTimeout(function() { _qlxFabricPopup(orderId, itemId, pairIndex); }, 1500);
         _qlxLoadAll();
