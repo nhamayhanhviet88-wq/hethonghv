@@ -229,8 +229,68 @@ async function _qlxLoadOrders() {
     if (f.category_id) qs += '&category_id=' + f.category_id;
     try {
         var res = await apiCall('/api/qlx/orders' + qs);
-        _qlx.orders = res.orders || [];
-        _qlx.phoiFabStatus = res.phoi_fab_status || {};
+        var orders = res.orders || [];
+        var phoiFabStatus = res.phoi_fab_status || {};
+
+        // Calculate fully completed states for fabric, material, print and sewing at order level based on item level
+        orders.forEach(function(o) {
+            var items = o.items || [];
+
+            // 1. Fabric Called: check if ALL items/phối have fabric called
+            var isFabricCalled = items.length > 0;
+            items.forEach(function(it) {
+                var pairs = [];
+                try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+                if (pairs.length > 0) {
+                    pairs.forEach(function(p, pIdx) {
+                        var _pfKey = o.id + '_' + it.id + '_' + pIdx;
+                        var _pfs = phoiFabStatus[_pfKey];
+                        if (!(_pfs && _pfs.total > 0)) {
+                            isFabricCalled = false;
+                        }
+                    });
+                } else {
+                    var _pfKey = o.id + '_' + it.id + '_0';
+                    var _pfs = phoiFabStatus[_pfKey];
+                    if (!(_pfs && _pfs.total > 0)) {
+                        isFabricCalled = false;
+                    }
+                }
+            });
+            o.is_fully_fabric_called = items.length > 0 ? isFabricCalled : o.fabric_called;
+
+            // 2. Material Called: check if ALL items have material called or arrived
+            var isMaterialCalled = items.length > 0;
+            items.forEach(function(it) {
+                if (!(it.material_called || it.material_arrived)) {
+                    isMaterialCalled = false;
+                }
+            });
+            o.is_fully_material_called = items.length > 0 ? isMaterialCalled : o.material_called;
+
+            // 3. Print Assigned: check if ALL items have print assignments (if order is print-confirmed)
+            var isPrintAssigned = items.length > 0;
+            items.forEach(function(it) {
+                var hasPrn = it.nguoi_in && it.nguoi_in !== '—' && it.nguoi_in.trim() !== '';
+                if (!hasPrn) {
+                    isPrintAssigned = false;
+                }
+            });
+            o.is_fully_print_assigned = items.length > 0 ? isPrintAssigned : !!o.nguoi_in;
+
+            // 4. Sewing Assigned: check if ALL items have sewing assignments (if order is print-confirmed/active)
+            var isSewingAssigned = items.length > 0;
+            items.forEach(function(it) {
+                var hasSew = it.nguoi_may && it.nguoi_may !== '—' && it.nguoi_may.trim() !== '';
+                if (!hasSew) {
+                    isSewingAssigned = false;
+                }
+            });
+            o.is_fully_sewing_assigned = items.length > 0 ? isSewingAssigned : !!o.nguoi_may;
+        });
+
+        _qlx.orders = orders;
+        _qlx.phoiFabStatus = phoiFabStatus;
         _qlx.page = 1;
         _qlxRenderTable();
     } catch(e) { console.error('[QLX] orders:', e); }
@@ -298,10 +358,10 @@ function _qlxRenderTable() {
             all = all.filter(function(o) {
                 if (af === 'no_print') return !o.sx_print_confirmed;
                 if (af === 'no_receive') return o.sx_print_confirmed && !(o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1');
-                if (af === 'no_fabric') return !o.fabric_called;
-                if (af === 'no_material') return !o.material_called;
-                if (af === 'no_pc_in') return !o.nguoi_in;
-                if (af === 'no_pc_may') return !o.nguoi_may;
+                if (af === 'no_fabric') return !o.is_fully_fabric_called;
+                if (af === 'no_material') return !o.is_fully_material_called;
+                if (af === 'no_pc_in') return !o.is_fully_print_assigned;
+                if (af === 'no_pc_may') return !o.is_fully_sewing_assigned;
                 return true;
             });
         }
@@ -604,10 +664,10 @@ function _qlxRenderStats(count, arr) {
     var totalAll = allOrders.length;
     var noPrint = allOrders.filter(function(o) { return !o.sx_print_confirmed; }).length;
     var noReceive = allOrders.filter(function(o) { return o.sx_print_confirmed && !(o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1'); }).length;
-    var noFab = allOrders.filter(function(o) { return !o.fabric_called; }).length;
-    var noMat = allOrders.filter(function(o) { return !o.material_called; }).length;
-    var noIn = allOrders.filter(function(o) { return !o.nguoi_in; }).length;
-    var noMay = allOrders.filter(function(o) { return !o.nguoi_may; }).length;
+    var noFab = allOrders.filter(function(o) { return !o.is_fully_fabric_called; }).length;
+    var noMat = allOrders.filter(function(o) { return !o.is_fully_material_called; }).length;
+    var noIn = allOrders.filter(function(o) { return !o.is_fully_print_assigned; }).length;
+    var noMay = allOrders.filter(function(o) { return !o.is_fully_sewing_assigned; }).length;
 
     var af = _qlx.activeFilter || '';
     var sc = document.getElementById('qlxStatCards'); if (!sc) return;
