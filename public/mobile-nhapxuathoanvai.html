@@ -314,8 +314,13 @@ function mRenderAllRollsList(searchTerm = '') {
                                         style="width:14px; height:14px; accent-color:#059669;" />
                                     <div style="flex:1; display:flex; justify-content:space-between; align-items:center;">
                                         <div>
-                                            <strong style="color:#a5f3fc; font-size:11px;">${r.w} kg</strong> 
-                                            <span style="color:#94a3b8; font-size:9px; margin-left:4px;">(${r.code || 'Ko mã'})</span>
+                                            ${r.source_import_id ? `
+                                                <strong style="color:#22d3ee; text-decoration:underline; font-size:11px; cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); mOpenImportBill(${r.source_import_id})">${r.w} kg</strong> 
+                                                <span style="color:#22d3ee; text-decoration:underline; font-size:9px; margin-left:4px; cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); mOpenImportBill(${r.source_import_id})">(${r.code || 'Ko mã'})</span>
+                                            ` : `
+                                                <strong style="color:#a5f3fc; font-size:11px;">${r.w} kg</strong> 
+                                                <span style="color:#94a3b8; font-size:9px; margin-left:4px;">(${r.code || 'Ko mã'})</span>
+                                            `}
                                             ${photoBadge}
                                         </div>
                                         <div style="color:#e2e8f0; font-size:9px;">${shelf}</div>
@@ -474,6 +479,160 @@ async function mSubmitRet() {
         submitBtn.textContent = '🔄 Xác Nhận Hoàn Vải';
     }
 }
+
+async function mOpenImportBill(importId) {
+    if (!importId) {
+        toast('Cây vải này không có hóa đơn nhập gốc.', 'info');
+        return;
+    }
+    toast('Đang tải chi tiết bill...', 'info');
+    try {
+        const res = await api('/api/import/fabric-detail/' + importId);
+        const r = res.record;
+        if (!r) {
+            toast('Không tìm thấy thông tin hóa đơn nhập.', 'error');
+            return;
+        }
+
+        var items = typeof r.fabric_items === 'string' ? JSON.parse(r.fabric_items) : (r.fabric_items || []);
+        var extras = typeof r.extra_costs === 'string' ? JSON.parse(r.extra_costs) : (r.extra_costs || []);
+        
+        var h = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">'
+            + '<div style="background:rgba(255,255,255,0.06);padding:6px 10px;border-radius:8px"><div style="font-size:8px;color:#94a3b8;font-weight:700">MÃ NHẬP VẢI</div><div style="font-size:12px;font-weight:900;color:#cffafe;letter-spacing:0.5px">' + (r.fabric_import_code||'—') + '</div></div>'
+            + '<div style="background:rgba(255,255,255,0.06);padding:6px 10px;border-radius:8px"><div style="font-size:8px;color:#94a3b8;font-weight:700">NGÀY NHẬP</div><div style="font-size:11px;font-weight:600;color:#e2e8f0">' + fd(r.import_date) + '</div></div>'
+            + '<div style="background:rgba(255,255,255,0.06);padding:6px 10px;border-radius:8px"><div style="font-size:8px;color:#94a3b8;font-weight:700">NHÂN VIÊN</div><div style="font-size:11px;font-weight:600;color:#e2e8f0">' + (r.importer_name||'—') + '</div></div></div>';
+
+        h += '<div style="background:rgba(255,255,255,0.06);padding:6px 10px;border-radius:8px;margin-bottom:12px"><div style="font-size:8px;color:#94a3b8;font-weight:700">NGUỒN NCC</div><div style="font-size:12px;font-weight:700;color:#22d3ee">🏪 ' + (r.source_name||'—') + '</div></div>';
+
+        // ===== Fabric items TABLE =====
+        h += '<div style="border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:8px;margin-bottom:12px;background:rgba(255,255,255,0.02)">'
+            + '<div style="font-size:11px;font-weight:800;color:#cffafe;margin-bottom:6px">🧵 DANH SÁCH VẢI (' + items.length + ' loại)</div>'
+            + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px;color:#e2e8f0">'
+            + '<thead><tr style="background:rgba(255,255,255,0.1)">'
+            + '<th style="padding:4px 6px;text-align:left;font-weight:800;border-bottom:1px solid rgba(255,255,255,0.15)">Chất Liệu</th>'
+            + '<th style="padding:4px 6px;text-align:left;font-weight:800;border-bottom:1px solid rgba(255,255,255,0.15)">Màu</th>'
+            + '<th style="padding:4px 6px;text-align:center;font-weight:800;border-bottom:1px solid rgba(255,255,255,0.15)">Cây</th>'
+            + '<th style="padding:4px 6px;text-align:center;font-weight:800;border-bottom:1px solid rgba(255,255,255,0.15)">SL</th>'
+            + '<th style="padding:4px 6px;text-align:right;font-weight:800;border-bottom:1px solid rgba(255,255,255,0.15)">Giá</th>'
+            + '<th style="padding:4px 6px;text-align:right;font-weight:800;border-bottom:1px solid rgba(255,255,255,0.15)">Tiền</th>'
+            + '</tr></thead><tbody>';
+
+        var grandTotalCost = 0, grandTotalTrees = 0, grandTotalQty = {};
+        items.forEach(function(it) {
+            var trees = it.trees || [];
+            var qty = Number(it.actual_total) || 0;
+            var unit = it.unit || 'kg';
+            var price = Number(it.unit_price) || 0;
+            var cost = Number(it.item_cost) || (qty * price);
+            grandTotalCost += cost;
+            grandTotalTrees += trees.length;
+            grandTotalQty[unit] = (grandTotalQty[unit] || 0) + qty;
+
+            h += '<tr style="border-bottom:1px solid rgba(255,255,255,0.06)">'
+                + '<td style="padding:4px 6px;font-weight:700;color:#cffafe">' + (it.material_name||'—') + '</td>'
+                + '<td style="padding:4px 6px;color:#cbd5e1">' + (it.color_name||'—') + '</td>'
+                + '<td style="padding:4px 6px;text-align:center;color:#a5f3fc">' + trees.length + '</td>'
+                + '<td style="padding:4px 6px;text-align:center;color:#22d3ee">' + fn(qty) + ' ' + unit + '</td>'
+                + '<td style="padding:4px 6px;text-align:right">' + fn(price) + '</td>'
+                + '<td style="padding:4px 6px;text-align:right;font-weight:800;color:#34d399">' + fn(cost) + '</td>'
+                + '</tr>';
+
+            // Tree weights
+            if (trees.length > 0) {
+                h += '<tr><td colspan="6" style="padding:2px 4px 6px 12px">'
+                    + '<div style="display:flex;gap:4px;flex-wrap:wrap">';
+                trees.forEach(function(t, ti) {
+                    h += '<div style="display:inline-flex;flex-direction:column;align-items:center;background:rgba(255,255,255,0.05);color:#a5f3fc;padding:3px;border-radius:4px;font-size:8px;gap:2px">';
+                    if (t.image_path) {
+                        h += '<img src="' + t.image_path + '" style="width:30px;height:30px;object-fit:cover;border-radius:4px" onclick="mOpenImportBillImg(this.src)">';
+                    }
+                    h += '<span>Cây ' + (ti+1) + ': ' + (t.weight||0) + unit + '</span>';
+                    h += '</div>';
+                });
+                h += '</div></td></tr>';
+            }
+        });
+
+        var qtyParts = [];
+        Object.keys(grandTotalQty).forEach(function(u) { if (grandTotalQty[u] > 0) qtyParts.push(fn(grandTotalQty[u]) + ' ' + u); });
+        h += '<tr style="background:rgba(255,255,255,0.1);border-top:1px solid rgba(255,255,255,0.15)">'
+            + '<td colspan="2" style="padding:4px 6px;font-weight:900;text-align:right">TỔNG</td>'
+            + '<td style="padding:4px 6px;text-align:center;font-weight:900;color:#fbbf24">' + grandTotalTrees + '</td>'
+            + '<td style="padding:4px 6px;text-align:center;font-weight:900;color:#fbbf24">' + (qtyParts.join(' + ') || '0') + '</td>'
+            + '<td style="padding:4px 6px"></td>'
+            + '<td style="padding:4px 6px;text-align:right;font-weight:900;color:#34d399">' + fn(grandTotalCost) + '</td>'
+            + '</tr>';
+
+        h += '</tbody></table></div></div>';
+
+        // Extras
+        if (extras.length) {
+            h += '<div style="border:1.5px solid rgba(251,191,36,0.2);border-radius:10px;padding:8px;margin-bottom:12px;background:rgba(251,191,36,0.03)">'
+                + '<div style="font-size:10px;font-weight:800;color:#fbbf24;margin-bottom:4px">📋 CHI PHÍ KHÁC</div>';
+            extras.forEach(function(ec) {
+                h += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:10px"><span>' + ec.content + '</span><span style="font-weight:700;color:#fbbf24">' + fn(ec.amount) + 'đ</span></div>';
+            });
+            h += '</div>';
+        }
+
+        if (Number(r.vat_amount) > 0) {
+            h += '<div style="border:1.5px solid rgba(14,165,233,0.2);border-radius:10px;padding:8px;margin-bottom:12px;background:rgba(14,165,233,0.03)">'
+                + '<div style="display:flex;justify-content:space-between;font-size:10px"><span style="font-weight:800;color:#38bdf8">📊 TIỀN VAT</span><span style="font-weight:700;color:#38bdf8">' + fn(r.vat_amount) + 'đ</span></div>'
+                + '</div>';
+        }
+
+        var totalCostVal = grandTotalCost + extras.reduce(function(s, ec) { return s + (Number(ec.amount) || 0); }, 0) + (Number(r.vat_amount) || 0);
+        h += '<div style="background:linear-gradient(135deg, #d97706, #ea580c);color:#fff;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
+            + '<span style="font-weight:800;font-size:11px">💰 TỔNG CỘNG TIỀN BILL:</span>'
+            + '<span style="font-weight:900;font-size:14px">' + fn(totalCostVal) + 'đ</span>'
+            + '</div>';
+
+        // Bill image
+        if (r.bill_image_url) {
+            h += '<div style="border:1.5px solid rgba(239,68,68,0.2);border-radius:10px;padding:8px;margin-bottom:12px;background:rgba(239,68,68,0.03)">'
+                + '<div style="font-size:10px;font-weight:800;color:#fca5a5;margin-bottom:4px">📸 ẢNH HÓA ĐƠN BILL</div>'
+                + '<img src="' + r.bill_image_url + '" style="max-height:150px;border-radius:8px;cursor:pointer" onclick="mOpenImportBillImg(this.src)">'
+                + '</div>';
+        }
+
+        // Ship
+        if (Number(r.ship_cost) > 0) {
+            h += '<div style="border:1.5px solid rgba(14,165,233,0.2);border-radius:10px;padding:8px;margin-bottom:12px;background:rgba(14,165,233,0.03)">'
+                + '<div style="font-size:10px;font-weight:800;color:#38bdf8;margin-bottom:4px">🚚 PHÍ SHIP: <span style="font-size:12px">' + fn(r.ship_cost) + 'đ</span></div>';
+            if (r.ship_image_url) h += '<div style="margin-top:4px"><img src="' + r.ship_image_url + '" style="max-height:100px;border-radius:8px;cursor:pointer" onclick="mOpenImportBillImg(this.src)"></div>';
+            h += '</div>';
+        }
+
+        // Notes
+        if (r.cost_notes) {
+            h += '<div style="background:rgba(255,255,255,0.06);padding:6px 10px;border-radius:8px"><div style="font-size:8px;color:#94a3b8;font-weight:700">📝 GHI CHÚ</div><div style="font-size:11px">' + r.cost_notes + '</div></div>';
+        }
+
+        // Show modal
+        var ov = document.createElement('div');
+        ov.id = '_fabDetailOv';
+        ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:12px';
+        ov.onclick = function() { ov.remove(); };
+        ov.innerHTML = '<div style="background:#155e75;border:1px solid rgba(255,255,255,0.15);border-radius:16px;width:100%;max-width:550px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.5);color:#e2e8f0" onclick="event.stopPropagation()">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1);background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:16px 16px 0 0;color:#fff">'
+            + '<div style="font-size:13px;font-weight:800">🧵 Chi Tiết Bill Nhập Vải</div>'
+            + '<button onclick="document.getElementById(\'_fabDetailOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:600">✕ Đóng</button>'
+            + '</div><div style="padding:12px 16px">' + h + '</div></div>';
+        document.body.appendChild(ov);
+    } catch(e) {
+        toast('Lỗi: ' + e.message, 'error');
+    }
+}
+window.mOpenImportBill = mOpenImportBill;
+
+window.mOpenImportBillImg = function(src) {
+    if (!src) return;
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:100000;display:flex;align-items:center;justify-content:center;padding:12px;cursor:pointer';
+    ov.onclick = function() { ov.remove(); };
+    ov.innerHTML = '<img src="' + src + '" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px">';
+    document.body.appendChild(ov);
+};
 
 mInit();
 </script>

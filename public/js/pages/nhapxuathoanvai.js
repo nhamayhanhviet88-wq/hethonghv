@@ -379,8 +379,13 @@ function renderAllRollsList(searchTerm = '') {
                                         style="width:14px; height:14px; accent-color:#059669;" />
                                     <div style="flex:1; display:flex; justify-content:space-between; align-items:center;">
                                         <div>
-                                            <strong style="color:#0f766e;">${r.w} kg</strong> 
-                                            <span style="color:#64748b; font-size:10px; margin-left:6px;">(${r.code || 'Chưa có mã'})</span>
+                                            ${r.source_import_id ? `
+                                                <strong style="color:#4f46e5; text-decoration:underline; cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); _nxhvOpenImportBill(${r.source_import_id})">${r.w} kg</strong> 
+                                                <span style="color:#4f46e5; font-size:10px; margin-left:6px; text-decoration:underline; cursor:pointer;" onclick="event.preventDefault(); event.stopPropagation(); _nxhvOpenImportBill(${r.source_import_id})">(${r.code || 'Chưa có mã'})</span>
+                                            ` : `
+                                                <strong style="color:#0f766e;">${r.w} kg</strong> 
+                                                <span style="color:#64748b; font-size:10px; margin-left:6px;">(${r.code || 'Chưa có mã'})</span>
+                                            `}
                                             ${photoBadge}
                                         </div>
                                         <div style="color:#475569; font-size:10px; font-weight:600;">${shelf}</div>
@@ -534,3 +539,21 @@ window.openCreateReturnModal = openCreateReturnModal;
 window.submitCreateReturn = submitCreateReturn;
 window.updateFinValues = updateFinValues;
 window.selectRetType = selectRetType;
+
+function _nxhvOpenImportBill(importId) {
+    if (!importId) {
+        showToast('Cây vải này không có hóa đơn nhập gốc.', 'info');
+        return;
+    }
+    if (typeof _bnhFabDetail === 'function') {
+        _bnhFabDetail(importId);
+    } else {
+        var s = document.createElement('script');
+        s.src = '/js/pages/fab-import-v4.js?v=' + Date.now();
+        s.onload = function() {
+            _bnhFabDetail(importId);
+        };
+        document.head.appendChild(s);
+    }
+}
+window._nxhvOpenImportBill = _nxhvOpenImportBill;
