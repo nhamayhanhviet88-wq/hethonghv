@@ -92,7 +92,23 @@ function formatDateTimeHM(d) {
             if (p.type === 'day') day = p.value;
             if (p.type === 'month') month = p.value;
         });
-        return hour + ':' + minute + ' ' + day + '/' + month;
+
+        var weekdayFormatter = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            weekday: 'long'
+        });
+        var weekdayStr = weekdayFormatter.format(date).toLowerCase();
+        var dayMap = {
+            'chủ nhật': 'Chủ Nhật',
+            'thứ hai': 'Thứ 2',
+            'thứ ba': 'Thứ 3',
+            'thứ tư': 'Thứ 4',
+            'thứ năm': 'Thứ 5',
+            'thứ sáu': 'Thứ 6',
+            'thứ bảy': 'Thứ 7'
+        };
+        var dayOfWeekMapped = dayMap[weekdayStr] || weekdayStr;
+        return hour + ':' + minute + ' ' + dayOfWeekMapped + ' - ' + Number(day) + '/' + Number(month);
     } catch (e) {
         return d;
     }

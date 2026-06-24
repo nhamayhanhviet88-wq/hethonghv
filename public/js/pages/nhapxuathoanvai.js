@@ -68,7 +68,23 @@ function formatDateTimeHM(d) {
             if (p.type === 'day') day = p.value;
             if (p.type === 'month') month = p.value;
         });
-        return hour + ':' + minute + ' ' + day + '/' + month;
+
+        var weekdayFormatter = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            weekday: 'long'
+        });
+        var weekdayStr = weekdayFormatter.format(date).toLowerCase();
+        var dayMap = {
+            'chủ nhật': 'Chủ Nhật',
+            'thứ hai': 'Thứ 2',
+            'thứ ba': 'Thứ 3',
+            'thứ tư': 'Thứ 4',
+            'thứ năm': 'Thứ 5',
+            'thứ sáu': 'Thứ 6',
+            'thứ bảy': 'Thứ 7'
+        };
+        var dayOfWeekMapped = dayMap[weekdayStr] || weekdayStr;
+        return hour + ':' + minute + ' ' + dayOfWeekMapped + ' - ' + Number(day) + '/' + Number(month);
     } catch (e) {
         return d;
     }
@@ -150,7 +166,18 @@ function _nxhvRender(){
         var postponeDateStr = '—';
         if (r.tx_type === 'HOAN') {
             if (r.is_postponed && r.postponed_target_date) {
-                postponeDateStr = _nxhvFD(r.postponed_target_date);
+                try {
+                    var parts = r.postponed_target_date.split('T')[0].split('-');
+                    var pYear = Number(parts[0]);
+                    var pMonth = Number(parts[1]);
+                    var pDay = Number(parts[2]);
+                    var d = new Date(pYear, pMonth - 1, pDay);
+                    var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                    var dayOfWeek = days[d.getDay()];
+                    postponeDateStr = dayOfWeek + ' - ' + pDay + '/' + pMonth;
+                } catch(e) {
+                    postponeDateStr = r.postponed_target_date;
+                }
             }
         }
         
