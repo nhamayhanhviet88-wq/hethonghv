@@ -845,8 +845,6 @@ function clearPostponeImage() {
     if (pasteArea) pasteArea.style.borderColor = '#cbd5e1';
     var btn = document.getElementById('btnConfirmPostpone');
     if (btn) btn.disabled = true;
-    var fileInput = document.getElementById('postponeFileInput');
-    if (fileInput) fileInput.value = '';
 }
 window.clearPostponeImage = clearPostponeImage;
 
@@ -1185,7 +1183,7 @@ async function openPostponeModal(id) {
             '<div style="background:#fffbeb; border:1px solid #feebc8; border-radius:8px; padding:10px; color:#c05621; line-height:1.4;">' +
                 'ℹ️ <strong>Thông báo:</strong> Cây vải sẽ vẫn hiển thị ở <strong>📍 Kệ Dự Định Hoàn Vải</strong> và bộ phận cắt vẫn có thể gọi cây vải này để cắt (khi đó bill hoàn sẽ tự động hủy).' +
             '</div>' +
-            '<div id="postponePasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; cursor:pointer; position:relative; transition:all 0.2s; overflow:hidden;" onclick="if(event.target.id!==\'btnPostponeClearImg\')document.getElementById(\'postponeFileInput\').click()">' +
+            '<div id="postponePasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; position:relative; transition:all 0.2s; overflow:hidden;">' +
                 '<div id="postponePastePlaceholder">' +
                     '<span style="font-size:24px; display:block; margin-bottom:6px;">📋</span>' +
                     '<span style="font-weight:700; color:#475569; display:block; font-size:12px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>' +
@@ -1194,7 +1192,6 @@ async function openPostponeModal(id) {
                     '<img id="postponeImagePreview" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05); object-fit:contain;" />' +
                     '<button id="btnPostponeClearImg" type="button" class="btn" style="position:absolute; top:4px; right:4px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); clearPostponeImage()">❌ Xóa</button>' +
                 '</div>' +
-                '<input type="file" id="postponeFileInput" accept="image/*" style="display:none;" />' +
             '</div>' +
             '<div style="margin-top:4px;">' +
                 '<label style="font-weight:700; display:block; margin-bottom:4px;">📅 Chọn ngày hẹn hoàn vải (Bắt buộc):</label>' +
@@ -1228,16 +1225,6 @@ async function openPostponeModal(id) {
         }
         
         initCustomCalendar(maxDays, _postponeHolidays);
-        
-        // Event listeners
-        var fileInput = document.getElementById('postponeFileInput');
-        if (fileInput) {
-            fileInput.addEventListener('change', function(e) {
-                if (e.target.files && e.target.files[0]) {
-                    processAndPreviewPostponeImage(e.target.files[0]);
-                }
-            });
-        }
         
         _postponePasteHandler = function(e) {
             var items = (e.clipboardData || e.originalEvent.clipboardData).items;
