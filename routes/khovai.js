@@ -912,6 +912,23 @@ module.exports = async function (fastify) {
                                 LEFT JOIN dht_orders o ON o.id = cr.dht_order_id
                                 WHERE cr.id = r.locked_by_cutting_id AND cr.is_cut_done = false
                             ),
+                            'active_cuts', (
+                                SELECT json_agg(json_build_object(
+                                    'id', cr2.id,
+                                    'product_name', cr2.product_name,
+                                    'order_code', o2.order_code,
+                                    'is_cut_done', cr2.is_cut_done,
+                                    'phoi_index', COALESCE(cr2.phoi_index, 0),
+                                    'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it3 WHERE it3.dht_order_id = cr2.dht_order_id AND it3.id <= cr2.order_item_id), 1)
+                                ) ORDER BY cr2.id)
+                                FROM cutting_records cr
+                                LEFT JOIN cutting_records cr2 ON (
+                                    cr2.id = cr.id OR 
+                                    (cr.multi_cut_group_id IS NOT NULL AND cr2.multi_cut_group_id = cr.multi_cut_group_id)
+                                )
+                                LEFT JOIN dht_orders o2 ON o2.id = cr2.dht_order_id
+                                WHERE cr.id = r.locked_by_cutting_id AND cr.is_cut_done = false AND cr2.is_cut_done = false
+                            ),
                             'active_reservations', (
                                 SELECT json_agg(json_build_object(
                                     'order_id', res.dht_order_id,

@@ -1280,7 +1280,16 @@
                                             tagsHtml += `<span class="qkv-badge-res" style="background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; font-size:10px; font-weight:700; padding:1px 4px; border-radius:4px; display:inline-flex; align-items:center; gap:2px;" title="Chờ cắt cho đơn">🔖 ${escapeHTML(resText)}</span>`;
                                         });
                                     }
-                                    if (r.active_cut) {
+                                    if (r.active_cuts && r.active_cuts.length > 0) {
+                                        r.active_cuts.forEach(function(ac) {
+                                            if (!ac) return;
+                                            var cutText = ac.order_code;
+                                            if (ac.item_index && ac.phoi_index !== undefined) {
+                                                cutText += ` - P${ac.item_index}.${ac.phoi_index + 1}`;
+                                            }
+                                            tagsHtml += `<span class="qkv-badge-cut" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-size:10px; font-weight:700; padding:1px 4px; border-radius:4px; display:inline-flex; align-items:center; gap:2px;" title="Đang cắt cho đơn">🔒 ${escapeHTML(cutText)}</span>`;
+                                        });
+                                    } else if (r.active_cut) {
                                         var cutText = r.active_cut.order_code;
                                         if (r.active_cut.item_index && r.active_cut.phoi_index !== undefined) {
                                             cutText += ` - P${r.active_cut.item_index}.${r.active_cut.phoi_index + 1}`;
