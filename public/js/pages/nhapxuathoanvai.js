@@ -362,7 +362,9 @@ function renderAllRollsList(searchTerm = '') {
                 <div>
                     <div style="display:flex; flex-direction:column; gap:3px;">
                         ${filtered.map(r => {
-                            const shelf = _selectedRetType === 1 ? '' : (r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ');
+                            const shelf = _selectedRetType === 1 
+                                ? (r.loc ? `Kệ ${r.loc}` : 'Chưa xếp kệ') 
+                                : (r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ');
                             const photoBadge = r.needs_photo ? `<span style="background:#fee2e2; color:#dc2626; padding:1px 4px; border-radius:4px; font-size:8px; font-weight:700; margin-left:4px;">📷 Cần ảnh</span>` : '';
                             const isChecked = activeCbs && Array.from(activeCbs).some(cb => cb.value == r.id);
                             return `
