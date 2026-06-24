@@ -108,11 +108,26 @@ function renderQuanlyxuongqlxPage(content) {
     _qlxLoadAll();
 }
 
+async function _qlxLoadHolidays() {
+    try {
+        var res = await apiCall('/api/penalty/holidays');
+        var list = res.holidays || [];
+        var holidaySet = new Set();
+        list.forEach(function(h) {
+            if (h.holiday_date) {
+                var dateStr = h.holiday_date.split('T')[0];
+                holidaySet.add(dateStr);
+            }
+        });
+        window._qlxHolidaysSet = holidaySet;
+    } catch(e) {
+        console.error('[QLX] Failed to load holidays:', e);
+    }
+}
+
 async function _qlxLoadAll() {
     try {
-        if (typeof _qlxLoadHolidays === 'function') {
-            _qlxLoadHolidays();
-        }
+        await _qlxLoadHolidays();
         var treeRes = await apiCall('/api/qlx/tree');
         _qlx.tree = treeRes;
         _qlxRenderSidebar();
@@ -1111,14 +1126,12 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
         var sDt = new Date(cutSchedule);
         if (!isNaN(sDt.getTime())) {
             var vnDt = new Date(sDt.getTime() + 7 * 3600000);
-            var fHour = ('0' + vnDt.getUTCHours()).slice(-2);
-            var fMin = ('0' + vnDt.getUTCMinutes()).slice(-2);
             var fDay = ('0' + vnDt.getUTCDate()).slice(-2);
             var fMonth = ('0' + (vnDt.getUTCMonth() + 1)).slice(-2);
             var fYear = vnDt.getUTCFullYear();
             var dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
             var dayName = dayNames[vnDt.getUTCDay()];
-            schedStr = fHour + ':' + fMin + ' ' + dayName + ' - ' + fDay + '/' + fMonth + '/' + fYear;
+            schedStr = dayName + ' - ' + fDay + '/' + fMonth + '/' + fYear;
         }
     }
 
@@ -1136,7 +1149,7 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
             var sDt = new Date(cutSchedule);
             if (!isNaN(sDt.getTime())) {
                 var vnDt = new Date(sDt.getTime() + 7 * 3600000);
-                valISO = vnDt.toISOString().slice(0, 16);
+                valISO = vnDt.toISOString().slice(0, 10);
                 if (typeof _qlxFormatDateTimeToShow === 'function') {
                     displayVal = _qlxFormatDateTimeToShow(valISO);
                 } else {
@@ -1145,16 +1158,16 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
                         var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
                         var dayName = days[sDt2.getDay()];
                         var pad = function(n) { return String(n).padStart(2, '0'); };
-                        displayVal = dayName + ' - ' + pad(sDt2.getDate()) + '/' + pad(sDt2.getMonth() + 1) + '/' + sDt2.getFullYear() + ' ' + pad(sDt2.getHours()) + ':' + pad(sDt2.getMinutes());
+                        displayVal = dayName + ' - ' + pad(sDt2.getDate()) + '/' + pad(sDt2.getMonth() + 1) + '/' + sDt2.getFullYear();
                     }
                 }
             }
         }
         var colorAttr = valISO ? '#1e293b' : '#94a3b8';
-        var minVal = typeof _qlxGetMinDateTimeStr === 'function' ? _qlxGetMinDateTimeStr() : '';
+        var minVal = typeof _qlxGetMinDateStr === 'function' ? _qlxGetMinDateStr() : '';
         html += '  <div style="position:relative; width:100%; max-width:320px; margin-bottom:12px;">';
         html += '    <input type="text" id="qlx_cut_schedule_raw_display" class="modal-input qlx-custom-datetime-input" style="width:100%; padding:6px 10px; border:2.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#fff; cursor:pointer; font-weight:600; color:' + colorAttr + '; transition:all 0.3s;" readonly value="' + displayVal + '">';
-        html += '    <input type="datetime-local" id="qlx_cut_schedule_raw" value="' + valISO + '" min="' + minVal + '" onchange="_qlxCutReminderChanged()" onclick="if(typeof this.showPicker === \'function\') this.showPicker()" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10;">';
+        html += '    <input type="date" id="qlx_cut_schedule_raw" value="' + valISO + '" min="' + minVal + '" onchange="_qlxCutReminderChanged()" onclick="if(typeof this.showPicker === \'function\') this.showPicker()" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10;">';
         html += '    <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:#64748b; font-size:12px; z-index:5;">📅</span>';
         html += '  </div>';
     }
@@ -1243,12 +1256,27 @@ function _qlxFabPreview(mat, color, unit) {
 
 function _qlxFormatDateTimeToShow(valISO) {
     if (!valISO) return 'Bấm để chọn lịch cắt...';
-    var sDt = new Date(valISO);
+    var dateStr = valISO.split('T')[0];
+    var parts = dateStr.split('-');
+    if (parts.length < 3) return valISO;
+    var year = parseInt(parts[0]);
+    var month = parseInt(parts[1]) - 1;
+    var day = parseInt(parts[2]);
+    var sDt = new Date(year, month, day);
     if (isNaN(sDt.getTime())) return 'Bấm để chọn lịch cắt...';
     var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
     var dayName = days[sDt.getDay()];
     var pad = function(n) { return String(n).padStart(2, '0'); };
-    return dayName + ' - ' + pad(sDt.getDate()) + '/' + pad(sDt.getMonth() + 1) + '/' + sDt.getFullYear() + ' ' + pad(sDt.getHours()) + ':' + pad(sDt.getMinutes());
+    return dayName + ' - ' + pad(day) + '/' + pad(month + 1) + '/' + year;
+}
+
+function _qlxGetMinDateStr() {
+    if (typeof vnDateStr === 'function') {
+        return vnDateStr();
+    }
+    const now = new Date();
+    const vnDt = new Date(now.getTime() + 7 * 3600000);
+    return vnDt.toISOString().slice(0, 10);
 }
 
 function _qlxGetMinDateTimeStr() {
@@ -1312,7 +1340,7 @@ function _qlxOpenDateTimePicker(targetId, minDateTimeStr) {
 function _qlxGetCurrentCutSchedule() {
     var rawEl = document.getElementById('qlx_cut_schedule_raw');
     if (!rawEl || !rawEl.value) return null;
-    return rawEl.value + ':00+07:00';
+    return rawEl.value + 'T08:00:00+07:00';
 }
 
 function _qlxCutReminderChanged() {
