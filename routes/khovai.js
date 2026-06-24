@@ -95,13 +95,14 @@ module.exports = async function (fastify) {
     // POST /api/khovai/materials — Create material
     fastify.post('/api/khovai/materials', { preHandler: [authenticate] }, async (request) => {
         const { warehouse_id, name, location } = request.body || {};
-        if (!warehouse_id) return { error: 'Chưa chọn kho' };
+        const wId = Number(warehouse_id);
+        if (!warehouse_id || isNaN(wId) || !Number.isInteger(wId)) return { error: 'Vui lòng chọn một kho vải cụ thể' };
         if (!name || !name.trim()) return { error: 'Tên chất liệu không được trống' };
 
-        const maxOrder = await db.get('SELECT COALESCE(MAX(display_order),0)+1 AS next FROM kv_materials WHERE warehouse_id=$1', [warehouse_id]);
+        const maxOrder = await db.get('SELECT COALESCE(MAX(display_order),0)+1 AS next FROM kv_materials WHERE warehouse_id=$1', [wId]);
         const row = await db.get(
             `INSERT INTO kv_materials (warehouse_id, name, display_order, location) VALUES ($1, $2, $3, $4) RETURNING *`,
-            [warehouse_id, name.trim(), maxOrder.next, location ? location.trim() : null]
+            [wId, name.trim(), maxOrder.next, location ? location.trim() : null]
         );
         return { success: true, material: row };
     });
@@ -1149,16 +1150,17 @@ module.exports = async function (fastify) {
     // POST /api/khovai/locations — Create location
     fastify.post('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
         const { warehouse_id, name, description, is_restricted, restricted_material_id } = request.body || {};
-        if (!warehouse_id) return { error: 'Chưa chọn kho' };
+        const wId = Number(warehouse_id);
+        if (!warehouse_id || isNaN(wId) || !Number.isInteger(wId)) return { error: 'Vui lòng chọn một kho vải cụ thể để tạo vị trí!' };
         if (!name || !name.trim()) return { error: 'Tên vị trí không được trống' };
 
-        const exists = await db.get('SELECT id FROM kv_locations WHERE warehouse_id = $1 AND LOWER(name) = LOWER($2)', [warehouse_id, name.trim()]);
+        const exists = await db.get('SELECT id FROM kv_locations WHERE warehouse_id = $1 AND LOWER(name) = LOWER($2)', [wId, name.trim()]);
         if (exists) return { error: 'Tên vị trí này đã tồn tại trong kho' };
 
         const row = await db.get(
             `INSERT INTO kv_locations (warehouse_id, name, description, is_restricted, restricted_material_id)
               VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [warehouse_id, name.trim(), description ? description.trim() : null, is_restricted ? true : false, (!is_restricted) ? null : (restricted_material_id ? Number(restricted_material_id) : null)]
+            [wId, name.trim(), description ? description.trim() : null, is_restricted ? true : false, (!is_restricted) ? null : (restricted_material_id ? Number(restricted_material_id) : null)]
         );
         return { success: true, location: row };
     });

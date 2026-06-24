@@ -1073,7 +1073,10 @@ function _qkvOnSearch(val) {
 // 8. Create Location
 async function _qkvOnAddLocation(e) {
     e.preventDefault();
-    if (!_qkv.selectedWid) return;
+    if (!_qkv.selectedWid || _qkv.selectedWid === 'all') {
+        showToast('Vui lòng chọn một kho vải cụ thể ở phía trên trước khi tạo vị trí mới!', 'error');
+        return;
+    }
     
     var nameEl = document.getElementById('qkvNewLocName');
     var descEl = document.getElementById('qkvNewLocDesc');
