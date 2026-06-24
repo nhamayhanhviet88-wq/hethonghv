@@ -27,8 +27,12 @@ function renderNhapxuathoanvaiPage(content){
     +'.sparkle-glowing-text{font-family:\'Outfit\',\'Inter\',sans-serif;font-weight:900!important;font-size:14px!important;background:linear-gradient(120deg,#ff007f,#ff7f00,#e11d48,#ff007f);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:sparkle-glow 2s ease infinite;display:inline-block}'
     +'@media(max-width:768px){.nxhv-sb{display:none}}';
     document.head.appendChild(st);}
+    var configBtnHtml = '';
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') {
+        configBtnHtml = '<button id="btnNxhvConfig" class="btn" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#d97706;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openNxhvConfigModal()">⚙️ Cấu hình lùi lịch</button>';
+    }
     content.innerHTML='<div class="nxhv-wrap"><div class="nxhv-sb" id="nxhvSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="nxhv-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div><button id="btnNxhvCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vải</button><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div>' + configBtnHtml + '<button id="btnNxhvCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vải</button><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="nxhvTable"><thead><tr style="background:var(--gray-800)">'
     +'<th style="text-align:center">STT</th><th style="text-align:center">✅</th><th style="text-align:center">📸</th><th>Nghiệp Vụ</th><th>Ngày</th><th>Nguồn Vải</th><th>Chất Liệu</th><th>Màu Vải</th><th>Các Cây</th><th style="text-align:right">Giá</th><th style="text-align:right">Thành Tiền</th><th style="text-align:center">Công Nợ</th><th style="text-align:right">Thanh Toán</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
@@ -809,6 +813,237 @@ function clearPostponeImage() {
 window.clearPostponeImage = clearPostponeImage;
 
 var _postponeHolidays = [];
+var _calCurrentYear = new Date().getFullYear();
+var _calCurrentMonth = new Date().getMonth();
+var _calSelectedDate = '';
+var _calAllowedDates = [];
+
+function getAllowedPostponeDates(maxDays, holidays) {
+    var list = [];
+    var current = new Date(); // Start from today
+    var count = 0;
+    var safetyLimit = 100;
+    while (count < maxDays && safetyLimit > 0) {
+        safetyLimit--;
+        current.setDate(current.getDate() + 1);
+        
+        var y = current.getFullYear();
+        var m = String(current.getMonth() + 1).padStart(2, '0');
+        var d = String(current.getDate()).padStart(2, '0');
+        var dateStr = y + '-' + m + '-' + d;
+        
+        // Sunday check
+        if (current.getDay() === 0) {
+            continue;
+        }
+        
+        // Holiday check
+        var isHoliday = holidays.some(function(h) {
+            return h.holiday_date === dateStr;
+        });
+        if (isHoliday) {
+            continue;
+        }
+        
+        list.push({
+            dateStr: dateStr,
+            dateObj: new Date(current.getTime()),
+            holidayName: holidays.find(function(h) { return h.holiday_date === dateStr; })?.holiday_name || null
+        });
+        count++;
+    }
+    return list;
+}
+
+function initCustomCalendar(maxDays, holidays) {
+    _calAllowedDates = getAllowedPostponeDates(maxDays, holidays);
+    
+    var now = new Date();
+    _calCurrentYear = now.getFullYear();
+    _calCurrentMonth = now.getMonth();
+    _calSelectedDate = '';
+    
+    renderCustomCalendar();
+    
+    setTimeout(function() {
+        var prevBtn = document.getElementById('calPrevMonth');
+        var nextBtn = document.getElementById('calNextMonth');
+        if (prevBtn) {
+            prevBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (_calCurrentMonth === 0) {
+                    _calCurrentMonth = 11;
+                    _calCurrentYear--;
+                } else {
+                    _calCurrentMonth--;
+                }
+                renderCustomCalendar();
+            };
+        }
+        if (nextBtn) {
+            nextBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (_calCurrentMonth === 11) {
+                    _calCurrentMonth = 0;
+                    _calCurrentYear++;
+                } else {
+                    _calCurrentMonth++;
+                }
+                renderCustomCalendar();
+            };
+        }
+    }, 50);
+}
+
+function renderCustomCalendar() {
+    var monthYearText = document.getElementById('calMonthYear');
+    if (monthYearText) {
+        monthYearText.textContent = 'Tháng ' + (_calCurrentMonth + 1) + ' / ' + _calCurrentYear;
+    }
+    
+    var grid = document.getElementById('calDaysGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    var firstDay = new Date(_calCurrentYear, _calCurrentMonth, 1);
+    var startOffset = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    var totalDays = new Date(_calCurrentYear, _calCurrentMonth + 1, 0).getDate();
+    
+    for (var i = 0; i < startOffset; i++) {
+        var blank = document.createElement('div');
+        grid.appendChild(blank);
+    }
+    
+    for (var day = 1; day <= totalDays; day++) {
+        var dayDiv = document.createElement('div');
+        dayDiv.style.padding = '8px 4px';
+        dayDiv.style.borderRadius = '8px';
+        dayDiv.style.fontWeight = '700';
+        dayDiv.style.display = 'flex';
+        dayDiv.style.flexDirection = 'column';
+        dayDiv.style.alignItems = 'center';
+        dayDiv.style.justifyContent = 'center';
+        dayDiv.style.position = 'relative';
+        dayDiv.style.fontSize = '12px';
+        dayDiv.style.transition = 'all 0.15s ease';
+        
+        var dateStr = _calCurrentYear + '-' + String(_calCurrentMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+        
+        var allowedInfo = _calAllowedDates.find(function(item) {
+            return item.dateStr === dateStr;
+        });
+        
+        var dateObj = new Date(_calCurrentYear, _calCurrentMonth, day);
+        var isSunday = dateObj.getDay() === 0;
+        
+        dayDiv.textContent = day;
+        
+        if (allowedInfo) {
+            dayDiv.style.cursor = 'pointer';
+            dayDiv.style.color = '#1e293b';
+            dayDiv.style.background = '#f1f5f9';
+            dayDiv.style.border = '1px solid #cbd5e1';
+            dayDiv.title = 'Có thể lùi lịch đến ngày này';
+            
+            dayDiv.onmouseover = function() {
+                if (this.dataset.selected !== 'true') {
+                    this.style.background = '#e2e8f0';
+                    this.style.borderColor = '#94a3b8';
+                }
+            };
+            dayDiv.onmouseout = function() {
+                if (this.dataset.selected !== 'true') {
+                    this.style.background = '#f1f5f9';
+                    this.style.borderColor = '#cbd5e1';
+                }
+            };
+            
+            dayDiv.onclick = (function(dStr) {
+                return function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    _calSelectedDate = dStr;
+                    var hiddenInput = document.getElementById('postponeDate');
+                    if (hiddenInput) hiddenInput.value = dStr;
+                    renderCustomCalendar();
+                };
+            })(dateStr);
+            
+            if (_calSelectedDate === dateStr) {
+                dayDiv.dataset.selected = 'true';
+                dayDiv.style.background = '#d97706';
+                dayDiv.style.borderColor = '#d97706';
+                dayDiv.style.color = '#ffffff';
+                dayDiv.style.fontWeight = '800';
+                dayDiv.style.boxShadow = '0 2px 6px rgba(217,119,6,0.3)';
+            }
+        } else {
+            dayDiv.style.color = '#cbd5e1';
+            dayDiv.style.cursor = 'not-allowed';
+            dayDiv.style.background = '#f8fafc';
+            dayDiv.style.border = '1px solid #f1f5f9';
+            
+            if (isSunday) {
+                dayDiv.style.color = '#fca5a5';
+                dayDiv.style.background = '#fef2f2';
+                dayDiv.title = 'Chủ Nhật (Không được chọn)';
+            }
+            
+            var holiday = _postponeHolidays.find(function(h) { return h.holiday_date === dateStr; });
+            if (holiday) {
+                dayDiv.style.color = '#fde047';
+                dayDiv.style.background = '#fef9c3';
+                dayDiv.style.textDecoration = 'line-through';
+                dayDiv.title = 'Ngày nghỉ lễ: ' + holiday.holiday_name;
+            }
+        }
+        grid.appendChild(dayDiv);
+    }
+}
+
+async function openNxhvConfigModal() {
+    try {
+        var res = await apiCall('/api/fabrictx/config');
+        var maxDays = res.max_postpone_days || 3;
+        
+        var bodyHTML = '<div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">' +
+            '<div style="background:#fffbeb; border:1px solid #fcd34d; border-radius:8px; padding:10px; color:#b45309; line-height:1.4;">' +
+                'ℹ️ Cấu hình số ngày hẹn hoàn vải tối đa được phép lùi lịch. Các ngày nghỉ lễ và ngày Chủ Nhật sẽ tự động bị bỏ qua (không tính vào thời hạn này).' +
+            '</div>' +
+            '<div style="margin-top:4px;">' +
+                '<label style="font-weight:700; display:block; margin-bottom:4px;">Số ngày hẹn lùi lịch tối đa:</label>' +
+                '<input type="number" id="cfgMaxPostponeDays" class="form-control" min="1" max="30" value="' + maxDays + '" style="width:100%; font-size:12px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none;" />' +
+            '</div>' +
+        '</div>';
+        
+        var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>' +
+            '<button class="btn btn-primary" onclick="submitNxhvConfig()" style="width:auto; font-weight:700; background:#d97706; border:none; color:#fff;">Lưu cấu hình</button>';
+            
+        openModal('⚙️ Cấu Hình Lùi Lịch Hoàn Vải', bodyHTML, footerHTML);
+    } catch(e) {
+        showToast('Không tải được cấu hình: ' + e.message, 'error');
+    }
+}
+window.openNxhvConfigModal = openNxhvConfigModal;
+
+async function submitNxhvConfig() {
+    var maxDays = parseInt(document.getElementById('cfgMaxPostponeDays').value);
+    if (isNaN(maxDays) || maxDays < 1 || maxDays > 30) {
+        showToast('Vui lòng nhập số ngày từ 1 đến 30', 'warning');
+        return;
+    }
+    try {
+        var res = await apiCall('/api/fabrictx/config', 'POST', { max_postpone_days: maxDays });
+        if (res.error) throw new Error(res.error);
+        showToast('✅ Đã lưu cấu hình thời gian hẹn hoàn vải');
+        closeModal();
+    } catch(e) {
+        showToast('Lỗi lưu cấu hình: ' + e.message, 'error');
+    }
+}
+window.submitNxhvConfig = submitNxhvConfig;
 
 async function openPostponeModal(id) {
     var tx = _nxhv.records.find(function(item) { return item.id === id; });
@@ -831,6 +1066,16 @@ async function openPostponeModal(id) {
         _postponeHolidays = res.holidays || [];
     } catch(e) {
         console.error('Failed to load holidays:', e);
+    }
+    
+    var maxDays = 3;
+    try {
+        var cfgRes = await apiCall('/api/fabrictx/config');
+        if (cfgRes && cfgRes.max_postpone_days) {
+            maxDays = cfgRes.max_postpone_days;
+        }
+    } catch(e) {
+        console.error('Failed to load max postpone days config:', e);
     }
     
     if (tx.is_postponed) {
@@ -914,7 +1159,18 @@ async function openPostponeModal(id) {
             '</div>' +
             '<div style="margin-top:4px;">' +
                 '<label style="font-weight:700; display:block; margin-bottom:4px;">📅 Chọn ngày hẹn hoàn vải (Bắt buộc):</label>' +
-                '<input type="date" id="postponeDate" class="form-control" style="width:100%; font-size:12px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none;" />' +
+                '<div id="postponeCustomCalendar" style="border: 1px solid #cbd5e1; border-radius:12px; padding:12px; background:#fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); font-family: \'Inter\', sans-serif;">' +
+                    '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">' +
+                        '<button type="button" id="calPrevMonth" style="background:none; border:none; cursor:pointer; font-size:16px; font-weight:700; color:#475569; padding: 2px 8px;">&lt;</button>' +
+                        '<span id="calMonthYear" style="font-weight:800; font-size:13px; color:#1e293b;"></span>' +
+                        '<button type="button" id="calNextMonth" style="background:none; border:none; cursor:pointer; font-size:16px; font-weight:700; color:#475569; padding: 2px 8px;">&gt;</button>' +
+                    '</div>' +
+                    '<div style="display:grid; grid-template-columns: repeat(7, 1fr); text-align:center; font-weight:700; font-size:11px; color:#64748b; margin-bottom:8px; border-bottom:1px solid #f1f5f9; padding-bottom:4px;">' +
+                        '<div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div style="color:#ef4444;">CN</div>' +
+                    '</div>' +
+                    '<div id="calDaysGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; text-align:center; font-size:11px;"></div>' +
+                '</div>' +
+                '<input type="hidden" id="postponeDate" value="" />' +
             '</div>' +
             '<div style="margin-top:4px;">' +
                 '<label style="font-weight:700; display:block; margin-bottom:4px;">Ghi chú / Lý do lùi lịch:</label>' +
@@ -932,36 +1188,7 @@ async function openPostponeModal(id) {
             container.style.maxWidth = '95%';
         }
         
-        // Set min date constraint to tomorrow/today
-        var inputDate = document.getElementById('postponeDate');
-        if (inputDate) {
-            var today = new Date();
-            var y = today.getFullYear();
-            var m = String(today.getMonth() + 1).padStart(2, '0');
-            var d = String(today.getDate()).padStart(2, '0');
-            inputDate.min = y + '-' + m + '-' + d;
-            
-            inputDate.addEventListener('change', function() {
-                var val = this.value;
-                if (!val) return;
-                var parts = val.split('-');
-                var dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-                if (dateObj.getDay() === 0) {
-                    showToast('Không được lùi lịch vào ngày Chủ Nhật', 'warning');
-                    this.value = '';
-                    return;
-                }
-                var isHoliday = _postponeHolidays.some(function(h) {
-                    return h.holiday_date === val;
-                });
-                if (isHoliday) {
-                    var hName = _postponeHolidays.find(function(h) { return h.holiday_date === val; })?.holiday_name || '';
-                    showToast('Không được lùi lịch vào ngày nghỉ lễ: ' + hName, 'warning');
-                    this.value = '';
-                    return;
-                }
-            });
-        }
+        initCustomCalendar(maxDays, _postponeHolidays);
         
         // Event listeners
         var fileInput = document.getElementById('postponeFileInput');

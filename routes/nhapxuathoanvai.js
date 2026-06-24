@@ -320,4 +320,28 @@ module.exports = async function(fastify) {
     fastify.get('/api/fabrictx/staff', { preHandler: [authenticate] }, async () => {
         return { staff: await db.all(`SELECT id, full_name, username FROM users WHERE status='active' AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY full_name`) };
     });
+
+    // ========== NXHV CONFIG ==========
+    fastify.get('/api/fabrictx/config', { preHandler: [authenticate] }, async () => {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'nxhv_max_postpone_days'");
+        const maxDays = row ? parseInt(row.value) : 3;
+        return { max_postpone_days: maxDays };
+    });
+
+    fastify.post('/api/fabrictx/config', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thay đổi cấu hình này' });
+        }
+        const { max_postpone_days } = req.body || {};
+        const val = parseInt(max_postpone_days);
+        if (isNaN(val) || val < 1 || val > 30) {
+            return reply.code(400).send({ error: 'Thời gian lùi lịch tối đa không hợp lệ (1 - 30 ngày)' });
+        }
+        await db.run(
+            `INSERT INTO app_config (key, value) VALUES ('nxhv_max_postpone_days', $1)
+             ON CONFLICT (key) DO UPDATE SET value = $1`,
+            [String(val)]
+        );
+        return { success: true };
+    });
 };
