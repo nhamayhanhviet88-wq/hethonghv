@@ -14,6 +14,10 @@ async function _bnhOpenFabric() {
             apiCall('/api/import/sources?source_type=fabric'),
             apiCall('/api/app-config/fabric_import_require_roll_photo')
         ]);
+        if (cr.pendingRequestedReturns && cr.pendingRequestedReturns.length > 0) {
+            _bnhFabShowPendingReturnsModal(cr.pendingRequestedReturns);
+            return;
+        }
         if (cr.violatingReturns && cr.violatingReturns.length > 0) {
             _bnhFabShowViolationModal(cr.violatingReturns);
             return;
@@ -786,6 +790,56 @@ function _bnhFormatDate(dStr) {
         return parts[2] + '/' + parts[1] + '/' + parts[0];
     } catch(e) {
         return dStr;
+    }
+}
+
+function _bnhFabShowPendingReturnsModal(pendingReturns) {
+    var ov = document.createElement('div');
+    ov.id = '_fabPendingReturnsOv';
+    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+    
+    var listHTML = pendingReturns.map(function(r) {
+        var dateFormatted = r.return_requested_at ? _bnhFormatDate(r.return_requested_at) : '—';
+        
+        return '<div style="background:#fff5f5;border:1px solid #feb2b2;border-radius:12px;padding:14px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,0.02);">'
+            + '<div style="text-align:left;">'
+            + '<div style="font-size:13px;font-weight:800;color:#9b2c2c;margin-bottom:4px;text-align:left;">⚠️ Yêu cầu lập bill hoàn cây vải</div>'
+            + '<div style="font-size:12px;color:#c53030;font-weight:700;margin-bottom:6px;text-align:left;">' + _escAttr(r.material_name || '—') + ' màu ' + _escAttr(r.color_name || '—') + ' cây ' + r.weight + 'kg</div>'
+            + '<div style="font-size:11px;color:#718096;text-align:left;">Gửi bởi: ' + _escAttr(r.requester_name || 'Lê Việt Trinh') + ' | Lúc: ' + dateFormatted + '</div>'
+            + '</div>'
+            + '<div>'
+            + '<button onclick="_bnhFabGoToCreateReturn(' + r.id + ')" class="btn" style="background:linear-gradient(135deg,#e53e3e,#e53e3e);color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 2px 6px rgba(229,62,62,0.2); transition:all 0.15s;" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">Tạo Hoàn Vải ➔</button>'
+            + '</div>'
+            + '</div>';
+    }).join('');
+
+    ov.innerHTML = '<div style="background:#fff;border-radius:20px;width:100%;max-width:620px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,.3);overflow:hidden;border:1px solid rgba(220,38,38,0.1);animation:_bnhScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid #fed7d7;background:linear-gradient(135deg,#e53e3e,#fc8181);color:#fff">'
+        + '<div style="font-size:16px;font-weight:900;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">⚠️ YÊU CẦU LẬP BILL HOÀN VẢI TRƯỚC</div>'
+        + '<button onclick="document.getElementById(\'_fabPendingReturnsOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,.2)\'">✕ Đóng</button></div>'
+        + '<div style="padding:24px;overflow-y:auto;flex:1;">'
+        + '<p style="font-size:13px;color:#4a5568;line-height:1.6;margin-top:0;margin-bottom:20px;font-weight:500;text-align:left;">'
+        + 'Hệ thống phát hiện có <strong>yêu cầu lập bill hoàn cây vải chưa xử lý</strong> từ bộ phận kho. Kế toán bắt buộc phải lập các bill hoàn vải này trước khi tiếp tục thực hiện nhập vải mới.'
+        + '</p>'
+        + '<div style="max-height:45vh;overflow-y:auto;padding-right:4px;">' + listHTML + '</div>'
+        + '</div>'
+        + '<div style="background:#f7fafc;padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;">'
+        + '<button onclick="document.getElementById(\'_fabPendingReturnsOv\').remove()" class="btn" style="background:#4a5568;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">Đóng</button>'
+        + '</div>'
+        + '</div>'
+        + '<style>'
+        + '@keyframes _bnhScaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }'
+        + '</style>';
+
+    document.body.appendChild(ov);
+    ov.querySelector('div').onclick = function (e) { e.stopPropagation(); };
+}
+
+function _bnhFabGoToCreateReturn(rollId) {
+    var ov = document.getElementById('_fabPendingReturnsOv');
+    if (ov) ov.remove();
+    if (typeof _bnhHandleRequestedReturn === 'function') {
+        _bnhHandleRequestedReturn(rollId);
     }
 }
 

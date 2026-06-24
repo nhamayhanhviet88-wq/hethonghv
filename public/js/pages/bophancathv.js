@@ -3869,7 +3869,7 @@ function _bpcOpenImportBill(importId) {
         _bnhFabDetail(importId);
     } else {
         var s = document.createElement('script');
-        s.src = '/js/pages/fab-import-v4.js?v=20260625';
+        s.src = '/js/pages/fab-import-v4.js?v=20260625_4';
         s.onload = function() { _bnhFabDetail(importId); };
         document.head.appendChild(s);
     }

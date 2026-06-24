@@ -990,7 +990,18 @@ module.exports = async function(fastify) {
             ORDER BY ft.id ASC
         `, [todayStr]);
 
-        return { groups, violatingReturns };
+        const pendingRequestedReturns = await db.all(`
+            SELECT r.id, r.weight, r.roll_code, r.created_at, r.return_requested_at,
+                   fc.color_name, m.name AS material_name, u.full_name AS requester_name
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+            LEFT JOIN users u ON u.id = r.return_requested_by
+            WHERE r.return_requested = true AND r.return_tx_id IS NULL AND r.is_returned = false
+            ORDER BY r.return_requested_at DESC
+        `);
+
+        return { groups, violatingReturns, pendingRequestedReturns };
     });
 
     // ========== FABRIC IMPORT: Check accountant permission ==========
@@ -1027,6 +1038,24 @@ module.exports = async function(fastify) {
     fastify.post('/api/import/fabric-submit', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isAccountant(req))) return reply.code(403).send({ error: 'Chỉ Kế Toán / GĐ' });
         
+        // Block submit if there are active return requests (requested by warehouse but not resolved)
+        const pendingRequestedReturns = await db.all(
+            `SELECT r.id, fc.color_name, m.name AS material_name, r.weight, u.full_name AS requester_name
+             FROM kv_rolls r
+             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+             JOIN kv_materials m ON m.id = fc.material_id
+             LEFT JOIN users u ON u.id = r.return_requested_by
+             WHERE r.return_requested = true AND r.return_tx_id IS NULL AND r.is_returned = false`
+        );
+        if (pendingRequestedReturns.length > 0) {
+            const listStr = pendingRequestedReturns.map(r => 
+                `- Yêu cầu hoàn cây vải: ${r.material_name} màu ${r.color_name} cây ${r.weight}kg (gửi bởi ${r.requester_name || 'Lê Việt Trinh'})`
+            ).join('\n');
+            return reply.code(400).send({
+                error: `Không thể nhập vải do đang có yêu cầu lập bill hoàn chưa xử lý. Vui lòng tạo hoàn vải trước:\n${listStr}`
+            });
+        }
+
         // Block submit if there are active violating returns
         const todayStr = vnDateStr(vnNow());
         const violatingReturns = await db.all(`
