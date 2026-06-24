@@ -141,7 +141,7 @@ async function openCreateReturnModal() {
                     </div>
                 </div>
                 
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">ĐVT:</label>
                         <input type="text" id="nxhv_m_unit" class="form-control" value="kg" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
@@ -154,7 +154,7 @@ async function openCreateReturnModal() {
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Thanh Toán:</label>
                         <input type="number" id="nxhv_m_payment" class="form-control" value="0" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                     </div>
-                    <div>
+                    <div style="display:none;">
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Công Nợ:</label>
                         <input type="text" id="nxhv_m_debt" class="form-control" value="0" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; font-weight:700; color:#dc2626;" readonly />
                     </div>
@@ -371,7 +371,7 @@ function renderAllRollsList(searchTerm = '') {
                                         data-matcolor="${matColorKey}"
                                         data-material="${colorObj.material_name}"
                                         data-color="${colorObj.color_name}"
-                                        data-price="${colorObj.price || 0}"
+                                        data-price="${r.import_price || colorObj.price || 0}"
                                         data-unit="${colorObj.unit || 'kg'}"
                                         data-source="${r.source_name || ''}"
                                         ${isChecked ? 'checked' : ''} 

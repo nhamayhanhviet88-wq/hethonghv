@@ -917,6 +917,14 @@ module.exports = async function (fastify) {
                             'needs_photo', COALESCE(r.needs_photo, false),
                             'locked_by_cutting_id', r.locked_by_cutting_id,
                             'source_import_id', r.source_import_id,
+                            'import_price', COALESCE((
+                                SELECT COALESCE(NULLIF(elem->>'unit_price', ''), '0')::numeric
+                                FROM import_records ir,
+                                jsonb_array_elements(ir.fabric_items) AS elem
+                                WHERE ir.id = r.source_import_id
+                                  AND elem->'roll_ids_created' @> jsonb_build_array(r.id)
+                                LIMIT 1
+                            ), fc.price, 0),
                             'source_name', (
                                 SELECT s.name FROM import_records ir
                                 LEFT JOIN import_sources s ON ir.source_id = s.id

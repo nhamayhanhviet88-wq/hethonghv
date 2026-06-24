@@ -307,7 +307,7 @@ function mRenderAllRollsList(searchTerm = '') {
                                         data-matcolor="${matColorKey}"
                                         data-material="${colorObj.material_name}"
                                         data-color="${colorObj.color_name}"
-                                        data-price="${colorObj.price || 0}"
+                                        data-price="${r.import_price || colorObj.price || 0}"
                                         data-unit="${colorObj.unit || 'kg'}"
                                         ${isChecked ? 'checked' : ''} 
                                         ${isDisabled ? 'disabled' : ''}
@@ -679,12 +679,12 @@ mInit();
                     <input type="number" id="mr_price" value="0" oninput="mUpdateFin()" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none;" />
                 </div>
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+            <div style="display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Thanh toán:</label>
                     <input type="number" id="mr_payment" value="0" oninput="mOnPaymentInput()" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none;" />
                 </div>
-                <div>
+                <div style="display:none;">
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Công nợ:</label>
                     <input type="text" id="mr_debt" value="0" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#94a3b8; outline:none;" />
                 </div>
