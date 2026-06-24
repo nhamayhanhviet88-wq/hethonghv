@@ -284,6 +284,51 @@ module.exports = async function (fastify) {
 
     // ========== ROLLS (Cục Vải) ==========
 
+    // GET /api/khovai/rolls/requested-returns — List all rolls requested for return but not yet completed
+    fastify.get('/api/khovai/rolls/requested-returns', { preHandler: [authenticate] }, async (request) => {
+        const rows = await db.all(
+            `SELECT r.id, r.weight, r.roll_code, r.created_at, r.return_requested_at,
+                    fc.color_name, m.name AS material_name, u.full_name AS requester_name
+             FROM kv_rolls r
+             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+             JOIN kv_materials m ON m.id = fc.material_id
+             LEFT JOIN users u ON u.id = r.return_requested_by
+             WHERE r.return_requested = true AND r.return_tx_id IS NULL AND r.is_returned = false
+             ORDER BY r.return_requested_at DESC`
+        );
+        return { rolls: rows };
+    });
+
+    // POST /api/khovai/rolls/:id/request-return — Request return for a roll
+    fastify.post('/api/khovai/rolls/:id/request-return', { preHandler: [authenticate] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const roll = await db.get('SELECT id FROM kv_rolls WHERE id = $1', [id]);
+        if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
+        
+        await db.run(
+            `UPDATE kv_rolls 
+             SET return_requested = true, return_requested_by = $1, return_requested_at = NOW()
+             WHERE id = $2`,
+            [request.user.id, id]
+        );
+        return { success: true };
+    });
+
+    // POST /api/khovai/rolls/:id/cancel-return-request — Cancel return request for a roll
+    fastify.post('/api/khovai/rolls/:id/cancel-return-request', { preHandler: [authenticate] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const roll = await db.get('SELECT id FROM kv_rolls WHERE id = $1', [id]);
+        if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
+        
+        await db.run(
+            `UPDATE kv_rolls 
+             SET return_requested = false, return_requested_by = NULL, return_requested_at = NULL
+             WHERE id = $2`,
+            [id]
+        );
+        return { success: true };
+    });
+
     // GET /api/khovai/rolls?fcid= — List rolls for a fabric color
     fastify.get('/api/khovai/rolls', { preHandler: [authenticate] }, async (request) => {
         const { fcid } = request.query;
@@ -927,6 +972,7 @@ module.exports = async function (fastify) {
                             'code', r.roll_code,
                             'img', r.image_path,
                             'needs_photo', COALESCE(r.needs_photo, false),
+                            'return_requested', COALESCE(r.return_requested, false),
                             'locked_by_cutting_id', r.locked_by_cutting_id,
                             'source_import_id', r.source_import_id,
                             'import_price', COALESCE((

@@ -25,10 +25,13 @@ function renderBillnhaphangPage(content){
     document.head.appendChild(st);}
     content.innerHTML='<div class="bnh-wrap"><div class="bnh-sb" id="bnhSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="bnh-main">'
     +'<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="bnhInfo" style="font-size:12px"></div><div id="bnhStats" style="display:flex;gap:6px;flex:1;justify-content:center;flex-wrap:nowrap;overflow-x:auto"></div><button id="bnhFabBtn" class="bnh-fab-btn" style="display:none" onclick="_bnhOpenFabric()">🧵 Nhập Vải</button><input id="bnhSearch" placeholder="🔍 Tìm chất liệu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
+    +'<div id="bnhRequestedReturnsContainer"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bnhTable"><thead><tr style="background:var(--gray-800)">'
     +'<th style="text-align:center">STT</th><th style="text-align:center">Duyệt</th><th style="text-align:center">TT</th><th>Ngày Nhập</th><th>Nguồn</th><th>Chất Liệu - Màu Vải</th><th style="text-align:center">Ảnh Bill</th><th style="text-align:center">Số Cây Vải</th><th style="text-align:center">SL Nhập</th><th style="text-align:right">Chi Phí</th><th style="text-align:right">Hoàn</th><th style="text-align:right">Thành Tiền</th><th style="text-align:right">Thanh Toán</th><th style="text-align:center">Công Nợ</th><th>Ghi Chú CP</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="bnhTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('bnhSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_bnh.search=document.getElementById('bnhSearch').value||'';_bnhRender();},300);});
+    if (window._bnhRequestedReturnsInterval) clearInterval(window._bnhRequestedReturnsInterval);
+    window._bnhRequestedReturnsInterval = setInterval(_bnhCheckRequestedReturns, 10000);
     _bnhLoadAll();
 }
 
@@ -105,7 +108,7 @@ function _bnhFilter(sid){_bnh.filter.source_id=sid||null;_bnhRenderSb();_bnhLoad
 
 async function _bnhLoadRecs(){var f=_bnh.filter,qs='?record_type=fabric';
 if(f.source_id)qs+='&source_id='+f.source_id;
-try{var res=await apiCall('/api/import/records'+qs);_bnh.records=res.records||[];_bnhRender();}catch(e){console.error('[BNH]',e);}}
+try{var res=await apiCall('/api/import/records'+qs);_bnh.records=res.records||[];_bnhRender();_bnhCheckRequestedReturns();}catch(e){console.error('[BNH]',e);}}
 
 function _bnhGetSourceColor(sourceName) {
     if (!sourceName) return '#4f46e5';
@@ -177,13 +180,17 @@ function _bnhRender(){
             var vnTime = new Date(utc + (3600000 * 7));
             var hh = String(vnTime.getHours()).padStart(2, '0');
             var mi = String(vnTime.getMinutes()).padStart(2, '0');
-            var dd = String(vnTime.getDate()).padStart(2, '0');
-            var mm = String(vnTime.getMonth() + 1).padStart(2, '0');
-            var yyyy = vnTime.getFullYear();
-            importTimeStr = hh + ':' + mi + ' ' + dd + '/' + mm + '/' + yyyy;
+            var dd = vnTime.getDate();
+            var mm = vnTime.getMonth() + 1;
+            var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            var dayOfWeekStr = days[vnTime.getDay()];
+            importTimeStr = hh + ':' + mi + ' ' + dayOfWeekStr + ' - ' + dd + '/' + mm;
         } else if (r.import_date) {
             var p = r.import_date.split('T')[0].split('-');
-            importTimeStr = p[2] + '/' + p[1] + '/' + p[0];
+            var dObj = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+            var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            var dayOfWeekStr = days[dObj.getDay()];
+            importTimeStr = dayOfWeekStr + ' - ' + Number(p[2]) + '/' + Number(p[1]);
         } else {
             importTimeStr = '—';
         }
@@ -198,7 +205,7 @@ function _bnhRender(){
         return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'" onclick="'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'"><td style="text-align:center;font-weight:700;color:#94a3b8;vertical-align:middle">'+(i+1)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+duyetHtml+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+payHtml+'</td>'
-        +'<td style="font-size:10px;vertical-align:middle"><div style="font-weight:600;color:#1e293b">'+importTimeStr+'</div><div style="font-size:9px;color:#0d9488;font-weight:700;margin-top:2px">👤 '+(r.importer_name||'—')+'</div></td>'
+        +'<td style="font-size:10px;vertical-align:middle;text-align:center"><div style="font-weight:600;color:#1e293b">'+importTimeStr+'</div><div style="font-size:9px;color:#0d9488;font-weight:700;margin-top:2px">👤 '+(r.importer_name||'—')+'</div></td>'
         +'<td style="font-size:10px;color:' + _bnhGetSourceColor(r.source_name) + ';font-weight:700;vertical-align:middle">'+(r.source_name||'—')+'</td>'
         +'<td style="font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">'+badgeHtml+(r.fabric_material||'—')+(r.record_type==='fabric'?'<span class="bnh-fab-badge">🧵 Vải</span>':'')+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+imgHtml+'</td>'
@@ -426,4 +433,76 @@ window._bnhViewImage = function(src) {
         img.style.transform = 'scale(1)';
     });
 };
+
+var _bnhRequestedReturnsInterval = null;
+
+async function _bnhCheckRequestedReturns() {
+    var container = document.getElementById('bnhRequestedReturnsContainer');
+    if (!container) {
+        if (_bnhRequestedReturnsInterval) {
+            clearInterval(_bnhRequestedReturnsInterval);
+            _bnhRequestedReturnsInterval = null;
+        }
+        return;
+    }
+    
+    try {
+        var res = await apiCall('/api/khovai/rolls/requested-returns');
+        var rolls = res.rolls || [];
+        
+        if (rolls.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+        
+        var html = '<div style="margin-bottom:16px; display:flex; flex-direction:column; gap:8px;">';
+        rolls.forEach(function(r) {
+            html += `
+                <div style="background:linear-gradient(135deg, #fee2e2, #fecaca); border:1.5px solid #fca5a5; border-radius:12px; padding:12px 18px; display:flex; justify-content:space-between; align-items:center; gap:16px; box-shadow:0 4px 12px rgba(239,68,68,0.06); animation: _pulseAlert 2s infinite;">
+                    <div style="font-size:13px; color:#991b1b; font-weight:600; display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:16px;">⚠️</span>
+                        Chị <strong>${escapeHTML(r.requester_name || 'Lê Việt Trinh')}</strong> yêu cầu lập bill hoàn cây vải <strong>${escapeHTML(r.material_name)}</strong> màu <strong>${escapeHTML(r.color_name)}</strong> cây <strong>${escapeHTML(r.weight)}kg</strong> ngay
+                    </div>
+                    <button class="btn btn-danger btn-xs" style="padding:6px 12px; font-weight:800; border-radius:6px; cursor:pointer;" onclick="_bnhHandleRequestedReturn(${r.id})">
+                        Tạo Hoàn Vải
+                    </button>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        if (!document.getElementById('_pulseAlertStyle')) {
+            var st = document.createElement('style');
+            st.id = '_pulseAlertStyle';
+            st.textContent = '@keyframes _pulseAlert { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.015); } }';
+            document.head.appendChild(st);
+        }
+        
+        container.innerHTML = html;
+    } catch(e) {
+        console.error('[BNH] Error checking requested returns:', e);
+    }
+}
+window._bnhCheckRequestedReturns = _bnhCheckRequestedReturns;
+
+function _bnhHandleRequestedReturn(rollId) {
+    sessionStorage.setItem('auto_open_return_roll_id', rollId);
+    if (typeof navigate === 'function') {
+        navigate('nhap-xuat-hoan-vai');
+    } else {
+        window.location.href = '/nhapxuathoanvai';
+    }
+}
+window._bnhHandleRequestedReturn = _bnhHandleRequestedReturn;
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 

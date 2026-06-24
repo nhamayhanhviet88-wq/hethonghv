@@ -100,10 +100,17 @@ module.exports = async function(fastify) {
         else if (status === 'debt') where += ` AND ft.debt > 0`;
         if (search) { where += ` AND (ft.material_name ILIKE $${idx} OR ft.color_name ILIKE $${idx} OR ft.source_name ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
+            WITH seq_hoan AS (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY tx_date ASC NULLS FIRST, created_at ASC, id ASC) as seq_num
+                FROM fabric_transactions
+                WHERE tx_type = 'HOAN'
+            )
             SELECT ft.*, u.full_name AS staff_name, u_ap.full_name AS approved_by_name,
                    u_pp.full_name AS postponed_by_name,
-                   lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
+                   lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
+                   s.seq_num
             FROM fabric_transactions ft
+            LEFT JOIN seq_hoan s ON ft.id = s.id
             LEFT JOIN users u ON ft.staff_id=u.id LEFT JOIN users u_ap ON ft.approved_by=u_ap.id
             LEFT JOIN users u_pp ON ft.postponed_by=u_pp.id
             LEFT JOIN LATERAL (SELECT h.performed_at, h.performed_by FROM fabric_tx_history h WHERE h.tx_id=ft.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
@@ -117,18 +124,29 @@ module.exports = async function(fastify) {
         const b = req.body || {}, now = vnNow();
         if (!b.tx_type || !TX_TYPES.includes(b.tx_type)) return { error: 'Loại nghiệp vụ không hợp lệ' };
         const fin = calcFin(b.total_quantity, b.price);
+        
+        const isPostponed = !!b.is_postponed;
+        const postponedAt = isPostponed ? now : null;
+        const postponedBy = isPostponed ? req.user.id : null;
+        const postponedImages = isPostponed ? JSON.stringify(b.postponed_images || []) : '[]';
+        const postponedNotes = isPostponed ? b.postponed_notes : null;
+        const postponedTargetDate = isPostponed ? b.postponed_target_date : null;
+
         const r = await db.get(`INSERT INTO fabric_transactions
             (tx_type,tx_date,source_name,staff_id,material_name,color_name,unit,tree_details,tree_count,
-             total_quantity,price,total_amount,debt,payment,notes,bill_images,created_by,created_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18) RETURNING id`,
+             total_quantity,price,total_amount,debt,payment,notes,bill_images,created_by,created_at,
+             is_postponed, postponed_at, postponed_by, postponed_images, postponed_notes, postponed_target_date)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18,$19,$20,$21,$22::jsonb,$23,$24) RETURNING id`,
             [b.tx_type, b.tx_date||null, b.source_name||null, b.staff_id||null,
              b.material_name||null, b.color_name||null, b.unit||'kg',
              b.tree_details||null, Number(b.tree_count)||0,
              Number(b.total_quantity)||0, Number(b.price)||0, fin.total_amount,
              Number(b.debt)||0, Number(b.payment)||0, b.notes||null,
-             JSON.stringify(b.bill_images||[]), req.user.id, now]);
+             JSON.stringify(b.bill_images||[]), req.user.id, now,
+             isPostponed, postponedAt, postponedBy, postponedImages, postponedNotes, postponedTargetDate]);
+        
         await db.run(`INSERT INTO fabric_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [r.id, 'create', `Tạo ${TX_LABELS[b.tx_type]}`, req.user.id, now]);
+            [r.id, 'create', isPostponed ? `Tạo ${TX_LABELS[b.tx_type]} (Có hẹn lịch lùi)` : `Tạo ${TX_LABELS[b.tx_type]}`, req.user.id, now]);
         return { success: true, id: r.id };
     });
 

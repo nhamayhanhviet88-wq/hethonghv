@@ -849,7 +849,11 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 }
 
                                 if (isUnassigned === 'processed_nguyen') {
-                                    returnHtml = `<button class="btn btn-xs btn-outline-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); performDirectRollReturn(${r.id});" title="Hoàn trả nhà cung cấp">🔄 Hoàn</button>`;
+                                    if (r.return_requested) {
+                                        returnHtml = `<button class="btn btn-xs btn-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); cancelRollReturnRequest(${r.id});" title="Hủy yêu cầu hoàn cho kế toán">❌ Hủy Yêu Cầu</button>`;
+                                    } else {
+                                        returnHtml = `<button class="btn btn-xs btn-outline-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); requestRollReturn(${r.id}, ${r.w}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}');" title="Yêu cầu kế toán lập bill hoàn">🔄 Hoàn</button>`;
+                                    }
                                 }
 
                                 var tagsHtml = '';
@@ -2633,5 +2637,46 @@ async function performDirectRollReturn(rollId) {
     }
 }
 window.performDirectRollReturn = performDirectRollReturn;
+
+async function requestRollReturn(rollId, weight, materialName, colorName) {
+    if (!confirm(`Xác nhận yêu cầu lập bill hoàn cho cây vải: ${materialName} màu ${colorName} cây ${weight}kg cho kế toán?`)) return;
+    
+    try {
+        var res = await apiCall(`/api/khovai/rolls/${rollId}/request-return`, 'POST');
+        if (res && res.error) {
+            showToast("Lỗi: " + res.error, "error");
+            return;
+        }
+        showToast("Đã gửi yêu cầu lập bill hoàn cho kế toán thành công!", "success");
+        if (typeof _qkvLoadData === 'function') {
+            await _qkvLoadData();
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("Lỗi xảy ra khi gửi yêu cầu hoàn!", "error");
+    }
+}
+window.requestRollReturn = requestRollReturn;
+
+async function cancelRollReturnRequest(rollId) {
+    if (!confirm("Bạn có chắc chắn muốn hủy yêu cầu hoàn cây vải này không?")) return;
+    
+    try {
+        var res = await apiCall(`/api/khovai/rolls/${rollId}/cancel-return-request`, 'POST');
+        if (res && res.error) {
+            showToast("Lỗi: " + res.error, "error");
+            return;
+        }
+        showToast("Đã hủy yêu cầu hoàn thành công!", "success");
+        if (typeof _qkvLoadData === 'function') {
+            await _qkvLoadData();
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("Lỗi xảy ra khi hủy yêu cầu hoàn!", "error");
+    }
+}
+window.cancelRollReturnRequest = cancelRollReturnRequest;
+
 
 

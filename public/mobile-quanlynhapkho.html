@@ -1319,7 +1319,11 @@
                                     }
 
                                     if (isUnassigned === 'processed_nguyen') {
-                                        returnHtml = `<button class="btn-camera" style="background:#ef4444; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); performDirectRollReturn(${r.id});" title="Hoàn trả nhà cung cấp">🔄 Hoàn</button>`;
+                                        if (r.return_requested) {
+                                            returnHtml = `<button class="btn-camera" style="background:#dc2626; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); cancelRollReturnRequest(${r.id});" title="Hủy yêu cầu hoàn cho kế toán">❌ Hủy Yêu Cầu</button>`;
+                                        } else {
+                                            returnHtml = `<button class="btn-camera" style="background:#ef4444; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); requestRollReturn(${r.id}, ${r.w}, \`${item.material_name.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`, \`${item.color_name.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`);" title="Yêu cầu kế toán lập bill hoàn">🔄 Hoàn</button>`;
+                                        }
                                     }
 
                                     var tagsHtml = '';
@@ -2325,6 +2329,44 @@
             } catch (err) {
                 console.error(err);
                 alert("Lỗi xảy ra trong quá trình hoàn cây vải!");
+            }
+        }
+
+        async function requestRollReturn(rollId, weight, materialName, colorName) {
+            if (!confirm(`Xác nhận yêu cầu lập bill hoàn cho cây vải: ${materialName} màu ${colorName} cây ${weight}kg cho kế toán?`)) return;
+            
+            try {
+                var res = await api(`/api/khovai/rolls/${rollId}/request-return`, 'POST');
+                if (res && res.error) {
+                    alert("Lỗi: " + res.error);
+                    return;
+                }
+                alert("Đã gửi yêu cầu lập bill hoàn cho kế toán thành công!");
+                if (typeof loadData === 'function') {
+                    await loadData(true);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Lỗi xảy ra khi gửi yêu cầu hoàn!");
+            }
+        }
+
+        async function cancelRollReturnRequest(rollId) {
+            if (!confirm("Bạn có chắc chắn muốn hủy yêu cầu hoàn cây vải này không?")) return;
+            
+            try {
+                var res = await api(`/api/khovai/rolls/${rollId}/cancel-return-request`, 'POST');
+                if (res && res.error) {
+                    alert("Lỗi: " + res.error);
+                    return;
+                }
+                alert("Đã hủy yêu cầu hoàn thành công!");
+                if (typeof loadData === 'function') {
+                    await loadData(true);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Lỗi xảy ra khi hủy yêu cầu hoàn!");
             }
         }
 

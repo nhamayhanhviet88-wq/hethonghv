@@ -45,6 +45,9 @@ function renderNhapxuathoanvaiPage(content){
     +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('nxhvSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_nxhv.search=document.getElementById('nxhvSearch').value||'';_nxhvRender();},300);});
     _nxhvLoadAll();
+    if (sessionStorage.getItem('auto_open_return_roll_id')) {
+        setTimeout(openCreateReturnModal, 300);
+    }
 }
 
 async function _nxhvLoadAll(){try{var tR=await apiCall('/api/fabrictx/tree');_nxhv.tree=tR;_nxhvRenderSb();await _nxhvLoadRecs();}catch(e){console.error('[NXHV]',e);}}
@@ -121,15 +124,6 @@ try{var res=await apiCall('/api/fabrictx/records'+qs);_nxhv.records=res.records|
 function _nxhvRender(){
     var all=_nxhv.records.slice();
     // Pre-calculate stable sequential numbering for HOAN bills under current sidebar filter
-    var hoanMap = {};
-    var hc = 0;
-    for (var idx = _nxhv.records.length - 1; idx >= 0; idx--) {
-        var r = _nxhv.records[idx];
-        if (r.tx_type === 'HOAN') {
-            hc++;
-            hoanMap[r.id] = hc;
-        }
-    }
 
     if(_nxhv.search){var q=_nxhv.search.toLowerCase();all=all.filter(function(r){return(r.material_name||'').toLowerCase().indexOf(q)>=0||(r.color_name||'').toLowerCase().indexOf(q)>=0||(r.source_name||'').toLowerCase().indexOf(q)>=0||(r.id&&r.id.toString().indexOf(q)>=0);});}
     var tot=all.length,sumTA=0,sumDebt=0,sumPay=0;
@@ -159,7 +153,7 @@ function _nxhvRender(){
         
         var billHoanCode = '—';
         if (r.tx_type === 'HOAN') {
-            var num = hoanMap[r.id] || 0;
+            var num = r.seq_num || 0;
             billHoanCode = 'Bill Hoàn #' + num;
         }
         
@@ -225,15 +219,30 @@ var _retSummaryData = [];
 var _retStaffData = [];
 var _selectedRetType = null; // null, 1, 2, or 3
 
+var _retMaxDays = 3;
+
 async function openCreateReturnModal() {
     showToast('Đang tải dữ liệu...', 'info');
+    
+    // Clean up any old paste listener
+    if (_postponePasteHandler) {
+        document.removeEventListener('paste', _postponePasteHandler);
+        _postponePasteHandler = null;
+    }
+    _postponeImageBlob = null;
+    _postponeHolidays = [];
+    
     try {
-        const [sumRes, staffRes] = await Promise.all([
+        const [sumRes, staffRes, holidayRes, configRes] = await Promise.all([
             apiCall('/api/khovai/summary'),
-            apiCall('/api/fabrictx/staff')
+            apiCall('/api/fabrictx/staff'),
+            apiCall('/api/penalty/holidays'),
+            apiCall('/api/fabrictx/config')
         ]);
         _retSummaryData = sumRes.summary || [];
         _retStaffData = staffRes.staff || [];
+        _postponeHolidays = holidayRes.holidays || [];
+        _retMaxDays = configRes.max_postpone_days || 3;
         _selectedRetType = null;
         
         const isGDOrTrinh = currentUser && (
@@ -332,6 +341,48 @@ async function openCreateReturnModal() {
                             <textarea id="nxhv_m_notes" class="form-control" placeholder="Ghi chú thêm..." style="width:100%; height:34px; resize:vertical; font-size:12px; padding:6px 10px;"></textarea>
                         </div>
                     </div>
+
+                    <!-- Direct postpone / scheduling UI -->
+                    <div style="margin-top:12px; border-top:1.5px dashed #cbd5e1; padding-top:12px;">
+                        <label style="display:inline-flex; align-items:center; gap:8px; font-weight:800; color:#b45309; font-size:12px; cursor:pointer; margin-bottom:6px;">
+                            <input type="checkbox" id="nxhv_m_postpone_toggle" style="width:15px; height:15px; accent-color:#d97706;" onchange="toggleCreatePostponeUI(this.checked)" />
+                            ⏳ HẸN LỊCH HOÀN VẢI (LÙI LỊCH HOÀN)
+                        </label>
+                        
+                        <div id="nxhv_m_postpone_area" style="display:none; flex-direction:column; gap:10px; margin-top:8px;">
+                            <div id="postponePasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; position:relative; transition:all 0.2s; overflow:hidden;">
+                                <div id="postponePastePlaceholder">
+                                    <span style="font-size:24px; display:block; margin-bottom:6px;">📋</span>
+                                    <span style="font-weight:700; color:#475569; display:block; font-size:12px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>
+                                </div>
+                                <div id="postponeImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">
+                                    <img id="postponeImagePreview" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05); object-fit:contain;" />
+                                    <button id="btnPostponeClearImg" type="button" class="btn" style="position:absolute; top:4px; right:4px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); clearPostponeImage()">❌ Xóa</button>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label style="font-weight:700; display:block; margin-bottom:4px;">📅 Chọn ngày hẹn hoàn vải (Bắt buộc):</label>
+                                <div id="postponeCustomCalendar" style="border: 1px solid #cbd5e1; border-radius:12px; padding:12px; background:#fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); font-family: 'Inter', sans-serif;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                        <button type="button" id="calPrevMonth" style="background:none; border:none; cursor:pointer; font-size:16px; font-weight:700; color:#475569; padding: 2px 8px;">&lt;</button>
+                                        <span id="calMonthYear" style="font-weight:800; font-size:13px; color:#1e293b;"></span>
+                                        <button type="button" id="calNextMonth" style="background:none; border:none; cursor:pointer; font-size:16px; font-weight:700; color:#475569; padding: 2px 8px;">&gt;</button>
+                                    </div>
+                                    <div style="display:grid; grid-template-columns: repeat(7, 1fr); text-align:center; font-weight:700; font-size:11px; color:#64748b; margin-bottom:8px; border-bottom:1px solid #f1f5f9; padding-bottom:4px;">
+                                        <div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div style="color:#ef4444;">CN</div>
+                                    </div>
+                                    <div id="calDaysGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; text-align:center; font-size:11px;"></div>
+                                </div>
+                                <input type="hidden" id="postponeDate" value="" />
+                            </div>
+                            
+                            <div>
+                                <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi chú / Lý do lùi lịch (Không bắt buộc):</label>
+                                <textarea id="postponeNotes" class="form-control" placeholder="Nhập lý do lùi lịch (nếu có)..." style="width:100%; font-size:12px; padding:6px 10px; height:55px; border-radius:6px; border:1px solid #cbd5e1; outline:none; resize:none;"></textarea>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -370,6 +421,26 @@ async function openCreateReturnModal() {
             this.dataset.userEdited = '1';
             updateFinValues();
         });
+
+        // Paste handler for the copy-paste zone
+        _postponePasteHandler = function(e) {
+            var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            var imageItem = null;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    imageItem = items[i];
+                    break;
+                }
+            }
+            if (imageItem) {
+                var blob = imageItem.getAsFile();
+                processAndPreviewPostponeImage(blob);
+            }
+        };
+        document.addEventListener('paste', _postponePasteHandler);
+        
+        // Check if there is an auto-select request
+        _nxhvCheckAutoOpenReturn();
         
     } catch (e) {
         showToast('Lỗi khi tải dữ liệu: ' + e.message, 'error');
@@ -614,6 +685,36 @@ async function submitCreateReturn() {
     if (!material || !color) { showToast('Vui lòng chọn ít nhất một cây vải từ danh sách để tự động điền chất liệu và màu vải', 'error'); return; }
     if (cbs.length === 0) { showToast('Vui lòng chọn ít nhất một cây vải để hoàn trả', 'error'); return; }
     
+    const isPostponed = document.getElementById('nxhv_m_postpone_toggle')?.checked;
+    let targetDate = '';
+    let postponeNotes = '';
+    if (isPostponed) {
+        targetDate = document.getElementById('postponeDate').value;
+        if (!targetDate) { showToast('Vui lòng chọn ngày hẹn hoàn vải', 'warning'); return; }
+        
+        var parts = targetDate.split('-');
+        var dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        if (dateObj.getDay() === 0) {
+            showToast('Không được lùi lịch vào ngày Chủ Nhật', 'warning');
+            return;
+        }
+        
+        var isHoliday = _postponeHolidays.some(function(h) {
+            return h.holiday_date === targetDate;
+        });
+        if (isHoliday) {
+            var hName = _postponeHolidays.find(function(h) { return h.holiday_date === targetDate; })?.holiday_name || '';
+            showToast('Không được lùi lịch vào ngày nghỉ lễ: ' + hName, 'warning');
+            return;
+        }
+        
+        if (!_postponeImageBlob) {
+            showToast('Vui lòng dán hình ảnh chứng minh để lùi lịch!', 'warning');
+            return;
+        }
+        postponeNotes = document.getElementById('postponeNotes').value.trim();
+    }
+
     let totalWeight = 0;
     let detailsArray = [];
     const rollIds = [];
@@ -653,6 +754,28 @@ async function submitCreateReturn() {
         if (res.error) throw new Error(res.error);
         const newTxId = res.id;
         
+        if (isPostponed) {
+            submitBtn.textContent = 'Đang tải ảnh lùi lịch...';
+            // 1. Upload proof image
+            const formData = new FormData();
+            formData.append('file', _postponeImageBlob, 'postpone_proof.webp');
+            const uploadRes = await apiCall('/api/fabrictx/upload-postpone/' + newTxId, 'POST', formData);
+            if (!uploadRes.url) {
+                throw new Error(uploadRes.error || 'Lỗi upload ảnh chứng minh lùi lịch');
+            }
+            
+            submitBtn.textContent = 'Đang lưu lùi lịch...';
+            // 2. Submit postpone request
+            const postponeRes = await apiCall('/api/fabrictx/postpone/' + newTxId, 'POST', {
+                images: [uploadRes.url],
+                notes: postponeNotes,
+                target_date: targetDate
+            });
+            if (postponeRes.error) {
+                throw new Error(postponeRes.error);
+            }
+        }
+
         const fileInput = document.getElementById('nxhv_m_files');
         if (fileInput && fileInput.files && fileInput.files.length > 0) {
             for (const file of fileInput.files) {
@@ -666,6 +789,14 @@ async function submitCreateReturn() {
         
         showToast('Tạo giao dịch hoàn vải thành công!');
         closeModal();
+        
+        // Clean up
+        if (_postponePasteHandler) {
+            document.removeEventListener('paste', _postponePasteHandler);
+            _postponePasteHandler = null;
+        }
+        _postponeImageBlob = null;
+
         _nxhvLoadAll();
     } catch (e) {
         showToast('Lỗi: ' + e.message, 'error');
@@ -674,10 +805,53 @@ async function submitCreateReturn() {
     }
 }
 
+function toggleCreatePostponeUI(checked) {
+    const area = document.getElementById('nxhv_m_postpone_area');
+    if (!area) return;
+    if (checked) {
+        area.style.display = 'flex';
+        initCustomCalendar(_retMaxDays, _postponeHolidays);
+    } else {
+        area.style.display = 'none';
+        _calSelectedDate = '';
+        const hiddenInput = document.getElementById('postponeDate');
+        if (hiddenInput) hiddenInput.value = '';
+    }
+}
+
+async function _nxhvCheckAutoOpenReturn() {
+    const rollId = sessionStorage.getItem('auto_open_return_roll_id');
+    if (!rollId) return;
+    sessionStorage.removeItem('auto_open_return_roll_id');
+    
+    // Automatically select Type 1 (Cây nguyên cần xử lý kho)
+    selectRetType(1);
+    
+    // Wait for the roll elements to render in DOM
+    setTimeout(function() {
+        const cb = document.querySelector(`.nxhv-roll-cb[value="${rollId}"]`);
+        if (cb) {
+            cb.checked = true;
+            // Scroll to the checkbox parent element if needed
+            cb.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            // Highlight it visually
+            const label = cb.closest('label');
+            if (label) {
+                label.style.background = '#fef08a';
+                label.style.border = '2px solid #eab308';
+            }
+            // Trigger the change event
+            cb.dispatchEvent(new Event('change'));
+        }
+    }, 300);
+}
+
 window.openCreateReturnModal = openCreateReturnModal;
 window.submitCreateReturn = submitCreateReturn;
 window.updateFinValues = updateFinValues;
 window.selectRetType = selectRetType;
+window.toggleCreatePostponeUI = toggleCreatePostponeUI;
+window._nxhvCheckAutoOpenReturn = _nxhvCheckAutoOpenReturn;
 
 function openViewReturnModal(id) {
     const r = _nxhv.records.find(item => item.id === id);
