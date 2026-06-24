@@ -6,6 +6,13 @@ var _nxhvIC={HOAN:'🔄',NHAP_KK:'📥',XUAT_KK:'📤',NHAP:'📦',XUAT:'🚛'};
 var _nxhvCL={HOAN:'#059669',NHAP_KK:'#7c3aed',XUAT_KK:'#ea580c',NHAP:'#2563eb',XUAT:'#dc2626'};
 
 function renderNhapxuathoanvaiPage(content){
+    var highlightId = sessionStorage.getItem('nxhv_highlight_bill');
+    if (highlightId) {
+        _nxhv.search = highlightId;
+        sessionStorage.removeItem('nxhv_highlight_bill');
+    } else {
+        _nxhv.search = '';
+    }
     if(!document.getElementById('_nxhvS')){var st=document.createElement('style');st.id='_nxhvS';
     st.textContent='.nxhv-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}.nxhv-sb{width:280px;min-width:280px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto}.nxhv-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}.nxhv-main>*{flex-shrink:0}'
     +'.nxhv-sb-title{font-size:13px;font-weight:800;padding:16px;border-bottom:1px solid var(--gray-200);text-align:center;color:#0891b2}'
@@ -32,7 +39,7 @@ function renderNhapxuathoanvaiPage(content){
         configBtnHtml = '<button id="btnNxhvConfig" class="btn" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#d97706;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openNxhvConfigModal()">⚙️ Cấu hình lùi lịch</button>';
     }
     content.innerHTML='<div class="nxhv-wrap"><div class="nxhv-sb" id="nxhvSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="nxhv-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div>' + configBtnHtml + '<button id="btnNxhvCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vải</button><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div>' + configBtnHtml + '<button id="btnNxhvCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vải</button><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none" value="' + (_nxhv.search || '') + '"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="nxhvTable"><thead><tr style="background:var(--gray-800)">'
     +'<th style="text-align:center">STT</th><th style="text-align:center">✅</th><th style="text-align:center">📸</th><th>Nghiệp Vụ</th><th>Ngày</th><th>Nguồn Vải</th><th>Chất Liệu</th><th>Màu Vải</th><th>Các Cây</th><th style="text-align:right">Giá</th><th style="text-align:right">Thành Tiền</th><th style="text-align:center">Công Nợ</th><th style="text-align:right">Thanh Toán</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
@@ -97,7 +104,7 @@ try{var res=await apiCall('/api/fabrictx/records'+qs);_nxhv.records=res.records|
 
 function _nxhvRender(){
     var all=_nxhv.records.slice();
-    if(_nxhv.search){var q=_nxhv.search.toLowerCase();all=all.filter(function(r){return(r.material_name||'').toLowerCase().indexOf(q)>=0||(r.color_name||'').toLowerCase().indexOf(q)>=0||(r.source_name||'').toLowerCase().indexOf(q)>=0;});}
+    if(_nxhv.search){var q=_nxhv.search.toLowerCase();all=all.filter(function(r){return(r.material_name||'').toLowerCase().indexOf(q)>=0||(r.color_name||'').toLowerCase().indexOf(q)>=0||(r.source_name||'').toLowerCase().indexOf(q)>=0||(r.id&&r.id.toString().indexOf(q)>=0);});}
     var tot=all.length,sumTA=0,sumDebt=0,sumPay=0;
     all.forEach(function(r){sumTA+=Number(r.total_amount)||0;sumDebt+=Number(r.debt)||0;sumPay+=Number(r.payment)||0;});
     var tb=document.getElementById('nxhvTb');if(!tb)return;

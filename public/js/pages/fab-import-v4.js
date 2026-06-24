@@ -14,6 +14,10 @@ async function _bnhOpenFabric() {
             apiCall('/api/import/sources?source_type=fabric'),
             apiCall('/api/app-config/fabric_import_require_roll_photo')
         ]);
+        if (cr.violatingReturns && cr.violatingReturns.length > 0) {
+            _bnhFabShowViolationModal(cr.violatingReturns);
+            return;
+        }
         _bnhFab.groups = cr.groups || [];
         _bnhFab.availSources = sr.sources || [];
         _bnhFab.requireRollPhoto = cfg && cfg.value !== undefined ? (cfg.value === 'true') : true;
@@ -713,5 +717,75 @@ if (!window._bnhViewImage) {
             img.style.transform = 'scale(1)';
         });
     };
+}
+
+function _bnhFabShowViolationModal(violatingReturns) {
+    var ov = document.createElement('div');
+    ov.id = '_fabViolationOv';
+    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+    
+    var listHTML = violatingReturns.map(function(r) {
+        var dateFormatted = r.tx_date ? _bnhFormatDate(r.tx_date) : '—';
+        var statusText = r.is_postponed 
+            ? '<span style="color:#d97706;background:#fef3c7;padding:2px 6px;border-radius:4px;font-weight:700;">Hạn lùi đã hết (' + (r.postponed_target_date ? _bnhFormatDate(r.postponed_target_date) : '—') + ')</span>'
+            : '<span style="color:#dc2626;background:#fee2e2;padding:2px 6px;border-radius:4px;font-weight:700;">Chưa lùi lịch hẹn</span>';
+        
+        return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,0.02);">'
+            + '<div>'
+            + '<div style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:4px;text-align:left;">🔄 Bill Hoàn #' + r.id + ' (' + _escAttr(r.source_name || 'Không rõ nguồn') + ')</div>'
+            + '<div style="font-size:11px;color:#64748b;margin-bottom:6px;text-align:left;">Chất liệu: ' + _escAttr(r.material_name || '—') + ' | Ngày hoàn: ' + dateFormatted + '</div>'
+            + '<div style="font-size:11px;text-align:left;">' + statusText + '</div>'
+            + '</div>'
+            + '<div>'
+            + '<button onclick="_bnhFabGoToResolve(' + r.id + ')" class="btn" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 2px 6px rgba(37,99,235,0.2); transition:all 0.15s;" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">Đi đến xử lý ➔</button>'
+            + '</div>'
+            + '</div>';
+    }).join('');
+
+    ov.innerHTML = '<div style="background:#fff;border-radius:20px;width:100%;max-width:620px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,.3);overflow:hidden;border:1px solid rgba(220,38,38,0.1);animation:_bnhScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid #fee2e2;background:linear-gradient(135deg,#dc2626,#f87171);color:#fff">'
+        + '<div style="font-size:16px;font-weight:900;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">⚠️ YÊU CẦU XỬ LÝ BILL HOÀN VẢI</div>'
+        + '<button onclick="document.getElementById(\'_fabViolationOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,.2)\'">✕ Đóng</button></div>'
+        + '<div style="padding:24px;overflow-y:auto;flex:1;">'
+        + '<p style="font-size:13px;color:#475569;line-height:1.6;margin-top:0;margin-bottom:20px;font-weight:500;text-align:left;">'
+        + 'Hệ thống phát hiện các bill hoàn vải dưới đây <strong>chưa được hoàn thành</strong> hoặc <strong>chưa lùi lịch/quá hạn lùi lịch</strong>. Kế toán bắt buộc phải xử lý lịch lùi hoặc duyệt hoàn thành các bill này trước khi tiếp tục thực hiện nhập vải mới.'
+        + '</p>'
+        + '<div style="max-height:45vh;overflow-y:auto;padding-right:4px;">' + listHTML + '</div>'
+        + '</div>'
+        + '<div style="background:#f8fafc;padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;">'
+        + '<button onclick="document.getElementById(\'_fabViolationOv\').remove()" class="btn" style="background:#64748b;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">Đồng ý</button>'
+        + '</div>'
+        + '</div>'
+        + '<style>'
+        + '@keyframes _bnhScaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }'
+        + '</style>';
+
+    document.body.appendChild(ov);
+    ov.querySelector('div').onclick = function (e) { e.stopPropagation(); };
+}
+
+function _bnhFabGoToResolve(billId) {
+    var ov = document.getElementById('_fabViolationOv');
+    if (ov) ov.remove();
+    
+    // Store highlight info
+    sessionStorage.setItem('nxhv_highlight_bill', billId);
+    
+    // Navigate to Nhap Xuat Hoan Vai
+    if (typeof navigate === 'function') {
+        navigate('nhap-xuat-hoan-vai');
+    } else {
+        window.location.href = '/nhapxuathoanvai';
+    }
+}
+
+function _bnhFormatDate(dStr) {
+    if (!dStr) return '';
+    try {
+        var parts = dStr.split('T')[0].split('-');
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+    } catch(e) {
+        return dStr;
+    }
 }
 

@@ -1,7 +1,7 @@
 // ========== BILL NHẬP HÀNG — Routes ==========
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
-const { vnNow } = require('../utils/timezone');
+const { vnNow, vnDateStr } = require('../utils/timezone');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
@@ -968,7 +968,22 @@ module.exports = async function(fastify) {
             if (g.remaining_trees > 0) groups.push(g);
         }
 
-        return { groups };
+        const todayStr = vnDateStr(vnNow());
+        const violatingReturns = await db.all(`
+            SELECT id, tx_date, source_name, material_name, color_name, is_postponed, postponed_target_date
+            FROM fabric_transactions
+            WHERE tx_type = 'HOAN'
+              AND COALESCE(is_approved, false) = false
+              AND COALESCE(is_canceled, false) = false
+              AND (
+                  COALESCE(is_postponed, false) = false
+                  OR postponed_target_date IS NULL
+                  OR postponed_target_date <= $1
+              )
+            ORDER BY id ASC
+        `, [todayStr]);
+
+        return { groups, violatingReturns };
     });
 
     // ========== FABRIC IMPORT: Check accountant permission ==========
@@ -1004,6 +1019,34 @@ module.exports = async function(fastify) {
     // ========== FABRIC IMPORT: Submit (Atomic Transaction) ==========
     fastify.post('/api/import/fabric-submit', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isAccountant(req))) return reply.code(403).send({ error: 'Chỉ Kế Toán / GĐ' });
+        
+        // Block submit if there are active violating returns
+        const todayStr = vnDateStr(vnNow());
+        const violatingReturns = await db.all(`
+            SELECT id, source_name, material_name, color_name, is_postponed, postponed_target_date
+            FROM fabric_transactions
+            WHERE tx_type = 'HOAN'
+              AND COALESCE(is_approved, false) = false
+              AND COALESCE(is_canceled, false) = false
+              AND (
+                  COALESCE(is_postponed, false) = false
+                  OR postponed_target_date IS NULL
+                  OR postponed_target_date <= $1
+              )
+            ORDER BY id ASC
+        `, [todayStr]);
+
+        if (violatingReturns.length > 0) {
+            const listStr = violatingReturns.map(r => {
+                const dateStr = r.postponed_target_date ? (r.postponed_target_date.split('T')[0].split('-').reverse().join('/')) : '';
+                const reason = r.is_postponed ? `hết hạn lùi (${dateStr})` : 'chưa lùi lịch';
+                return `- Bill hoàn #${r.id} (${r.source_name || 'N/A'} - ${r.material_name || 'N/A'}: ${reason})`;
+            }).join('\n');
+            return reply.code(400).send({ 
+                error: `Yêu cầu xử lý các cây hoàn vải ở Nhập Xuất Hoàn Vải trước khi nhập vải:\n${listStr}` 
+            });
+        }
+
         const b = req.body || {};
         // Validate
         if (!b.source_id) return reply.code(400).send({ error: 'Chọn nguồn NCC' });

@@ -488,7 +488,19 @@
     }
 
     // Import Modal Handlers
-    function openImport() {
+    async function openImport() {
+        // Fetch pending calls to check for active violating returns
+        try {
+            const cr = await api('/api/import/fabric-pending-calls');
+            if (cr.violatingReturns && cr.violatingReturns.length > 0) {
+                mShowViolationModal(cr.violatingReturns);
+                return;
+            }
+        } catch (e) {
+            toast(e.message || 'Lỗi kiểm tra bill hoàn', 'error');
+            return;
+        }
+
         // Reset state
         mFormState = { source_id: null, items: [], extraCosts: [], vat: 0, billImg: null, shipImg: null, notes: '' };
         document.getElementById('mFormSrc').value = '';
@@ -859,6 +871,69 @@
             btn.disabled = false;
             btn.textContent = '💾 Lưu Nhập Vải';
         }
+    }
+
+    function mShowViolationModal(violatingReturns) {
+        var ov = document.createElement('div');
+        ov.id = '_mViolationOv';
+        ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:15px;backdrop-filter:blur(3px);';
+        
+        var listHTML = violatingReturns.map(function(r) {
+            var dateFormatted = r.tx_date ? mFormatDate(r.tx_date) : '—';
+            var statusText = r.is_postponed 
+                ? '<span style="color:#d97706;background:#fef3c7;padding:1px 5px;border-radius:4px;font-weight:700;font-size:10px;">Hạn lùi đã hết (' + (r.postponed_target_date ? mFormatDate(r.postponed_target_date) : '—') + ')</span>'
+                : '<span style="color:#dc2626;background:#fee2e2;padding:1px 5px;border-radius:4px;font-weight:700;font-size:10px;">Chưa lùi lịch hẹn</span>';
+            
+            return '<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">'
+                + '<div style="flex:1;min-width:0;margin-right:10px;">'
+                + '<div style="font-size:12px;font-weight:800;color:#fff;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;">🔄 Bill Hoàn #' + r.id + ' (' + escapeHTML(r.source_name || 'Không rõ') + ')</div>'
+                + '<div style="font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:4px;text-align:left;">Chất liệu: ' + escapeHTML(r.material_name || '—') + ' | ' + dateFormatted + '</div>'
+                + '<div style="text-align:left;">' + statusText + '</div>'
+                + '</div>'
+                + '<div>'
+                + '<button onclick="mGoToResolve(' + r.id + ')" style="background:#3b82f6;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">Xử lý ➔</button>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+
+        ov.innerHTML = '<div style="background:#1e293b;color:#fff;border-radius:16px;width:100%;max-width:360px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 40px rgba(0,0,0,.5);overflow:hidden;border:1px solid rgba(239,68,68,0.2);">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);background:linear-gradient(135deg,#ef4444,#f87171);">'
+            + '<div style="font-size:13px;font-weight:800;">⚠️ YÊU CẦU XỬ LÝ BILL HOÀN</div>'
+            + '<button onclick="document.getElementById(\'_mViolationOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:10px;font-weight:700;">Đóng</button></div>'
+            + '<div style="padding:16px;overflow-y:auto;flex:1;">'
+            + '<p style="font-size:11px;color:rgba(255,255,255,0.7);line-height:1.5;margin-top:0;margin-bottom:14px;text-align:left;">'
+            + 'Yêu cầu kế toán xử lý các cây hoàn vải chưa hoàn thành hoặc chưa lùi lịch ở Nhập Xuất Hoàn Vải trước khi nhập vải mới.'
+            + '</p>'
+            + '<div style="max-height:40vh;overflow-y:auto;">' + listHTML + '</div>'
+            + '</div>'
+            + '<div style="background:rgba(255,255,255,0.02);padding:12px 16px;border-top:1px solid rgba(255,255,255,0.05);display:flex;justify-content:flex-end;">'
+            + '<button onclick="document.getElementById(\'_mViolationOv\').remove()" style="background:#475569;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Đồng ý</button>'
+            + '</div>'
+            + '</div>';
+
+        document.body.appendChild(ov);
+        ov.querySelector('div').onclick = function (e) { e.stopPropagation(); };
+    }
+
+    function mGoToResolve(billId) {
+        var ov = document.getElementById('_mViolationOv');
+        if (ov) ov.remove();
+        sessionStorage.setItem('nxhv_highlight_bill', billId);
+        window.location.href = '/mobile-nhapxuathoanvai.html';
+    }
+
+    function mFormatDate(dStr) {
+        if (!dStr) return '';
+        try {
+            var parts = dStr.split('T')[0].split('-');
+            return parts[2] + '/' + parts[1] + '/' + parts[0];
+        } catch(e) {
+            return dStr;
+        }
+    }
+
+    function escapeHTML(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     mInit();

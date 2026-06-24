@@ -115,7 +115,16 @@ async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){locatio
     document.getElementById('mU').textContent=cu.full_name||cu.username;
 document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi: '+e.message+'</div></div>'}}
 async function mLoad(){const tt=document.getElementById('mFT')?.value||'',st=document.getElementById('mFS')?.value||'';let q='?_=1';if(tt)q+='&tx_type='+tt;if(st)q+='&status='+st;
-try{const r=await api('/api/fabrictx/records'+q);mr=r.records||[];mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
+try{const r=await api('/api/fabrictx/records'+q);mr=r.records||[];mStats();mCards();
+const highlightId = sessionStorage.getItem('nxhv_highlight_bill');
+if (highlightId) {
+    sessionStorage.removeItem('nxhv_highlight_bill');
+    const targetId = Number(highlightId);
+    if (targetId && mr.some(r => r.id === targetId)) {
+        setTimeout(() => { mOpenViewRetModal(targetId); }, 200);
+    }
+}
+}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
 function mStats(){const t=mr.length;let sm=0,sd=0,sp=0;mr.forEach(r=>{sm+=Number(r.total_amount)||0;sd+=Number(r.debt)||0;sp+=Number(r.payment)||0;});
 document.getElementById('sT').textContent=t;document.getElementById('sM').textContent=fns(sm);document.getElementById('sD').textContent=fns(sd);document.getElementById('sP').textContent=fns(sp)}
 function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🔄</div><div style="font-size:16px;font-weight:700">Chưa có giao dịch</div></div>';return}
