@@ -129,22 +129,13 @@ async function mOpenRetModal() {
         const staffSelect = document.getElementById('mr_staff');
         staffSelect.innerHTML = mRetStaffData.map(u => `<option value="${u.id}" ${cu && u.id === cu.id ? 'selected' : ''}>${u.full_name}</option>`).join('');
         
-        // Setup materials
-        const materials = Array.from(new Set(mRetSummaryData.map(s => s.material_name))).sort();
-        const matSelect = document.getElementById('mr_material');
-        matSelect.innerHTML = '<option value="">-- Chọn chất liệu --</option>' + materials.map(m => `<option value="${m}">${m}</option>`).join('');
-        
         // Set date to today
         document.getElementById('mr_date').value = new Date().toLocaleDateString('en-CA');
         
-        // Reset color and rolls list
-        const colorSelect = document.getElementById('mr_color');
-        colorSelect.innerHTML = '<option value="">-- Chọn màu vải --</option>';
-        colorSelect.disabled = true;
-        document.getElementById('mr_rolls').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:16px;">Vui lòng chọn Chất liệu và Màu vải</div>';
-        
         // Clear fields
         document.getElementById('mr_source').value = '';
+        document.getElementById('mr_material').value = '';
+        document.getElementById('mr_color').value = '';
         document.getElementById('mr_price').value = '0';
         document.getElementById('mr_payment').value = '0';
         document.getElementById('mr_payment').dataset.userEdited = '';
@@ -152,6 +143,12 @@ async function mOpenRetModal() {
         document.getElementById('mr_notes').value = '';
         document.getElementById('mr_files').value = '';
         document.getElementById('mr_summary').textContent = '0 cây (0 kg)';
+        document.getElementById('mr_search_rolls').value = '';
+        document.getElementById('mr_search_rolls').oninput = function() {
+            mRenderAllRollsList(this.value);
+        };
+        
+        mRenderAllRollsList();
         
         // Show modal
         document.getElementById('mRetModal').style.display = 'flex';
@@ -166,106 +163,146 @@ function mCloseRetModal() {
     document.body.classList.remove('m-ret-modal-open');
 }
 
-function mOnMaterialChange() {
-    const matSelect = document.getElementById('mr_material');
-    const colorSelect = document.getElementById('mr_color');
-    const selectedMaterial = matSelect.value;
+function mRenderAllRollsList(searchTerm = '') {
+    const container = document.getElementById('mr_rolls');
+    if (!container) return;
     
-    if (!selectedMaterial) {
-        colorSelect.innerHTML = '<option value="">-- Chọn màu vải --</option>';
-        colorSelect.disabled = true;
-        document.getElementById('mr_rolls').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:16px;">Vui lòng chọn Chất liệu và Màu vải</div>';
-        return;
+    const term = searchTerm.toLowerCase().trim();
+    let checkedMatColor = null;
+    
+    const activeCbs = container.querySelectorAll('.mr-roll-cb:checked');
+    if (activeCbs.length > 0) {
+        checkedMatColor = activeCbs[0].getAttribute('data-matcolor');
     }
-    const colors = mRetSummaryData.filter(s => s.material_name === selectedMaterial).sort((a,b) => a.color_name.localeCompare(b.color_name));
-    colorSelect.innerHTML = '<option value="">-- Chọn màu vải --</option>' + colors.map(c => `<option value="${c.color_name}" data-price="${c.price}" data-unit="${c.unit || 'kg'}">${c.color_name}</option>`).join('');
-    colorSelect.disabled = false;
-    document.getElementById('mr_rolls').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:16px;">Vui lòng chọn Màu vải để hiển thị danh sách cây vải</div>';
-}
-
-function mOnColorChange() {
-    const matSelect = document.getElementById('mr_material');
-    const colorSelect = document.getElementById('mr_color');
-    const selectedMaterial = matSelect.value;
-    const selectedColor = colorSelect.value;
-    
-    if (!selectedColor) {
-        document.getElementById('mr_rolls').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:16px;">Vui lòng chọn Màu vải để hiển thị danh sách cây vải</div>';
-        return;
-    }
-    
-    // Set price and unit
-    const opt = colorSelect.options[colorSelect.selectedIndex];
-    const price = opt.getAttribute('data-price') || 0;
-    const unit = opt.getAttribute('data-unit') || 'kg';
-    document.getElementById('mr_price').value = price;
-    document.getElementById('mr_unit').value = unit;
-    
-    // Load rolls
-    const colorObj = mRetSummaryData.find(s => s.material_name === selectedMaterial && s.color_name === selectedColor);
-    if (!colorObj) return;
-    const rolls = colorObj.roll_weights || [];
-    
-    // Filter candidate rolls
-    const cat1 = rolls.filter(r => {
-        const isNguyen = Number(r.w) >= Number(r.ow);
-        const isUnassigned = !r.loc || r.loc.trim() === '';
-        const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
-        return isNguyen && isUnassigned && isFree;
-    });
-    const cat2 = rolls.filter(r => {
-        const isNguyen = Number(r.w) >= Number(r.ow);
-        const isOnShelf = r.loc && r.loc.trim() !== '';
-        const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
-        return isNguyen && isOnShelf && isFree;
-    });
-    const cat3 = rolls.filter(r => {
-        const isLe = Number(r.w) < Number(r.ow);
-        const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
-        return isLe && isFree;
-    });
     
     let html = '';
-    function renderGroup(title, badgeColor, list) {
-        if (list.length === 0) return '';
-        return `
-            <div style="margin-bottom:10px;">
-                <div style="font-weight:800; font-size:11px; margin-bottom:4px; color:${badgeColor}; display:flex; align-items:center; justify-content:space-between;">
-                    <span>${title}</span>
-                    <span style="background:${badgeColor}20; color:${badgeColor}; padding:2px 8px; border-radius:10px; font-size:9px;">${list.length} cây</span>
+    mRetSummaryData.forEach(colorObj => {
+        const matColorKey = `${colorObj.material_name} - ${colorObj.color_name}`;
+        const rolls = colorObj.roll_weights || [];
+        
+        const cat1 = rolls.filter(r => {
+            const isNguyen = Number(r.w) >= Number(r.ow);
+            const isUnassigned = !r.loc || r.loc.trim() === '';
+            const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+            return isNguyen && isUnassigned && isFree;
+        });
+        const cat2 = rolls.filter(r => {
+            const isNguyen = Number(r.w) >= Number(r.ow);
+            const isOnShelf = r.loc && r.loc.trim() !== '';
+            const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+            return isNguyen && isOnShelf && isFree;
+        });
+        const cat3 = rolls.filter(r => {
+            const isLe = Number(r.w) < Number(r.ow);
+            const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+            return isLe && isFree;
+        });
+        
+        let mCat1 = cat1, mCat2 = cat2, mCat3 = cat3;
+        if (term) {
+            const matchesHeader = matColorKey.toLowerCase().indexOf(term) >= 0;
+            if (!matchesHeader) {
+                mCat1 = cat1.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
+                mCat2 = cat2.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
+                mCat3 = cat3.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
+            }
+        }
+        
+        const total = mCat1.length + mCat2.length + mCat3.length;
+        if (total === 0) return;
+        
+        const isDisabled = checkedMatColor && checkedMatColor !== matColorKey;
+        
+        html += `
+            <div style="margin-bottom:10px; border:1px solid rgba(255,255,255,0.15); border-radius:12px; background:rgba(255,255,255,0.02); overflow:hidden; opacity:${isDisabled ? 0.5 : 1};">
+                <div style="background:rgba(255,255,255,0.08); padding:6px 10px; font-weight:800; font-size:11px; color:#cffafe; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🎨 ${matColorKey}</span>
+                    <span style="background:rgba(255,255,255,0.12); color:#a5f3fc; padding:1px 6px; border-radius:10px; font-size:9px;">${total} cây</span>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                    ${list.map(r => {
-                        const shelf = r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ';
-                        const photoBadge = r.needs_photo ? `<span style="background:#fee2e2; color:#dc2626; padding:1px 4px; border-radius:4px; font-size:8px; font-weight:700;">📷 Cần ảnh</span>` : '';
-                        return `
-                            <label style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-radius:10px; cursor:pointer;">
-                                <input type="checkbox" class="mr-roll-cb" value="${r.id}" data-weight="${r.w}" data-code="${r.code || ''}" onchange="mUpdateFin()" style="width:16px; height:16px; accent-color:#059669;" />
-                                <div style="flex:1; display:flex; justify-content:space-between; align-items:center;">
-                                    <div>
-                                        <strong style="color:#a5f3fc; font-size:12px;">${r.w} kg</strong>
-                                        <span style="color:#94a3b8; font-size:10px; margin-left:4px;">(${r.code || 'Ko mã'})</span>
-                                        ${photoBadge}
+                <div style="padding:6px; display:flex; flex-direction:column; gap:4px;">
+        `;
+        
+        function renderGroup(title, color, list) {
+            if (list.length === 0) return '';
+            return `
+                <div style="margin-bottom:4px;">
+                    <div style="font-weight:700; font-size:9px; margin-bottom:2px; color:${color};">${title}</div>
+                    <div style="display:flex; flex-direction:column; gap:3px;">
+                        ${list.map(r => {
+                            const shelf = r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ';
+                            const photoBadge = r.needs_photo ? `<span style="background:#fee2e2; color:#dc2626; padding:1px 4px; border-radius:4px; font-size:8px; font-weight:700; margin-left:4px;">📷 Cần ảnh</span>` : '';
+                            const isChecked = activeCbs && Array.from(activeCbs).some(cb => cb.value == r.id);
+                            return `
+                                <label style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:8px; cursor:${isDisabled ? 'not-allowed' : 'pointer'}; margin-bottom:0;">
+                                    <input type="checkbox" class="mr-roll-cb" value="${r.id}" 
+                                        data-weight="${r.w}" 
+                                        data-code="${r.code || ''}" 
+                                        data-matcolor="${matColorKey}"
+                                        data-material="${colorObj.material_name}"
+                                        data-color="${colorObj.color_name}"
+                                        data-price="${colorObj.price || 0}"
+                                        data-unit="${colorObj.unit || 'kg'}"
+                                        ${isChecked ? 'checked' : ''} 
+                                        ${isDisabled ? 'disabled' : ''}
+                                        style="width:14px; height:14px; accent-color:#059669;" />
+                                    <div style="flex:1; display:flex; justify-content:space-between; align-items:center;">
+                                        <div>
+                                            <strong style="color:#a5f3fc; font-size:11px;">${r.w} kg</strong> 
+                                            <span style="color:#94a3b8; font-size:9px; margin-left:4px;">(${r.code || 'Ko mã'})</span>
+                                            ${photoBadge}
+                                        </div>
+                                        <div style="color:#e2e8f0; font-size:9px;">${shelf}</div>
                                     </div>
-                                    <div style="color:#e2e8f0; font-size:10px;">${shelf}</div>
-                                </div>
-                            </label>
-                        `;
-                    }).join('')}
+                                </label>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += renderGroup('🛠️ 1. CÂY NGUYÊN CẦN XỬ LÝ KHO', '#fca5a5', mCat1);
+        html += renderGroup('📍 2. CÂY NGUYÊN Ở CÁC KỆ', '#93c5fd', mCat2);
+        html += renderGroup('✂️ 3. CÁC CÂY LẺ Ở KHO VẢI', '#fde047', mCat3);
+        
+        html += `
                 </div>
             </div>
         `;
-    }
+    });
     
-    html += renderGroup('🛠️ 1. CÂY NGUYÊN CẦN XỬ LÝ KHO', '#ef4444', cat1);
-    html += renderGroup('📍 2. CÂY NGUYÊN Ở CÁC KỆ', '#3b82f6', cat2);
-    html += renderGroup('✂️ 3. CÁC CÂY LẺ Ở KHO VẢI', '#f59e0b', cat3);
+    const savedChecked = Array.from(activeCbs).map(cb => cb.value);
+    container.innerHTML = html || '<div style="text-align:center; color:#94a3b8; padding:16px;">Không tìm thấy cây vải phù hợp</div>';
     
-    if (!html) {
-        html = '<div style="text-align:center; color:#94a3b8; padding:16px;">Không có cây vải phù hợp</div>';
-    }
-    document.getElementById('mr_rolls').innerHTML = html;
-    mUpdateFin();
+    savedChecked.forEach(val => {
+        const cb = container.querySelector(`.mr-roll-cb[value="${val}"]`);
+        if (cb) cb.checked = true;
+    });
+    
+    // Bind change listener
+    container.querySelectorAll('.mr-roll-cb').forEach(cb => {
+        cb.addEventListener('change', function() {
+            const allChecked = container.querySelectorAll('.mr-roll-cb:checked');
+            if (allChecked.length > 0) {
+                const first = allChecked[0];
+                document.getElementById('mr_material').value = first.getAttribute('data-material');
+                document.getElementById('mr_color').value = first.getAttribute('data-color');
+                document.getElementById('mr_unit').value = first.getAttribute('data-unit');
+                
+                const priceInput = document.getElementById('mr_price');
+                if (priceInput.value === '0' || !priceInput.dataset.userEdited) {
+                    priceInput.value = first.getAttribute('data-price');
+                }
+            } else {
+                document.getElementById('mr_material').value = '';
+                document.getElementById('mr_color').value = '';
+                document.getElementById('mr_price').value = '0';
+            }
+            
+            mRenderAllRollsList(document.getElementById('mr_search_rolls').value);
+            mUpdateFin();
+        });
+    });
 }
 
 function mUpdateFin() {
@@ -308,7 +345,7 @@ async function mSubmitRet() {
     const cbs = document.querySelectorAll('.mr-roll-cb:checked');
     if (!source) { toast('Vui lòng nhập nguồn vải', 'error'); return; }
     if (!txDate) { toast('Vui lòng chọn ngày hoàn', 'error'); return; }
-    if (!material || !color) { toast('Vui lòng chọn chất liệu và màu vải', 'error'); return; }
+    if (!material || !color) { toast('Vui lòng chọn ít nhất một cây vải từ danh sách để tự động điền chất liệu và màu vải', 'error'); return; }
     if (cbs.length === 0) { toast('Vui lòng chọn cây vải để hoàn', 'error'); return; }
     
     let totalWeight = 0;
@@ -386,12 +423,12 @@ mInit();
             <h2 style="font-size:16px; font-weight:800; color:#cffafe; flex:1; text-align:left;">🔄 Tạo Hoàn Vải</h2>
             <button onclick="mCloseRetModal()" style="background:rgba(255,255,255,0.1); border:none; color:#fff; width:30px; height:30px; border-radius:50%; font-size:14px; font-weight:700; cursor:pointer;">✕</button>
         </div>
-        <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; font-size:12px; margin-bottom:16px; padding-bottom:20px; text-align:left;">
-            <div>
+        <div style="flex:1; overflow-y:auto; font-size:12px; margin-bottom:16px; padding-bottom:20px; text-align:left;">
+            <div style="margin-bottom:12px;">
                 <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Nguồn vải (Nhà cung cấp):</label>
                 <input type="text" id="mr_source" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none;" placeholder="Nhập tên nhà cung cấp..." />
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Ngày hoàn:</label>
                     <input type="date" id="mr_date" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none;" />
@@ -401,17 +438,17 @@ mInit();
                     <select id="mr_staff" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none; height:38px;"></select>
                 </div>
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Chất liệu:</label>
-                    <select id="mr_material" onchange="mOnMaterialChange()" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none; height:38px;"><option value="">-- Chọn chất liệu --</option></select>
+                    <input type="text" id="mr_material" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#94a3b8; outline:none;" placeholder="Tự động chọn..." />
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Màu vải:</label>
-                    <select id="mr_color" onchange="mOnColorChange()" disabled style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none; height:38px;"><option value="">-- Chọn màu vải --</option></select>
+                    <input type="text" id="mr_color" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#94a3b8; outline:none;" placeholder="Tự động chọn..." />
                 </div>
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">ĐVT:</label>
                     <input type="text" id="mr_unit" value="kg" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none;" />
@@ -421,7 +458,7 @@ mInit();
                     <input type="number" id="mr_price" value="0" oninput="mUpdateFin()" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none;" />
                 </div>
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Thanh toán:</label>
                     <input type="number" id="mr_payment" value="0" oninput="mOnPaymentInput()" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none;" />
@@ -431,11 +468,11 @@ mInit();
                     <input type="text" id="mr_debt" value="0" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#94a3b8; outline:none;" />
                 </div>
             </div>
-            <div>
+            <div style="margin-bottom:12px;">
                 <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Ghi chú:</label>
                 <textarea id="mr_notes" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none; height:45px; resize:none;" placeholder="Ghi chú thêm..."></textarea>
             </div>
-            <div>
+            <div style="margin-bottom:12px;">
                 <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Ảnh hóa đơn/bill hoàn:</label>
                 <input type="file" id="mr_files" multiple accept="image/*" style="width:100%; padding:6px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff;" />
             </div>
@@ -445,8 +482,10 @@ mInit();
                     <span style="font-weight:800; color:#cffafe;">📋 Chọn Cây Vải Trả Hoàn</span>
                     <span id="mr_summary" style="font-weight:700; color:#22d3ee;">0 cây (0 kg)</span>
                 </div>
+                <div style="margin-bottom:8px;">
+                    <input type="text" id="mr_search_rolls" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:#fff; outline:none; font-size:12px;" placeholder="🔍 Tìm nhanh cây vải (chất liệu, màu, mã cây...)" />
+                </div>
                 <div id="mr_rolls" style="max-height:180px; overflow-y:auto; border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:10px; background:rgba(255,255,255,0.03); display:flex; flex-direction:column; gap:6px;">
-                    <div style="text-align:center; color:#94a3b8; padding:16px;">Vui lòng chọn Chất liệu và Màu vải</div>
                 </div>
             </div>
         </div>

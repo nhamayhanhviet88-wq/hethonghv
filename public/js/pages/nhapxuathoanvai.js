@@ -131,15 +131,11 @@ async function openCreateReturnModal() {
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Chất Liệu:</label>
-                        <select id="nxhv_m_material" class="form-control" style="width:100%; font-size:12px; padding:5px 10px;">
-                            <option value="">-- Chọn chất liệu --</option>
-                        </select>
+                        <input type="text" id="nxhv_m_material" class="form-control" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" readonly placeholder="Tự động chọn..." />
                     </div>
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Màu Vải:</label>
-                        <select id="nxhv_m_color" class="form-control" style="width:100%; font-size:12px; padding:5px 10px;" disabled>
-                            <option value="">-- Chọn màu vải --</option>
-                        </select>
+                        <input type="text" id="nxhv_m_color" class="form-control" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" readonly placeholder="Tự động chọn..." />
                     </div>
                 </div>
                 
@@ -162,23 +158,26 @@ async function openCreateReturnModal() {
                     </div>
                 </div>
                 
-                <div>
-                    <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú:</label>
-                    <textarea id="nxhv_m_notes" class="form-control" placeholder="Ghi chú thêm..." style="width:100%; height:40px; resize:vertical; font-size:12px; padding:6px 10px;"></textarea>
-                </div>
-
-                <div>
-                    <label style="font-weight:700; display:block; margin-bottom:4px;">Ảnh Bill Hoàn (Không bắt buộc):</label>
-                    <input type="file" id="nxhv_m_files" multiple accept="image/*" class="form-control" style="width:100%; font-size:12px; padding:4px 10px;" />
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:center;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú:</label>
+                        <textarea id="nxhv_m_notes" class="form-control" placeholder="Ghi chú thêm..." style="width:100%; height:34px; resize:vertical; font-size:12px; padding:6px 10px;"></textarea>
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Ảnh Bill Hoàn (Không bắt buộc):</label>
+                        <input type="file" id="nxhv_m_files" multiple accept="image/*" class="form-control" style="width:100%; font-size:11px; padding:3px 10px;" />
+                    </div>
                 </div>
                 
-                <div style="border-top:1px solid #e2e8f0; margin-top:8px; padding-top:8px;">
+                <div style="border-top:1px solid #e2e8f0; margin-top:4px; padding-top:8px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <span style="font-size:13px; font-weight:800; color:#0f766e;">📋 Danh Sách Cây Vải Trả Hoàn</span>
+                        <span style="font-size:13px; font-weight:800; color:#0f766e;">📋 Chọn Cây Vải Từ Kho Vải</span>
                         <span id="nxhv_m_selection_summary" style="font-weight:700; color:#0891b2;">Đã chọn: 0 cây (0 kg)</span>
                     </div>
-                    <div id="nxhv_m_rolls_container" style="max-height:200px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:10px; background:#f8fafc;">
-                        <div style="text-align:center; color:#94a3b8; padding:20px;">Vui lòng chọn Chất liệu và Màu vải trước</div>
+                    <div style="margin-bottom:8px;">
+                        <input type="text" id="nxhv_m_search_rolls" class="form-control" placeholder="🔍 Tìm nhanh cây vải (chất liệu, màu, mã cây...)" style="width:100%; font-size:12px; padding:6px 10px;" />
+                    </div>
+                    <div id="nxhv_m_rolls_container" style="max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:10px; background:#f8fafc;">
                     </div>
                 </div>
             </div>
@@ -205,114 +204,12 @@ async function openCreateReturnModal() {
         const staffSelect = document.getElementById('nxhv_m_staff');
         staffSelect.innerHTML = _retStaffData.map(u => `<option value="${u.id}" ${currentUser && u.id === currentUser.id ? 'selected' : ''}>${u.full_name}</option>`).join('');
         
-        // Populate Material
-        const materials = Array.from(new Set(_retSummaryData.map(s => s.material_name))).sort();
-        const matSelect = document.getElementById('nxhv_m_material');
-        matSelect.innerHTML = '<option value="">-- Chọn chất liệu --</option>' + materials.map(m => `<option value="${m}">${m}</option>`).join('');
+        // Render rolls list
+        renderAllRollsList();
         
-        // Event listeners
-        const colorSelect = document.getElementById('nxhv_m_color');
-        
-        matSelect.addEventListener('change', function() {
-            const selectedMaterial = matSelect.value;
-            if (!selectedMaterial) {
-                colorSelect.innerHTML = '<option value="">-- Chọn màu vải --</option>';
-                colorSelect.disabled = true;
-                document.getElementById('nxhv_m_rolls_container').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px;">Vui lòng chọn Chất liệu và Màu vải trước</div>';
-                return;
-            }
-            const colors = _retSummaryData.filter(s => s.material_name === selectedMaterial).sort((a,b) => a.color_name.localeCompare(b.color_name));
-            colorSelect.innerHTML = '<option value="">-- Chọn màu vải --</option>' + colors.map(c => `<option value="${c.color_name}" data-price="${c.price}" data-unit="${c.unit || 'kg'}">${c.color_name}</option>`).join('');
-            colorSelect.disabled = false;
-            document.getElementById('nxhv_m_rolls_container').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px;">Vui lòng chọn Màu vải để hiển thị danh sách cây vải</div>';
-        });
-        
-        colorSelect.addEventListener('change', function() {
-            const selectedMaterial = matSelect.value;
-            const selectedColor = colorSelect.value;
-            if (!selectedColor) {
-                document.getElementById('nxhv_m_rolls_container').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px;">Vui lòng chọn Màu vải để hiển thị danh sách cây vải</div>';
-                return;
-            }
-            
-            // Set price and unit
-            const opt = colorSelect.options[colorSelect.selectedIndex];
-            const price = opt.getAttribute('data-price') || 0;
-            const unit = opt.getAttribute('data-unit') || 'kg';
-            document.getElementById('nxhv_m_price').value = price;
-            document.getElementById('nxhv_m_unit').value = unit;
-            
-            // Load rolls
-            const colorObj = _retSummaryData.find(s => s.material_name === selectedMaterial && s.color_name === selectedColor);
-            if (!colorObj) return;
-            const rolls = colorObj.roll_weights || [];
-            
-            // Filter candidate rolls
-            const cat1 = rolls.filter(r => {
-                const isNguyen = Number(r.w) >= Number(r.ow);
-                const isUnassigned = !r.loc || r.loc.trim() === '';
-                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
-                return isNguyen && isUnassigned && isFree;
-            });
-            const cat2 = rolls.filter(r => {
-                const isNguyen = Number(r.w) >= Number(r.ow);
-                const isOnShelf = r.loc && r.loc.trim() !== '';
-                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
-                return isNguyen && isOnShelf && isFree;
-            });
-            const cat3 = rolls.filter(r => {
-                const isLe = Number(r.w) < Number(r.ow);
-                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
-                return isLe && isFree;
-            });
-            
-            let html = '';
-            function renderGroup(title, badgeColor, list) {
-                if (list.length === 0) return '';
-                return `
-                    <div style="margin-bottom:12px;">
-                        <div style="font-weight:800; font-size:11px; margin-bottom:6px; color:${badgeColor}; display:flex; align-items:center; gap:6px;">
-                            <span>${title}</span>
-                            <span style="background:${badgeColor}20; color:${badgeColor}; padding:2px 8px; border-radius:10px; font-size:9px;">${list.length} cây</span>
-                        </div>
-                        <div style="display:flex; flex-direction:column; gap:4px; padding-left:8px;">
-                            ${list.map(r => {
-                                const shelf = r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ';
-                                const photoBadge = r.needs_photo ? `<span style="background:#fee2e2; color:#dc2626; padding:1px 4px; border-radius:4px; font-size:8px; font-weight:700; margin-left:4px;">📷 Cần chụp ảnh</span>` : '';
-                                return `
-                                    <label style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:#fff; border:1px solid #e2e8f0; border-radius:6px; cursor:pointer; transition:all .15s; margin-bottom:2px;">
-                                        <input type="checkbox" class="nxhv-roll-cb" value="${r.id}" data-weight="${r.w}" data-code="${r.code || ''}" style="width:14px; height:14px; accent-color:#059669;" />
-                                        <div style="flex:1; display:flex; justify-content:space-between; align-items:center;">
-                                            <div>
-                                                <strong style="color:#0f766e;">${r.w} kg</strong> 
-                                                <span style="color:#64748b; font-size:10px; margin-left:6px;">(${r.code || 'Chưa có mã'})</span>
-                                                ${photoBadge}
-                                            </div>
-                                            <div style="color:#475569; font-size:10px; font-weight:600;">${shelf}</div>
-                                        </div>
-                                    </label>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            html += renderGroup('🛠️ 1. CÂY NGUYÊN CẦN XỬ LÝ KHO', '#ef4444', cat1);
-            html += renderGroup('📍 2. CÂY NGUYÊN Ở CÁC KỆ', '#3b82f6', cat2);
-            html += renderGroup('✂️ 3. CÁC CÂY LẺ Ở KHO VẢI', '#f59e0b', cat3);
-            
-            if (!html) {
-                html = '<div style="text-align:center; color:#94a3b8; padding:20px;">Không tìm thấy cây vải phù hợp để hoàn trả.</div>';
-            }
-            document.getElementById('nxhv_m_rolls_container').innerHTML = html;
-            
-            // Attach checkbox event listeners
-            document.querySelectorAll('.nxhv-roll-cb').forEach(cb => {
-                cb.addEventListener('change', updateFinValues);
-            });
-            
-            updateFinValues();
+        // Bind search
+        document.getElementById('nxhv_m_search_rolls').addEventListener('input', function() {
+            renderAllRollsList(this.value);
         });
         
         document.getElementById('nxhv_m_price').addEventListener('input', updateFinValues);
@@ -324,6 +221,151 @@ async function openCreateReturnModal() {
     } catch (e) {
         showToast('Lỗi khi tải dữ liệu: ' + e.message, 'error');
     }
+}
+
+function renderAllRollsList(searchTerm = '') {
+    const container = document.getElementById('nxhv_m_rolls_container');
+    if (!container) return;
+    
+    const term = searchTerm.toLowerCase().trim();
+    let checkedMatColor = null;
+    
+    const activeCbs = container.querySelectorAll('.nxhv-roll-cb:checked');
+    if (activeCbs.length > 0) {
+        checkedMatColor = activeCbs[0].getAttribute('data-matcolor');
+    }
+    
+    let html = '';
+    _retSummaryData.forEach(colorObj => {
+        const matColorKey = `${colorObj.material_name} - ${colorObj.color_name}`;
+        const rolls = colorObj.roll_weights || [];
+        
+        const cat1 = rolls.filter(r => {
+            const isNguyen = Number(r.w) >= Number(r.ow);
+            const isUnassigned = !r.loc || r.loc.trim() === '';
+            const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+            return isNguyen && isUnassigned && isFree;
+        });
+        const cat2 = rolls.filter(r => {
+            const isNguyen = Number(r.w) >= Number(r.ow);
+            const isOnShelf = r.loc && r.loc.trim() !== '';
+            const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+            return isNguyen && isOnShelf && isFree;
+        });
+        const cat3 = rolls.filter(r => {
+            const isLe = Number(r.w) < Number(r.ow);
+            const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+            return isLe && isFree;
+        });
+        
+        let mCat1 = cat1, mCat2 = cat2, mCat3 = cat3;
+        if (term) {
+            const matchesHeader = matColorKey.toLowerCase().indexOf(term) >= 0;
+            if (!matchesHeader) {
+                mCat1 = cat1.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
+                mCat2 = cat2.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
+                mCat3 = cat3.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
+            }
+        }
+        
+        const total = mCat1.length + mCat2.length + mCat3.length;
+        if (total === 0) return;
+        
+        const isDisabled = checkedMatColor && checkedMatColor !== matColorKey;
+        
+        html += `
+            <div class="mat-color-group" style="margin-bottom:12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; overflow:hidden; opacity:${isDisabled ? 0.5 : 1};">
+                <div style="background:#e2e8f0; padding:6px 12px; font-weight:800; font-size:11px; color:#0f766e; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🎨 ${matColorKey}</span>
+                    <span style="background:#0f766e; color:#fff; padding:1px 6px; border-radius:10px; font-size:9px;">${total} cây khả dụng</span>
+                </div>
+                <div style="padding:8px; display:flex; flex-direction:column; gap:6px;">
+        `;
+        
+        function renderGroup(title, color, list) {
+            if (list.length === 0) return '';
+            return `
+                <div>
+                    <div style="font-weight:700; font-size:10px; margin-bottom:2px; color:${color};">${title}</div>
+                    <div style="display:flex; flex-direction:column; gap:3px;">
+                        ${list.map(r => {
+                            const shelf = r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ';
+                            const photoBadge = r.needs_photo ? `<span style="background:#fee2e2; color:#dc2626; padding:1px 4px; border-radius:4px; font-size:8px; font-weight:700; margin-left:4px;">📷 Cần ảnh</span>` : '';
+                            const isChecked = activeCbs && Array.from(activeCbs).some(cb => cb.value == r.id);
+                            return `
+                                <label style="display:flex; align-items:center; gap:8px; padding:5px 8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; cursor:${isDisabled ? 'not-allowed' : 'pointer'}; margin-bottom:0;">
+                                    <input type="checkbox" class="nxhv-roll-cb" value="${r.id}" 
+                                        data-weight="${r.w}" 
+                                        data-code="${r.code || ''}" 
+                                        data-matcolor="${matColorKey}"
+                                        data-material="${colorObj.material_name}"
+                                        data-color="${colorObj.color_name}"
+                                        data-price="${colorObj.price || 0}"
+                                        data-unit="${colorObj.unit || 'kg'}"
+                                        ${isChecked ? 'checked' : ''} 
+                                        ${isDisabled ? 'disabled' : ''}
+                                        style="width:14px; height:14px; accent-color:#059669;" />
+                                    <div style="flex:1; display:flex; justify-content:space-between; align-items:center;">
+                                        <div>
+                                            <strong style="color:#0f766e;">${r.w} kg</strong> 
+                                            <span style="color:#64748b; font-size:10px; margin-left:6px;">(${r.code || 'Chưa có mã'})</span>
+                                            ${photoBadge}
+                                        </div>
+                                        <div style="color:#475569; font-size:10px; font-weight:600;">${shelf}</div>
+                                    </div>
+                                </label>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += renderGroup('🛠️ 1. CÂY NGUYÊN CẦN XỬ LÝ KHO', '#ef4444', mCat1);
+        html += renderGroup('📍 2. CÂY NGUYÊN Ở CÁC KỆ', '#3b82f6', mCat2);
+        html += renderGroup('✂️ 3. CÁC CÂY LẺ Ở KHO VẢI', '#f59e0b', mCat3);
+        
+        html += `
+                </div>
+            </div>
+        `;
+    });
+    
+    // Preserve checked state
+    const savedChecked = Array.from(activeCbs).map(cb => cb.value);
+    
+    container.innerHTML = html || '<div style="text-align:center; color:#94a3b8; padding:20px;">Không tìm thấy cây vải phù hợp.</div>';
+    
+    // Restore checkboxes checked state
+    savedChecked.forEach(val => {
+        const cb = container.querySelector(`.nxhv-roll-cb[value="${val}"]`);
+        if (cb) cb.checked = true;
+    });
+    
+    // Bind change listener
+    container.querySelectorAll('.nxhv-roll-cb').forEach(cb => {
+        cb.addEventListener('change', function() {
+            const allChecked = container.querySelectorAll('.nxhv-roll-cb:checked');
+            if (allChecked.length > 0) {
+                const first = allChecked[0];
+                document.getElementById('nxhv_m_material').value = first.getAttribute('data-material');
+                document.getElementById('nxhv_m_color').value = first.getAttribute('data-color');
+                document.getElementById('nxhv_m_unit').value = first.getAttribute('data-unit');
+                
+                const priceInput = document.getElementById('nxhv_m_price');
+                if (priceInput.value === '0' || !priceInput.dataset.userEdited) {
+                    priceInput.value = first.getAttribute('data-price');
+                }
+            } else {
+                document.getElementById('nxhv_m_material').value = '';
+                document.getElementById('nxhv_m_color').value = '';
+                document.getElementById('nxhv_m_price').value = '0';
+            }
+            
+            renderAllRollsList(document.getElementById('nxhv_m_search_rolls').value);
+            updateFinValues();
+        });
+    });
 }
 
 function updateFinValues() {
@@ -360,7 +402,7 @@ async function submitCreateReturn() {
     const cbs = document.querySelectorAll('.nxhv-roll-cb:checked');
     if (!source) { showToast('Vui lòng nhập nguồn vải (nhà cung cấp)', 'error'); return; }
     if (!txDate) { showToast('Vui lòng chọn ngày hoàn vải', 'error'); return; }
-    if (!material || !color) { showToast('Vui lòng chọn chất liệu và màu vải', 'error'); return; }
+    if (!material || !color) { showToast('Vui lòng chọn ít nhất một cây vải từ danh sách để tự động điền chất liệu và màu vải', 'error'); return; }
     if (cbs.length === 0) { showToast('Vui lòng chọn ít nhất một cây vải để hoàn trả', 'error'); return; }
     
     let totalWeight = 0;
