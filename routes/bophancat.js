@@ -31,7 +31,7 @@ module.exports = async function(fastify) {
         const orderCode = order ? order.order_code : `#${dhtOrderId}`;
         
         for (const rId of rollIds) {
-            const roll = await db.get('SELECT location, return_tx_id, locked_by_cutting_id FROM kv_rolls WHERE id = $1', [rId]);
+            const roll = await db.get('SELECT location, return_tx_id, return_requested, locked_by_cutting_id FROM kv_rolls WHERE id = $1', [rId]);
             if (!roll) continue;
             
             if (roll.return_tx_id) {
@@ -40,6 +40,10 @@ module.exports = async function(fastify) {
                 await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'cancel', $2, $3, $4)`, 
                     [txId, `Hủy do QLX/Thợ cắt chọn cắt cho đơn ${orderCode}`, user ? user.id : null, now]);
                 await db.run(`UPDATE kv_rolls SET location = original_location, original_location = NULL, return_tx_id = NULL WHERE return_tx_id = $1`, [txId]);
+            }
+            
+            if (roll.return_requested) {
+                await db.run(`UPDATE kv_rolls SET return_requested = false, return_requested_by = NULL, return_requested_at = NULL WHERE id = $1`, [rId]);
             }
             
             const updatedRoll = await db.get('SELECT location, original_location FROM kv_rolls WHERE id = $1', [rId]);

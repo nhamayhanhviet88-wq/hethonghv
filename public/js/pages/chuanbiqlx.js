@@ -999,6 +999,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                     if (imgHtml) html += imgHtml;
                     html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
                     if (rl.is_original_tree) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
+                    if (rl.return_requested) html += '<span style="background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;border:1px solid #b91c1c40">⚠️ Yêu Cầu Hoàn</span>';
                     var locHtml = '';
                     if (rl.roll_loc_name) {
                         var bColor = '#94a3b8';

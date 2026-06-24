@@ -2485,7 +2485,7 @@ module.exports = async function(fastify) {
                 SELECT r.id, r.roll_code, r.weight, r.original_weight, r.note, r.image_path,
                        r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
                        r.called_for_orders, r.created_at AS roll_created_at,
-                       r.locked_by_cutting_id,
+                       r.locked_by_cutting_id, r.return_requested,
                        cr_lock.product_name AS cutting_order_name,
                        cr_lock.order_quantity AS cutting_order_qty,
                        cr_lock.dht_order_id AS lock_order_id,
@@ -2900,7 +2900,7 @@ module.exports = async function(fastify) {
 
             for (const rId of targetIds) {
                 // Validate: check available
-                const roll = await db.get('SELECT roll_code, weight, locked_by_cutting_id, return_tx_id FROM kv_rolls WHERE id = $1 AND is_returned = false', [rId]);
+                const roll = await db.get('SELECT roll_code, weight, locked_by_cutting_id, return_tx_id, return_requested FROM kv_rolls WHERE id = $1 AND is_returned = false', [rId]);
                 if (!roll) {
                     lastError = 'Cây vải không tồn tại hoặc đã trả NCC';
                     continue;
@@ -2914,6 +2914,10 @@ module.exports = async function(fastify) {
                     await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'cancel', $2, $3, $4)`, 
                         [txId, `Hủy do QLX chọn để đánh dấu cắt cho đơn ${orderCode}`, request.user.id, now]);
                     await db.run(`UPDATE kv_rolls SET location = original_location, original_location = NULL, return_tx_id = NULL WHERE return_tx_id = $1`, [txId]);
+                }
+
+                if (roll.return_requested) {
+                    await db.run(`UPDATE kv_rolls SET return_requested = false, return_requested_by = NULL, return_requested_at = NULL WHERE id = $1`, [rId]);
                 }
 
                 if (roll.locked_by_cutting_id) {
