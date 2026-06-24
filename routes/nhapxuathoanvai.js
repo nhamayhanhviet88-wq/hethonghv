@@ -132,6 +132,22 @@ module.exports = async function(fastify) {
         const postponedNotes = isPostponed ? b.postponed_notes : null;
         const postponedTargetDate = isPostponed ? b.postponed_target_date : null;
 
+        if (isPostponed && postponedTargetDate) {
+            const parts = postponedTargetDate.split('-');
+            const y = Number(parts[0]), m = Number(parts[1]), day = Number(parts[2]);
+            if (isNaN(y) || isNaN(m) || isNaN(day)) {
+                return { error: 'Thời gian hẹn lịch không hợp lệ' };
+            }
+            const d = new Date(y, m - 1, day);
+            if (d.getDay() === 0 || d.getDay() === 6) {
+                return { error: 'Không được hẹn lịch vào ngày Thứ 7 hoặc Chủ Nhật' };
+            }
+            const isHoliday = await db.get(`SELECT 1 FROM holidays WHERE holiday_date = $1`, [postponedTargetDate]);
+            if (isHoliday) {
+                return { error: 'Không được hẹn lịch vào ngày nghỉ lễ' };
+            }
+        }
+
         const r = await db.get(`INSERT INTO fabric_transactions
             (tx_type,tx_date,source_name,staff_id,material_name,color_name,unit,tree_details,tree_count,
              total_quantity,price,total_amount,debt,payment,notes,bill_images,created_by,created_at,
@@ -199,10 +215,10 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thời gian lùi lịch không hợp lệ' });
         }
         
-        // Sunday validation
+        // Saturday & Sunday validation
         const d = new Date(y, m - 1, day);
-        if (d.getDay() === 0) {
-            return reply.code(400).send({ error: 'Không được lùi lịch vào ngày Chủ Nhật' });
+        if (d.getDay() === 0 || d.getDay() === 6) {
+            return reply.code(400).send({ error: 'Không được lùi lịch vào ngày Thứ 7 hoặc Chủ Nhật' });
         }
         
         // Holiday validation
