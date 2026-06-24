@@ -815,11 +815,13 @@ function processAndPreviewPostponeImage(file) {
                 _postponeImageBlob = blob;
                 var previewUrl = URL.createObjectURL(blob);
                 var imgEl = document.getElementById('postponeImagePreview');
-                var container = document.getElementById('postponePreviewContainer');
+                var placeholderEl = document.getElementById('postponePastePlaceholder');
+                var wrapEl = document.getElementById('postponeImgPreviewWrap');
                 var pasteArea = document.getElementById('postponePasteArea');
-                if (imgEl && container && pasteArea) {
+                if (imgEl && pasteArea) {
                     imgEl.src = previewUrl;
-                    container.style.display = 'block';
+                    if (placeholderEl) placeholderEl.style.display = 'none';
+                    if (wrapEl) wrapEl.style.display = 'flex';
                     pasteArea.style.borderColor = '#10b981';
                     var btn = document.getElementById('btnConfirmPostpone');
                     if (btn) btn.disabled = false;
@@ -834,10 +836,12 @@ function processAndPreviewPostponeImage(file) {
 function clearPostponeImage() {
     _postponeImageBlob = null;
     var imgEl = document.getElementById('postponeImagePreview');
-    var container = document.getElementById('postponePreviewContainer');
+    var placeholderEl = document.getElementById('postponePastePlaceholder');
+    var wrapEl = document.getElementById('postponeImgPreviewWrap');
     var pasteArea = document.getElementById('postponePasteArea');
     if (imgEl) imgEl.src = '';
-    if (container) container.style.display = 'none';
+    if (placeholderEl) placeholderEl.style.display = 'block';
+    if (wrapEl) wrapEl.style.display = 'none';
     if (pasteArea) pasteArea.style.borderColor = '#cbd5e1';
     var btn = document.getElementById('btnConfirmPostpone');
     if (btn) btn.disabled = true;
@@ -1181,15 +1185,17 @@ async function openPostponeModal(id) {
             '<div style="background:#fffbeb; border:1px solid #feebc8; border-radius:8px; padding:10px; color:#c05621; line-height:1.4;">' +
                 'ℹ️ <strong>Thông báo:</strong> Cây vải sẽ vẫn hiển thị ở <strong>📍 Kệ Dự Định Hoàn Vải</strong> và bộ phận cắt vẫn có thể gọi cây vải này để cắt (khi đó bill hoàn sẽ tự động hủy).' +
             '</div>' +
-            '<div id="postponePasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; cursor:pointer; position:relative; transition:border-color 0.2s;" onclick="document.getElementById(\'postponeFileInput\').click()">' +
-                '<span style="font-size:24px; display:block; margin-bottom:6px;">📋</span>' +
-                '<span style="font-weight:700; color:#475569; display:block; font-size:12px;">Nhấp chuột vào đây và nhấn Ctrl+V để dán ảnh chứng minh</span>' +
-                '<span style="font-size:11px; color:#64748b; margin-top:2px; display:block;">hoặc nhấp trực tiếp để chọn tệp tin ảnh</span>' +
-                '<input type="file" id="postponeFileInput" accept="image/*" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" />' +
-            '</div>' +
-            '<div id="postponePreviewContainer" style="margin-top:8px; display:none; text-align:center;">' +
-                '<img id="postponeImagePreview" style="max-height:160px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05);" />' +
-                '<button class="btn btn-danger" style="display:block; margin:6px auto 0; padding:2px 10px; font-size:11px; background:#ef4444; border:none; color:#fff;" onclick="clearPostponeImage()">❌ Xóa ảnh</button>' +
+            '<div id="postponePasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; cursor:pointer; position:relative; transition:all 0.2s; overflow:hidden;" onclick="if(event.target.id!==\'btnPostponeClearImg\')document.getElementById(\'postponeFileInput\').click()">' +
+                '<div id="postponePastePlaceholder">' +
+                    '<span style="font-size:24px; display:block; margin-bottom:6px;">📋</span>' +
+                    '<span style="font-weight:700; color:#475569; display:block; font-size:12px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>' +
+                    '<span style="font-size:11px; color:#64748b; margin-top:2px; display:block;">hoặc nhấp trực tiếp để chọn tệp tin ảnh</span>' +
+                '</div>' +
+                '<div id="postponeImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">' +
+                    '<img id="postponeImagePreview" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05); object-fit:contain;" />' +
+                    '<button id="btnPostponeClearImg" type="button" class="btn" style="position:absolute; top:4px; right:4px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); clearPostponeImage()">❌ Xóa</button>' +
+                '</div>' +
+                '<input type="file" id="postponeFileInput" accept="image/*" style="display:none;" />' +
             '</div>' +
             '<div style="margin-top:4px;">' +
                 '<label style="font-weight:700; display:block; margin-bottom:4px;">📅 Chọn ngày hẹn hoàn vải (Bắt buộc):</label>' +
@@ -1208,7 +1214,7 @@ async function openPostponeModal(id) {
             '</div>' +
             '<div style="margin-top:4px;">' +
                 '<label style="font-weight:700; display:block; margin-bottom:4px;">Ghi chú / Lý do lùi lịch:</label>' +
-                '<textarea id="postponeNotes" class="form-control" placeholder="Nhập lý do lùi lịch (bắt buộc)..." style="width:100%; font-size:12px; padding:6px 10px; height:55px; border-radius:6px; border:1px solid #cbd5e1; outline:none; resize:none;"></textarea>' +
+                '<textarea id="postponeNotes" class="form-control" placeholder="Nhập lý do lùi lịch (nếu có)..." style="width:100%; font-size:12px; padding:6px 10px; height:55px; border-radius:6px; border:1px solid #cbd5e1; outline:none; resize:none;"></textarea>' +
             '</div>' +
         '</div>';
         
@@ -1277,10 +1283,6 @@ async function submitPostpone(id) {
     }
 
     var notes = document.getElementById('postponeNotes').value.trim();
-    if (!notes) {
-        showToast('Vui lòng nhập ghi chú / lý do lùi lịch', 'warning');
-        return;
-    }
     if (!_postponeImageBlob) {
         showToast('Vui lòng dán hoặc chọn hình ảnh chứng minh', 'warning');
         return;
