@@ -317,6 +317,173 @@ module.exports = async function(fastify) {
         }
     }
 
+    async function batchSyncActiveOrdersCompletion(userId) {
+        try {
+            const candidates = await db.all(`
+                SELECT o.id, o.shipping_status, COALESCE(p.is_completed, false) AS is_completed
+                FROM dht_orders o
+                LEFT JOIN dht_categories c ON o.category_id = c.id
+                LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
+                WHERE COALESCE(o.shipping_status, '') != 'shipped'
+                  AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
+                  AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
+            `);
+            if (candidates.length === 0) return;
+
+            const orderIds = candidates.map(c => c.id);
+
+            const [
+                items,
+                fabricReservations,
+                cuttingRecords,
+                printAssignments,
+                printAssignmentsQlx,
+                sewingRecords,
+                sewingAssignmentsQlx
+            ] = await Promise.all([
+                db.all(`SELECT id, dht_order_id, shipping_status, material_pairs, material_called, material_arrived FROM dht_order_items WHERE dht_order_id = ANY($1)`, [orderIds]),
+                db.all(`SELECT dht_order_id, item_id, phoi_index FROM qlx_fabric_reservations WHERE dht_order_id = ANY($1) AND status NOT IN ('released', 'fulfilled')`, [orderIds]),
+                db.all(`SELECT dht_order_id, order_item_id FROM cutting_records WHERE dht_order_id = ANY($1) AND (is_cutting = true OR is_cut_done = true)`, [orderIds]),
+                db.all(`SELECT dht_order_id, item_id FROM qlx_order_print_assignments WHERE dht_order_id = ANY($1)`, [orderIds]),
+                db.all(`SELECT dht_order_id, item_id FROM qlx_assignments WHERE dht_order_id = ANY($1) AND assignment_type = 'in'`, [orderIds]),
+                db.all(`SELECT dht_order_id, order_item_id FROM sewing_records WHERE dht_order_id = ANY($1)`, [orderIds]),
+                db.all(`SELECT dht_order_id, item_id FROM qlx_assignments WHERE dht_order_id = ANY($1) AND assignment_type = 'may'`, [orderIds])
+            ]);
+
+            const itemsMap = {};
+            const fabResMap = {};
+            const cutRecMap = {};
+            const printMap = {};
+            const printQlxMap = {};
+            const sewMap = {};
+            const sewQlxMap = {};
+
+            for (const id of orderIds) {
+                itemsMap[id] = [];
+                fabResMap[id] = [];
+                cutRecMap[id] = [];
+                printMap[id] = [];
+                printQlxMap[id] = [];
+                sewMap[id] = [];
+                sewQlxMap[id] = [];
+            }
+
+            for (const x of items) if (itemsMap[x.dht_order_id]) itemsMap[x.dht_order_id].push(x);
+            for (const x of fabricReservations) if (fabResMap[x.dht_order_id]) fabResMap[x.dht_order_id].push(x);
+            for (const x of cuttingRecords) if (cutRecMap[x.dht_order_id]) cutRecMap[x.dht_order_id].push(x);
+            for (const x of printAssignments) if (printMap[x.dht_order_id]) printMap[x.dht_order_id].push(x);
+            for (const x of printAssignmentsQlx) if (printQlxMap[x.dht_order_id]) printQlxMap[x.dht_order_id].push(x);
+            for (const x of sewingRecords) if (sewMap[x.dht_order_id]) sewMap[x.dht_order_id].push(x);
+            for (const x of sewingAssignmentsQlx) if (sewQlxMap[x.dht_order_id]) sewQlxMap[x.dht_order_id].push(x);
+
+            const { vnNow } = require('../utils/timezone');
+            const now = vnNow();
+            const perfBy = userId || 1;
+
+            for (const c of candidates) {
+                const orderId = c.id;
+                const oItems = itemsMap[orderId] || [];
+
+                let isCompleted = false;
+
+                if (oItems.length === 0) {
+                    isCompleted = (c.shipping_status === 'shipped');
+                } else {
+                    const case2 = oItems.every(it => it.shipping_status === 'shipped');
+                    if (case2) {
+                        isCompleted = true;
+                    } else {
+                        const oFabRes = fabResMap[orderId] || [];
+                        const oCutRec = cutRecMap[orderId] || [];
+                        const oPrint = printMap[orderId] || [];
+                        const oPrintQlx = printQlxMap[orderId] || [];
+                        const oSew = sewMap[orderId] || [];
+                        const oSewQlx = sewQlxMap[orderId] || [];
+
+                        let case1 = true;
+                        for (const it of oItems) {
+                            let pairs = [];
+                            try {
+                                pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []);
+                            } catch(e) {}
+                            if (!Array.isArray(pairs)) pairs = [];
+
+                            // 1. Fabric Called
+                            const isCutOrCutting = oCutRec.some(cr => cr.order_item_id === it.id);
+                            const hasItemLevelCalled = it.material_called || it.material_arrived;
+
+                            if (pairs.length === 0) {
+                                const hasRes = oFabRes.some(r => r.item_id === it.id && r.phoi_index === 0);
+                                if (!hasRes && !isCutOrCutting && !hasItemLevelCalled) {
+                                    case1 = false;
+                                    break;
+                                }
+                            } else {
+                                let allPairsCalled = true;
+                                for (let pIdx = 0; pIdx < pairs.length; pIdx++) {
+                                    const hasRes = oFabRes.some(r => r.item_id === it.id && r.phoi_index === pIdx);
+                                    if (!hasRes && !isCutOrCutting && !hasItemLevelCalled) {
+                                        allPairsCalled = false;
+                                        break;
+                                    }
+                                }
+                                if (!allPairsCalled) {
+                                    case1 = false;
+                                    break;
+                                }
+                            }
+
+                            // 2. Material Called
+                            if (!it.material_called && !it.material_arrived) {
+                                case1 = false;
+                                break;
+                            }
+
+                            // 3. Print Assigned
+                            const hasPrintAssign = oPrint.some(pa => pa.item_id === it.id) ||
+                                                   oPrintQlx.some(pa => pa.item_id === it.id) ||
+                                                   oPrintQlx.some(pa => pa.item_id === null);
+                            if (!hasPrintAssign) {
+                                case1 = false;
+                                break;
+                            }
+
+                            // 4. Sewing Assigned
+                            const hasSewingAssign = oSew.some(sr => sr.order_item_id === it.id) ||
+                                                    oSewQlx.some(sa => sa.item_id === it.id) ||
+                                                    oSewQlx.some(sa => sa.item_id === null);
+                            if (!hasSewingAssign) {
+                                case1 = false;
+                                break;
+                            }
+                        }
+                        isCompleted = case1;
+                    }
+                }
+
+                if (c.is_completed !== isCompleted) {
+                    await ensureOrderPrepRow(orderId);
+                    await db.run(`
+                        UPDATE qlx_preparation 
+                        SET is_completed = $1, 
+                            completed_at = $2, 
+                            updated_at = $3 
+                        WHERE dht_order_id = $4 AND item_id IS NULL
+                    `, [isCompleted, isCompleted ? now : null, now, orderId]);
+
+                    const label = isCompleted ? 'Tự động hoàn thành chuẩn bị QLX' : 'Tự động mở lại chuẩn bị (chưa hoàn thành)';
+                    await db.run(`
+                        INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                        VALUES ($1, $2, $3, $4, $5)
+                    `, [orderId, isCompleted ? 'complete' : 'reopen', label, perfBy, now]);
+                }
+            }
+        } catch (e) {
+            console.error('[QLX] batchSyncActiveOrdersCompletion error:', e.message);
+        }
+    }
+
+
     async function syncCutScheduleToItemSchedule(dhtOrderId, itemId, cutSchedule, userId) {
         const { vnNow } = require('../utils/timezone');
         const { isDayOff } = require('../utils/ledgerDayOff');
@@ -590,6 +757,8 @@ module.exports = async function(fastify) {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền truy cập' });
 
+        await batchSyncActiveOrdersCompletion(request.user.id);
+
         // Chưa hoàn thành: orders where qlx_preparation.is_completed = false or not yet created
         const incomplete = await db.all(`
             SELECT
@@ -663,6 +832,8 @@ module.exports = async function(fastify) {
     fastify.get('/api/qlx/orders', { preHandler: [authenticate] }, async (request, reply) => {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền truy cập' });
+
+        await batchSyncActiveOrdersCompletion(request.user.id);
 
         const { status, year, month, category_id, search } = request.query;
 
