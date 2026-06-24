@@ -3134,9 +3134,14 @@ function mMCRender(){
                     locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+locName+'</div>';
                 }
 
+                var imgHtml = '';
+                if (r.image_path) {
+                    imgHtml = '<img src="' + r.image_path + '" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;margin-right:2px;" onclick="event.preventDefault(); event.stopPropagation(); mOpenImagePreview(\'' + r.image_path + '\')">';
+                }
                 h+='<label style="display:block;padding:10px;border-radius:10px;margin-bottom:6px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+borderStyle+'">';
                 h+='  <div style="display:flex;align-items:center;gap:10px">';
                 h+='    <input type="checkbox" class="_mmRCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mMCRollCh()" style="width:20px;height:20px;accent-color:#f97316">';
+                if (imgHtml) h += '    ' + imgHtml;
                 h+='    <span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#e2e8f0">'+r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</span>' + locBadge + '</span>';
                 if(r.locked)h+='<span style="color:#ef4444;font-size:9px">🔒 '+(r.locked_order?r.locked_order+' — ':'')+(r.locked_by||'')+'</span>';
                 h+='  </div>';
