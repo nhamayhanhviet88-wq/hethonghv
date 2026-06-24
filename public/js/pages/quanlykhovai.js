@@ -2606,7 +2606,7 @@ async function performDirectRollReturn(rollId) {
             return;
         }
         
-        var rollRes = await apiCall('/api/khovai/rolls/' + rollId, 'PUT', { is_returned: true });
+        var rollRes = await apiCall('/api/khovai/rolls/' + rollId, 'PUT', { return_tx_id: txRes.id, location: '📍 Kệ Dự Định Hoàn Vải' });
         if (rollRes && rollRes.error) {
             showToast("Lỗi khi cập nhật trạng thái cây vải: " + rollRes.error, "error");
             return;

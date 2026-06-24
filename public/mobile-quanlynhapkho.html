@@ -2304,7 +2304,7 @@
                     return;
                 }
                 
-                var rollRes = await api('/api/khovai/rolls/' + rollId, 'PUT', { is_returned: true });
+                var rollRes = await api('/api/khovai/rolls/' + rollId, 'PUT', { return_tx_id: txRes.id, location: '📍 Kệ Dự Định Hoàn Vải' });
                 if (rollRes && rollRes.error) {
                     alert("Lỗi khi cập nhật trạng thái cây vải: " + rollRes.error);
                     return;
