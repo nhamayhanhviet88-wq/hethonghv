@@ -2142,7 +2142,8 @@ function closeImagePreviewModal() {
 var _qkvModalState = {
     shelfName: '',
     activeMaterial: '',
-    searchQuery: ''
+    searchQuery: '',
+    onlyNguyen: false
 };
 
 function _qkvShowShelfDetailModal(shelfName) {
@@ -2164,6 +2165,19 @@ function _qkvShowShelfDetailModal(shelfName) {
     // Initialize state
     _qkvModalState.shelfName = shelfName;
     _qkvModalState.searchQuery = '';
+    _qkvModalState.onlyNguyen = false;
+    
+    // Compute total original rolls
+    var totalNguyen = 0;
+    shelfItems.forEach(function(item) {
+        if (item.roll_weights) {
+            item.roll_weights.forEach(function(r) {
+                if (Number(r.w) >= Number(r.ow)) {
+                    totalNguyen++;
+                }
+            });
+        }
+    });
     
     // Default to first material
     var matNames = [];
@@ -2185,13 +2199,18 @@ function _qkvShowShelfDetailModal(shelfName) {
                 </div>
                 <div style="text-align:right; font-size:13px; font-weight:800; color:#334155;">
                     <span style="background:#e0f2fe; color:#0369a1; padding:4px 10px; border-radius:8px; display:inline-block; margin-right:6px;">${matNames.length} chất liệu</span>
-                    <span style="background:#ccfbf1; color:#0f766e; padding:4px 10px; border-radius:8px; display:inline-block;">${_qkvFmt(totalWeight)} kg (${totalRolls} cây)</span>
+                    <span style="background:#ccfbf1; color:#0f766e; padding:4px 10px; border-radius:8px; display:inline-block; margin-right:6px;">${_qkvFmt(totalWeight)} kg (${totalRolls} cây)</span>
+                    <span style="background:#fef3c7; color:#d97706; padding:4px 10px; border-radius:8px; display:inline-block;">${totalNguyen} cây nguyên</span>
                 </div>
             </div>
 
-            <!-- Search box inside detail modal -->
-            <div style="position:relative;">
-                <input type="text" id="qkvModalSearch" placeholder="Tìm chất liệu, màu hoặc mã cây vải..." oninput="_qkvOnModalSearch(this.value)" style="width:100%; padding:10px 14px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:13px; outline:none; transition:border-color 0.2s;" />
+            <!-- Search box and filters inside detail modal -->
+            <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+                <input type="text" id="qkvModalSearch" placeholder="Tìm chất liệu, màu hoặc mã cây vải..." oninput="_qkvOnModalSearch(this.value)" style="flex:1; padding:10px 14px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:13px; outline:none; transition:border-color 0.2s; margin-bottom:0;" />
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#334155; cursor:pointer; user-select:none; white-space:nowrap; background:#f1f5f9; border:1.5px solid #cbd5e1; padding:8px 12px; border-radius:10px; margin-bottom:0;">
+                    <input type="checkbox" id="qkvModalOnlyNguyen" onchange="_qkvToggleOnlyNguyenFilter(this.checked)" style="width:16px; height:16px; accent-color:#0f766e;" />
+                    <span>Chỉ hiện cây nguyên</span>
+                </label>
             </div>
 
             <!-- Two-Column Layout -->
@@ -2254,10 +2273,22 @@ function _qkvUpdateModalView() {
         // Filter rolls matching search key if query is not empty
         var matchedRolls = item.roll_weights || [];
         if (query.length > 0) {
-            matchedRolls = (item.roll_weights || []).filter(function(r) {
+            matchedRolls = matchedRolls.filter(function(r) {
                 var rollText = `${r.w} kg ${r.code || ''}`.toLowerCase();
                 return rollText.includes(query) || item.color_name.toLowerCase().includes(query) || matName.toLowerCase().includes(query);
             });
+        }
+
+        // Filter only original rolls if onlyNguyen is checked
+        if (_qkvModalState.onlyNguyen) {
+            matchedRolls = matchedRolls.filter(function(r) {
+                return Number(r.w) >= Number(r.ow);
+            });
+        }
+
+        // If onlyNguyen is checked, and we have no rolls left, skip this color item
+        if (_qkvModalState.onlyNguyen && matchedRolls.length === 0) {
+            return;
         }
 
         // If query is present and no rolls match, and color/material name doesn't match, skip
@@ -2269,7 +2300,13 @@ function _qkvUpdateModalView() {
         // Use original rolls if it matched on name but has no rolls (empty color)
         var finalRolls = matchedRolls;
         if (query.length > 0 && finalRolls.length === 0 && matOrColorMatch) {
-            finalRolls = item.roll_weights || [];
+            var baseRolls = item.roll_weights || [];
+            if (_qkvModalState.onlyNguyen) {
+                baseRolls = baseRolls.filter(function(r) {
+                    return Number(r.w) >= Number(r.ow);
+                });
+            }
+            finalRolls = baseRolls;
         }
 
         if (!materialGroups[matName]) {
@@ -2415,6 +2452,11 @@ function _qkvSelectModalMaterial(matName) {
 
 function _qkvOnModalSearch(val) {
     _qkvModalState.searchQuery = val;
+    _qkvUpdateModalView();
+}
+
+function _qkvToggleOnlyNguyenFilter(checked) {
+    _qkvModalState.onlyNguyen = checked;
     _qkvUpdateModalView();
 }
 
