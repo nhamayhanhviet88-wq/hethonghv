@@ -21,8 +21,8 @@ const MOBILE_MENU_CONFIG = [
     { id: 'timkiem', label: 'Tìm Kiếm KH', icon: '🔍', href: '/m/tim-kiem', permKey: 'tim_kiem_kh' },
     { id: 'accounts', label: 'Tài Khoản Nhân Viên', icon: '👥', href: '/m/accounts', permKey: 'nhan_vien' },
     { id: 'billnhaphang', label: 'Bill Nhập Vải', icon: '🧾', href: '/m/billnhaphang', permKey: 'bill_nhap_hang' },
-    { id: 'kiemkho', label: 'Kiểm Kho Vải', icon: '📝', href: '/m/kiemkhohv', permKey: 'kiem_kho' },
     { id: 'nhapxuathoanvai', label: 'Nhập Xuất Hoàn Vải', icon: '🔄', href: '/m/nhapxuathoanvai', permKey: 'nhap_xuat_hoan_vai' },
+    { id: 'kiemkho', label: 'Kiểm Kho Vải', icon: '📝', href: '/m/kiemkhohv', permKey: 'kiem_kho' },
     { id: 'vatlieutempet', label: 'Vật Liệu PET/TEM', icon: '🏷️', href: '/m/vatlieutempet', permKey: 'vat_lieu_tem_pet' },
     { id: 'xinnghi', label: 'Xin Nghỉ Nhân Viên', icon: '📋', href: '/m/xinnghinhanvien', permKey: 'xin_nghi_nv' }
 ];

@@ -83,14 +83,14 @@ const PERM_FEATURES = [
     { key: 'luong_san_xuat', label: 'Lương Sản Xuất', perms: ['view','create','edit'], section: 'MẪU & GIÁ SẢN XUẤT' },
     { key: 'bang_gia_may', label: 'Bảng Giá May', perms: ['view','create','edit','delete'], section: 'MẪU & GIÁ SẢN XUẤT' },
     { key: 'bill_nhap_hang', label: 'Bill Nhập Vải', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
+    { key: 'nhap_xuat_hoan_vai', label: 'Nhập Xuất Hoàn Vải', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bill_vat_lieu', label: 'Bill Nhập Vật Liệu', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
+    { key: 'nhap_xuat_hoan_vat_lieu', label: 'Nhập Xuất Hoàn Vật Liệu', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'kiem_kho', label: 'Kiểm Kho', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'kho_vai', label: 'Kho Vải', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'quan_ly_nhap_kho_vai', label: 'Quản Lý Nhập Kho Vải', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'xuat_vai_cat', label: 'Xuất Vải Để Cắt', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'kho_vat_lieu', label: 'Kho Vật Liệu', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
-    { key: 'nhap_xuat_hoan_vai', label: 'Nhập Xuất Hoàn Vải', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
-    { key: 'nhap_xuat_hoan_vat_lieu', label: 'Nhập Xuất Hoàn Vật Liệu', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'thong_so_ao_mau', label: 'Thông Số Mẫu Áo', perms: ['view','create','edit'], section: 'MẪU & GIÁ SẢN XUẤT' },
 
     // ===== QUẢN LÝ XƯỞNG =====
