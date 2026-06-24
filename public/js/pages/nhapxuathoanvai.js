@@ -360,7 +360,6 @@ function renderAllRollsList(searchTerm = '') {
         
         html += `
                 <div>
-                    <div style="font-weight:700; font-size:10px; margin-bottom:4px; color:${groupColor};">${groupTitle}</div>
                     <div style="display:flex; flex-direction:column; gap:3px;">
                         ${filtered.map(r => {
                             const shelf = _selectedRetType === 1 ? '' : (r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ');

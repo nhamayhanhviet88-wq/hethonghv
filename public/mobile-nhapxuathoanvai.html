@@ -292,7 +292,6 @@ function mRenderAllRollsList(searchTerm = '') {
         
         html += `
                 <div style="margin-bottom:4px;">
-                    <div style="font-weight:700; font-size:9px; margin-bottom:2px; color:${groupColor};">${groupTitle}</div>
                     <div style="display:flex; flex-direction:column; gap:3px;">
                         ${filtered.map(r => {
                             const shelf = mSelectedRetType === 1 ? '' : (r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ');
