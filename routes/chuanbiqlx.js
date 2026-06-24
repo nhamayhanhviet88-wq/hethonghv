@@ -804,8 +804,11 @@ module.exports = async function(fastify) {
                 EXTRACT(MONTH FROM COALESCE(o.shipping_date, o.order_date))::int AS month,
                 COUNT(*)::int AS order_count
             FROM dht_orders o
+            LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
-            WHERE COALESCE(p.is_completed, false) = true OR COALESCE(o.shipping_status, '') = 'shipped'
+            WHERE (COALESCE(p.is_completed, false) = true OR COALESCE(o.shipping_status, '') = 'shipped')
+              AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
+              AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
             GROUP BY year, month
             ORDER BY year DESC, month DESC
         `);
