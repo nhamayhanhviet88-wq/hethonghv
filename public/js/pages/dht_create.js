@@ -540,7 +540,7 @@ async function _dhtGoStep2() {
     _dhtCreate.availableCodes = codesRes.codes || [];
     if (!_dhtCreate.editMode) _dhtCreate.orderCode = '';
     var mi = _dhtCreate.myInfo;
-    var catOpts = _dht.categories.filter(function(c){ return c.name !== 'PET' && c.name !== 'TEM'; }).map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
+    var catOpts = _dht.categories.filter(function(c){ return c.name !== 'PET' && c.name !== 'TEM' && c.name !== 'ĐƠN SỬA'; }).map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
     var designers = designRes.designers || [];
     var desOpts = '<option value="">-- Chọn --</option><option value="old_design">🎨 Thiết Kế Cũ</option>'
         + designers.map(function(d){ return '<option value="'+d.id+'">'+d.full_name+'</option>'; }).join('');
@@ -677,7 +677,28 @@ async function _dhtGoStep2() {
         document.getElementById('_co_src').value = o.source || '';
         // Category
         var catSel = document.getElementById('_co_cat');
-        if (catSel && o.category_id) catSel.value = o.category_id;
+        if (catSel && o.category_id) {
+            if (o.is_repair || o.category_name === 'ĐƠN SỬA') {
+                var found = false;
+                for (var i = 0; i < catSel.options.length; i++) {
+                    if (catSel.options[i].value == o.category_id) { found = true; break; }
+                }
+                if (!found) {
+                    var opt = document.createElement('option');
+                    opt.value = o.category_id;
+                    opt.text = 'ĐƠN SỬA';
+                    catSel.appendChild(opt);
+                }
+                catSel.value = o.category_id;
+                catSel.disabled = true;
+                catSel.style.background = '#ede9fe';
+                catSel.style.color = '#6d28d9';
+                catSel.style.fontWeight = '800';
+                catSel.style.cursor = 'not-allowed';
+            } else {
+                catSel.value = o.category_id;
+            }
+        }
         // Designer
         var desSel = document.getElementById('_co_designer');
         if (desSel) {
