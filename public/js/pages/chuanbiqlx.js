@@ -113,13 +113,16 @@ async function _qlxLoadHolidays() {
         var res = await apiCall('/api/penalty/holidays');
         var list = res.holidays || [];
         var holidaySet = new Set();
+        var holidayNamesMap = {};
         list.forEach(function(h) {
             if (h.holiday_date) {
                 var dateStr = h.holiday_date.split('T')[0];
                 holidaySet.add(dateStr);
+                holidayNamesMap[dateStr] = h.holiday_name || 'Ngày nghỉ lễ';
             }
         });
         window._qlxHolidaysSet = holidaySet;
+        window._qlxHolidaysNamesMap = holidayNamesMap;
     } catch(e) {
         console.error('[QLX] Failed to load holidays:', e);
     }
@@ -1348,6 +1351,16 @@ function _qlxCutReminderChanged() {
     var displayEl = document.getElementById('qlx_cut_schedule_raw_display');
     if (rawEl && displayEl) {
         if (rawEl.value) {
+            if (window._qlxHolidaysSet && window._qlxHolidaysSet.has(rawEl.value)) {
+                var hName = (window._qlxHolidaysNamesMap && window._qlxHolidaysNamesMap[rawEl.value]) || 'Ngày nghỉ lễ';
+                var dParts = rawEl.value.split('-');
+                var dateFormatted = dParts[2] + '/' + dParts[1] + '/' + dParts[0];
+                showToast('⚠️ Ngày ' + dateFormatted + ' là ngày lễ (' + hName + '), không thể chọn!', 'error');
+                rawEl.value = '';
+                displayEl.style.color = '#94a3b8';
+                displayEl.value = 'Bấm để chọn lịch cắt...';
+                return;
+            }
             displayEl.style.color = '#1e293b';
             if (typeof _qlxFormatDateTimeToShow === 'function') {
                 displayEl.value = _qlxFormatDateTimeToShow(rawEl.value);
