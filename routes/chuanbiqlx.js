@@ -341,7 +341,15 @@ module.exports = async function(fastify) {
                 sewingRecords,
                 sewingAssignmentsQlx
             ] = await Promise.all([
-                db.all(`SELECT id, dht_order_id, shipping_status, material_pairs, material_called, material_arrived FROM dht_order_items WHERE dht_order_id = ANY($1)`, [orderIds]),
+                db.all(`
+                    SELECT doi.id, doi.dht_order_id, doi.shipping_status, doi.material_pairs,
+                           COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
+                           COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived
+                    FROM dht_order_items doi
+                    LEFT JOIN qlx_preparation p_item ON p_item.item_id = doi.id
+                    LEFT JOIN qlx_preparation p_order ON p_order.dht_order_id = doi.dht_order_id AND p_order.item_id IS NULL
+                    WHERE doi.dht_order_id = ANY($1)
+                `, [orderIds]),
                 db.all(`SELECT dht_order_id, item_id, phoi_index FROM qlx_fabric_reservations WHERE dht_order_id = ANY($1) AND status NOT IN ('released', 'fulfilled')`, [orderIds]),
                 db.all(`SELECT dht_order_id, order_item_id FROM cutting_records WHERE dht_order_id = ANY($1) AND (is_cutting = true OR is_cut_done = true)`, [orderIds]),
                 db.all(`SELECT dht_order_id, item_id FROM qlx_order_print_assignments WHERE dht_order_id = ANY($1)`, [orderIds]),
@@ -769,7 +777,7 @@ module.exports = async function(fastify) {
                 COUNT(*)::int AS order_count
             FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             WHERE COALESCE(p.is_completed, false) = false
               AND COALESCE(o.shipping_status, '') != 'shipped'
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
@@ -782,7 +790,7 @@ module.exports = async function(fastify) {
         const pendingKT = await db.get(`
             SELECT COUNT(*)::int AS cnt FROM dht_orders o
             LEFT JOIN dht_categories c ON o.category_id = c.id
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             WHERE COALESCE(p.is_completed, false) = false
               AND COALESCE(o.shipping_status, '') != 'shipped'
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
@@ -796,7 +804,7 @@ module.exports = async function(fastify) {
                 EXTRACT(MONTH FROM COALESCE(o.shipping_date, o.order_date))::int AS month,
                 COUNT(*)::int AS order_count
             FROM dht_orders o
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id
+            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             WHERE COALESCE(p.is_completed, false) = true OR COALESCE(o.shipping_status, '') = 'shipped'
             GROUP BY year, month
             ORDER BY year DESC, month DESC
@@ -2296,10 +2304,10 @@ module.exports = async function(fastify) {
 
         await ensureOrderPrepRow(orderId);
 
-        const prep = await db.get('SELECT is_completed FROM qlx_preparation WHERE dht_order_id = $1', [orderId]);
+        const prep = await db.get('SELECT is_completed FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
         const newVal = !prep?.is_completed;
 
-        await db.run(`UPDATE qlx_preparation SET is_completed = $1, completed_at = $2, updated_at = $2 WHERE dht_order_id = $3`,
+        await db.run(`UPDATE qlx_preparation SET is_completed = $1, completed_at = $2, updated_at = $2 WHERE dht_order_id = $3 AND item_id IS NULL`,
             [newVal, newVal ? now : null, orderId]);
 
         const label = newVal ? 'Đánh dấu Hoàn Thành chuẩn bị' : 'Mở lại chuẩn bị (chưa hoàn thành)';
