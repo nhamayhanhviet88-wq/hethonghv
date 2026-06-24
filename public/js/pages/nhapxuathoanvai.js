@@ -345,12 +345,12 @@ async function openCreateReturnModal() {
                     <!-- Direct postpone / scheduling UI -->
                     <div style="margin-top:12px; border-top:1.5px dashed #cbd5e1; padding-top:12px;">
                         <label style="display:inline-flex; align-items:center; gap:8px; font-weight:800; color:#b45309; font-size:12px; cursor:pointer; margin-bottom:6px;">
-                            <input type="checkbox" id="nxhv_m_postpone_toggle" style="width:15px; height:15px; accent-color:#d97706;" onchange="toggleCreatePostponeUI(this.checked)" />
-                            ⏳ HẸN LỊCH HOÀN VẢI (LÙI LỊCH HOÀN)
+                            <input type="checkbox" id="nxhv_m_postpone_toggle" checked style="display:none;" />
+                            ⏳ HẸN LỊCH HOÀN VẢI (BẮT BUỘC)
                         </label>
                         
-                        <div id="nxhv_m_postpone_area" style="display:none; flex-direction:column; gap:10px; margin-top:8px;">
-                            <div id="postponePasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; position:relative; transition:all 0.2s; overflow:hidden;">
+                        <div id="nxhv_m_postpone_area" style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+                            <div id="postponePasteArea" style="display:none;">
                                 <div id="postponePastePlaceholder">
                                     <span style="font-size:24px; display:block; margin-bottom:6px;">📋</span>
                                     <span style="font-weight:700; color:#475569; display:block; font-size:12px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>
@@ -438,6 +438,8 @@ async function openCreateReturnModal() {
             }
         };
         document.addEventListener('paste', _postponePasteHandler);
+        
+        toggleCreatePostponeUI(true);
         
         // Check if there is an auto-select request
         _nxhvCheckAutoOpenReturn();
@@ -708,10 +710,6 @@ async function submitCreateReturn() {
             return;
         }
         
-        if (!_postponeImageBlob) {
-            showToast('Vui lòng dán hình ảnh chứng minh để lùi lịch!', 'warning');
-            return;
-        }
         postponeNotes = document.getElementById('postponeNotes').value.trim();
     }
 
@@ -755,19 +753,22 @@ async function submitCreateReturn() {
         const newTxId = res.id;
         
         if (isPostponed) {
-            submitBtn.textContent = 'Đang tải ảnh lùi lịch...';
-            // 1. Upload proof image
-            const formData = new FormData();
-            formData.append('file', _postponeImageBlob, 'postpone_proof.webp');
-            const uploadRes = await apiCall('/api/fabrictx/upload-postpone/' + newTxId, 'POST', formData);
-            if (!uploadRes.url) {
-                throw new Error(uploadRes.error || 'Lỗi upload ảnh chứng minh lùi lịch');
+            let imgUrls = [];
+            if (_postponeImageBlob) {
+                submitBtn.textContent = 'Đang tải ảnh lùi lịch...';
+                // 1. Upload proof image
+                const formData = new FormData();
+                formData.append('file', _postponeImageBlob, 'postpone_proof.webp');
+                const uploadRes = await apiCall('/api/fabrictx/upload-postpone/' + newTxId, 'POST', formData);
+                if (uploadRes.url) {
+                    imgUrls.push(uploadRes.url);
+                }
             }
             
             submitBtn.textContent = 'Đang lưu lùi lịch...';
             // 2. Submit postpone request
             const postponeRes = await apiCall('/api/fabrictx/postpone/' + newTxId, 'POST', {
-                images: [uploadRes.url],
+                images: imgUrls,
                 notes: postponeNotes,
                 target_date: targetDate
             });
