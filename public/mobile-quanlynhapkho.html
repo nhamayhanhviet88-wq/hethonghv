@@ -1723,6 +1723,38 @@
                 return false;
             }
 
+            function doesBelongToShelf(item, shelfName) {
+                if (!shelfName) return false;
+                var sName = shelfName.trim().toLowerCase();
+                
+                if (activeLoc && Number(activeLoc.restricted_material_id) === Number(item.material_id)) {
+                    return true;
+                }
+                
+                var belongs = false;
+                if (typeof summary !== 'undefined') {
+                    summary.forEach(function(x) {
+                        if (Number(x.material_id) === Number(item.material_id) && x.material_location) {
+                            var shelves = x.material_location.split(',').map(s => s.trim().toLowerCase());
+                            if (shelves.includes(sName)) {
+                                belongs = true;
+                            }
+                        }
+                    });
+                }
+                return belongs;
+            }
+
+            function getShelfPriorityScore(item) {
+                if (doesBelongToShelf(item, activeImportShelf)) {
+                    return 2;
+                }
+                if (isMaterialAllowed(item)) {
+                    return 1;
+                }
+                return 0;
+            }
+
             function buildImportItemHtml(item, isAllowed, index, groupType) {
                 var rollsHtml = '';
                 
@@ -1832,6 +1864,7 @@
                 }
                 return true;
             });
+            processedLeItems.sort((a, b) => getShelfPriorityScore(b) - getShelfPriorityScore(a));
 
             var processedNguyenItems = (globalProcessedNguyen || []).filter(item => {
                 if (val) {
@@ -1840,6 +1873,7 @@
                 }
                 return true;
             });
+            processedNguyenItems.sort((a, b) => getShelfPriorityScore(b) - getShelfPriorityScore(a));
 
             if (processedLeItems.length === 0 && processedNguyenItems.length === 0) {
                 list.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">Không có vải phù hợp cần xử lý kho</div>';
