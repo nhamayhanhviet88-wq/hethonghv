@@ -310,7 +310,8 @@ function renderAllRollsList(searchTerm = '') {
         if (_selectedRetType === 1) {
             filtered = rolls.filter(r => {
                 const isNguyen = Number(r.w) >= Number(r.ow);
-                const isUnassigned = !r.loc || r.loc.trim() === '';
+                const rollLoc = (r.loc || '').trim();
+                const isUnassigned = !rollLoc || rollLoc === 'Chưa Phân Vị Trí Cây Nguyên' || rollLoc === 'Chưa xếp kệ' || rollLoc === 'Chưa xếp vị trí';
                 const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
                 return isNguyen && isUnassigned && isFree;
             });
@@ -319,7 +320,8 @@ function renderAllRollsList(searchTerm = '') {
         } else if (_selectedRetType === 2) {
             filtered = rolls.filter(r => {
                 const isNguyen = Number(r.w) >= Number(r.ow);
-                const isOnShelf = r.loc && r.loc.trim() !== '';
+                const rollLoc = (r.loc || '').trim();
+                const isOnShelf = rollLoc !== '' && rollLoc !== 'Chưa Phân Vị Trí Cây Nguyên' && rollLoc !== 'Chưa xếp kệ' && rollLoc !== 'Chưa xếp vị trí';
                 const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
                 return isNguyen && isOnShelf && isFree;
             });
