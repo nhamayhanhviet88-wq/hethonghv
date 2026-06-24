@@ -1154,7 +1154,7 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
         var minVal = typeof _qlxGetMinDateTimeStr === 'function' ? _qlxGetMinDateTimeStr() : '';
         html += '  <div style="position:relative; width:100%; max-width:320px; margin-bottom:12px;">';
         html += '    <input type="text" id="qlx_cut_schedule_raw_display" class="modal-input qlx-custom-datetime-input" style="width:100%; padding:6px 10px; border:2.5px solid #cbd5e1; border-radius:8px; font-size:12px; background:#fff; cursor:pointer; font-weight:600; color:' + colorAttr + '; transition:all 0.3s;" readonly value="' + displayVal + '">';
-        html += '    <input type="datetime-local" id="qlx_cut_schedule_raw" value="' + valISO + '" min="' + minVal + '" onchange="_qlxCutReminderChanged()" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10;">';
+        html += '    <input type="datetime-local" id="qlx_cut_schedule_raw" value="' + valISO + '" min="' + minVal + '" onchange="_qlxCutReminderChanged()" onclick="if(typeof this.showPicker === \'function\') this.showPicker()" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10;">';
         html += '    <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:#64748b; font-size:12px; z-index:5;">📅</span>';
         html += '  </div>';
     }
