@@ -2786,7 +2786,7 @@ async function mOpenGroupDoneModal(groupId, isRefresh = false){
         sheetHtml+='<input type="checkbox" class="_mGRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mGDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#8b5cf6">';
         sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(idx+1)+'. '+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+'</span>';
         sheetHtml+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
-        sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRollGroup('+groupId+','+rl.roll_id+')" style="border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
+        sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRollGroup(\''+groupId+'\','+rl.roll_id+')" style="border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
         sheetHtml+=mRenderRollReservations(rl, groupOrderCodes);
         sheetHtml+='<div id="_mGRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         sheetHtml+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
@@ -2794,7 +2794,7 @@ async function mOpenGroupDoneModal(groupId, isRefresh = false){
         sheetHtml+='<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
     sheetHtml+='</div>';
-    sheetHtml+='<button onclick="mShowAddRollGroup('+groupId+', \''+(ref.material_name||'').replace(/'/g, "\\'")+'\', \''+(ref.fabric_color||'').replace(/'/g, "\\'")+'\')" style="margin-top:8px;width:100%;padding:10px;background:rgba(255,255,255,0.06);color:#c4b5fd;border:1.5px dashed rgba(167,139,250,0.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">➕ Thêm cây vải khác</button>';
+    sheetHtml+='<button onclick="mShowAddRollGroup(\''+groupId+'\', \''+(ref.material_name||'').replace(/'/g, "\\'")+'\', \''+(ref.fabric_color||'').replace(/'/g, "\\'")+'\')" style="margin-top:8px;width:100%;padding:10px;background:rgba(255,255,255,0.06);color:#c4b5fd;border:1.5px dashed rgba(167,139,250,0.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">➕ Thêm cây vải khác</button>';
     sheetHtml+='<div id="_mAddRollAreaGroup" style="margin-top:10px;display:none;background:rgba(255,255,255,0.04);padding:12px;border-radius:10px;border:1.5px dashed rgba(255,255,255,0.1)">';
     sheetHtml+='<div style="font-size:11px;font-weight:700;color:#a5b4fc;margin-bottom:8px">CHỌN CÂY VẢI THÊM VÀO NHÓM:</div>';
     sheetHtml+='<select id="_mAddRollSelectGroup" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.15);font-size:13px;font-weight:700;margin-bottom:10px;background:#fff;color:#000;font-family:Inter,sans-serif">';
@@ -2802,7 +2802,7 @@ async function mOpenGroupDoneModal(groupId, isRefresh = false){
     sheetHtml+='</select>';
     sheetHtml+='<div style="display:flex;gap:8px;justify-content:flex-end">';
     sheetHtml+='<button class="mm-btn mm-btn-no" style="padding:6px 12px;font-size:12px;min-height:32px" onclick="document.getElementById(\'_mAddRollAreaGroup\').style.display=\'none\'">Hủy</button>';
-    sheetHtml+='<button class="mm-btn mm-btn-ok" style="padding:6px 12px;font-size:12px;min-height:32px;background:linear-gradient(135deg,#7c3aed,#a855f7)" onclick="mDoAddRollGroup('+groupId+')">Thêm</button>';
+    sheetHtml+='<button class="mm-btn mm-btn-ok" style="padding:6px 12px;font-size:12px;min-height:32px;background:linear-gradient(135deg,#7c3aed,#a855f7)" onclick="mDoAddRollGroup(\''+groupId+'\')">Thêm</button>';
     sheetHtml+='</div></div></div>';
     // Stats
     sheetHtml+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
