@@ -20,6 +20,55 @@ module.exports = async function(fastify) {
         }
     }
 
+    async function onRollsLockedForCutting(db, rollIds, cuttingRecordId, user) {
+        if (!rollIds || rollIds.length === 0) return;
+        const now = vnNow();
+        
+        const cutRecord = await db.get('SELECT dht_order_id FROM cutting_records WHERE id = $1', [cuttingRecordId]);
+        const dhtOrderId = cutRecord ? cutRecord.dht_order_id : null;
+        
+        const order = dhtOrderId ? await db.get('SELECT order_code FROM dht_orders WHERE id = $1', [dhtOrderId]) : null;
+        const orderCode = order ? order.order_code : `#${dhtOrderId}`;
+        
+        for (const rId of rollIds) {
+            const roll = await db.get('SELECT location, return_tx_id, locked_by_cutting_id FROM kv_rolls WHERE id = $1', [rId]);
+            if (!roll) continue;
+            
+            if (roll.return_tx_id) {
+                const txId = roll.return_tx_id;
+                await db.run(`UPDATE fabric_transactions SET is_canceled = true, notes = '[ĐÃ HỦY] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng ' || $1, updated_at = $2 WHERE id = $3`, [orderCode, now, txId]);
+                await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'cancel', $2, $3, $4)`, 
+                    [txId, `Hủy do QLX/Thợ cắt chọn cắt cho đơn ${orderCode}`, user ? user.id : null, now]);
+                await db.run(`UPDATE kv_rolls SET location = original_location, original_location = NULL, return_tx_id = NULL WHERE return_tx_id = $1`, [txId]);
+            }
+            
+            const updatedRoll = await db.get('SELECT location, original_location FROM kv_rolls WHERE id = $1', [rId]);
+            if (updatedRoll && updatedRoll.location && updatedRoll.location !== '📍 Kệ Dự Định Hoàn Vải') {
+                await db.run(`UPDATE kv_rolls SET original_location = $1 WHERE id = $2`, [updatedRoll.location, rId]);
+            }
+        }
+    }
+
+    async function onRollsUnlockedFromCutting(db, rollIds, wasCut, customLocation) {
+        if (!rollIds || rollIds.length === 0) return;
+        for (const rId of rollIds) {
+            const roll = await db.get('SELECT location, original_location, weight, original_weight FROM kv_rolls WHERE id = $1', [rId]);
+            if (!roll) continue;
+            
+            let targetLocation = customLocation;
+            if (targetLocation === undefined) {
+                if (!wasCut && roll.original_location) {
+                    targetLocation = roll.original_location;
+                } else {
+                    const isOriginal = Number(roll.weight) >= Number(roll.original_weight);
+                    targetLocation = isOriginal ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
+                }
+            }
+            
+            await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = $1, original_location = NULL WHERE id = $2`, [targetLocation, rId]);
+        }
+    }
+
     async function populateSourceImportIds(records) {
         if (!records || records.length === 0) return;
         const rollIds = [];
@@ -856,6 +905,7 @@ module.exports = async function(fastify) {
                 }
                 return reply.code(409).send({ error: 'Có cây vải đã bị thợ khác chọn, vui lòng tải lại và chọn lại' });
             }
+            await onRollsLockedForCutting(db, locked.map(r => r.id), id, request.user);
             // Fetch full label (material + color) for snapshot
             const rollDetails = await db.all(`
                 SELECT r.id, r.weight, r.roll_code, m.name AS material_name, fc.color_name,
@@ -917,8 +967,9 @@ module.exports = async function(fastify) {
                     const newShared = 'Cắt chung ' + remaining.length + ' đơn: ' + remaining.map(r => r.product_name).join(', ');
                     await db.run(`UPDATE cutting_records SET cut_shared = $1, updated_at = $2 WHERE multi_cut_group_id = $3 AND id != $4 AND is_cutting = true`, [newShared, now, rec.multi_cut_group_id, id]);
                 } else {
-                    // Last member — unlock rolls and clear location
-                    await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = '' WHERE locked_by_cutting_id = $1`, [id]);
+                    // Last member — unlock rolls and restore location
+                    const rolls = await db.all('SELECT id FROM kv_rolls WHERE locked_by_cutting_id = $1', [id]);
+                    await onRollsUnlockedFromCutting(db, rolls.map(r => r.id), false);
                 }
                 await db.run(
                     `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', multi_cut_group_id = NULL, cut_shared = NULL, updated_at = $1 WHERE id = $2`,
@@ -926,8 +977,9 @@ module.exports = async function(fastify) {
                 );
                 detail = '↩️ Hoàn tác cắt chung — ' + (groupMembers.length > 0 ? 'rời nhóm, ' + groupMembers.length + ' đơn còn lại' : 'đã unlock cây vải');
             } else {
-                // Normal single-cut undo — unlock rolls and clear location
-                await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = '' WHERE locked_by_cutting_id = $1`, [id]);
+                // Normal single-cut undo — unlock rolls and restore location
+                const rolls = await db.all('SELECT id FROM kv_rolls WHERE locked_by_cutting_id = $1', [id]);
+                await onRollsUnlockedFromCutting(db, rolls.map(r => r.id), false);
                 await db.run(
                     `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', updated_at = $1 WHERE id = $2`,
                     [now, id]
@@ -1105,7 +1157,7 @@ module.exports = async function(fastify) {
                         const wasCut = finalWeight < (Number(s.weight) || 0);
                         const isLeftover = finalWeight > 0;
                         const needsPhoto = wasCut && isLeftover;
-                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '', needs_photo = $2 WHERE id = $3`, [finalWeight, needsPhoto, s.roll_id]);
+                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '', original_location = NULL, needs_photo = $2 WHERE id = $3`, [finalWeight, needsPhoto, s.roll_id]);
                         for (const member of [rec, ...allGroupDone]) {
                             await db.run(`
                                 UPDATE qlx_fabric_reservations 
@@ -1191,7 +1243,7 @@ module.exports = async function(fastify) {
                     const wasCut = finalWeight < (Number(s.weight) || 0);
                     const isLeftover = finalWeight > 0;
                     const needsPhoto = wasCut && isLeftover;
-                    await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '', needs_photo = $2 WHERE id = $3`, [finalWeight, needsPhoto, s.roll_id]);
+                    await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '', original_location = NULL, needs_photo = $2 WHERE id = $3`, [finalWeight, needsPhoto, s.roll_id]);
                     // Release the reservation for the current order and item on this roll since it's cut
                     await db.run(`
                         UPDATE qlx_fabric_reservations 
@@ -1275,6 +1327,7 @@ module.exports = async function(fastify) {
                         for (const s of snapshot) {
                             await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = $2 WHERE id = $3`, [s.weight, id, s.roll_id]);
                         }
+                        await onRollsLockedForCutting(db, snapshot.map(s => s.roll_id), id, request.user);
                     }
                     // Reset kg for all group members that were done
                     for (const gr of othersStillDone) {
@@ -1293,6 +1346,7 @@ module.exports = async function(fastify) {
                     for (const s of snapshot) {
                         await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = $2 WHERE id = $3`, [s.weight, id, s.roll_id]);
                     }
+                    await onRollsLockedForCutting(db, snapshot.map(s => s.roll_id), id, request.user);
                 }
                 await db.run(`UPDATE cutting_records SET is_cut_done = false, cut_done_at = NULL, cut_done_by = NULL,
                     kg_end = 0, kg_cut = 0, cut_quantity = 0, cut_ratio = 0, unit_price = 0, salary = 0, updated_at = $1 WHERE id = $2`, [now, id]);
@@ -1555,6 +1609,7 @@ module.exports = async function(fastify) {
         if (lockResult.changes === 0) {
             return reply.code(409).send({ error: 'Cây vải đã bị đơn khác chọn' });
         }
+        await onRollsLockedForCutting(db, [roll_id], lockId, request.user);
 
         let snapshot = [];
         try {
@@ -1626,19 +1681,7 @@ module.exports = async function(fastify) {
         }
 
         const removedRoll = snapshot[idx];
-        const rollInfo = await db.get(
-            `SELECT weight, original_weight FROM kv_rolls WHERE id = $1`,
-            [roll_id]
-        );
-        let newLocation = '';
-        if (rollInfo) {
-            const isOriginal = Number(rollInfo.weight) >= Number(rollInfo.original_weight);
-            newLocation = isOriginal ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
-        }
-        await db.run(
-            `UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = $1 WHERE id = $2 AND locked_by_cutting_id = $3`,
-            [newLocation, roll_id, lockId]
-        );
+        await onRollsUnlockedFromCutting(db, [roll_id], false);
 
         // Giải phóng giữ vải tương ứng cho các đơn hàng trong lượt cắt này
         const groupRecs = await db.all(
@@ -2683,6 +2726,7 @@ module.exports = async function(fastify) {
             await db.run(`DELETE FROM cutting_records WHERE id = ANY($1)`, [createdIds]);
             return reply.code(409).send({ error: 'Có cây vải đã bị thợ khác chọn, vui lòng tải lại' });
         }
+        await onRollsLockedForCutting(db, locked.map(r => r.id), primaryId, request.user);
 
         // Fetch roll labels
         const rollDetails = await db.all(`

@@ -103,16 +103,27 @@ function _nxhvRender(){
         var imgs='—';try{var ia=typeof r.bill_images==='string'?JSON.parse(r.bill_images):r.bill_images;if(ia&&ia.length)imgs='📸 '+ia.length;}catch(e){}
         var debt=Number(r.debt)||0;var dB=debt>0?'<span class="nxhv-debt red">🔴 '+_nxhvFN(debt)+'</span>':'<span class="nxhv-debt green">✅ 0</span>';
         var upd='';if(r.last_update_at){upd=_nxhvFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#0891b2;font-size:9px">'+r.last_update_by+'</span>';}
-        var clickHandler = r.tx_type === 'HOAN' ? ' style="cursor:pointer" onclick="if(event.target.tagName !== \'BUTTON\') openViewReturnModal('+r.id+')"' : '';
-        return '<tr'+clickHandler+'><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center"><button class="nxhv-ib'+aC+'" onclick="_nxhvTog('+r.id+',\''+aA+'\')" title="Duyệt">'+aI+'</button></td>'
+        var clickHandler = r.tx_type === 'HOAN' ? ' style="cursor:pointer" onclick="if(event.target.tagName !== \'BUTTON\' && !event.target.closest(\'button\')) openViewReturnModal('+r.id+')"' : '';
+        var rowStyle = r.is_canceled ? ' style="opacity: 0.65; background-color: #f1f5f9;"' : '';
+        var btnHTML = '';
+        if (r.is_canceled) {
+            btnHTML = '<span style="color:#ef4444;font-size:10px;font-weight:700;background:#fee2e2;padding:2px 6px;border-radius:4px;white-space:nowrap">❌ Đã hủy</span>';
+        } else {
+            btnHTML = '<button class="nxhv-ib'+aC+'" onclick="event.stopPropagation(); _nxhvTog('+r.id+',\''+aA+'\')" title="Duyệt">'+aI+'</button>';
+        }
+        var detailsHTML = cleanTreeDetails(r.tree_details);
+        if (r.is_canceled && r.notes) {
+            detailsHTML += '<br><span style="color:#ef4444;font-size:11px;font-weight:600">' + r.notes + '</span>';
+        }
+        return '<tr'+rowStyle+clickHandler+'><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
+        +'<td style="text-align:center">'+btnHTML+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td><span class="nxhv-tag" style="background:'+cl+'">'+(_nxhvTL[r.tx_type]||r.tx_type)+'</span></td>'
         +'<td style="font-size:10px;font-weight:600">'+formatDateTimeHM(r.created_at)+'</td>'
         +'<td style="font-size:10px;color:#0891b2;font-weight:700">'+(r.source_name||'—')+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+(r.material_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#6366f1;font-weight:600">'+(r.color_name||'—')+'</td>'
-        +'<td style="font-size:13px;font-weight:800;color:#0f172a;white-space:normal;line-height:1.4">'+cleanTreeDetails(r.tree_details)+'</td>'
+        +'<td style="font-size:13px;font-weight:800;color:#0f172a;white-space:normal;line-height:1.4">'+detailsHTML+'</td>'
         +'<td style="text-align:right;font-weight:600;color:#f59e0b">'+_nxhvFN(r.price)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:#1e293b">'+_nxhvFN(r.total_amount)+'</td>'
         +'<td style="text-align:center">'+dB+'</td>'
@@ -571,7 +582,7 @@ async function submitCreateReturn() {
             }
         }
         
-        await Promise.all(rollIds.map(id => apiCall('/api/khovai/rolls/' + id, 'PUT', { is_returned: true })));
+        await Promise.all(rollIds.map(id => apiCall('/api/khovai/rolls/' + id, 'PUT', { return_tx_id: newTxId, location: '📍 Kệ Dự Định Hoàn Vải' })));
         
         showToast('Tạo giao dịch hoàn vải thành công!');
         closeModal();

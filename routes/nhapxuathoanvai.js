@@ -113,11 +113,23 @@ module.exports = async function(fastify) {
     fastify.post('/api/fabrictx/toggle/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { action } = req.body || {}, now = vnNow();
         if (action === 'approve') {
-            if (!(await isNxhvManager(req))) return reply.code(403).send({ error: 'Chỉ QLX/GĐ/KT' });
+            if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Chỉ QLX/GĐ/KT' });
+            
+            const tx = await db.get('SELECT tx_type FROM fabric_transactions WHERE id=$1', [id]);
+            if (tx && tx.tx_type === 'HOAN') {
+                await db.run(`UPDATE kv_rolls SET is_returned=true, location=NULL WHERE return_tx_id=$1`, [id]);
+            }
+
             await db.run(`UPDATE fabric_transactions SET is_approved=true, approved_at=$1, approved_by=$2, updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
             await db.run(`INSERT INTO fabric_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, 'approve', '✅ Duyệt hoàn', req.user.id, now]);
         } else if (action === 'unapprove') {
-            if (!(await isNxhvManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
+            if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Không có quyền' });
+            
+            const tx = await db.get('SELECT tx_type FROM fabric_transactions WHERE id=$1', [id]);
+            if (tx && tx.tx_type === 'HOAN') {
+                await db.run(`UPDATE kv_rolls SET is_returned=false, location='📍 Kệ Dự Định Hoàn Vải' WHERE return_tx_id=$1`, [id]);
+            }
+
             await db.run(`UPDATE fabric_transactions SET is_approved=false, approved_at=NULL, approved_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
             await db.run(`INSERT INTO fabric_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, 'unapprove', '↩️ Hoàn tác duyệt', req.user.id, now]);
         } else { return reply.code(400).send({ error: 'Action không hợp lệ' }); }
@@ -186,8 +198,10 @@ module.exports = async function(fastify) {
 
     // ========== DELETE ==========
     fastify.delete('/api/fabrictx/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isNxhvManager(req))) return reply.code(403).send({ error: 'Chỉ QLX/GĐ/KT' });
-        await db.run('DELETE FROM fabric_transactions WHERE id=$1', [Number(req.params.id)]);
+        if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Chỉ QLX/GĐ/KT' });
+        const id = Number(req.params.id);
+        await db.run(`UPDATE kv_rolls SET location = original_location, original_location = NULL, return_tx_id = NULL WHERE return_tx_id = $1`, [id]);
+        await db.run('DELETE FROM fabric_transactions WHERE id=$1', [id]);
         return { success: true };
     });
 

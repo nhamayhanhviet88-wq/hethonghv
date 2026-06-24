@@ -406,7 +406,7 @@ module.exports = async function (fastify) {
 
     // PUT /api/khovai/rolls/:id — Update roll weight & location
     fastify.put('/api/khovai/rolls/:id', { preHandler: [authenticate] }, async (request) => {
-        const { weight, note, is_returned, location, image_path } = request.body || {};
+        const { weight, note, is_returned, location, image_path, return_tx_id } = request.body || {};
         const user = request.user;
 
         const oldRoll = await db.get('SELECT * FROM kv_rolls WHERE id = $1', [request.params.id]);
@@ -417,8 +417,20 @@ module.exports = async function (fastify) {
         if (note !== undefined) { updates.push(`note = $${idx++}`); params.push(note); }
         if (is_returned !== undefined) { updates.push(`is_returned = $${idx++}`); params.push(is_returned); }
         if (image_path !== undefined) { updates.push(`image_path = $${idx++}`); params.push(image_path); }
+        if (return_tx_id !== undefined) { updates.push(`return_tx_id = $${idx++}`); params.push(return_tx_id ? Number(return_tx_id) : null); }
         if (location !== undefined) {
-            if (location) {
+            const cleanLoc = location === null ? null : (typeof location === 'string' ? location.trim() : null);
+            if (cleanLoc === '📍 Kệ Dự Định Hoàn Vải') {
+                if (oldRoll.location !== '📍 Kệ Dự Định Hoàn Vải') {
+                    updates.push(`original_location = $${idx++}`);
+                    params.push(oldRoll.location || null);
+                }
+            } else if (oldRoll.location === '📍 Kệ Dự Định Hoàn Vải') {
+                updates.push(`original_location = NULL`);
+                updates.push(`return_tx_id = NULL`);
+            }
+
+            if (cleanLoc) {
                 const rollMat = await db.get(
                     `SELECT c.material_id
                      FROM kv_rolls r
@@ -431,14 +443,14 @@ module.exports = async function (fastify) {
                         `SELECT id, is_restricted
                          FROM kv_locations
                          WHERE LOWER(name) = LOWER($1)`,
-                        [location.trim()]
+                        [cleanLoc]
                     );
                     if (locRecord && locRecord.is_restricted) {
                         const isAssigned = await db.get(
                             `SELECT COUNT(*)::int AS count
                              FROM kv_materials
                              WHERE LOWER(location) = LOWER($1) AND id = $2`,
-                            [location.trim(), rollMat.material_id]
+                            [cleanLoc, rollMat.material_id]
                         );
                         if (!isAssigned || isAssigned.count === 0) {
                             return { error: 'Kệ này giới hạn chất liệu khác, không thể xếp cuộn vải này vào!' };
@@ -447,9 +459,9 @@ module.exports = async function (fastify) {
                 }
             }
             updates.push(`location = $${idx++}`);
-            params.push(location === null ? null : (typeof location === 'string' ? location.trim() : null));
+            params.push(cleanLoc);
 
-            if (location) {
+            if (cleanLoc) {
                 const rollMat = await db.get(
                     `SELECT c.material_id
                      FROM kv_rolls r
@@ -462,7 +474,7 @@ module.exports = async function (fastify) {
                         `SELECT id, is_restricted, restricted_material_id
                          FROM kv_locations
                          WHERE LOWER(name) = LOWER($1)`,
-                        [location.trim()]
+                        [cleanLoc]
                     );
                     if (locRecord && locRecord.is_restricted && !locRecord.restricted_material_id) {
                         await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [rollMat.material_id, locRecord.id]);

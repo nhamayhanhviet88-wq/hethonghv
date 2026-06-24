@@ -119,14 +119,15 @@ try{const r=await api('/api/fabrictx/records'+q);mr=r.records||[];mStats();mCard
 function mStats(){const t=mr.length;let sm=0,sd=0,sp=0;mr.forEach(r=>{sm+=Number(r.total_amount)||0;sd+=Number(r.debt)||0;sp+=Number(r.payment)||0;});
 document.getElementById('sT').textContent=t;document.getElementById('sM').textContent=fns(sm);document.getElementById('sD').textContent=fns(sd);document.getElementById('sP').textContent=fns(sp)}
 function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🔄</div><div style="font-size:16px;font-weight:700">Chưa có giao dịch</div></div>';return}
-c.innerHTML=mr.map(r=>{
-const ic=TI[r.tx_type]||'🔄',cl=TC[r.tx_type]||'#0891b2',lb=TL[r.tx_type]||r.tx_type;
-const aA=r.is_approved?'unapprove':'approve';
-const debt=Number(r.debt)||0;const dB=debt>0?'<span class="bd red">🔴 '+fn(debt)+'₫</span>':'<span class="bd green">✅ 0</span>';
-const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
-let imgs='';try{const ia=typeof r.bill_images==='string'?JSON.parse(r.bill_images):r.bill_images;if(ia&&ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
-const clickAttr = r.tx_type === 'HOAN' ? ' style="cursor:pointer" onclick="if(event.target.tagName !== \'BUTTON\' && event.target.tagName !== \'A\' && event.target.tagName !== \'IMG\') mOpenViewRetModal('+r.id+')"' : '';
-return '<div class="card"'+clickAttr+'><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.material_name||'Vải')+' — '+(r.color_name||'')+'</div><div class="cc" style="background:'+cl+'">'+lb+'</div></div>'
+const rowStyle = r.is_canceled ? ' style="opacity: 0.65; background-color: #334155;"' : '';
+const clickAttr = r.tx_type === 'HOAN' ? ' style="cursor:pointer" onclick="if(event.target.tagName !== \'BUTTON\' && event.target.tagName !== \'A\' && event.target.tagName !== \'IMG\' && !event.target.closest(\'button\')) mOpenViewRetModal('+r.id+')"' : '';
+let actionArea = '';
+if (r.is_canceled) {
+    actionArea = '<div style="color:#ef4444;font-size:12px;font-weight:700;background:#fee2e2;padding:6px;border-radius:6px;text-align:center;width:100%">❌ Đã hủy' + (r.notes ? '<br><span style="font-size:10px;font-weight:500;opacity:0.8">' + r.notes + '</span>' : '') + '</div>';
+} else {
+    actionArea = '<button class="ab'+(r.is_approved?' on':'')+'" onclick="mTog('+r.id+',\''+aA+'\')">✅ '+(r.is_approved?'ĐÃ DUYỆT':'DUYỆT HOÀN')+'</button>';
+}
+return '<div class="card"'+rowStyle+clickAttr+'><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.material_name||'Vải')+' — '+(r.color_name||'')+'</div><div class="cc" style="background:'+cl+'">'+lb+'</div></div>'
 +`<div class="cb">`
 +`<div class="cr"><span class="cl">📅 Ngày</span><span class="cv" style="font-weight:700">${formatDateTimeHM(r.created_at)}</span></div>`
 +'<div class="cr"><span class="cl">🏪 Nguồn</span><span class="cv" style="color:#a5f3fc">'+(r.source_name||'—')+'</span></div>'
@@ -138,7 +139,7 @@ return '<div class="card"'+clickAttr+'><div class="ct"><div class="ci">'+ic+'</d
 +'<div class="cr"><span class="cl">✅ Thanh toán</span><span class="cv" style="color:#6ee7b7">'+fn(r.payment)+'₫</span></div>'
 +imgs
 +'</div>'
-+'<div class="ca"><button class="ab'+(r.is_approved?' on':'')+'" onclick="mTog('+r.id+',\''+aA+'\')">✅ '+(r.is_approved?'ĐÃ DUYỆT':'DUYỆT HOÀN')+'</button></div>'
++'<div class="ca">'+actionArea+'</div>'
 +(hl?'<div class="ch">'+hl+'</div>':'')
 +'</div>'}).join('')}
 async function mTog(id,a){try{await api('/api/fabrictx/toggle/'+id,'POST',{action:a});toast('✅ Cập nhật');await mLoad()}catch(e){toast(e.message||'Lỗi','error')}}
@@ -596,7 +597,7 @@ async function mSubmitRet() {
         }
         
         // Update rolls in parallel
-        await Promise.all(rollIds.map(id => api('/api/khovai/rolls/' + id, 'PUT', { is_returned: true })));
+        await Promise.all(rollIds.map(id => api('/api/khovai/rolls/' + id, 'PUT', { return_tx_id: newTxId, location: '📍 Kệ Dự Định Hoàn Vải' })));
         
         toast('Tạo hoàn vải thành công!');
         mCloseRetModal();

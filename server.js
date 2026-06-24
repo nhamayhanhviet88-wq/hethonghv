@@ -465,6 +465,10 @@ async function start() {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_rolls_fcid ON kv_rolls(fabric_color_id)`);
         // Migrations for kv_warehouses & kv_materials
+        try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS is_canceled BOOLEAN DEFAULT false`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMPTZ`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS canceled_by INTEGER REFERENCES users(id)`); } catch(e) {}
+
         try { await db.exec(`ALTER TABLE kv_warehouses ADD COLUMN IF NOT EXISTS original_tree_threshold NUMERIC NOT NULL DEFAULT 10`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_materials ADD COLUMN IF NOT EXISTS original_tree_threshold NUMERIC`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_materials ADD COLUMN IF NOT EXISTS location TEXT`); } catch(e) {}
@@ -479,6 +483,8 @@ async function start() {
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS called_for_orders JSONB DEFAULT '[]'`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS image_path TEXT`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS needs_photo BOOLEAN DEFAULT false`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS original_location TEXT`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS return_tx_id INTEGER REFERENCES fabric_transactions(id) ON DELETE SET NULL`); } catch(e) {}
         await db.exec(`UPDATE kv_rolls SET original_weight = weight WHERE original_weight = 0 OR original_weight IS NULL`);
 
         // kv_roll_images table for photo history
