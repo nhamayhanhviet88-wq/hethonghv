@@ -25,7 +25,7 @@ function renderNhapxuathoanvaiPage(content){
     +'@media(max-width:768px){.nxhv-sb{display:none}}';
     document.head.appendChild(st);}
     content.innerHTML='<div class="nxhv-wrap"><div class="nxhv-sb" id="nxhvSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="nxhv-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div><button id="btnNxhvCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vải</button><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="nxhvTable"><thead><tr style="background:var(--gray-800)">'
     +'<th>STT</th><th>✅</th><th>📸</th><th>Nghiệp Vụ</th><th>Ngày</th><th>Nguồn Vải</th><th>NV</th><th>Chất Liệu</th><th>Màu Vải</th><th>ĐVT</th><th>Các Cây</th><th>Số Cây</th><th>Tổng SL</th><th>Giá</th><th>Thành Tiền</th><th>Công Nợ</th><th>Thanh Toán</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
@@ -96,3 +96,333 @@ function _nxhvRender(){
 }
 
 async function _nxhvTog(id,action){try{await apiCall('/api/fabrictx/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _nxhvLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
+
+// ========== CREATE FABRIC RETURN (HOÀN VẢI) MODAL ==========
+var _retSummaryData = [];
+var _retStaffData = [];
+
+async function openCreateReturnModal() {
+    showToast('Đang tải dữ liệu...', 'info');
+    try {
+        const [sumRes, staffRes] = await Promise.all([
+            apiCall('/api/khovai/summary'),
+            apiCall('/api/fabrictx/staff')
+        ]);
+        _retSummaryData = sumRes.summary || [];
+        _retStaffData = staffRes.staff || [];
+        
+        const bodyHTML = `
+            <div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Nguồn Vải (Nhà cung cấp):</label>
+                        <input type="text" id="nxhv_m_source" class="form-control" placeholder="Tên nhà cung cấp..." style="width:100%; font-size:12px; padding:6px 10px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Ngày Hoàn Vải:</label>
+                        <input type="date" id="nxhv_m_date" class="form-control" style="width:100%; font-size:12px; padding:5px 10px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Thực Hiện:</label>
+                        <select id="nxhv_m_staff" class="form-control" style="width:100%; font-size:12px; padding:5px 10px;"></select>
+                    </div>
+                </div>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Chất Liệu:</label>
+                        <select id="nxhv_m_material" class="form-control" style="width:100%; font-size:12px; padding:5px 10px;">
+                            <option value="">-- Chọn chất liệu --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Màu Vải:</label>
+                        <select id="nxhv_m_color" class="form-control" style="width:100%; font-size:12px; padding:5px 10px;" disabled>
+                            <option value="">-- Chọn màu vải --</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">ĐVT:</label>
+                        <input type="text" id="nxhv_m_unit" class="form-control" value="kg" style="width:100%; font-size:12px; padding:6px 10px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>
+                        <input type="number" id="nxhv_m_price" class="form-control" value="0" style="width:100%; font-size:12px; padding:6px 10px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Thanh Toán:</label>
+                        <input type="number" id="nxhv_m_payment" class="form-control" value="0" style="width:100%; font-size:12px; padding:6px 10px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Công Nợ:</label>
+                        <input type="text" id="nxhv_m_debt" class="form-control" value="0" style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; font-weight:700; color:#dc2626;" readonly />
+                    </div>
+                </div>
+                
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú:</label>
+                    <textarea id="nxhv_m_notes" class="form-control" placeholder="Ghi chú thêm..." style="width:100%; height:40px; resize:vertical; font-size:12px; padding:6px 10px;"></textarea>
+                </div>
+
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:4px;">Ảnh Bill Hoàn (Không bắt buộc):</label>
+                    <input type="file" id="nxhv_m_files" multiple accept="image/*" class="form-control" style="width:100%; font-size:12px; padding:4px 10px;" />
+                </div>
+                
+                <div style="border-top:1px solid #e2e8f0; margin-top:8px; padding-top:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <span style="font-size:13px; font-weight:800; color:#0f766e;">📋 Danh Sách Cây Vải Trả Hoàn</span>
+                        <span id="nxhv_m_selection_summary" style="font-weight:700; color:#0891b2;">Đã chọn: 0 cây (0 kg)</span>
+                    </div>
+                    <div id="nxhv_m_rolls_container" style="max-height:200px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:10px; background:#f8fafc;">
+                        <div style="text-align:center; color:#94a3b8; padding:20px;">Vui lòng chọn Chất liệu và Màu vải trước</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const footerHTML = `
+            <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+            <button class="btn btn-primary" id="nxhv_m_submit" style="background:#059669; border:none; color:#fff;" onclick="submitCreateReturn()">🔄 Tạo Hoàn Vải</button>
+        `;
+        
+        openModal('🔄 Tạo Giao Dịch Hoàn Vải', bodyHTML, footerHTML);
+        
+        // Adjust width
+        const modalContainer = document.getElementById('modalContainer');
+        if (modalContainer) {
+            modalContainer.style.width = '750px';
+            modalContainer.style.maxWidth = '95%';
+        }
+        
+        // Set date to today
+        document.getElementById('nxhv_m_date').value = new Date().toLocaleDateString('en-CA');
+        
+        // Populate Staff
+        const staffSelect = document.getElementById('nxhv_m_staff');
+        staffSelect.innerHTML = _retStaffData.map(u => `<option value="${u.id}" ${currentUser && u.id === currentUser.id ? 'selected' : ''}>${u.full_name}</option>`).join('');
+        
+        // Populate Material
+        const materials = Array.from(new Set(_retSummaryData.map(s => s.material_name))).sort();
+        const matSelect = document.getElementById('nxhv_m_material');
+        matSelect.innerHTML = '<option value="">-- Chọn chất liệu --</option>' + materials.map(m => `<option value="${m}">${m}</option>`).join('');
+        
+        // Event listeners
+        const colorSelect = document.getElementById('nxhv_m_color');
+        
+        matSelect.addEventListener('change', function() {
+            const selectedMaterial = matSelect.value;
+            if (!selectedMaterial) {
+                colorSelect.innerHTML = '<option value="">-- Chọn màu vải --</option>';
+                colorSelect.disabled = true;
+                document.getElementById('nxhv_m_rolls_container').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px;">Vui lòng chọn Chất liệu và Màu vải trước</div>';
+                return;
+            }
+            const colors = _retSummaryData.filter(s => s.material_name === selectedMaterial).sort((a,b) => a.color_name.localeCompare(b.color_name));
+            colorSelect.innerHTML = '<option value="">-- Chọn màu vải --</option>' + colors.map(c => `<option value="${c.color_name}" data-price="${c.price}" data-unit="${c.unit || 'kg'}">${c.color_name}</option>`).join('');
+            colorSelect.disabled = false;
+            document.getElementById('nxhv_m_rolls_container').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px;">Vui lòng chọn Màu vải để hiển thị danh sách cây vải</div>';
+        });
+        
+        colorSelect.addEventListener('change', function() {
+            const selectedMaterial = matSelect.value;
+            const selectedColor = colorSelect.value;
+            if (!selectedColor) {
+                document.getElementById('nxhv_m_rolls_container').innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px;">Vui lòng chọn Màu vải để hiển thị danh sách cây vải</div>';
+                return;
+            }
+            
+            // Set price and unit
+            const opt = colorSelect.options[colorSelect.selectedIndex];
+            const price = opt.getAttribute('data-price') || 0;
+            const unit = opt.getAttribute('data-unit') || 'kg';
+            document.getElementById('nxhv_m_price').value = price;
+            document.getElementById('nxhv_m_unit').value = unit;
+            
+            // Load rolls
+            const colorObj = _retSummaryData.find(s => s.material_name === selectedMaterial && s.color_name === selectedColor);
+            if (!colorObj) return;
+            const rolls = colorObj.roll_weights || [];
+            
+            // Filter candidate rolls
+            const cat1 = rolls.filter(r => {
+                const isNguyen = Number(r.w) >= Number(r.ow);
+                const isUnassigned = !r.loc || r.loc.trim() === '';
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                return isNguyen && isUnassigned && isFree;
+            });
+            const cat2 = rolls.filter(r => {
+                const isNguyen = Number(r.w) >= Number(r.ow);
+                const isOnShelf = r.loc && r.loc.trim() !== '';
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                return isNguyen && isOnShelf && isFree;
+            });
+            const cat3 = rolls.filter(r => {
+                const isLe = Number(r.w) < Number(r.ow);
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                return isLe && isFree;
+            });
+            
+            let html = '';
+            function renderGroup(title, badgeColor, list) {
+                if (list.length === 0) return '';
+                return `
+                    <div style="margin-bottom:12px;">
+                        <div style="font-weight:800; font-size:11px; margin-bottom:6px; color:${badgeColor}; display:flex; align-items:center; gap:6px;">
+                            <span>${title}</span>
+                            <span style="background:${badgeColor}20; color:${badgeColor}; padding:2px 8px; border-radius:10px; font-size:9px;">${list.length} cây</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; padding-left:8px;">
+                            ${list.map(r => {
+                                const shelf = r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ';
+                                const photoBadge = r.needs_photo ? `<span style="background:#fee2e2; color:#dc2626; padding:1px 4px; border-radius:4px; font-size:8px; font-weight:700; margin-left:4px;">📷 Cần chụp ảnh</span>` : '';
+                                return `
+                                    <label style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:#fff; border:1px solid #e2e8f0; border-radius:6px; cursor:pointer; transition:all .15s; margin-bottom:2px;">
+                                        <input type="checkbox" class="nxhv-roll-cb" value="${r.id}" data-weight="${r.w}" data-code="${r.code || ''}" style="width:14px; height:14px; accent-color:#059669;" />
+                                        <div style="flex:1; display:flex; justify-content:space-between; align-items:center;">
+                                            <div>
+                                                <strong style="color:#0f766e;">${r.w} kg</strong> 
+                                                <span style="color:#64748b; font-size:10px; margin-left:6px;">(${r.code || 'Chưa có mã'})</span>
+                                                ${photoBadge}
+                                            </div>
+                                            <div style="color:#475569; font-size:10px; font-weight:600;">${shelf}</div>
+                                        </div>
+                                    </label>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += renderGroup('🛠️ 1. CÂY NGUYÊN CẦN XỬ LÝ KHO', '#ef4444', cat1);
+            html += renderGroup('📍 2. CÂY NGUYÊN Ở CÁC KỆ', '#3b82f6', cat2);
+            html += renderGroup('✂️ 3. CÁC CÂY LẺ Ở KHO VẢI', '#f59e0b', cat3);
+            
+            if (!html) {
+                html = '<div style="text-align:center; color:#94a3b8; padding:20px;">Không tìm thấy cây vải phù hợp để hoàn trả.</div>';
+            }
+            document.getElementById('nxhv_m_rolls_container').innerHTML = html;
+            
+            // Attach checkbox event listeners
+            document.querySelectorAll('.nxhv-roll-cb').forEach(cb => {
+                cb.addEventListener('change', updateFinValues);
+            });
+            
+            updateFinValues();
+        });
+        
+        document.getElementById('nxhv_m_price').addEventListener('input', updateFinValues);
+        document.getElementById('nxhv_m_payment').addEventListener('input', function() {
+            this.dataset.userEdited = '1';
+            updateFinValues();
+        });
+        
+    } catch (e) {
+        showToast('Lỗi khi tải dữ liệu: ' + e.message, 'error');
+    }
+}
+
+function updateFinValues() {
+    const cbs = document.querySelectorAll('.nxhv-roll-cb:checked');
+    let totalWeight = 0;
+    cbs.forEach(cb => {
+        totalWeight += Number(cb.getAttribute('data-weight')) || 0;
+    });
+    totalWeight = Math.round(totalWeight * 100) / 100;
+    document.getElementById('nxhv_m_selection_summary').textContent = `Đã chọn: ${cbs.length} cây (${totalWeight} kg)`;
+    
+    const price = Number(document.getElementById('nxhv_m_price').value) || 0;
+    const totalAmount = totalWeight * price;
+    const paymentInput = document.getElementById('nxhv_m_payment');
+    if (!paymentInput.dataset.userEdited) {
+        paymentInput.value = totalAmount;
+    }
+    const payment = Number(paymentInput.value) || 0;
+    const debt = Math.max(0, totalAmount - payment);
+    document.getElementById('nxhv_m_debt').value = debt.toLocaleString('vi-VN');
+}
+
+async function submitCreateReturn() {
+    const source = document.getElementById('nxhv_m_source').value.trim();
+    const txDate = document.getElementById('nxhv_m_date').value;
+    const staffId = document.getElementById('nxhv_m_staff').value;
+    const material = document.getElementById('nxhv_m_material').value;
+    const color = document.getElementById('nxhv_m_color').value;
+    const unit = document.getElementById('nxhv_m_unit').value.trim();
+    const price = Number(document.getElementById('nxhv_m_price').value) || 0;
+    const payment = Number(document.getElementById('nxhv_m_payment').value) || 0;
+    const notes = document.getElementById('nxhv_m_notes').value.trim();
+    
+    const cbs = document.querySelectorAll('.nxhv-roll-cb:checked');
+    if (!source) { showToast('Vui lòng nhập nguồn vải (nhà cung cấp)', 'error'); return; }
+    if (!txDate) { showToast('Vui lòng chọn ngày hoàn vải', 'error'); return; }
+    if (!material || !color) { showToast('Vui lòng chọn chất liệu và màu vải', 'error'); return; }
+    if (cbs.length === 0) { showToast('Vui lòng chọn ít nhất một cây vải để hoàn trả', 'error'); return; }
+    
+    let totalWeight = 0;
+    let detailsArray = [];
+    const rollIds = [];
+    cbs.forEach(cb => {
+        const w = Number(cb.getAttribute('data-weight')) || 0;
+        const c = cb.getAttribute('data-code') || '';
+        totalWeight += w;
+        detailsArray.push(`Cây ${w}kg` + (c ? ` (${c})` : ''));
+        rollIds.push(Number(cb.value));
+    });
+    totalWeight = Math.round(totalWeight * 100) / 100;
+    const totalAmount = totalWeight * price;
+    const debt = Math.max(0, totalAmount - payment);
+    
+    const submitBtn = document.getElementById('nxhv_m_submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Đang xử lý...';
+    
+    try {
+        const res = await apiCall('/api/fabrictx/records', 'POST', {
+            tx_type: 'HOAN',
+            tx_date: txDate,
+            source_name: source,
+            staff_id: Number(staffId),
+            material_name: material,
+            color_name: color,
+            unit: unit,
+            tree_details: detailsArray.join(', '),
+            tree_count: cbs.length,
+            total_quantity: totalWeight,
+            price: price,
+            payment: payment,
+            debt: debt,
+            notes: notes
+        });
+        
+        if (res.error) throw new Error(res.error);
+        const newTxId = res.id;
+        
+        const fileInput = document.getElementById('nxhv_m_files');
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+            for (const file of fileInput.files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                await apiCall('/api/fabrictx/upload/' + newTxId, 'POST', formData);
+            }
+        }
+        
+        await Promise.all(rollIds.map(id => apiCall('/api/khovai/rolls/' + id, 'PUT', { is_returned: true })));
+        
+        showToast('Tạo giao dịch hoàn vải thành công!');
+        closeModal();
+        _nxhvLoadAll();
+    } catch (e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🔄 Tạo Hoàn Vải';
+    }
+}
+
+window.openCreateReturnModal = openCreateReturnModal;
+window.submitCreateReturn = submitCreateReturn;
+window.updateFinValues = updateFinValues;
