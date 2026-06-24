@@ -19,6 +19,7 @@ function renderNhapxuathoanvaiPage(content){
     +'.nxhv-ib{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s}'
     +'.nxhv-ib:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
     +'.nxhv-ib.on{background:#ccfbf1;border-color:#14b8a6}'
+    +'.nxhv-ib.postpone.on{background:#fef3c7;border-color:#fbbf24;color:#d97706}'
     +'.nxhv-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800;color:#fff}'
     +'.nxhv-debt{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800}'
     +'.nxhv-debt.red{background:#fee2e2;color:#dc2626}.nxhv-debt.green{background:#d1fae5;color:#059669}'
@@ -110,6 +111,12 @@ function _nxhvRender(){
             btnHTML = '<span style="color:#ef4444;font-size:10px;font-weight:700;background:#fee2e2;padding:2px 6px;border-radius:4px;white-space:nowrap">❌ Đã hủy</span>';
         } else {
             btnHTML = '<button class="nxhv-ib'+aC+'" onclick="event.stopPropagation(); _nxhvTog('+r.id+',\''+aA+'\')" title="Duyệt">'+aI+'</button>';
+            if (r.tx_type === 'HOAN' && !r.is_approved) {
+                var pEmoji = r.is_postponed ? '⏳' : '📅';
+                var pClass = r.is_postponed ? ' postpone on' : ' postpone';
+                var pTitle = r.is_postponed ? 'Đã lùi lịch hoàn vải (Xem chi tiết/Hủy)' : 'Lùi lịch hoàn vải';
+                btnHTML += '<button class="nxhv-ib' + pClass + '" style="margin-left:5px" onclick="event.stopPropagation(); openPostponeModal(' + r.id + ')" title="' + pTitle + '">' + pEmoji + '</button>';
+            }
         }
         var detailsHTML = cleanTreeDetails(r.tree_details);
         if (r.is_canceled && r.notes) {
@@ -138,7 +145,15 @@ function _nxhvRender(){
     +'<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 14px;border-radius:10px;min-width:90px;text-align:center"><div style="font-size:9px;font-weight:600;opacity:.85;letter-spacing:1px;margin-bottom:2px">✅ THANH TOÁN</div><div style="font-size:12px;font-weight:900">'+_nxhvFN(sumPay)+'</div></div>';}
 }
 
-async function _nxhvTog(id,action){try{await apiCall('/api/fabrictx/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _nxhvLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}}
+async function _nxhvTog(id,action){
+    if (action === 'approve') {
+        var tx = _nxhv.records.find(function(r) { return r.id === id; });
+        if (tx && tx.is_postponed) {
+            if (!confirm('Giao dịch hoàn vải này đang ở trạng thái Lùi lịch. Bạn có chắc chắn muốn Duyệt giao dịch này không?')) return;
+        }
+    }
+    try{await apiCall('/api/fabrictx/toggle/'+id,'POST',{action});showToast('✅ Cập nhật');await _nxhvLoadAll();}catch(e){showToast(e.message||'Lỗi','error');}
+}
 
 // ========== CREATE FABRIC RETURN (HOÀN VẢI) MODAL ==========
 var _retSummaryData = [];
@@ -735,3 +750,275 @@ function _nxhvOpenImportBill(importId) {
     }
 }
 window._nxhvOpenImportBill = _nxhvOpenImportBill;
+
+// ========== POSTPONE RETURN MODAL FUNCTIONS ==========
+var _postponeImageBlob = null;
+var _postponePasteHandler = null;
+
+function processAndPreviewPostponeImage(file) {
+    var reader = new FileReader();
+    reader.onload = function(event) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var max_width = 800;
+            var width = img.width;
+            var height = img.height;
+            if (width > max_width) {
+                height = Math.round((height * max_width) / width);
+                width = max_width;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            canvas.toBlob(function(blob) {
+                _postponeImageBlob = blob;
+                var previewUrl = URL.createObjectURL(blob);
+                var imgEl = document.getElementById('postponeImagePreview');
+                var container = document.getElementById('postponePreviewContainer');
+                var pasteArea = document.getElementById('postponePasteArea');
+                if (imgEl && container && pasteArea) {
+                    imgEl.src = previewUrl;
+                    container.style.display = 'block';
+                    pasteArea.style.borderColor = '#10b981';
+                    var btn = document.getElementById('btnConfirmPostpone');
+                    if (btn) btn.disabled = false;
+                }
+            }, 'image/webp', 0.75);
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearPostponeImage() {
+    _postponeImageBlob = null;
+    var imgEl = document.getElementById('postponeImagePreview');
+    var container = document.getElementById('postponePreviewContainer');
+    var pasteArea = document.getElementById('postponePasteArea');
+    if (imgEl) imgEl.src = '';
+    if (container) container.style.display = 'none';
+    if (pasteArea) pasteArea.style.borderColor = '#cbd5e1';
+    var btn = document.getElementById('btnConfirmPostpone');
+    if (btn) btn.disabled = true;
+    var fileInput = document.getElementById('postponeFileInput');
+    if (fileInput) fileInput.value = '';
+}
+window.clearPostponeImage = clearPostponeImage;
+
+function openPostponeModal(id) {
+    var tx = _nxhv.records.find(function(item) { return item.id === id; });
+    if (!tx) {
+        showToast('Không tìm thấy giao dịch', 'error');
+        return;
+    }
+    
+    // Clean up any old listener
+    if (_postponePasteHandler) {
+        document.removeEventListener('paste', _postponePasteHandler);
+        _postponePasteHandler = null;
+    }
+    
+    _postponeImageBlob = null;
+    
+    if (tx.is_postponed) {
+        // CASE: Already postponed - show detail & option to unpostpone
+        var dateStr = '—';
+        if (tx.postponed_at) {
+            dateStr = formatDateTimeHM(tx.postponed_at);
+        }
+        
+        var imgHtml = '—';
+        try {
+            var imgs = typeof tx.postponed_images === 'string' ? JSON.parse(tx.postponed_images) : tx.postponed_images;
+            if (imgs && imgs.length) {
+                imgHtml = imgs.map(function(url) {
+                    return '<a href="' + url + '" target="_blank">' +
+                           '<img src="' + url + '" style="max-width:100%; max-height:220px; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 8px rgba(0,0,0,0.06); object-fit:contain; margin-top:6px;" />' +
+                           '</a>';
+                }).join('');
+            }
+        } catch(e) {}
+        
+        var bodyHTML = '<div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">' +
+            '<div>' +
+                '<label style="font-weight:700; display:block; margin-bottom:2px; color:#b45309;">📍 Trạng thái:</label>' +
+                '<span style="display:inline-block; background:#fef3c7; color:#d97706; padding:4px 10px; border-radius:6px; font-weight:700; border:1px solid #fcd34d;">⏳ ĐANG LÙI LỊCH HOÀN VẢI</span>' +
+            '</div>' +
+            '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:4px;">' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:2px;">Người thực hiện:</label>' +
+                    '<input type="text" value="' + (tx.postponed_by_name || 'Hệ thống') + '" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />' +
+                '</div>' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:2px;">Thời gian:</label>' +
+                    '<input type="text" value="' + dateStr + '" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />' +
+                '</div>' +
+            '</div>' +
+            '<div style="margin-top:4px;">' +
+                '<label style="font-weight:700; display:block; margin-bottom:2px;">Ghi chú / Lý do:</label>' +
+                '<textarea class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; height:50px; background:#f1f5f9; cursor:not-allowed; resize:none;">' + (tx.postponed_notes || '—') + '</textarea>' +
+            '</div>' +
+            '<div style="margin-top:4px; border-top:1px solid #e2e8f0; padding-top:8px;">' +
+                '<label style="font-weight:700; display:block; margin-bottom:4px;">📸 Ảnh bằng chứng lùi lịch:</label>' +
+                '<div style="text-align:center;">' + imgHtml + '</div>' +
+            '</div>' +
+        '</div>';
+        
+        var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>' +
+            '<button class="btn btn-danger" onclick="submitUnpostpone(' + tx.id + ')" style="width:auto; background:#ef4444; border:none; color:#fff; font-weight:700;">Hủy Lùi Lịch</button>';
+            
+        openModal('⏳ Chi Tiết Lùi Lịch Hoàn Vải', bodyHTML, footerHTML);
+        var container = document.getElementById('modalContainer');
+        if (container) {
+            container.style.width = '480px';
+            container.style.maxWidth = '95%';
+        }
+    } else {
+        // CASE: Not postponed - show postpone form
+        var bodyHTML = '<div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">' +
+            '<div style="background:#fffbeb; border:1px solid #feebc8; border-radius:8px; padding:10px; color:#c05621; line-height:1.4;">' +
+                'ℹ️ <strong>Thông báo:</strong> Cây vải sẽ vẫn hiển thị ở <strong>📍 Kệ Dự Định Hoàn Vải</strong> và bộ phận cắt vẫn có thể gọi cây vải này để cắt (khi đó bill hoàn sẽ tự động hủy).' +
+            '</div>' +
+            '<div id="postponePasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; cursor:pointer; position:relative; transition:border-color 0.2s;" onclick="document.getElementById(\'postponeFileInput\').click()">' +
+                '<span style="font-size:24px; display:block; margin-bottom:6px;">📋</span>' +
+                '<span style="font-weight:700; color:#475569; display:block; font-size:12px;">Nhấp chuột vào đây và nhấn Ctrl+V để dán ảnh chứng minh</span>' +
+                '<span style="font-size:11px; color:#64748b; margin-top:2px; display:block;">hoặc nhấp trực tiếp để chọn tệp tin ảnh</span>' +
+                '<input type="file" id="postponeFileInput" accept="image/*" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" />' +
+            '</div>' +
+            '<div id="postponePreviewContainer" style="margin-top:8px; display:none; text-align:center;">' +
+                '<img id="postponeImagePreview" style="max-height:160px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05);" />' +
+                '<button class="btn btn-danger" style="display:block; margin:6px auto 0; padding:2px 10px; font-size:11px; background:#ef4444; border:none; color:#fff;" onclick="clearPostponeImage()">❌ Xóa ảnh</button>' +
+            '</div>' +
+            '<div style="margin-top:4px;">' +
+                '<label style="font-weight:700; display:block; margin-bottom:4px;">Ghi chú / Lý do lùi lịch:</label>' +
+                '<textarea id="postponeNotes" class="form-control" placeholder="Nhập lý do lùi lịch (bắt buộc)..." style="width:100%; font-size:12px; padding:6px 10px; height:55px; border-radius:6px; border:1px solid #cbd5e1; outline:none; resize:none;"></textarea>' +
+            '</div>' +
+        '</div>';
+        
+        var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>' +
+            '<button class="btn btn-primary" id="btnConfirmPostpone" disabled onclick="submitPostpone(' + tx.id + ')" style="width:auto; font-weight:700; background:#d97706; border:none; color:#fff;">Xác nhận lùi lịch</button>';
+            
+        openModal('⏳ Yêu Cầu Lùi Lịch Hoàn Vải', bodyHTML, footerHTML);
+        var container = document.getElementById('modalContainer');
+        if (container) {
+            container.style.width = '480px';
+            container.style.maxWidth = '95%';
+        }
+        
+        // Event listeners
+        var fileInput = document.getElementById('postponeFileInput');
+        if (fileInput) {
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    processAndPreviewPostponeImage(e.target.files[0]);
+                }
+            });
+        }
+        
+        _postponePasteHandler = function(e) {
+            var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            var imageItem = null;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    imageItem = items[i];
+                    break;
+                }
+            }
+            if (imageItem) {
+                var blob = imageItem.getAsFile();
+                processAndPreviewPostponeImage(blob);
+            }
+        };
+        document.addEventListener('paste', _postponePasteHandler);
+    }
+}
+window.openPostponeModal = openPostponeModal;
+
+async function submitPostpone(id) {
+    var notes = document.getElementById('postponeNotes').value.trim();
+    if (!notes) {
+        showToast('Vui lòng nhập ghi chú / lý do lùi lịch', 'warning');
+        return;
+    }
+    if (!_postponeImageBlob) {
+        showToast('Vui lòng dán hoặc chọn hình ảnh chứng minh', 'warning');
+        return;
+    }
+    
+    var btn = document.getElementById('btnConfirmPostpone');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Đang tải ảnh...';
+    }
+    
+    try {
+        // 1. Upload proof image
+        var formData = new FormData();
+        formData.append('file', _postponeImageBlob, 'postpone_proof.webp');
+        
+        var uploadRes = await apiCall('/api/fabrictx/upload-postpone/' + id, 'POST', formData);
+        if (!uploadRes.url) {
+            throw new Error(uploadRes.error || 'Lỗi upload ảnh chứng minh');
+        }
+        
+        if (btn) btn.textContent = 'Đang lưu...';
+        
+        // 2. Submit postpone request
+        var postponeRes = await apiCall('/api/fabrictx/postpone/' + id, 'POST', {
+            images: [uploadRes.url],
+            notes: notes
+        });
+        
+        if (postponeRes.error) {
+            throw new Error(postponeRes.error);
+        }
+        
+        showToast('⏳ Đã cập nhật lùi lịch hoàn vải');
+        closeModal();
+        
+        // Clean up
+        if (_postponePasteHandler) {
+            document.removeEventListener('paste', _postponePasteHandler);
+            _postponePasteHandler = null;
+        }
+        
+        await _nxhvLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi xử lý', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Xác nhận lùi lịch';
+        }
+    }
+}
+window.submitPostpone = submitPostpone;
+
+async function submitUnpostpone(id) {
+    if (!confirm('Bạn có chắc chắn muốn HỦY trạng thái lùi lịch cho giao dịch này?')) return;
+    try {
+        var res = await apiCall('/api/fabrictx/unpostpone/' + id, 'POST');
+        if (res.error) throw new Error(res.error);
+        showToast('✅ Đã hủy lùi lịch hoàn vải');
+        closeModal();
+        await _nxhvLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi xử lý', 'error');
+    }
+}
+window.submitUnpostpone = submitUnpostpone;
+
+// Wrap or listen to modal closing to remove paste event listener
+var _origCloseModal = window.closeModal;
+window.closeModal = function() {
+    if (_postponePasteHandler) {
+        document.removeEventListener('paste', _postponePasteHandler);
+        _postponePasteHandler = null;
+    }
+    if (typeof _origCloseModal === 'function') {
+        _origCloseModal();
+    }
+};
+

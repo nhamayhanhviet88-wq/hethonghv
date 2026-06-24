@@ -80,9 +80,11 @@ module.exports = async function(fastify) {
         if (search) { where += ` AND (ft.material_name ILIKE $${idx} OR ft.color_name ILIKE $${idx} OR ft.source_name ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT ft.*, u.full_name AS staff_name, u_ap.full_name AS approved_by_name,
+                   u_pp.full_name AS postponed_by_name,
                    lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
             FROM fabric_transactions ft
             LEFT JOIN users u ON ft.staff_id=u.id LEFT JOIN users u_ap ON ft.approved_by=u_ap.id
+            LEFT JOIN users u_pp ON ft.postponed_by=u_pp.id
             LEFT JOIN LATERAL (SELECT h.performed_at, h.performed_by FROM fabric_tx_history h WHERE h.tx_id=ft.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
             ${where} ORDER BY ft.tx_date DESC NULLS LAST, ft.created_at DESC`, params);
@@ -143,6 +145,61 @@ module.exports = async function(fastify) {
             await db.run(`INSERT INTO fabric_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, 'unapprove', '↩️ Hoàn tác duyệt', req.user.id, now]);
         } else { return reply.code(400).send({ error: 'Action không hợp lệ' }); }
         return { success: true };
+    });
+
+    // ========== POSTPONE RETURN ==========
+    fastify.post('/api/fabrictx/postpone/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Không có quyền thực hiện thao tác này' });
+        const id = Number(req.params.id), { images, notes } = req.body || {}, now = vnNow();
+        await db.run(
+            `UPDATE fabric_transactions
+             SET is_postponed = true, postponed_at = $1, postponed_by = $2,
+                 postponed_images = $3::jsonb, postponed_notes = $4, updated_at = $1
+             WHERE id = $5`,
+            [now, req.user.id, JSON.stringify(images || []), notes || null, id]
+        );
+        await db.run(
+            `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
+             VALUES ($1, 'postpone', $2, $3, $4)`,
+            [id, 'postpone', `Lùi lịch hoàn vải: ${notes || ''}`, req.user.id, now]
+        );
+        return { success: true };
+    });
+
+    // ========== UNPOSTPONE RETURN ==========
+    fastify.post('/api/fabrictx/unpostpone/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Không có quyền thực hiện thao tác này' });
+        const id = Number(req.params.id), now = vnNow();
+        await db.run(
+            `UPDATE fabric_transactions
+             SET is_postponed = false, postponed_at = NULL, postponed_by = NULL,
+                 postponed_images = '[]'::jsonb, postponed_notes = NULL, updated_at = $1
+             WHERE id = $2`,
+            [now, id]
+        );
+        await db.run(
+            `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
+             VALUES ($1, 'unpostpone', $2, $3, $4)`,
+            [id, 'unpostpone', `Hủy lùi lịch hoàn vải`, req.user.id, now]
+        );
+        return { success: true };
+    });
+
+    // ========== UPLOAD POSTPONE PROOF IMAGE ==========
+    fastify.post('/api/fabrictx/upload-postpone/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Không có quyền thực hiện thao tác này' });
+        const id = Number(req.params.id);
+        const data = await req.file();
+        if (!data) return reply.code(400).send({ error: 'Không có file' });
+        const uploadDir = path.join(__dirname, '..', 'uploads', 'postpone');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+        const ext = path.extname(data.filename) || '.webp';
+        const fn = `pp_${id}_${Date.now()}${ext}`;
+        const fp = path.join(uploadDir, fn);
+        const buf = await data.toBuffer();
+        fs.writeFileSync(fp, buf);
+        const url = `/uploads/postpone/${fn}`;
+        return { success: true, url };
     });
 
     // ========== INLINE FIELD ==========

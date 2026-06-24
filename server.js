@@ -468,6 +468,11 @@ async function start() {
         try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS is_canceled BOOLEAN DEFAULT false`); } catch(e) {}
         try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMPTZ`); } catch(e) {}
         try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS canceled_by INTEGER REFERENCES users(id)`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS is_postponed BOOLEAN DEFAULT false`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS postponed_at TIMESTAMPTZ`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS postponed_by INTEGER REFERENCES users(id)`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS postponed_images JSONB DEFAULT '[]'::jsonb`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE fabric_transactions ADD COLUMN IF NOT EXISTS postponed_notes TEXT`); } catch(e) {}
 
         try { await db.exec(`ALTER TABLE kv_warehouses ADD COLUMN IF NOT EXISTS original_tree_threshold NUMERIC NOT NULL DEFAULT 10`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_materials ADD COLUMN IF NOT EXISTS original_tree_threshold NUMERIC`); } catch(e) {}
