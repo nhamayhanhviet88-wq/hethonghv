@@ -70,6 +70,31 @@ function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
 function fn(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN')}
 function fns(n){const v=Number(n)||0;if(v>=1e9)return(v/1e9).toFixed(1)+'tỷ';if(v>=1e6)return(v/1e6).toFixed(1)+'tr';if(v>=1e3)return(v/1e3).toFixed(0)+'k';return v.toString()}
+function formatDateTimeHM(d) {
+    if (!d) return '—';
+    try {
+        var date = new Date(d);
+        var formatter = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            hour12: false
+        });
+        var parts = formatter.formatToParts(date);
+        var hour, minute, day, month;
+        parts.forEach(function(p) {
+            if (p.type === 'hour') hour = p.value;
+            if (p.type === 'minute') minute = p.value;
+            if (p.type === 'day') day = p.value;
+            if (p.type === 'month') month = p.value;
+        });
+        return hour + ':' + minute + ' ' + day + '/' + month;
+    } catch (e) {
+        return d;
+    }
+}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
 async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
         if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.nhap_xuat_hoan_vai || !cu.permissions.nhap_xuat_hoan_vai.can_view)) {
@@ -91,8 +116,8 @@ const debt=Number(r.debt)||0;const dB=debt>0?'<span class="bd red">🔴 '+fn(deb
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 let imgs='';try{const ia=typeof r.bill_images==='string'?JSON.parse(r.bill_images):r.bill_images;if(ia&&ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.material_name||'Vải')+' — '+(r.color_name||'')+'</div><div class="cc" style="background:'+cl+'">'+lb+'</div></div>'
-+'<div class="cb">'
-+'<div class="cr"><span class="cl">📅 Ngày</span><span class="cv">'+fd(r.tx_date)+'</span></div>'
++`<div class="cb">`
++`<div class="cr"><span class="cl">📅 Ngày</span><span class="cv" style="font-weight:700">${formatDateTimeHM(r.created_at)}</span></div>`
 +'<div class="cr"><span class="cl">🏪 Nguồn</span><span class="cv" style="color:#a5f3fc">'+(r.source_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">👤 NV</span><span class="cv">'+(r.staff_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">📏 ĐVT</span><span class="cv" style="font-size:11px">'+(r.unit||'kg')+'</span></div>'
@@ -447,7 +472,7 @@ async function mSubmitRet() {
         const w = Number(cb.getAttribute('data-weight')) || 0;
         const c = cb.getAttribute('data-code') || '';
         totalWeight += w;
-        detailsArray.push(`Cây ${w}kg` + (c ? ` (${c})` : ''));
+        detailsArray.push(`Cây ${w}kg`);
         rollIds.push(Number(cb.value));
     });
     totalWeight = Math.round(totalWeight * 100) / 100;

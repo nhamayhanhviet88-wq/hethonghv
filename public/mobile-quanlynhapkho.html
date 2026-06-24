@@ -1313,7 +1313,7 @@
                                     }
 
                                     if (isUnassigned === 'processed_nguyen') {
-                                        returnHtml = `<button class="btn-camera" style="background:#ef4444; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); showToast('Tính năng hoàn trả nhà cung cấp đang được phát triển', 'info');" title="Hoàn trả nhà cung cấp">🔄 Hoàn</button>`;
+                                        returnHtml = `<button class="btn-camera" style="background:#ef4444; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); performDirectRollReturn(${r.id});" title="Hoàn trả nhà cung cấp">🔄 Hoàn</button>`;
                                     }
 
                                     var tagsHtml = '';
@@ -2122,6 +2122,58 @@
             document.getElementById('qkvImagePreviewContent').src = imgUrl;
             document.getElementById('qkvImagePreviewModal').style.display = 'flex';
             
+            var infoContainer = document.getElementById('qkvImageInfoContainer');
+            if (infoContainer) {
+                if (rollId) {
+                    var foundRoll = null;
+                    var foundItem = null;
+                    if (typeof summary !== 'undefined' && summary) {
+                        for (var i = 0; i < summary.length; i++) {
+                            var item = summary[i];
+                            if (item.roll_weights) {
+                                var r = item.roll_weights.find(function(rw) { return rw.id == rollId; });
+                                if (r) {
+                                    foundRoll = r;
+                                    foundItem = item;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (foundRoll && foundItem) {
+                        var materialText = foundItem.material_name || '—';
+                        var colorText = foundItem.color_name || '—';
+                        var codeText = foundRoll.code || '—';
+                        var weightText = foundRoll.w ? (foundRoll.w + ' kg') : '—';
+                        var locText = foundRoll.loc || 'Chưa xếp kệ';
+                        var sourceText = foundRoll.source_name || foundItem.supplier || '—';
+                        
+                        infoContainer.innerHTML = `
+                            <div style="display:flex; justify-content:space-between; gap:8px; color:#f8fafc; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px;">
+                                <div style="flex:1;"><strong>Vải:</strong> <span style="color:#38bdf8">${escapeHTML(materialText)}</span></div>
+                                <div style="flex:1;"><strong>Màu:</strong> <span style="color:#818cf8">${escapeHTML(colorText)}</span></div>
+                                <div style="flex:1; text-align:right;"><strong>Mã:</strong> <span style="color:#fbbf24; font-weight:bold;">${escapeHTML(codeText)}</span></div>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; color:#f8fafc; font-size:12px; padding-top:4px;">
+                                <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                                    <div><strong>Cân nặng:</strong> <span style="color:#34d399; font-weight:bold;">${weightText}</span></div>
+                                    <div><strong>Vị trí:</strong> <span style="color:#94a3b8;">📍 ${escapeHTML(locText)}</span></div>
+                                </div>
+                                <button style="background:#ef4444; border:none; padding:8px 12px; border-radius:8px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:4px;" 
+                                        onclick="event.stopPropagation(); performDirectRollReturn(${rollId})">
+                                    🔄 Hoàn cây
+                                </button>
+                            </div>
+                        `;
+                        infoContainer.style.display = 'flex';
+                    } else {
+                        infoContainer.style.display = 'none';
+                    }
+                } else {
+                    infoContainer.style.display = 'none';
+                }
+            }
+
             var galleryContainer = document.getElementById('qkvImageGalleryContainer');
             var galleryThumbs = document.getElementById('qkvImageGalleryThumbs');
             var galleryInfo = document.getElementById('qkvGalleryInfo');
@@ -2188,6 +2240,85 @@
 
         function closeImagePreviewModal() {
             document.getElementById('qkvImagePreviewModal').style.display = 'none';
+            var infoContainer = document.getElementById('qkvImageInfoContainer');
+            if (infoContainer) infoContainer.style.display = 'none';
+        }
+
+        async function performDirectRollReturn(rollId) {
+            if (!confirm("Bạn có chắc chắn muốn hoàn cây vải này về nhà cung cấp?")) return;
+            
+            var foundRoll = null;
+            var foundItem = null;
+            if (rollId && typeof summary !== 'undefined' && summary) {
+                for (var i = 0; i < summary.length; i++) {
+                    var item = summary[i];
+                    if (item.roll_weights) {
+                        var r = item.roll_weights.find(function(rw) { return rw.id == rollId; });
+                        if (r) {
+                            foundRoll = r;
+                            foundItem = item;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (!foundRoll || !foundItem) {
+                alert("Không tìm thấy thông tin cây vải!");
+                return;
+            }
+            
+            var source = prompt("Nhập tên nhà cung cấp (NCC):", foundRoll.source_name || foundItem.supplier || "");
+            if (source === null) return;
+            source = source.trim();
+            if (!source) {
+                alert("Vui lòng nhập tên nhà cung cấp để hoàn cây vải!");
+                return;
+            }
+            
+            try {
+                var txDate = new Date().toLocaleDateString('en-CA');
+                var price = Number(foundRoll.import_price) || Number(foundItem.price) || 0;
+                var totalWeight = Number(foundRoll.w) || 0;
+                var totalAmount = totalWeight * price;
+                
+                var txRes = await api('/api/fabrictx/records', 'POST', {
+                    tx_type: 'HOAN',
+                    tx_date: txDate,
+                    source_name: source,
+                    staff_id: (typeof cu !== 'undefined' && cu) ? cu.id : null,
+                    material_name: foundItem.material_name,
+                    color_name: foundItem.color_name,
+                    unit: foundItem.unit || 'kg',
+                    tree_details: "Cây " + totalWeight + "kg",
+                    tree_count: 1,
+                    total_quantity: totalWeight,
+                    price: price,
+                    payment: totalAmount,
+                    debt: 0,
+                    notes: 'Hoàn trả cây vải trực tiếp từ sơ đồ kho'
+                });
+                
+                if (txRes && txRes.error) {
+                    alert("Lỗi khi tạo giao dịch hoàn vải: " + txRes.error);
+                    return;
+                }
+                
+                var rollRes = await api('/api/khovai/rolls/' + rollId, 'PUT', { is_returned: true });
+                if (rollRes && rollRes.error) {
+                    alert("Lỗi khi cập nhật trạng thái cây vải: " + rollRes.error);
+                    return;
+                }
+                
+                alert("Hoàn cây vải thành công!");
+                closeImagePreviewModal();
+                if (typeof loadData === 'function') {
+                    await loadData(true);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Lỗi xảy ra trong quá trình hoàn cây vải!");
+            }
         }
 
         async function qkvOpenBillDetail(id) {
@@ -2355,6 +2486,7 @@
         <div style="flex:1; display:flex; justify-content:center; align-items:center; width:100%; min-height:0;">
             <img id="qkvImagePreviewContent" src="" style="max-width:100%; max-height:100%; border-radius:8px; object-fit:contain; box-shadow:0 10px 25px rgba(0,0,0,0.5);" onclick="event.stopPropagation();" />
         </div>
+        <div id="qkvImageInfoContainer" style="display:none; width:100%; max-width:600px; background:rgba(30,41,59,0.85); padding:12px 16px; border-radius:12px; border:1px solid rgba(255,255,255,0.15); margin-top:12px; box-sizing:border-box; flex-direction:column; gap:8px;" onclick="event.stopPropagation();"></div>
         <div id="qkvImageGalleryContainer" style="width:100%; max-width:600px; background:rgba(0,0,0,0.4); padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); margin-top:16px; box-sizing:border-box; display:none;" onclick="event.stopPropagation();">
             <div style="color:#94a3b8; font-size:12px; font-weight:700; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em; display:flex; justify-content:space-between; align-items:center;">
                 <span>Lịch sử ảnh cây vải</span>

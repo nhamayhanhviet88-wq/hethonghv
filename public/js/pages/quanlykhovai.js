@@ -841,7 +841,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 }
 
                                 if (isUnassigned === 'processed_nguyen') {
-                                    returnHtml = `<button class="btn btn-xs btn-outline-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); showToast('Tính năng hoàn trả nhà cung cấp đang được phát triển', 'info');" title="Hoàn trả nhà cung cấp">🔄 Hoàn</button>`;
+                                    returnHtml = `<button class="btn btn-xs btn-outline-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); performDirectRollReturn(${r.id});" title="Hoàn trả nhà cung cấp">🔄 Hoàn</button>`;
                                 }
 
                                 var tagsHtml = '';
@@ -2066,6 +2066,67 @@ function openImagePreviewModal(imgUrl, rollId = null) {
     document.getElementById('qkvImagePreviewContent').src = imgUrl;
     modal.style.display = 'flex';
 
+    var infoContainer = document.getElementById('qkvImageInfoContainer');
+    if (!infoContainer) {
+        infoContainer = document.createElement('div');
+        infoContainer.id = 'qkvImageInfoContainer';
+        infoContainer.style.cssText = 'width:100%; margin-top:16px; background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:12px 16px; display:none; flex-direction:column; gap:8px; box-sizing:border-box;';
+        var img = document.getElementById('qkvImagePreviewContent');
+        if (img && img.parentNode) {
+            img.parentNode.insertBefore(infoContainer, img.nextSibling);
+        }
+    }
+    
+    if (rollId) {
+        var foundRoll = null;
+        var foundItem = null;
+        if (typeof _qkv !== 'undefined' && _qkv.summary) {
+            for (var i = 0; i < _qkv.summary.length; i++) {
+                var item = _qkv.summary[i];
+                if (item.roll_weights) {
+                    var r = item.roll_weights.find(function(rw) { return rw.id == rollId; });
+                    if (r) {
+                        foundRoll = r;
+                        foundItem = item;
+                        break;
+                    }
+                }
+            }
+        }
+        if (foundRoll && foundItem) {
+            var materialText = foundItem.material_name || '—';
+            var colorText = foundItem.color_name || '—';
+            var codeText = foundRoll.code || '—';
+            var weightText = foundRoll.w ? (foundRoll.w + ' kg') : '—';
+            var locText = foundRoll.loc || 'Chưa xếp kệ';
+            var sourceText = foundRoll.source_name || foundItem.supplier || '—';
+            
+            infoContainer.innerHTML = `
+                <div style="display:flex; justify-content:space-between; gap:16px; color:#f8fafc; font-size:13px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+                    <div><strong>Chất liệu:</strong> <span style="color:#38bdf8">${escapeHTML(materialText)}</span></div>
+                    <div><strong>Màu sắc:</strong> <span style="color:#818cf8">${escapeHTML(colorText)}</span></div>
+                    <div><strong>Mã cây:</strong> <span style="color:#fbbf24; font-family:monospace; font-weight:bold;">${escapeHTML(codeText)}</span></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; color:#f8fafc; font-size:13px; padding-top:4px;">
+                    <div style="display:flex; gap:16px;">
+                        <div><strong>Cân nặng:</strong> <span style="color:#34d399; font-weight:bold;">${weightText}</span></div>
+                        <div><strong>Vị trí:</strong> <span style="color:#94a3b8;">📍 ${escapeHTML(locText)}</span></div>
+                        <div><strong>Nhà cung cấp:</strong> <span style="color:#a78bfa;">${escapeHTML(sourceText)}</span></div>
+                    </div>
+                    <button class="btn btn-sm btn-danger" style="background:#ef4444; border:none; padding:6px 12px; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" 
+                            onclick="event.stopPropagation(); performDirectRollReturn(${rollId})">
+                        🔄 Hoàn cây vải
+                    </button>
+                </div>
+            `;
+            infoContainer.style.display = 'flex';
+        } else {
+            infoContainer.style.display = 'none';
+        }
+    } else {
+        infoContainer.style.display = 'none';
+    }
+
     var galleryContainer = document.getElementById('qkvImageGalleryContainer');
     var galleryThumbs = document.getElementById('qkvImageGalleryThumbs');
     var galleryInfo = document.getElementById('qkvGalleryInfo');
@@ -2137,6 +2198,8 @@ function changeQkvPreviewImage(element, imgUrl) {
 function closeImagePreviewModal() {
     var modal = document.getElementById('qkvImagePreviewModal');
     if (modal) modal.style.display = 'none';
+    var infoContainer = document.getElementById('qkvImageInfoContainer');
+    if (infoContainer) infoContainer.style.display = 'none';
 }
 
 var _qkvModalState = {
@@ -2482,5 +2545,83 @@ function _qkvCanViewBill() {
     return false;
 }
 window._qkvCanViewBill = _qkvCanViewBill;
+
+async function performDirectRollReturn(rollId) {
+    if (!confirm("Bạn có chắc chắn muốn hoàn cây vải này về nhà cung cấp?")) return;
+    
+    var foundRoll = null;
+    var foundItem = null;
+    if (rollId && typeof _qkv !== 'undefined' && _qkv.summary) {
+        for (var i = 0; i < _qkv.summary.length; i++) {
+            var item = _qkv.summary[i];
+            if (item.roll_weights) {
+                var r = item.roll_weights.find(function(rw) { return rw.id == rollId; });
+                if (r) {
+                    foundRoll = r;
+                    foundItem = item;
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (!foundRoll || !foundItem) {
+        showToast("Không tìm thấy thông tin cây vải!", "error");
+        return;
+    }
+    
+    var source = prompt("Nhập tên nhà cung cấp (NCC):", foundRoll.source_name || foundItem.supplier || "");
+    if (source === null) return;
+    source = source.trim();
+    if (!source) {
+        showToast("Vui lòng nhập tên nhà cung cấp để hoàn cây vải!", "error");
+        return;
+    }
+    
+    try {
+        var txDate = new Date().toLocaleDateString('en-CA');
+        var price = Number(foundRoll.import_price) || Number(foundItem.price) || 0;
+        var totalWeight = Number(foundRoll.w) || 0;
+        var totalAmount = totalWeight * price;
+        
+        var txRes = await apiCall('/api/fabrictx/records', 'POST', {
+            tx_type: 'HOAN',
+            tx_date: txDate,
+            source_name: source,
+            staff_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+            material_name: foundItem.material_name,
+            color_name: foundItem.color_name,
+            unit: foundItem.unit || 'kg',
+            tree_details: "Cây " + totalWeight + "kg",
+            tree_count: 1,
+            total_quantity: totalWeight,
+            price: price,
+            payment: totalAmount,
+            debt: 0,
+            notes: 'Hoàn trả cây vải trực tiếp từ sơ đồ kho'
+        });
+        
+        if (txRes && txRes.error) {
+            showToast("Lỗi khi tạo giao dịch hoàn vải: " + txRes.error, "error");
+            return;
+        }
+        
+        var rollRes = await apiCall('/api/khovai/rolls/' + rollId, 'PUT', { is_returned: true });
+        if (rollRes && rollRes.error) {
+            showToast("Lỗi khi cập nhật trạng thái cây vải: " + rollRes.error, "error");
+            return;
+        }
+        
+        showToast("Hoàn cây vải thành công!");
+        closeImagePreviewModal();
+        if (typeof _qkvLoadData === 'function') {
+            await _qkvLoadData();
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("Lỗi xảy ra trong quá trình hoàn cây vải!", "error");
+    }
+}
+window.performDirectRollReturn = performDirectRollReturn;
 
 

@@ -34,6 +34,31 @@ function renderNhapxuathoanvaiPage(content){
 }
 
 async function _nxhvLoadAll(){try{var tR=await apiCall('/api/fabrictx/tree');_nxhv.tree=tR;_nxhvRenderSb();await _nxhvLoadRecs();}catch(e){console.error('[NXHV]',e);}}
+function formatDateTimeHM(d) {
+    if (!d) return '—';
+    try {
+        var date = new Date(d);
+        var formatter = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            hour12: false
+        });
+        var parts = formatter.formatToParts(date);
+        var hour, minute, day, month;
+        parts.forEach(function(p) {
+            if (p.type === 'hour') hour = p.value;
+            if (p.type === 'minute') minute = p.value;
+            if (p.type === 'day') day = p.value;
+            if (p.type === 'month') month = p.value;
+        });
+        return hour + ':' + minute + ' ' + day + '/' + month;
+    } catch (e) {
+        return d;
+    }
+}
 function _nxhvFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
 function _nxhvFN(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN');}
 
@@ -72,7 +97,7 @@ function _nxhvRender(){
         +'<td style="text-align:center"><button class="nxhv-ib'+aC+'" onclick="_nxhvTog('+r.id+',\''+aA+'\')" title="Duyệt">'+aI+'</button></td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td><span class="nxhv-tag" style="background:'+cl+'">'+(_nxhvTL[r.tx_type]||r.tx_type)+'</span></td>'
-        +'<td style="font-size:10px">'+_nxhvFD(r.tx_date)+'</td>'
+        +'<td style="font-size:10px;font-weight:600">'+formatDateTimeHM(r.created_at)+'</td>'
         +'<td style="font-size:10px;color:#0891b2;font-weight:700">'+(r.source_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.staff_name||'—')+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+(r.material_name||'—')+'</td>'
@@ -498,7 +523,7 @@ async function submitCreateReturn() {
         const w = Number(cb.getAttribute('data-weight')) || 0;
         const c = cb.getAttribute('data-code') || '';
         totalWeight += w;
-        detailsArray.push(`Cây ${w}kg` + (c ? ` (${c})` : ''));
+        detailsArray.push(`Cây ${w}kg`);
         rollIds.push(Number(cb.value));
     });
     totalWeight = Math.round(totalWeight * 100) / 100;
