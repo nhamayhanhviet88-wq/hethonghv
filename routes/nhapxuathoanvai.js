@@ -139,8 +139,8 @@ module.exports = async function(fastify) {
                 return { error: 'Thời gian hẹn lịch không hợp lệ' };
             }
             const d = new Date(y, m - 1, day);
-            if (d.getDay() === 0 || d.getDay() === 6) {
-                return { error: 'Không được hẹn lịch vào ngày Thứ 7 hoặc Chủ Nhật' };
+            if (d.getDay() === 0) {
+                return { error: 'Không được hẹn lịch vào ngày Chủ Nhật' };
             }
             const isHoliday = await db.get(`SELECT 1 FROM holidays WHERE holiday_date = $1`, [postponedTargetDate]);
             if (isHoliday) {
@@ -215,10 +215,10 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thời gian lùi lịch không hợp lệ' });
         }
         
-        // Saturday & Sunday validation
+        // Sunday validation
         const d = new Date(y, m - 1, day);
-        if (d.getDay() === 0 || d.getDay() === 6) {
-            return reply.code(400).send({ error: 'Không được lùi lịch vào ngày Thứ 7 hoặc Chủ Nhật' });
+        if (d.getDay() === 0) {
+            return reply.code(400).send({ error: 'Không được lùi lịch vào ngày Chủ Nhật' });
         }
         
         // Holiday validation

@@ -1084,8 +1084,8 @@ function getAllowedPostponeDates(maxDays, holidays, baseDateStr) {
         var d = String(current.getDate()).padStart(2, '0');
         var dateStr = y + '-' + m + '-' + d;
         
-        // Saturday & Sunday check
-        if (current.getDay() === 0 || current.getDay() === 6) {
+        // Sunday check
+        if (current.getDay() === 0) {
             continue;
         }
         
