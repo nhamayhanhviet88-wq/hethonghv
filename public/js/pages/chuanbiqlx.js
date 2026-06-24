@@ -848,10 +848,15 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                         }
                         locHtml = ' <span style="background:' + bBg + ';color:' + bColor + ';padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;border:1px solid ' + bColor + '40;display:inline-block;vertical-align:middle">📍 ' + ex.roll_loc_name + '</span>';
                     }
+                    var imgHtml = '';
+                    if (ex.roll_image_path) {
+                        imgHtml = '<img src="' + ex.roll_image_path + '" style="width:32px; height:32px; border-radius:6px; object-fit:cover; border:1px solid #cbd5e1; cursor:pointer;" onclick="_qlxOpenImagePreview(\'' + ex.roll_image_path.replace(/'/g, "\\'") + '\')" title="Bấm để xem ảnh cây vải" /> ';
+                    }
                     html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:11px">';
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
                     html += '<span style="font-size:10px;font-weight:800;color:#6b7280;min-width:18px">' + (exIdx+1) + '.</span>';
                     html += statusBadge + ' ';
+                    if (imgHtml) html += imgHtml;
                     html += '<span style="flex:1;font-weight:700;color:#1e293b">' + lbl + locHtml + inlineDate + createdInfo + '</span>';
                     if (!isArrived && !isLocked) {
                         html += '<button onclick="_qlxFabArrived(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap">✅ Vải Đã Về</button>';
@@ -984,9 +989,14 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                     // Cutting lock check
                     var isLocked = !!rl.locked_by_cutting_id;
                     if (isLocked) { borderColor = '#fca5a5'; bgColor = '#fef2f2'; }
+                    var imgHtml = '';
+                    if (rl.image_path) {
+                        imgHtml = '<img src="' + rl.image_path + '" style="width:32px; height:32px; border-radius:6px; object-fit:cover; border:1px solid #cbd5e1; cursor:pointer;" onclick="_qlxOpenImagePreview(\'' + rl.image_path.replace(/'/g, "\\'") + '\')" title="Bấm để xem ảnh cây vải" /> ';
+                    }
                     html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:10px;margin-bottom:6px;' + (isLocked ? 'opacity:0.6;' : '') + '">';
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
                     html += '<span style="font-size:10px;font-weight:800;color:#6b7280;min-width:18px">' + (idx+1) + '.</span>';
+                    if (imgHtml) html += imgHtml;
                     html += '<span style="font-weight:700;font-size:11px;color:#1e293b">' + (ph.material_name||'') + ' - ' + (ph.color_name||'') + ' - ' + rl.weight + unitLabel + '</span>';
                     if (rl.is_original_tree) html += '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700">CÂY NGUYÊN</span>';
                     var locHtml = '';
@@ -3338,4 +3348,19 @@ function _qlxAssignMayReopen() {
     if (window._qlxMayData) {
         _qlxAssignMay(window._qlxMayData.orderId, window._qlxMayData.itemId);
     }
+}
+
+function _qlxOpenImagePreview(imgUrl) {
+    var old = document.getElementById('_qlxImagePreviewModal');
+    if (old) old.remove();
+    var ov = document.createElement('div');
+    ov.className = 'qlx-cl-overlay';
+    ov.id = '_qlxImagePreviewModal';
+    ov.style.zIndex = '99999';
+    ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+    ov.innerHTML = '<div class="qlx-cl-popup" style="width:auto; max-width:90vw; max-height:90vh; padding:16px; background:#ffffff; border-radius:12px; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 10px 25px rgba(0,0,0,0.3);">'
+        + '<button onclick="document.getElementById(\'_qlxImagePreviewModal\').remove()" style="position:absolute; top:-10px; right:-10px; width:30px; height:30px; border-radius:50%; background:#ef4444; color:#fff; border:none; font-weight:bold; cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center;">✕</button>'
+        + '<img src="' + imgUrl + '" style="max-width:100%; max-height:80vh; border-radius:8px; object-fit:contain;">'
+        + '</div>';
+    document.body.appendChild(ov);
 }

@@ -2482,7 +2482,7 @@ module.exports = async function(fastify) {
 
             // Get all rolls for this fabric_color
             rolls = await db.all(`
-                SELECT r.id, r.roll_code, r.weight, r.original_weight, r.note,
+                SELECT r.id, r.roll_code, r.weight, r.original_weight, r.note, r.image_path,
                        r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
                        r.called_for_orders, r.created_at AS roll_created_at,
                        r.locked_by_cutting_id,
@@ -2536,7 +2536,7 @@ module.exports = async function(fastify) {
         const existing = await db.all(`
             SELECT res.*, r.weight AS roll_weight, r.roll_code AS current_roll_code,
                    r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
-                   r.original_weight, r.weight,
+                   r.original_weight, r.weight, r.image_path AS roll_image_path,
                    u_create.full_name AS created_by_name,
                    u_arrive.full_name AS arrived_by_name,
                    CASE 
