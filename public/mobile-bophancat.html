@@ -3160,8 +3160,24 @@ function mMCRender(){
                 h+='<input type="checkbox" class="_mmOCb" value="'+c.order_item_id+'"'+dis+chk+' onchange="mMCOrdCh()" style="width:20px;height:20px;accent-color:#f97316">';
                 h+='<div style="flex:1"><div style="font-size:12px;font-weight:700;color:#e2e8f0">'+c.order_code+(c.description?' — '+c.description:'')+'</div>';
                 h+='<div style="font-size:10px;color:#94a3b8;margin-top:2px">SL: '+(c.quantity||'—')+' · '+(c.customer_name||'')+'</div></div>';
-                if(!c.canSelect)h+='<span style="font-size:8px;font-weight:700;color:#fca5a5;white-space:nowrap">'+c.statusLabel+'</span>';
-                else h+='<span style="font-size:8px;font-weight:700;color:#4ade80;white-space:nowrap">'+c.statusLabel+'</span>';
+                
+                var fabText = '❌ Chưa về vải';
+                if (c.fabric_arrived) {
+                    fabText = '✅ Đã về vải';
+                } else if (c.fabric_status === 'chua_goi') {
+                    fabText = '❌ Chưa gọi vải';
+                } else if (c.fabric_status === 'chua_ve') {
+                    fabText = '❌ Chưa về vải';
+                }
+                var fabClass = c.fabric_arrived ? 'm-badge-ok' : 'm-badge-no';
+
+                var prText = c.has_pc_in ? '✅ Đã PC In' : '❌ Chưa In';
+                var prClass = c.has_pc_in ? 'm-badge-ok' : 'm-badge-no';
+
+                h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">';
+                h += '  <span class="m-badge ' + fabClass + '" style="font-size:8px;font-weight:700;white-space:nowrap;margin:0">' + fabText + '</span>';
+                h += '  <span class="m-badge ' + prClass + '" style="font-size:8px;font-weight:700;white-space:nowrap;margin:0">' + prText + '</span>';
+                h += '</div>';
                 h+='</label>';
             });
         }

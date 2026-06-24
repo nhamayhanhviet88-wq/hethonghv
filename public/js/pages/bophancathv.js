@@ -3369,8 +3369,26 @@ function _mcRenderStep() {
                 h += '<input type="checkbox" class="_mcOrderCb" value="' + c.order_item_id + '"' + dis + chk + ' onchange="_mcOrderChanged()" style="width:18px;height:18px;accent-color:#ea580c">';
                 h += '<div style="flex:1"><div style="font-size:12px;font-weight:700;color:#1e293b">' + c.order_code + (c.description ? ' — ' + c.description : '') + '</div>';
                 h += '<div style="font-size:10px;color:#64748b;margin-top:2px">SL: ' + (c.quantity||'—') + ' · ' + (c.customer_name||'') + '</div></div>';
-                if (!c.canSelect) h += '<span style="font-size:9px;font-weight:700;color:#dc2626;background:#fee2e2;padding:2px 8px;border-radius:6px;white-space:nowrap">' + c.statusLabel + '</span>';
-                else h += '<span style="font-size:9px;font-weight:700;color:#059669;background:#dcfce7;padding:2px 8px;border-radius:6px;white-space:nowrap">' + c.statusLabel + '</span>';
+                
+                var fabText = '❌ Chưa về vải';
+                if (c.fabric_arrived) {
+                    fabText = '✅ Đã về vải';
+                } else if (c.fabric_status === 'chua_goi') {
+                    fabText = '❌ Chưa gọi vải';
+                } else if (c.fabric_status === 'chua_ve') {
+                    fabText = '❌ Chưa về vải';
+                }
+                var fabBg = c.fabric_arrived ? '#dcfce7' : '#fee2e2';
+                var fabColor = c.fabric_arrived ? '#059669' : '#dc2626';
+
+                var prText = c.has_pc_in ? '✅ Đã PC In' : '❌ Chưa In';
+                var prBg = c.has_pc_in ? '#dcfce7' : '#fee2e2';
+                var prColor = c.has_pc_in ? '#059669' : '#dc2626';
+
+                h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">';
+                h += '  <span style="font-size:9px;font-weight:700;color:' + fabColor + ';background:' + fabBg + ';padding:2px 8px;border-radius:6px;white-space:nowrap">' + fabText + '</span>';
+                h += '  <span style="font-size:9px;font-weight:700;color:' + prColor + ';background:' + prBg + ';padding:2px 8px;border-radius:6px;white-space:nowrap">' + prText + '</span>';
+                h += '</div>';
                 h += '</label>';
             });
         }

@@ -2209,15 +2209,9 @@ module.exports = async function(fastify) {
             SELECT oi.id AS order_item_id, oi.description, 
                    oi.quantity, 
                    oi.material_pairs,
-                   o.id AS dht_order_id, o.order_code, o.customer_name,
-                   COALESCE(p.fabric_arrived, false) AS fabric_arrived,
-                   EXISTS(SELECT 1 FROM qlx_assignments qa
-                          WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
-                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-                   ) AS has_print
+                   o.id AS dht_order_id, o.order_code, o.customer_name
             FROM dht_order_items oi
             JOIN dht_orders o ON o.id = oi.dht_order_id
-            LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             LEFT JOIN dht_categories c ON o.category_id = c.id
             WHERE (
                 (
@@ -2250,6 +2244,8 @@ module.exports = async function(fastify) {
         const orderIds = [...new Set(allItems.map(it => it.dht_order_id))];
         const orderItemsMap = {};
         let claimedRecs = [];
+        let reservations = [];
+        let assignments = [];
         if (orderIds.length > 0) {
             const allOrderItems = await db.all(`
                 SELECT id, dht_order_id, description, material_pairs
@@ -2272,6 +2268,20 @@ module.exports = async function(fastify) {
                     WHERE order_item_id = ANY($1)
                 `, [candidateItemIds]);
             }
+
+            reservations = await db.all(`
+                SELECT id, dht_order_id, item_id, phoi_index, status
+                FROM qlx_fabric_reservations
+                WHERE dht_order_id = ANY($1) AND status NOT IN ('released', 'fulfilled')
+            `, [orderIds]);
+
+            assignments = await db.all(`
+                SELECT dht_order_id, item_id
+                FROM qlx_assignments
+                WHERE assignment_type = 'in'
+                  AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
+                  AND dht_order_id = ANY($1)
+            `, [orderIds]);
         }
 
         for (const it of allItems) {
@@ -2343,14 +2353,24 @@ module.exports = async function(fastify) {
                 fullDesc = it.description || '';
             }
 
+            const currentPairIdx = pairIdx >= 0 ? pairIdx : 0;
+            const phoiRes = reservations.filter(r => r.item_id === it.order_item_id && r.phoi_index === currentPairIdx);
+            const isPhoiFabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived');
+            const fabric_status = phoiRes.length === 0 ? 'chua_goi' : (isPhoiFabricArrived ? 'arrived' : 'chua_ve');
+
+            const has_pc_in = assignments.some(qa => 
+                qa.dht_order_id === it.dht_order_id && 
+                (qa.item_id === it.order_item_id || qa.item_id === null)
+            );
+
             let status = 'ready';
             let statusLabel = '✅ Sẵn sàng';
             let canSelect = true;
-            if (!it.fabric_arrived && !it.has_print) {
+            if (!isPhoiFabricArrived && !has_pc_in) {
                 status = 'missing_both'; statusLabel = '🔒 Thiếu Vải + PC In'; canSelect = false;
-            } else if (!it.fabric_arrived) {
+            } else if (!isPhoiFabricArrived) {
                 status = 'missing_fabric'; statusLabel = '🔒 Thiếu Vải'; canSelect = false;
-            } else if (!it.has_print) {
+            } else if (!has_pc_in) {
                 status = 'missing_print'; statusLabel = '🔒 Thiếu PC In'; canSelect = false;
             }
 
@@ -2364,7 +2384,10 @@ module.exports = async function(fastify) {
                 material_name: matchingPair.material_name,
                 color_name: matchingPair.color_name,
                 phoi_pair_index: pairIdx >= 0 ? pairIdx : 0,
-                status, statusLabel, canSelect
+                status, statusLabel, canSelect,
+                fabric_status,
+                fabric_arrived: isPhoiFabricArrived,
+                has_pc_in
             });
         }
         return { candidates };
