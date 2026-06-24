@@ -1056,9 +1056,23 @@ var _calCurrentMonth = new Date().getMonth();
 var _calSelectedDate = '';
 var _calAllowedDates = [];
 
-function getAllowedPostponeDates(maxDays, holidays) {
+function getAllowedPostponeDates(maxDays, holidays, baseDateStr) {
     var list = [];
     var current = new Date(); // Start from today
+    if (baseDateStr) {
+        var parts = baseDateStr.split('-');
+        if (parts.length === 3) {
+            current = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        }
+    }
+    
+    var today = new Date();
+    today.setHours(0,0,0,0);
+    current.setHours(0,0,0,0);
+    if (current.getTime() < today.getTime()) {
+        current = today;
+    }
+
     var count = 0;
     var safetyLimit = 100;
     while (count < maxDays && safetyLimit > 0) {
@@ -1093,10 +1107,16 @@ function getAllowedPostponeDates(maxDays, holidays) {
     return list;
 }
 
-function initCustomCalendar(maxDays, holidays) {
-    _calAllowedDates = getAllowedPostponeDates(maxDays, holidays);
+function initCustomCalendar(maxDays, holidays, baseDateStr) {
+    _calAllowedDates = getAllowedPostponeDates(maxDays, holidays, baseDateStr);
     
     var now = new Date();
+    if (baseDateStr) {
+        var parts = baseDateStr.split('-');
+        if (parts.length === 3) {
+            now = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        }
+    }
     _calCurrentYear = now.getFullYear();
     _calCurrentMonth = now.getMonth();
     _calSelectedDate = '';
@@ -1426,7 +1446,8 @@ async function openPostponeModal(id) {
             container.style.maxWidth = '95%';
         }
         
-        initCustomCalendar(maxDays, _postponeHolidays);
+        var currentTargetDate = tx.postponed_target_date || tx.tx_date;
+        initCustomCalendar(maxDays, _postponeHolidays, currentTargetDate);
         
         _postponePasteHandler = function(e) {
             var items = (e.clipboardData || e.originalEvent.clipboardData).items;
