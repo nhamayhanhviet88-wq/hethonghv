@@ -164,6 +164,7 @@ function _kvSort(col) {
 function _kvRenderTable() {
     var wrap = document.getElementById('kvTableWrap'); if (!wrap) return;
     var sorted = _kv.summary.slice();
+    var isDirector = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
 
     // Custom column sort or default by last_update
     if (_kv.sortCol) {
@@ -233,7 +234,8 @@ function _kvRenderTable() {
             rwHtml = ' - ' + parts.join(', ');
         }
 
-        h += '<tr style="cursor:pointer" onclick="_kvShowDetail(' + r.id + ')">';
+        var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.65;background-color:#f1f5f9"' : 'style="cursor:pointer"';
+        h += '<tr ' + rowStyle + ' onclick="_kvShowDetail(' + r.id + ')">';
         h += '<td style="color:var(--gray-400)">' + (i+1) + '</td>';
         h += '<td style="font-weight:700;color:#0d9488;text-decoration:underline">' + (r.color_name||'') + '<span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></td>';
         h += '<td>' + (r.material_name||'') + '</td>';
@@ -248,6 +250,13 @@ function _kvRenderTable() {
         h += '<td style="text-align:right;font-size:11px">' + (r.price ? _kvFmt(r.price) + '\u0111' : '\u2014') + '</td>';
         h += '<td style="white-space:nowrap">' + (lastUp || '<span style="color:var(--gray-300)">\u2014</span>') + '</td>';
         h += '<td style="white-space:nowrap" onclick="event.stopPropagation()">';
+        if (isDirector) {
+            if (r.is_active !== false) {
+                h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#10b981;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để ẩn khỏi tạo đơn">🟢 Bán</button>';
+            } else {
+                h += '<button onclick="_kvToggleActive(' + r.id + ', true)" style="background:#64748b;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hiển thị ở tạo đơn">🔴 Ẩn</button>';
+            }
+        }
         h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
         h += '</td>';
         h += '</tr>';
@@ -995,3 +1004,24 @@ async function _kvOpenCuttingDetail(cuttingRecordId) {
     }
 }
 window._kvOpenCuttingDetail = _kvOpenCuttingDetail;
+
+async function _kvToggleActive(id, newState) {
+    if (!confirm(newState ? 'Bạn có chắc chắn muốn hiển thị màu vải này khi tạo đơn?' : 'Bạn có chắc chắn muốn ẩn màu vải này khỏi danh sách tạo đơn?')) return;
+    try {
+        var res = await apiCall('/api/khovai/colors/' + id + '/toggle', 'PUT', { is_active: newState });
+        if (res.success) {
+            showToast('Đã cập nhật trạng thái thành công!', 'success');
+            _kvLoadSummary();
+            try {
+                var treeData = await apiCall('/api/khovai/tree');
+                _kv.tree = treeData.tree || [];
+                _kvRenderSidebar();
+            } catch(e) {}
+        } else {
+            showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối: ' + e.message, 'error');
+    }
+}
+window._kvToggleActive = _kvToggleActive;

@@ -4201,7 +4201,7 @@ module.exports = async function(fastify) {
         const pid = Number(request.params.productId);
         const rows = await db.all(`SELECT pm.id, pm.material_id, m.name as material_name
             FROM dht_product_materials pm JOIN kv_materials m ON m.id = pm.material_id
-            WHERE pm.product_id = $1 AND pm.is_active = true ORDER BY m.name ASC`, [pid]);
+            WHERE pm.product_id = $1 AND pm.is_active = true AND m.is_active = true ORDER BY m.name ASC`, [pid]);
         return { materials: rows };
     });
 

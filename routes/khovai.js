@@ -1,6 +1,6 @@
 // ========== KHO VẢI — Fabric Warehouse Management ==========
 const db = require('../db/pool');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireRole } = require('../middleware/auth');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -871,7 +871,7 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/summary', { preHandler: [authenticate] }, async (request) => {
         const { wid, mid } = request.query;
         let sql = `
-            SELECT fc.id, fc.color_name, fc.price,
+            SELECT fc.id, fc.color_name, fc.price, fc.is_active,
                    COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
                    fc.notes, fc.material_id, fc.updated_at,
                    m.name AS material_name, m.warehouse_id,
@@ -962,7 +962,7 @@ module.exports = async function (fastify) {
             FROM kv_fabric_colors fc
             JOIN kv_materials m ON m.id = fc.material_id
             JOIN kv_warehouses w ON w.id = m.warehouse_id
-            WHERE fc.is_active = true AND m.is_active = true AND w.is_active = true
+            WHERE m.is_active = true AND w.is_active = true
         `;
         const params = [];
         let idx = 1;
@@ -1004,7 +1004,7 @@ module.exports = async function (fastify) {
                                      FROM kv_transactions t WHERE t.fabric_color_id = fc.id), 0)
                        ) FROM kv_fabric_colors fc
                        JOIN kv_materials mat ON mat.id = fc.material_id
-                       WHERE mat.warehouse_id = w.id AND fc.is_active = true AND mat.is_active = true
+                       WHERE mat.warehouse_id = w.id AND mat.is_active = true
                    ), 0) AS total_balance
             FROM kv_warehouses w
             WHERE w.is_active = true
@@ -1019,7 +1019,7 @@ module.exports = async function (fastify) {
                                COALESCE((SELECT SUM(CASE WHEN t.tx_type='NHAP' THEN t.quantity ELSE -t.quantity END)
                                          FROM kv_transactions t WHERE t.fabric_color_id = fc.id), 0)
                            ) FROM kv_fabric_colors fc
-                           WHERE fc.material_id = m.id AND fc.is_active = true
+                           WHERE fc.material_id = m.id
                        ), 0) AS total_balance
                 FROM kv_materials m
                 WHERE m.warehouse_id = $1 AND m.is_active = true
@@ -1033,7 +1033,7 @@ module.exports = async function (fastify) {
     // ========== TOGGLE (Bật/Tắt) ==========
 
     // PUT /api/khovai/materials/:id/toggle — Toggle material + cascade to all colors
-    fastify.put('/api/khovai/materials/:id/toggle', { preHandler: [authenticate] }, async (request) => {
+    fastify.put('/api/khovai/materials/:id/toggle', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request) => {
         const { is_active } = request.body || {};
         await db.run('UPDATE kv_materials SET is_active = $1, updated_at = NOW() WHERE id = $2', [!!is_active, request.params.id]);
         // Cascade: toggle all colors in this material
@@ -1042,7 +1042,7 @@ module.exports = async function (fastify) {
     });
 
     // PUT /api/khovai/colors/:id/toggle — Toggle color is_active
-    fastify.put('/api/khovai/colors/:id/toggle', { preHandler: [authenticate] }, async (request) => {
+    fastify.put('/api/khovai/colors/:id/toggle', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request) => {
         const { is_active } = request.body || {};
         await db.run('UPDATE kv_fabric_colors SET is_active = $1, updated_at = NOW() WHERE id = $2', [!!is_active, request.params.id]);
         return { success: true };
@@ -1068,7 +1068,7 @@ module.exports = async function (fastify) {
     });
 
     // PUT /api/khovai/warehouses/:id/toggle — Toggle warehouse is_active
-    fastify.put('/api/khovai/warehouses/:id/toggle', { preHandler: [authenticate] }, async (request) => {
+    fastify.put('/api/khovai/warehouses/:id/toggle', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request) => {
         const { is_active } = request.body || {};
         await db.run('UPDATE kv_warehouses SET is_active = $1, updated_at = NOW() WHERE id = $2', [!!is_active, request.params.id]);
         return { success: true };
