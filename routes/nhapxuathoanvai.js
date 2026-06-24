@@ -203,7 +203,7 @@ module.exports = async function(fastify) {
         );
         await db.run(
             `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
-             VALUES ($1, 'postpone', $2, $3, $4)`,
+             VALUES ($1, $2, $3, $4, $5)`,
             [id, 'postpone', `Lùi lịch hoàn vải đến ngày ${target_date}: ${notes || ''}`, req.user.id, now]
         );
         return { success: true };
@@ -223,7 +223,7 @@ module.exports = async function(fastify) {
         );
         await db.run(
             `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
-             VALUES ($1, 'unpostpone', $2, $3, $4)`,
+             VALUES ($1, $2, $3, $4, $5)`,
             [id, 'unpostpone', `Hủy lùi lịch hoàn vải`, req.user.id, now]
         );
         return { success: true };
