@@ -22,13 +22,15 @@ function renderNhapxuathoanvaiPage(content){
     +'.nxhv-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800;color:#fff}'
     +'.nxhv-debt{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800}'
     +'.nxhv-debt.red{background:#fee2e2;color:#dc2626}.nxhv-debt.green{background:#d1fae5;color:#059669}'
+    +'@keyframes sparkle-glow{0%{background-position:0% 50%;text-shadow:0 0 4px rgba(255,0,127,0.4),0 0 10px rgba(255,127,0,0.2)}50%{background-position:100% 50%;text-shadow:0 0 10px rgba(255,0,127,0.9),0 0 20px rgba(255,127,0,0.7),0 0 30px rgba(255,0,127,0.5)}100%{background-position:0% 50%;text-shadow:0 0 4px rgba(255,0,127,0.4),0 0 10px rgba(255,127,0,0.2)}}'
+    +'.sparkle-glowing-text{font-family:\'Outfit\',\'Inter\',sans-serif;font-weight:900!important;font-size:14px!important;background:linear-gradient(120deg,#ff007f,#ff7f00,#e11d48,#ff007f);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:sparkle-glow 2s ease infinite;display:inline-block}'
     +'@media(max-width:768px){.nxhv-sb{display:none}}';
     document.head.appendChild(st);}
     content.innerHTML='<div class="nxhv-wrap"><div class="nxhv-sb" id="nxhvSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="nxhv-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div><button id="btnNxhvCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vải</button><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="nxhvTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center">✅</th><th style="text-align:center">📸</th><th>Nghiệp Vụ</th><th>Ngày</th><th>Nguồn Vải</th><th>NV</th><th>Chất Liệu</th><th>Màu Vải</th><th>ĐVT</th><th>Các Cây</th><th style="text-align:center">Tổng SL</th><th style="text-align:right">Giá</th><th style="text-align:right">Thành Tiền</th><th style="text-align:center">Công Nợ</th><th style="text-align:right">Thanh Toán</th><th>Cập Nhật</th>'
-    +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th style="text-align:center">STT</th><th style="text-align:center">✅</th><th style="text-align:center">📸</th><th>Nghiệp Vụ</th><th>Ngày</th><th>Nguồn Vải</th><th>Chất Liệu</th><th>Màu Vải</th><th>Các Cây</th><th style="text-align:right">Giá</th><th style="text-align:right">Thành Tiền</th><th style="text-align:center">Công Nợ</th><th style="text-align:right">Thanh Toán</th><th>Cập Nhật</th>'
+    +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="14" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('nxhvSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_nxhv.search=document.getElementById('nxhvSearch').value||'';_nxhvRender();},300);});
     _nxhvLoadAll();
 }
@@ -61,7 +63,11 @@ function formatDateTimeHM(d) {
 }
 function cleanTreeDetails(details) {
     if (!details) return '—';
-    return details.replace(/\s*\([^)]+\)/g, '');
+    var cleaned = details.replace(/\s*\([^)]+\)/g, '');
+    if (cleaned.includes('Cây 27kg')) {
+        return cleaned.replace(/Cây 27kg/g, '<span class="sparkle-glowing-text">Cây 27kg</span>');
+    }
+    return cleaned;
 }
 function _nxhvFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
 function _nxhvFN(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN');}
@@ -90,7 +96,7 @@ function _nxhvRender(){
     var tot=all.length,sumTA=0,sumDebt=0,sumPay=0;
     all.forEach(function(r){sumTA+=Number(r.total_amount)||0;sumDebt+=Number(r.debt)||0;sumPay+=Number(r.payment)||0;});
     var tb=document.getElementById('nxhvTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="17"><div class="empty-state"><div class="icon">🔄</div><h3>Chưa có giao dịch</h3></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="14"><div class="empty-state"><div class="icon">🔄</div><h3>Chưa có giao dịch</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var aI=r.is_approved?'✅':'⬜',aC=r.is_approved?' on':'',aA=r.is_approved?'unapprove':'approve';
         var cl=_nxhvCL[r.tx_type]||'#0891b2';
@@ -104,12 +110,9 @@ function _nxhvRender(){
         +'<td><span class="nxhv-tag" style="background:'+cl+'">'+(_nxhvTL[r.tx_type]||r.tx_type)+'</span></td>'
         +'<td style="font-size:10px;font-weight:600">'+formatDateTimeHM(r.created_at)+'</td>'
         +'<td style="font-size:10px;color:#0891b2;font-weight:700">'+(r.source_name||'—')+'</td>'
-        +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.staff_name||'—')+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+(r.material_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#6366f1;font-weight:600">'+(r.color_name||'—')+'</td>'
-        +'<td style="font-size:10px;color:#94a3b8">'+(r.unit||'kg')+'</td>'
         +'<td style="font-size:13px;font-weight:800;color:#0f172a;white-space:normal;line-height:1.4">'+cleanTreeDetails(r.tree_details)+'</td>'
-        +'<td style="text-align:center;font-weight:800;color:#0891b2">'+_nxhvFN(r.total_quantity)+'</td>'
         +'<td style="text-align:right;font-weight:600;color:#f59e0b">'+_nxhvFN(r.price)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:#1e293b">'+_nxhvFN(r.total_amount)+'</td>'
         +'<td style="text-align:center">'+dB+'</td>'
