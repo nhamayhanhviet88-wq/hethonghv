@@ -45,6 +45,12 @@ function escapeJS(str) {
 // Format numbers
 function _qkvFmt(n) { return Number(n || 0).toLocaleString('vi-VN'); }
 
+// Normalize location names (strip emojis and trim) for safe comparison
+function _qkvNormalizeLocName(name) {
+    if (!name) return '';
+    return name.replace(/^[📍\s\uFE0F]+/, '').trim().toLowerCase();
+}
+
 // Main Page Renderer
 async function renderQuanlykhovaiPage(content) {
     // Dynamically load html5-qrcode library if not loaded
@@ -514,13 +520,14 @@ function _qkvRenderMap() {
             return;
         }
         var key = (item.location || '').trim();
-        var isPredefined = _qkv.locations.some(l => l.name === key);
+        var matchedPredefined = _qkv.locations.find(l => _qkvNormalizeLocName(l.name) === _qkvNormalizeLocName(key));
+        var isPredefined = !!matchedPredefined;
         
         var rollsList = item.roll_weights || [];
         
         if (rollsList.length === 0) {
             if (key && isPredefined) {
-                groups[key].items.push(item);
+                groups[matchedPredefined.name].items.push(item);
             } else {
                 if (_qkv.selectedWid === 'all' || item.warehouse_id === _qkv.selectedWid) {
                     unassignedNguyen.items.push(item);
@@ -536,15 +543,16 @@ function _qkvRenderMap() {
                 
                 var targetBucket = '';
                 var isCleanLoc = rollLoc && rollLoc !== 'Chưa Phân Vị Trí Cây Nguyên' && rollLoc !== 'Chưa xếp kệ' && rollLoc !== 'Chưa xếp vị trí';
+                var matchedLoc = _qkv.locations.find(l => _qkvNormalizeLocName(l.name) === _qkvNormalizeLocName(rollLoc));
                 if (isNguyen) {
-                    if (isCleanLoc && _qkv.locations.some(l => l.name === rollLoc)) {
-                        targetBucket = rollLoc;
+                    if (isCleanLoc && matchedLoc) {
+                        targetBucket = matchedLoc.name;
                     } else {
                         targetBucket = 'unassignedNguyen';
                     }
                 } else {
-                    if (isCleanLoc && _qkv.locations.some(l => l.name === rollLoc)) {
-                        targetBucket = rollLoc;
+                    if (isCleanLoc && matchedLoc) {
+                        targetBucket = matchedLoc.name;
                     } else {
                         targetBucket = 'unassignedLe';
                     }
@@ -875,17 +883,18 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 if (!r.is_called) {
                                     var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : '';
                                     var isCleanLoc = rollLoc && rollLoc !== 'Chưa Phân Vị Trí Cây Nguyên' && rollLoc !== 'Chưa xếp kệ' && rollLoc !== 'Chưa xếp vị trí';
-                                    var isPredefined = _qkv.locations.some(l => l.name === rollLoc);
+                                    var matchedLoc = _qkv.locations.find(l => _qkvNormalizeLocName(l.name) === _qkvNormalizeLocName(rollLoc));
+                                    var isPredefined = !!matchedLoc;
                                     
                                     var actualLoc = '';
                                     if (isCleanLoc && isPredefined) {
-                                        actualLoc = rollLoc;
+                                        actualLoc = matchedLoc.name;
                                     }
                                     
                                     if (isUnassigned === 'waiting') {
                                         var displayLoc = actualLoc || 'Chưa xếp kệ';
                                         locText = ` <span style="font-size:10px; background:#e2e8f0; color:#475569; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(displayLoc)}</span>`;
-                                    } else if (actualLoc && group && group.name && actualLoc !== group.name) {
+                                    } else if (actualLoc && group && group.name && _qkvNormalizeLocName(actualLoc) !== _qkvNormalizeLocName(group.name)) {
                                         locText = ` <span style="font-size:10px; background:#e2e8f0; color:#475569; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(actualLoc)}</span>`;
                                     }
                                 }
@@ -1641,7 +1650,7 @@ function _qkvOnQRScanSuccess(decodedText) {
 function _qkvOpenQuickImportModal(shelfName) {
     _qkv.activeImportShelfName = shelfName;
     // Check if location exists
-    var shelfExists = _qkv.locations.some(l => l.name === shelfName);
+    var shelfExists = _qkv.locations.some(l => _qkvNormalizeLocName(l.name) === _qkvNormalizeLocName(shelfName));
     var warnHtml = '';
     if (!shelfExists) {
         warnHtml = `
@@ -2213,12 +2222,13 @@ function _qkvShowShelfDetailModal(shelfName) {
     var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
     
     // Find shelf location details
-    var loc = _qkv.locations.find(l => l.name === shelfName);
+    var loc = _qkv.locations.find(l => _qkvNormalizeLocName(l.name) === _qkvNormalizeLocName(shelfName));
     var descText = loc && loc.description ? loc.description : 'Không có mô tả';
     var restrictText = loc && loc.is_restricted ? '🔒 Chỉ các chất liệu nhất định' : '🔓 Đa năng (Chất liệu nào cũng được)';
 
     // Group items inside this shelf
-    var group = _qkv.groups && _qkv.groups[shelfName] ? _qkv.groups[shelfName] : { items: [] };
+    var groupNameKey = loc ? loc.name : shelfName;
+    var group = _qkv.groups && _qkv.groups[groupNameKey] ? _qkv.groups[groupNameKey] : { items: [] };
     var shelfItems = group.items;
 
     // Compute totals

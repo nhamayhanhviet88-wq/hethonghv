@@ -819,7 +819,6 @@
         var activeMoveItem = null;
         var activeImportShelf = null;
 
-        // Escape helper functions
         function escapeHTML(str) {
             if (!str) return '';
             return String(str)
@@ -828,6 +827,11 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
+        }
+
+        function normLoc(name) {
+            if (!name) return '';
+            return name.replace(/^[📍\s\uFE0F]+/, '').trim().toLowerCase();
         }
 
         function escapeJS(str) {
@@ -1057,13 +1061,14 @@
                     return;
                 }
                 var key = (item.location || '').trim();
-                var isPredefined = locations.some(l => l.name === key);
+                var matchedPredefined = locations.find(l => normLoc(l.name) === normLoc(key));
+                var isPredefined = !!matchedPredefined;
                 
                 var rollsList = item.roll_weights || [];
                 
                 if (rollsList.length === 0) {
                     if (key && isPredefined) {
-                        groups[key].items.push(item);
+                        groups[matchedPredefined.name].items.push(item);
                     } else {
                         if (selectedWid === 'all' || item.warehouse_id === selectedWid) {
                             unassignedNguyen.items.push(item);
@@ -1078,21 +1083,22 @@
                         var isNguyen = Number(r.w) >= Number(r.ow);
                         
                         var targetBucket = '';
+                        var matchedLoc = locations.find(l => normLoc(l.name) === normLoc(rollLoc));
                         if (isNguyen) {
-                            if (rollLoc && locations.some(l => l.name === rollLoc)) {
-                                targetBucket = rollLoc;
+                            if (rollLoc && matchedLoc) {
+                                targetBucket = matchedLoc.name;
                             } else if (rollLoc === '') {
                                 targetBucket = 'unassignedNguyen';
                             } else {
                                 if (key && isPredefined) {
-                                    targetBucket = key;
+                                    targetBucket = matchedPredefined.name;
                                 } else {
                                     targetBucket = 'unassignedNguyen';
                                 }
                             }
                         } else {
-                            if (rollLoc && locations.some(l => l.name === rollLoc)) {
-                                targetBucket = rollLoc;
+                            if (rollLoc && matchedLoc) {
+                                targetBucket = matchedLoc.name;
                             } else {
                                 targetBucket = 'unassignedLe';
                             }
@@ -1346,18 +1352,19 @@
                                     var locText = '';
                                     if (!r.is_called) {
                                         var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : '';
-                                        var isPredefined = locations.some(l => l.name === rollLoc);
+                                        var matchedLoc = locations.find(l => normLoc(l.name) === normLoc(rollLoc));
+                                        var isPredefined = !!matchedLoc;
                                         
                                         var actualLoc = '';
                                         if (rollLoc && isPredefined) {
-                                            actualLoc = rollLoc;
+                                            actualLoc = matchedLoc.name;
                                         } else {
                                             var isNguyen = Number(r.w) >= Number(r.ow);
                                             if (isNguyen) {
                                                 var itemLoc = (item.location || '').trim();
-                                                var isItemLocPredefined = locations.some(l => l.name === itemLoc);
-                                                if (itemLoc && isItemLocPredefined) {
-                                                    actualLoc = itemLoc;
+                                                var matchedItemLoc = locations.find(l => normLoc(l.name) === normLoc(itemLoc));
+                                                if (itemLoc && matchedItemLoc) {
+                                                    actualLoc = matchedItemLoc.name;
                                                 }
                                             }
                                         }
@@ -1365,7 +1372,7 @@
                                         if (isUnassigned === 'waiting') {
                                             var displayLoc = actualLoc || 'Chưa xếp kệ';
                                             locText = ` <span style="font-size:10px; background:rgba(255,255,255,0.15); color:#ffffff; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(displayLoc)}</span>`;
-                                        } else if (actualLoc && group && group.name && actualLoc !== group.name) {
+                                        } else if (actualLoc && group && group.name && normLoc(actualLoc) !== normLoc(group.name)) {
                                             locText = ` <span style="font-size:10px; background:rgba(255,255,255,0.15); color:#ffffff; padding:1px 4px; border-radius:3px; font-weight:normal; margin-left:4px;">📍 ${escapeHTML(actualLoc)}</span>`;
                                         }
                                     }
@@ -1705,7 +1712,7 @@
             activeImportShelf = shelfName;
             document.getElementById('importModalTitle').textContent = `📦 Nhập Vải Vào: ${shelfName}`;
             
-            var exists = locations.some(l => l.name === shelfName);
+            var exists = locations.some(l => normLoc(l.name) === normLoc(shelfName));
             var banner = document.getElementById('importWarnBanner');
             if (!exists) {
                 banner.textContent = `⚠️ Vị trí "${shelfName}" chưa được cấu hình. Nếu xếp vải vào đây, hệ thống sẽ tự động ghi nhận vị trí này.`;
