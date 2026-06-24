@@ -961,15 +961,17 @@
             await loadData();
         }
 
-        async function loadData() {
+        async function loadData(silent = false) {
             if (!selectedWid) return;
             const container = document.getElementById('mContent');
-            container.innerHTML = `
-                <div style="text-align:center; padding:40px; color:#94a3b8">
-                    <div class="spinner"></div>
-                    <div>Đang tải sơ đồ kho...</div>
-                </div>
-            `;
+            if (!silent) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:40px; color:#94a3b8">
+                        <div class="spinner"></div>
+                        <div>Đang tải sơ đồ kho...</div>
+                    </div>
+                `;
+            }
             
             try {
                 const [locRes, sumRes] = await Promise.all([
@@ -980,7 +982,18 @@
                 locations = locRes.locations || [];
                 summary = sumRes.summary || [];
                 
+                var scrollPos = window.scrollY;
                 renderMap();
+                
+                if (silent) {
+                    window.scrollTo(0, scrollPos);
+                    setTimeout(function() {
+                        window.scrollTo(0, scrollPos);
+                    }, 0);
+                    requestAnimationFrame(function() {
+                        window.scrollTo(0, scrollPos);
+                    });
+                }
             } catch (err) {
                 console.error(err);
                 showToast('Lỗi khi lấy dữ liệu kho', 'error');
@@ -1564,7 +1577,7 @@
                 
                 showToast('Di chuyển vị trí thành công!');
                 closeMoveModal();
-                await loadData();
+                await loadData(true);
             } catch (err) {
                 showToast(err.message, 'error');
             }
@@ -1877,7 +1890,7 @@
                     location: activeImportShelf
                 });
                 showToast(`Đã xếp cây vải ${rollWeight}kg vào kệ "${activeImportShelf}" thành công!`);
-                await loadData();
+                await loadData(true);
                 renderImportList();
             } catch (err) {
                 showToast(err.message, 'error');
@@ -1972,7 +1985,7 @@
                     }
                 } else {
                     showToast('Đã chụp ảnh thành công!');
-                    await loadData();
+                    await loadData(true);
                     if (document.getElementById('importModal').style.display === 'flex') {
                         renderImportList();
                     }
@@ -2168,7 +2181,7 @@
             try {
                 await api('/api/import/toggle/' + id, 'POST', { action: a });
                 showToast('✅ Đã cập nhật trạng thái duyệt!');
-                await loadData();
+                await loadData(true);
                 qkvOpenBillDetail(id);
             } catch(e) {
                 showToast(e.message || 'Lỗi', 'error');
