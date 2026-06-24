@@ -1,5 +1,5 @@
 // ========== KHO VẢI — Fabric Warehouse Frontend ==========
-var _kv = { tree: [], summary: [], filter: {}, selectedWid: null, selectedMid: null, searchText: '', sortCol: '', sortDir: 'desc' };
+var _kv = { tree: [], summary: [], filter: {}, selectedWid: null, selectedMid: null, searchText: '', activeFilter: 'all', sortCol: '', sortDir: 'desc' };
 
 function _kvFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
 
@@ -137,16 +137,21 @@ function _kvRenderToolbar() {
         ft = wh ? wh.name : 'Kho #' + _kv.selectedWid;
     }
 
-    var tNhap = 0, tXuat = 0, tCuoi = 0;
-    _kv.summary.forEach(function(r) { tNhap += Number(r.dau_ky||0); tXuat += Number(r.xuat||0); tCuoi += Number(r.cuoi_ky||0); });
+    var activeFilter = _kv.activeFilter || 'all';
+    var selectHtml = '<select id="kvActiveFilter" onchange="_kvOnActiveFilterChange(this.value)" style="margin-left:8px;padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);color:#fff;font-size:12px;outline:none;cursor:pointer">'
+        + '<option value="all" style="color:#000"' + (activeFilter === 'all' ? ' selected' : '') + '>Tất cả trạng thái</option>'
+        + '<option value="active" style="color:#000"' + (activeFilter === 'active' ? ' selected' : '') + '>🟢 Đang bán</option>'
+        + '<option value="inactive" style="color:#000"' + (activeFilter === 'inactive' ? ' selected' : '') + '>🔴 Đã ẩn</option>'
+        + '</select>';
 
     tb.innerHTML = '<span style="font-weight:800;font-size:13px">🏬 ' + ft + '</span>'
         + '<input type="text" id="kvSearchInput" placeholder="🔍 Tìm màu, chất liệu..." value="' + (_kv.searchText||'').replace(/"/g,'&quot;') + '" oninput="_kvOnSearch(this.value)" style="margin-left:12px;padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);color:#fff;font-size:12px;width:200px;outline:none" />'
+        + selectHtml
         + '<span style="flex:1"></span>'
         + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-        + '<div class="kv-stat-card"><div class="kv-stat-label">NHẬP</div><div class="kv-stat-val" style="color:#059669">' + _kvFmt(tNhap) + '</div></div>'
-        + '<div class="kv-stat-card"><div class="kv-stat-label">XUẤT</div><div class="kv-stat-val" style="color:#dc2626">' + _kvFmt(tXuat) + '</div></div>'
-        + '<div class="kv-stat-card"><div class="kv-stat-label">TỒN KHO</div><div class="kv-stat-val" style="color:' + (tCuoi >= 0 ? '#0d9488' : '#dc2626') + '">' + _kvFmt(tCuoi) + '</div></div>'
+        + '<div class="kv-stat-card"><div class="kv-stat-label">NHẬP</div><div id="kvStatNhap" class="kv-stat-val" style="color:#059669">0</div></div>'
+        + '<div class="kv-stat-card"><div class="kv-stat-label">XUẤT</div><div id="kvStatXuat" class="kv-stat-val" style="color:#dc2626">0</div></div>'
+        + '<div class="kv-stat-card"><div class="kv-stat-label">TỒN KHO</div><div id="kvStatCuoi" class="kv-stat-val" style="color:#0d9488">0</div></div>'
         + '</div>';
 }
 
@@ -166,20 +171,12 @@ function _kvRenderTable() {
     var sorted = _kv.summary.slice();
     var isDirector = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
 
-    // Custom column sort or default by last_update
-    if (_kv.sortCol) {
-        var col = _kv.sortCol;
-        var dir = _kv.sortDir === 'asc' ? 1 : -1;
-        sorted.sort(function(a, b) {
-            var av = Number(a[col]||0), bv = Number(b[col]||0);
-            return (av - bv) * dir;
-        });
-    } else {
-        sorted.sort(function(a, b) {
-            var aTime = a.last_update && a.last_update.at ? new Date(a.last_update.at).getTime() : 0;
-            var bTime = b.last_update && b.last_update.at ? new Date(b.last_update.at).getTime() : 0;
-            return bTime - aTime;
-        });
+    // Client-side active status filter
+    var activeFilter = _kv.activeFilter || 'all';
+    if (activeFilter === 'active') {
+        sorted = sorted.filter(function(r) { return r.is_active !== false; });
+    } else if (activeFilter === 'inactive') {
+        sorted = sorted.filter(function(r) { return r.is_active === false; });
     }
 
     // Client-side search filter
@@ -190,6 +187,41 @@ function _kvRenderTable() {
                 || (r.material_name || '').toLowerCase().indexOf(searchKey) >= 0
                 || (r.location || '').toLowerCase().indexOf(searchKey) >= 0;
         });
+    }
+
+    // Custom column sort or default: group by material name, active status, color name
+    if (_kv.sortCol) {
+        var col = _kv.sortCol;
+        var dir = _kv.sortDir === 'asc' ? 1 : -1;
+        sorted.sort(function(a, b) {
+            var av = Number(a[col]||0), bv = Number(b[col]||0);
+            return (av - bv) * dir;
+        });
+    } else {
+        sorted.sort(function(a, b) {
+            var matA = a.material_name || '';
+            var matB = b.material_name || '';
+            if (matA !== matB) return matA.localeCompare(matB, 'vi');
+            var activeA = a.is_active !== false ? 1 : 0;
+            var activeB = b.is_active !== false ? 1 : 0;
+            if (activeA !== activeB) return activeB - activeA;
+            var colA = a.color_name || '';
+            var colB = b.color_name || '';
+            return colA.localeCompare(colB, 'vi');
+        });
+    }
+
+    // Update dynamic top stat cards
+    var tNhap = 0, tXuat = 0, tCuoi = 0;
+    sorted.forEach(function(r) { tNhap += Number(r.dau_ky||0); tXuat += Number(r.xuat||0); tCuoi += Number(r.cuoi_ky||0); });
+    var elNhap = document.getElementById('kvStatNhap');
+    var elXuat = document.getElementById('kvStatXuat');
+    var elCuoi = document.getElementById('kvStatCuoi');
+    if (elNhap) elNhap.textContent = _kvFmt(tNhap);
+    if (elXuat) elXuat.textContent = _kvFmt(tXuat);
+    if (elCuoi) {
+        elCuoi.textContent = _kvFmt(tCuoi);
+        elCuoi.style.color = tCuoi >= 0 ? '#0d9488' : '#dc2626';
     }
 
     if (!sorted.length) {
@@ -234,7 +266,7 @@ function _kvRenderTable() {
             rwHtml = ' - ' + parts.join(', ');
         }
 
-        var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.65;background-color:#f1f5f9"' : 'style="cursor:pointer"';
+        var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.85;background-color:#fee2e2"' : 'style="cursor:pointer"';
         h += '<tr ' + rowStyle + ' onclick="_kvShowDetail(' + r.id + ')">';
         h += '<td style="color:var(--gray-400)">' + (i+1) + '</td>';
         h += '<td style="font-weight:700;color:#0d9488;text-decoration:underline">' + (r.color_name||'') + '<span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></td>';
@@ -1025,3 +1057,9 @@ async function _kvToggleActive(id, newState) {
     }
 }
 window._kvToggleActive = _kvToggleActive;
+
+function _kvOnActiveFilterChange(val) {
+    _kv.activeFilter = val;
+    _kvRenderTable();
+}
+window._kvOnActiveFilterChange = _kvOnActiveFilterChange;
