@@ -100,6 +100,7 @@ async function _nxhvTog(id,action){try{await apiCall('/api/fabrictx/toggle/'+id,
 // ========== CREATE FABRIC RETURN (HOÀN VẢI) MODAL ==========
 var _retSummaryData = [];
 var _retStaffData = [];
+var _selectedRetType = null; // null, 1, 2, or 3
 
 async function openCreateReturnModal() {
     showToast('Đang tải dữ liệu...', 'info');
@@ -110,6 +111,7 @@ async function openCreateReturnModal() {
         ]);
         _retSummaryData = sumRes.summary || [];
         _retStaffData = staffRes.staff || [];
+        _selectedRetType = null;
         
         const bodyHTML = `
             <div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">
@@ -174,8 +176,28 @@ async function openCreateReturnModal() {
                         <span style="font-size:13px; font-weight:800; color:#0f766e;">📋 Chọn Cây Vải Từ Kho Vải</span>
                         <span id="nxhv_m_selection_summary" style="font-weight:700; color:#0891b2;">Đã chọn: 0 cây (0 kg)</span>
                     </div>
+
+                    <!-- Step 1: Force type selection -->
+                    <div style="margin-bottom:10px; padding:8px; background:rgba(15,118,110,0.03); border:1px dashed rgba(15,118,110,0.2); border-radius:8px;">
+                        <label style="font-weight:800; display:block; margin-bottom:6px; color:#0f766e;">👉 BƯỚC 1: Chọn loại cây vải muốn hoàn trả:</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                            <button type="button" id="nxhv_btn_type1" class="btn btn-outline" onclick="selectRetType(1)" style="font-size:11px; padding:8px; text-align:left; border:2px solid #e2e8f0; border-radius:8px; background:#fff; font-weight:700; display:flex; flex-direction:column; gap:2px; transition:all 0.2s;">
+                                <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">🛠️ Loại 1</span>
+                                <span style="color:#64748b; font-size:10px; font-weight:500;">Cây nguyên chưa xếp kệ</span>
+                            </button>
+                            <button type="button" id="nxhv_btn_type2" class="btn btn-outline" onclick="selectRetType(2)" style="font-size:11px; padding:8px; text-align:left; border:2px solid #e2e8f0; border-radius:8px; background:#fff; font-weight:700; display:flex; flex-direction:column; gap:2px; transition:all 0.2s;">
+                                <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">📍 Loại 2</span>
+                                <span style="color:#64748b; font-size:10px; font-weight:500;">Cây nguyên đã lên kệ</span>
+                            </button>
+                            <button type="button" id="nxhv_btn_type3" class="btn btn-outline" onclick="selectRetType(3)" style="font-size:11px; padding:8px; text-align:left; border:2px solid #e2e8f0; border-radius:8px; background:#fff; font-weight:700; display:flex; flex-direction:column; gap:2px; transition:all 0.2s;">
+                                <span style="font-size:12px; display:inline-flex; align-items:center; gap:4px;">✂️ Loại 3</span>
+                                <span style="color:#64748b; font-size:10px; font-weight:500;">Cây lẻ / cắt dở</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div style="margin-bottom:8px;">
-                        <input type="text" id="nxhv_m_search_rolls" class="form-control" placeholder="🔍 Tìm nhanh cây vải (chất liệu, màu, mã cây...)" style="width:100%; font-size:12px; padding:6px 10px;" />
+                        <input type="text" id="nxhv_m_search_rolls" disabled class="form-control" placeholder="🔍 Vui lòng chọn loại cây vải trước..." style="width:100%; font-size:12px; padding:6px 10px;" />
                     </div>
                     <div id="nxhv_m_rolls_container" style="max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:10px; background:#f8fafc;">
                     </div>
@@ -204,7 +226,7 @@ async function openCreateReturnModal() {
         const staffSelect = document.getElementById('nxhv_m_staff');
         staffSelect.innerHTML = _retStaffData.map(u => `<option value="${u.id}" ${currentUser && u.id === currentUser.id ? 'selected' : ''}>${u.full_name}</option>`).join('');
         
-        // Render rolls list
+        // Render rolls list (shows placeholder initially)
         renderAllRollsList();
         
         // Bind search
@@ -223,9 +245,50 @@ async function openCreateReturnModal() {
     }
 }
 
+function selectRetType(type) {
+    const container = document.getElementById('nxhv_m_rolls_container');
+    const checked = container ? container.querySelectorAll('.nxhv-roll-cb:checked') : [];
+    if (checked.length > 0 && _selectedRetType !== type) {
+        showToast('⚠️ Bạn đang có cây vải được tích chọn. Hãy bỏ chọn chúng trước khi đổi loại cây vải hoàn!', 'warning');
+        return;
+    }
+    
+    _selectedRetType = type;
+    
+    // Update button active styles
+    for (let i = 1; i <= 3; i++) {
+        const btn = document.getElementById(`nxhv_btn_type${i}`);
+        if (!btn) continue;
+        if (i === type) {
+            btn.style.borderColor = '#0f766e';
+            btn.style.background = '#ecfeff';
+            btn.style.color = '#0f766e';
+            btn.style.boxShadow = '0 0 0 2px rgba(15, 118, 110, 0.2)';
+        } else {
+            btn.style.borderColor = '#e2e8f0';
+            btn.style.background = '#fff';
+            btn.style.color = '';
+            btn.style.boxShadow = '';
+        }
+    }
+    
+    const searchInput = document.getElementById('nxhv_m_search_rolls');
+    if (searchInput) {
+        searchInput.disabled = false;
+        searchInput.placeholder = '🔍 Tìm nhanh cây vải (chất liệu, màu, mã cây...)';
+    }
+    
+    renderAllRollsList(searchInput ? searchInput.value : '');
+}
+
 function renderAllRollsList(searchTerm = '') {
     const container = document.getElementById('nxhv_m_rolls_container');
     if (!container) return;
+    
+    if (_selectedRetType === null) {
+        container.innerHTML = '<div style="text-align:center; color:#64748b; padding:30px 10px; font-weight:600; font-size:12px;">⚠️ Vui lòng chọn 1 trong 3 loại cây vải phía trên để hiển thị danh sách cây cần hoàn trả.</div>';
+        return;
+    }
     
     const term = searchTerm.toLowerCase().trim();
     let checkedMatColor = null;
@@ -240,35 +303,46 @@ function renderAllRollsList(searchTerm = '') {
         const matColorKey = `${colorObj.material_name} - ${colorObj.color_name}`;
         const rolls = colorObj.roll_weights || [];
         
-        const cat1 = rolls.filter(r => {
-            const isNguyen = Number(r.w) >= Number(r.ow);
-            const isUnassigned = !r.loc || r.loc.trim() === '';
-            const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
-            return isNguyen && isUnassigned && isFree;
-        });
-        const cat2 = rolls.filter(r => {
-            const isNguyen = Number(r.w) >= Number(r.ow);
-            const isOnShelf = r.loc && r.loc.trim() !== '';
-            const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
-            return isNguyen && isOnShelf && isFree;
-        });
-        const cat3 = rolls.filter(r => {
-            const isLe = Number(r.w) < Number(r.ow);
-            const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
-            return isLe && isFree;
-        });
+        let filtered = [];
+        let groupTitle = '';
+        let groupColor = '';
         
-        let mCat1 = cat1, mCat2 = cat2, mCat3 = cat3;
+        if (_selectedRetType === 1) {
+            filtered = rolls.filter(r => {
+                const isNguyen = Number(r.w) >= Number(r.ow);
+                const isUnassigned = !r.loc || r.loc.trim() === '';
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                return isNguyen && isUnassigned && isFree;
+            });
+            groupTitle = '🛠️ 1. CÂY NGUYÊN CẦN XỬ LÝ KHO';
+            groupColor = '#ef4444';
+        } else if (_selectedRetType === 2) {
+            filtered = rolls.filter(r => {
+                const isNguyen = Number(r.w) >= Number(r.ow);
+                const isOnShelf = r.loc && r.loc.trim() !== '';
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                return isNguyen && isOnShelf && isFree;
+            });
+            groupTitle = '📍 2. CÂY NGUYÊN Ở CÁC KỆ';
+            groupColor = '#3b82f6';
+        } else if (_selectedRetType === 3) {
+            filtered = rolls.filter(r => {
+                const isLe = Number(r.w) < Number(r.ow);
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                return isLe && isFree;
+            });
+            groupTitle = '✂️ 3. CÁC CÂY LẺ Ở KHO VẢI';
+            groupColor = '#f59e0b';
+        }
+        
         if (term) {
             const matchesHeader = matColorKey.toLowerCase().indexOf(term) >= 0;
             if (!matchesHeader) {
-                mCat1 = cat1.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
-                mCat2 = cat2.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
-                mCat3 = cat3.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
+                filtered = filtered.filter(r => (r.code || '').toLowerCase().indexOf(term) >= 0 || String(r.w).indexOf(term) >= 0);
             }
         }
         
-        const total = mCat1.length + mCat2.length + mCat3.length;
+        const total = filtered.length;
         if (total === 0) return;
         
         const isDisabled = checkedMatColor && checkedMatColor !== matColorKey;
@@ -282,13 +356,11 @@ function renderAllRollsList(searchTerm = '') {
                 <div style="padding:8px; display:flex; flex-direction:column; gap:6px;">
         `;
         
-        function renderGroup(title, color, list) {
-            if (list.length === 0) return '';
-            return `
+        html += `
                 <div>
-                    <div style="font-weight:700; font-size:10px; margin-bottom:2px; color:${color};">${title}</div>
+                    <div style="font-weight:700; font-size:10px; margin-bottom:4px; color:${groupColor};">${groupTitle}</div>
                     <div style="display:flex; flex-direction:column; gap:3px;">
-                        ${list.map(r => {
+                        ${filtered.map(r => {
                             const shelf = r.loc ? `📍 Kệ ${r.loc}` : '⚠️ Chưa xếp kệ';
                             const photoBadge = r.needs_photo ? `<span style="background:#fee2e2; color:#dc2626; padding:1px 4px; border-radius:4px; font-size:8px; font-weight:700; margin-left:4px;">📷 Cần ảnh</span>` : '';
                             const isChecked = activeCbs && Array.from(activeCbs).some(cb => cb.value == r.id);
@@ -318,12 +390,7 @@ function renderAllRollsList(searchTerm = '') {
                         }).join('')}
                     </div>
                 </div>
-            `;
-        }
-        
-        html += renderGroup('🛠️ 1. CÂY NGUYÊN CẦN XỬ LÝ KHO', '#ef4444', mCat1);
-        html += renderGroup('📍 2. CÂY NGUYÊN Ở CÁC KỆ', '#3b82f6', mCat2);
-        html += renderGroup('✂️ 3. CÁC CÂY LẺ Ở KHO VẢI', '#f59e0b', mCat3);
+        `;
         
         html += `
                 </div>
@@ -468,3 +535,4 @@ async function submitCreateReturn() {
 window.openCreateReturnModal = openCreateReturnModal;
 window.submitCreateReturn = submitCreateReturn;
 window.updateFinValues = updateFinValues;
+window.selectRetType = selectRetType;
