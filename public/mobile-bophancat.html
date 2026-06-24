@@ -3046,14 +3046,68 @@ function mMCRender(){
         var h=prog+'<div style="font-size:10px;font-weight:800;color:#f97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">BƯỚC 2: CHỌN CÂY VẢI</div>';
         h+='<div style="font-size:11px;color:#94a3b8;margin-bottom:10px">🧵 '+_mm.selMat+' · 🎨 '+_mm.selColor+'</div>';
         if(!_mm.rolls.length)h+='<div style="text-align:center;padding:16px;color:#fbbf24;background:rgba(251,191,36,0.1);border-radius:8px">⚠️ Không có cây vải</div>';
-        else _mm.rolls.forEach(r=>{
-            var dis=r.locked?' disabled':'',op=r.locked?'opacity:0.4;':'',chk=_mm.selRolls.indexOf(r.id)>=0?' checked':'';
-            h+='<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;margin-bottom:6px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+'">';
-            h+='<input type="checkbox" class="_mmRCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mMCRollCh()" style="width:20px;height:20px;accent-color:#f97316">';
-            h+='<span style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0">'+r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</span>';
-            if(r.locked)h+='<span style="color:#ef4444;font-size:9px">🔒 '+(r.locked_order?r.locked_order+' — ':'')+(r.locked_by||'')+'</span>';
-            h+='</label>';
-        });
+        else {
+            var candidateCodes = _mm.candidates.map(function(c) { return c.order_code; });
+            _mm.rolls.forEach(function(r) {
+                var isReserved = false;
+                var reservedKg = null;
+                if (r.reservations && r.reservations.length) {
+                    var matchedReservations = r.reservations.filter(function(res) {
+                        return candidateCodes.indexOf(res.order_code) >= 0;
+                    });
+                    if (matchedReservations.length > 0) {
+                        isReserved = true;
+                        var sumKg = 0;
+                        matchedReservations.forEach(function(res) {
+                            sumKg += Number(res.kg_reserved) || 0;
+                        });
+                        reservedKg = sumKg > 0 ? sumKg : null;
+                    }
+                }
+
+                var dis=r.locked?' disabled':'',op=r.locked?'opacity:0.4;':'',chk=_mm.selRolls.indexOf(r.id)>=0?' checked':'';
+                
+                var borderStyle = isReserved ? 'border:2px solid #ea580c;background:#1e1b18;' : 'border:1.5px solid rgba(255,255,255,0.12);';
+
+                var locBadge = '';
+                var locName = r.roll_loc_name || r.location_name;
+                if (locName) {
+                    var bColor = '#94a3b8';
+                    var bBg = 'rgba(255,255,255,0.05)';
+                    if (locName.indexOf('Chưa Phân Vị Trí') !== -1) {
+                        if (locName.indexOf('Cây Nguyên') !== -1) {
+                            bColor = '#f59e0b';
+                            bBg = 'rgba(245,158,11,0.1)';
+                        } else {
+                            bColor = '#ef4444';
+                            bBg = 'rgba(239,68,68,0.1)';
+                        }
+                    } else {
+                        bColor = '#3b82f6';
+                        bBg = 'rgba(59,130,246,0.15)';
+                    }
+                    locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+locName+'</div>';
+                }
+
+                h+='<label style="display:block;padding:10px;border-radius:10px;margin-bottom:6px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+borderStyle+'">';
+                h+='  <div style="display:flex;align-items:center;gap:10px">';
+                h+='    <input type="checkbox" class="_mmRCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mMCRollCh()" style="width:20px;height:20px;accent-color:#f97316">';
+                h+='    <span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#e2e8f0">'+r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</span>' + locBadge + '</span>';
+                if(r.locked)h+='<span style="color:#ef4444;font-size:9px">🔒 '+(r.locked_order?r.locked_order+' — ':'')+(r.locked_by||'')+'</span>';
+                h+='  </div>';
+                if (isReserved) {
+                    var msg = reservedKg ? 'QLX báo lấy ra ' + reservedKg + 'kg cắt' : 'QLX báo lấy ra cắt';
+                    h += '  <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; border-top: 1.5px dashed rgba(234, 88, 12, 0.2); padding-top: 6px;">';
+                    h += '    <div style="display:flex; align-items:center; gap:6px">';
+                    h += '      <span style="background:#ea580c; color:#fff; font-size:9px; padding:1px 6px; border-radius:4px; font-weight:800">📍 QLX CHỈ ĐỊNH</span>';
+                    h += '      <span style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; padding:1px 8px; border-radius:6px; font-size:10px; font-weight:800; display:inline-flex; align-items:center; gap:4px">🔔 ' + msg + '</span>';
+                    h += '    </div>';
+                    h += '  </div>';
+                }
+                h += mRenderRollReservations(r, candidateCodes);
+                h+='</label>';
+            });
+        }
         h+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:800;color:#e2e8f0">⚖️ KG ĐẦU</span><span id="_mmKgD" style="font-size:20px;font-weight:900;color:#f97316">0.00 kg</span></div>';
         bd.innerHTML=h;mMCRollCh();
         if(nx)nx.textContent='Tiếp ▶';
@@ -3184,6 +3238,20 @@ async function mMCNext(){
             _mm.rolls=r1.rolls||[];
             var r2=await mApi('/api/cutting/multi-cut/candidates?material_name='+encodeURIComponent(_mm.selMat)+'&fabric_color='+encodeURIComponent(_mm.selColor));
             _mm.candidates=r2.candidates||[];
+            var candidateCodes = _mm.candidates.map(function(c) { return c.order_code; });
+            mSortRollsForCutting(_mm.rolls, candidateCodes);
+            
+            // Auto-check rolls reserved for candidates
+            _mm.selRolls = [];
+            _mm.rolls.forEach(function(r) {
+                if (r.locked) return;
+                var hasMatchingRes = r.reservations && r.reservations.some(function(res) {
+                    return candidateCodes.indexOf(res.order_code) >= 0;
+                });
+                if (hasMatchingRes) {
+                    _mm.selRolls.push(r.id);
+                }
+            });
         }catch(e){mToast(e.message,false);return;}
         _mm.step=2;mMCRender();
     }else if(_mm.step===2){

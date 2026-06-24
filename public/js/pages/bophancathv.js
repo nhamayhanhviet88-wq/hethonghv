@@ -3250,14 +3250,65 @@ function _mcRenderStep() {
         else {
             var candidateCodes = _mcData.candidates.map(function(c) { return c.order_code; });
             _mcData.rolls.forEach(function(r, idx) {
+                var isReserved = false;
+                var reservedKg = null;
+                if (r.reservations && r.reservations.length) {
+                    var matchedReservations = r.reservations.filter(function(res) {
+                        return candidateCodes.indexOf(res.order_code) >= 0;
+                    });
+                    if (matchedReservations.length > 0) {
+                        isReserved = true;
+                        var sumKg = 0;
+                        matchedReservations.forEach(function(res) {
+                            sumKg += Number(res.kg_reserved) || 0;
+                        });
+                        reservedKg = sumKg > 0 ? sumKg : null;
+                    }
+                }
+
                 var dis = r.locked ? ' disabled' : '', op = r.locked ? 'opacity:0.4;' : '';
                 var chk = _mcData.selRolls.indexOf(r.id) >= 0 ? ' checked' : '';
-                h += '<label style="display:block;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:6px;cursor:' + (r.locked?'not-allowed':'pointer') + ';' + op + '">';
+                
+                var borderStyle = isReserved ? 'border:2px solid #ea580c;background:#fff7ed;' : 'border:1.5px solid #e2e8f0;';
+
+                var locBadge = '';
+                if (r.roll_loc_name) {
+                    var bColor = '#64748b';
+                    var bBg = 'rgba(100,116,139,0.08)';
+                    if (r.roll_loc_name.indexOf('Chưa Phân Vị Trí') !== -1) {
+                        if (r.roll_loc_name.indexOf('Cây Nguyên') !== -1) {
+                            bColor = '#b45309';
+                            bBg = '#fef3c7';
+                        } else {
+                            bColor = '#b91c1c';
+                            bBg = '#fee2e2';
+                        }
+                    } else {
+                        bColor = '#2563eb';
+                        bBg = '#dbeafe';
+                    }
+                    locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:\''+bColor+'\';background:\''+bBg+'\';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+r.roll_loc_name+'</div>';
+                } else if (r.location_name) {
+                    var bColor = '#2563eb';
+                    var bBg = '#dbeafe';
+                    locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:\''+bColor+'\';background:\''+bBg+'\';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+r.location_name+'</div>';
+                }
+
+                h += '<label style="display:block;padding:10px 14px;border-radius:10px;margin-bottom:6px;cursor:' + (r.locked?'not-allowed':'pointer') + ';' + op + borderStyle + 'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled && !' + isReserved + ')this.style.borderColor=\'#dc2626\'" onmouseout="if(!' + isReserved + ')this.style.borderColor=\'#e2e8f0\'">';
                 h += '  <div style="display:flex;align-items:center;gap:10px">';
                 h += '    <input type="checkbox" class="_mcRollCb" value="' + r.id + '" data-weight="' + r.weight + '"' + dis + chk + ' onchange="_mcRollChanged()" style="width:18px;height:18px;accent-color:#ea580c">';
-                h += '    <span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">' + (idx+1) + '. ' + r.label + (r.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>';
+                h += '    <span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (idx+1) + '. ' + r.label + (r.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>' + locBadge + '</span>';
                 if (r.locked) h += '    <span style="color:#ef4444;font-size:10px">🔒 ' + (r.locked_order ? r.locked_order + ' — ' : '') + (r.locked_by||'') + '</span>';
                 h += '  </div>';
+                if (isReserved) {
+                    var msg = reservedKg ? 'QLX báo lấy ra ' + reservedKg + 'kg cắt' : 'QLX báo lấy ra cắt';
+                    h += '  <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; border-top: 1.5px dashed rgba(234, 88, 12, 0.2); padding-top: 6px;">';
+                    h += '    <div style="display:flex; align-items:center; gap:6px">';
+                    h += '      <span style="background:#ea580c; color:#fff; font-size:9px; padding:1px 6px; border-radius:4px; font-weight:800">📍 QLX CHỈ ĐỊNH</span>';
+                    h += '      <span style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; padding:1px 8px; border-radius:6px; font-size:10px; font-weight:800; display:inline-flex; align-items:center; gap:4px">🔔 ' + msg + '</span>';
+                    h += '    </div>';
+                    h += '  </div>';
+                }
                 h += _bpcRenderRollReservations(r, candidateCodes);
                 h += '</label>';
             });
@@ -3430,6 +3481,18 @@ async function _mcNext() {
             _bpcSortRollsForCutting(rolls, candidateCodes);
             _mcData.rolls = rolls;
             _mcData.candidates = candidates;
+
+            // Auto-check rolls reserved for candidates
+            _mcData.selRolls = [];
+            rolls.forEach(function(r) {
+                if (r.locked) return;
+                var hasMatchingRes = r.reservations && r.reservations.some(function(res) {
+                    return candidateCodes.indexOf(res.order_code) >= 0;
+                });
+                if (hasMatchingRes) {
+                    _mcData.selRolls.push(r.id);
+                }
+            });
         } catch(e) { showToast(e.message, 'error'); return; }
         _mcData.step = 2; _mcRenderStep();
     } else if (_mcData.step === 2) {
