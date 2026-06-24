@@ -95,6 +95,10 @@ function formatDateTimeHM(d) {
         return d;
     }
 }
+function cleanTreeDetails(details) {
+    if (!details) return '—';
+    return details.replace(/\s*\([^)]+\)/g, '');
+}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
 async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
         if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.nhap_xuat_hoan_vai || !cu.permissions.nhap_xuat_hoan_vai.can_view)) {
@@ -115,14 +119,14 @@ const aA=r.is_approved?'unapprove':'approve';
 const debt=Number(r.debt)||0;const dB=debt>0?'<span class="bd red">🔴 '+fn(debt)+'₫</span>':'<span class="bd green">✅ 0</span>';
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
 let imgs='';try{const ia=typeof r.bill_images==='string'?JSON.parse(r.bill_images):r.bill_images;if(ia&&ia.length)imgs='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 0">'+ia.map(s=>'<img src="'+s+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px">').join('')+'</div>';}catch(e){}
-return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.material_name||'Vải')+' — '+(r.color_name||'')+'</div><div class="cc" style="background:'+cl+'">'+lb+'</div></div>'
+const clickAttr = r.tx_type === 'HOAN' ? ' style="cursor:pointer" onclick="if(event.target.tagName !== \'BUTTON\' && event.target.tagName !== \'A\' && event.target.tagName !== \'IMG\') mOpenViewRetModal('+r.id+')"' : '';
+return '<div class="card"'+clickAttr+'><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.material_name||'Vải')+' — '+(r.color_name||'')+'</div><div class="cc" style="background:'+cl+'">'+lb+'</div></div>'
 +`<div class="cb">`
 +`<div class="cr"><span class="cl">📅 Ngày</span><span class="cv" style="font-weight:700">${formatDateTimeHM(r.created_at)}</span></div>`
 +'<div class="cr"><span class="cl">🏪 Nguồn</span><span class="cv" style="color:#a5f3fc">'+(r.source_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">👤 NV</span><span class="cv">'+(r.staff_name||'—')+'</span></div>'
 +'<div class="cr"><span class="cl">📏 ĐVT</span><span class="cv" style="font-size:11px">'+(r.unit||'kg')+'</span></div>'
-+(r.tree_details?'<div class="cr"><span class="cl">🌲 Các cây</span><span class="cv" style="font-size:11px">'+r.tree_details+'</span></div>':'')
-+'<div class="cr"><span class="cl">🌲 Số cây</span><span class="cv">'+fn(r.tree_count)+'</span></div>'
++(r.tree_details?'<div class="cr"><span class="cl">🌲 Các cây</span><span class="cv" style="font-size:13px;font-weight:800;color:#fff">'+cleanTreeDetails(r.tree_details)+'</span></div>':'')
 +'<div class="cr"><span class="cl">⚖️ Tổng SL</span><span class="cv" style="color:#a5f3fc;font-size:16px;font-weight:900">'+fn(r.total_quantity)+'</span></div>'
 +'<div class="cd"></div>'
 +'<div class="cr"><span class="cl">💵 Giá</span><span class="cv" style="color:#fbbf24">'+fn(r.price)+'₫</span></div>'
@@ -135,6 +139,77 @@ return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class
 +(hl?'<div class="ch">'+hl+'</div>':'')
 +'</div>'}).join('')}
 async function mTog(id,a){try{await api('/api/fabrictx/toggle/'+id,'POST',{action:a});toast('✅ Cập nhật');await mLoad()}catch(e){toast(e.message||'Lỗi','error')}}
+
+function mOpenViewRetModal(id) {
+    const r = mr.find(item => item.id === id);
+    if (!r) {
+        toast('Không tìm thấy giao dịch', 'error');
+        return;
+    }
+    
+    let formattedDate = '';
+    if (r.tx_date) {
+        try {
+            const p = r.tx_date.split('T')[0].split('-');
+            formattedDate = p[2] + '/' + p[1] + '/' + p[0];
+        } catch (e) {
+            formattedDate = r.tx_date;
+        }
+    }
+    
+    const rollsArr = (r.tree_details || '').split(',').map(s => s.trim()).filter(Boolean);
+    const rollsHtml = rollsArr.map(rollStr => {
+        var cleanRoll = rollStr.replace(/\s*\([^)]+\)/g, '');
+        return `
+            <label style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; font-weight:700; color:#fff; margin-bottom:0; width:100%; box-sizing:border-box;">
+                <input type="checkbox" checked disabled style="width:14px; height:14px; accent-color:#059669;" />
+                <span style="color:#cffafe; font-size:12px;">${cleanRoll}</span>
+            </label>
+        `;
+    }).join('');
+
+    let imgsHTML = '';
+    try {
+        const ia = typeof r.bill_images === 'string' ? JSON.parse(r.bill_images) : r.bill_images;
+        if (ia && ia.length) {
+            imgsHTML = `
+                <div style="border-top:1px solid rgba(255,255,255,0.15); margin-top:12px; padding-top:8px;">
+                    <label style="font-weight:700; display:block; margin-bottom:6px; color:#a5f3fc;">📸 Ảnh hóa đơn/bill hoàn:</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        ${ia.map(url => `
+                            <a href="${url}" target="_blank">
+                                <img src="${url}" style="width:72px; height:72px; object-fit:cover; border-radius:8px; border:1px solid rgba(255,255,255,0.15);" />
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    } catch (e) {}
+
+    document.getElementById('mvr_rolls').innerHTML = rollsHtml;
+    document.getElementById('mvr_source').value = r.source_name || '';
+    document.getElementById('mvr_date').value = formattedDate;
+    document.getElementById('mvr_staff').value = r.staff_name || '';
+    document.getElementById('mvr_material').value = r.material_name || '';
+    document.getElementById('mvr_color').value = r.color_name || '';
+    document.getElementById('mvr_unit').value = `${fn(r.total_quantity)} ${r.unit || 'kg'}`;
+    document.getElementById('mvr_price').value = `${fn(r.price)}₫`;
+    document.getElementById('mvr_payment').value = `${fn(r.payment)}₫`;
+    
+    const imgsContainer = document.getElementById('mvr_imgs_container');
+    if (imgsContainer) {
+        imgsContainer.innerHTML = imgsHTML;
+    }
+
+    document.getElementById('mViewRetModal').style.display = 'flex';
+    document.body.classList.add('m-ret-modal-open');
+}
+
+function mCloseViewRetModal() {
+    document.getElementById('mViewRetModal').style.display = 'none';
+    document.body.classList.remove('m-ret-modal-open');
+}
 
 // ========== MOBILE RET MODAL FUNCTIONS ==========
 let mRetSummaryData = [];
@@ -784,6 +859,72 @@ mInit();
         </div>
         <div>
             <button id="mr_submit" onclick="mSubmitRet()" style="width:100%; padding:14px; border-radius:12px; background:#059669; color:#fff; border:none; font-weight:800; font-size:14px; cursor:pointer;">🔄 Xác Nhận Hoàn Vải</button>
+        </div>
+    </div>
+</div>
+
+<!-- Mobile View Return Drawer Modal -->
+<div id="mViewRetModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; align-items:flex-end; justify-content:center;">
+    <div style="background:#155e75; width:100%; max-height:90%; border-top-left-radius:24px; border-top-right-radius:24px; display:flex; flex-direction:column; padding:20px; color:#e2e8f0; font-family:inherit; box-shadow:0 -8px 30px rgba(0,0,0,0.3); animation:mSlideUp 0.3s ease;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h2 style="font-size:16px; font-weight:800; color:#cffafe; flex:1; text-align:left;">🔄 Chi Tiết Hoàn Vải</h2>
+            <button onclick="mCloseViewRetModal()" style="background:rgba(255,255,255,0.1); border:none; color:#fff; width:30px; height:30px; border-radius:50%; font-size:14px; font-weight:700; cursor:pointer;">✕</button>
+        </div>
+        <div style="flex:1; overflow-y:auto; font-size:12px; margin-bottom:16px; padding-bottom:20px; text-align:left;">
+            <div style="margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-weight:800; color:#cffafe;">📋 Danh Sách Cây Vải Trả Hoàn</span>
+                </div>
+                <div id="mvr_rolls" style="max-height:180px; overflow-y:auto; border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:10px; background:rgba(255,255,255,0.03); display:flex; flex-direction:column; gap:6px;">
+                </div>
+            </div>
+            
+            <div style="border-top:1px solid rgba(255,255,255,0.15); padding-top:12px;">
+                <div style="margin-bottom:12px;">
+                    <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Nguồn vải (Nhà cung cấp):</label>
+                    <input type="text" id="mvr_source" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#cbd5e1; outline:none;" />
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Ngày hoàn:</label>
+                        <input type="text" id="mvr_date" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#cbd5e1; outline:none;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Nhân viên:</label>
+                        <input type="text" id="mvr_staff" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#cbd5e1; outline:none;" />
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Chất liệu:</label>
+                        <input type="text" id="mvr_material" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#cbd5e1; outline:none;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Màu vải:</label>
+                        <input type="text" id="mvr_color" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#cbd5e1; outline:none;" />
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Số Lượng:</label>
+                        <input type="text" id="mvr_unit" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#cbd5e1; outline:none;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Đơn giá hoàn:</label>
+                        <input type="text" id="mvr_price" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#cbd5e1; outline:none;" />
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px; color:#a5f3fc;">Thanh toán:</label>
+                        <input type="text" id="mvr_payment" readonly style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.1); color:#cbd5e1; outline:none;" />
+                    </div>
+                </div>
+                <div id="mvr_imgs_container"></div>
+            </div>
+        </div>
+        <div>
+            <button onclick="mCloseViewRetModal()" style="width:100%; padding:14px; border-radius:12px; background:#475569; color:#fff; border:none; font-weight:800; font-size:14px; cursor:pointer;">Đóng</button>
         </div>
     </div>
 </div>

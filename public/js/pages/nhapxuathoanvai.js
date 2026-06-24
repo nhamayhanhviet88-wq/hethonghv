@@ -27,8 +27,8 @@ function renderNhapxuathoanvaiPage(content){
     content.innerHTML='<div class="nxhv-wrap"><div class="nxhv-sb" id="nxhvSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="nxhv-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div><button id="btnNxhvCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vải</button><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="nxhvTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th>STT</th><th>✅</th><th>📸</th><th>Nghiệp Vụ</th><th>Ngày</th><th>Nguồn Vải</th><th>NV</th><th>Chất Liệu</th><th>Màu Vải</th><th>ĐVT</th><th>Các Cây</th><th>Số Cây</th><th>Tổng SL</th><th>Giá</th><th>Thành Tiền</th><th>Công Nợ</th><th>Thanh Toán</th><th>Cập Nhật</th>'
-    +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="18" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    +'<th>STT</th><th>✅</th><th>📸</th><th>Nghiệp Vụ</th><th>Ngày</th><th>Nguồn Vải</th><th>NV</th><th>Chất Liệu</th><th>Màu Vải</th><th>ĐVT</th><th>Các Cây</th><th>Tổng SL</th><th>Giá</th><th>Thành Tiền</th><th>Công Nợ</th><th>Thanh Toán</th><th>Cập Nhật</th>'
+    +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="17" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('nxhvSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_nxhv.search=document.getElementById('nxhvSearch').value||'';_nxhvRender();},300);});
     _nxhvLoadAll();
 }
@@ -59,6 +59,10 @@ function formatDateTimeHM(d) {
         return d;
     }
 }
+function cleanTreeDetails(details) {
+    if (!details) return '—';
+    return details.replace(/\s*\([^)]+\)/g, '');
+}
 function _nxhvFD(d){if(!d)return'—';try{var p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0];}catch(e){return d;}}
 function _nxhvFN(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN');}
 
@@ -86,14 +90,15 @@ function _nxhvRender(){
     var tot=all.length,sumTA=0,sumDebt=0,sumPay=0;
     all.forEach(function(r){sumTA+=Number(r.total_amount)||0;sumDebt+=Number(r.debt)||0;sumPay+=Number(r.payment)||0;});
     var tb=document.getElementById('nxhvTb');if(!tb)return;
-    if(!all.length){tb.innerHTML='<tr><td colspan="18"><div class="empty-state"><div class="icon">🔄</div><h3>Chưa có giao dịch</h3></div></td></tr>';}else{
+    if(!all.length){tb.innerHTML='<tr><td colspan="17"><div class="empty-state"><div class="icon">🔄</div><h3>Chưa có giao dịch</h3></div></td></tr>';}else{
     tb.innerHTML=all.map(function(r,i){
         var aI=r.is_approved?'✅':'⬜',aC=r.is_approved?' on':'',aA=r.is_approved?'unapprove':'approve';
         var cl=_nxhvCL[r.tx_type]||'#0891b2';
         var imgs='—';try{var ia=typeof r.bill_images==='string'?JSON.parse(r.bill_images):r.bill_images;if(ia&&ia.length)imgs='📸 '+ia.length;}catch(e){}
         var debt=Number(r.debt)||0;var dB=debt>0?'<span class="nxhv-debt red">🔴 '+_nxhvFN(debt)+'</span>':'<span class="nxhv-debt green">✅ 0</span>';
         var upd='';if(r.last_update_at){upd=_nxhvFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#0891b2;font-size:9px">'+r.last_update_by+'</span>';}
-        return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
+        var clickHandler = r.tx_type === 'HOAN' ? ' style="cursor:pointer" onclick="if(event.target.tagName !== \'BUTTON\') openViewReturnModal('+r.id+')"' : '';
+        return '<tr'+clickHandler+'><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="nxhv-ib'+aC+'" onclick="_nxhvTog('+r.id+',\''+aA+'\')" title="Duyệt">'+aI+'</button></td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
         +'<td><span class="nxhv-tag" style="background:'+cl+'">'+(_nxhvTL[r.tx_type]||r.tx_type)+'</span></td>'
@@ -103,8 +108,7 @@ function _nxhvRender(){
         +'<td style="font-weight:600;color:#1e293b">'+(r.material_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#6366f1;font-weight:600">'+(r.color_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#94a3b8">'+(r.unit||'kg')+'</td>'
-        +'<td style="font-size:9px;max-width:100px;overflow:hidden;text-overflow:ellipsis">'+(r.tree_details||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:700">'+_nxhvFN(r.tree_count)+'</td>'
+        +'<td style="font-size:13px;font-weight:800;color:#0f172a;white-space:normal;line-height:1.4">'+cleanTreeDetails(r.tree_details)+'</td>'
         +'<td style="text-align:center;font-weight:800;color:#0891b2">'+_nxhvFN(r.total_quantity)+'</td>'
         +'<td style="text-align:right;font-weight:600;color:#f59e0b">'+_nxhvFN(r.price)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:#1e293b">'+_nxhvFN(r.total_amount)+'</td>'
@@ -580,6 +584,125 @@ window.openCreateReturnModal = openCreateReturnModal;
 window.submitCreateReturn = submitCreateReturn;
 window.updateFinValues = updateFinValues;
 window.selectRetType = selectRetType;
+
+function openViewReturnModal(id) {
+    const r = _nxhv.records.find(item => item.id === id);
+    if (!r) {
+        showToast('Không tìm thấy giao dịch', 'error');
+        return;
+    }
+    
+    let formattedDate = '';
+    if (r.tx_date) {
+        try {
+            const p = r.tx_date.split('T')[0].split('-');
+            formattedDate = p[2] + '/' + p[1] + '/' + p[0];
+        } catch (e) {
+            formattedDate = r.tx_date;
+        }
+    }
+    
+    const rollsArr = (r.tree_details || '').split(',').map(s => s.trim()).filter(Boolean);
+    const rollsHtml = rollsArr.map(rollStr => {
+        var cleanRoll = rollStr.replace(/\s*\([^)]+\)/g, '');
+        return `
+            <label style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; font-weight:700; color:#0f766e; margin-bottom:0;">
+                <input type="checkbox" checked disabled style="width:14px; height:14px; accent-color:#059669;" />
+                <span style="color:#0f766e; font-size:12px;">${cleanRoll}</span>
+            </label>
+        `;
+    }).join('');
+
+    let imgsHTML = '';
+    try {
+        const ia = typeof r.bill_images === 'string' ? JSON.parse(r.bill_images) : r.bill_images;
+        if (ia && ia.length) {
+            imgsHTML = `
+                <div style="border-top:1px solid #e2e8f0; margin-top:12px; padding-top:8px;">
+                    <label style="font-weight:700; display:block; margin-bottom:6px;">📸 Ảnh Hóa Đơn / Bill Hoàn:</label>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        ${ia.map(url => `
+                            <a href="${url}" target="_blank">
+                                <img src="${url}" style="width:100px; height:100px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1;" />
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    } catch (e) {}
+
+    const bodyHTML = `
+        <div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span style="font-size:13px; font-weight:800; color:#0f766e;">📋 Cây Vải Trả Hoàn</span>
+                    <span style="font-weight:700; color:#0891b2;">Đã chọn: ${rollsArr.length} cây (${_nxhvFN(r.total_quantity)} ${r.unit || 'kg'})</span>
+                </div>
+                <div id="nxhv_m_rolls_container_view" style="max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:10px; background:#f8fafc; display:flex; flex-direction:column; gap:6px;">
+                    ${rollsHtml}
+                </div>
+            </div>
+            
+            <div style="border-top:1px solid #e2e8f0; margin-top:4px; padding-top:8px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Nguồn Vải (Nhà cung cấp):</label>
+                        <input type="text" value="${r.source_name || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Ngày Hoàn Vải:</label>
+                        <input type="text" value="${formattedDate}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Thực Hiện:</label>
+                        <input type="text" value="${r.staff_name || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />
+                    </div>
+                </div>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Chất Liệu:</label>
+                        <input type="text" value="${r.material_name || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Màu Vải:</label>
+                        <input type="text" value="${r.color_name || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />
+                    </div>
+                </div>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Số Lượng:</label>
+                        <input type="text" value="${_nxhvFN(r.total_quantity)} ${r.unit || 'kg'}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>
+                        <input type="text" value="${_nxhvFN(r.price)}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:4px;">Thanh Toán:</label>
+                        <input type="text" value="${_nxhvFN(r.payment)}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />
+                    </div>
+                </div>
+                ${imgsHTML}
+            </div>
+        </div>
+    `;
+    
+    const footerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+    `;
+    
+    openModal('🔄 Chi Tiết Giao Dịch Hoàn Vải', bodyHTML, footerHTML);
+    
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) {
+        modalContainer.style.width = '750px';
+        modalContainer.style.maxWidth = '95%';
+    }
+}
+window.openViewReturnModal = openViewReturnModal;
 
 function _nxhvOpenImportBill(importId) {
     if (!importId) {
