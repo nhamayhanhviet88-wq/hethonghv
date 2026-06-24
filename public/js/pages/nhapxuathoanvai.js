@@ -118,15 +118,15 @@ async function openCreateReturnModal() {
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Nguồn Vải (Nhà cung cấp):</label>
-                        <input type="text" id="nxhv_m_source" class="form-control" placeholder="Tên nhà cung cấp..." style="width:100%; font-size:12px; padding:6px 10px;" />
+                        <input type="text" id="nxhv_m_source" class="form-control" readonly placeholder="Tự động chọn..." style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                     </div>
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Ngày Hoàn Vải:</label>
-                        <input type="date" id="nxhv_m_date" class="form-control" style="width:100%; font-size:12px; padding:5px 10px;" />
+                        <input type="date" id="nxhv_m_date" class="form-control" disabled style="width:100%; font-size:12px; padding:5px 10px; background:#f1f5f9; cursor:not-allowed;" />
                     </div>
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Thực Hiện:</label>
-                        <select id="nxhv_m_staff" class="form-control" style="width:100%; font-size:12px; padding:5px 10px;"></select>
+                        <select id="nxhv_m_staff" class="form-control" disabled style="width:100%; font-size:12px; padding:5px 10px; background:#f1f5f9; cursor:not-allowed;"></select>
                     </div>
                 </div>
                 
@@ -144,15 +144,15 @@ async function openCreateReturnModal() {
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px;">
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">ĐVT:</label>
-                        <input type="text" id="nxhv_m_unit" class="form-control" value="kg" style="width:100%; font-size:12px; padding:6px 10px;" />
+                        <input type="text" id="nxhv_m_unit" class="form-control" value="kg" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                     </div>
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>
-                        <input type="number" id="nxhv_m_price" class="form-control" value="0" style="width:100%; font-size:12px; padding:6px 10px;" />
+                        <input type="number" id="nxhv_m_price" class="form-control" value="0" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                     </div>
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Thanh Toán:</label>
-                        <input type="number" id="nxhv_m_payment" class="form-control" value="0" style="width:100%; font-size:12px; padding:6px 10px;" />
+                        <input type="number" id="nxhv_m_payment" class="form-control" value="0" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                     </div>
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Công Nợ:</label>
@@ -160,14 +160,10 @@ async function openCreateReturnModal() {
                     </div>
                 </div>
                 
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:center;">
+                <div style="display:grid; grid-template-columns:1fr; gap:12px; align-items:center;">
                     <div>
                         <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú:</label>
                         <textarea id="nxhv_m_notes" class="form-control" placeholder="Ghi chú thêm..." style="width:100%; height:34px; resize:vertical; font-size:12px; padding:6px 10px;"></textarea>
-                    </div>
-                    <div>
-                        <label style="font-weight:700; display:block; margin-bottom:4px;">Ảnh Bill Hoàn (Không bắt buộc):</label>
-                        <input type="file" id="nxhv_m_files" multiple accept="image/*" class="form-control" style="width:100%; font-size:11px; padding:3px 10px;" />
                     </div>
                 </div>
                 
@@ -377,6 +373,7 @@ function renderAllRollsList(searchTerm = '') {
                                         data-color="${colorObj.color_name}"
                                         data-price="${colorObj.price || 0}"
                                         data-unit="${colorObj.unit || 'kg'}"
+                                        data-source="${r.source_name || ''}"
                                         ${isChecked ? 'checked' : ''} 
                                         ${isDisabled ? 'disabled' : ''}
                                         style="width:14px; height:14px; accent-color:#059669;" />
@@ -421,15 +418,15 @@ function renderAllRollsList(searchTerm = '') {
                 document.getElementById('nxhv_m_material').value = first.getAttribute('data-material');
                 document.getElementById('nxhv_m_color').value = first.getAttribute('data-color');
                 document.getElementById('nxhv_m_unit').value = first.getAttribute('data-unit');
+                document.getElementById('nxhv_m_source').value = first.getAttribute('data-source') || '';
                 
                 const priceInput = document.getElementById('nxhv_m_price');
-                if (priceInput.value === '0' || !priceInput.dataset.userEdited) {
-                    priceInput.value = first.getAttribute('data-price');
-                }
+                priceInput.value = first.getAttribute('data-price');
             } else {
                 document.getElementById('nxhv_m_material').value = '';
                 document.getElementById('nxhv_m_color').value = '';
                 document.getElementById('nxhv_m_price').value = '0';
+                document.getElementById('nxhv_m_source').value = '';
             }
             
             renderAllRollsList(document.getElementById('nxhv_m_search_rolls').value);
@@ -450,9 +447,7 @@ function updateFinValues() {
     const price = Number(document.getElementById('nxhv_m_price').value) || 0;
     const totalAmount = totalWeight * price;
     const paymentInput = document.getElementById('nxhv_m_payment');
-    if (!paymentInput.dataset.userEdited) {
-        paymentInput.value = totalAmount;
-    }
+    paymentInput.value = totalAmount;
     const payment = Number(paymentInput.value) || 0;
     const debt = Math.max(0, totalAmount - payment);
     document.getElementById('nxhv_m_debt').value = debt.toLocaleString('vi-VN');
