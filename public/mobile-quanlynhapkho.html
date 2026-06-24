@@ -809,6 +809,7 @@
         var scanner = null;
         var showZeroWeight = false;
         var collapsedShelves = {};
+        var expandedRollLists = new Set();
         var globalUnassignedNguyen = [];
         var globalUnassignedLe = [];
         var globalProcessedNguyen = [];
@@ -885,6 +886,29 @@
         }
 
         function fmt(n) { return Number(n || 0).toLocaleString('vi-VN'); }
+
+        function toggleRollListMobile(itemRowEl) {
+            var frame = itemRowEl.closest('.material-color-frame');
+            if (!frame) return;
+            var rollList = frame.querySelector('.roll-list-collapsible');
+            if (!rollList) return;
+            
+            var key = itemRowEl.dataset.expandKey;
+            var isCollapsed = rollList.style.display === 'none';
+            if (isCollapsed) {
+                rollList.style.display = 'flex';
+                if (key) expandedRollLists.add(key);
+            } else {
+                rollList.style.display = 'none';
+                if (key) expandedRollLists.delete(key);
+            }
+            
+            var arrow = itemRowEl.querySelector('.collapse-arrow');
+            if (arrow) {
+                arrow.textContent = isCollapsed ? '▼' : '▶';
+                arrow.style.color = isCollapsed ? '#5eead4' : '#94a3b8';
+            }
+        }
 
         // Start initialization
         async function init() {
@@ -1238,10 +1262,12 @@
                     var escapedItemStr = JSON.stringify(item).replace(/"/g, '&quot;');
                     
                     var prefix = isUnassigned ? `${itemIndex}. ` : '';
+                    var expandKey = !isUnassigned ? `${group.name}_${item.material_name}_${item.color_name}` : '';
+                    var isExpanded = !isUnassigned && expandedRollLists.has(expandKey);
 
                     itemsHtml += `
                         <div class="material-color-frame">
-                            <div class="item-row ${matched ? 'matched' : ''}" style="border:none; background:transparent; margin-bottom:0; padding:0;">
+                            <div class="item-row ${matched ? 'matched' : ''}" style="border:none; background:transparent; margin-bottom:0; padding:0; cursor:${!isUnassigned ? 'pointer' : 'default'};" ${!isUnassigned ? `onclick="toggleRollListMobile(this)" data-expand-key="${escapeHTML(expandKey)}"` : ''}>
                                 <div class="item-main">
                                     <div class="item-name" style="font-size:13px; font-weight:800; color:#ffffff;">
                                         ${prefix}${escapeHTML(item.material_name)}
@@ -1252,16 +1278,19 @@
                                         ${badgeHtml}
                                     </div>
                                 </div>
-                                <div class="item-balance">
-                                    ${fmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
-                                    <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
+                                <div class="item-balance" style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+                                    <div style="text-align:right;">
+                                        ${fmt(item.cuoi_ky)} ${escapeHTML(item.unit || 'kg')}<br>
+                                        <span style="font-size:9px; color:#94a3b8; font-weight:normal;">${item.so_cuc} cây</span>
+                                    </div>
+                                    ${!isUnassigned ? `<span class="collapse-arrow" style="color:${isExpanded ? '#5eead4' : '#94a3b8'}; font-size:10px; transition: transform 0.2s;">${isExpanded ? '▼' : '▶'}</span>` : ''}
                                 </div>
                                 ${false ? `
                                 <button class="btn-move" onclick="openMoveModal('${escapeHTML(item.material_name)}', '${escapeHTML(item.color_name)}', ${item.id}, ${item.material_id}, '${escapeHTML(item.location || '')}', '${escapeHTML(JSON.stringify(item.roll_weights || []))}')">🚚</button>
                                 ` : ''}
                             </div>
-                            ${isUnassigned && item.roll_weights && item.roll_weights.length > 0 ? `
-                            <div class="roll-list-unassigned" style="background:rgba(255,255,255,0.02); border-radius:8px; padding:8px; margin:8px 0 0 0; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:6px; width:100%; box-sizing:border-box;">
+                            ${(isUnassigned || (!isUnassigned && item.roll_weights && item.roll_weights.length > 0)) ? `
+                            <div class="${!isUnassigned ? 'roll-list-collapsible' : 'roll-list-unassigned'}" style="background:rgba(255,255,255,0.02); border-radius:8px; padding:8px; margin:8px 0 0 0; border:1px solid rgba(255,255,255,0.05); display:${isUnassigned ? 'flex' : (isExpanded ? 'flex' : 'none')}; flex-direction:column; gap:6px; width:100%; box-sizing:border-box;">
                                 ${item.roll_weights.map(r => {
                                     var photoHtml = '';
                                     var moveHtml = '';
@@ -1272,14 +1301,12 @@
                                     } else {
                                         var photoItems = [];
                                         if (r.img) {
-                                            photoItems.push(`<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid ${r.needs_photo ? '#ef4444' : '#5eead4'}; cursor:pointer; ${r.needs_photo ? 'box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);' : ''}" onclick="openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`);
+                                            photoItems.push(`<img id="roll-img-${r.id}" src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid ${r.needs_photo ? '#ef4444' : '#5eead4'}; cursor:pointer; ${r.needs_photo ? 'box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);' : ''}" onclick="openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`);
                                         }
                                         if (r.needs_photo) {
                                             photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#ef4444; border:none; padding:4px 8px; border-radius:6px; color:white; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:3px;" onclick="triggerRollCamera(${r.id})">📷 Chụp lại</button>`);
                                         } else if (!r.img) {
-                                            if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
-                                                photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`);
-                                            }
+                                            photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`);
                                         }
                                         photoHtml = `<div style="display:flex; align-items:center; gap:6px;">${photoItems.join('')}</div>`;
                                         moveHtml = ``;
@@ -2034,7 +2061,7 @@
                     showToast('Đã chụp ảnh thành công!');
                     await loadData(true);
                     setTimeout(function() {
-                        var targetEl = document.getElementById('camera-btn-' + activeUploadRollId);
+                        var targetEl = document.getElementById('camera-btn-' + activeUploadRollId) || document.getElementById('roll-img-' + activeUploadRollId);
                         if (targetEl) {
                             targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
                         }
