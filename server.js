@@ -478,7 +478,34 @@ async function start() {
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS source_import_id INTEGER`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS called_for_orders JSONB DEFAULT '[]'`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS image_path TEXT`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS needs_photo BOOLEAN DEFAULT false`); } catch(e) {}
         await db.exec(`UPDATE kv_rolls SET original_weight = weight WHERE original_weight = 0 OR original_weight IS NULL`);
+
+        // kv_roll_images table for photo history
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_roll_images (
+            id          SERIAL PRIMARY KEY,
+            roll_id     INTEGER NOT NULL REFERENCES kv_rolls(id) ON DELETE CASCADE,
+            image_path  TEXT NOT NULL,
+            weight      NUMERIC NOT NULL,
+            created_at  TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_roll_images_roll_id ON kv_roll_images(roll_id)`);
+
+        // Backfill kv_roll_images from kv_rolls.image_path
+        try {
+            await db.exec(`
+                INSERT INTO kv_roll_images (roll_id, image_path, weight, created_at)
+                SELECT id, image_path, weight, COALESCE(updated_at, created_at, NOW())
+                FROM kv_rolls
+                WHERE image_path IS NOT NULL AND image_path != ''
+                  AND NOT EXISTS (
+                      SELECT 1 FROM kv_roll_images WHERE kv_roll_images.roll_id = kv_rolls.id
+                  )
+            `);
+        } catch (e) {
+            console.error('[Migration] kv_roll_images backfill error:', e.message);
+        }
+
         // Backfill roll_code for existing rows
         const rollsNoCode = await db.all(`SELECT id FROM kv_rolls WHERE roll_code IS NULL`);
         for (const rl of rollsNoCode) {

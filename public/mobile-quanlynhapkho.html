@@ -1269,14 +1269,20 @@
                                     if (r.is_called) {
                                         photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
                                         moveHtml = `<span style="font-size:11px; color:#f59e0b; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
-                                    } else if (r.img) {
-                                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                                        // Hidden on main screen per request: only allow move via QR scanning
-                                        moveHtml = ``;
                                     } else {
-                                        if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
-                                            photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                        var photoItems = [];
+                                        if (r.img) {
+                                            photoItems.push(`<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid ${r.needs_photo ? '#ef4444' : '#5eead4'}; cursor:pointer; ${r.needs_photo ? 'box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);' : ''}" onclick="openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`);
                                         }
+                                        if (r.needs_photo) {
+                                            photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#ef4444; border:none; padding:4px 8px; border-radius:6px; color:white; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:3px;" onclick="triggerRollCamera(${r.id})">📷 Chụp lại</button>`);
+                                        } else if (!r.img) {
+                                            if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
+                                                photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`);
+                                            }
+                                        }
+                                        photoHtml = `<div style="display:flex; align-items:center; gap:6px;">${photoItems.join('')}</div>`;
+                                        moveHtml = ``;
                                     }
 
                                     if (isUnassigned === 'processed_nguyen') {
@@ -1757,18 +1763,21 @@
                                     }
                                     actionHtml = `<span style="font-size:11px; color:#ef4444; font-style:italic; font-weight:700; white-space:nowrap;">${shelfLabel}</span>`;
                                 } else {
-                                    if (r.img) {
-                                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #5eead4; cursor:pointer;" onclick="openImagePreviewModal('${escapeHTML(r.img)}')" />`;
-                                        actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
-                                    } else {
-                                        if (groupType === 'processed_le' || groupType === 'processed_nguyen') {
-                                            photoHtml = `<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`;
-                                        } else {
-                                            photoHtml = ``;
-                                        }
-                                        actionHtml = ``;
-                                    }
-                                }
+                                     var photoItems = [];
+                                     if (r.img) {
+                                         photoItems.push(`<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid ${r.needs_photo ? '#ef4444' : '#5eead4'}; cursor:pointer; ${r.needs_photo ? 'box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);' : ''}" onclick="openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`);
+                                     }
+                                     if (r.needs_photo) {
+                                         photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#ef4444; border:none; padding:4px 8px; border-radius:6px; color:white; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:3px;" onclick="triggerRollCamera(${r.id})">📷 Chụp lại</button>`);
+                                     } else if (!r.img) {
+                                         if (groupType === 'processed_le' || groupType === 'processed_nguyen') {
+                                             photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`);
+                                         }
+                                     }
+                                     photoHtml = `<div style="display:flex; align-items:center; gap:6px;">${photoItems.join('')}</div>`;
+                                     
+                                     actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
+                                 }
 
                                 return `
                                     <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
@@ -1986,6 +1995,12 @@
                 } else {
                     showToast('Đã chụp ảnh thành công!');
                     await loadData(true);
+                    setTimeout(function() {
+                        var targetEl = document.getElementById('camera-btn-' + activeUploadRollId);
+                        if (targetEl) {
+                            targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                        }
+                    }, 100);
                     if (document.getElementById('importModal').style.display === 'flex') {
                         renderImportList();
                     }
@@ -2038,9 +2053,72 @@
             });
         }
 
-        function openImagePreviewModal(imgUrl) {
+        async function openImagePreviewModal(imgUrl, rollId = null) {
             document.getElementById('qkvImagePreviewContent').src = imgUrl;
             document.getElementById('qkvImagePreviewModal').style.display = 'flex';
+            
+            var galleryContainer = document.getElementById('qkvImageGalleryContainer');
+            var galleryThumbs = document.getElementById('qkvImageGalleryThumbs');
+            var galleryInfo = document.getElementById('qkvGalleryInfo');
+            
+            if (!galleryContainer || !galleryThumbs) return;
+            
+            galleryContainer.style.display = 'none';
+            galleryThumbs.innerHTML = '';
+            
+            if (!rollId) return;
+            
+            try {
+                var res = await api(`/api/khovai/rolls/${rollId}/images`);
+                if (res && res.images && res.images.length > 0) {
+                    galleryInfo.textContent = `${res.images.length} ảnh`;
+                    galleryContainer.style.display = 'block';
+                    
+                    var html = '';
+                    res.images.forEach(function(img, idx) {
+                        var dateStr = '';
+                        try {
+                            if (img.created_at) {
+                                var dateObj = new Date(img.created_at);
+                                dateStr = dateObj.toLocaleDateString('vi-VN', {
+                                    timeZone: 'Asia/Ho_Chi_Minh',
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                            }
+                        } catch (e) {
+                            console.error(e);
+                        }
+                        
+                        var isSelected = img.image_path === imgUrl;
+                        var borderStyle = isSelected ? 'border: 2px solid #38bdf8;' : 'border: 1px solid rgba(255,255,255,0.2);';
+                        
+                        html += `
+                            <div style="flex: 0 0 auto; display:flex; flex-direction:column; align-items:center; gap:4px; width:70px; cursor:pointer;" onclick="changePreviewImage(this, '${escapeJS(img.image_path)}')">
+                                <img src="${escapeHTML(img.image_path)}" style="width:60px; height:60px; border-radius:6px; object-fit:cover; ${borderStyle} transition: border 0.2s;" />
+                                <span style="color:#f8fafc; font-size:10px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;">${img.weight}kg</span>
+                                <span style="color:#64748b; font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${escapeHTML(dateStr)}">${dateStr}</span>
+                            </div>
+                        `;
+                    });
+                    galleryThumbs.innerHTML = html;
+                }
+            } catch (err) {
+                console.error('Error fetching roll image history:', err);
+            }
+        }
+        
+        function changePreviewImage(element, imgUrl) {
+            document.getElementById('qkvImagePreviewContent').src = imgUrl;
+            var thumbs = element.parentNode.children;
+            for (var i = 0; i < thumbs.length; i++) {
+                var img = thumbs[i].querySelector('img');
+                if (img) img.style.border = '1px solid rgba(255,255,255,0.2)';
+            }
+            var myImg = element.querySelector('img');
+            if (myImg) myImg.style.border = '2px solid #38bdf8';
         }
 
         function closeImagePreviewModal() {
@@ -2207,9 +2285,19 @@
     </div>
 
     <!-- 5. Image Preview Modal -->
-    <div id="qkvImagePreviewModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; justify-content:center; align-items:center; padding:16px;" onclick="closeImagePreviewModal()">
-        <img id="qkvImagePreviewContent" src="" style="max-width:100%; max-height:80%; border-radius:8px; object-fit:contain; box-shadow:0 10px 25px rgba(0,0,0,0.5);" />
-        <div style="color:white; margin-top:16px; font-size:14px; font-weight:500;">Chạm vào bất kỳ đâu để đóng</div>
+    <div id="qkvImagePreviewModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10000; flex-direction:column; justify-content:space-between; align-items:center; padding:24px 16px; box-sizing:border-box;" onclick="closeImagePreviewModal()">
+        <button style="position:absolute; top:16px; right:16px; background:rgba(255,255,255,0.2); border:none; width:36px; height:36px; border-radius:18px; color:white; font-size:20px; font-weight:bold; cursor:pointer; display:flex; justify-content:center; align-items:center; z-index:10001;" onclick="closeImagePreviewModal()">&times;</button>
+        <div style="flex:1; display:flex; justify-content:center; align-items:center; width:100%; min-height:0;">
+            <img id="qkvImagePreviewContent" src="" style="max-width:100%; max-height:100%; border-radius:8px; object-fit:contain; box-shadow:0 10px 25px rgba(0,0,0,0.5);" onclick="event.stopPropagation();" />
+        </div>
+        <div id="qkvImageGalleryContainer" style="width:100%; max-width:600px; background:rgba(0,0,0,0.4); padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); margin-top:16px; box-sizing:border-box; display:none;" onclick="event.stopPropagation();">
+            <div style="color:#94a3b8; font-size:12px; font-weight:700; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em; display:flex; justify-content:space-between; align-items:center;">
+                <span>Lịch sử ảnh cây vải</span>
+                <span id="qkvGalleryInfo" style="color:#38bdf8;"></span>
+            </div>
+            <div id="qkvImageGalleryThumbs" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scroll-behavior:smooth;"></div>
+        </div>
+        <div style="color:#64748b; margin-top:12px; font-size:12px; font-weight:500;">Chạm vùng trống để đóng</div>
     </div>
 
     <!-- Hidden camera file input -->

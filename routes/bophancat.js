@@ -1102,7 +1102,10 @@ module.exports = async function(fastify) {
                     for (const s of snapshot) {
                         const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
                         const finalWeight = rem <= 0 ? 0 : rem;
-                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '' WHERE id = $2`, [finalWeight, s.roll_id]);
+                        const wasCut = finalWeight < (Number(s.weight) || 0);
+                        const isLeftover = finalWeight > 0;
+                        const needsPhoto = wasCut && isLeftover;
+                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '', needs_photo = $2 WHERE id = $3`, [finalWeight, needsPhoto, s.roll_id]);
                         for (const member of [rec, ...allGroupDone]) {
                             await db.run(`
                                 UPDATE qlx_fabric_reservations 
@@ -1185,7 +1188,10 @@ module.exports = async function(fastify) {
                 for (const s of snapshot) {
                     const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
                     const finalWeight = rem <= 0 ? 0 : rem;
-                    await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '' WHERE id = $2`, [finalWeight, s.roll_id]);
+                    const wasCut = finalWeight < (Number(s.weight) || 0);
+                    const isLeftover = finalWeight > 0;
+                    const needsPhoto = wasCut && isLeftover;
+                    await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '', needs_photo = $2 WHERE id = $3`, [finalWeight, needsPhoto, s.roll_id]);
                     // Release the reservation for the current order and item on this roll since it's cut
                     await db.run(`
                         UPDATE qlx_fabric_reservations 
@@ -2492,7 +2498,10 @@ module.exports = async function(fastify) {
         for (const s of snapshot) {
             const rem = remainsMap[s.roll_id] !== undefined ? remainsMap[s.roll_id] : 0;
             const finalWeight = rem <= 0 ? 0 : rem;
-            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '' WHERE id = $2`, [finalWeight, s.roll_id]);
+            const wasCut = finalWeight < (Number(s.weight) || 0);
+            const isLeftover = finalWeight > 0;
+            const needsPhoto = wasCut && isLeftover;
+            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '', needs_photo = $2 WHERE id = $3`, [finalWeight, needsPhoto, s.roll_id]);
             if (groupOrderIds.length > 0) {
                 await db.run(`
                     UPDATE qlx_fabric_reservations 

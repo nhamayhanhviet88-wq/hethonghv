@@ -334,11 +334,10 @@ module.exports = async function (fastify) {
         return { success: true, roll };
     });
 
-    // PUT /api/khovai/rolls/batch — Batch update roll locations
-    fastify.put('/api/khovai/rolls/batch', { preHandler: [authenticate] }, async (request) => {
+    fastify.put('/api/khovai/rolls/batch', { preHandler: [authenticate] }, async (request, reply) => {
         const { roll_ids, location } = request.body || {};
         if (!Array.isArray(roll_ids) || roll_ids.length === 0) {
-            return { error: 'Danh sách cuộn vải trống hoặc không hợp lệ' };
+            return reply.code(400).send({ error: 'Danh sách cuộn vải trống hoặc không hợp lệ' });
         }
 
         for (const rollId of roll_ids) {
@@ -346,6 +345,9 @@ module.exports = async function (fastify) {
             if (!oldRoll) continue;
 
             if (location) {
+                if (oldRoll.needs_photo) {
+                    return reply.code(400).send({ error: `Cây vải ${oldRoll.roll_code || oldRoll.id} đã bị cắt thay đổi khối lượng. Bạn bắt buộc phải chụp lại ảnh thực tế mới của cây vải này trước khi xếp lên kệ!` });
+                }
                 const rollMat = await db.get(
                     `SELECT c.material_id
                      FROM kv_rolls r
@@ -368,7 +370,7 @@ module.exports = async function (fastify) {
                             [location.trim(), rollMat.material_id]
                         );
                         if (!isAssigned || isAssigned.count === 0) {
-                            return { error: `Kệ này giới hạn chất liệu khác, không thể xếp cuộn vải ${oldRoll.roll_code || rollId} này vào!` };
+                            return reply.code(400).send({ error: `Kệ này giới hạn chất liệu khác, không thể xếp cuộn vải ${oldRoll.roll_code || rollId} này vào!` });
                         }
                     }
                 }
@@ -516,7 +518,7 @@ module.exports = async function (fastify) {
         const { image_data } = request.body || {};
         if (!image_data) return reply.code(400).send({ error: 'Thiếu dữ liệu ảnh' });
 
-        const roll = await db.get('SELECT id FROM kv_rolls WHERE id = $1', [rollId]);
+        const roll = await db.get('SELECT id, weight FROM kv_rolls WHERE id = $1', [rollId]);
         if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
 
         try {
@@ -538,13 +540,27 @@ module.exports = async function (fastify) {
             fs.writeFileSync(path.join(uploadDir, fileName), compressed.buffer);
             const imagePath = `/uploads/khovai/${fileName}`;
 
-            await db.run('UPDATE kv_rolls SET image_path = $1, updated_at = NOW() WHERE id = $2', [imagePath, rollId]);
+            await db.run('UPDATE kv_rolls SET image_path = $1, needs_photo = false, updated_at = NOW() WHERE id = $2', [imagePath, rollId]);
+            await db.run('INSERT INTO kv_roll_images (roll_id, image_path, weight, created_at) VALUES ($1, $2, $3, NOW())', [rollId, imagePath, Number(roll.weight) || 0]);
 
             return { success: true, image_path: imagePath };
         } catch (e) {
             console.error('[KhoVai] Image upload error:', e.message);
             return reply.code(500).send({ error: 'Lưu ảnh thất bại: ' + e.message });
         }
+    });
+
+    // GET /api/khovai/rolls/:id/images — Get roll photo history
+    fastify.get('/api/khovai/rolls/:id/images', { preHandler: [authenticate] }, async (request) => {
+        const rollId = Number(request.params.id);
+        const images = await db.all(
+            `SELECT image_path, weight, created_at
+             FROM kv_roll_images
+             WHERE roll_id = $1
+             ORDER BY created_at DESC`,
+            [rollId]
+        );
+        return { images };
     });
 
     // DELETE /api/khovai/rolls/:id — Delete roll + log XUAT
@@ -898,6 +914,7 @@ module.exports = async function (fastify) {
                             'loc', r.location,
                             'code', r.roll_code,
                             'img', r.image_path,
+                            'needs_photo', COALESCE(r.needs_photo, false),
                             'locked_by_cutting_id', r.locked_by_cutting_id,
                             'source_import_id', r.source_import_id,
                             'active_cut', (
