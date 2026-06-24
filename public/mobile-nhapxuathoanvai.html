@@ -139,6 +139,27 @@ async function mOpenRetModal() {
         document.getElementById('mr_material').value = '';
         document.getElementById('mr_color').value = '';
         document.getElementById('mr_price').value = '0';
+        
+        const isGDOrTrinh = cu && (
+            cu.role === 'giam_doc' || 
+            cu.role === 'quan_ly_cap_cao' ||
+            cu.full_name === 'Lê Việt Trinh' || 
+            cu.username === 'leviettrinh' ||
+            cu.username === 'trinh.lvt'
+        );
+        const priceInput = document.getElementById('mr_price');
+        if (priceInput) {
+            if (isGDOrTrinh) {
+                priceInput.removeAttribute('readonly');
+                priceInput.style.background = 'rgba(255,255,255,0.06)';
+                priceInput.style.color = '#fff';
+            } else {
+                priceInput.setAttribute('readonly', 'true');
+                priceInput.style.background = 'rgba(255,255,255,0.12)';
+                priceInput.style.color = '#94a3b8';
+            }
+        }
+
         document.getElementById('mr_payment').value = '0';
         document.getElementById('mr_payment').dataset.userEdited = '';
         document.getElementById('mr_debt').value = '0';

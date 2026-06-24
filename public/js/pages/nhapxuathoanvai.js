@@ -113,6 +113,16 @@ async function openCreateReturnModal() {
         _retStaffData = staffRes.staff || [];
         _selectedRetType = null;
         
+        const isGDOrTrinh = currentUser && (
+            currentUser.role === 'giam_doc' || 
+            currentUser.role === 'quan_ly_cap_cao' ||
+            currentUser.full_name === 'Lê Việt Trinh' || 
+            currentUser.username === 'leviettrinh' ||
+            currentUser.username === 'trinh.lvt'
+        );
+        const priceReadonlyAttr = isGDOrTrinh ? '' : 'readonly';
+        const priceBgStyle = isGDOrTrinh ? 'background:#fff;' : 'background:#f1f5f9; cursor:not-allowed;';
+
         const bodyHTML = `
             <div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">
                 <div>
@@ -181,7 +191,7 @@ async function openCreateReturnModal() {
                         </div>
                         <div>
                             <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>
-                            <input type="number" id="nxhv_m_price" class="form-control" value="0" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                            <input type="number" id="nxhv_m_price" class="form-control" value="0" ${priceReadonlyAttr} style="width:100%; font-size:12px; padding:6px 10px; ${priceBgStyle}" />
                         </div>
                         <div>
                             <label style="font-weight:700; display:block; margin-bottom:4px;">Thanh Toán:</label>
