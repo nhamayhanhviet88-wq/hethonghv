@@ -738,7 +738,7 @@ async function _qlxFabric(orderId, action) {
     } catch(e) { showToast(e.message, 'error'); }
 }
 
-async function _qlxFabricPopup(orderId, itemId, pairIndex) {
+async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
     try {
         var savedInputs = {};
         var existingOverlay = document.getElementById('_qlxFabOverlay');
@@ -748,13 +748,15 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex) {
             kgInputs.forEach(function(inp) {
                 savedInputs[inp.id] = inp.value;
             });
-            // Save calling inputs
-            var treesEl = existingOverlay.querySelector('#_qlxFabCallTrees');
-            if (treesEl) savedInputs['_qlxFabCallTrees'] = treesEl.value;
-            var amountEl = existingOverlay.querySelector('#_qlxFabCallAmount');
-            if (amountEl) savedInputs['_qlxFabCallAmount'] = amountEl.value;
-            var noteEl = existingOverlay.querySelector('#_qlxFabCallNote');
-            if (noteEl) savedInputs['_qlxFabCallNote'] = noteEl.value;
+            if (!clearCallingInputs) {
+                // Save calling inputs
+                var treesEl = existingOverlay.querySelector('#_qlxFabCallTrees');
+                if (treesEl) savedInputs['_qlxFabCallTrees'] = treesEl.value;
+                var amountEl = existingOverlay.querySelector('#_qlxFabCallAmount');
+                if (amountEl) savedInputs['_qlxFabCallAmount'] = amountEl.value;
+                var noteEl = existingOverlay.querySelector('#_qlxFabCallNote');
+                if (noteEl) savedInputs['_qlxFabCallNote'] = noteEl.value;
+            }
         }
 
         var data = await apiCall('/api/qlx/fabric-lookup/' + orderId + '/' + itemId + '/' + pairIndex);
@@ -1568,8 +1570,8 @@ async function _qlxFabCallSubmit(mat, color, unit, orderId, itemId, pairIndex) {
         var pEl = document.getElementById('_qlxFabCallPreview');
         if (pEl) pEl.innerHTML = '';
 
-        // Refresh popup after short delay
-        setTimeout(function() { _qlxFabricPopup(orderId, itemId, pairIndex); }, 1500);
+        // Refresh popup after short delay, clearing the calling inputs
+        setTimeout(function() { _qlxFabricPopup(orderId, itemId, pairIndex, true); }, 1500);
         _qlxLoadAll();
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { window._qlxFabBusy = false; }
 }
