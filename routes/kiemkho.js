@@ -215,15 +215,15 @@ module.exports = async function(fastify) {
                    COALESCE((SELECT COUNT(*)::int FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(r.location) = LOWER(l.name) AND ${rollFilter}), 0) AS roll_count,
+                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND ${rollFilter}), 0) AS roll_count,
                    COALESCE((SELECT SUM(r.weight)::numeric FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(r.location) = LOWER(l.name) AND ${rollFilter}), 0) AS total_weight,
+                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND ${rollFilter}), 0) AS total_weight,
                    (SELECT string_agg(DISTINCT m.name, ', ') FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(r.location) = LOWER(l.name) AND ${rollFilter}) AS materials_list
+                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND ${rollFilter}) AS materials_list
             FROM kv_locations l
             WHERE l.warehouse_id = $1
             ORDER BY l.name`, params);
@@ -238,7 +238,7 @@ module.exports = async function(fastify) {
               AND r.is_returned = false
               AND fc.is_active = true
               AND m.is_active = true
-              AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(r.location) NOT IN (SELECT LOWER(name) FROM kv_locations WHERE warehouse_id = $1))
+              AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = $1))
               AND ${rollFilter}
         `, params);
 
@@ -318,13 +318,13 @@ module.exports = async function(fastify) {
         if (location) {
             const locClean = location.trim();
             if (locClean === 'unassigned_nguyen' || locClean === 'Chưa xếp kệ - Cây Nguyên') {
-                where += ` AND m.warehouse_id=$${idx++} AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(r.location) NOT IN (SELECT LOWER(name) FROM kv_locations WHERE warehouse_id = m.warehouse_id)) AND r.weight >= r.original_weight`;
+                where += ` AND m.warehouse_id=$${idx++} AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = m.warehouse_id)) AND r.weight >= r.original_weight`;
                 params.push(Number(warehouse_id));
             } else if (locClean === 'unassigned_le' || locClean === 'Chưa xếp kệ - Cây Lẻ') {
-                where += ` AND m.warehouse_id=$${idx++} AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(r.location) NOT IN (SELECT LOWER(name) FROM kv_locations WHERE warehouse_id = m.warehouse_id)) AND r.weight < r.original_weight`;
+                where += ` AND m.warehouse_id=$${idx++} AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = m.warehouse_id)) AND r.weight < r.original_weight`;
                 params.push(Number(warehouse_id));
             } else {
-                where += ` AND m.warehouse_id=$${idx++} AND LOWER(r.location) = LOWER($${idx++})`;
+                where += ` AND m.warehouse_id=$${idx++} AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE($${idx++}, '^📍\\s*', ''))`;
                 params.push(Number(warehouse_id), locClean);
             }
         } else if (material_id) {
