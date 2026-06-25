@@ -1,43 +1,25 @@
 const db = require('../db/pool');
 
-async function run() {
-    try {
-        await db.init();
-        
-        const order = await db.get(`SELECT id, order_code FROM dht_orders WHERE order_code = 'AFF-VTTI0010'`);
-        if (!order) {
-            console.log("Order not found!");
-            return;
+async function main() {
+    console.log("=== INSPECTING ORDER VTTI0039 ===");
+    const order = await db.get("SELECT id, order_code FROM dht_orders WHERE order_code = 'VTTI0039'");
+    if (!order) {
+        console.log("Order VTTI0039 not found.");
+        return;
+    }
+    console.log("Order ID:", order.id);
+
+    const reservations = await db.all("SELECT * FROM qlx_fabric_reservations WHERE dht_order_id = $1", [order.id]);
+    console.log("\n=== RESERVATIONS ===");
+    for (const res of reservations) {
+        console.log(`Res ID: ${res.id}, Roll ID: ${res.roll_id}, status: ${res.status}, kg_reserved: ${res.kg_reserved}`);
+        if (res.roll_id) {
+            const roll = await db.get("SELECT * FROM kv_rolls WHERE id = $1", [res.roll_id]);
+            if (roll) {
+                console.log(`  Roll Code: ${roll.roll_code}, Location: ${roll.location}, Original Location: ${roll.original_location}, return_tx_id: ${roll.return_tx_id}, return_requested: ${roll.return_requested}`);
+            }
         }
-        console.log("=== ORDER ===");
-        console.log(order);
-
-        const items = await db.all(`SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1`, [order.id]);
-        console.log("=== ITEMS ===");
-        console.table(items);
-
-        const assignments = await db.all(`
-            SELECT qa.*, pf.name AS field_name
-            FROM qlx_order_print_assignments qa
-            JOIN printing_fields pf ON qa.field_id = pf.id
-            WHERE qa.dht_order_id = $1
-        `, [order.id]);
-        console.log("=== ASSIGNMENTS ===");
-        console.table(assignments);
-
-        const printRecords = await db.all(`
-            SELECT id, order_item_id, print_field, printer_id, contractor_id, is_print_done, product_name
-            FROM printing_records
-            WHERE dht_order_id = $1
-        `, [order.id]);
-        console.log("=== PRINT RECORDS ===");
-        console.table(printRecords);
-
-    } catch (e) {
-        console.error(e);
-    } finally {
-        await db.close();
     }
 }
 
-run();
+main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
