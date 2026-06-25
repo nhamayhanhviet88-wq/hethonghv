@@ -460,6 +460,9 @@ module.exports = async function(fastify) {
     });
 
     fastify.put('/api/stockcheck/settings', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thay đổi cấu hình chụp ảnh minh chứng.' });
+        }
         const { photo_mode } = req.body || {};
         if (!['none', 'all', 'missing_only'].includes(photo_mode)) {
             return reply.code(400).send({ error: 'Cấu hình chế độ chụp ảnh không hợp lệ.' });

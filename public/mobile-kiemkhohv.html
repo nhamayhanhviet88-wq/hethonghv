@@ -374,6 +374,14 @@ document.getElementById('mRollPhotoUploader').addEventListener('change', functio
 // ========== AUDITING ACTIONS ==========
 
 async function mMarkPresent(rollId, systemWeight, rollImg) {
+    // Real-time photo mode fetch
+    try {
+        const setRes = await api('/api/stockcheck/settings');
+        photoMode = setRes.photo_mode || 'none';
+    } catch(e) {
+        console.error('[Mobile settings fetch]', e);
+    }
+
     const runCheck = async () => {
         try {
             await api('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: systemWeight });
@@ -404,7 +412,7 @@ async function mMarkMissing(rollId, rollCode) {
     }
 }
 
-function mInputWeight(rollId, systemWeight, rollImg) {
+async function mInputWeight(rollId, systemWeight, rollImg) {
     const v = prompt('Nhập cân thực tế (kg):\n(Tồn hệ thống: ' + systemWeight + ' kg)');
     if (v === null) return;
     const n = Number(v);
@@ -414,6 +422,14 @@ function mInputWeight(rollId, systemWeight, rollImg) {
     }
     const note = prompt('Ghi chú kiểm kho (tùy chọn):');
     
+    // Real-time photo mode fetch
+    try {
+        const setRes = await api('/api/stockcheck/settings');
+        photoMode = setRes.photo_mode || 'none';
+    } catch(e) {
+        console.error('[Mobile settings fetch]', e);
+    }
+
     const runCheck = async () => {
         try {
             await api('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: n, notes: note || '' });

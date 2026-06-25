@@ -42,7 +42,25 @@ async function renderKhovaiPage(content) {
         document.head.appendChild(st);
     }
 
-    content.innerHTML = '<div class="kv-wrap"><div class="kv-sidebar" id="kvSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="kv-main"><div class="kv-toolbar" id="kvToolbar"></div><div class="kv-table-wrap" id="kvTableWrap"></div></div></div>';
+    var isLocked = false;
+    try {
+        var lockRes = await apiCall('/api/stockcheck/session-status');
+        if (lockRes && lockRes.active) {
+            isLocked = true;
+        }
+    } catch(e) {
+        console.error('[KV] Error checking lock status:', e);
+    }
+    _kv.isLocked = isLocked;
+
+    var lockBanner = isLocked ? `
+        <div class="alert alert-danger" style="width:100%; border-radius:12px; margin-bottom:15px; font-weight:700; display:flex; align-items:center; gap:10px; background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:12px 16px;">
+            <span>🔒</span>
+            <span>Kho vải hiện tại đang KHÓA để phục vụ KIỂM KHO. Không thể thực hiện xuất vải để cắt hoặc các thao tác tác động kho vải.</span>
+        </div>
+    ` : '';
+
+    content.innerHTML = '<div class="kv-wrap"><div class="kv-sidebar" id="kvSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="kv-main">' + lockBanner + '<div class="kv-toolbar" id="kvToolbar"></div><div class="kv-table-wrap" id="kvTableWrap"></div></div></div>';
 
     try {
         var treeData = await apiCall('/api/khovai/tree');
@@ -534,6 +552,7 @@ function _kvAddRollForm(fcid) {
 }
 
 async function _kvSubmitRoll(fcid) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var w = document.getElementById('kvRollWeight')?.value;
     var src = document.getElementById('kvRollSource')?.value || 'nhap_moi';
     var note = document.getElementById('kvRollNote')?.value || '';
@@ -546,6 +565,7 @@ async function _kvSubmitRoll(fcid) {
 }
 
 async function _kvDeleteRoll(rollId, fcid) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     if (!confirm('Xóa cục vải này?')) return;
     try {
         await apiCall('/api/khovai/rolls/' + rollId, 'DELETE');
@@ -660,6 +680,7 @@ function _kvPickTxType(type) {
 }
 
 async function _kvSubmitTx(fcid) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var txType = document.getElementById('kvTxType')?.value || 'NHAP';
     var qty = document.getElementById('kvTxQty')?.value;
     var desc = document.getElementById('kvTxDesc')?.value || '';
@@ -730,6 +751,7 @@ async function _kvLoadSettingsMats(wid) {
 }
 
 async function _kvCreateWh() {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var name = document.getElementById('kvNewWhName')?.value;
     var unit = document.getElementById('kvNewWhUnit')?.value;
     if (!name || !name.trim()) { showToast('Nhập tên kho!', 'error'); return; }
@@ -742,6 +764,7 @@ async function _kvCreateWh() {
 }
 
 async function _kvDeleteWh(id) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     if (!confirm('Xóa kho này?')) return;
     try { await apiCall('/api/khovai/warehouses/' + id, 'DELETE'); showToast('🗑️ Đã xóa'); await _kvRefreshAll(); _kvShowSettings(); }
     catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
@@ -753,6 +776,7 @@ function _kvShowAddMat(wid) {
 }
 
 async function _kvCreateMat(wid) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var name = document.getElementById('kvNewMatName')?.value;
     if (!name || !name.trim()) { showToast('Nhập tên!', 'error'); return; }
     try {
@@ -763,6 +787,7 @@ async function _kvCreateMat(wid) {
 }
 
 async function _kvDeleteMat(id) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     if (!confirm('Xóa chất liệu này?')) return;
     try { await apiCall('/api/khovai/materials/' + id, 'DELETE'); showToast('🗑️ Đã xóa'); await _kvRefreshAll(); _kvShowSettings(); }
     catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
@@ -778,6 +803,7 @@ function _kvShowAddColor(mid) {
 }
 
 async function _kvCreateColor(mid) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var name = document.getElementById('kvNewColorName')?.value;
     var price = document.getElementById('kvNewColorPrice')?.value;
     var threshold = document.getElementById('kvNewColorThreshold')?.value;
@@ -1038,6 +1064,7 @@ async function _kvOpenCuttingDetail(cuttingRecordId) {
 window._kvOpenCuttingDetail = _kvOpenCuttingDetail;
 
 async function _kvToggleActive(id, newState) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     if (!confirm(newState ? 'Bạn có chắc chắn muốn hiển thị màu vải này khi tạo đơn?' : 'Bạn có chắc chắn muốn ẩn màu vải này khỏi danh sách tạo đơn?')) return;
     try {
         var res = await apiCall('/api/khovai/colors/' + id + '/toggle', 'PUT', { is_active: newState });

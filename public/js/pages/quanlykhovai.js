@@ -53,6 +53,24 @@ function _qkvNormalizeLocName(name) {
 
 // Main Page Renderer
 async function renderQuanlykhovaiPage(content) {
+    var isLocked = false;
+    try {
+        var lockRes = await apiCall('/api/stockcheck/session-status');
+        if (lockRes && lockRes.active) {
+            isLocked = true;
+        }
+    } catch(e) {
+        console.error('[QKV] Error checking lock status:', e);
+    }
+    _qkv.isLocked = isLocked;
+
+    var lockBanner = isLocked ? `
+        <div class="alert alert-danger" style="width:100%; border-radius:12px; margin-bottom:15px; font-weight:700; display:flex; align-items:center; gap:10px; background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:12px 16px; box-sizing:border-box;">
+            <span>🔒</span>
+            <span>Kho vải hiện tại đang KHÓA để phục vụ KIỂM KHO. Không thể thực hiện các thao tác xếp kệ, hoàn vải, hoặc di chuyển vị trí.</span>
+        </div>
+    ` : '';
+
     // Dynamically load html5-qrcode library if not loaded
     if (typeof Html5Qrcode === 'undefined') {
         var s = document.createElement('script');
@@ -314,6 +332,7 @@ async function renderQuanlykhovaiPage(content) {
             
             <!-- Main Content Area -->
             <div class="qkv-main">
+                ${lockBanner}
                 <!-- Search box + Camera action -->
                 <div class="qkv-search-container">
                     <div class="qkv-search-wrapper">
@@ -1113,6 +1132,7 @@ function _qkvOnSearch(val) {
 // 8. Create Location
 async function _qkvOnAddLocation(e) {
     e.preventDefault();
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     if (!_qkv.selectedWid || _qkv.selectedWid === 'all') {
         showToast('Vui lòng chọn một kho vải cụ thể ở phía trên trước khi tạo vị trí mới!', 'error');
         return;
@@ -1222,6 +1242,7 @@ function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId) {
 
 // 9b. Remove material from location
 async function _qkvRemoveMaterialFromLocation(matId, locId) {
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     if (!confirm('Bạn có chắc muốn gỡ chất liệu này khỏi kệ?')) return;
     
     try {
@@ -1253,6 +1274,7 @@ async function _qkvRemoveMaterialFromLocation(matId, locId) {
 
 // 10. Save edited location to database
 async function _qkvSaveLocation(id) {
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var name = document.getElementById('qkvEditName').value.trim();
     var desc = document.getElementById('qkvEditDesc').value.trim();
     var isRestrictedEl = document.getElementById('qkvEditIsRestricted');
@@ -1287,6 +1309,7 @@ async function _qkvSaveLocation(id) {
 // 10b. Assign a material to a shelf
 async function _qkvOnAssignMaterial(e) {
     e.preventDefault();
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var matId = document.getElementById('qkvAssignMatSelect').value;
     var locName = document.getElementById('qkvAssignLocSelect').value;
     if (!matId) { showToast('Vui lòng chọn chất liệu!', 'error'); return; }
@@ -1327,6 +1350,7 @@ function _qkvDeleteLocation(id, name) {
 
 // 12. Confirm delete from database
 async function _qkvConfirmDeleteLocation(id) {
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     try {
         var res = await apiCall(`/api/khovai/locations/${id}`, 'DELETE');
         if (res.error) {
@@ -1461,6 +1485,7 @@ function _qkvUpdateLocationDropdown() {
 
 // 14. Save new location mapping to material/color/roll
 async function _qkvSaveItemLocation(colorId, materialId) {
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var newLoc = document.getElementById('qkvMoveSelect').value;
     if (!newLoc) {
         showToast('Vui lòng chọn kệ để xếp vải!', 'error');
@@ -1894,6 +1919,7 @@ function _qkvConfirmImportRoll(rollId, rollWeight, rollCode, matName, colorName,
 }
 
 async function _qkvExecuteImportSingleRoll(rollId, rollWeight, shelfName) {
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     try {
         var res = await apiCall(`/api/khovai/rolls/batch`, 'PUT', {
             roll_ids: [Number(rollId)],
@@ -2597,6 +2623,7 @@ function _qkvCanViewBill() {
 window._qkvCanViewBill = _qkvCanViewBill;
 
 async function performDirectRollReturn(rollId) {
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     if (!confirm("Bạn có chắc chắn muốn hoàn cây vải này về nhà cung cấp?")) return;
     
     var foundRoll = null;
@@ -2690,6 +2717,7 @@ async function performDirectRollReturn(rollId) {
 window.performDirectRollReturn = performDirectRollReturn;
 
 async function requestRollReturn(rollId, weight, materialName, colorName) {
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     if (!confirm(`Xác nhận yêu cầu lập bill hoàn cho cây vải: ${materialName} màu ${colorName} cây ${weight}kg cho kế toán?`)) return;
     
     try {
@@ -2710,6 +2738,7 @@ async function requestRollReturn(rollId, weight, materialName, colorName) {
 window.requestRollReturn = requestRollReturn;
 
 async function cancelRollReturnRequest(rollId) {
+    if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     if (!confirm("Bạn có chắc chắn muốn hủy yêu cầu hoàn cây vải này không?")) return;
     
     try {

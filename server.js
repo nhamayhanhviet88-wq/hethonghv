@@ -1190,22 +1190,13 @@ async function start() {
             pool: stats,
         };
     });
-
-    // Log pool stats every 5 minutes (catch slow leaks before they become outages)
-    setInterval(() => {
-        const s = db.getPoolStats();
-        if (s.active > 0 || s.waiting > 0) {
-            console.log(`📊 [Pool Stats] active=${s.active}, idle=${s.idle}, waiting=${s.waiting}, total=${s.total}/${s.max}`);
-        }
-    }, 5 * 60 * 1000);
-    // ========== GLOBAL STOCKCHECK WAREHOUSE LOCK MIDDLEWARE ==========
-    const { checkStockcheckLock } = require('./utils/stockcheckLock');
     fastify.addHook('preHandler', async (request, reply) => {
+        const { checkStockcheckLock } = require('./utils/stockcheckLock');
         const url = request.url;
         const method = request.method;
         
         const isFabricMutation = (method === 'POST' || method === 'PUT' || method === 'DELETE') && 
-            (url.startsWith('/api/khovai') || url.startsWith('/api/bophancat') || url.startsWith('/api/chuanbiqlx') || url.startsWith('/api/nhapxuathoanvai')) &&
+            (url.startsWith('/api/khovai') || url.startsWith('/api/bophancat') || url.startsWith('/api/chuanbiqlx') || url.startsWith('/api/nhapxuathoanvai') || url.startsWith('/api/fabrictx')) &&
             !url.includes('/image');
             
         if (isFabricMutation) {

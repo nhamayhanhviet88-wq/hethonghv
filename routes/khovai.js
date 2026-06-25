@@ -611,6 +611,56 @@ module.exports = async function (fastify) {
         }
     });
 
+    // POST /api/khovai/rolls/:id/image — Upload roll image (multipart FormData)
+    fastify.post('/api/khovai/rolls/:id/image', { preHandler: [authenticate] }, async (request, reply) => {
+        const rollId = Number(request.params.id);
+        const roll = await db.get('SELECT id, weight FROM kv_rolls WHERE id = $1', [rollId]);
+        if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
+
+        try {
+            const parts = request.parts();
+            const uploadDir = path.join(__dirname, '..', 'uploads', 'khovai');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+            let imagePath = null;
+
+            for await (const part of parts) {
+                if (part.file) {
+                    const { compressImage } = require('../utils/imageCompressor');
+                    const chunks = [];
+                    for await (const chunk of part.file) {
+                        chunks.push(chunk);
+                    }
+                    let fileBuffer = Buffer.concat(chunks);
+
+                    // Max 10MB raw
+                    if (fileBuffer.length > 10 * 1024 * 1024) {
+                        return reply.code(400).send({ error: 'Ảnh quá lớn (tối đa 10MB)' });
+                    }
+
+                    // Compress: resize to 800px max, webp format, quality 75%
+                    const compressed = await compressImage(fileBuffer, { maxWidth: 800, quality: 75, format: 'webp' });
+
+                    const fileName = `roll_${rollId}_${Date.now()}.webp`;
+                    fs.writeFileSync(path.join(uploadDir, fileName), compressed.buffer);
+                    imagePath = `/uploads/khovai/${fileName}`;
+                }
+            }
+
+            if (!imagePath) {
+                return reply.code(400).send({ error: 'Thiếu dữ liệu ảnh hoặc không tìm thấy file' });
+            }
+
+            await db.run('UPDATE kv_rolls SET image_path = $1, needs_photo = false, updated_at = NOW() WHERE id = $2', [imagePath, rollId]);
+            await db.run('INSERT INTO kv_roll_images (roll_id, image_path, weight, created_at) VALUES ($1, $2, $3, NOW())', [rollId, imagePath, Number(roll.weight) || 0]);
+
+            return { success: true, image_path: imagePath };
+        } catch (e) {
+            console.error('[KhoVai] Multipart image upload error:', e.message);
+            return reply.code(500).send({ error: 'Lưu ảnh thất bại: ' + e.message });
+        }
+    });
+
     // GET /api/khovai/rolls/:id/images — Get roll photo history
     fastify.get('/api/khovai/rolls/:id/images', { preHandler: [authenticate] }, async (request) => {
         const rollId = Number(request.params.id);

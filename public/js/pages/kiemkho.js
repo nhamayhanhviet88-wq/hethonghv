@@ -754,6 +754,14 @@ document.addEventListener('change', function(e) {
 
 // 1. Mark Present (Khớp)
 async function _kkMarkPresent(rollId, systemWeight, rollImg) {
+    // Real-time photo mode fetch
+    try {
+        const sRes = await apiCall('/api/stockcheck/settings');
+        _kk.photoMode = sRes.photo_mode || 'none';
+    } catch(e) {
+        console.error('[KK settings fetch]', e);
+    }
+
     const runCheck = async () => {
         try {
             await apiCall('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: systemWeight });
@@ -846,6 +854,14 @@ async function _kkSubmitWeightInput(rollId, systemWeight, rollImg) {
     const notes = document.getElementById('kkInputActualNote').value;
     
     _kkCloseModal('kkWeightInputModal');
+
+    // Real-time photo mode fetch
+    try {
+        const sRes = await apiCall('/api/stockcheck/settings');
+        _kk.photoMode = sRes.photo_mode || 'none';
+    } catch(e) {
+        console.error('[KK settings fetch]', e);
+    }
 
     const runCheck = async () => {
         try {
