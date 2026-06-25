@@ -979,6 +979,7 @@ module.exports = async function (fastify) {
                             'return_requested', COALESCE(r.return_requested, false),
                             'locked_by_cutting_id', r.locked_by_cutting_id,
                             'source_import_id', r.source_import_id,
+                            'return_tx_id', r.return_tx_id,
                             'import_price', COALESCE((
                                 SELECT COALESCE(NULLIF(elem->>'unit_price', ''), '0')::numeric
                                 FROM import_records ir,

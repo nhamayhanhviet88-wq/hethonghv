@@ -516,7 +516,7 @@ function renderAllRollsList(searchTerm = '') {
                 const isNguyen = Number(r.w) >= Number(r.ow);
                 const rollLoc = (r.loc || '').trim();
                 const isUnassigned = !rollLoc || rollLoc === 'Chưa Phân Vị Trí Cây Nguyên' || rollLoc === 'Chưa xếp kệ' || rollLoc === 'Chưa xếp vị trí';
-                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0) && !r.return_tx_id && !r.return_requested;
                 return isNguyen && isUnassigned && isFree;
             });
             groupTitle = '🛠️ 1. CÂY NGUYÊN CẦN XỬ LÝ KHO';
@@ -526,7 +526,7 @@ function renderAllRollsList(searchTerm = '') {
                 const isNguyen = Number(r.w) >= Number(r.ow);
                 const rollLoc = (r.loc || '').trim();
                 const isOnShelf = rollLoc !== '' && rollLoc !== 'Chưa Phân Vị Trí Cây Nguyên' && rollLoc !== 'Chưa xếp kệ' && rollLoc !== 'Chưa xếp vị trí';
-                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0) && !r.return_tx_id && !r.return_requested;
                 return isNguyen && isOnShelf && isFree;
             });
             groupTitle = '📍 2. CÂY NGUYÊN Ở CÁC KỆ';
@@ -534,7 +534,7 @@ function renderAllRollsList(searchTerm = '') {
         } else if (_selectedRetType === 3) {
             filtered = rolls.filter(r => {
                 const isLe = Number(r.w) < Number(r.ow);
-                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0);
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0) && !r.return_tx_id && !r.return_requested;
                 return isLe && isFree;
             });
             groupTitle = '✂️ 3. CÁC CÂY LẺ Ở KHO VẢI';

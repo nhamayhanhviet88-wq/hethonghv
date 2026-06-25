@@ -2141,6 +2141,18 @@ function openImagePreviewModal(imgUrl, rollId = null) {
             var locText = foundRoll.loc || 'Chưa xếp kệ';
             var sourceText = foundRoll.source_name || foundItem.supplier || '—';
             
+            var returnBtnHTML = '';
+            if (foundRoll.return_tx_id || foundRoll.return_requested) {
+                returnBtnHTML = `<span style="color:#ef4444; font-weight:bold; font-size:12px; background:rgba(239,68,68,0.1); padding:4px 8px; border-radius:6px;">🔄 Đang xử lý hoàn</span>`;
+            } else {
+                returnBtnHTML = `
+                    <button class="btn btn-sm btn-danger" style="background:#ef4444; border:none; padding:6px 12px; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" 
+                            onclick="event.stopPropagation(); performDirectRollReturn(${rollId})">
+                        🔄 Hoàn cây vải
+                    </button>
+                `;
+            }
+            
             infoContainer.innerHTML = `
                 <div style="display:flex; justify-content:space-between; gap:16px; color:#f8fafc; font-size:13px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
                     <div><strong>Chất liệu:</strong> <span style="color:#38bdf8">${escapeHTML(materialText)}</span></div>
@@ -2153,10 +2165,7 @@ function openImagePreviewModal(imgUrl, rollId = null) {
                         <div><strong>Vị trí:</strong> <span style="color:#94a3b8;">📍 ${escapeHTML(locText)}</span></div>
                         <div><strong>Nhà cung cấp:</strong> <span style="color:#a78bfa;">${escapeHTML(sourceText)}</span></div>
                     </div>
-                    <button class="btn btn-sm btn-danger" style="background:#ef4444; border:none; padding:6px 12px; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" 
-                            onclick="event.stopPropagation(); performDirectRollReturn(${rollId})">
-                        🔄 Hoàn cây vải
-                    </button>
+                    ${returnBtnHTML}
                 </div>
             `;
             infoContainer.style.display = 'flex';
@@ -2608,6 +2617,11 @@ async function performDirectRollReturn(rollId) {
     
     if (!foundRoll || !foundItem) {
         showToast("Không tìm thấy thông tin cây vải!", "error");
+        return;
+    }
+    
+    if (foundRoll.return_tx_id || foundRoll.return_requested) {
+        showToast("Cây vải này đang được xử lý hoàn trả!", "error");
         return;
     }
     
