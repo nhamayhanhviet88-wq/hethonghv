@@ -2913,7 +2913,8 @@ module.exports = async function(fastify) {
                     await db.run(`UPDATE fabric_transactions SET is_canceled = true, notes = '[ĐÃ HỦY] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng ' || $1, updated_at = $2 WHERE id = $3`, [orderCode, now, txId]);
                     await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'cancel', $2, $3, $4)`, 
                         [txId, `Hủy do QLX chọn để đánh dấu cắt cho đơn ${orderCode}`, request.user.id, now]);
-                    await db.run(`UPDATE kv_rolls SET location = original_location, original_location = NULL, return_tx_id = NULL WHERE return_tx_id = $1`, [txId]);
+                    // Under new rules, the roll must remain at '📍 Kệ Dự Định Hoàn Vải' and keep its return_tx_id.
+                    // So we do NOT reset the location or clear return_tx_id.
                 }
 
                 if (roll.return_requested) {

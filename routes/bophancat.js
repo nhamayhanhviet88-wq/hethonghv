@@ -60,6 +60,7 @@ module.exports = async function(fastify) {
             if (!roll) continue;
             
             let targetLocation = customLocation;
+            let nextReturnRequested = false;
             if (targetLocation === undefined) {
                 if (roll.return_tx_id) {
                     const txId = roll.return_tx_id;
@@ -73,6 +74,9 @@ module.exports = async function(fastify) {
                         [txId, `Hoàn tác hủy do thợ báo không cắt cây vải ${roll.roll_code || rId}`, null, now]);
                     
                     targetLocation = '📍 Kệ Dự Định Hoàn Vải';
+                } else if (roll.location === '📍 Kệ Dự Định Hoàn Vải' || roll.original_location === '📍 Kệ Dự Định Hoàn Vải') {
+                    targetLocation = '📍 Kệ Dự Định Hoàn Vải';
+                    nextReturnRequested = true;
                 } else {
                     const isOriginal = Number(roll.weight) >= Number(roll.original_weight);
                     targetLocation = isOriginal ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
@@ -81,7 +85,7 @@ module.exports = async function(fastify) {
             
             const nextReturnTxId = roll.return_tx_id && targetLocation === '📍 Kệ Dự Định Hoàn Vải' ? roll.return_tx_id : null;
             
-            await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = $1, return_tx_id = $2 WHERE id = $3`, [targetLocation, nextReturnTxId, rId]);
+            await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL, location = $1, return_tx_id = $2, return_requested = $3 WHERE id = $4`, [targetLocation, nextReturnTxId, nextReturnRequested, rId]);
         }
     }
 
@@ -1175,9 +1179,10 @@ module.exports = async function(fastify) {
                         const needsPhoto = wasCut && isLeftover;
                         
                         const rollDb = await db.get('SELECT return_tx_id, roll_code, location, original_location FROM kv_rolls WHERE id = $1', [s.roll_id]);
-                        let nextLocation = '';
-                        let nextOriginalLocation = null;
+                        let nextLocation = wasCut ? 'Chưa Phân Vị Trí Cây Lẻ' : (rollDb ? rollDb.location : '');
+                        let nextOriginalLocation = rollDb ? rollDb.original_location : null;
                         let nextReturnTxId = null;
+                        let nextReturnRequested = false;
                         
                         if (rollDb && rollDb.return_tx_id) {
                             if (!wasCut) {
@@ -1195,10 +1200,15 @@ module.exports = async function(fastify) {
                                 nextOriginalLocation = rollDb.original_location;
                                 nextReturnTxId = txId;
                             }
+                        } else if (rollDb && (rollDb.location === '📍 Kệ Dự Định Hoàn Vải' || rollDb.original_location === '📍 Kệ Dự Định Hoàn Vải')) {
+                            if (!wasCut) {
+                                nextLocation = '📍 Kệ Dự Định Hoàn Vải';
+                                nextReturnRequested = true;
+                            }
                         }
                         
-                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = $2, original_location = $3, return_tx_id = $4, needs_photo = $5 WHERE id = $6`, 
-                            [finalWeight, nextLocation, nextOriginalLocation, nextReturnTxId, needsPhoto, s.roll_id]);
+                        await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = $2, original_location = $3, return_tx_id = $4, needs_photo = $5, return_requested = $6 WHERE id = $7`, 
+                            [finalWeight, nextLocation, nextOriginalLocation, nextReturnTxId, needsPhoto, nextReturnRequested, s.roll_id]);
                         for (const member of [rec, ...allGroupDone]) {
                             await db.run(`
                                 UPDATE qlx_fabric_reservations 
@@ -1286,9 +1296,10 @@ module.exports = async function(fastify) {
                     const needsPhoto = wasCut && isLeftover;
                     
                     const rollDb = await db.get('SELECT return_tx_id, roll_code, location, original_location FROM kv_rolls WHERE id = $1', [s.roll_id]);
-                    let nextLocation = '';
-                    let nextOriginalLocation = null;
+                    let nextLocation = wasCut ? 'Chưa Phân Vị Trí Cây Lẻ' : (rollDb ? rollDb.location : '');
+                    let nextOriginalLocation = rollDb ? rollDb.original_location : null;
                     let nextReturnTxId = null;
+                    let nextReturnRequested = false;
                     
                     if (rollDb && rollDb.return_tx_id) {
                         if (!wasCut) {
@@ -1306,10 +1317,15 @@ module.exports = async function(fastify) {
                             nextOriginalLocation = rollDb.original_location;
                             nextReturnTxId = txId;
                         }
+                    } else if (rollDb && (rollDb.location === '📍 Kệ Dự Định Hoàn Vải' || rollDb.original_location === '📍 Kệ Dự Định Hoàn Vải')) {
+                        if (!wasCut) {
+                            nextLocation = '📍 Kệ Dự Định Hoàn Vải';
+                            nextReturnRequested = true;
+                        }
                     }
                     
-                    await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = $2, original_location = $3, return_tx_id = $4, needs_photo = $5 WHERE id = $6`, 
-                        [finalWeight, nextLocation, nextOriginalLocation, nextReturnTxId, needsPhoto, s.roll_id]);
+                    await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = $2, original_location = $3, return_tx_id = $4, needs_photo = $5, return_requested = $6 WHERE id = $7`, 
+                        [finalWeight, nextLocation, nextOriginalLocation, nextReturnTxId, needsPhoto, nextReturnRequested, s.roll_id]);
                     // Release the reservation for the current order and item on this roll since it's cut
                     await db.run(`
                         UPDATE qlx_fabric_reservations 
