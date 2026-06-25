@@ -2640,9 +2640,13 @@ async function performDirectRollReturn(rollId) {
         var totalAmount = totalWeight * price;
         
         const loc = foundRoll.loc || '';
-        let locStr = '';
+        let shelfStr = '—';
         if (loc) {
-            locStr = loc.toLowerCase().startsWith('kệ') ? ` ${loc}` : ` Kệ ${loc}`;
+            if (loc.toLowerCase().startsWith('kệ') || loc.toLowerCase().includes('chưa')) {
+                shelfStr = loc;
+            } else {
+                shelfStr = 'Kệ ' + loc;
+            }
         }
         var txRes = await apiCall('/api/fabrictx/records', 'POST', {
             tx_type: 'HOAN',
@@ -2652,7 +2656,8 @@ async function performDirectRollReturn(rollId) {
             material_name: foundItem.material_name,
             color_name: foundItem.color_name,
             unit: foundItem.unit || 'kg',
-            tree_details: "Cây " + totalWeight + "kg" + locStr,
+            tree_details: "Cây " + totalWeight + "kg",
+            shelf_names: shelfStr,
             tree_count: 1,
             total_quantity: totalWeight,
             price: price,

@@ -745,7 +745,14 @@ async function submitCreateReturn() {
         const w = Number(cb.getAttribute('data-weight')) || 0;
         const c = cb.getAttribute('data-code') || '';
         const loc = cb.getAttribute('data-loc') || '';
-        let locStr = loc ? (loc.toLowerCase().startsWith('kệ') ? loc : `Kệ ${loc}`) : '—';
+        let locStr = '—';
+        if (loc) {
+            if (loc.toLowerCase().startsWith('kệ') || loc.toLowerCase().includes('chưa')) {
+                locStr = loc;
+            } else {
+                locStr = 'Kệ ' + loc;
+            }
+        }
         totalWeight += w;
         detailsArray.push(`Cây ${w}kg`);
         shelvesArray.push(locStr);
