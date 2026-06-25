@@ -349,7 +349,15 @@ module.exports = async function(fastify) {
                    u_ck.full_name AS checked_by_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
                    r.locked_by_cutting_id,
-                   (SELECT o.order_code FROM qlx_fabric_reservations res JOIN dht_orders o ON o.id = res.dht_order_id WHERE res.roll_id = r.id LIMIT 1) AS reserved_order_code,
+                   (
+                       SELECT o.order_code || ' - P' || 
+                              COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id), 1) || '.' || 
+                              (COALESCE(res.phoi_index, 0) + 1)
+                       FROM qlx_fabric_reservations res 
+                       JOIN dht_orders o ON o.id = res.dht_order_id 
+                       WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived') 
+                       LIMIT 1
+                   ) AS reserved_order_code,
                    (SELECT order_code FROM dht_orders JOIN cutting_records cr ON cr.dht_order_id = dht_orders.id WHERE cr.id = r.locked_by_cutting_id) AS locked_order_code
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
