@@ -494,11 +494,14 @@ async function _bnhCheckRequestedReturns() {
         
         var html = '<div style="margin-bottom:16px; display:flex; flex-direction:column; gap:8px;">';
         rolls.forEach(function(r) {
+            var reqName = r.requester_name || 'Lê Việt Trinh';
+            var prefix = reqName === 'Lê Công Thực' ? 'Anh' : (reqName === 'Giám Đốc' ? '' : 'Chị');
+            var prefixWithSpace = prefix ? prefix + ' ' : '';
             html += `
                 <div style="background:linear-gradient(135deg, #fee2e2, #fecaca); border:1.5px solid #fca5a5; border-radius:12px; padding:12px 18px; display:flex; justify-content:space-between; align-items:center; gap:16px; box-shadow:0 4px 12px rgba(239,68,68,0.06); animation: _pulseAlert 2s infinite;">
                     <div style="font-size:13px; color:#991b1b; font-weight:600; display:flex; align-items:center; gap:6px;">
                         <span style="font-size:16px;">⚠️</span>
-                        Chị <strong>${escapeHTML(r.requester_name || 'Lê Việt Trinh')}</strong> yêu cầu lập bill hoàn cây vải <strong>${escapeHTML(r.material_name)}</strong> màu <strong>${escapeHTML(r.color_name)}</strong> cây <strong>${escapeHTML(r.weight)}kg</strong> ngay
+                        ${prefixWithSpace}<strong>${escapeHTML(reqName)}</strong> yêu cầu lập bill hoàn cây vải <strong>${escapeHTML(r.material_name)}</strong> màu <strong>${escapeHTML(r.color_name)}</strong> cây <strong>${escapeHTML(r.weight)}kg</strong> ngay
                     </div>
                     <button class="btn btn-danger btn-xs" style="padding:6px 12px; font-weight:800; border-radius:6px; cursor:pointer;" onclick="_bnhHandleRequestedReturn(${r.id})">
                         Tạo Hoàn Vải
