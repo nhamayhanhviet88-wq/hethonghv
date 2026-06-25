@@ -159,6 +159,19 @@ module.exports = async function(fastify) {
         return { records };
     });
 
+    // ========== GET ROLLS FOR A TRANSACTION ==========
+    fastify.get('/api/fabrictx/records/:id/rolls', { preHandler: [authenticate] }, async (req) => {
+        const id = Number(req.params.id);
+        if (isNaN(id)) return { rolls: [] };
+        const rolls = await db.all(`
+            SELECT id, fabric_color_id, weight, roll_code, source_import_id
+            FROM kv_rolls
+            WHERE return_tx_id = $1
+            ORDER BY id ASC
+        `, [id]);
+        return { rolls };
+    });
+
     // ========== CREATE ==========
     fastify.post('/api/fabrictx/records', { preHandler: [authenticate] }, async (req) => {
         const b = req.body || {}, now = vnNow();

@@ -932,7 +932,7 @@ window.selectRetType = selectRetType;
 window.toggleCreatePostponeUI = toggleCreatePostponeUI;
 window._nxhvCheckAutoOpenReturn = _nxhvCheckAutoOpenReturn;
 
-function openViewReturnModal(id) {
+async function openViewReturnModal(id) {
     const r = _nxhv.records.find(item => item.id === id);
     if (!r) {
         showToast('Không tìm thấy giao dịch', 'error');
@@ -950,15 +950,54 @@ function openViewReturnModal(id) {
     }
     
     const rollsArr = (r.tree_details || '').split(',').map(s => s.trim()).filter(Boolean);
-    const rollsHtml = rollsArr.map(rollStr => {
-        var cleanRoll = rollStr.replace(/\s*\([^)]+\)/g, '');
-        return `
-            <label style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; font-weight:700; color:#0f766e; margin-bottom:0;">
-                <input type="checkbox" checked disabled style="width:14px; height:14px; accent-color:#059669;" />
-                <span style="color:#0f766e; font-size:12px;">${cleanRoll}</span>
-            </label>
-        `;
-    }).join('');
+    
+    let dbRolls = [];
+    try {
+        const res = await apiCall('/api/fabrictx/records/' + id + '/rolls');
+        dbRolls = res.rolls || [];
+    } catch (e) {
+        console.error('Lỗi khi tải danh sách cây vải:', e);
+    }
+
+    const totalRollsCount = dbRolls.length || rollsArr.length;
+
+    let rollsHtml = '';
+    if (dbRolls && dbRolls.length) {
+        rollsHtml = dbRolls.map(rl => {
+            const rollLabel = `Cây ${rl.weight}kg` + (rl.roll_code ? ` (${rl.roll_code})` : '');
+            let billLinkHtml = '';
+            if (rl.source_import_id) {
+                billLinkHtml = `
+                    <div style="padding-left: 22px; margin-top: 2px; margin-bottom: 4px;">
+                        <a href="javascript:void(0)" onclick="_nxhvOpenImportBill(${rl.source_import_id}); event.stopPropagation();" style="color:#4f46e5; text-decoration:underline; font-weight:800; font-size:11px;">
+                            🔍 Xem bill nhập vải: ${rollLabel}
+                        </a>
+                    </div>
+                `;
+            }
+            return `
+                <div style="display:flex; flex-direction:column; width:100%;">
+                    <label style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; font-weight:700; color:#0f766e; margin-bottom:0;">
+                        <input type="checkbox" checked disabled style="width:14px; height:14px; accent-color:#059669;" />
+                        <span style="color:#0f766e; font-size:12px;">${rollLabel}</span>
+                    </label>
+                    ${billLinkHtml}
+                </div>
+            `;
+        }).join('');
+    } else {
+        rollsHtml = rollsArr.map(rollStr => {
+            var cleanRoll = rollStr.replace(/\s*\([^)]+\)/g, '');
+            return `
+                <div style="display:flex; flex-direction:column; width:100%;">
+                    <label style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; font-weight:700; color:#0f766e; margin-bottom:0;">
+                        <input type="checkbox" checked disabled style="width:14px; height:14px; accent-color:#059669;" />
+                        <span style="color:#0f766e; font-size:12px;">${cleanRoll}</span>
+                    </label>
+                </div>
+            `;
+        }).join('');
+    }
 
     let imgsHTML = '';
     try {
@@ -1043,7 +1082,7 @@ function openViewReturnModal(id) {
             <div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <span style="font-size:13px; font-weight:800; color:#0f766e;">📋 Cây Vải Trả Hoàn</span>
-                    <span style="font-weight:700; color:#0891b2;">Đã chọn: ${rollsArr.length} cây (${_nxhvFN(r.total_quantity)} ${r.unit || 'kg'})</span>
+                    <span style="font-weight:700; color:#0891b2;">Đã chọn: ${totalRollsCount} cây (${_nxhvFN(r.total_quantity)} ${r.unit || 'kg'})</span>
                 </div>
                 <div id="nxhv_m_rolls_container_view" style="max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:10px; background:#f8fafc; display:flex; flex-direction:column; gap:6px;">
                     ${rollsHtml}
