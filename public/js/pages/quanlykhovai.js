@@ -200,6 +200,22 @@ async function renderQuanlykhovaiPage(content) {
             '.qkv-card-processed-le-header .qkv-card-title { color: #ffffff !important; }',
             '.qkv-card-processed-le-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
             
+            '.qkv-card-return-shelf { border-color: #dc2626 !important; border-width: 2px !important; animation: qkvReturnPulse 3s infinite ease-in-out !important; }',
+            '.qkv-card-return-shelf-header {',
+            '  background: linear-gradient(135deg, #ef4444, #dc2626, #b91c1c, #dc2626) !important;',
+            '  background-size: 300% 300% !important;',
+            '  animation: qkvShimmerGlow 4s ease infinite !important;',
+            '  color: #ffffff !important;',
+            '  font-weight: 900 !important;',
+            '  text-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;',
+            '}',
+            '.qkv-card-return-shelf-header .qkv-card-title { color: #ffffff !important; animation: qkvSparkleStars 1.5s infinite ease-in-out !important; font-weight: 900 !important; }',
+            '.qkv-card-return-shelf-header .qkv-card-count { background: rgba(255, 255, 255, 0.25) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.4) !important; font-weight: 900 !important; }',
+            '@keyframes qkvReturnPulse {',
+            '  0%, 100% { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.01), 0 2px 4px -1px rgba(0,0,0,0.01); border-color: #dc2626 !important; }',
+            '  50% { box-shadow: 0 0 15px rgba(220, 38, 38, 0.6); border-color: #f87171 !important; }',
+            '}',
+            
             // Mobile Specific Styles
             '@media (max-width: 768px) {',
             '  .qkv-wrap { flex-direction: column; height: auto; overflow: auto; }',
@@ -716,8 +732,14 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     var cardClass = 'qkv-card';
     
     if (!isUnassigned) {
-        headerClass = 'qkv-card-shelf-header';
-        cardClass = 'qkv-card qkv-card-shelf';
+        var isReturnShelf = group.name && (group.name.includes('Dự Định Hoàn Vải') || group.name.includes('Dự định hoàn vải'));
+        if (isReturnShelf) {
+            headerClass = 'qkv-card-return-shelf-header';
+            cardClass = 'qkv-card qkv-card-return-shelf';
+        } else {
+            headerClass = 'qkv-card-shelf-header';
+            cardClass = 'qkv-card qkv-card-shelf';
+        }
     } else if (isUnassigned === 'nguyen') {
         headerClass = 'qkv-card-unassigned-nguyen-header';
         cardClass = 'qkv-card qkv-card-unassigned qkv-card-unassigned-nguyen';

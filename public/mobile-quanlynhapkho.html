@@ -397,6 +397,46 @@
             color: #ffffff !important;
             border: 1px solid rgba(255,255,255,0.3) !important;
         }
+        
+        .card-return-shelf {
+            border-color: #dc2626 !important;
+            border-width: 2px !important;
+            animation: qkvReturnPulseMobile 3s infinite ease-in-out !important;
+        }
+        @keyframes qkvReturnPulseMobile {
+            0%, 100% { box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); border-color: #dc2626 !important; }
+            50% { box-shadow: 0 0 15px rgba(220, 38, 38, 0.6); border-color: #f87171 !important; }
+        }
+        .card-header-return-shelf {
+            padding: 12px 14px !important;
+            background: linear-gradient(135deg, #ef4444, #dc2626, #b91c1c, #dc2626) !important;
+            background-size: 300% 300% !important;
+            animation: shimmerGlow 4s ease infinite !important;
+            border-bottom: 2px solid rgba(220, 38, 38, 0.4) !important;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 10px rgba(220, 38, 38, 0.25) !important;
+        }
+        .card-header-return-shelf .card-title {
+            color: #ffffff !important;
+            font-size: 13px !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.5px;
+            animation: sparkleStars 1.5s infinite ease-in-out !important;
+        }
+        .card-header-return-shelf .card-count {
+            background: rgba(255, 255, 255, 0.25) !important;
+            color: #ffffff !important;
+            font-size: 10px !important;
+            font-weight: 900 !important;
+            border: 1px solid rgba(255,255,255,0.4) !important;
+        }
+        .card-header-return-shelf .card-qr-btn {
+            background: rgba(255, 255, 255, 0.25) !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255,255,255,0.4) !important;
+        }
         .card-waiting {
             border: 2px solid #6366f1 !important;
         }
@@ -1455,7 +1495,13 @@
 
             var headerClass = 'card-header';
             if (!isUnassigned) {
-                headerClass = 'card-header-shelf';
+                var isReturnShelf = group.name && (group.name.includes('Dự Định Hoàn Vải') || group.name.includes('Dự định hoàn vải'));
+                if (isReturnShelf) {
+                    headerClass = 'card-header-return-shelf';
+                    cardClass = 'card card-return-shelf';
+                } else {
+                    headerClass = 'card-header-shelf';
+                }
             } else if (isUnassigned === 'waiting') {
                 headerClass = 'card-header-waiting';
             } else if (isUnassigned === 'processed_nguyen') {
