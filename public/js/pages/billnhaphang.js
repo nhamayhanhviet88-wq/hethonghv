@@ -254,7 +254,7 @@ function _bnhRender(){
         +paidCellHtml
         +'<td style="text-align:center;vertical-align:middle">'+_bnhDebt(runDebt[i])+'</td>'
         +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">'+(r.cost_notes||'—')+'</td>'
-        +'<td style="font-size:9px;color:#6b7280;vertical-align:middle">'+upd+'</td></tr>';}).join('');}}
+        +'<td style="font-size:9px;color:#6b7280;vertical-align:middle">'+upd+'</td></tr>';}).join('');}
     var el=document.getElementById('bnhInfo');if(el){var src=_bnh.filter.source_id?(_bnh.sources.find(function(s){return s.id==_bnh.filter.source_id;})||{}).name||'':'Tất cả';
     el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">🧾 '+src+' — <span style="color:#c7d2fe;font-weight:900">'+tot+'</span> bill</div>';}
     var sc=document.getElementById('bnhStats');if(sc){
