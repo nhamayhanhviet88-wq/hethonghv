@@ -107,10 +107,13 @@ module.exports = async function(fastify) {
         // Check if there are active cutting records blocking
         const activeCuts = await db.all(`
             SELECT DISTINCT cr.id AS cut_id, cr.dht_order_id,
-                            o.order_code, r.roll_code, r.location
+                            o.order_code, r.roll_code, r.location,
+                            r.weight, fc.color_name, m.name AS material_name
             FROM kv_rolls r
             JOIN cutting_records cr ON cr.id = r.locked_by_cutting_id
             LEFT JOIN dht_orders o ON o.id = cr.dht_order_id
+            LEFT JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            LEFT JOIN kv_materials m ON m.id = fc.material_id
             WHERE cr.is_cut_done = false
         `);
 

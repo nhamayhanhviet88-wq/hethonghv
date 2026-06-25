@@ -410,7 +410,9 @@ function _kkShowBlockedCutsModal(cuts) {
             <tr>
                 <td class="text-center font-weight-bold">${idx + 1}</td>
                 <td><span class="badge badge-danger" style="font-size:11px;">${c.order_code || '—'}</span></td>
-                <td><span class="text-teal font-weight-bold">${c.roll_code}</span></td>
+                <td class="font-weight-bold">${c.material_name || '—'}</td>
+                <td><span class="badge badge-secondary" style="font-size:11px; background-color:#f1f5f9; color:#334155; border: 1px solid #e2e8f0;">${c.color_name || '—'}</span></td>
+                <td class="font-weight-bold text-teal">${c.weight ? c.weight + ' kg' : '—'}</td>
                 <td><span class="badge badge-secondary" style="font-size:11px;">Kệ: ${c.location || 'Chưa xếp'}</span></td>
             </tr>
         `;
@@ -418,7 +420,7 @@ function _kkShowBlockedCutsModal(cuts) {
 
     const modalHtml = `
         <div class="kk-modal-overlay" id="kkBlockedCutsModal">
-            <div class="kk-modal" style="max-width:550px;">
+            <div class="kk-modal" style="max-width:680px;">
                 <div class="kk-modal-header" style="background:#fef2f2; border-bottom:1px solid #fee2e2;">
                     <div class="kk-modal-title" style="color:#b91c1c; display:flex; align-items:center; gap:8px;">
                         <span>🚫 KHÔNG THỂ BẮT ĐẦU KIỂM KHO</span>
@@ -435,7 +437,9 @@ function _kkShowBlockedCutsModal(cuts) {
                                 <tr style="background:#fafafa;">
                                     <th style="width:40px;" class="text-center">STT</th>
                                     <th>Mã Đơn Hàng</th>
-                                    <th>Mã Cây Vải</th>
+                                    <th>Chất Liệu</th>
+                                    <th>Màu Sắc</th>
+                                    <th>Cân Nặng</th>
                                     <th>Kệ / Vị Trí</th>
                                 </tr>
                             </thead>
