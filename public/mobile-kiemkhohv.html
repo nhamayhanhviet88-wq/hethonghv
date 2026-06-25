@@ -227,6 +227,8 @@
             <div style="background:linear-gradient(135deg,#0f766e,#0d9488);"><div class="mv" id="sW">0</div><div class="ml">TỔNG KG KỆ</div></div>
             <div onclick="mSetFilter('checked')" style="background:linear-gradient(135deg,#059669,#10b981); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sC">0</div><div class="ml">ĐÃ KIỂM KỆ</div></div>
             <div onclick="mSetFilter('unchecked')" style="background:linear-gradient(135deg,#f59e0b,#d97706); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sU">0</div><div class="ml">CHƯA KIỂM KỆ</div></div>
+            <div onclick="mSetFilter('missing')" style="background:linear-gradient(135deg,#991b1b,#ef4444); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sM">0</div><div class="ml">CÂY BÁO MẤT</div></div>
+            <div onclick="mSetFilter('surplus')" style="background:linear-gradient(135deg,#5b21b6,#8b5cf6); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sS">0</div><div class="ml">CÂY THỪA</div></div>
         </div>
         <div class="mc" id="mC">
             <div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div>
@@ -426,11 +428,15 @@ async function mLoad(){
         const shelfChecked = mr.filter(r => r.is_checked).length;
         const shelfUnchecked = mr.length - shelfChecked;
         const shelfWeight = mr.reduce((sum, r) => sum + Number(r.system_weight || 0), 0);
+        const shelfMissing = mr.filter(r => r.is_checked && Number(r.actual_weight) === 0).length;
+        const shelfSurplus = mr.filter(r => r.source === 'kiem_kho_du').length;
 
         document.getElementById('sT').textContent = mr.length; // Total rolls on current shelf
         document.getElementById('sW').textContent = fn(shelfWeight); // Total system weight on current shelf
         document.getElementById('sC').textContent = shelfChecked; // Checked rolls on current shelf
         document.getElementById('sU').textContent = shelfUnchecked; // Unchecked rolls on current shelf
+        document.getElementById('sM').textContent = shelfMissing; // Missing rolls on current shelf
+        document.getElementById('sS').textContent = shelfSurplus; // Surplus rolls on current shelf
         
         mUpdateFilterUI();
         mCards();
@@ -449,39 +455,43 @@ function mUpdateFilterUI() {
     const boxTotal = document.getElementById('sT') ? document.getElementById('sT').parentElement : null;
     const boxChecked = document.getElementById('sC') ? document.getElementById('sC').parentElement : null;
     const boxUnchecked = document.getElementById('sU') ? document.getElementById('sU').parentElement : null;
+    const boxMissing = document.getElementById('sM') ? document.getElementById('sM').parentElement : null;
+    const boxSurplus = document.getElementById('sS') ? document.getElementById('sS').parentElement : null;
     
-    if (!boxTotal || !boxChecked || !boxUnchecked) return;
+    if (!boxTotal || !boxChecked || !boxUnchecked || !boxMissing || !boxSurplus) return;
 
     // Reset styles
-    boxTotal.style.opacity = '1';
-    boxTotal.style.transform = 'none';
-    boxTotal.style.boxShadow = 'none';
-    boxTotal.style.border = 'none';
-    
-    boxChecked.style.opacity = '1';
-    boxChecked.style.transform = 'none';
-    boxChecked.style.boxShadow = 'none';
-    boxChecked.style.border = 'none';
-    
-    boxUnchecked.style.opacity = '1';
-    boxUnchecked.style.transform = 'none';
-    boxUnchecked.style.boxShadow = 'none';
-    boxUnchecked.style.border = 'none';
+    const boxes = [boxTotal, boxChecked, boxUnchecked, boxMissing, boxSurplus];
+    boxes.forEach(box => {
+        box.style.opacity = '1';
+        box.style.transform = 'none';
+        box.style.boxShadow = 'none';
+        box.style.border = 'none';
+    });
     
     if (mFilterStatus === 'checked') {
-        boxTotal.style.opacity = '0.55';
-        boxUnchecked.style.opacity = '0.55';
+        boxes.forEach(box => { if (box !== boxChecked) box.style.opacity = '0.55'; });
         boxChecked.style.transform = 'scale(1.03)';
         boxChecked.style.boxShadow = '0 0 12px rgba(16,185,129,0.3)';
         boxChecked.style.border = '1px solid rgba(16,185,129,0.6)';
     } else if (mFilterStatus === 'unchecked') {
-        boxTotal.style.opacity = '0.55';
-        boxChecked.style.opacity = '0.55';
+        boxes.forEach(box => { if (box !== boxUnchecked) box.style.opacity = '0.55'; });
         boxUnchecked.style.transform = 'scale(1.03)';
         boxUnchecked.style.boxShadow = '0 0 12px rgba(245,158,11,0.3)';
         boxUnchecked.style.border = '1px solid rgba(245,158,11,0.6)';
+    } else if (mFilterStatus === 'missing') {
+        boxes.forEach(box => { if (box !== boxMissing) box.style.opacity = '0.55'; });
+        boxMissing.style.transform = 'scale(1.03)';
+        boxMissing.style.boxShadow = '0 0 12px rgba(239,68,68,0.3)';
+        boxMissing.style.border = '1px solid rgba(239,68,68,0.6)';
+    } else if (mFilterStatus === 'surplus') {
+        boxes.forEach(box => { if (box !== boxSurplus) box.style.opacity = '0.55'; });
+        boxSurplus.style.transform = 'scale(1.03)';
+        boxSurplus.style.boxShadow = '0 0 12px rgba(139,92,246,0.3)';
+        boxSurplus.style.border = '1px solid rgba(139,92,246,0.6)';
     } else {
         // 'all'
+        boxes.forEach(box => { if (box !== boxTotal) box.style.opacity = '0.55'; });
         boxTotal.style.transform = 'scale(1.03)';
         boxTotal.style.boxShadow = '0 0 12px rgba(20,184,166,0.3)';
         boxTotal.style.border = '1px solid rgba(20,184,166,0.6)';
@@ -509,12 +519,18 @@ function mCards(){
         displayRolls = mr.filter(r => r.is_checked);
     } else if (mFilterStatus === 'unchecked') {
         displayRolls = mr.filter(r => !r.is_checked);
+    } else if (mFilterStatus === 'missing') {
+        displayRolls = mr.filter(r => r.is_checked && Number(r.actual_weight) === 0);
+    } else if (mFilterStatus === 'surplus') {
+        displayRolls = mr.filter(r => r.source === 'kiem_kho_du');
     }
 
     if (!displayRolls.length) {
         let msg = 'Kệ trống hoặc đã kiểm hết';
         if (mFilterStatus === 'checked') msg = 'Chưa có cây vải nào đã kiểm trên kệ này';
         if (mFilterStatus === 'unchecked') msg = 'Kệ này đã được kiểm xong tất cả!';
+        if (mFilterStatus === 'missing') msg = 'Kệ này không có cây vải nào báo mất!';
+        if (mFilterStatus === 'surplus') msg = 'Kệ này không có cây vải nào thừa!';
         c.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:700">${msg}</div></div>`;
         return;
     }
