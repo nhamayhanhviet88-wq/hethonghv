@@ -935,9 +935,62 @@ async function _kkMarkPresent(rollId, systemWeight, rollImg) {
 
 // 2. Mark Missing (Báo mất)
 async function _kkMarkMissing(rollId, rollCode) {
-    if (!confirm('❌ Báo mất cây vải ' + rollCode + '?\nSố lượng tồn thực tế của cây vải này sẽ chuyển về 0.')) return;
+    const r = _kk.rolls.find(item => item.roll_id === rollId);
+    const colorName = r ? r.color_name : '—';
+    const materialName = r ? r.material_name : '—';
+    const systemWeight = r ? r.system_weight : 0;
+
+    const modalHtml = `
+        <div class="kk-modal-overlay" id="kkMissingModal">
+            <div class="kk-modal" style="max-width:400px;">
+                <div class="kk-modal-header">
+                    <div class="kk-modal-title" style="color:#ef4444; font-weight:800;">⚠️ Xác Nhận Báo Mất Cây Vải</div>
+                    <button class="close" onclick="_kkCloseModal('kkMissingModal')" style="border:none; background:none; font-size:24px;">&times;</button>
+                </div>
+                <div class="kk-modal-body">
+                    <div style="background:#fef2f2; border:1px solid #fee2e2; border-radius:10px; padding:12px; font-size:12px; color:#991b1b; line-height:1.5; margin-bottom:12px;">
+                        Cây vải này sẽ được ghi nhận là <strong>MẤT</strong>. Cân nặng thực tế sẽ tính bằng <strong>0 kg</strong> (hao hụt 100%).
+                    </div>
+                    
+                    <div class="kk-form-group">
+                        <label class="kk-form-label">Thông tin cây vải</label>
+                        <div style="font-size:12px; color:#334155; display:flex; flex-direction:column; gap:4px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0;">
+                            <div><strong>Chất liệu:</strong> ${materialName}</div>
+                            <div><strong>Màu:</strong> ${colorName}</div>
+                            <div><strong>Tồn hệ thống:</strong> ${systemWeight} kg</div>
+                        </div>
+                    </div>
+
+                    <div class="kk-form-group" style="margin-top:12px;">
+                        <label class="kk-form-label">Ghi chú (Tùy chọn)</label>
+                        <input type="text" id="kkMissingNotes" class="kk-form-input" value="Báo mất khi kiểm kê" placeholder="Nhập lý do báo mất...">
+                    </div>
+                </div>
+                <div class="kk-modal-footer">
+                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkMissingModal')">Hủy</button>
+                    <button class="kk-btn kk-btn-danger" style="background:#ef4444; border-color:#ef4444; color:#fff;" onclick="_kkSubmitMissing(${rollId}, '${rollCode}')">Xác Nhận Báo Mất</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('kkMissingModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'kkMissingModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+}
+
+async function _kkSubmitMissing(rollId, rollCode) {
+    const notesInput = document.getElementById('kkMissingNotes');
+    const note = notesInput ? notesInput.value.trim() : 'Báo mất khi kiểm kê';
+    
+    _kkCloseModal('kkMissingModal');
+    
     try {
-        await apiCall('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: 0, notes: 'Báo mất khi kiểm kê' });
+        await apiCall('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: 0, notes: note });
         showToast('❌ Đã báo mất cây ' + rollCode);
         
         // Reload
@@ -953,6 +1006,10 @@ async function _kkMarkMissing(rollId, rollCode) {
 
 // 3. Weight Input Modal (Nhập thực tế)
 function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
+    const r = _kk.rolls.find(item => item.roll_id === rollId);
+    const colorName = r ? r.color_name : '—';
+    const materialName = r ? r.material_name : '—';
+
     const modalHtml = `
         <div class="kk-modal-overlay" id="kkWeightInputModal">
             <div class="kk-modal" style="max-width:400px;">
@@ -961,10 +1018,27 @@ function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
                     <button class="close" onclick="_kkCloseModal('kkWeightInputModal')" style="border:none; background:none; font-size:24px;">&times;</button>
                 </div>
                 <div class="kk-modal-body">
-                    <div class="kk-form-group">
-                        <label class="kk-form-label">Tồn hệ thống: ${systemWeight} kg</label>
-                        <input type="number" id="kkInputActualW" class="kk-form-input" placeholder="Nhập số kg thực tế..." step="0.1" min="0">
+                    <div class="kk-form-group" style="margin-bottom:12px;">
+                        <label class="kk-form-label">Thông tin cây vải</label>
+                        <div style="font-size:12px; color:#334155; display:flex; flex-direction:column; gap:4px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0;">
+                            <div><strong>Chất liệu:</strong> ${materialName}</div>
+                            <div><strong>Màu:</strong> ${colorName}</div>
+                            <div><strong>Tồn hệ thống:</strong> ${systemWeight} kg</div>
+                        </div>
                     </div>
+
+                    <div class="kk-form-group" style="margin-bottom:12px;">
+                        <label class="kk-form-label">Cân nặng thực tế (kg) <span style="color:#ef4444;">*</span></label>
+                        <input type="number" id="kkInputActualW" class="kk-form-input" placeholder="Nhập số kg thực tế..." step="0.1" min="0" oninput="_kkCalculateDifference(${systemWeight})">
+                    </div>
+
+                    <div class="kk-form-group" style="margin-bottom:12px;">
+                        <label class="kk-form-label">So sánh chênh lệch</label>
+                        <div id="kkWeightDiffLabel" style="font-size:13px; background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0; min-height:36px; display:flex; align-items:center;">
+                            <span style="color:#64748b; font-weight:600;">—</span>
+                        </div>
+                    </div>
+
                     <div class="kk-form-group">
                         <label class="kk-form-label">Ghi chú (Tùy chọn)</label>
                         <input type="text" id="kkInputActualNote" class="kk-form-input" placeholder="Ghi chú hao hụt, rách...">
@@ -972,11 +1046,14 @@ function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
                 </div>
                 <div class="kk-modal-footer">
                     <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkWeightInputModal')">Hủy</button>
-                    <button class="kk-btn kk-btn-primary" onclick="_kkSubmitWeightInput(${rollId}, ${systemWeight}, '${rollImg}')">Xác Nhận</button>
+                    <button class="kk-btn kk-btn-primary" id="kkWeightConfirmBtn" disabled style="opacity:0.5;" onclick="_kkSubmitWeightInput(${rollId}, ${systemWeight}, '${rollImg}')">Xác Nhận</button>
                 </div>
             </div>
         </div>
     `;
+
+    const oldContainer = document.getElementById('kkWeightInputModalContainer');
+    if (oldContainer) oldContainer.remove();
 
     const div = document.createElement('div');
     div.id = 'kkWeightInputModalContainer';
@@ -988,6 +1065,42 @@ function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
         const inp = document.getElementById('kkInputActualW');
         if (inp) inp.focus();
     }, 100);
+}
+
+function _kkCalculateDifference(systemWeight) {
+    const inputEl = document.getElementById('kkInputActualW');
+    const diffEl = document.getElementById('kkWeightDiffLabel');
+    const btnEl = document.getElementById('kkWeightConfirmBtn');
+    
+    if (!inputEl || !diffEl || !btnEl) return;
+    
+    const val = inputEl.value.trim();
+    if (val === '') {
+        diffEl.innerHTML = '<span style="color:#64748b; font-weight:600;">—</span>';
+        btnEl.disabled = true;
+        btnEl.style.opacity = '0.5';
+        return;
+    }
+    
+    const actual = Number(val);
+    if (isNaN(actual) || actual < 0) {
+        diffEl.innerHTML = '<span style="color:#ef4444; font-weight:600;">Cân nặng không hợp lệ</span>';
+        btnEl.disabled = true;
+        btnEl.style.opacity = '0.5';
+        return;
+    }
+    
+    btnEl.disabled = false;
+    btnEl.style.opacity = '1.0';
+    
+    const diff = actual - systemWeight;
+    if (diff === 0) {
+        diffEl.innerHTML = '<span style="color:#16a34a; font-weight:700;">✅ Khớp (0 kg)</span>';
+    } else if (diff < 0) {
+        diffEl.innerHTML = `<span style="color:#dc2626; font-weight:700;">📉 Thiếu ${Math.abs(diff).toFixed(2)} kg</span>`;
+    } else {
+        diffEl.innerHTML = `<span style="color:#2563eb; font-weight:700;">📈 Thừa +${diff.toFixed(2)} kg</span>`;
+    }
 }
 
 async function _kkSubmitWeightInput(rollId, systemWeight, rollImg) {
@@ -1011,7 +1124,7 @@ async function _kkSubmitWeightInput(rollId, systemWeight, rollImg) {
 
     const runCheck = async () => {
         try {
-            await apiCall('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: val, notes: notes });
+            await apiCall('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: val, notes: notes || '' });
             showToast('✅ Đã cập nhật thực tế: ' + val + ' kg');
             
             // Reload

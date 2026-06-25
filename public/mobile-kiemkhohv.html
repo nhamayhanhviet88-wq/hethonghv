@@ -572,9 +572,64 @@ async function mMarkPresent(rollId, systemWeight, rollImg) {
 }
 
 async function mMarkMissing(rollId, rollCode) {
-    if (!confirm('❌ Xác nhận BÁO MẤT cây vải ' + rollCode + '?\nThực tế sẽ tính bằng 0 (hao hụt 100%).')) return;
+    const r = mr.find(item => item.roll_id === rollId);
+    const colorName = r ? r.color_name : '—';
+    const materialName = r ? r.material_name : '—';
+    const systemWeight = r ? r.system_weight : 0;
+
+    const modalHtml = `
+        <div class="m-modal-overlay" id="mMissingModal">
+            <div class="m-modal">
+                <div class="m-modal-header">
+                    <div class="m-modal-title" style="color:#ef4444; font-weight:800; display:flex; align-items:center; gap:6px;">
+                        ⚠️ Xác Nhận Báo Mất Cây Vải
+                    </div>
+                    <button class="m-modal-close" onclick="mCloseModal('mMissingModal')">&times;</button>
+                </div>
+                <div class="m-modal-body">
+                    <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); border-radius:10px; padding:12px; font-size:12px; color:#fca5a5; line-height:1.5;">
+                        Cây vải này sẽ được ghi nhận là <strong>MẤT</strong>. Cân nặng thực tế sẽ tính bằng <strong>0 kg</strong> (hao hụt 100%).
+                    </div>
+                    
+                    <div class="m-form-group">
+                        <label class="m-form-label">Thông tin cây vải</label>
+                        <div style="font-size:13px; color:#e2e8f0; display:flex; flex-direction:column; gap:4px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                            <div><strong>Chất liệu:</strong> ${materialName}</div>
+                            <div><strong>Màu:</strong> ${colorName}</div>
+                            <div><strong>Tồn hệ thống:</strong> ${systemWeight} kg</div>
+                        </div>
+                    </div>
+
+                    <div class="m-form-group">
+                        <label class="m-form-label">Ghi chú (Tùy chọn)</label>
+                        <input type="text" id="mMissingNotes" class="m-form-input" value="Báo mất trên mobile" placeholder="Nhập lý do báo mất...">
+                    </div>
+                </div>
+                <div class="m-modal-footer">
+                    <button class="m-btn m-btn-secondary" onclick="mCloseModal('mMissingModal')">Hủy</button>
+                    <button class="m-btn" style="background:#ef4444; color:#fff;" onclick="mSubmitMissing(${rollId}, '${rollCode}')">Xác Nhận Báo Mất</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('mMissingModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'mMissingModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+}
+
+async function mSubmitMissing(rollId, rollCode) {
+    const notesInput = document.getElementById('mMissingNotes');
+    const note = notesInput ? notesInput.value.trim() : 'Báo mất trên mobile';
+    
+    mCloseModal('mMissingModal');
+    
     try {
-        await api('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: 0, notes: 'Báo mất trên mobile' });
+        await api('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: 0, notes: note });
         toast('❌ Đã báo mất cây ' + rollCode);
         await mLoad();
     } catch(e) {
@@ -583,15 +638,124 @@ async function mMarkMissing(rollId, rollCode) {
 }
 
 async function mInputWeight(rollId, systemWeight, rollImg) {
-    const v = prompt('Nhập cân thực tế (kg):\n(Tồn hệ thống: ' + systemWeight + ' kg)');
-    if (v === null) return;
-    const n = Number(v);
+    const r = mr.find(item => item.roll_id === rollId);
+    const colorName = r ? r.color_name : '—';
+    const materialName = r ? r.material_name : '—';
+
+    const modalHtml = `
+        <div class="m-modal-overlay" id="mWeightModal">
+            <div class="m-modal">
+                <div class="m-modal-header">
+                    <div class="m-modal-title" style="display:flex; align-items:center; gap:6px;">
+                        📝 Nhập Cân Thực Tế
+                    </div>
+                    <button class="m-modal-close" onclick="mCloseModal('mWeightModal')">&times;</button>
+                </div>
+                <div class="m-modal-body">
+                    <div class="m-form-group">
+                        <label class="m-form-label">Thông tin cây vải</label>
+                        <div style="font-size:13px; color:#e2e8f0; display:flex; flex-direction:column; gap:4px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                            <div><strong>Chất liệu:</strong> ${materialName}</div>
+                            <div><strong>Màu:</strong> ${colorName}</div>
+                            <div><strong>Tồn hệ thống:</strong> ${systemWeight} kg</div>
+                        </div>
+                    </div>
+
+                    <div class="m-form-group">
+                        <label class="m-form-label">Cân nặng thực tế (kg) <span style="color:#ef4444;">*</span></label>
+                        <input type="number" id="mActualWeightInput" class="m-form-input" placeholder="Nhập số kg thực tế..." step="0.1" min="0" oninput="mCalculateDifference(${systemWeight})">
+                    </div>
+
+                    <div class="m-form-group">
+                        <label class="m-form-label">So sánh chênh lệch</label>
+                        <div id="mWeightDiffLabel" style="font-size:14px; background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                            <span style="color:#94a3b8; font-weight:600;">—</span>
+                        </div>
+                    </div>
+
+                    <div class="m-form-group">
+                        <label class="m-form-label">Ghi chú (Tùy chọn)</label>
+                        <input type="text" id="mWeightNotes" class="m-form-input" placeholder="Nhập ghi chú kiểm kho...">
+                    </div>
+                </div>
+                <div class="m-modal-footer">
+                    <button class="m-btn m-btn-secondary" onclick="mCloseModal('mWeightModal')">Hủy</button>
+                    <button class="m-btn m-btn-primary" id="mWeightConfirmBtn" disabled style="opacity:0.5;" onclick="mSubmitWeight(${rollId}, ${systemWeight}, '${rollImg}')">Xác Nhận</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('mWeightModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'mWeightModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+    
+    // Focus the input element
+    setTimeout(() => {
+        const inp = document.getElementById('mActualWeightInput');
+        if (inp) inp.focus();
+    }, 100);
+}
+
+function mCalculateDifference(systemWeight) {
+    const inputEl = document.getElementById('mActualWeightInput');
+    const diffEl = document.getElementById('mWeightDiffLabel');
+    const btnEl = document.getElementById('mWeightConfirmBtn');
+    
+    if (!inputEl || !diffEl || !btnEl) return;
+    
+    const val = inputEl.value.trim();
+    if (val === '') {
+        diffEl.innerHTML = '<span style="color:#94a3b8; font-weight:600;">—</span>';
+        btnEl.disabled = true;
+        btnEl.style.opacity = '0.5';
+        return;
+    }
+    
+    const actual = Number(val);
+    if (isNaN(actual) || actual < 0) {
+        diffEl.innerHTML = '<span style="color:#ef4444; font-weight:600;">Cân nặng không hợp lệ</span>';
+        btnEl.disabled = true;
+        btnEl.style.opacity = '0.5';
+        return;
+    }
+    
+    btnEl.disabled = false;
+    btnEl.style.opacity = '1.0';
+    
+    const diff = actual - systemWeight;
+    if (diff === 0) {
+        diffEl.innerHTML = '<span style="color:#34d399; font-weight:700;">✅ Khớp (0 kg)</span>';
+    } else if (diff < 0) {
+        diffEl.innerHTML = `<span style="color:#f87171; font-weight:700;">📉 Thiếu ${Math.abs(diff).toFixed(2)} kg</span>`;
+    } else {
+        diffEl.innerHTML = `<span style="color:#60a5fa; font-weight:700;">📈 Thừa +${diff.toFixed(2)} kg</span>`;
+    }
+}
+
+async function mSubmitWeight(rollId, systemWeight, rollImg) {
+    const inputEl = document.getElementById('mActualWeightInput');
+    const notesEl = document.getElementById('mWeightNotes');
+    if (!inputEl) return;
+    
+    const val = inputEl.value.trim();
+    if (val === '') {
+        toast('Vui lòng nhập cân thực tế', 'error');
+        return;
+    }
+    const n = Number(val);
     if (isNaN(n) || n < 0) {
         toast('Số lượng không hợp lệ', 'error');
         return;
     }
-    const note = prompt('Ghi chú kiểm kho (tùy chọn):');
-    
+    const note = notesEl ? notesEl.value.trim() : '';
+
+    mCloseModal('mWeightModal');
+
     // Real-time photo mode fetch
     try {
         const setRes = await api('/api/stockcheck/settings');
