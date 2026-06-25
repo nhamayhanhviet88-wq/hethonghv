@@ -620,7 +620,6 @@ function mOpenAddSurplusModal() {
             });
         }
     }
-    matOptions += `<option value="[new]" style="color:#2dd4bf; font-weight:700;">➕ Tạo chất liệu mới...</option>`;
 
     const modalHtml = `
         <div class="m-modal-overlay" id="mSurplusModal">
@@ -637,23 +636,13 @@ function mOpenAddSurplusModal() {
                             ${matOptions}
                         </select>
                     </div>
-                    
-                    <div class="m-form-group" id="mSurplusNewMatGroup" style="display:none;">
-                        <label class="m-form-label" style="color:#2dd4bf;">Tên Chất Liệu Mới</label>
-                        <input type="text" id="mSurplusNewMatName" class="m-form-input" placeholder="Nhập tên chất liệu vải mới...">
-                    </div>
 
                     <!-- Color Selector -->
                     <div class="m-form-group">
                         <label class="m-form-label">Màu Vải</label>
-                        <select id="mSurplusColorSelect" class="m-form-input" onchange="mOnSurplusColorChange(this.value)" style="color:#e2e8f0; background:#1e293b;">
+                        <select id="mSurplusColorSelect" class="m-form-input" style="color:#e2e8f0; background:#1e293b;">
                             <option value="">-- Chọn chất liệu trước --</option>
                         </select>
-                    </div>
-                    
-                    <div class="m-form-group" id="mSurplusNewColorGroup" style="display:none;">
-                        <label class="m-form-label" style="color:#2dd4bf;">Tên Màu Vải Mới</label>
-                        <input type="text" id="mSurplusNewColorName" class="m-form-input" placeholder="Nhập tên màu vải mới...">
                     </div>
 
                     <!-- Details -->
@@ -664,7 +653,7 @@ function mOpenAddSurplusModal() {
                         </div>
                         <div class="m-form-group">
                             <label class="m-form-label">Số Cây Thừa</label>
-                            <input type="number" id="mSurplusCount" class="m-form-input" value="1" min="1">
+                            <input type="number" id="mSurplusCount" class="m-form-input" value="1" readonly style="background: rgba(255,255,255,0.02); color:#94a3b8;">
                         </div>
                     </div>
 
@@ -703,18 +692,6 @@ function mCloseModal(id) {
 
 async function mOnSurplusMatChange(val) {
     const colorSelect = document.getElementById('mSurplusColorSelect');
-    const newMatGroup = document.getElementById('mSurplusNewMatGroup');
-    const newColorGroup = document.getElementById('mSurplusNewColorGroup');
-    
-    if (val === '[new]') {
-        newMatGroup.style.display = 'block';
-        colorSelect.innerHTML = `<option value="[new]" selected>➕ Tạo màu vải mới...</option>`;
-        newColorGroup.style.display = 'block';
-        return;
-    } else {
-        newMatGroup.style.display = 'none';
-        newColorGroup.style.display = 'none';
-    }
 
     if (!val) {
         colorSelect.innerHTML = `<option value="">-- Chọn chất liệu trước --</option>`;
@@ -740,42 +717,28 @@ async function mOnSurplusMatChange(val) {
     } catch(e) {
         console.error('Cannot load colors', e);
     }
-    colorOptions += `<option value="[new]" style="color:#2dd4bf; font-weight:700;">➕ Tạo màu mới...</option>`;
     colorSelect.innerHTML = colorOptions;
-}
-
-function mOnSurplusColorChange(val) {
-    const newColorGroup = document.getElementById('mSurplusNewColorGroup');
-    if (val === '[new]') {
-        newColorGroup.style.display = 'block';
-    } else {
-        newColorGroup.style.display = 'none';
-    }
 }
 
 async function mSubmitSurplus() {
     const materialId = document.getElementById('mSurplusMatSelect').value;
-    const newMatName = document.getElementById('mSurplusNewMatName').value;
     const colorId = document.getElementById('mSurplusColorSelect').value;
-    const newColorName = document.getElementById('mSurplusNewColorName').value;
     const weight = document.getElementById('mSurplusWeight').value;
     const count = document.getElementById('mSurplusCount').value;
     const location = document.getElementById('mSurplusLocation').value;
     const note = document.getElementById('mSurplusNote').value;
 
     if (!materialId) { toast('Vui lòng chọn chất liệu vải', 'error'); return; }
-    if (materialId === '[new]' && !newMatName.trim()) { toast('Nhập tên chất liệu vải mới', 'error'); return; }
     if (!colorId) { toast('Vui lòng chọn màu vải', 'error'); return; }
-    if (colorId === '[new]' && !newColorName.trim()) { toast('Nhập tên màu vải mới', 'error'); return; }
-    if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { toast('Nhập trọng lượng hợp lệ', 'error'); return; }
+    if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { toast('Vui lòng nhập cân nặng hợp lệ (lớn hơn 0)', 'error'); return; }
 
     try {
         const body = {
             warehouse_id: activeWarehouseId,
             material_id: materialId,
-            new_material_name: newMatName,
+            new_material_name: '',
             color_id: colorId,
-            new_color_name: newColorName,
+            new_color_name: '',
             weight: Number(weight),
             roll_count: Number(count),
             location: location,

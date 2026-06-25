@@ -1074,7 +1074,6 @@ function _kkOpenAddSurplusModal() {
             });
         }
     }
-    matOptions += `<option value="[new]" style="color:#0f766e; font-weight:700;">➕ Tạo chất liệu mới...</option>`;
 
     const modalHtml = `
         <div class="kk-modal-overlay" id="kkSurplusModal">
@@ -1091,23 +1090,13 @@ function _kkOpenAddSurplusModal() {
                             ${matOptions}
                         </select>
                     </div>
-                    
-                    <div class="kk-form-group" id="kkSurplusNewMatGroup" style="display:none;">
-                        <label class="kk-form-label" style="color:#0d9488;">Tên Chất Liệu Mới</label>
-                        <input type="text" id="kkSurplusNewMatName" class="kk-form-input" placeholder="Nhập tên chất liệu vải mới...">
-                    </div>
 
                     <!-- Color Selector -->
                     <div class="kk-form-group">
                         <label class="kk-form-label">Màu Vải</label>
-                        <select id="kkSurplusColorSelect" class="kk-form-input" onchange="_kkOnSurplusColorChange(this.value)">
+                        <select id="kkSurplusColorSelect" class="kk-form-input">
                             <option value="">-- Chọn chất liệu trước --</option>
                         </select>
-                    </div>
-                    
-                    <div class="kk-form-group" id="kkSurplusNewColorGroup" style="display:none;">
-                        <label class="kk-form-label" style="color:#0d9488;">Tên Màu Vải Mới</label>
-                        <input type="text" id="kkSurplusNewColorName" class="kk-form-input" placeholder="Nhập tên màu vải mới...">
                     </div>
 
                     <!-- Details -->
@@ -1121,7 +1110,7 @@ function _kkOpenAddSurplusModal() {
                         <div class="col-6">
                             <div class="kk-form-group">
                                 <label class="kk-form-label">Số Cây Thừa</label>
-                                <input type="number" id="kkSurplusCount" class="kk-form-input" value="1" min="1">
+                                <input type="number" id="kkSurplusCount" class="kk-form-input" value="1" readonly style="background:rgba(255,255,255,0.02); color:#94a3b8;">
                             </div>
                         </div>
                     </div>
@@ -1153,18 +1142,6 @@ function _kkOpenAddSurplusModal() {
 // On Material Selected in Surplus Form
 async function _kkOnSurplusMatChange(val) {
     const colorSelect = document.getElementById('kkSurplusColorSelect');
-    const newMatGroup = document.getElementById('kkSurplusNewMatGroup');
-    const newColorGroup = document.getElementById('kkSurplusNewColorGroup');
-    
-    if (val === '[new]') {
-        newMatGroup.style.display = 'block';
-        colorSelect.innerHTML = `<option value="[new]" selected>➕ Tạo màu vải mới...</option>`;
-        newColorGroup.style.display = 'block';
-        return;
-    } else {
-        newMatGroup.style.display = 'none';
-        newColorGroup.style.display = 'none';
-    }
 
     if (!val) {
         colorSelect.innerHTML = `<option value="">-- Chọn chất liệu trước --</option>`;
@@ -1191,43 +1168,29 @@ async function _kkOnSurplusMatChange(val) {
     } catch(e) {
         console.error('Cannot load colors', e);
     }
-    colorOptions += `<option value="[new]" style="color:#0f766e; font-weight:700;">➕ Tạo màu mới...</option>`;
     colorSelect.innerHTML = colorOptions;
-}
-
-function _kkOnSurplusColorChange(val) {
-    const newColorGroup = document.getElementById('kkSurplusNewColorGroup');
-    if (val === '[new]') {
-        newColorGroup.style.display = 'block';
-    } else {
-        newColorGroup.style.display = 'none';
-    }
 }
 
 // Submit Surplus Rolls
 async function _kkSubmitSurplus() {
     const materialId = document.getElementById('kkSurplusMatSelect').value;
-    const newMatName = document.getElementById('kkSurplusNewMatName').value;
     const colorId = document.getElementById('kkSurplusColorSelect').value;
-    const newColorName = document.getElementById('kkSurplusNewColorName').value;
     const weight = document.getElementById('kkSurplusWeight').value;
     const count = document.getElementById('kkSurplusCount').value;
     const location = document.getElementById('kkSurplusLocation').value;
     const note = document.getElementById('kkSurplusNote').value;
 
     if (!materialId) { showToast('Vui lòng chọn chất liệu vải', 'error'); return; }
-    if (materialId === '[new]' && !newMatName.trim()) { showToast('Nhập tên chất liệu vải mới', 'error'); return; }
     if (!colorId) { showToast('Vui lòng chọn màu vải', 'error'); return; }
-    if (colorId === '[new]' && !newColorName.trim()) { showToast('Nhập tên màu vải mới', 'error'); return; }
-    if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { showToast('Nhập trọng lượng hợp lệ', 'error'); return; }
+    if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { showToast('Vui lòng nhập cân nặng hợp lệ (lớn hơn 0)', 'error'); return; }
 
     try {
         const body = {
             warehouse_id: _kk.activeWarehouseId,
             material_id: materialId,
-            new_material_name: newMatName,
+            new_material_name: '',
             color_id: colorId,
-            new_color_name: newColorName,
+            new_color_name: '',
             weight: Number(weight),
             roll_count: Number(count),
             location: location,
