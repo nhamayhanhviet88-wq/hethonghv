@@ -895,10 +895,18 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 }
 
                                 if (isUnassigned === 'processed_nguyen') {
-                                    if (r.return_requested) {
-                                        returnHtml = `<button class="btn btn-xs btn-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); cancelRollReturnRequest(${r.id});" title="Hủy yêu cầu hoàn cho kế toán">❌ Hủy Yêu Cầu</button>`;
-                                    } else {
-                                        returnHtml = `<button class="btn btn-xs btn-outline-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); requestRollReturn(${r.id}, ${r.w}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}');" title="Yêu cầu kế toán lập bill hoàn">🔄 Hoàn</button>`;
+                                    var canRequestReturn = true;
+                                    if (typeof currentUser !== 'undefined' && currentUser) {
+                                        if (currentUser.id === 8 || currentUser.username === 'quanlyxuong' || currentUser.full_name === 'Lê Công Thực') {
+                                            canRequestReturn = false;
+                                        }
+                                    }
+                                    if (canRequestReturn) {
+                                        if (r.return_requested) {
+                                            returnHtml = `<button class="btn btn-xs btn-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); cancelRollReturnRequest(${r.id});" title="Hủy yêu cầu hoàn cho kế toán">❌ Hủy Yêu Cầu</button>`;
+                                        } else {
+                                            returnHtml = `<button class="btn btn-xs btn-outline-danger" style="padding:2px 6px; font-size:10px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;" onclick="event.stopPropagation(); requestRollReturn(${r.id}, ${r.w}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}');" title="Yêu cầu kế toán lập bill hoàn">🔄 Hoàn</button>`;
+                                        }
                                     }
                                 }
 
@@ -2718,6 +2726,10 @@ window.performDirectRollReturn = performDirectRollReturn;
 
 async function requestRollReturn(rollId, weight, materialName, colorName) {
     if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
+    if (typeof currentUser !== 'undefined' && currentUser && (currentUser.id === 8 || currentUser.username === 'quanlyxuong' || currentUser.full_name === 'Lê Công Thực')) {
+        showToast('Bạn không có quyền yêu cầu hoàn vải cho cây nguyên.', 'error');
+        return;
+    }
     if (!confirm(`Xác nhận yêu cầu lập bill hoàn cho cây vải: ${materialName} màu ${colorName} cây ${weight}kg cho kế toán?`)) return;
     
     try {
@@ -2739,6 +2751,10 @@ window.requestRollReturn = requestRollReturn;
 
 async function cancelRollReturnRequest(rollId) {
     if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
+    if (typeof currentUser !== 'undefined' && currentUser && (currentUser.id === 8 || currentUser.username === 'quanlyxuong' || currentUser.full_name === 'Lê Công Thực')) {
+        showToast('Bạn không có quyền hủy yêu cầu hoàn vải cho cây nguyên.', 'error');
+        return;
+    }
     if (!confirm("Bạn có chắc chắn muốn hủy yêu cầu hoàn cây vải này không?")) return;
     
     try {

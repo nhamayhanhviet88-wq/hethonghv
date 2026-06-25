@@ -1359,11 +1359,19 @@
                                     }
 
                                     if (isUnassigned === 'processed_nguyen') {
-                                        if (r.return_requested) {
-                                            returnHtml = `<button class="btn-camera" style="background:#dc2626; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); cancelRollReturnRequest(${r.id});" title="Hủy yêu cầu hoàn cho kế toán">❌ Hủy Yêu Cầu</button>`;
-                                        } else {
-                                            returnHtml = `<button class="btn-camera" style="background:#ef4444; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); requestRollReturn(${r.id}, ${r.w}, \`${item.material_name.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`, \`${item.color_name.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`);" title="Yêu cầu kế toán lập bill hoàn">🔄 Hoàn</button>`;
-                                        }
+                                         var canRequestReturn = true;
+                                         if (typeof cu !== 'undefined' && cu) {
+                                             if (cu.id === 8 || cu.username === 'quanlyxuong' || cu.full_name === 'Lê Công Thực') {
+                                                 canRequestReturn = false;
+                                             }
+                                         }
+                                         if (canRequestReturn) {
+                                             if (r.return_requested) {
+                                                 returnHtml = `<button class="btn-camera" style="background:#dc2626; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); cancelRollReturnRequest(${r.id});" title="Hủy yêu cầu hoàn cho kế toán">❌ Hủy Yêu Cầu</button>`;
+                                             } else {
+                                                 returnHtml = `<button class="btn-camera" style="background:#ef4444; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); requestRollReturn(${r.id}, ${r.w}, \`${item.material_name.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`, \`${item.color_name.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`);" title="Yêu cầu kế toán lập bill hoàn">🔄 Hoàn</button>`;
+                                             }
+                                         }
                                     }
 
                                     var tagsHtml = '';
@@ -2379,6 +2387,10 @@
         }
 
         async function requestRollReturn(rollId, weight, materialName, colorName) {
+            if (typeof cu !== 'undefined' && cu && (cu.id === 8 || cu.username === 'quanlyxuong' || cu.full_name === 'Lê Công Thực')) {
+                alert('Bạn không có quyền yêu cầu hoàn vải cho cây nguyên.');
+                return;
+            }
             if (!confirm(`Xác nhận yêu cầu lập bill hoàn cho cây vải: ${materialName} màu ${colorName} cây ${weight}kg cho kế toán?`)) return;
             
             try {
@@ -2398,6 +2410,10 @@
         }
 
         async function cancelRollReturnRequest(rollId) {
+            if (typeof cu !== 'undefined' && cu && (cu.id === 8 || cu.username === 'quanlyxuong' || cu.full_name === 'Lê Công Thực')) {
+                alert('Bạn không có quyền hủy yêu cầu hoàn vải cho cây nguyên.');
+                return;
+            }
             if (!confirm("Bạn có chắc chắn muốn hủy yêu cầu hoàn cây vải này không?")) return;
             
             try {

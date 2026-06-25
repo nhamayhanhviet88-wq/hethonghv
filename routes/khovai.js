@@ -301,6 +301,9 @@ module.exports = async function (fastify) {
 
     // POST /api/khovai/rolls/:id/request-return — Request return for a roll
     fastify.post('/api/khovai/rolls/:id/request-return', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.id === 8 || request.user.username === 'quanlyxuong' || request.user.full_name === 'Lê Công Thực') {
+            return reply.code(403).send({ error: 'Quản lý xưởng Lê Công Thực không có quyền yêu cầu hoàn cây nguyên.' });
+        }
         const id = Number(request.params.id);
         const roll = await db.get('SELECT id, location, original_location FROM kv_rolls WHERE id = $1', [id]);
         if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
@@ -318,6 +321,9 @@ module.exports = async function (fastify) {
 
     // POST /api/khovai/rolls/:id/cancel-return-request — Cancel return request for a roll
     fastify.post('/api/khovai/rolls/:id/cancel-return-request', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.id === 8 || request.user.username === 'quanlyxuong' || request.user.full_name === 'Lê Công Thực') {
+            return reply.code(403).send({ error: 'Quản lý xưởng Lê Công Thực không có quyền hủy yêu cầu hoàn cây nguyên.' });
+        }
         const id = Number(request.params.id);
         const roll = await db.get('SELECT id, location, original_location FROM kv_rolls WHERE id = $1', [id]);
         if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
