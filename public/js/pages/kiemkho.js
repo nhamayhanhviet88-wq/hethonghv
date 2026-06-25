@@ -492,6 +492,8 @@ async function _kkRenderAudit(content) {
         _kk.tree = await apiCall('/api/stockcheck/tree');
     }
     const isGiamDoc = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+    const cleanActiveLoc = (_kk.activeLocation || '').replace(/^📍\s*/, '').trim().toLowerCase();
+    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActiveLoc);
     
     // Progress calculation
     const totalRolls = _kk.session.total_rolls || 0;
@@ -535,10 +537,12 @@ async function _kkRenderAudit(content) {
             <tr>
                 <td colspan="9" class="text-center text-muted py-5" style="font-size:13px;">
                     Chưa có cây vải nào được xếp ở kệ này. 
+                    ${isSurplusBlocked ? '' : `
                     <br>
                     <button class="kk-btn kk-btn-primary mt-3" style="padding:6px 12px; font-size:12px;" onclick="_kkOpenAddSurplusModal()">
                         ➕ Thêm Cây Thừa Tại Đây
                     </button>
+                    `}
                 </td>
             </tr>
         `;
@@ -763,9 +767,11 @@ async function _kkRenderAudit(content) {
                         </div>
                         <div style="display:flex; gap:8px;">
                             <input id="kkSearchRoll" placeholder="🔍 Tìm mã cây, màu, chất liệu..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; width:220px; outline:none;" value="${_kk.search}" oninput="_kkSearchRolls(this.value)">
+                            ${isSurplusBlocked ? '' : `
                             <button class="kk-btn kk-btn-primary" style="padding:6px 12px; font-size:12px;" onclick="_kkOpenAddSurplusModal()">
                                 ➕ Thêm Cây Thừa
                             </button>
+                            `}
                             <button class="kk-btn ${progressPct === 100 ? 'kk-btn-primary' : 'kk-btn-disabled'}" style="padding:6px 16px; font-size:12px;" onclick="_kkFinishSession(${progressPct === 100})">
                                 ✅ Chốt Sổ Kiểm Kho
                             </button>
@@ -1176,6 +1182,13 @@ async function _kkFinishSession(ready) {
 
 // ========== ADD SURPLUS MODAL (CÂY THỪA) ==========
 function _kkOpenAddSurplusModal() {
+    const cleanActiveLoc = (_kk.activeLocation || '').replace(/^📍\s*/, '').trim().toLowerCase();
+    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActiveLoc);
+    if (isSurplusBlocked) {
+        showToast('Không cho phép khai báo cây thừa tại kệ này.', 'error');
+        return;
+    }
+
     // Populate Materials selection from _kk.tree
     let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
     if (_kk.tree && _kk.tree.tree) {

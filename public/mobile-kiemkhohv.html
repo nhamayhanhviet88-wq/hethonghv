@@ -206,7 +206,7 @@
             <div class="mf-row">
                 <input type="text" id="mSearchRoll" placeholder="🔍 Tìm mã cây, màu, chất liệu..." oninput="onSearchInput(this.value)" style="flex:1; padding:10px 12px; border:1.5px solid rgba(255,255,255,.12); border-radius:10px; font-size:13px; font-weight:600; font-family:inherit; background:rgba(255,255,255,.06); color:#e2e8f0; outline:none;">
             </div>
-            <div class="mf-row" style="margin-top:2px;">
+            <div id="mSurplusBtnContainer" class="mf-row" style="margin-top:2px;">
                 <button onclick="mOpenAddSurplusModal()" style="flex:1; padding:10px; border:none; border-radius:10px; font-size:13px; font-weight:800; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 12px rgba(217,119,6,0.2);">
                     ➕ KHAI BÁO CÂY THỪA
                 </button>
@@ -383,6 +383,14 @@ async function onWhChange(){
 async function mLoad(){
     activeLocation = document.getElementById('mFL')?.value || '';
     if (!activeWarehouseId || !activeLocation) return;
+
+    // Check if the current shelf is blocked for surplus declarations
+    const cleanActive = activeLocation.replace(/^📍\s*/, '').trim().toLowerCase();
+    const isBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActive);
+    const surplusContainer = document.getElementById('mSurplusBtnContainer');
+    if (surplusContainer) {
+        surplusContainer.style.display = isBlocked ? 'none' : 'flex';
+    }
     
     try{
         const query = '/api/stockcheck/rolls?warehouse_id=' + activeWarehouseId + '&location=' + encodeURIComponent(activeLocation) + (mSearchText ? '&search=' + encodeURIComponent(mSearchText) : '');
@@ -922,6 +930,13 @@ async function mSubmitWeight(rollId, systemWeight, rollImg) {
 function mOpenAddSurplusModal() {
     if (!activeWarehouseId || !activeLocation) {
         toast('Vui lòng chọn Kho và Kệ trước khi khai báo cây thừa.', 'error');
+        return;
+    }
+
+    const cleanActive = activeLocation.replace(/^📍\s*/, '').trim().toLowerCase();
+    const isBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActive);
+    if (isBlocked) {
+        toast('Không cho phép khai báo cây thừa tại kệ này.', 'error');
         return;
     }
 
