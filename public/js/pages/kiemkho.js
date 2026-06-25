@@ -523,7 +523,7 @@ async function _kkRenderAudit(content) {
     if (_kk.rolls.length === 0) {
         tableRows = `
             <tr>
-                <td colspan="8" class="text-center text-muted py-5" style="font-size:13px;">
+                <td colspan="9" class="text-center text-muted py-5" style="font-size:13px;">
                     Chưa có cây vải nào được xếp ở kệ này. 
                     <br>
                     <button class="kk-btn kk-btn-primary mt-3" style="padding:6px 12px; font-size:12px;" onclick="_kkOpenAddSurplusModal()">
@@ -574,8 +574,11 @@ async function _kkRenderAudit(content) {
                     <td class="text-center font-weight-bold text-muted">${idx + 1}</td>
                     <td>
                         <div style="font-weight:700; color:#0d9488; font-size:13px;">${r.roll_code}</div>
-                        <div style="font-size:10px; color:#64748b;">${r.material_name} - ${r.color_name}</div>
-                        ${badges}
+                        <div style="font-size:10px; color:#64748b;">${r.material_name}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:#0f766e; font-size:13px;">${r.color_name}</div>
+                        <div style="margin-top:2px; display:flex; gap:4px; flex-wrap:wrap;">${badges}</div>
                     </td>
                     <td class="text-center font-weight-bold">${Number(r.original_weight || 0).toLocaleString('vi-VN')} kg</td>
                     <td class="text-center font-weight-bold text-primary" style="font-size:13px;">${Number(r.system_weight || 0).toLocaleString('vi-VN')} kg</td>
@@ -684,7 +687,8 @@ async function _kkRenderAudit(content) {
                             <thead>
                                 <tr style="background:#fafafa; color:#475569; position:sticky; top:0; z-index:1;">
                                     <th style="width:50px;" class="text-center">STT</th>
-                                    <th>Cây Vải & Mã Hàng</th>
+                                    <th>Chất Liệu</th>
+                                    <th>Màu</th>
                                     <th class="text-center">Cân Gốc (Gốc)</th>
                                     <th class="text-center">Tồn Hệ Thống</th>
                                     <th class="text-center">Cân Thực Tế</th>
