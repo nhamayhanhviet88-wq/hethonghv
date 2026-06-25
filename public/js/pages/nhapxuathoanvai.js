@@ -574,7 +574,7 @@ function renderAllRollsList(searchTerm = '') {
         const total = filtered.length;
         if (total === 0) return;
         
-        const isDisabled = checkedMatColor && checkedMatColor !== matColorKey;
+        const isDisabled = false;
         
         html += `
             <div class="mat-color-group" style="margin-bottom:12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; overflow:hidden; opacity:${isDisabled ? 0.5 : 1};">
@@ -649,6 +649,13 @@ function renderAllRollsList(searchTerm = '') {
     // Bind change listener
     container.querySelectorAll('.nxhv-roll-cb').forEach(cb => {
         cb.addEventListener('change', function() {
+            if (cb.checked) {
+                container.querySelectorAll('.nxhv-roll-cb').forEach(other => {
+                    if (other !== cb) {
+                        other.checked = false;
+                    }
+                });
+            }
             const allChecked = container.querySelectorAll('.nxhv-roll-cb:checked');
             if (allChecked.length > 0) {
                 const first = allChecked[0];
@@ -710,6 +717,7 @@ async function submitCreateReturn() {
     if (!txDate) { showToast('Vui lòng chọn ngày hoàn vải', 'error'); return; }
     if (!material || !color) { showToast('Vui lòng chọn ít nhất một cây vải từ danh sách để tự động điền chất liệu và màu vải', 'error'); return; }
     if (cbs.length === 0) { showToast('Vui lòng chọn ít nhất một cây vải để hoàn trả', 'error'); return; }
+    if (cbs.length > 1) { showToast('Mỗi giao dịch chỉ được chọn duy nhất 1 cây vải để hoàn trả', 'error'); return; }
     
     const isPostponed = document.getElementById('nxhv_m_postpone_toggle')?.checked;
     let targetDate = '';
