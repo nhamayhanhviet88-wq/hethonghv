@@ -325,8 +325,7 @@ async function onWhChange(){
         mShelves.forEach(s => {
             const o = document.createElement('option');
             o.value = s.name;
-            const shortMats = s.materials_list ? ' - [' + (s.materials_list.length > 25 ? s.materials_list.slice(0, 25) + '...' : s.materials_list) + ']' : '';
-            o.textContent = '📍 ' + s.name + ' (' + s.roll_count + ' cây)' + shortMats;
+            o.textContent = '📍 ' + s.name + ' (' + s.roll_count + ' cây)';
             lSel.appendChild(o);
         });
         
