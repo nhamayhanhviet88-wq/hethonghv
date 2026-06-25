@@ -41,7 +41,7 @@ function renderNhapxuathoanvaiPage(content){
     content.innerHTML='<div class="nxhv-wrap"><div class="nxhv-sb" id="nxhvSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="nxhv-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div>' + configBtnHtml + '<button id="btnNxhvCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vải</button><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none" value="' + (_nxhv.search || '') + '"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="nxhvTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center">Mã Bill Hoàn</th><th style="text-align:center">✅</th><th style="text-align:center">Ngày Hẹn Hoàn</th><th style="text-align:center">Ngày Lên Bill</th><th style="text-align:center">📸</th><th>Nghiệp Vụ</th><th>Nguồn Vải</th><th>Chất Liệu</th><th>Màu Vải</th><th>Các Cây</th><th style="text-align:right">Giá</th><th style="text-align:right">Thành Tiền</th><th style="text-align:center">Công Nợ</th><th style="text-align:right">Thanh Toán</th><th>Cập Nhật</th>'
+    +'<th style="text-align:center">STT</th><th style="text-align:center">Mã Bill Hoàn</th><th style="text-align:center">✅</th><th style="text-align:center">Ngày Hẹn Hoàn</th><th style="text-align:center">Ngày Lên Bill</th><th style="text-align:center">📸</th><th>Nguồn Vải</th><th>Chất Liệu</th><th>Màu Vải</th><th>Kệ</th><th>Các Cây</th><th style="text-align:right">Giá</th><th style="text-align:right">Thành Tiền</th><th style="text-align:center">Công Nợ</th><th style="text-align:right">Thanh Toán</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('nxhvSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_nxhv.search=document.getElementById('nxhvSearch').value||'';_nxhvRender();},300);});
     _nxhvLoadAll();
@@ -154,7 +154,8 @@ function _nxhvRender(){
         var billHoanCode = '—';
         if (r.tx_type === 'HOAN') {
             var num = r.seq_num || 0;
-            billHoanCode = 'Bill Hoàn #' + num;
+            var badgeBg = r.is_canceled ? '#94a3b8' : '#059669';
+            billHoanCode = '<span style="background:' + badgeBg + '; color:#fff; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px; display:inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Bill Hoàn #' + num + '</span>';
         }
         
         var postponeDateStr = '—';
@@ -181,28 +182,36 @@ function _nxhvRender(){
             var oldRegex = /\[ĐÃ HỦY\] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng\s+(.*)/i;
             var matchOld = displayNote.match(oldRegex);
             if (matchOld) {
-                displayNote = '[ĐÃ HỦY] do QLX chọn cắt<br>' + matchOld[1].trim();
+                displayNote = 'QLX chọn cắt ' + matchOld[1].trim();
             } else {
                 var newRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s*[\r\n]+\s*(.*)/i;
                 var matchNew = displayNote.match(newRegex);
                 if (matchNew) {
-                    displayNote = '[ĐÃ HỦY] do QLX chọn cắt<br>' + matchNew[1].trim();
+                    displayNote = 'QLX chọn cắt ' + matchNew[1].trim();
                 } else {
-                    displayNote = displayNote.replace(/\r?\n/g, '<br>');
+                    var newerRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s+(.*)/i;
+                    var matchNewer = displayNote.match(newerRegex);
+                    if (matchNewer) {
+                        displayNote = 'QLX chọn cắt ' + matchNewer[1].trim();
+                    } else {
+                        displayNote = displayNote.replace(/^\[ĐÃ HỦY\]\s*/i, '');
+                        displayNote = displayNote.replace(/^do QLX chọn cắt\s*/i, 'QLX chọn cắt ');
+                        displayNote = displayNote.replace(/\r?\n/g, ' ');
+                    }
                 }
             }
             detailsHTML += '<br><span style="color:#ef4444;font-size:11px;font-weight:600">' + displayNote + '</span>';
         }
         return '<tr'+rowStyle+clickHandler+'><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#0f766e">'+billHoanCode+'</td>'
+        +'<td style="text-align:center;font-weight:700">'+billHoanCode+'</td>'
         +'<td style="text-align:center">'+btnHTML+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#d97706">'+postponeDateStr+'</td>'
         +'<td style="font-size:10px;font-weight:600;text-align:center">'+formatDateTimeHM(r.created_at)+'</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
-        +'<td><span class="nxhv-tag" style="background:'+cl+'">'+(_nxhvTL[r.tx_type]||r.tx_type)+'</span></td>'
         +'<td style="font-size:10px;color:#0891b2;font-weight:700">'+(r.source_name||'—')+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+(r.material_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#6366f1;font-weight:600">'+(r.color_name||'—')+'</td>'
+        +'<td style="font-size:11px;font-weight:600;color:#0f766e">'+(r.shelf_names||'—')+'</td>'
         +'<td style="font-size:13px;font-weight:800;color:#0f172a;white-space:normal;line-height:1.4">'+detailsHTML+'</td>'
         +'<td style="text-align:right;font-weight:600;color:#f59e0b">'+_nxhvFN(r.price)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:#1e293b">'+_nxhvFN(r.total_amount)+'</td>'
@@ -730,17 +739,16 @@ async function submitCreateReturn() {
 
     let totalWeight = 0;
     let detailsArray = [];
+    let shelvesArray = [];
     const rollIds = [];
     cbs.forEach(cb => {
         const w = Number(cb.getAttribute('data-weight')) || 0;
         const c = cb.getAttribute('data-code') || '';
         const loc = cb.getAttribute('data-loc') || '';
-        let locStr = '';
-        if (loc) {
-            locStr = loc.toLowerCase().startsWith('kệ') ? ` ${loc}` : ` Kệ ${loc}`;
-        }
+        let locStr = loc ? (loc.toLowerCase().startsWith('kệ') ? loc : `Kệ ${loc}`) : '—';
         totalWeight += w;
-        detailsArray.push(`Cây ${w}kg${locStr}`);
+        detailsArray.push(`Cây ${w}kg`);
+        shelvesArray.push(locStr);
         rollIds.push(Number(cb.value));
     });
     totalWeight = Math.round(totalWeight * 100) / 100;
@@ -761,6 +769,7 @@ async function submitCreateReturn() {
             color_name: color,
             unit: unit,
             tree_details: detailsArray.join(', '),
+            shelf_names: shelvesArray.join(', '),
             tree_count: cbs.length,
             total_quantity: totalWeight,
             price: price,

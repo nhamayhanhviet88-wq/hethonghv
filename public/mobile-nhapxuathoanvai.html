@@ -161,14 +161,22 @@ if (r.is_canceled) {
         var oldRegex = /\[ĐÃ HỦY\] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng\s+(.*)/i;
         var matchOld = displayNote.match(oldRegex);
         if (matchOld) {
-            displayNote = '[ĐÃ HỦY] do QLX chọn cắt<br>' + matchOld[1].trim();
+            displayNote = 'QLX chọn cắt ' + matchOld[1].trim();
         } else {
             var newRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s*[\r\n]+\s*(.*)/i;
             var matchNew = displayNote.match(newRegex);
             if (matchNew) {
-                displayNote = '[ĐÃ HỦY] do QLX chọn cắt<br>' + matchNew[1].trim();
+                displayNote = 'QLX chọn cắt ' + matchNew[1].trim();
             } else {
-                displayNote = displayNote.replace(/\r?\n/g, '<br>');
+                var newerRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s+(.*)/i;
+                var matchNewer = displayNote.match(newerRegex);
+                if (matchNewer) {
+                    displayNote = 'QLX chọn cắt ' + matchNewer[1].trim();
+                } else {
+                    displayNote = displayNote.replace(/^\[ĐÃ HỦY\]\s*/i, '');
+                    displayNote = displayNote.replace(/^do QLX chọn cắt\s*/i, 'QLX chọn cắt ');
+                    displayNote = displayNote.replace(/\r?\n/g, ' ');
+                }
             }
         }
     }
@@ -180,6 +188,7 @@ return '<div class="card"'+rowStyle+clickAttr+'><div class="ct"><div class="ci">
 +`<div class="cb">`
 +`<div class="cr"><span class="cl">📅 Ngày</span><span class="cv" style="font-weight:700">${formatDateTimeHM(r.created_at)}</span></div>`
 +'<div class="cr"><span class="cl">🏪 Nguồn</span><span class="cv" style="color:#a5f3fc">'+(r.source_name||'—')+'</span></div>'
++(r.shelf_names?'<div class="cr"><span class="cl">📍 Kệ</span><span class="cv" style="font-size:13px;font-weight:800;color:#22d3ee">'+r.shelf_names+'</span></div>':'')
 +(r.tree_details?'<div class="cr"><span class="cl">🌲 Các cây</span><span class="cv" style="font-size:13px;font-weight:800;color:#fff">'+cleanTreeDetails(r.tree_details)+'</span></div>':'')
 +'<div class="cd"></div>'
 +'<div class="cr"><span class="cl">💵 Giá</span><span class="cv" style="color:#fbbf24">'+fn(r.price)+'₫</span></div>'
@@ -640,17 +649,16 @@ async function mSubmitRet() {
     
     let totalWeight = 0;
     let detailsArray = [];
+    let shelvesArray = [];
     const rollIds = [];
     cbs.forEach(cb => {
         const w = Number(cb.getAttribute('data-weight')) || 0;
         const c = cb.getAttribute('data-code') || '';
         const loc = cb.getAttribute('data-loc') || '';
-        let locStr = '';
-        if (loc) {
-            locStr = loc.toLowerCase().startsWith('kệ') ? ` ${loc}` : ` Kệ ${loc}`;
-        }
+        let locStr = loc ? (loc.toLowerCase().startsWith('kệ') ? loc : `Kệ ${loc}`) : '—';
         totalWeight += w;
-        detailsArray.push(`Cây ${w}kg${locStr}`);
+        detailsArray.push(`Cây ${w}kg`);
+        shelvesArray.push(locStr);
         rollIds.push(Number(cb.value));
     });
     totalWeight = Math.round(totalWeight * 100) / 100;
@@ -671,6 +679,7 @@ async function mSubmitRet() {
             color_name: color,
             unit: unit,
             tree_details: detailsArray.join(', '),
+            shelf_names: shelvesArray.join(', '),
             tree_count: cbs.length,
             total_quantity: totalWeight,
             price: price,

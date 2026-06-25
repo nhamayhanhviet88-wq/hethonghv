@@ -37,7 +37,8 @@ module.exports = async function(fastify) {
         'postponed_by INTEGER REFERENCES users(id)',
         'postponed_images JSONB DEFAULT \'[]\'::jsonb',
         'postponed_notes TEXT',
-        'postponed_target_date DATE'
+        'postponed_target_date DATE',
+        'shelf_names TEXT'
     ];
     for (const col of cols) {
         try {
@@ -151,15 +152,15 @@ module.exports = async function(fastify) {
         const r = await db.get(`INSERT INTO fabric_transactions
             (tx_type,tx_date,source_name,staff_id,material_name,color_name,unit,tree_details,tree_count,
              total_quantity,price,total_amount,debt,payment,notes,bill_images,created_by,created_at,
-             is_postponed, postponed_at, postponed_by, postponed_images, postponed_notes, postponed_target_date)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18,$19,$20,$21,$22::jsonb,$23,$24) RETURNING id`,
+             is_postponed, postponed_at, postponed_by, postponed_images, postponed_notes, postponed_target_date, shelf_names)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25) RETURNING id`,
             [b.tx_type, b.tx_date||null, b.source_name||null, b.staff_id||null,
              b.material_name||null, b.color_name||null, b.unit||'kg',
              b.tree_details||null, Number(b.tree_count)||0,
              Number(b.total_quantity)||0, Number(b.price)||0, fin.total_amount,
              Number(b.debt)||0, Number(b.payment)||0, b.notes||null,
              JSON.stringify(b.bill_images||[]), req.user.id, now,
-             isPostponed, postponedAt, postponedBy, postponedImages, postponedNotes, postponedTargetDate]);
+             isPostponed, postponedAt, postponedBy, postponedImages, postponedNotes, postponedTargetDate, b.shelf_names||null]);
         
         await db.run(`INSERT INTO fabric_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [r.id, 'create', isPostponed ? `Tạo ${TX_LABELS[b.tx_type]} (Có hẹn lịch lùi)` : `Tạo ${TX_LABELS[b.tx_type]}`, req.user.id, now]);
@@ -329,12 +330,13 @@ module.exports = async function(fastify) {
         const fin = calcFin(b.total_quantity, b.price);
         await db.run(`UPDATE fabric_transactions SET tx_type=$1,tx_date=$2,source_name=$3,staff_id=$4,material_name=$5,
             color_name=$6,unit=$7,tree_details=$8,tree_count=$9,total_quantity=$10,price=$11,total_amount=$12,
-            debt=$13,payment=$14,notes=$15,updated_at=$16 WHERE id=$17`,
+            debt=$13,payment=$14,notes=$15,shelf_names=$16,updated_at=$17 WHERE id=$18`,
             [b.tx_type, b.tx_date||null, b.source_name||null, b.staff_id||null,
              b.material_name||null, b.color_name||null, b.unit||'kg',
              b.tree_details||null, Number(b.tree_count)||0,
              Number(b.total_quantity)||0, Number(b.price)||0, fin.total_amount,
-             Number(b.debt)||0, Number(b.payment)||0, b.notes||null, now, id]);
+             Number(b.debt)||0, Number(b.payment)||0, b.notes||null,
+             b.shelf_names||null, now, id]);
         await db.run(`INSERT INTO fabric_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật giao dịch', req.user.id, now]);
         return { success: true };
