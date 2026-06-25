@@ -386,7 +386,7 @@ async function mLoad(){
 
     // Check if the current shelf is blocked for surplus declarations
     const cleanActive = activeLocation.replace(/^📍\s*/, '').trim().toLowerCase();
-    const isBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActive);
+    const isBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanActive);
     const surplusContainer = document.getElementById('mSurplusBtnContainer');
     if (surplusContainer) {
         surplusContainer.style.display = isBlocked ? 'none' : 'flex';
@@ -934,7 +934,7 @@ function mOpenAddSurplusModal() {
     }
 
     const cleanActive = activeLocation.replace(/^📍\s*/, '').trim().toLowerCase();
-    const isBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActive);
+    const isBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanActive);
     if (isBlocked) {
         toast('Không cho phép khai báo cây thừa tại kệ này.', 'error');
         return;

@@ -493,7 +493,7 @@ async function _kkRenderAudit(content) {
     }
     const isGiamDoc = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
     const cleanActiveLoc = (_kk.activeLocation || '').replace(/^📍\s*/, '').trim().toLowerCase();
-    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActiveLoc);
+    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanActiveLoc);
     
     // Progress calculation
     const totalRolls = _kk.session.total_rolls || 0;
@@ -1183,7 +1183,7 @@ async function _kkFinishSession(ready) {
 // ========== ADD SURPLUS MODAL (CÂY THỪA) ==========
 function _kkOpenAddSurplusModal() {
     const cleanActiveLoc = (_kk.activeLocation || '').replace(/^📍\s*/, '').trim().toLowerCase();
-    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActiveLoc);
+    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanActiveLoc);
     if (isSurplusBlocked) {
         showToast('Không cho phép khai báo cây thừa tại kệ này.', 'error');
         return;
