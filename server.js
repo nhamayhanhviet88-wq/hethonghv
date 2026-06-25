@@ -1393,7 +1393,7 @@ async function start() {
         return reply.sendFile('mobile-kiemkho.html');
     });
     fastify.get('/m/kiemkhohv', async (request, reply) => {
-        return reply.sendFile('mobile-kiemkho.html');
+        return reply.sendFile('mobile-kiemkhohv.html');
     });
 
     // Mobile Quản Lý Nhập Kho Vải — standalone touch-optimized page (with QR redirect logic)
