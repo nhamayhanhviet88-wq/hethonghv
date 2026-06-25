@@ -45,7 +45,11 @@ module.exports = async function(fastify) {
         'initial_quantity NUMERIC',
         'actual_quantity NUMERIC',
         'actual_quantity_images JSONB DEFAULT \'[]\'::jsonb',
-        'actual_quantity_notes TEXT'
+        'actual_quantity_notes TEXT',
+        'needs_discrepancy_approval BOOLEAN DEFAULT false',
+        'discrepancy_approved BOOLEAN DEFAULT false',
+        'discrepancy_approved_at TIMESTAMPTZ',
+        'discrepancy_approved_by INTEGER REFERENCES users(id)'
     ];
     for (const col of cols) {
         try {
@@ -539,6 +543,81 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
+    // Helper to auto-create refund bill in import_records
+    async function createRefundBill(client, tx, actQty, price, userId, now) {
+        let sourceId = null;
+        const sourceName = tx.source_name ? tx.source_name.trim() : '';
+        if (sourceName) {
+            const srcRow = await client.query(
+                `SELECT id FROM import_sources WHERE name ILIKE $1 LIMIT 1`,
+                [sourceName]
+            );
+            if (srcRow.rows.length > 0) {
+                sourceId = srcRow.rows[0].id;
+            } else {
+                const insertSrc = await client.query(
+                    `INSERT INTO import_sources (name, source_type, created_at) VALUES ($1, 'fabric', NOW()) RETURNING id`,
+                    [sourceName]
+                );
+                sourceId = insertSrc.rows[0].id;
+            }
+        }
+
+        const totalRefundAmt = Number(actQty) * Number(price);
+        const refundCode = `HV-${tx.id}`;
+
+        let billImg = null;
+        if (tx.bill_images) {
+            try {
+                const imgs = typeof tx.bill_images === 'string' ? JSON.parse(tx.bill_images) : tx.bill_images;
+                if (Array.isArray(imgs) && imgs.length > 0) {
+                    billImg = imgs[0];
+                }
+            } catch (e) {
+                console.error('[NXHV createRefundBill parse images error]', e);
+            }
+        }
+
+        const importResult = await client.query(
+            `INSERT INTO import_records (
+                record_type, fabric_import_code, import_date, source_id, importer_id,
+                fabric_material, fabric_quantity, material_quantity,
+                cost, refund, total_amount, paid, debt,
+                bill_image_url, cost_notes, created_by, created_at, updated_at
+             ) VALUES (
+                'refund', $1, $2, $3, $4,
+                $5, $6, $7,
+                $8, $9, 0, 0, $10,
+                $11, $12, $4, $13, $13
+             ) RETURNING id`,
+            [
+                refundCode,
+                tx.tx_date || now,
+                sourceId,
+                userId,
+                `Hoàn vải chất liệu - màu vải: ${tx.material_name || ''} - ${tx.color_name || ''}`,
+                actQty,
+                tx.tree_count || 1,
+                totalRefundAmt,
+                totalRefundAmt,
+                -totalRefundAmt,
+                billImg,
+                `Hoàn trả từ giao dịch hoàn vải #${tx.id}`,
+                now
+            ]
+        );
+
+        const refundRecordId = importResult.rows[0].id;
+
+        await client.query(
+            `INSERT INTO import_history (import_id, action, details, performed_by, performed_at)
+             VALUES ($1, 'create_refund', $2, $3, $4)`,
+            [refundRecordId, `Tự động tạo bill hoàn từ giao dịch hoàn vải #${tx.id}`, userId, now]
+        );
+        
+        return refundRecordId;
+    }
+
     // ========== CONFIRM 2 (KẾ TOÁN ĐỐI CHIẾU CÂN NẶNG THỰC TẾ) ==========
     fastify.post('/api/fabrictx/confirm2/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { actual_quantity, image_data, notes } = req.body || {}, now = vnNow();
@@ -563,7 +642,7 @@ module.exports = async function(fastify) {
         const qtyDiff = actQty - initialQty;
 
         // If weight differs, proof photo is mandatory!
-        if (Math.abs(qtyDiff) > 0.001 && !image_data) {
+        if (Math.abs(qtyDiff) > 0.001 && !image_data && !tx.actual_quantity_images?.length) {
             return reply.code(400).send({ error: 'Sai lệch số lượng cân nặng thực tế so với ban đầu. Bắt buộc phải có hình ảnh chụp cân nặng để chứng minh!' });
         }
 
@@ -585,6 +664,72 @@ module.exports = async function(fastify) {
             }
         }
 
+        // Case 2: Actual weight is LESS than initial weight -> Require discrepancy approval
+        if (actQty < initialQty) {
+            let actualImages = [];
+            if (imageUrl) {
+                actualImages.push(imageUrl);
+            } else if (tx.actual_quantity_images) {
+                try {
+                    actualImages = typeof tx.actual_quantity_images === 'string' ? JSON.parse(tx.actual_quantity_images) : tx.actual_quantity_images;
+                } catch(e) {}
+            }
+
+            await db.run(
+                `UPDATE fabric_transactions 
+                 SET needs_discrepancy_approval = true, discrepancy_approved = false,
+                     initial_quantity = $1, actual_quantity = $2,
+                     actual_quantity_images = $3::jsonb, actual_quantity_notes = $4,
+                     updated_at = $5
+                 WHERE id = $6`,
+                [initialQty, actQty, JSON.stringify(actualImages), notes || null, now, id]
+            );
+
+            // History
+            await db.run(
+                `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
+                 VALUES ($1, 'request_discrepancy_approval', $2, $3, $4)`,
+                [id, `Yêu cầu duyệt sai lệch cân nặng: Cân thực tế ${actQty} kg < Ban đầu ${initialQty} kg. Chờ QL Lê Việt Trinh duyệt.`, req.user.id, now]
+            );
+
+            // Send Telegram to Lê Việt Trinh / Manager
+            try {
+                const { sendTelegramPhoto, getBotToken, sendTelegramMessage } = require('../utils/telegram');
+                const token = await getBotToken();
+                const tgConfigRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_global_hoan_vai'");
+                const chatId = tgConfigRow?.value?.trim();
+                
+                if (chatId) {
+                    const formattedNow = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+                    const diffText = `${qtyDiff.toFixed(2)} kg`;
+                    
+                    const caption = `⚠️ <b>YÊU CẦU DUYỆT SAI LỆCH HOÀN VẢI (CÂN THỰC TẾ ÍT HƠN)</b>\n` +
+                                    `━━━━━━━━━━━━━━━━━\n` +
+                                    `📦 <b>Mã giao dịch:</b> Bill Hoàn #${id}\n` +
+                                    `🏢 <b>Nhà cung cấp:</b> ${tx.source_name || '—'}\n` +
+                                    `👕 <b>Chất liệu:</b> ${tx.material_name || '—'}\n` +
+                                    `🎨 <b>Màu vải:</b> ${tx.color_name || '—'}\n` +
+                                    `⚖️ <b>Cân nặng ban đầu:</b> ${initialQty.toLocaleString('vi-VN')} kg\n` +
+                                    `⚖️ <b>Cân nặng thực tế:</b> ${actQty.toLocaleString('vi-VN')} kg\n` +
+                                    `🔴 <b>Hao hụt (Sai lệch):</b> ${diffText}\n` +
+                                    `👤 <b>Kế toán yêu cầu:</b> ${req.user.full_name}\n` +
+                                    `📆 <b>Thời gian:</b> ${formattedNow}\n\n` +
+                                    `👉 <b>Vui lòng quản lý Lê Việt Trinh hoặc Giám Đốc vào duyệt sai lệch để hoàn tất giao dịch!</b>`;
+                    
+                    if (imageUrl && fpath && fs.existsSync(fpath)) {
+                        await sendTelegramPhoto(chatId, fpath, caption);
+                    } else {
+                        await sendTelegramMessage(chatId, caption);
+                    }
+                }
+            } catch (tgErr) {
+                console.error('[NXHV Confirm2 Discrepancy TG Error]', tgErr.message);
+            }
+
+            return { success: true, needs_discrepancy_approval: true };
+        }
+
+        // Case 1: Actual weight >= initial weight -> Complete immediately
         const totalAmount = actQty * Number(tx.price);
         const debt = totalAmount - Number(tx.payment);
 
@@ -593,18 +738,23 @@ module.exports = async function(fastify) {
         try {
             await client.query('BEGIN');
 
-            // 1. Update fabric_transactions
             let actualImages = [];
             if (imageUrl) {
                 actualImages.push(imageUrl);
+            } else if (tx.actual_quantity_images) {
+                try {
+                    actualImages = typeof tx.actual_quantity_images === 'string' ? JSON.parse(tx.actual_quantity_images) : tx.actual_quantity_images;
+                } catch(e) {}
             }
 
+            // 1. Update fabric_transactions
             await client.query(
                 `UPDATE fabric_transactions 
                  SET is_approved = true, approved_at = $1, approved_by = $2,
                      initial_quantity = $3, actual_quantity = $4,
                      actual_quantity_images = $5::jsonb, actual_quantity_notes = $6,
-                     total_quantity = $4, total_amount = $7, debt = $8, updated_at = $1
+                     total_quantity = $4, total_amount = $7, debt = $8, updated_at = $1,
+                     needs_discrepancy_approval = false, discrepancy_approved = false
                  WHERE id = $9`,
                 [now, req.user.id, initialQty, actQty, JSON.stringify(actualImages), notes || null, totalAmount, debt, id]
             );
@@ -626,7 +776,10 @@ module.exports = async function(fastify) {
                 [now, id]
             );
 
-            // 3. History
+            // 3. Auto-create refund bill in import_records
+            await createRefundBill(client, tx, actQty, tx.price, req.user.id, now);
+
+            // 4. History
             await client.query(
                 `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
                  VALUES ($1, 'confirm2', $2, $3, $4)`,
@@ -642,7 +795,7 @@ module.exports = async function(fastify) {
             client.release();
         }
 
-        // 4. Send Telegram Notification
+        // 5. Send Telegram Notification
         try {
             const { sendTelegramPhoto, getBotToken } = require('../utils/telegram');
             const token = await getBotToken();
@@ -676,6 +829,125 @@ module.exports = async function(fastify) {
             }
         } catch(tgErr) {
             console.error('[NXHV Confirm2 TG Error]', tgErr.message);
+        }
+
+        return { success: true };
+    });
+
+    // ========== APPROVE DISCREPANCY (QUẢN LÝ LÊ VIỆT TRINH / GIÁM ĐỐC DUYỆT) ==========
+    fastify.post('/api/fabrictx/approve-discrepancy/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isGdOrTrinh(req))) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Lê Việt Trinh mới có quyền duyệt sai lệch!' });
+        }
+        const id = Number(req.params.id), now = vnNow();
+        const tx = await db.get('SELECT * FROM fabric_transactions WHERE id=$1', [id]);
+        if (!tx) return reply.code(404).send({ error: 'Không tìm thấy giao dịch' });
+        if (!tx.needs_discrepancy_approval) return reply.code(400).send({ error: 'Giao dịch không có sai lệch cần duyệt' });
+        if (tx.is_approved) return reply.code(400).send({ error: 'Giao dịch đã được duyệt trước đó' });
+
+        const actQty = Number(tx.actual_quantity);
+        const totalAmount = actQty * Number(tx.price);
+        const debt = totalAmount - Number(tx.payment);
+
+        const pool = db.getDB();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1. Update fabric_transactions to approved
+            await client.query(
+                `UPDATE fabric_transactions 
+                 SET is_approved = true, approved_at = $1, approved_by = $2,
+                     discrepancy_approved = true, discrepancy_approved_at = $1, discrepancy_approved_by = $2,
+                     needs_discrepancy_approval = false,
+                     total_quantity = $3, total_amount = $4, debt = $5, updated_at = $1
+                 WHERE id = $6`,
+                [now, req.user.id, actQty, totalAmount, debt, id]
+            );
+
+            // 2. Insert kv_transactions & Update kv_rolls
+            const rolls = await client.query(`SELECT id, fabric_color_id, weight FROM kv_rolls WHERE return_tx_id = $1 AND is_returned = false`, [id]);
+            for (const roll of rolls.rows) {
+                await client.query(
+                    `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by, created_at)
+                     VALUES ($1, 'XUAT', $2, $3, $4, $5)`,
+                    [roll.fabric_color_id, 'XUAT', Number(roll.weight), `Trả NCC (QL duyệt hoàn #${id}): cục ${roll.weight}`, req.user.id, now]
+                );
+            }
+
+            await client.query(
+                `UPDATE kv_rolls 
+                 SET is_returned = true, location = NULL, updated_at = $1 
+                 WHERE return_tx_id = $2`,
+                [now, id]
+            );
+
+            // 3. Auto-create refund bill in import_records
+            await createRefundBill(client, tx, actQty, tx.price, req.user.id, now);
+
+            // 4. History
+            await client.query(
+                `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
+                 VALUES ($1, 'approve_discrepancy', $2, $3, $4)`,
+                [id, `Quản lý duyệt sai lệch: Cân thực tế ${actQty} kg (Ban đầu: ${tx.total_quantity} kg)`, req.user.id, now]
+            );
+
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('[NXHV Approve Discrepancy]', err.message);
+            return reply.code(400).send({ error: err.message || 'Lỗi khi duyệt sai lệch' });
+        } finally {
+            client.release();
+        }
+
+        // 5. Send Telegram Notification
+        try {
+            const { sendTelegramPhoto, getBotToken, sendTelegramMessage } = require('../utils/telegram');
+            const token = await getBotToken();
+            const tgConfigRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_global_hoan_vai'");
+            const chatId = tgConfigRow?.value?.trim();
+
+            if (chatId) {
+                const formattedNow = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+                const initialQty = Number(tx.total_quantity);
+                const qtyDiff = actQty - initialQty;
+                const diffText = qtyDiff !== 0 ? `${qtyDiff > 0 ? '+' : ''}${qtyDiff.toFixed(2)} kg` : '0 kg';
+                
+                let proofImg = '';
+                let fpath = '';
+                if (tx.actual_quantity_images) {
+                    try {
+                        const imgs = typeof tx.actual_quantity_images === 'string' ? JSON.parse(tx.actual_quantity_images) : tx.actual_quantity_images;
+                        if (Array.isArray(imgs) && imgs.length > 0) {
+                            proofImg = imgs[0];
+                            fpath = path.join(__dirname, '..', proofImg);
+                        }
+                    } catch (e) {}
+                }
+
+                const caption = `✅ <b>QUẢN LÝ DUYỆT SAI LỆCH HOÀN VẢI THÀNH CÔNG</b>\n` +
+                                `━━━━━━━━━━━━━━━━━\n` +
+                                `📦 <b>Mã giao dịch:</b> Bill Hoàn #${tx.id}\n` +
+                                `🏢 <b>Nhà cung cấp:</b> ${tx.source_name || '—'}\n` +
+                                `👕 <b>Chất liệu:</b> ${tx.material_name || '—'}\n` +
+                                `🎨 <b>Màu vải:</b> ${tx.color_name || '—'}\n` +
+                                `⚖️ <b>Cân nặng thực tế chốt:</b> ${actQty.toLocaleString('vi-VN')} kg (Ban đầu: ${initialQty.toLocaleString('vi-VN')} kg)\n` +
+                                `📊 <b>Sai lệch hao hụt:</b> ${diffText}\n` +
+                                `💰 <b>Thành tiền chốt:</b> ${totalAmount.toLocaleString('vi-VN')}đ\n` +
+                                `💳 <b>Công nợ chốt:</b> ${debt.toLocaleString('vi-VN')}đ\n` +
+                                `👤 <b>Quản lý duyệt:</b> ${req.user.full_name}\n` +
+                                `📆 <b>Thời gian:</b> ${formattedNow}\n\n` +
+                                `✅ <b>Giao dịch hao hụt đã được phê duyệt và tạo Bill hoàn tất!</b>`;
+
+                if (proofImg && fpath && fs.existsSync(fpath)) {
+                    await sendTelegramPhoto(chatId, fpath, caption);
+                } else {
+                    await sendTelegramMessage(chatId, caption);
+                }
+            }
+        } catch(tgErr) {
+            console.error('[NXHV Approve Discrepancy TG Error]', tgErr.message);
         }
 
         return { success: true };

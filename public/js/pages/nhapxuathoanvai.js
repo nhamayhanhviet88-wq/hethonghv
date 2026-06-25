@@ -172,6 +172,12 @@ function _nxhvRender(){
                     btnHTML = '<button class="nxhv-ib" onclick="event.stopPropagation(); openConfirm1Modal(' + r.id + ')" title="Xác nhận lần 1 (Đã bàn giao NCC)">⬜</button>';
                 } else if (!r.is_approved) {
                     btnHTML = '<button class="nxhv-ib" style="background:#eab308; border-color:#eab308; color:#fff;" onclick="event.stopPropagation(); openConfirm2Modal(' + r.id + ')" title="Xác nhận lần 2 (Kế toán đối chiếu cân nặng)">🟨</button>';
+                    if (r.needs_discrepancy_approval) {
+                        btnHTML += '<span style="color:#d97706;font-size:9.5px;font-weight:700;display:block;margin-top:4px;white-space:normal;line-height:1.2;max-width:140px">⚠️ Chờ QL Lê Việt Trinh duyệt sai lệch (' + _nxhvFN(r.actual_quantity) + ' kg)</span>';
+                        if (isGdOrTrinhFront()) {
+                            btnHTML += '<button class="nxhv-ib" style="background:#10b981; border-color:#10b981; color:#fff; margin-top:5px; padding:3px 8px; font-size:10px; font-weight:700; border-radius:4px; height:auto; width:auto; line-height:1.2; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); approveDiscrepancy(' + r.id + ', ' + r.actual_quantity + ', ' + r.total_quantity + ')" title="Duyệt sai lệch cân nặng">🔔 Duyệt</button>';
+                        }
+                    }
                 } else {
                     btnHTML = '<span style="font-size:16px; color:#10b981;" title="Đã hoàn tất xác nhận 2 bước">✅</span>';
                 }
@@ -1751,6 +1757,16 @@ function isAccountantOrMgmtFront() {
 }
 window.isAccountantOrMgmtFront = isAccountantOrMgmtFront;
 
+function isGdOrTrinhFront() {
+    var u = window._currentUser || window.currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
+    if (!u) return false;
+    if (u.role === 'giam_doc' || u.role === 'quan_ly_cap_cao') return true;
+    if (u.full_name && (u.full_name.includes('Lê Việt Trinh') || u.full_name.includes('Le Viet Trinh'))) return true;
+    if (u.username === 'leviettrinh' || u.username === 'trinh.lvt') return true;
+    return false;
+}
+window.isGdOrTrinhFront = isGdOrTrinhFront;
+
 var _confirm1ImageBlob = null;
 var _confirm1PasteHandler = null;
 
@@ -2193,7 +2209,11 @@ async function submitConfirm2(id, initialQty) {
 
         if (res.error) throw new Error(res.error);
 
-        showToast('✅ Đã duyệt hoàn tất giao dịch (Lần 2) thành công!');
+        if (res.needs_discrepancy_approval) {
+            showToast('⚠️ Giao dịch hao hụt cân nặng. Đã gửi yêu cầu duyệt sai lệch tới quản lý Lê Việt Trinh!', 'warning');
+        } else {
+            showToast('✅ Đã duyệt hoàn tất giao dịch (Lần 2) thành công!');
+        }
         closeModal();
         await _nxhvLoadAll();
     } catch(e) {
@@ -2205,6 +2225,29 @@ async function submitConfirm2(id, initialQty) {
     }
 }
 window.submitConfirm2 = submitConfirm2;
+
+async function approveDiscrepancy(id, actualQty, initialQty) {
+    var diff = Number(actualQty) - Number(initialQty);
+    var diffText = diff.toFixed(2) + ' kg';
+    var confirmMsg = 'Bạn có chắc chắn muốn duyệt hao hụt (sai lệch) cho giao dịch hoàn vải này?\n\n' +
+                     '• Cân thực tế chốt: ' + actualQty + ' kg\n' +
+                     '• Cân ban đầu: ' + initialQty + ' kg\n' +
+                     '• Chênh lệch hao hụt: ' + diffText + '\n\n' +
+                     'Hệ thống sẽ tự động tạo hóa đơn hoàn vải và khấu trừ công nợ của nhà cung cấp.';
+                     
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        var res = await apiCall('/api/fabrictx/approve-discrepancy/' + id, 'POST');
+        if (res.error) throw new Error(res.error);
+        
+        showToast('✅ Quản lý đã duyệt sai lệch hao hụt thành công!');
+        await _nxhvLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi khi duyệt sai lệch', 'error');
+    }
+}
+window.approveDiscrepancy = approveDiscrepancy;
 
 // Wrap or listen to modal closing to remove paste event listener
 var _origCloseModal = window.closeModal;

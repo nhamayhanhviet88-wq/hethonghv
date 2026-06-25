@@ -153,13 +153,23 @@ function _bnhRender(){
     var srcDebtMap={};all.forEach(function(r){var sid=r.source_id||0;if(!srcDebtMap[sid])srcDebtMap[sid]=0;srcDebtMap[sid]+=Number(r.debt)||0;});
     tb.innerHTML=all.map(function(r,i){
         var upd='';if(r.last_update_at){upd=_bnhFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#4f46e5;font-size:9px">'+r.last_update_by+'</span>';}
-        var info=_bnhTreeInfo(r);
+        var info;
+        if(r.record_type==='refund'){
+            info={trees:Number(r.material_quantity)||0,qty:'Hoàn '+_bnhFM(r.fabric_quantity)+' kg'};
+        }else{
+            info=_bnhTreeInfo(r);
+        }
         var srcDebt=srcDebtMap[r.source_id||0]||0;
         var duyetHtml='',payHtml='';
-        if(!r.is_checked&&_bnh.isDuyet){duyetHtml='<button class="bnh-ib" onclick="event.stopPropagation();_bnhTog('+r.id+',\'check\')" title="Duyệt kiểm tra">⬜</button>';}
-        else if(r.is_checked){duyetHtml='<span style="font-size:11px" title="Đã duyệt: '+(r.checked_by_name||'')+'">✅</span>';}
-        if(Number(r.debt)>0){payHtml='<button class="bnh-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bnhPayModal('+r.id+','+r.debt+','+srcDebt+')" title="Thanh toán">💳</button>';}
-        else{payHtml='<span style="font-size:11px" title="Đã thanh toán đủ">✅</span>';}
+        if(r.record_type==='refund'){
+            duyetHtml='—';
+            payHtml='—';
+        }else{
+            if(!r.is_checked&&_bnh.isDuyet){duyetHtml='<button class="bnh-ib" onclick="event.stopPropagation();_bnhTog('+r.id+',\'check\')" title="Duyệt kiểm tra">⬜</button>';}
+            else if(r.is_checked){duyetHtml='<span style="font-size:11px" title="Đã duyệt: '+(r.checked_by_name||'')+'">✅</span>';}
+            if(Number(r.debt)>0){payHtml='<button class="bnh-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bnhPayModal('+r.id+','+r.debt+','+srcDebt+')" title="Thanh toán">💳</button>';}
+            else{payHtml='<span style="font-size:11px" title="Đã thanh toán đủ">✅</span>';}
+        }
         
         var badgeHtml = '';
         if (Number(r.ship_cost) > 0 && r.ship_payer === 'congty') {
@@ -167,10 +177,14 @@ function _bnhRender(){
         }
 
         var paidCellHtml = '';
-        if (Number(r.paid) > 0) {
-            paidCellHtml = '<td style="text-align:right;color:#059669;font-weight:700;cursor:pointer;text-decoration:underline dashed;vertical-align:middle" onclick="event.stopPropagation();_bnhShowPaymentHistoryModal(' + r.id + ')" title="Xem chi tiết lịch sử thanh toán">' + _bnhFM(r.paid) + '</td>';
-        } else {
-            paidCellHtml = '<td style="text-align:right;color:#94a3b8;font-weight:600;vertical-align:middle">' + _bnhFM(r.paid) + '</td>';
+        if(r.record_type==='refund'){
+            paidCellHtml='<td style="text-align:right;color:#94a3b8;font-weight:600;vertical-align:middle">—</td>';
+        }else{
+            if (Number(r.paid) > 0) {
+                paidCellHtml = '<td style="text-align:right;color:#059669;font-weight:700;cursor:pointer;text-decoration:underline dashed;vertical-align:middle" onclick="event.stopPropagation();_bnhShowPaymentHistoryModal(' + r.id + ')" title="Xem chi tiết lịch sử thanh toán">' + _bnhFM(r.paid) + '</td>';
+            } else {
+                paidCellHtml = '<td style="text-align:right;color:#94a3b8;font-weight:600;vertical-align:middle">' + _bnhFM(r.paid) + '</td>';
+            }
         }
 
         var importTimeStr = '';
@@ -202,22 +216,45 @@ function _bnhRender(){
             imgHtml = '<span style="color:#94a3b8">—</span>';
         }
 
-        return '<tr style="'+(r.record_type==='fabric'?'cursor:pointer':'')+'" onclick="'+(r.record_type==='fabric'?'_bnhFabDetail('+r.id+')':'')+'"><td style="text-align:center;font-weight:700;color:#94a3b8;vertical-align:middle">'+(i+1)+'</td>'
+        var rowStyle = '';
+        var rowClick = '';
+        if(r.record_type==='refund'){
+            rowStyle = 'background-color:#f0f9ff;';
+        }else if(r.record_type==='fabric'){
+            rowStyle = 'cursor:pointer;';
+            rowClick = 'onclick="_bnhFabDetail('+r.id+')"';
+        }
+
+        var materialCellHtml = '';
+        if(r.record_type==='refund'){
+            materialCellHtml = '<span style="color:#0284c7;font-weight:800">↩️ Hoàn: </span>' + (r.fabric_material||'—');
+        }else{
+            materialCellHtml = badgeHtml+(r.fabric_material||'—')+(r.record_type==='fabric'?'<span class="bnh-fab-badge">🧵 Vải</span>':'');
+        }
+
+        var amountCellHtml = '';
+        if(r.record_type==='refund'){
+            amountCellHtml = '<td style="text-align:right;color:#94a3b8;font-weight:600;vertical-align:middle">—</td>';
+        }else{
+            amountCellHtml = '<td style="text-align:right;font-weight:800;color:#1e293b;vertical-align:middle">'+_bnhFM(r.total_amount)+'</td>';
+        }
+
+        return '<tr style="'+rowStyle+'" '+rowClick+'><td style="text-align:center;font-weight:700;color:#94a3b8;vertical-align:middle">'+(i+1)+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+duyetHtml+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+payHtml+'</td>'
         +'<td style="font-size:10px;vertical-align:middle;text-align:center"><div style="font-weight:600;color:#1e293b">'+importTimeStr+'</div><div style="font-size:9px;color:#0d9488;font-weight:700;margin-top:2px">👤 '+(r.importer_name||'—')+'</div></td>'
         +'<td style="font-size:10px;color:' + _bnhGetSourceColor(r.source_name) + ';font-weight:700;vertical-align:middle">'+(r.source_name||'—')+'</td>'
-        +'<td style="font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">'+badgeHtml+(r.fabric_material||'—')+(r.record_type==='fabric'?'<span class="bnh-fab-badge">🧵 Vải</span>':'')+'</td>'
+        +'<td style="font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">'+materialCellHtml+'</td>'
         +'<td style="text-align:center;vertical-align:middle">'+imgHtml+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#4f46e5;vertical-align:middle">'+_bnhFM(info.trees)+'</td>'
         +'<td style="text-align:center;font-weight:600;color:#7c3aed;font-size:10px;vertical-align:middle">'+info.qty+'</td>'
         +'<td style="text-align:right;font-weight:600;vertical-align:middle">'+_bnhFM(r.cost)+'</td>'
         +'<td style="text-align:right;color:#f59e0b;font-weight:600;vertical-align:middle">'+_bnhFM(r.refund)+'</td>'
-        +'<td style="text-align:right;font-weight:800;color:#1e293b;vertical-align:middle">'+_bnhFM(r.total_amount)+'</td>'
+        +amountCellHtml
         +paidCellHtml
         +'<td style="text-align:center;vertical-align:middle">'+_bnhDebt(runDebt[i])+'</td>'
         +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">'+(r.cost_notes||'—')+'</td>'
-        +'<td style="font-size:9px;color:#6b7280;vertical-align:middle">'+upd+'</td></tr>';}).join('');}
+        +'<td style="font-size:9px;color:#6b7280;vertical-align:middle">'+upd+'</td></tr>';}).join('');}}
     var el=document.getElementById('bnhInfo');if(el){var src=_bnh.filter.source_id?(_bnh.sources.find(function(s){return s.id==_bnh.filter.source_id;})||{}).name||'':'Tất cả';
     el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">🧾 '+src+' — <span style="color:#c7d2fe;font-weight:900">'+tot+'</span> bill</div>';}
     var sc=document.getElementById('bnhStats');if(sc){
