@@ -140,7 +140,32 @@ function _nxhvRender(){
         var rowStyle = r.is_canceled ? ' style="opacity: 0.65; background-color: #f1f5f9;"' : '';
         var btnHTML = '';
         if (r.is_canceled) {
-            btnHTML = '<span style="color:#ef4444;font-size:10px;font-weight:700;background:#fee2e2;padding:2px 6px;border-radius:4px;white-space:nowrap">❌ Đã hủy</span>';
+            btnHTML = '<span style="color:#ef4444;font-size:10px;font-weight:700;background:#fee2e2;padding:2px 6px;border-radius:4px;white-space:nowrap;display:inline-block">❌ Đã hủy</span>';
+            if (r.notes) {
+                var displayNote = r.notes;
+                var oldRegex = /\[ĐÃ HỦY\] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng\s+(.*)/i;
+                var matchOld = displayNote.match(oldRegex);
+                if (matchOld) {
+                    displayNote = 'QLX chọn cắt ' + matchOld[1].trim();
+                } else {
+                    var newRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s*[\r\n]+\s*(.*)/i;
+                    var matchNew = displayNote.match(newRegex);
+                    if (matchNew) {
+                        displayNote = 'QLX chọn cắt ' + matchNew[1].trim();
+                    } else {
+                        var newerRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s+(.*)/i;
+                        var matchNewer = displayNote.match(newerRegex);
+                        if (matchNewer) {
+                            displayNote = 'QLX chọn cắt ' + matchNewer[1].trim();
+                        } else {
+                            displayNote = displayNote.replace(/^\[ĐÃ HỦY\]\s*/i, '');
+                            displayNote = displayNote.replace(/^do QLX chọn cắt\s*/i, 'QLX chọn cắt ');
+                            displayNote = displayNote.replace(/\r?\n/g, ' ');
+                        }
+                    }
+                }
+                btnHTML += '<br><span style="color:#ef4444;font-size:10px;font-weight:600;display:inline-block;margin-top:4px;white-space:normal;line-height:1.2;max-width:140px">' + displayNote + '</span>';
+            }
         } else {
             btnHTML = '<button class="nxhv-ib'+aC+'" onclick="event.stopPropagation(); _nxhvTog('+r.id+',\''+aA+'\')" title="Duyệt">'+aI+'</button>';
             if (r.tx_type === 'HOAN' && !r.is_approved) {
@@ -177,31 +202,6 @@ function _nxhvRender(){
         }
         
         var detailsHTML = cleanTreeDetails(r.tree_details);
-        if (r.is_canceled && r.notes) {
-            var displayNote = r.notes;
-            var oldRegex = /\[ĐÃ HỦY\] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng\s+(.*)/i;
-            var matchOld = displayNote.match(oldRegex);
-            if (matchOld) {
-                displayNote = 'QLX chọn cắt ' + matchOld[1].trim();
-            } else {
-                var newRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s*[\r\n]+\s*(.*)/i;
-                var matchNew = displayNote.match(newRegex);
-                if (matchNew) {
-                    displayNote = 'QLX chọn cắt ' + matchNew[1].trim();
-                } else {
-                    var newerRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s+(.*)/i;
-                    var matchNewer = displayNote.match(newerRegex);
-                    if (matchNewer) {
-                        displayNote = 'QLX chọn cắt ' + matchNewer[1].trim();
-                    } else {
-                        displayNote = displayNote.replace(/^\[ĐÃ HỦY\]\s*/i, '');
-                        displayNote = displayNote.replace(/^do QLX chọn cắt\s*/i, 'QLX chọn cắt ');
-                        displayNote = displayNote.replace(/\r?\n/g, ' ');
-                    }
-                }
-            }
-            detailsHTML += '<br><span style="color:#ef4444;font-size:11px;font-weight:600">' + displayNote + '</span>';
-        }
         return '<tr'+rowStyle+clickHandler+'><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center;font-weight:700">'+billHoanCode+'</td>'
         +'<td style="text-align:center">'+btnHTML+'</td>'
