@@ -440,9 +440,9 @@ module.exports = async function(fastify) {
         let fpath = '';
         if (image_data.startsWith('/uploads/')) {
             imageUrl = image_data;
-            fpath = path.join(__dirname, '..', 'public', image_data);
+            fpath = path.join(__dirname, '..', image_data);
         } else {
-            const dir = path.join(__dirname, '..', 'public', 'uploads', 'fabrictx');
+            const dir = path.join(__dirname, '..', 'uploads', 'fabrictx');
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
             const fname = `ftx_confirm1_${id}_${Date.now()}.png`;
             fpath = path.join(dir, fname);
@@ -560,9 +560,9 @@ module.exports = async function(fastify) {
         if (image_data) {
             if (image_data.startsWith('/uploads/')) {
                 imageUrl = image_data;
-                fpath = path.join(__dirname, '..', 'public', image_data);
+                fpath = path.join(__dirname, '..', image_data);
             } else {
-                const dir = path.join(__dirname, '..', 'public', 'uploads', 'fabrictx');
+                const dir = path.join(__dirname, '..', 'uploads', 'fabrictx');
                 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
                 const fname = `ftx_confirm2_${id}_${Date.now()}.png`;
                 fpath = path.join(dir, fname);
