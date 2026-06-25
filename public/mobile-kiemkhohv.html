@@ -333,7 +333,7 @@ async function onWhChange(){
         mShelves.forEach(s => {
             const o = document.createElement('option');
             o.value = s.name;
-            o.textContent = '📍 ' + s.name + ' (' + s.roll_count + ' cây)' + (s.shelf_position ? ' - ' + s.shelf_position : '');
+            o.textContent = '📍 ' + s.name + ' (' + s.roll_count + ' cây)';
             lSel.appendChild(o);
         });
         
