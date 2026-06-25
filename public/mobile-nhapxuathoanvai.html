@@ -156,7 +156,23 @@ const rowStyle = r.is_canceled ? ' style="opacity: 0.65; background-color: #3341
 const clickAttr = r.tx_type === 'HOAN' ? ' style="cursor:pointer" onclick="if(event.target.tagName !== \'BUTTON\' && event.target.tagName !== \'A\' && event.target.tagName !== \'IMG\' && !event.target.closest(\'button\')) mOpenViewRetModal('+r.id+')"' : '';
 let actionArea = '';
 if (r.is_canceled) {
-    actionArea = '<div style="color:#ef4444;font-size:12px;font-weight:700;background:#fee2e2;padding:6px;border-radius:6px;text-align:center;width:100%">❌ Đã hủy' + (r.notes ? '<br><span style="font-size:10px;font-weight:500;opacity:0.8">' + r.notes + '</span>' : '') + '</div>';
+    let displayNote = r.notes || '';
+    if (displayNote) {
+        var oldRegex = /\[ĐÃ HỦY\] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng\s+(.*)/i;
+        var matchOld = displayNote.match(oldRegex);
+        if (matchOld) {
+            displayNote = '[ĐÃ HỦY] do QLX chọn cắt<br>' + matchOld[1].trim();
+        } else {
+            var newRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s*[\r\n]+\s*(.*)/i;
+            var matchNew = displayNote.match(newRegex);
+            if (matchNew) {
+                displayNote = '[ĐÃ HỦY] do QLX chọn cắt<br>' + matchNew[1].trim();
+            } else {
+                displayNote = displayNote.replace(/\r?\n/g, '<br>');
+            }
+        }
+    }
+    actionArea = '<div style="color:#ef4444;font-size:12px;font-weight:700;background:#fee2e2;padding:6px;border-radius:6px;text-align:center;width:100%">❌ Đã hủy' + (displayNote ? '<br><span style="font-size:10px;font-weight:500;opacity:0.8">' + displayNote + '</span>' : '') + '</div>';
 } else {
     actionArea = '<button class="ab'+(r.is_approved?' on':'')+'" onclick="mTog('+r.id+',\''+aA+'\')">✅ '+(r.is_approved?'ĐÃ DUYỆT':'DUYỆT HOÀN')+'</button>';
 }

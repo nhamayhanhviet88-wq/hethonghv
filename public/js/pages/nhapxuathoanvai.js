@@ -177,7 +177,21 @@ function _nxhvRender(){
         
         var detailsHTML = cleanTreeDetails(r.tree_details);
         if (r.is_canceled && r.notes) {
-            detailsHTML += '<br><span style="color:#ef4444;font-size:11px;font-weight:600">' + r.notes + '</span>';
+            var displayNote = r.notes;
+            var oldRegex = /\[ĐÃ HỦY\] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng\s+(.*)/i;
+            var matchOld = displayNote.match(oldRegex);
+            if (matchOld) {
+                displayNote = '[ĐÃ HỦY] do QLX chọn cắt<br>' + matchOld[1].trim();
+            } else {
+                var newRegex = /\[ĐÃ HỦY\] do QLX chọn cắt\s*[\r\n]+\s*(.*)/i;
+                var matchNew = displayNote.match(newRegex);
+                if (matchNew) {
+                    displayNote = '[ĐÃ HỦY] do QLX chọn cắt<br>' + matchNew[1].trim();
+                } else {
+                    displayNote = displayNote.replace(/\r?\n/g, '<br>');
+                }
+            }
+            detailsHTML += '<br><span style="color:#ef4444;font-size:11px;font-weight:600">' + displayNote + '</span>';
         }
         return '<tr'+rowStyle+clickHandler+'><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#0f766e">'+billHoanCode+'</td>'

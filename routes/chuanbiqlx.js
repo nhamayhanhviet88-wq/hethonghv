@@ -2910,7 +2910,7 @@ module.exports = async function(fastify) {
                     const order = await db.get('SELECT order_code FROM dht_orders WHERE id = $1', [dht_order_id]);
                     const orderCode = order ? order.order_code : `#${dht_order_id}`;
                     const txId = roll.return_tx_id;
-                    await db.run(`UPDATE fabric_transactions SET is_canceled = true, notes = '[ĐÃ HỦY] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng ' || $1, updated_at = $2 WHERE id = $3`, [orderCode, now, txId]);
+                    await db.run(`UPDATE fabric_transactions SET is_canceled = true, notes = '[ĐÃ HỦY] do QLX chọn cắt \n' || $1, updated_at = $2 WHERE id = $3`, [orderCode, now, txId]);
                     await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'cancel', $2, $3, $4)`, 
                         [txId, `Hủy do QLX chọn để đánh dấu cắt cho đơn ${orderCode}`, request.user.id, now]);
                     // Under new rules, the roll must remain at '📍 Kệ Dự Định Hoàn Vải' and keep its return_tx_id.

@@ -36,7 +36,7 @@ module.exports = async function(fastify) {
             
             if (roll.return_tx_id) {
                 const txId = roll.return_tx_id;
-                await db.run(`UPDATE fabric_transactions SET is_canceled = true, notes = '[ĐÃ HỦY] Bị hủy do quản lý xưởng chọn để đánh dấu cắt cho đơn hàng ' || $1, updated_at = $2 WHERE id = $3`, [orderCode, now, txId]);
+                await db.run(`UPDATE fabric_transactions SET is_canceled = true, notes = '[ĐÃ HỦY] do QLX chọn cắt \n' || $1, updated_at = $2 WHERE id = $3`, [orderCode, now, txId]);
                 await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'cancel', $2, $3, $4)`, 
                     [txId, `Hủy do QLX/Thợ cắt chọn cắt cho đơn ${orderCode}`, user ? user.id : null, now]);
             }
