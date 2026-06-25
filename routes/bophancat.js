@@ -36,9 +36,12 @@ module.exports = async function(fastify) {
             
             if (roll.return_tx_id) {
                 const txId = roll.return_tx_id;
-                await db.run(`UPDATE fabric_transactions SET is_canceled = true, notes = 'QLX chọn cắt \n' || $1, updated_at = $2 WHERE id = $3`, [orderCode, now, txId]);
-                await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'cancel', $2, $3, $4)`, 
-                    [txId, `Hủy do QLX/Thợ cắt chọn cắt cho đơn ${orderCode}`, user ? user.id : null, now]);
+                const tx = await db.get('SELECT is_approved_1, is_approved FROM fabric_transactions WHERE id = $1', [txId]);
+                if (tx && !tx.is_approved_1 && !tx.is_approved) {
+                    await db.run(`UPDATE fabric_transactions SET is_canceled = true, notes = 'QLX chọn cắt \n' || $1, updated_at = $2 WHERE id = $3`, [orderCode, now, txId]);
+                    await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'cancel', $2, $3, $4)`, 
+                        [txId, `Hủy do QLX/Thợ cắt chọn cắt cho đơn ${orderCode}`, user ? user.id : null, now]);
+                }
             }
             
             if (roll.return_requested) {

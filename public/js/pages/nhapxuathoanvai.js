@@ -167,12 +167,23 @@ function _nxhvRender(){
                 btnHTML += '<br><span style="color:#ef4444;font-size:10px;font-weight:600;display:inline-block;margin-top:4px;white-space:normal;line-height:1.2;max-width:140px">' + displayNote + '</span>';
             }
         } else {
-            btnHTML = '<button class="nxhv-ib'+aC+'" onclick="event.stopPropagation(); _nxhvTog('+r.id+',\''+aA+'\')" title="Duyệt">'+aI+'</button>';
-            if (r.tx_type === 'HOAN' && !r.is_approved) {
-                var pEmoji = r.is_postponed ? '⏳' : '📅';
-                var pClass = r.is_postponed ? ' postpone on' : ' postpone';
-                var pTitle = r.is_postponed ? 'Đã lùi lịch hoàn vải (Xem chi tiết/Hủy)' : 'Lùi lịch hoàn vải';
-                btnHTML += '<button class="nxhv-ib' + pClass + '" style="margin-left:5px" onclick="event.stopPropagation(); openPostponeModal(' + r.id + ')" title="' + pTitle + '">' + pEmoji + '</button>';
+            if (r.tx_type === 'HOAN') {
+                if (!r.is_approved_1) {
+                    btnHTML = '<button class="nxhv-ib" onclick="event.stopPropagation(); openConfirm1Modal(' + r.id + ')" title="Xác nhận lần 1 (Đã bàn giao NCC)">⬜</button>';
+                } else if (!r.is_approved) {
+                    btnHTML = '<button class="nxhv-ib" style="background:#eab308; border-color:#eab308; color:#fff;" onclick="event.stopPropagation(); openConfirm2Modal(' + r.id + ')" title="Xác nhận lần 2 (Kế toán đối chiếu cân nặng)">🟨</button>';
+                } else {
+                    btnHTML = '<span style="font-size:16px; color:#10b981;" title="Đã hoàn tất xác nhận 2 bước">✅</span>';
+                }
+
+                if (!r.is_approved) {
+                    var pEmoji = r.is_postponed ? '⏳' : '📅';
+                    var pClass = r.is_postponed ? ' postpone on' : ' postpone';
+                    var pTitle = r.is_postponed ? 'Đã lùi lịch hoàn vải (Xem chi tiết/Hủy)' : 'Lùi lịch hoàn vải';
+                    btnHTML += '<button class="nxhv-ib' + pClass + '" style="margin-left:5px" onclick="event.stopPropagation(); openPostponeModal(' + r.id + ')" title="' + pTitle + '">' + pEmoji + '</button>';
+                }
+            } else {
+                btnHTML = '<button class="nxhv-ib'+aC+'" onclick="event.stopPropagation(); _nxhvTog('+r.id+',\''+aA+'\')" title="Duyệt">'+aI+'</button>';
             }
         }
         
@@ -968,6 +979,61 @@ function openViewReturnModal(id) {
         }
     } catch (e) {}
 
+    var confirmHTML = '';
+    if (r.is_approved_1) {
+        var ap1By = r.approved_1_by_name || 'Hệ thống';
+        var ap1At = r.approved_1_at ? formatDateTimeHM(r.approved_1_at) : '—';
+        
+        var ap2By = '—';
+        var ap2At = '—';
+        var actQtyText = '—';
+        var diffText = '—';
+        var actualNotes = r.actual_quantity_notes || '—';
+        var actualImgsHTML = '';
+
+        if (r.is_approved) {
+            ap2By = r.approved_by_name || 'Hệ thống';
+            ap2At = r.approved_at ? formatDateTimeHM(r.approved_at) : '—';
+            actQtyText = _nxhvFN(r.actual_quantity) + ' ' + (r.unit || 'kg');
+            var diff = (Number(r.actual_quantity) || 0) - (Number(r.initial_quantity) || Number(r.total_quantity) || 0);
+            diffText = diff !== 0 ? (diff > 0 ? '+' : '') + _nxhvFN(diff) + ' kg' : '0 kg';
+            
+            try {
+                var actImgs = typeof r.actual_quantity_images === 'string' ? JSON.parse(r.actual_quantity_images) : r.actual_quantity_images;
+                if (actImgs && actImgs.length) {
+                    actualImgsHTML = '<div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">' +
+                        actImgs.map(function(url) {
+                            return '<a href="' + url + '" target="_blank">' +
+                                   '<img src="' + url + '" style="max-height:80px; border-radius:6px; border:1px solid #cbd5e1;" />' +
+                                   '</a>';
+                        }).join('') +
+                    '</div>';
+                }
+            } catch(e) {}
+        }
+
+        confirmHTML = `
+            <div style="border-top: 1px solid #e2e8f0; margin-top:12px; padding-top:12px;">
+                <span style="font-size:13px; font-weight:800; color:#b45309; display:block; margin-bottom:8px;">🔒 Thông Tin Xác Nhận 2 Bước</span>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                    <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px;">
+                        <strong style="color:#1e40af; display:block; margin-bottom:4px;">⬜ Xác nhận lần 1 (Đã giao NCC):</strong>
+                        <span style="display:block;">• Người duyệt: <b>${ap1By}</b></span>
+                        <span style="display:block;">• Thời gian: <b>${ap1At}</b></span>
+                    </div>
+                    <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:10px;">
+                        <strong style="color:#d97706; display:block; margin-bottom:4px;">🟨 Xác nhận lần 2 (Kế toán):</strong>
+                        <span style="display:block;">• Người duyệt: <b>${ap2By}</b></span>
+                        <span style="display:block;">• Thời gian: <b>${ap2At}</b></span>
+                        <span style="display:block;">• Kg thực tế: <b>${actQtyText}</b> (Lệch: <b>${diffText}</b>)</span>
+                        <span style="display:block; margin-top:4px;">• Ghi chú: <i>${actualNotes}</i></span>
+                        ${actualImgsHTML}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     const bodyHTML = `
         <div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">
             <div>
@@ -1022,6 +1088,7 @@ function openViewReturnModal(id) {
                     </div>
                 </div>
                 ${imgsHTML}
+                ${confirmHTML}
             </div>
         </div>
     `;
@@ -1371,6 +1438,11 @@ async function submitNxhvConfig() {
 window.submitNxhvConfig = submitNxhvConfig;
 
 async function openPostponeModal(id) {
+    if (!isAccountantOrMgmtFront()) {
+        showToast('Chỉ Kế toán, Giám đốc, hoặc Lê Việt Trinh mới có quyền lùi lịch hoàn vải!', 'error');
+        return;
+    }
+
     var tx = _nxhv.records.find(function(item) { return item.id === id; });
     if (!tx) {
         showToast('Không tìm thấy giao dịch', 'error');
@@ -1627,6 +1699,411 @@ async function submitUnpostpone(id) {
 }
 window.submitUnpostpone = submitUnpostpone;
 
+// Helper check role for confirm2 & postpone return
+function isAccountantOrMgmtFront() {
+    if (!window.currentUser) return false;
+    var u = window.currentUser;
+    if (u.role === 'giam_doc' || u.role === 'quan_ly_cap_cao' || u.role === 'ke_toan') return true;
+    if (u.full_name === 'Lê Việt Trinh' || u.username === 'leviettrinh' || u.username === 'trinh.lvt') return true;
+    if (u.department_name && (u.department_name.toLowerCase().includes('kế toán') || u.department_name.toLowerCase().includes('ke toan'))) return true;
+    return false;
+}
+window.isAccountantOrMgmtFront = isAccountantOrMgmtFront;
+
+var _confirm1ImageBlob = null;
+var _confirm1PasteHandler = null;
+
+function handleConfirmImgChange(inputEl, previewCallback) {
+    if (inputEl.files && inputEl.files[0]) {
+        var file = inputEl.files[0];
+        previewCallback(file);
+    }
+}
+window.handleConfirmImgChange = handleConfirmImgChange;
+
+function processAndPreviewConfirm1Image(file) {
+    var reader = new FileReader();
+    reader.onload = function(event) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var max_width = 800;
+            var width = img.width;
+            var height = img.height;
+            if (width > max_width) {
+                height = Math.round((height * max_width) / width);
+                width = max_width;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            canvas.toBlob(function(blob) {
+                _confirm1ImageBlob = blob;
+                var previewUrl = URL.createObjectURL(blob);
+                var imgEl = document.getElementById('confirm1ImagePreview');
+                var placeholderEl = document.getElementById('confirm1PastePlaceholder');
+                var wrapEl = document.getElementById('confirm1ImgPreviewWrap');
+                var pasteArea = document.getElementById('confirm1PasteArea');
+                if (imgEl && pasteArea) {
+                    imgEl.src = previewUrl;
+                    if (placeholderEl) placeholderEl.style.display = 'none';
+                    if (wrapEl) wrapEl.style.display = 'flex';
+                    pasteArea.style.borderColor = '#10b981';
+                    var btn = document.getElementById('btnConfirm1Submit');
+                    if (btn) btn.disabled = false;
+                }
+            }, 'image/webp', 0.75);
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+window.processAndPreviewConfirm1Image = processAndPreviewConfirm1Image;
+
+async function openConfirm1Modal(id) {
+    var tx = _nxhv.records.find(function(item) { return item.id === id; });
+    if (!tx) {
+        showToast('Không tìm thấy giao dịch', 'error');
+        return;
+    }
+
+    if (_confirm1PasteHandler) {
+        document.removeEventListener('paste', _confirm1PasteHandler);
+        _confirm1PasteHandler = null;
+    }
+    _confirm1ImageBlob = null;
+
+    var bodyHTML = '<div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">' +
+        '<div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px; color:#1e40af; line-height:1.4;">' +
+            'ℹ️ <strong>Xác nhận lần 1:</strong> Bàn giao cây vải cho nhà cung cấp mang về. Vui lòng cung cấp hình ảnh chứng minh để tiếp tục.' +
+        '</div>' +
+        '<div id="confirm1PasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; position:relative; transition:all 0.2s; overflow:hidden;">' +
+            '<div id="confirm1PastePlaceholder">' +
+                '<span style="font-size:24px; display:block; margin-bottom:6px;">📸</span>' +
+                '<span style="font-weight:700; color:#475569; display:block; font-size:12px; margin-bottom:8px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>' +
+                '<button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById(\'confirm1ImgFile\').click()" style="padding:4px 12px; font-size:11px; background:#e2e8f0; border:1px solid #cbd5e1; color:#475569; font-weight:600; border-radius:6px; cursor:pointer;">hoặc Chọn File / Chụp ảnh</button>' +
+            '</div>' +
+            '<input type="file" id="confirm1ImgFile" accept="image/*" capture="environment" style="display:none;" onchange="handleConfirmImgChange(this, processAndPreviewConfirm1Image)" />' +
+            '<div id="confirm1ImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">' +
+                '<img id="confirm1ImagePreview" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05); object-fit:contain;" />' +
+                '<button id="btnConfirm1ClearImg" type="button" class="btn" style="position:absolute; top:4px; right:4px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); clearConfirm1Image()">❌ Xóa</button>' +
+            '</div>' +
+        '</div>' +
+    '</div>';
+
+    var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>' +
+        '<button class="btn btn-primary" id="btnConfirm1Submit" disabled onclick="submitConfirm1(' + id + ')" style="width:auto; font-weight:700; background:#3b82f6; border:none; color:#fff;">Xác nhận đã bàn giao</button>';
+
+    openModal('⬜ Xác Nhận Bàn Giao (Lần 1)', bodyHTML, footerHTML);
+    var container = document.getElementById('modalContainer');
+    if (container) {
+        container.style.width = '480px';
+        container.style.maxWidth = '95%';
+    }
+
+    _confirm1PasteHandler = function(e) {
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        var imageItem = null;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                imageItem = items[i];
+                break;
+            }
+        }
+        if (imageItem) {
+            var blob = imageItem.getAsFile();
+            processAndPreviewConfirm1Image(blob);
+        }
+    };
+    document.addEventListener('paste', _confirm1PasteHandler);
+}
+window.openConfirm1Modal = openConfirm1Modal;
+
+function clearConfirm1Image() {
+    _confirm1ImageBlob = null;
+    var imgEl = document.getElementById('confirm1ImagePreview');
+    var placeholderEl = document.getElementById('confirm1PastePlaceholder');
+    var wrapEl = document.getElementById('confirm1ImgPreviewWrap');
+    var pasteArea = document.getElementById('confirm1PasteArea');
+    if (imgEl) imgEl.src = '';
+    if (placeholderEl) placeholderEl.style.display = 'block';
+    if (wrapEl) wrapEl.style.display = 'none';
+    if (pasteArea) pasteArea.style.borderColor = '#cbd5e1';
+    var btn = document.getElementById('btnConfirm1Submit');
+    if (btn) btn.disabled = true;
+}
+window.clearConfirm1Image = clearConfirm1Image;
+
+async function submitConfirm1(id) {
+    if (!_confirm1ImageBlob) {
+        showToast('Vui lòng dán hoặc chụp/chọn hình ảnh chứng minh', 'warning');
+        return;
+    }
+
+    var btn = document.getElementById('btnConfirm1Submit');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Đang gửi...';
+    }
+
+    try {
+        var base64Data = await new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function(e) { resolve(e.target.result); };
+            reader.onerror = reject;
+            reader.readAsDataURL(_confirm1ImageBlob);
+        });
+
+        var res = await apiCall('/api/fabrictx/confirm1/' + id, 'POST', {
+            image_data: base64Data
+        });
+
+        if (res.error) throw new Error(res.error);
+
+        showToast('⬜ Đã xác nhận bàn giao (Lần 1) thành công!');
+        closeModal();
+        await _nxhvLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi xử lý', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Xác nhận đã bàn giao';
+        }
+    }
+}
+window.submitConfirm1 = submitConfirm1;
+
+
+var _confirm2ImageBlob = null;
+var _confirm2PasteHandler = null;
+
+function processAndPreviewConfirm2Image(file) {
+    var reader = new FileReader();
+    reader.onload = function(event) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var max_width = 800;
+            var width = img.width;
+            var height = img.height;
+            if (width > max_width) {
+                height = Math.round((height * max_width) / width);
+                width = max_width;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            canvas.toBlob(function(blob) {
+                _confirm2ImageBlob = blob;
+                var previewUrl = URL.createObjectURL(blob);
+                var imgEl = document.getElementById('confirm2ImagePreview');
+                var placeholderEl = document.getElementById('confirm2PastePlaceholder');
+                var wrapEl = document.getElementById('confirm2ImgPreviewWrap');
+                var pasteArea = document.getElementById('confirm2PasteArea');
+                if (imgEl && pasteArea) {
+                    imgEl.src = previewUrl;
+                    if (placeholderEl) placeholderEl.style.display = 'none';
+                    if (wrapEl) wrapEl.style.display = 'flex';
+                    pasteArea.style.borderColor = '#10b981';
+                }
+            }, 'image/webp', 0.75);
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+window.processAndPreviewConfirm2Image = processAndPreviewConfirm2Image;
+
+async function openConfirm2Modal(id) {
+    if (!isAccountantOrMgmtFront()) {
+        showToast('Chỉ Kế toán, Giám đốc, hoặc Lê Việt Trinh mới có quyền thực hiện xác nhận lần 2!', 'error');
+        return;
+    }
+
+    var tx = _nxhv.records.find(function(item) { return item.id === id; });
+    if (!tx) {
+        showToast('Không tìm thấy giao dịch', 'error');
+        return;
+    }
+
+    if (_confirm2PasteHandler) {
+        document.removeEventListener('paste', _confirm2PasteHandler);
+        _confirm2PasteHandler = null;
+    }
+    _confirm2ImageBlob = null;
+
+    var initialQty = Number(tx.total_quantity) || 0;
+
+    var bodyHTML = '<div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">' +
+        '<div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:10px; color:#d97706; line-height:1.4;">' +
+            'ℹ️ <strong>Xác nhận lần 2 (Kế toán):</strong> Nhập số kg cân đo thực tế từ nhà vải cung cấp để đối chiếu và xuất kho hoàn tất.' +
+        '</div>' +
+        '<div>' +
+            '<label style="font-weight:700; display:block; margin-bottom:4px;">Số kg ban đầu đã nhập:</label>' +
+            '<input type="text" value="' + _nxhvFN(initialQty) + ' kg" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />' +
+        '</div>' +
+        '<div>' +
+            '<label style="font-weight:700; display:block; margin-bottom:4px;">Nhập số kg thực tế đo được (Bắt buộc):</label>' +
+            '<input type="number" step="0.01" id="confirm2ActualQty" class="form-control" placeholder="Ví dụ: 25.5" value="' + initialQty + '" style="width:100%; font-size:12px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none;" oninput="updateConfirm2WeightCheck(' + initialQty + ')" />' +
+        '</div>' +
+        '<div id="confirm2WeightNotice" style="display:none; padding:8px 12px; border-radius:6px; font-weight:600; line-height:1.4;"></div>' +
+        '<div id="confirm2PasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; position:relative; transition:all 0.2s; overflow:hidden;">' +
+            '<div id="confirm2PastePlaceholder">' +
+                '<span style="font-size:24px; display:block; margin-bottom:6px;">📸</span>' +
+                '<span id="confirm2PhotoTitle" style="font-weight:700; color:#475569; display:block; font-size:12px; margin-bottom:8px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>' +
+                '<button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById(\'confirm2ImgFile\').click()" style="padding:4px 12px; font-size:11px; background:#e2e8f0; border:1px solid #cbd5e1; color:#475569; font-weight:600; border-radius:6px; cursor:pointer;">hoặc Chọn File / Chụp ảnh</button>' +
+            '</div>' +
+            '<input type="file" id="confirm2ImgFile" accept="image/*" capture="environment" style="display:none;" onchange="handleConfirmImgChange(this, processAndPreviewConfirm2Image)" />' +
+            '<div id="confirm2ImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">' +
+                '<img id="confirm2ImagePreview" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05); object-fit:contain;" />' +
+                '<button id="btnConfirm2ClearImg" type="button" class="btn" style="position:absolute; top:4px; right:4px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); clearConfirm2Image()">❌ Xóa</button>' +
+            '</div>' +
+        '</div>' +
+        '<div>' +
+            '<label style="font-weight:700; display:block; margin-bottom:4px;">Ghi chú đối chiếu (nếu có):</label>' +
+            '<textarea id="confirm2Notes" class="form-control" placeholder="Nhập ghi chú đối chiếu cân nặng thực tế..." style="width:100%; font-size:12px; padding:6px 10px; height:50px; border-radius:6px; border:1px solid #cbd5e1; outline:none; resize:none;"></textarea>' +
+        '</div>' +
+    '</div>';
+
+    var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>' +
+        '<button class="btn btn-primary" id="btnConfirm2Submit" onclick="submitConfirm2(' + id + ', ' + initialQty + ')" style="width:auto; font-weight:700; background:#eab308; border:none; color:#fff;">Duyệt hoàn tất (Lần 2)</button>';
+
+    openModal('🟨 Xác Nhận Cân Nặng Thực Tế (Lần 2)', bodyHTML, footerHTML);
+    var container = document.getElementById('modalContainer');
+    if (container) {
+        container.style.width = '480px';
+        container.style.maxWidth = '95%';
+    }
+
+    updateConfirm2WeightCheck(initialQty);
+
+    _confirm2PasteHandler = function(e) {
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        var imageItem = null;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                imageItem = items[i];
+                break;
+            }
+        }
+        if (imageItem) {
+            var blob = imageItem.getAsFile();
+            processAndPreviewConfirm2Image(blob);
+        }
+    };
+    document.addEventListener('paste', _confirm2PasteHandler);
+}
+window.openConfirm2Modal = openConfirm2Modal;
+
+function clearConfirm2Image() {
+    _confirm2ImageBlob = null;
+    var imgEl = document.getElementById('confirm2ImagePreview');
+    var placeholderEl = document.getElementById('confirm2PastePlaceholder');
+    var wrapEl = document.getElementById('confirm2ImgPreviewWrap');
+    var pasteArea = document.getElementById('confirm2PasteArea');
+    if (imgEl) imgEl.src = '';
+    if (placeholderEl) placeholderEl.style.display = 'block';
+    if (wrapEl) wrapEl.style.display = 'none';
+    if (pasteArea) pasteArea.style.borderColor = '#cbd5e1';
+}
+window.clearConfirm2Image = clearConfirm2Image;
+
+function updateConfirm2WeightCheck(initialQty) {
+    var actQtyInput = document.getElementById('confirm2ActualQty');
+    var noticeBox = document.getElementById('confirm2WeightNotice');
+    var pasteArea = document.getElementById('confirm2PasteArea');
+    var photoTitle = document.getElementById('confirm2PhotoTitle');
+    if (!actQtyInput || !noticeBox) return;
+
+    var val = parseFloat(actQtyInput.value);
+    if (isNaN(val) || val <= 0) {
+        noticeBox.style.display = 'none';
+        return;
+    }
+
+    var diff = val - initialQty;
+    if (Math.abs(diff) > 0.001) {
+        noticeBox.style.display = 'block';
+        noticeBox.style.background = '#fee2e2';
+        noticeBox.style.color = '#dc2626';
+        noticeBox.style.border = '1px solid #fca5a5';
+        noticeBox.innerHTML = '⚠️ <strong>Cân nặng thực tế lệch:</strong> ' + (diff > 0 ? '+' : '') + diff.toFixed(2) + ' kg so với ban đầu. <strong>Bắt buộc phải chụp/dán hình ảnh cân thực tế để chứng minh!</strong>';
+        pasteArea.style.borderStyle = 'dashed';
+        pasteArea.style.borderColor = '#fca5a5';
+        if (photoTitle) photoTitle.innerHTML = 'Nhấn Ctrl+V để dán ảnh chứng minh <span style="color:#ef4444;">(Bắt buộc)</span>';
+    } else {
+        noticeBox.style.display = 'block';
+        noticeBox.style.background = '#ecfdf5';
+        noticeBox.style.color = '#059669';
+        noticeBox.style.border = '1px solid #a7f3d0';
+        noticeBox.innerHTML = '✅ <strong>Cân nặng trùng khớp!</strong> Không có chênh lệch so với ban đầu. Hình ảnh chứng minh không bắt buộc.';
+        pasteArea.style.borderStyle = 'dashed';
+        pasteArea.style.borderColor = '#cbd5e1';
+        if (photoTitle) photoTitle.textContent = 'Nhấn Ctrl+V để dán ảnh chứng minh (Không bắt buộc)';
+    }
+}
+window.updateConfirm2WeightCheck = updateConfirm2WeightCheck;
+
+async function submitConfirm2(id, initialQty) {
+    var actQtyInput = document.getElementById('confirm2ActualQty');
+    if (!actQtyInput) return;
+    
+    var val = parseFloat(actQtyInput.value);
+    if (isNaN(val) || val <= 0) {
+        showToast('Vui lòng nhập số kg thực tế hợp lệ!', 'warning');
+        return;
+    }
+
+    var diff = val - initialQty;
+    if (Math.abs(diff) > 0.001 && !_confirm2ImageBlob) {
+        showToast('Sai lệch số lượng so với ban đầu. Bắt buộc phải có hình ảnh chụp cân nặng để chứng minh!', 'warning');
+        return;
+    }
+
+    var notes = document.getElementById('confirm2Notes').value.trim();
+
+    var btn = document.getElementById('btnConfirm2Submit');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Đang gửi...';
+    }
+
+    try {
+        var base64Data = null;
+        if (_confirm2ImageBlob) {
+            base64Data = await new Promise(function(resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function(e) { resolve(e.target.result); };
+                reader.onerror = reject;
+                reader.readAsDataURL(_confirm2ImageBlob);
+            });
+        }
+
+        var res = await apiCall('/api/fabrictx/confirm2/' + id, 'POST', {
+            actual_quantity: val,
+            image_data: base64Data,
+            notes: notes
+        });
+
+        if (res.error) throw new Error(res.error);
+
+        showToast('✅ Đã duyệt hoàn tất giao dịch (Lần 2) thành công!');
+        closeModal();
+        await _nxhvLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi xử lý', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Duyệt hoàn tất (Lần 2)';
+        }
+    }
+}
+window.submitConfirm2 = submitConfirm2;
+
 // Wrap or listen to modal closing to remove paste event listener
 var _origCloseModal = window.closeModal;
 window.closeModal = function() {
@@ -1634,8 +2111,17 @@ window.closeModal = function() {
         document.removeEventListener('paste', _postponePasteHandler);
         _postponePasteHandler = null;
     }
+    if (_confirm1PasteHandler) {
+        document.removeEventListener('paste', _confirm1PasteHandler);
+        _confirm1PasteHandler = null;
+    }
+    if (_confirm2PasteHandler) {
+        document.removeEventListener('paste', _confirm2PasteHandler);
+        _confirm2PasteHandler = null;
+    }
     if (typeof _origCloseModal === 'function') {
         _origCloseModal();
     }
 };
+
 

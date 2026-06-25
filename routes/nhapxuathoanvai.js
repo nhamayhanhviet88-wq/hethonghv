@@ -38,7 +38,14 @@ module.exports = async function(fastify) {
         'postponed_images JSONB DEFAULT \'[]\'::jsonb',
         'postponed_notes TEXT',
         'postponed_target_date DATE',
-        'shelf_names TEXT'
+        'shelf_names TEXT',
+        'is_approved_1 BOOLEAN DEFAULT false',
+        'approved_1_at TIMESTAMPTZ',
+        'approved_1_by INTEGER REFERENCES users(id)',
+        'initial_quantity NUMERIC',
+        'actual_quantity NUMERIC',
+        'actual_quantity_images JSONB DEFAULT \'[]\'::jsonb',
+        'actual_quantity_notes TEXT'
     ];
     for (const col of cols) {
         try {
@@ -63,6 +70,35 @@ module.exports = async function(fastify) {
         if (MGMT.includes(req.user.role)) return true;
         const d = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [req.user.id]);
         if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('qlx') || n.includes('kế toán') || n.includes('ke toan') || n.includes('kho')) return true; }
+        return false;
+    }
+    async function isGdOrTrinh(req) {
+        if (MGMT.includes(req.user.role)) return true;
+        const u = await db.get('SELECT full_name, username FROM users WHERE id=$1', [req.user.id]);
+        if (u) {
+            const name = u.full_name || '';
+            const uname = u.username || '';
+            if (name.includes('Lê Việt Trinh') || name.includes('Le Viet Trinh') || uname === 'leviettrinh' || uname === 'trinh.lvt') {
+                return true;
+            }
+        }
+        return false;
+    }
+    async function isAccountantOrMgmt(req) {
+        if (MGMT.includes(req.user.role)) return true;
+        const d = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [req.user.id]);
+        if (d && d.name) {
+            const n = d.name.toLowerCase();
+            if (n.includes('kế toán') || n.includes('ke toan')) return true;
+        }
+        const u = await db.get('SELECT full_name, username FROM users WHERE id=$1', [req.user.id]);
+        if (u) {
+            const name = u.full_name || '';
+            const uname = u.username || '';
+            if (name.includes('Lê Việt Trinh') || name.includes('Le Viet Trinh') || uname === 'leviettrinh' || uname === 'trinh.lvt') {
+                return true;
+            }
+        }
         return false;
     }
     function calcFin(qty, price) {
@@ -107,12 +143,15 @@ module.exports = async function(fastify) {
                 WHERE tx_type = 'HOAN'
             )
             SELECT ft.*, u.full_name AS staff_name, u_ap.full_name AS approved_by_name,
+                   u_ap1.full_name AS approved_1_by_name,
                    u_pp.full_name AS postponed_by_name,
                    lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
                    s.seq_num
             FROM fabric_transactions ft
             LEFT JOIN seq_hoan s ON ft.id = s.id
-            LEFT JOIN users u ON ft.staff_id=u.id LEFT JOIN users u_ap ON ft.approved_by=u_ap.id
+            LEFT JOIN users u ON ft.staff_id=u.id 
+            LEFT JOIN users u_ap ON ft.approved_by=u_ap.id
+            LEFT JOIN users u_ap1 ON ft.approved_1_by=u_ap1.id
             LEFT JOIN users u_pp ON ft.postponed_by=u_pp.id
             LEFT JOIN LATERAL (SELECT h.performed_at, h.performed_by FROM fabric_tx_history h WHERE h.tx_id=ft.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
@@ -175,26 +214,17 @@ module.exports = async function(fastify) {
             
             const tx = await db.get('SELECT tx_type FROM fabric_transactions WHERE id=$1', [id]);
             if (tx && tx.tx_type === 'HOAN') {
-                const rolls = await db.all(`SELECT id, fabric_color_id, weight FROM kv_rolls WHERE return_tx_id = $1 AND is_returned = false`, [id]);
-                for (const roll of rolls) {
-                    await db.run(
-                        `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by, created_at)
-                         VALUES ($1, 'XUAT', $2, $3, $4, $5)`,
-                        [roll.fabric_color_id, 'XUAT', Number(roll.weight), `Trả NCC (Duyệt hoàn #${id}): cục ${roll.weight}`, req.user.id, now]
-                    );
-                }
-                await db.run(`UPDATE kv_rolls SET is_returned=true, location=NULL WHERE return_tx_id=$1`, [id]);
+                return reply.code(400).send({ error: 'Vui lòng sử dụng quy trình xác nhận 2 bước cho giao dịch hoàn vải.' });
             }
 
             await db.run(`UPDATE fabric_transactions SET is_approved=true, approved_at=$1, approved_by=$2, updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
-            await db.run(`INSERT INTO fabric_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, 'approve', '✅ Duyệt hoàn', req.user.id, now]);
+            await db.run(`INSERT INTO fabric_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, 'approve', '✅ Duyệt', req.user.id, now]);
         } else if (action === 'unapprove') {
             if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Không có quyền' });
             
             const tx = await db.get('SELECT tx_type FROM fabric_transactions WHERE id=$1', [id]);
             if (tx && tx.tx_type === 'HOAN') {
-                await db.run(`DELETE FROM kv_transactions WHERE description LIKE 'Trả NCC (Duyệt hoàn ' || $1 || '):%'`, [id]);
-                await db.run(`UPDATE kv_rolls SET is_returned=false, location='📍 Kệ Dự Định Hoàn Vải' WHERE return_tx_id=$1`, [id]);
+                return reply.code(400).send({ error: 'Không thể hoàn tác giao dịch hoàn vải đã duyệt!' });
             }
 
             await db.run(`UPDATE fabric_transactions SET is_approved=false, approved_at=NULL, approved_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
@@ -287,6 +317,11 @@ module.exports = async function(fastify) {
         const ALLOWED = ['tx_type','tx_date','source_name','staff_id','material_name','color_name','unit',
             'tree_details','tree_count','total_quantity','price','debt','payment','notes'];
         if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
+        if (field === 'price') {
+            if (!(await isGdOrTrinh(req))) {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc chị Lê Việt Trinh mới có quyền thay đổi đơn giá!' });
+            }
+        }
         const numF = ['staff_id','tree_count','total_quantity','price','debt','payment'];
         const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
         await db.run(`UPDATE fabric_transactions SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
@@ -325,8 +360,16 @@ module.exports = async function(fastify) {
     });
 
     // ========== UPDATE ==========
-    fastify.put('/api/fabrictx/records/:id', { preHandler: [authenticate] }, async (req) => {
+    fastify.put('/api/fabrictx/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), b = req.body || {}, now = vnNow();
+        
+        const old = await db.get('SELECT price FROM fabric_transactions WHERE id=$1', [id]);
+        if (old && b.price !== undefined && Number(old.price) !== Number(b.price)) {
+            if (!(await isGdOrTrinh(req))) {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc chị Lê Việt Trinh mới có quyền thay đổi đơn giá!' });
+            }
+        }
+        
         const fin = calcFin(b.total_quantity, b.price);
         await db.run(`UPDATE fabric_transactions SET tx_type=$1,tx_date=$2,source_name=$3,staff_id=$4,material_name=$5,
             color_name=$6,unit=$7,tree_details=$8,tree_count=$9,total_quantity=$10,price=$11,total_amount=$12,
@@ -380,4 +423,249 @@ module.exports = async function(fastify) {
         );
         return { success: true };
     });
+
+    // ========== CONFIRM 1 (ĐÃ BÀN GIAO NCC) ==========
+    fastify.post('/api/fabrictx/confirm1/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id), { image_data } = req.body || {}, now = vnNow();
+        
+        const tx = await db.get('SELECT * FROM fabric_transactions WHERE id=$1', [id]);
+        if (!tx) return reply.code(404).send({ error: 'Không tìm thấy giao dịch' });
+        if (tx.tx_type !== 'HOAN') return reply.code(400).send({ error: 'Không phải giao dịch hoàn vải' });
+        if (tx.is_approved_1) return reply.code(400).send({ error: 'Giao dịch đã được xác nhận lần 1' });
+        if (tx.is_canceled) return reply.code(400).send({ error: 'Giao dịch đã bị hủy' });
+        if (!image_data) return reply.code(400).send({ error: 'Hình ảnh nhà cung cấp lấy vải bắt buộc (Chụp/Dán ảnh)' });
+
+        // Save image
+        let imageUrl = '';
+        let fpath = '';
+        if (image_data.startsWith('/uploads/')) {
+            imageUrl = image_data;
+            fpath = path.join(__dirname, '..', 'public', image_data);
+        } else {
+            const dir = path.join(__dirname, '..', 'public', 'uploads', 'fabrictx');
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            const fname = `ftx_confirm1_${id}_${Date.now()}.png`;
+            fpath = path.join(dir, fname);
+            const base64 = image_data.replace(/^data:image\/\w+;base64,/, '');
+            fs.writeFileSync(fpath, Buffer.from(base64, 'base64'));
+            imageUrl = `/uploads/fabrictx/${fname}`;
+        }
+
+        const pool = db.getDB();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            // 1. Update fabric_transactions
+            let billImgs = [];
+            try { billImgs = typeof tx.bill_images === 'string' ? JSON.parse(tx.bill_images || '[]') : (tx.bill_images || []); } catch(e) {}
+            if (!billImgs.includes(imageUrl)) billImgs.push(imageUrl);
+            
+            await client.query(
+                `UPDATE fabric_transactions 
+                 SET is_approved_1 = true, approved_1_at = $1, approved_1_by = $2, bill_images = $3::jsonb, updated_at = $1 
+                 WHERE id = $4`,
+                [now, req.user.id, JSON.stringify(billImgs), id]
+            );
+
+            // 2. Update rolls location to '📍 Đã Bàn Giao NCC'
+            await client.query(
+                `UPDATE kv_rolls 
+                 SET location = '📍 Đã Bàn Giao NCC', updated_at = $1 
+                 WHERE return_tx_id = $2 AND is_returned = false`,
+                [now, id]
+            );
+
+            // 3. History
+            await client.query(
+                `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
+                 VALUES ($1, 'confirm1', 'Xác nhận lần 1: Đã bàn giao cho nhà cung cấp lấy vải về', $2, $3)`,
+                [id, req.user.id, now]
+            );
+
+            await client.query('COMMIT');
+        } catch(err) {
+            await client.query('ROLLBACK');
+            console.error('[NXHV Confirm1]', err.message);
+            return reply.code(400).send({ error: err.message || 'Lỗi khi xác nhận lần 1' });
+        } finally {
+            client.release();
+        }
+
+        // 4. Send Telegram Notification
+        try {
+            const { sendTelegramPhoto, getBotToken } = require('../utils/telegram');
+            const token = await getBotToken();
+            const tgConfigRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_global_hoan_vai'");
+            const chatId = tgConfigRow?.value?.trim();
+
+            if (chatId) {
+                const formattedNow = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+                const caption = `🔄 <b>HOÀN VẢI (XÁC NHẬN LẦN 1)</b>\n` +
+                                `━━━━━━━━━━━━━━━━━\n` +
+                                `📦 <b>Mã giao dịch:</b> Bill Hoàn #${tx.id}\n` +
+                                `🏢 <b>Nhà cung cấp:</b> ${tx.source_name || '—'}\n` +
+                                `👕 <b>Chất liệu:</b> ${tx.material_name || '—'}\n` +
+                                `🎨 <b>Màu vải:</b> ${tx.color_name || '—'}\n` +
+                                `⚖️ <b>Số lượng:</b> ${Number(tx.total_quantity).toLocaleString('vi-VN')} kg\n` +
+                                `👤 <b>Người thực hiện:</b> ${req.user.full_name}\n` +
+                                `📆 <b>Thời gian:</b> ${formattedNow}\n\n` +
+                                `⏳ <i>Chờ Kế Toán cân thực tế và thực hiện xác nhận lần 2.</i>`;
+
+                if (fpath && fs.existsSync(fpath)) {
+                    await sendTelegramPhoto(chatId, fpath, caption);
+                } else {
+                    const { sendTelegramMessage } = require('../utils/telegram');
+                    await sendTelegramMessage(chatId, caption);
+                }
+            }
+        } catch(tgErr) {
+            console.error('[NXHV Confirm1 TG Error]', tgErr.message);
+        }
+
+        return { success: true };
+    });
+
+    // ========== CONFIRM 2 (KẾ TOÁN ĐỐI CHIẾU CÂN NẶNG THỰC TẾ) ==========
+    fastify.post('/api/fabrictx/confirm2/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id), { actual_quantity, image_data, notes } = req.body || {}, now = vnNow();
+
+        if (!(await isAccountantOrMgmt(req))) {
+            return reply.code(403).send({ error: 'Chỉ Kế toán, Giám đốc, hoặc Lê Việt Trinh mới có quyền thực hiện xác nhận lần 2!' });
+        }
+
+        const tx = await db.get('SELECT * FROM fabric_transactions WHERE id=$1', [id]);
+        if (!tx) return reply.code(404).send({ error: 'Không tìm thấy giao dịch' });
+        if (tx.tx_type !== 'HOAN') return reply.code(400).send({ error: 'Không phải giao dịch hoàn vải' });
+        if (!tx.is_approved_1) return reply.code(400).send({ error: 'Giao dịch chưa được xác nhận lần 1' });
+        if (tx.is_approved) return reply.code(400).send({ error: 'Giao dịch đã được xác nhận lần 2' });
+        if (tx.is_canceled) return reply.code(400).send({ error: 'Giao dịch đã bị hủy' });
+
+        const actQty = Number(actual_quantity);
+        if (isNaN(actQty) || actQty <= 0) {
+            return reply.code(400).send({ error: 'Số lượng thực tế không hợp lệ' });
+        }
+
+        const initialQty = Number(tx.total_quantity);
+        const qtyDiff = actQty - initialQty;
+
+        // If weight differs, proof photo is mandatory!
+        if (Math.abs(qtyDiff) > 0.001 && !image_data) {
+            return reply.code(400).send({ error: 'Sai lệch số lượng cân nặng thực tế so với ban đầu. Bắt buộc phải có hình ảnh chụp cân nặng để chứng minh!' });
+        }
+
+        // Save actual quantity image if provided
+        let imageUrl = '';
+        let fpath = '';
+        if (image_data) {
+            if (image_data.startsWith('/uploads/')) {
+                imageUrl = image_data;
+                fpath = path.join(__dirname, '..', 'public', image_data);
+            } else {
+                const dir = path.join(__dirname, '..', 'public', 'uploads', 'fabrictx');
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                const fname = `ftx_confirm2_${id}_${Date.now()}.png`;
+                fpath = path.join(dir, fname);
+                const base64 = image_data.replace(/^data:image\/\w+;base64,/, '');
+                fs.writeFileSync(fpath, Buffer.from(base64, 'base64'));
+                imageUrl = `/uploads/fabrictx/${fname}`;
+            }
+        }
+
+        const totalAmount = actQty * Number(tx.price);
+        const debt = totalAmount - Number(tx.payment);
+
+        const pool = db.getDB();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1. Update fabric_transactions
+            let actualImages = [];
+            if (imageUrl) {
+                actualImages.push(imageUrl);
+            }
+
+            await client.query(
+                `UPDATE fabric_transactions 
+                 SET is_approved = true, approved_at = $1, approved_by = $2,
+                     initial_quantity = $3, actual_quantity = $4,
+                     actual_quantity_images = $5::jsonb, actual_quantity_notes = $6,
+                     total_quantity = $4, total_amount = $7, debt = $8, updated_at = $1
+                 WHERE id = $9`,
+                [now, req.user.id, initialQty, actQty, JSON.stringify(actualImages), notes || null, totalAmount, debt, id]
+            );
+
+            // 2. Insert kv_transactions & Update kv_rolls
+            const rolls = await client.query(`SELECT id, fabric_color_id, weight FROM kv_rolls WHERE return_tx_id = $1 AND is_returned = false`, [id]);
+            for (const roll of rolls.rows) {
+                await client.query(
+                    `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by, created_at)
+                     VALUES ($1, 'XUAT', $2, $3, $4, $5)`,
+                    [roll.fabric_color_id, 'XUAT', Number(roll.weight), `Trả NCC (Duyệt hoàn #${id}): cục ${roll.weight}`, req.user.id, now]
+                );
+            }
+
+            await client.query(
+                `UPDATE kv_rolls 
+                 SET is_returned = true, location = NULL, updated_at = $1 
+                 WHERE return_tx_id = $2`,
+                [now, id]
+            );
+
+            // 3. History
+            await client.query(
+                `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
+                 VALUES ($1, 'confirm2', $2, $3, $4)`,
+                [id, `Xác nhận lần 2: Đã đối chiếu cân nặng thực tế ${actQty} kg (Ban đầu: ${initialQty} kg, Sai lệch: ${qtyDiff.toFixed(2)} kg)`, req.user.id, now]
+            );
+
+            await client.query('COMMIT');
+        } catch(err) {
+            await client.query('ROLLBACK');
+            console.error('[NXHV Confirm2]', err.message);
+            return reply.code(400).send({ error: err.message || 'Lỗi khi xác nhận lần 2' });
+        } finally {
+            client.release();
+        }
+
+        // 4. Send Telegram Notification
+        try {
+            const { sendTelegramPhoto, getBotToken } = require('../utils/telegram');
+            const token = await getBotToken();
+            const tgConfigRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_global_hoan_vai'");
+            const chatId = tgConfigRow?.value?.trim();
+
+            if (chatId) {
+                const formattedNow = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+                const diffText = qtyDiff !== 0 ? `${qtyDiff > 0 ? '+' : ''}${qtyDiff.toFixed(2)} kg` : '0 kg';
+                
+                const caption = `✅ <b>HOÀN VẢI THÀNH CÔNG (XÁC NHẬN LẦN 2)</b>\n` +
+                                `━━━━━━━━━━━━━━━━━\n` +
+                                `📦 <b>Mã giao dịch:</b> Bill Hoàn #${tx.id}\n` +
+                                `🏢 <b>Nhà cung cấp:</b> ${tx.source_name || '—'}\n` +
+                                `👕 <b>Chất liệu:</b> ${tx.material_name || '—'}\n` +
+                                `🎨 <b>Màu vải:</b> ${tx.color_name || '—'}\n` +
+                                `⚖️ <b>Cân nặng thực tế:</b> ${actQty.toLocaleString('vi-VN')} kg (Ban đầu: ${initialQty.toLocaleString('vi-VN')} kg)\n` +
+                                `📊 <b>Sai lệch:</b> ${diffText}\n` +
+                                `💰 <b>Thành tiền mới:</b> ${totalAmount.toLocaleString('vi-VN')}đ\n` +
+                                `💳 <b>Công nợ mới:</b> ${debt.toLocaleString('vi-VN')}đ\n` +
+                                `👤 <b>Kế toán thực hiện:</b> ${req.user.full_name}\n` +
+                                `📆 <b>Thời gian:</b> ${formattedNow}\n\n` +
+                                `✅ <b>Giao dịch đã được đối chiếu và hoàn tất!</b>`;
+
+                if (imageUrl && fpath && fs.existsSync(fpath)) {
+                    await sendTelegramPhoto(chatId, fpath, caption);
+                } else {
+                    const { sendTelegramMessage } = require('../utils/telegram');
+                    await sendTelegramMessage(chatId, caption);
+                }
+            }
+        } catch(tgErr) {
+            console.error('[NXHV Confirm2 TG Error]', tgErr.message);
+        }
+
+        return { success: true };
+    });
 };
+
