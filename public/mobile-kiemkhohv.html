@@ -27,7 +27,12 @@
         .grp .gs{font-size:10px;color:#99f6e4;font-weight:600}
         
         .card{background:rgba(255,255,255,.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-bottom:10px;overflow:hidden;}
-        .card.checked { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.25); }
+        .card.checked { background: rgba(6, 95, 70, 0.4) !important; border-color: #10b981 !important; }
+        .card.checked .cl { color: #a7f3d0 !important; }
+        .card.checked .cv { color: #ffffff !important; }
+        .card.missing { background: rgba(153, 27, 27, 0.45) !important; border-color: #ef4444 !important; }
+        .card.missing .cl { color: #fca5a5 !important; }
+        .card.missing .cv { color: #ffffff !important; }
         .cb{padding:12px 16px}
         .cr{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
         .cl{font-size:11px;color:#94a3b8;font-weight:600}.cv{font-size:13px;color:#e2e8f0;font-weight:700}
@@ -43,6 +48,7 @@
         .ab.on{border-color:#10b981;background:rgba(16,185,129,0.2);color:#34d399}
         .ab.red { border-color: rgba(239,68,68,0.4); color: #fca5a5; }
         .ab.red:active { background: rgba(239,68,68,0.1); }
+        .ab.red.on { border-color: #ef4444; background: rgba(239,68,68,0.25); color: #fca5a5; }
         .ab.blue { border-color: rgba(59,130,246,0.4); color: #93c5fd; }
         
         /* Lock and Reserve Badges */
@@ -392,9 +398,9 @@ async function mLoad(){
         }
         
         // Refresh session stats in UI
-        const sRes = await api('/api/stockcheck/session-status');
-        const checkedCount = sRes.session ? sRes.session.checked_rolls || 0 : 0;
-        const totalRolls = sRes.session ? sRes.session.total_rolls || 0 : 0;
+        const treeRes = await api('/api/stockcheck/tree');
+        const checkedCount = treeRes.checked_count || 0;
+        const totalRolls = treeRes.totals ? treeRes.totals.total_rolls || 0 : 0;
         
         document.getElementById('sT').textContent=mr.length; // Local shelf count
         document.getElementById('sC').textContent=checkedCount; // Global completed
@@ -433,6 +439,22 @@ function mCards(){
         groups[k].push(r);
     });
     
+    // Sort rolls: unchecked (is_checked = false) first, checked (is_checked = true) last
+    order.forEach(k => {
+        groups[k].sort((a, b) => {
+            if (a.is_checked === b.is_checked) return 0;
+            return a.is_checked ? 1 : -1;
+        });
+    });
+    
+    // Sort groups: groups containing any unchecked rolls first, fully checked groups last
+    order.sort((a, b) => {
+        const aHasUnchecked = groups[a].some(r => !r.is_checked);
+        const bHasUnchecked = groups[b].some(r => !r.is_checked);
+        if (aHasUnchecked === bHasUnchecked) return 0;
+        return aHasUnchecked ? -1 : 1;
+    });
+    
     let html='';
     order.forEach(k=>{
         const rows=groups[k],gw=rows.reduce((s,r)=>s+Number(r.system_weight||0),0);
@@ -440,6 +462,8 @@ function mCards(){
         
         rows.forEach(r=>{
             const cA=r.is_checked;
+            const isMissing = cA && Number(r.actual_weight) === 0;
+            const cardClass = cA ? (isMissing ? 'card missing' : 'card checked') : 'card';
             
             // Badges
             let badges = '';
@@ -456,8 +480,15 @@ function mCards(){
                 thumb = `<img src="${r.roll_img}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.15);" onclick="viewImage('${r.roll_img}')">`;
             }
 
+            // Dynamic Action Button labels/icons
+            const weightBtnIcon = cA ? '✏️' : '📝';
+            const weightBtnText = cA ? 'SỬA CÂN' : 'NHẬP CÂN';
+            
+            const missingBtnText = isMissing ? 'ĐÃ BÁO MẤT' : 'BÁO MẤT';
+            const missingBtnClass = isMissing ? 'ab red on' : 'ab red';
+
             html+=`
-                <div class="card ${cA?'checked':''}">
+                <div class="${cardClass}">
                     <div class="cb">
                         <div class="cr">
                             <span class="cl">🎨 Màu</span>
@@ -472,16 +503,16 @@ function mCards(){
                     </div>
                     <div class="ca">
                         <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
-                            <span class="ai">📝</span>
-                            <span class="al">NHẬP CÂN</span>
+                            <span class="ai">${weightBtnIcon}</span>
+                            <span class="al">${weightBtnText}</span>
                         </button>
                         <button class="ab" onclick="mTriggerCamera(${r.roll_id})">
                             <span class="ai">📷</span>
                             <span class="al">CHỤP ẢNH</span>
                         </button>
-                        <button class="ab red" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
+                        <button class="${missingBtnClass}" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
                             <span class="ai">❌</span>
-                            <span class="al">BÁO MẤT</span>
+                            <span class="al">${missingBtnText}</span>
                         </button>
                     </div>
                 </div>`;
