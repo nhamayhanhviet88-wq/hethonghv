@@ -662,7 +662,10 @@ async function _kkRenderAudit(content) {
                                 </div>
                             </td>
                             <td>
-                                <div style="margin-top:2px; display:flex; gap:4px; flex-wrap:wrap;">${badges}</div>
+                                <div style="margin-top:2px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                    <span style="font-weight:600; color:#334155;">${r.color_name}</span>
+                                    ${badges}
+                                </div>
                             </td>
                             <td class="text-center">${Number(r.original_weight || 0).toLocaleString('vi-VN')} kg</td>
                             <td class="text-center text-primary" style="font-size:12px;">${Number(r.system_weight || 0).toLocaleString('vi-VN')} kg</td>
