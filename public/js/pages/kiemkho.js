@@ -207,6 +207,7 @@ function _kkRenderMain(content) {
 
 // ========== SETUP / PRE-AUDIT VIEW ==========
 function _kkRenderSetup(content) {
+    const isGiamDoc = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
     let histHtml = '';
     if (_kk.historySessions.length === 0) {
         histHtml = `<tr><td colspan="5" class="text-center text-muted py-4">Chưa có lịch sử đợt kiểm kho nào hoàn thành.</td></tr>`;
@@ -272,8 +273,8 @@ function _kkRenderSetup(content) {
                         </h4>
                         
                         <div class="kk-form-group">
-                            <label class="kk-form-label">Yêu Cầu Chụp Ảnh Minh Chứng (Camera)</label>
-                            <select id="kkSettingPhotoMode" class="kk-form-input" style="height:40px; font-weight:600;">
+                            <label class="kk-form-label">Yêu Cầu Chụp Ảnh Minh Chứng (Camera) ${!isGiamDoc ? '<span style="color:#ef4444; font-size:11px; font-weight:normal; margin-left:6px;">(Chỉ Giám Đốc mới có quyền thay đổi)</span>' : ''}</label>
+                            <select id="kkSettingPhotoMode" class="kk-form-input" style="height:40px; font-weight:600;" ${!isGiamDoc ? 'disabled' : ''}>
                                 <option value="none" ${_kk.photoMode === 'none' ? 'selected' : ''}>Không yêu cầu chụp ảnh</option>
                                 <option value="all" ${_kk.photoMode === 'all' ? 'selected' : ''}>Yêu cầu chụp ảnh toàn bộ cây vải</option>
                                 <option value="missing_only" ${_kk.photoMode === 'missing_only' ? 'selected' : ''}>Chỉ chụp khi cây chưa có ảnh</option>
@@ -365,10 +366,13 @@ async function _kkChangeYear(year) {
 
 // ========== START SESSION AND CHECK LOCKS ==========
 async function _kkStartSession() {
-    const photoMode = document.getElementById('kkSettingPhotoMode').value;
+    const isGiamDoc = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
     try {
-        // Save settings first
-        await apiCall('/api/stockcheck/settings', 'PUT', { photo_mode: photoMode });
+        if (isGiamDoc) {
+            const photoMode = document.getElementById('kkSettingPhotoMode').value;
+            // Save settings first
+            await apiCall('/api/stockcheck/settings', 'PUT', { photo_mode: photoMode });
+        }
         
         // Attempt starting audit
         const res = await apiCall('/api/stockcheck/start-session', 'POST');
@@ -456,6 +460,7 @@ async function _kkRenderAudit(content) {
     if (!_kk.tree) {
         _kk.tree = await apiCall('/api/stockcheck/tree');
     }
+    const isGiamDoc = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
     
     // Progress calculation
     const totalRolls = _kk.session.total_rolls || 0;
@@ -585,10 +590,26 @@ async function _kkRenderAudit(content) {
             <!-- Main Panel -->
             <div class="kk-main">
                 <!-- Status Banner -->
-                <div style="background:#fef2f2; border:1px solid #fee2e2; border-radius:12px; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-shrink:0;">
-                    <div>
-                        <span style="display:block; color:#991b1b; font-weight:900; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">⚠️ KHO VẢI ĐANG KHÓA ĐỒNG BỘ</span>
-                        <span style="font-size:11px; color:#7f1d1d;">Bắt đầu lúc: ${_kk.session.started_at ? _kk.session.started_at.split('T')[0] + ' ' + _kk.session.started_at.split('T')[1].slice(0,5) : ''} bởi ${_kk.session.started_by_name}</span>
+                <div style="background:#fef2f2; border:1px solid #fee2e2; border-radius:12px; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-shrink:0; flex-wrap:wrap; gap:16px;">
+                    <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+                        <div>
+                            <span style="display:block; color:#991b1b; font-weight:900; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">⚠️ KHO VẢI ĐANG KHÓA ĐỒNG BỘ</span>
+                            <span style="font-size:11px; color:#7f1d1d;">Bắt đầu lúc: ${_kk.session.started_at ? _kk.session.started_at.split('T')[0] + ' ' + _kk.session.started_at.split('T')[1].slice(0,5) : ''} bởi ${_kk.session.started_by_name}</span>
+                        </div>
+                        ${isGiamDoc ? `
+                        <div style="display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #fecaca; border-radius:8px; padding:4px 10px;">
+                            <span style="font-size:11px; font-weight:800; color:#991b1b; white-space:nowrap;">📷 Yêu cầu chụp ảnh:</span>
+                            <select class="kk-form-input" style="height:28px; font-size:11px; font-weight:600; width:170px; padding:2px 8px; margin:0;" onchange="_kkChangePhotoModeDuringAudit(this.value)">
+                                <option value="none" ${_kk.photoMode === 'none' ? 'selected' : ''}>Không yêu cầu</option>
+                                <option value="all" ${_kk.photoMode === 'all' ? 'selected' : ''}>Yêu cầu toàn bộ</option>
+                                <option value="missing_only" ${_kk.photoMode === 'missing_only' ? 'selected' : ''}>Chỉ khi chưa có ảnh</option>
+                            </select>
+                        </div>
+                        ` : `
+                        <div style="font-size:11px; color:#991b1b; font-weight:800; background:#fee2e2; border-radius:8px; padding:4px 10px;">
+                            📷 Chế độ chụp ảnh: ${_kk.photoMode === 'all' ? 'Yêu cầu toàn bộ cây' : _kk.photoMode === 'missing_only' ? 'Chỉ khi chưa có ảnh' : 'Không yêu cầu'}
+                        </div>
+                        `}
                     </div>
                     <div>
                         <button class="kk-btn kk-btn-danger" style="padding:6px 12px; font-size:12px;" onclick="_kkAbortSession()">
@@ -1349,5 +1370,16 @@ async function _kkGoBackToSetup() {
     const content = _kkGetContainer();
     if (content) {
         _kkLoadSessionStatus(content);
+    }
+}
+
+// Change photo mode setting in real-time during an active audit
+async function _kkChangePhotoModeDuringAudit(val) {
+    try {
+        await apiCall('/api/stockcheck/settings', 'PUT', { photo_mode: val });
+        _kk.photoMode = val;
+        showToast('✅ Đã cập nhật chế độ chụp ảnh minh chứng', 'success');
+    } catch(e) {
+        showToast(e.message || 'Lỗi cập nhật cấu hình', 'error');
     }
 }
