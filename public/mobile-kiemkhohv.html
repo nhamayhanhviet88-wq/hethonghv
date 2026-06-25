@@ -62,6 +62,111 @@
         .blocker-box { padding:40px 24px; text-align:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:16px; margin:40px 16px; }
         .blocker-title { font-size:18px; font-weight:800; color:#fca5a5; margin-bottom:12px; }
         .blocker-desc { font-size:13px; color:#94a3b8; line-height:1.6; }
+
+        /* Modal Styles */
+        .m-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .m-modal {
+            background: #0f172a;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        .m-modal-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .m-modal-title {
+            font-size: 14px;
+            font-weight: 800;
+            color: #ccfbf1;
+        }
+        .m-modal-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .m-modal-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .m-modal-footer {
+            padding: 12px 16px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .m-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .m-form-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .m-form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1.5px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            background: rgba(255,255,255,0.06);
+            color: #e2e8f0;
+            outline: none;
+        }
+        .m-form-input:focus {
+            border-color: #14b8a6;
+        }
+        .m-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        .m-btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #e2e8f0;
+        }
+        .m-btn-primary {
+            background: linear-gradient(135deg,#0d9488,#14b8a6);
+            color: #fff;
+        }
     </style>
     <!-- Unified Mobile Style -->
     <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
@@ -82,8 +187,18 @@
             <div class="mf-row">
                 <select id="mFL" onchange="mLoad()"><option value="">-- Chọn Kệ Kiểm --</option></select>
             </div>
+            <div class="mf-row" id="mFLMaterialsContainer" style="display:none; margin-top:-4px;">
+                <div style="font-size:11px; color:#5eead4; background:rgba(20,184,166,0.1); border:1px solid rgba(20,184,166,0.2); border-radius:8px; padding:6px 10px; width:100%; word-break:break-word;">
+                    <strong>📦 Chất liệu kệ:</strong> <span id="mFLMaterialsText">...</span>
+                </div>
+            </div>
             <div class="mf-row">
                 <input type="text" id="mSearchRoll" placeholder="🔍 Tìm mã cây, màu, chất liệu..." oninput="onSearchInput(this.value)" style="flex:1; padding:10px 12px; border:1.5px solid rgba(255,255,255,.12); border-radius:10px; font-size:13px; font-weight:600; font-family:inherit; background:rgba(255,255,255,.06); color:#e2e8f0; outline:none;">
+            </div>
+            <div class="mf-row" style="margin-top:2px;">
+                <button onclick="mOpenAddSurplusModal()" style="flex:1; padding:10px; border:none; border-radius:10px; font-size:13px; font-weight:800; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 12px rgba(217,119,6,0.2);">
+                    ➕ KHAI BÁO CÂY THỪA
+                </button>
             </div>
         </div>
         <div id="mSB" class="ms">
@@ -112,7 +227,7 @@
 
 <script>
 let cu=null, mr=[], tree=null, activeSession=null, photoMode='none';
-let activeWarehouseId=null, activeLocation=null;
+let activeWarehouseId=null, activeLocation=null, mShelves=[];
 let pendingPhotoCallback=null;
 let mSearchText='', mSearchTimeout=null;
 
@@ -204,31 +319,34 @@ async function onWhChange(){
     try {
         const query = '/api/stockcheck/shelves?warehouse_id=' + activeWarehouseId + (mSearchText ? '&search=' + encodeURIComponent(mSearchText) : '');
         const res = await api(query);
+        mShelves = res.shelves || [];
         const lSel = document.getElementById('mFL');
         lSel.innerHTML = '';
-        res.shelves.forEach(s => {
+        mShelves.forEach(s => {
             const o = document.createElement('option');
             o.value = s.name;
-            o.textContent = '📍 ' + s.name + ' (' + s.roll_count + ' cây)';
+            const shortMats = s.materials_list ? ' - [' + (s.materials_list.length > 25 ? s.materials_list.slice(0, 25) + '...' : s.materials_list) + ']' : '';
+            o.textContent = '📍 ' + s.name + ' (' + s.roll_count + ' cây)' + shortMats;
             lSel.appendChild(o);
         });
         
-        if (res.shelves.length > 0) {
+        if (mShelves.length > 0) {
             if (mSearchText) {
-                const activeShelf = res.shelves.find(s => s.name === activeLocation);
+                const activeShelf = mShelves.find(s => s.name === activeLocation);
                 if (!activeShelf || activeShelf.roll_count === 0) {
-                    const firstMatch = res.shelves.find(s => s.roll_count > 0);
+                    const firstMatch = mShelves.find(s => s.roll_count > 0);
                     if (firstMatch) {
                         activeLocation = firstMatch.name;
                     }
                 }
-            } else if (!activeLocation || !res.shelves.find(s => s.name === activeLocation)) {
-                activeLocation = res.shelves[0].name;
+            } else if (!activeLocation || !mShelves.find(s => s.name === activeLocation)) {
+                activeLocation = mShelves[0].name;
             }
             lSel.value = activeLocation;
             await mLoad();
         } else {
             document.getElementById('mC').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">Không có kệ nào chứa vải tìm kiếm.</div>';
+            document.getElementById('mFLMaterialsContainer').style.display = 'none';
         }
     } catch(e) {
         toast('Lỗi tải kệ: ' + e.message, 'error');
@@ -243,6 +361,17 @@ async function mLoad(){
         const query = '/api/stockcheck/rolls?warehouse_id=' + activeWarehouseId + '&location=' + encodeURIComponent(activeLocation) + (mSearchText ? '&search=' + encodeURIComponent(mSearchText) : '');
         const r=await api(query);
         mr=r.rolls||[];
+        
+        // Show materials list for current shelf
+        const curShelf = mShelves.find(s => s.name === activeLocation);
+        const matTextEl = document.getElementById('mFLMaterialsText');
+        const containerEl = document.getElementById('mFLMaterialsContainer');
+        if (curShelf && curShelf.materials_list) {
+            matTextEl.textContent = curShelf.materials_list;
+            containerEl.style.display = 'block';
+        } else {
+            containerEl.style.display = 'none';
+        }
         
         // Refresh session stats in UI
         const sRes = await api('/api/stockcheck/session-status');
@@ -471,6 +600,198 @@ async function mInputWeight(rollId, systemWeight, rollImg) {
         }
     } else {
         await runCheck();
+    }
+}
+
+// ========== ADD SURPLUS MODAL (CÂY THỪA) ==========
+function mOpenAddSurplusModal() {
+    if (!activeWarehouseId || !activeLocation) {
+        toast('Vui lòng chọn Kho và Kệ trước khi khai báo cây thừa.', 'error');
+        return;
+    }
+
+    // Populate Materials selection from tree.tree
+    let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
+    if (tree && tree.tree) {
+        const currentWh = tree.tree.find(w => Number(w.id) === Number(activeWarehouseId));
+        if (currentWh && currentWh.materials) {
+            currentWh.materials.forEach(m => {
+                matOptions += `<option value="${m.id}">${m.name}</option>`;
+            });
+        }
+    }
+    matOptions += `<option value="[new]" style="color:#2dd4bf; font-weight:700;">➕ Tạo chất liệu mới...</option>`;
+
+    const modalHtml = `
+        <div class="m-modal-overlay" id="mSurplusModal">
+            <div class="m-modal">
+                <div class="m-modal-header">
+                    <div class="m-modal-title">Khai Báo Cây Vải Thừa (Ngoài Sơ Đồ)</div>
+                    <button class="m-modal-close" onclick="mCloseModal('mSurplusModal')">&times;</button>
+                </div>
+                <div class="m-modal-body">
+                    <!-- Material Selector -->
+                    <div class="m-form-group">
+                        <label class="m-form-label">Chất Liệu Vải</label>
+                        <select id="mSurplusMatSelect" class="m-form-input" onchange="mOnSurplusMatChange(this.value)" style="color:#e2e8f0; background:#1e293b;">
+                            ${matOptions}
+                        </select>
+                    </div>
+                    
+                    <div class="m-form-group" id="mSurplusNewMatGroup" style="display:none;">
+                        <label class="m-form-label" style="color:#2dd4bf;">Tên Chất Liệu Mới</label>
+                        <input type="text" id="mSurplusNewMatName" class="m-form-input" placeholder="Nhập tên chất liệu vải mới...">
+                    </div>
+
+                    <!-- Color Selector -->
+                    <div class="m-form-group">
+                        <label class="m-form-label">Màu Vải</label>
+                        <select id="mSurplusColorSelect" class="m-form-input" onchange="mOnSurplusColorChange(this.value)" style="color:#e2e8f0; background:#1e293b;">
+                            <option value="">-- Chọn chất liệu trước --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="m-form-group" id="mSurplusNewColorGroup" style="display:none;">
+                        <label class="m-form-label" style="color:#2dd4bf;">Tên Màu Vải Mới</label>
+                        <input type="text" id="mSurplusNewColorName" class="m-form-input" placeholder="Nhập tên màu vải mới...">
+                    </div>
+
+                    <!-- Details -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="m-form-group">
+                            <label class="m-form-label">Cân nặng (kg)</label>
+                            <input type="number" id="mSurplusWeight" class="m-form-input" placeholder="0.0" step="0.1" min="0.1">
+                        </div>
+                        <div class="m-form-group">
+                            <label class="m-form-label">Số Cây Thừa</label>
+                            <input type="number" id="mSurplusCount" class="m-form-input" value="1" min="1">
+                        </div>
+                    </div>
+
+                    <div class="m-form-group">
+                        <label class="m-form-label">Kệ chứa cây thừa</label>
+                        <input type="text" id="mSurplusLocation" class="m-form-input" value="${activeLocation}" readonly style="background: rgba(255,255,255,0.02); color:#94a3b8;">
+                    </div>
+
+                    <div class="m-form-group">
+                        <label class="m-form-label">Ghi Chú</label>
+                        <input type="text" id="mSurplusNote" class="m-form-input" placeholder="Ghi chú cây dư thừa phát hiện...">
+                    </div>
+                </div>
+                <div class="m-modal-footer">
+                    <button class="m-btn m-btn-secondary" onclick="mCloseModal('mSurplusModal')">Hủy</button>
+                    <button class="m-btn m-btn-primary" onclick="mSubmitSurplus()">Thêm Cây Vải</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove old modal container if exists
+    const oldContainer = document.getElementById('mSurplusModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'mSurplusModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+}
+
+function mCloseModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.parentElement.remove();
+}
+
+async function mOnSurplusMatChange(val) {
+    const colorSelect = document.getElementById('mSurplusColorSelect');
+    const newMatGroup = document.getElementById('mSurplusNewMatGroup');
+    const newColorGroup = document.getElementById('mSurplusNewColorGroup');
+    
+    if (val === '[new]') {
+        newMatGroup.style.display = 'block';
+        colorSelect.innerHTML = `<option value="[new]" selected>➕ Tạo màu vải mới...</option>`;
+        newColorGroup.style.display = 'block';
+        return;
+    } else {
+        newMatGroup.style.display = 'none';
+        newColorGroup.style.display = 'none';
+    }
+
+    if (!val) {
+        colorSelect.innerHTML = `<option value="">-- Chọn chất liệu trước --</option>`;
+        return;
+    }
+
+    // Load colors
+    let colorOptions = `<option value="">-- Chọn màu --</option>`;
+    try {
+        const res = await api('/api/stockcheck/rolls?material_id=' + val);
+        const colorSet = new Set();
+        const colors = [];
+        res.rolls.forEach(r => {
+            if (!colorSet.has(r.fabric_color_id)) {
+                colorSet.add(r.fabric_color_id);
+                colors.push({ id: r.fabric_color_id, name: r.color_name });
+            }
+        });
+        
+        colors.forEach(c => {
+            colorOptions += `<option value="${c.id}">${c.name}</option>`;
+        });
+    } catch(e) {
+        console.error('Cannot load colors', e);
+    }
+    colorOptions += `<option value="[new]" style="color:#2dd4bf; font-weight:700;">➕ Tạo màu mới...</option>`;
+    colorSelect.innerHTML = colorOptions;
+}
+
+function mOnSurplusColorChange(val) {
+    const newColorGroup = document.getElementById('mSurplusNewColorGroup');
+    if (val === '[new]') {
+        newColorGroup.style.display = 'block';
+    } else {
+        newColorGroup.style.display = 'none';
+    }
+}
+
+async function mSubmitSurplus() {
+    const materialId = document.getElementById('mSurplusMatSelect').value;
+    const newMatName = document.getElementById('mSurplusNewMatName').value;
+    const colorId = document.getElementById('mSurplusColorSelect').value;
+    const newColorName = document.getElementById('mSurplusNewColorName').value;
+    const weight = document.getElementById('mSurplusWeight').value;
+    const count = document.getElementById('mSurplusCount').value;
+    const location = document.getElementById('mSurplusLocation').value;
+    const note = document.getElementById('mSurplusNote').value;
+
+    if (!materialId) { toast('Vui lòng chọn chất liệu vải', 'error'); return; }
+    if (materialId === '[new]' && !newMatName.trim()) { toast('Nhập tên chất liệu vải mới', 'error'); return; }
+    if (!colorId) { toast('Vui lòng chọn màu vải', 'error'); return; }
+    if (colorId === '[new]' && !newColorName.trim()) { toast('Nhập tên màu vải mới', 'error'); return; }
+    if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { toast('Nhập trọng lượng hợp lệ', 'error'); return; }
+
+    try {
+        const body = {
+            warehouse_id: activeWarehouseId,
+            material_id: materialId,
+            new_material_name: newMatName,
+            color_id: colorId,
+            new_color_name: newColorName,
+            weight: Number(weight),
+            roll_count: Number(count),
+            location: location,
+            note: note
+        };
+
+        toast('⏳ Đang xử lý khai báo...');
+        await api('/api/stockcheck/add-surplus-full', 'POST', body);
+        toast('✅ Đã khai báo cây thừa thành công!', 'success');
+        mCloseModal('mSurplusModal');
+        
+        // Reload tree & list
+        tree = await api('/api/stockcheck/tree');
+        await mLoad();
+    } catch (e) {
+        toast(e.message || 'Lỗi khai báo cây thừa.', 'error');
     }
 }
 
