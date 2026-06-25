@@ -445,7 +445,26 @@ async function _qkvLoadData() {
             apiCall(`/api/khovai/materials${widParam}`)
         ]);
         
-        _qkv.locations = locRes.locations || [];
+        const locs = locRes.locations || [];
+        locs.sort((a, b) => {
+            const nameA = (a.name || '').trim().toLowerCase();
+            const nameB = (b.name || '').trim().toLowerCase();
+            const isReturnA = nameA === 'kệ dự định hoàn vải';
+            const isReturnB = nameB === 'kệ dự định hoàn vải';
+            const isThienLinhA = nameA === 'kệ 3d thiện linh';
+            const isThienLinhB = nameB === 'kệ 3d thiện linh';
+
+            if (isReturnA && !isReturnB) return 1;
+            if (!isReturnA && isReturnB) return -1;
+            if (isThienLinhA && !isThienLinhB) {
+                return isReturnB ? -1 : 1;
+            }
+            if (!isThienLinhA && isThienLinhB) {
+                return isReturnA ? 1 : -1;
+            }
+            return a.id - b.id;
+        });
+        _qkv.locations = locs;
         _qkv.summary = sumRes.summary || [];
         _qkv.materials = matRes.materials || [];
         

@@ -181,7 +181,36 @@ async function _kkLoadShelves() {
     try {
         const query = '/api/stockcheck/shelves?warehouse_id=' + _kk.activeWarehouseId + (_kk.search ? '&search=' + encodeURIComponent(_kk.search) : '');
         const res = await apiCall(query);
-        _kk.shelves = res.shelves || [];
+        const shelves = res.shelves || [];
+        shelves.sort((a, b) => {
+            const nameA = (a.name || '').trim().toLowerCase();
+            const nameB = (b.name || '').trim().toLowerCase();
+            
+            const isUnassignedA = nameA.includes('chưa xếp kệ');
+            const isUnassignedB = nameB.includes('chưa xếp kệ');
+            const isReturnA = nameA === 'kệ dự định hoàn vải';
+            const isReturnB = nameB === 'kệ dự định hoàn vải';
+            const isThienLinhA = nameA === 'kệ 3d thiện linh';
+            const isThienLinhB = nameB === 'kệ 3d thiện linh';
+
+            if (isUnassignedA && !isUnassignedB) return 1;
+            if (!isUnassignedA && isUnassignedB) return -1;
+            if (isUnassignedA && isUnassignedB) {
+                return nameA.includes('nguyên') ? -1 : 1;
+            }
+
+            if (isReturnA && !isReturnB) return 1;
+            if (!isReturnA && isReturnB) return -1;
+
+            if (isThienLinhA && !isThienLinhB) {
+                return isReturnB ? -1 : 1;
+            }
+            if (!isThienLinhA && isThienLinhB) {
+                return isReturnA ? 1 : -1;
+            }
+            return 0;
+        });
+        _kk.shelves = shelves;
         if (_kk.shelves.length > 0) {
             if (!_kk.activeLocation) {
                 _kk.activeLocation = _kk.shelves[0].name;
