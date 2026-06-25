@@ -296,15 +296,16 @@ module.exports = async function(fastify) {
         let where = 'WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true', params = [], idx = 1;
 
         if (location) {
-            if (location === 'unassigned_nguyen') {
+            const locClean = location.trim();
+            if (locClean === 'unassigned_nguyen' || locClean === 'Chưa xếp kệ - Cây Nguyên') {
                 where += ` AND m.warehouse_id=$${idx++} AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(r.location) NOT IN (SELECT LOWER(name) FROM kv_locations WHERE warehouse_id = m.warehouse_id)) AND r.weight >= r.original_weight`;
                 params.push(Number(warehouse_id));
-            } else if (location === 'unassigned_le') {
+            } else if (locClean === 'unassigned_le' || locClean === 'Chưa xếp kệ - Cây Lẻ') {
                 where += ` AND m.warehouse_id=$${idx++} AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(r.location) NOT IN (SELECT LOWER(name) FROM kv_locations WHERE warehouse_id = m.warehouse_id)) AND r.weight < r.original_weight`;
                 params.push(Number(warehouse_id));
             } else {
                 where += ` AND m.warehouse_id=$${idx++} AND LOWER(r.location) = LOWER($${idx++})`;
-                params.push(Number(warehouse_id), location.trim());
+                params.push(Number(warehouse_id), locClean);
             }
         } else if (material_id) {
             where += ` AND fc.material_id=$${idx++}`;
