@@ -131,7 +131,7 @@ module.exports = async function(fastify) {
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
-            WHERE r.is_returned = false AND fc.is_active = true AND m.is_active = true
+            WHERE r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0
         `);
 
         // Create session entry in database
@@ -201,7 +201,7 @@ module.exports = async function(fastify) {
         if (!warehouseId) return { shelves: [] };
 
         const search = req.query.search;
-        let rollFilter = 'r.is_returned = false AND fc.is_active = true AND m.is_active = true';
+        let rollFilter = 'r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0';
         let params = [warehouseId];
         let idx = 2;
         if (search && search.trim()) {
@@ -288,24 +288,24 @@ module.exports = async function(fastify) {
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
                        JOIN kv_materials m ON m.id=fc.material_id
-                       WHERE m.warehouse_id=w.id AND r.is_returned=false AND fc.is_active=true AND m.is_active=true),0)::int AS roll_count,
+                       WHERE m.warehouse_id=w.id AND r.is_returned=false AND fc.is_active=true AND m.is_active=true AND r.weight > 0),0)::int AS roll_count,
                    COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
                        JOIN kv_materials m ON m.id=fc.material_id
-                       WHERE m.warehouse_id=w.id AND r.is_returned=false AND fc.is_active=true AND m.is_active=true),0)::numeric AS total_weight
+                       WHERE m.warehouse_id=w.id AND r.is_returned=false AND fc.is_active=true AND m.is_active=true AND r.weight > 0),0)::numeric AS total_weight
             FROM kv_warehouses w WHERE w.is_active=true ORDER BY w.display_order, w.id`);
         for (const w of warehouses) {
             w.materials = await db.all(`
                 SELECT m.id, m.name,
                        COALESCE((SELECT COUNT(*) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
-                           WHERE fc.material_id=m.id AND r.is_returned=false AND fc.is_active=true),0)::int AS roll_count,
+                           WHERE fc.material_id=m.id AND r.is_returned=false AND fc.is_active=true AND r.weight > 0),0)::int AS roll_count,
                        COALESCE((SELECT SUM(r.weight) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
-                           WHERE fc.material_id=m.id AND r.is_returned=false AND fc.is_active=true),0)::numeric AS total_weight
+                           WHERE fc.material_id=m.id AND r.is_returned=false AND fc.is_active=true AND r.weight > 0),0)::numeric AS total_weight
                 FROM kv_materials m WHERE m.warehouse_id=$1 AND m.is_active=true ORDER BY m.display_order, m.name`, [w.id]);
         }
         const totals = await db.get(`SELECT
-            COALESCE((SELECT COUNT(*) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id JOIN kv_materials m ON m.id=fc.material_id JOIN kv_warehouses w ON w.id=m.warehouse_id WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true),0)::int AS total_rolls,
-            COALESCE((SELECT SUM(r.weight) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id JOIN kv_materials m ON m.id=fc.material_id JOIN kv_warehouses w ON w.id=m.warehouse_id WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true),0)::numeric AS total_weight`);
+            COALESCE((SELECT COUNT(*) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id JOIN kv_materials m ON m.id=fc.material_id JOIN kv_warehouses w ON w.id=m.warehouse_id WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0),0)::int AS total_rolls,
+            COALESCE((SELECT SUM(r.weight) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id JOIN kv_materials m ON m.id=fc.material_id JOIN kv_warehouses w ON w.id=m.warehouse_id WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0),0)::numeric AS total_weight`);
         const checked = await db.get(`SELECT COUNT(*)::int AS cnt FROM stockcheck_records WHERE is_checked=true`);
         return { tree: warehouses, totals: totals || {total_rolls:0,total_weight:0}, checked_count: (checked||{}).cnt||0 };
     });
@@ -313,7 +313,7 @@ module.exports = async function(fastify) {
     // ========== LIST — Rolls per shelf/material with stockcheck data ==========
     fastify.get('/api/stockcheck/rolls', { preHandler: [authenticate] }, async (req) => {
         const { material_id, warehouse_id, search, location } = req.query;
-        let where = 'WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true', params = [], idx = 1;
+        let where = 'WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0', params = [], idx = 1;
 
         if (location) {
             const locClean = location.trim();
