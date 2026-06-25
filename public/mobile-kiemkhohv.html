@@ -393,7 +393,9 @@ async function onWhChange(){
         });
         
         if (mShelves.length > 0) {
-            if (mSearchText) {
+            if (activeLocation === 'all_shelves') {
+                // Keep the global view mode
+            } else if (mSearchText) {
                 const activeShelf = mShelves.find(s => s.name === activeLocation);
                 if (!activeShelf || activeShelf.roll_count === 0) {
                     const firstMatch = mShelves.find(s => s.roll_count > 0);
@@ -401,7 +403,7 @@ async function onWhChange(){
                         activeLocation = firstMatch.name;
                     }
                 }
-            } else if (!activeLocation || (activeLocation !== 'all_shelves' && !mShelves.find(s => s.name === activeLocation))) {
+            } else if (!activeLocation || !mShelves.find(s => s.name === activeLocation)) {
                 activeLocation = mShelves[0].name;
             }
             lSel.value = activeLocation;
