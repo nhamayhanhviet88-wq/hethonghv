@@ -1701,8 +1701,8 @@ window.submitUnpostpone = submitUnpostpone;
 
 // Helper check role for confirm2 & postpone return
 function isAccountantOrMgmtFront() {
-    if (!window.currentUser) return false;
-    var u = window.currentUser;
+    var u = window._currentUser || window.currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
+    if (!u) return false;
     if (u.role === 'giam_doc' || u.role === 'quan_ly_cap_cao' || u.role === 'ke_toan') return true;
     if (u.full_name === 'Lê Việt Trinh' || u.username === 'leviettrinh' || u.username === 'trinh.lvt') return true;
     if (u.department_name && (u.department_name.toLowerCase().includes('kế toán') || u.department_name.toLowerCase().includes('ke toan'))) return true;
