@@ -212,11 +212,21 @@
                 </button>
             </div>
         </div>
+        <!-- Global Progress Bar -->
+        <div style="padding: 12px 16px 4px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: #94a3b8;">
+                <span>📊 TIẾN ĐỘ TOÀN KHO:</span>
+                <span id="mGlobalProgressText" style="color: #5eead4;">0 / 0 cây (0%)</span>
+            </div>
+            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                <div id="mGlobalProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #14b8a6, #10b981); transition: width 0.3s ease;"></div>
+            </div>
+        </div>
         <div id="mSB" class="ms">
-            <div style="background:linear-gradient(135deg,#0d9488,#14b8a6)"><div class="mv" id="sT">0</div><div class="ml">TỔNG CÂY</div></div>
-            <div style="background:linear-gradient(135deg,#0f766e,#0d9488)"><div class="mv" id="sW">0</div><div class="ml">TỔNG KG</div></div>
-            <div style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mv" id="sC">0</div><div class="ml">ĐÃ KIỂM</div></div>
-            <div style="background:linear-gradient(135deg,#f59e0b,#d97706)"><div class="mv" id="sU">0</div><div class="ml">CHƯA KIỂM</div></div>
+            <div style="background:linear-gradient(135deg,#0d9488,#14b8a6)"><div class="mv" id="sT">0</div><div class="ml">TỔNG CÂY KỆ</div></div>
+            <div style="background:linear-gradient(135deg,#0f766e,#0d9488)"><div class="mv" id="sW">0</div><div class="ml">TỔNG KG KỆ</div></div>
+            <div style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mv" id="sC">0</div><div class="ml">ĐÃ KIỂM KỆ</div></div>
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706)"><div class="mv" id="sU">0</div><div class="ml">CHƯA KIỂM KỆ</div></div>
         </div>
         <div class="mc" id="mC">
             <div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div>
@@ -399,16 +409,27 @@ async function mLoad(){
         
         // Refresh session stats in UI
         const treeRes = await api('/api/stockcheck/tree');
-        const checkedCount = treeRes.checked_count || 0;
-        const totalRolls = treeRes.totals ? treeRes.totals.total_rolls || 0 : 0;
+        const globalChecked = treeRes.checked_count || 0;
+        const globalTotal = treeRes.totals ? treeRes.totals.total_rolls || 0 : 0;
+        const globalPct = globalTotal > 0 ? Math.min(100, Math.round((globalChecked / globalTotal) * 100)) : 0;
         
-        document.getElementById('sT').textContent=mr.length; // Local shelf count
-        document.getElementById('sC').textContent=checkedCount; // Global completed
-        document.getElementById('sU').textContent=totalRolls - checkedCount; // Global remaining
-        
-        // Calculate shelf weight
-        const totalW = mr.reduce((s,r)=>s+Number(r.system_weight||0),0);
-        document.getElementById('sW').textContent=fn(totalW);
+        // Update global progress bar
+        const progressTextEl = document.getElementById('mGlobalProgressText');
+        const progressBarEl = document.getElementById('mGlobalProgressBar');
+        if (progressTextEl && progressBarEl) {
+            progressTextEl.textContent = `${globalChecked} / ${globalTotal} cây (${globalPct}%)`;
+            progressBarEl.style.width = `${globalPct}%`;
+        }
+
+        // Calculate shelf-specific statistics
+        const shelfChecked = mr.filter(r => r.is_checked).length;
+        const shelfUnchecked = mr.length - shelfChecked;
+        const shelfWeight = mr.reduce((sum, r) => sum + Number(r.system_weight || 0), 0);
+
+        document.getElementById('sT').textContent = mr.length; // Total rolls on current shelf
+        document.getElementById('sW').textContent = fn(shelfWeight); // Total system weight on current shelf
+        document.getElementById('sC').textContent = shelfChecked; // Checked rolls on current shelf
+        document.getElementById('sU').textContent = shelfUnchecked; // Unchecked rolls on current shelf
         
         mCards();
     }catch(e){
