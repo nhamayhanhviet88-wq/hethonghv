@@ -191,7 +191,7 @@
                 <select id="mFW" onchange="onWhChange()"><option value="">Chọn kho</option></select>
             </div>
             <div class="mf-row">
-                <select id="mFL" onchange="mLoad()"><option value="">-- Chọn Kệ Kiểm --</option></select>
+                <select id="mFL" onchange="mFilterStatus='all'; mLoad()"><option value="">-- Chọn Kệ Kiểm --</option></select>
             </div>
             <div class="mf-row" id="mFLPositionContainer" style="display:none; margin-top:-4px;">
                 <div style="font-size:11px; color:#fde047; background:rgba(250,204,21,0.1); border:1px solid rgba(250,204,21,0.2); border-radius:8px; padding:6px 10px; width:100%; word-break:break-word;">
@@ -223,10 +223,10 @@
             </div>
         </div>
         <div id="mSB" class="ms">
-            <div style="background:linear-gradient(135deg,#0d9488,#14b8a6)"><div class="mv" id="sT">0</div><div class="ml">TỔNG CÂY KỆ</div></div>
-            <div style="background:linear-gradient(135deg,#0f766e,#0d9488)"><div class="mv" id="sW">0</div><div class="ml">TỔNG KG KỆ</div></div>
-            <div style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mv" id="sC">0</div><div class="ml">ĐÃ KIỂM KỆ</div></div>
-            <div style="background:linear-gradient(135deg,#f59e0b,#d97706)"><div class="mv" id="sU">0</div><div class="ml">CHƯA KIỂM KỆ</div></div>
+            <div onclick="mSetFilter('all')" style="background:linear-gradient(135deg,#0d9488,#14b8a6); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sT">0</div><div class="ml">TỔNG CÂY KỆ</div></div>
+            <div style="background:linear-gradient(135deg,#0f766e,#0d9488);"><div class="mv" id="sW">0</div><div class="ml">TỔNG KG KỆ</div></div>
+            <div onclick="mSetFilter('checked')" style="background:linear-gradient(135deg,#059669,#10b981); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sC">0</div><div class="ml">ĐÃ KIỂM KỆ</div></div>
+            <div onclick="mSetFilter('unchecked')" style="background:linear-gradient(135deg,#f59e0b,#d97706); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sU">0</div><div class="ml">CHƯA KIỂM KỆ</div></div>
         </div>
         <div class="mc" id="mC">
             <div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div>
@@ -250,7 +250,7 @@
 let cu=null, mr=[], tree=null, activeSession=null, photoMode='none';
 let activeWarehouseId=null, activeLocation=null, mShelves=[];
 let pendingPhotoCallback=null;
-let mSearchText='', mSearchTimeout=null;
+let mSearchText='', mSearchTimeout=null, mFilterStatus='all';
 
 async function api(u,m='GET',b=null){
     const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};
@@ -336,6 +336,7 @@ async function mInit(){
 }
 
 async function onWhChange(){
+    mFilterStatus = 'all';
     activeWarehouseId = document.getElementById('mFW')?.value || '';
     if (!activeWarehouseId) return;
     
@@ -431,9 +432,59 @@ async function mLoad(){
         document.getElementById('sC').textContent = shelfChecked; // Checked rolls on current shelf
         document.getElementById('sU').textContent = shelfUnchecked; // Unchecked rolls on current shelf
         
+        mUpdateFilterUI();
         mCards();
     }catch(e){
         document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'
+    }
+}
+
+function mSetFilter(status) {
+    mFilterStatus = status;
+    mUpdateFilterUI();
+    mCards();
+}
+
+function mUpdateFilterUI() {
+    const boxTotal = document.getElementById('sT') ? document.getElementById('sT').parentElement : null;
+    const boxChecked = document.getElementById('sC') ? document.getElementById('sC').parentElement : null;
+    const boxUnchecked = document.getElementById('sU') ? document.getElementById('sU').parentElement : null;
+    
+    if (!boxTotal || !boxChecked || !boxUnchecked) return;
+
+    // Reset styles
+    boxTotal.style.opacity = '1';
+    boxTotal.style.transform = 'none';
+    boxTotal.style.boxShadow = 'none';
+    boxTotal.style.border = 'none';
+    
+    boxChecked.style.opacity = '1';
+    boxChecked.style.transform = 'none';
+    boxChecked.style.boxShadow = 'none';
+    boxChecked.style.border = 'none';
+    
+    boxUnchecked.style.opacity = '1';
+    boxUnchecked.style.transform = 'none';
+    boxUnchecked.style.boxShadow = 'none';
+    boxUnchecked.style.border = 'none';
+    
+    if (mFilterStatus === 'checked') {
+        boxTotal.style.opacity = '0.55';
+        boxUnchecked.style.opacity = '0.55';
+        boxChecked.style.transform = 'scale(1.03)';
+        boxChecked.style.boxShadow = '0 0 12px rgba(16,185,129,0.3)';
+        boxChecked.style.border = '1px solid rgba(16,185,129,0.6)';
+    } else if (mFilterStatus === 'unchecked') {
+        boxTotal.style.opacity = '0.55';
+        boxChecked.style.opacity = '0.55';
+        boxUnchecked.style.transform = 'scale(1.03)';
+        boxUnchecked.style.boxShadow = '0 0 12px rgba(245,158,11,0.3)';
+        boxUnchecked.style.border = '1px solid rgba(245,158,11,0.6)';
+    } else {
+        // 'all'
+        boxTotal.style.transform = 'scale(1.03)';
+        boxTotal.style.boxShadow = '0 0 12px rgba(20,184,166,0.3)';
+        boxTotal.style.border = '1px solid rgba(20,184,166,0.6)';
     }
 }
 
@@ -452,9 +503,25 @@ function mCards(){
         return;
     }
     
+    // Apply status filter
+    let displayRolls = mr;
+    if (mFilterStatus === 'checked') {
+        displayRolls = mr.filter(r => r.is_checked);
+    } else if (mFilterStatus === 'unchecked') {
+        displayRolls = mr.filter(r => !r.is_checked);
+    }
+
+    if (!displayRolls.length) {
+        let msg = 'Kệ trống hoặc đã kiểm hết';
+        if (mFilterStatus === 'checked') msg = 'Chưa có cây vải nào đã kiểm trên kệ này';
+        if (mFilterStatus === 'unchecked') msg = 'Kệ này đã được kiểm xong tất cả!';
+        c.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:700">${msg}</div></div>`;
+        return;
+    }
+    
     // Group by material/color
     const groups={},order=[];
-    mr.forEach(r=>{
+    displayRolls.forEach(r=>{
         const k=r.material_name+' - '+r.color_name;
         if(!groups[k]){groups[k]=[];order.push(k)}
         groups[k].push(r);
