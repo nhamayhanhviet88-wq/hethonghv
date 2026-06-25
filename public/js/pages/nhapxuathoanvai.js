@@ -539,7 +539,7 @@ function renderAllRollsList(searchTerm = '') {
                 const isNguyen = Number(r.w) >= Number(r.ow);
                 const rollLoc = (r.loc || '').trim();
                 const isUnassigned = !rollLoc || rollLoc === 'Chưa Phân Vị Trí Cây Nguyên' || rollLoc === 'Chưa xếp kệ' || rollLoc === 'Chưa xếp vị trí';
-                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0) && !r.return_tx_id && !r.return_requested;
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0) && !r.return_tx_id;
                 return isNguyen && isUnassigned && isFree;
             });
             groupTitle = '🛠️ 1. CÂY NGUYÊN CẦN XỬ LÝ KHO';
@@ -549,7 +549,7 @@ function renderAllRollsList(searchTerm = '') {
                 const isNguyen = Number(r.w) >= Number(r.ow);
                 const rollLoc = (r.loc || '').trim();
                 const isOnShelf = rollLoc !== '' && rollLoc !== 'Chưa Phân Vị Trí Cây Nguyên' && rollLoc !== 'Chưa xếp kệ' && rollLoc !== 'Chưa xếp vị trí';
-                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0) && !r.return_tx_id && !r.return_requested;
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0) && !r.return_tx_id;
                 return isNguyen && isOnShelf && isFree;
             });
             groupTitle = '📍 2. CÂY NGUYÊN Ở CÁC KỆ';
@@ -557,7 +557,7 @@ function renderAllRollsList(searchTerm = '') {
         } else if (_selectedRetType === 3) {
             filtered = rolls.filter(r => {
                 const isLe = Number(r.w) < Number(r.ow);
-                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0) && !r.return_tx_id && !r.return_requested;
+                const isFree = !r.locked_by_cutting_id && !r.active_cut && (!r.active_reservations || r.active_reservations.length === 0) && !r.return_tx_id;
                 return isLe && isFree;
             });
             groupTitle = '✂️ 3. CÁC CÂY LẺ Ở KHO VẢI';
@@ -861,8 +861,31 @@ async function _nxhvCheckAutoOpenReturn() {
     if (!rollId) return;
     sessionStorage.removeItem('auto_open_return_roll_id');
     
-    // Automatically select Type 1 (Cây nguyên cần xử lý kho)
-    selectRetType(1);
+    // Automatically find the correct return type
+    let foundRoll = null;
+    let foundType = 1; // default to 1
+    for (const colorObj of _retSummaryData) {
+        const rolls = colorObj.roll_weights || [];
+        const r = rolls.find(item => item.id == rollId);
+        if (r) {
+            foundRoll = r;
+            const isNguyen = Number(r.w) >= Number(r.ow);
+            if (isNguyen) {
+                const rollLoc = (r.loc || '').trim();
+                const isUnassigned = !rollLoc || rollLoc === 'Chưa Phân Vị Trí Cây Nguyên' || rollLoc === 'Chưa xếp kệ' || rollLoc === 'Chưa xếp vị trí';
+                if (isUnassigned) {
+                    foundType = 1;
+                } else {
+                    foundType = 2;
+                }
+            } else {
+                foundType = 3;
+            }
+            break;
+        }
+    }
+    
+    selectRetType(foundType);
     
     // Wait for the roll elements to render in DOM
     setTimeout(function() {
