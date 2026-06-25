@@ -35,7 +35,7 @@
         .df{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:800}
         .df.ok{background:rgba(16,185,129,.2);color:#6ee7b7}.df.short{background:rgba(239,68,68,.2);color:#fca5a5}.df.over{background:rgba(59,130,246,.2);color:#93c5fd}.df.none{background:rgba(148,163,184,.1);color:#94a3b8}
         
-        .ca{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;border-top:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,0.15);}
+        .ca{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:8px;border-top:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,0.15);}
         .ab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 2px;border-radius:8px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#94a3b8;cursor:pointer;transition:all 0.1s;-webkit-tap-highlight-color:transparent}
         .ab:active{transform:scale(.92)}
         .ab .ai{font-size:16px}
@@ -471,14 +471,6 @@ function mCards(){
                         ${r.sc_notes?`<div class="cr"><span class="cl">📝 Ghi Chú</span><span class="cv" style="font-size:11px">${r.sc_notes}</span></div>`:''}
                     </div>
                     <div class="ca">
-                        <button class="ab ${cA?'on':''}" onclick="mMarkPresent(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
-                            <span class="ai">📋</span>
-                            <span class="al">CÓ MẶT</span>
-                        </button>
-                        <button class="ab red" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
-                            <span class="ai">❌</span>
-                            <span class="al">BÁO MẤT</span>
-                        </button>
                         <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
                             <span class="ai">📝</span>
                             <span class="al">NHẬP CÂN</span>
@@ -486,6 +478,10 @@ function mCards(){
                         <button class="ab" onclick="mTriggerCamera(${r.roll_id})">
                             <span class="ai">📷</span>
                             <span class="al">CHỤP ẢNH</span>
+                        </button>
+                        <button class="ab red" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
+                            <span class="ai">❌</span>
+                            <span class="al">BÁO MẤT</span>
                         </button>
                     </div>
                 </div>`;

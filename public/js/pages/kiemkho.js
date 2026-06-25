@@ -681,10 +681,9 @@ async function _kkRenderAudit(content) {
                             </td>
                             <td class="text-center">
                                 <div style="display:flex; align-items:center; justify-content:center; gap:2px;">
-                                    ${photoBtn}
-                                    <button class="kk-action-btn green" onclick="event.stopPropagation(); _kkMarkPresent(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📋 Có mặt (Khớp)">📋</button>
-                                    <button class="kk-action-btn red" onclick="event.stopPropagation(); _kkMarkMissing(${r.roll_id}, '${r.roll_code}')" title="❌ Báo mất">❌</button>
                                     <button class="kk-action-btn blue" onclick="event.stopPropagation(); _kkInputWeightPrompt(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📝 Nhập thực tế">📝</button>
+                                    ${photoBtn}
+                                    <button class="kk-action-btn red" onclick="event.stopPropagation(); _kkMarkMissing(${r.roll_id}, '${r.roll_code}')" title="❌ Báo mất">❌</button>
                                 </div>
                             </td>
                         </tr>
