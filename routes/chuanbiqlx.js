@@ -3515,6 +3515,41 @@ module.exports = async function(fastify) {
 
         await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = $2 WHERE id = $3', ['released', now, request.params.id]);
 
+        if (res.roll_id) {
+            const roll = await db.get('SELECT id, roll_code, location, original_location, return_tx_id FROM kv_rolls WHERE id = $1', [res.roll_id]);
+            if (roll) {
+                const otherActiveRes = await db.get(`
+                    SELECT 1 FROM qlx_fabric_reservations
+                    WHERE roll_id = $1 AND status IN ('reserved', 'arrived', 'fulfilled') AND id != $2
+                    LIMIT 1
+                `, [roll.id, res.id]);
+                if (!otherActiveRes) {
+                    if (roll.location === '📍 Kệ Dự Định Hoàn Vải' || roll.original_location === '📍 Kệ Dự Định Hoàn Vải') {
+                        await db.run(`
+                            UPDATE kv_rolls 
+                            SET return_requested = true, 
+                                return_requested_by = $1, 
+                                return_requested_at = $2 
+                            WHERE id = $3
+                        `, [request.user.id, now, roll.id]);
+                    }
+                    if (roll.return_tx_id) {
+                        const txId = roll.return_tx_id;
+                        const tx = await db.get('SELECT notes FROM fabric_transactions WHERE id = $1', [txId]);
+                        let cleanNotes = tx ? (tx.notes || '') : '';
+                        if (cleanNotes.startsWith('[ĐÃ HỦY] ')) {
+                            cleanNotes = cleanNotes.substring('[ĐÃ HỦY] '.length);
+                        } else {
+                            cleanNotes = cleanNotes.replace(/QLX chọn cắt\s+\S+/g, '').trim();
+                        }
+                        await db.run(`UPDATE fabric_transactions SET is_canceled = false, notes = $1, updated_at = $2 WHERE id = $3`, [cleanNotes, now, txId]);
+                        await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'uncancel', $2, $3, $4)`, 
+                            [txId, `Hoàn tác hủy do QLX hủy giữ/đánh dấu cắt cây vải ${roll.roll_code || roll.id}`, request.user.id, now]);
+                    }
+                }
+            }
+        }
+
         // Check if there are any active reservations left for this item_id & phoi_index
         const activeRes = await db.get(`
             SELECT 1 FROM qlx_fabric_reservations
