@@ -2172,7 +2172,8 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                     called_for_orders: live.called_for_orders,
                     is_original_tree: live.is_original_tree,
                     is_newly_synced: isNewlySynced,
-                    is_added_roll: sr.is_added_roll || false
+                    is_added_roll: sr.is_added_roll || false,
+                    is_reserved_for_this_order: live.is_reserved_for_this_order || false
                 };
             } else {
                 return {
@@ -2187,7 +2188,8 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                     called_for_orders: [],
                     is_original_tree: sr.is_original_tree || false,
                     is_newly_synced: isNewlySynced,
-                    is_added_roll: sr.is_added_roll || false
+                    is_added_roll: sr.is_added_roll || false,
+                    is_reserved_for_this_order: false
                 };
             }
         });
@@ -2261,7 +2263,7 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
                 }
                 locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+rl.roll_loc_name+'</div>';
             }
-            var isArrivedCalled = rl.is_added_roll || rl.is_newly_synced;
+            var isArrivedCalled = (rl.is_added_roll || rl.is_newly_synced) && rl.is_reserved_for_this_order;
             var calledBadge = isArrivedCalled ? '<span style="background:#10b981;color:#fff;font-size:9.5px;padding:2px 6px;border-radius:6px;font-weight:800;margin-top:4px;display:inline-block">✨ CÂY GỌI THÊM ĐÃ VỀ</span>' : '';
 
             h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
