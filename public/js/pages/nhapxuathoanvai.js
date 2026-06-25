@@ -965,12 +965,12 @@ function openViewReturnModal(id) {
         const ia = typeof r.bill_images === 'string' ? JSON.parse(r.bill_images) : r.bill_images;
         if (ia && ia.length) {
             imgsHTML = `
-                <div style="border-top:1px solid #e2e8f0; margin-top:12px; padding-top:8px;">
-                    <label style="font-weight:700; display:block; margin-bottom:6px;">📸 Ảnh Hóa Đơn / Bill Hoàn:</label>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <div style="margin-top:8px;">
+                    <span style="font-weight:700; display:block; margin-bottom:4px; font-size:11px; color:#1e40af;">📸 Ảnh Hóa Đơn / Bill Hoàn:</span>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         ${ia.map(url => `
                             <a href="${url}" target="_blank">
-                                <img src="${url}" style="width:100px; height:100px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1;" />
+                                <img src="${url}" style="width:80px; height:80px; object-fit:cover; border-radius:6px; border:1px solid #bfdbfe;" />
                             </a>
                         `).join('')}
                     </div>
@@ -1001,12 +1001,15 @@ function openViewReturnModal(id) {
             try {
                 var actImgs = typeof r.actual_quantity_images === 'string' ? JSON.parse(r.actual_quantity_images) : r.actual_quantity_images;
                 if (actImgs && actImgs.length) {
-                    actualImgsHTML = '<div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">' +
-                        actImgs.map(function(url) {
-                            return '<a href="' + url + '" target="_blank">' +
-                                   '<img src="' + url + '" style="max-height:80px; border-radius:6px; border:1px solid #cbd5e1;" />' +
-                                   '</a>';
-                        }).join('') +
+                    actualImgsHTML = '<div style="margin-top:8px;">' +
+                        '<span style="font-weight:700; display:block; margin-bottom:4px; font-size:11px; color:#b45309;">📸 Ảnh sai số kg:</span>' +
+                        '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
+                            actImgs.map(function(url) {
+                                return '<a href="' + url + '" target="_blank">' +
+                                       '<img src="' + url + '" style="width:80px; height:80px; object-fit:cover; border-radius:6px; border:1px solid #fcd34d;" />' +
+                                       '</a>';
+                            }).join('') +
+                        '</div>' +
                     '</div>';
                 }
             } catch(e) {}
@@ -1020,6 +1023,7 @@ function openViewReturnModal(id) {
                         <strong style="color:#1e40af; display:block; margin-bottom:4px;">⬜ Xác nhận lần 1 (Đã giao NCC):</strong>
                         <span style="display:block;">• Người duyệt: <b>${ap1By}</b></span>
                         <span style="display:block;">• Thời gian: <b>${ap1At}</b></span>
+                        ${imgsHTML}
                     </div>
                     <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:10px;">
                         <strong style="color:#d97706; display:block; margin-bottom:4px;">🟨 Xác nhận lần 2 (Kế toán):</strong>
@@ -1087,7 +1091,6 @@ function openViewReturnModal(id) {
                         <input type="text" value="${_nxhvFN(r.payment)}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />
                     </div>
                 </div>
-                ${imgsHTML}
                 ${confirmHTML}
             </div>
         </div>
