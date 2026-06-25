@@ -172,10 +172,21 @@ async function _kkLoadHistoryAndSummary() {
 async function _kkLoadShelves() {
     if (!_kk.activeWarehouseId) return;
     try {
-        const res = await apiCall('/api/stockcheck/shelves?warehouse_id=' + _kk.activeWarehouseId);
+        const query = '/api/stockcheck/shelves?warehouse_id=' + _kk.activeWarehouseId + (_kk.search ? '&search=' + encodeURIComponent(_kk.search) : '');
+        const res = await apiCall(query);
         _kk.shelves = res.shelves || [];
-        if (_kk.shelves.length > 0 && !_kk.activeLocation) {
-            _kk.activeLocation = _kk.shelves[0].name;
+        if (_kk.shelves.length > 0) {
+            if (!_kk.activeLocation) {
+                _kk.activeLocation = _kk.shelves[0].name;
+            } else if (_kk.search) {
+                const activeShelf = _kk.shelves.find(s => s.name === _kk.activeLocation);
+                if (!activeShelf || activeShelf.roll_count === 0) {
+                    const firstMatch = _kk.shelves.find(s => s.roll_count > 0);
+                    if (firstMatch) {
+                        _kk.activeLocation = firstMatch.name;
+                    }
+                }
+            }
         }
         await _kkLoadRolls();
     } catch (e) {
@@ -493,8 +504,9 @@ async function _kkRenderAudit(content) {
     _kk.shelves.forEach(s => {
         const isActive = s.name === _kk.activeLocation;
         const materialsText = s.materials_list ? s.materials_list : 'Chưa có vải';
+        const isDimmed = _kk.search && s.roll_count === 0;
         shelfItemsHtml += `
-            <div class="kk-sb-item ${isActive ? 'active' : ''}" onclick="_kkSelectShelf('${s.name}')" style="display:flex; flex-direction:column; align-items:stretch; padding:10px 12px; gap:4px;">
+            <div class="kk-sb-item ${isActive ? 'active' : ''}" onclick="_kkSelectShelf('${s.name}')" style="display:flex; flex-direction:column; align-items:stretch; padding:10px 12px; gap:4px; opacity:${isDimmed ? 0.4 : 1.0}; transition:opacity 0.2s;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                     <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700;">📍 ${s.name}</span>
                     <span class="kk-badge">${s.roll_count} cây</span>
@@ -719,7 +731,7 @@ function _kkSearchRolls(val) {
     clearTimeout(_kkSearchTimeout);
     _kkSearchTimeout = setTimeout(async () => {
         _kk.search = val.trim();
-        await _kkLoadRolls();
+        await _kkLoadShelves();
         const content = _kkGetContainer();
         if (content) {
             _kkRenderMain(content);

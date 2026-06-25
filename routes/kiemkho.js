@@ -200,24 +200,33 @@ module.exports = async function(fastify) {
         const warehouseId = Number(req.query.warehouse_id);
         if (!warehouseId) return { shelves: [] };
 
+        const search = req.query.search;
+        let rollFilter = 'r.is_returned = false AND fc.is_active = true AND m.is_active = true';
+        let params = [warehouseId];
+        let idx = 2;
+        if (search && search.trim()) {
+            rollFilter += ` AND (fc.color_name ILIKE $${idx} OR m.name ILIKE $${idx} OR r.roll_code ILIKE $${idx})`;
+            params.push(`%${search.trim()}%`);
+        }
+
         // 1. Get real shelves with stats
         const shelves = await db.all(`
             SELECT l.id, l.name, l.description,
                    COALESCE((SELECT COUNT(*)::int FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND r.is_returned = false AND fc.is_active = true AND m.is_active = true AND LOWER(r.location) = LOWER(l.name)), 0) AS roll_count,
+                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(r.location) = LOWER(l.name) AND ${rollFilter}), 0) AS roll_count,
                    COALESCE((SELECT SUM(r.weight)::numeric FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND r.is_returned = false AND fc.is_active = true AND m.is_active = true AND LOWER(r.location) = LOWER(l.name)), 0) AS total_weight,
+                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(r.location) = LOWER(l.name) AND ${rollFilter}), 0) AS total_weight,
                    (SELECT string_agg(DISTINCT m.name, ', ') FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND r.is_returned = false AND fc.is_active = true AND m.is_active = true AND LOWER(r.location) = LOWER(l.name)) AS materials_list
+                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(r.location) = LOWER(l.name) AND ${rollFilter}) AS materials_list
             FROM kv_locations l
             WHERE l.warehouse_id = $1
-            ORDER BY l.name`, [warehouseId]);
+            ORDER BY l.name`, params);
 
         // 2. Get unassigned rolls count and weight
         const unassignedRolls = await db.all(`
@@ -230,7 +239,8 @@ module.exports = async function(fastify) {
               AND fc.is_active = true
               AND m.is_active = true
               AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(r.location) NOT IN (SELECT LOWER(name) FROM kv_locations WHERE warehouse_id = $1))
-        `, [warehouseId]);
+              AND ${rollFilter}
+        `, params);
 
         let nguyenCount = 0, nguyenWeight = 0;
         let leCount = 0, leWeight = 0;
