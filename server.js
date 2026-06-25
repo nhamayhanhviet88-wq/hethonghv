@@ -1196,7 +1196,7 @@ async function start() {
         const method = request.method;
         
         const isFabricMutation = (method === 'POST' || method === 'PUT' || method === 'DELETE') && 
-            (url.startsWith('/api/khovai') || url.startsWith('/api/bophancat') || url.startsWith('/api/chuanbiqlx') || url.startsWith('/api/nhapxuathoanvai') || url.startsWith('/api/fabrictx')) &&
+            (url.startsWith('/api/khovai') || url.startsWith('/api/cutting') || url.startsWith('/api/qlx') || url.startsWith('/api/import') || url.startsWith('/api/fabrictx')) &&
             !url.includes('/image');
             
         if (isFabricMutation) {
