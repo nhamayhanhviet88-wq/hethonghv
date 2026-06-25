@@ -1198,6 +1198,20 @@ async function start() {
             console.log(`📊 [Pool Stats] active=${s.active}, idle=${s.idle}, waiting=${s.waiting}, total=${s.total}/${s.max}`);
         }
     }, 5 * 60 * 1000);
+    // ========== GLOBAL STOCKCHECK WAREHOUSE LOCK MIDDLEWARE ==========
+    const { checkStockcheckLock } = require('./utils/stockcheckLock');
+    fastify.addHook('preHandler', async (request, reply) => {
+        const url = request.url;
+        const method = request.method;
+        
+        const isFabricMutation = (method === 'POST' || method === 'PUT' || method === 'DELETE') && 
+            (url.startsWith('/api/khovai') || url.startsWith('/api/bophancat') || url.startsWith('/api/chuanbiqlx') || url.startsWith('/api/nhapxuathoanvai')) &&
+            !url.includes('/image');
+            
+        if (isFabricMutation) {
+            await checkStockcheckLock(request, reply);
+        }
+    });
 
     // API Routes
     fastify.register(require('./routes/auth'));
