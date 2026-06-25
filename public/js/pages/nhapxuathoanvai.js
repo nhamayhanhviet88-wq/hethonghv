@@ -596,6 +596,7 @@ function renderAllRollsList(searchTerm = '') {
                                         data-price="${r.import_price || colorObj.price || 0}"
                                         data-unit="${colorObj.unit || 'kg'}"
                                         data-source="${r.source_name || ''}"
+                                        data-loc="${r.loc || ''}"
                                         ${isChecked ? 'checked' : ''} 
                                         ${isDisabled ? 'disabled' : ''}
                                         style="width:14px; height:14px; accent-color:#059669;" />
@@ -733,8 +734,13 @@ async function submitCreateReturn() {
     cbs.forEach(cb => {
         const w = Number(cb.getAttribute('data-weight')) || 0;
         const c = cb.getAttribute('data-code') || '';
+        const loc = cb.getAttribute('data-loc') || '';
+        let locStr = '';
+        if (loc) {
+            locStr = loc.toLowerCase().startsWith('kệ') ? ` ${loc}` : ` Kệ ${loc}`;
+        }
         totalWeight += w;
-        detailsArray.push(`Cây ${w}kg`);
+        detailsArray.push(`Cây ${w}kg${locStr}`);
         rollIds.push(Number(cb.value));
     });
     totalWeight = Math.round(totalWeight * 100) / 100;
