@@ -234,6 +234,9 @@ async function start() {
     try {
         await db.exec(`ALTER TABLE kv_locations ADD COLUMN IF NOT EXISTS shelf_position TEXT`);
     } catch(e) { /* already exists */ }
+    try {
+        await db.run("UPDATE kv_locations SET shelf_position = 'Hầm / Phòng Cắt' WHERE name = 'Kệ Dự Định Hoàn Vải' AND (shelf_position IS NULL OR shelf_position = '')");
+    } catch(e) { /* fail-safe */ }
 
 
 

@@ -187,6 +187,11 @@
             <div class="mf-row">
                 <select id="mFL" onchange="mLoad()"><option value="">-- Chọn Kệ Kiểm --</option></select>
             </div>
+            <div class="mf-row" id="mFLPositionContainer" style="display:none; margin-top:-4px;">
+                <div style="font-size:11px; color:#fde047; background:rgba(250,204,21,0.1); border:1px solid rgba(250,204,21,0.2); border-radius:8px; padding:6px 10px; width:100%; word-break:break-word;">
+                    <strong>📍 Vị Trí Kệ:</strong> <span id="mFLPositionText">...</span>
+                </div>
+            </div>
             <div class="mf-row" id="mFLMaterialsContainer" style="display:none; margin-top:-4px;">
                 <div style="font-size:11px; color:#5eead4; background:rgba(20,184,166,0.1); border:1px solid rgba(20,184,166,0.2); border-radius:8px; padding:6px 10px; width:100%; word-break:break-word;">
                     <strong>📦 Chất liệu kệ:</strong> <span id="mFLMaterialsText">...</span>
@@ -328,7 +333,7 @@ async function onWhChange(){
         mShelves.forEach(s => {
             const o = document.createElement('option');
             o.value = s.name;
-            o.textContent = '📍 ' + s.name + ' (' + s.roll_count + ' cây)';
+            o.textContent = '📍 ' + s.name + ' (' + s.roll_count + ' cây)' + (s.shelf_position ? ' - ' + s.shelf_position : '');
             lSel.appendChild(o);
         });
         
@@ -349,6 +354,7 @@ async function onWhChange(){
         } else {
             document.getElementById('mC').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">Không có kệ nào chứa vải tìm kiếm.</div>';
             document.getElementById('mFLMaterialsContainer').style.display = 'none';
+            document.getElementById('mFLPositionContainer').style.display = 'none';
         }
     } catch(e) {
         toast('Lỗi tải kệ: ' + e.message, 'error');
@@ -373,6 +379,16 @@ async function mLoad(){
             containerEl.style.display = 'block';
         } else {
             containerEl.style.display = 'none';
+        }
+
+        // Show position for current shelf
+        const posTextEl = document.getElementById('mFLPositionText');
+        const posContainerEl = document.getElementById('mFLPositionContainer');
+        if (curShelf && curShelf.shelf_position) {
+            posTextEl.textContent = curShelf.shelf_position;
+            posContainerEl.style.display = 'block';
+        } else {
+            posContainerEl.style.display = 'none';
         }
         
         // Refresh session stats in UI

@@ -515,7 +515,10 @@ async function _kkRenderAudit(content) {
         shelfItemsHtml += `
             <div class="kk-sb-item ${isActive ? 'active' : ''}" onclick="_kkSelectShelf('${s.name}')" style="display:flex; flex-direction:column; align-items:stretch; padding:10px 12px; gap:4px; opacity:${isDimmed ? 0.4 : 1.0}; transition:opacity 0.2s;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700;">📍 ${s.name}</span>
+                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700;">
+                        📍 ${s.name}
+                        ${s.shelf_position ? `<span style="font-size:9px; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; padding:1px 5px; border-radius:4px; margin-left:4px;">📍 ${s.shelf_position}</span>` : ''}
+                    </span>
                     <span class="kk-badge">${s.roll_count} cây</span>
                 </div>
                 <div style="font-size:10px; color:${isActive ? '#0d9488' : '#64748b'}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;" title="${materialsText}">
