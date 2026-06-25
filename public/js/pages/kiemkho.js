@@ -15,10 +15,16 @@ var _kk = {
     selectedSessionData: null,
     historySessions: [],
     yearlySummary: null,
-    currentYear: new Date().getFullYear()
+    currentYear: new Date().getFullYear(),
+    container: null
 };
 
+function _kkGetContainer() {
+    return _kk.container || document.getElementById('contentArea') || document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement || document.querySelector('.kk-main')?.parentElement;
+}
+
 function renderKiemkhoPage(content) {
+    _kk.container = content;
     // Inject Custom Styles for Premium Aesthetics
     if (!document.getElementById('_kkS')) {
         var st = document.createElement('style');
@@ -350,7 +356,7 @@ function _kkRenderSetup(content) {
 // ========== CHANGE SUMMARY YEAR ==========
 async function _kkChangeYear(year) {
     _kk.currentYear = Number(year);
-    const content = document.getElementById('mainContent') || document.querySelector('.kk-main')?.parentElement;
+    const content = _kkGetContainer();
     if (content) {
         await _kkLoadHistoryAndSummary();
         _kkRenderMain(content);
@@ -369,7 +375,7 @@ async function _kkStartSession() {
         showToast('✅ Đã bắt đầu kiểm kho! Kho vải đã bị khóa.', 'success');
         
         // Reload page to enter audit view
-        const content = document.getElementById('mainContent') || document.querySelector('.kk-main')?.parentElement;
+        const content = _kkGetContainer();
         if (content) {
             _kkLoadSessionStatus(content);
         }
@@ -651,7 +657,7 @@ async function _kkChangeWarehouse(val) {
     _kk.activeWarehouseId = Number(val);
     _kk.activeLocation = null;
     await _kkLoadShelves();
-    const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+    const content = _kkGetContainer();
     if (content) {
         _kkRenderMain(content);
     }
@@ -661,7 +667,7 @@ async function _kkChangeWarehouse(val) {
 async function _kkSelectShelf(shelfName) {
     _kk.activeLocation = shelfName;
     await _kkLoadRolls();
-    const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+    const content = _kkGetContainer();
     if (content) {
         _kkRenderMain(content);
     }
@@ -674,7 +680,7 @@ function _kkSearchRolls(val) {
     _kkSearchTimeout = setTimeout(async () => {
         _kk.search = val.trim();
         await _kkLoadRolls();
-        const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+        const content = _kkGetContainer();
         if (content) {
             _kkRenderMain(content);
         }
@@ -687,7 +693,7 @@ async function _kkAbortSession() {
     try {
         await apiCall('/api/stockcheck/abort-session', 'POST');
         showToast('✅ Đã hủy đợt kiểm kê. Kho vải đã mở khóa.', 'success');
-        const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+        const content = _kkGetContainer();
         if (content) {
             _kkLoadSessionStatus(content);
         }
@@ -722,7 +728,7 @@ function _kkTriggerPhotoUpload(rollId, successCallback) {
             } else {
                 // Auto reload
                 await _kkLoadRolls();
-                const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+                const content = _kkGetContainer();
                 if (content) _kkRenderMain(content);
             }
         } catch (e) {
@@ -757,7 +763,7 @@ async function _kkMarkPresent(rollId, systemWeight, rollImg) {
             const treeRes = await apiCall('/api/stockcheck/tree');
             _kk.tree = treeRes;
             await _kkLoadRolls();
-            const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+            const content = _kkGetContainer();
             if (content) _kkRenderMain(content);
         } catch(e) {
             showToast(e.message || 'Lỗi cập nhật', 'error');
@@ -784,7 +790,7 @@ async function _kkMarkMissing(rollId, rollCode) {
         const treeRes = await apiCall('/api/stockcheck/tree');
         _kk.tree = treeRes;
         await _kkLoadRolls();
-        const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+        const content = _kkGetContainer();
         if (content) _kkRenderMain(content);
     } catch(e) {
         showToast(e.message || 'Lỗi báo mất.', 'error');
@@ -850,7 +856,7 @@ async function _kkSubmitWeightInput(rollId, systemWeight, rollImg) {
             const treeRes = await apiCall('/api/stockcheck/tree');
             _kk.tree = treeRes;
             await _kkLoadRolls();
-            const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+            const content = _kkGetContainer();
             if (content) _kkRenderMain(content);
         } catch(e) {
             showToast(e.message || 'Lỗi cập nhật', 'error');
@@ -883,7 +889,7 @@ async function _kkFinishSession(ready) {
         _kk.selectedSessionId = res.session_id;
         _kk.view = 'report';
         
-        const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+        const content = _kkGetContainer();
         if (content) {
             await _kkLoadHistoryAndSummary();
             _kkRenderMain(content);
@@ -1074,7 +1080,7 @@ async function _kkSubmitSurplus() {
         const treeRes = await apiCall('/api/stockcheck/tree');
         _kk.tree = treeRes;
         await _kkLoadRolls();
-        const content = document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement;
+        const content = _kkGetContainer();
         if (content) _kkRenderMain(content);
     } catch (e) {
         showToast(e.message || 'Lỗi khai báo cây thừa.', 'error');
@@ -1085,7 +1091,7 @@ async function _kkSubmitSurplus() {
 async function _kkViewReport(sessionId) {
     _kk.selectedSessionId = sessionId;
     _kk.view = 'report';
-    const content = document.getElementById('mainContent') || document.querySelector('.kk-main')?.parentElement || document.querySelector('.kk-wrap')?.parentElement;
+    const content = _kkGetContainer();
     if (content) {
         _kkRenderMain(content);
     }
@@ -1324,7 +1330,7 @@ async function _kkGoBackToSetup() {
     _kk.selectedSessionId = null;
     _kk.selectedSessionData = null;
     
-    const content = document.getElementById('mainContent') || document.querySelector('.kk-card')?.parentElement;
+    const content = _kkGetContainer();
     if (content) {
         _kkLoadSessionStatus(content);
     }
