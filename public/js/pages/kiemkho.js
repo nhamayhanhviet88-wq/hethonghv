@@ -492,10 +492,16 @@ async function _kkRenderAudit(content) {
     let shelfItemsHtml = '';
     _kk.shelves.forEach(s => {
         const isActive = s.name === _kk.activeLocation;
+        const materialsText = s.materials_list ? s.materials_list : 'Chưa có vải';
         shelfItemsHtml += `
-            <div class="kk-sb-item ${isActive ? 'active' : ''}" onclick="_kkSelectShelf('${s.name}')">
-                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📍 ${s.name}</span>
-                <span class="kk-badge">${s.roll_count} cây</span>
+            <div class="kk-sb-item ${isActive ? 'active' : ''}" onclick="_kkSelectShelf('${s.name}')" style="display:flex; flex-direction:column; align-items:stretch; padding:10px 12px; gap:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700;">📍 ${s.name}</span>
+                    <span class="kk-badge">${s.roll_count} cây</span>
+                </div>
+                <div style="font-size:10px; color:${isActive ? '#0d9488' : '#64748b'}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;" title="${materialsText}">
+                    ${materialsText}
+                </div>
             </div>
         `;
     });
@@ -651,7 +657,7 @@ async function _kkRenderAudit(content) {
                             <span style="font-size:11px; color:#64748b;">Tổng số trên kệ: ${_kk.rolls.length} cây</span>
                         </div>
                         <div style="display:flex; gap:8px;">
-                            <input id="kkSearchRoll" placeholder="🔍 Tìm mã cây vải..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; width:160px; outline:none;" value="${_kk.search}" oninput="_kkSearchRolls(this.value)">
+                            <input id="kkSearchRoll" placeholder="🔍 Tìm mã cây, màu, chất liệu..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; width:220px; outline:none;" value="${_kk.search}" oninput="_kkSearchRolls(this.value)">
                             <button class="kk-btn kk-btn-primary" style="padding:6px 12px; font-size:12px;" onclick="_kkOpenAddSurplusModal()">
                                 ➕ Thêm Cây Thừa
                             </button>

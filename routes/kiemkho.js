@@ -210,14 +210,18 @@ module.exports = async function(fastify) {
                    COALESCE((SELECT SUM(r.weight)::numeric FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND r.is_returned = false AND fc.is_active = true AND m.is_active = true AND LOWER(r.location) = LOWER(l.name)), 0) AS total_weight
+                       WHERE m.warehouse_id = l.warehouse_id AND r.is_returned = false AND fc.is_active = true AND m.is_active = true AND LOWER(r.location) = LOWER(l.name)), 0) AS total_weight,
+                   (SELECT string_agg(DISTINCT m.name, ', ') FROM kv_rolls r
+                       JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                       JOIN kv_materials m ON m.id = fc.material_id
+                       WHERE m.warehouse_id = l.warehouse_id AND r.is_returned = false AND fc.is_active = true AND m.is_active = true AND LOWER(r.location) = LOWER(l.name)) AS materials_list
             FROM kv_locations l
             WHERE l.warehouse_id = $1
             ORDER BY l.name`, [warehouseId]);
 
         // 2. Get unassigned rolls count and weight
         const unassignedRolls = await db.all(`
-            SELECT r.weight, r.original_weight
+            SELECT r.weight, r.original_weight, m.name AS material_name
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
@@ -230,15 +234,19 @@ module.exports = async function(fastify) {
 
         let nguyenCount = 0, nguyenWeight = 0;
         let leCount = 0, leWeight = 0;
+        const nguyenMaterials = new Set();
+        const leMaterials = new Set();
         for (const r of unassignedRolls) {
             const w = Number(r.weight);
             const ow = Number(r.original_weight);
             if (w >= ow) {
                 nguyenCount++;
                 nguyenWeight += w;
+                if (r.material_name) nguyenMaterials.add(r.material_name);
             } else {
                 leCount++;
                 leWeight += w;
+                if (r.material_name) leMaterials.add(r.material_name);
             }
         }
 
@@ -248,14 +256,16 @@ module.exports = async function(fastify) {
             name: 'Chưa xếp kệ - Cây Nguyên',
             description: 'Các cây nguyên chưa xếp vị trí',
             roll_count: nguyenCount,
-            total_weight: nguyenWeight
+            total_weight: nguyenWeight,
+            materials_list: Array.from(nguyenMaterials).join(', ')
         });
         shelves.push({
             id: 'unassigned_le',
             name: 'Chưa xếp kệ - Cây Lẻ',
             description: 'Các cây lẻ chưa xếp vị trí',
             roll_count: leCount,
-            total_weight: leWeight
+            total_weight: leWeight,
+            materials_list: Array.from(leMaterials).join(', ')
         });
 
         return { shelves };
