@@ -286,6 +286,10 @@ async function renderQuanlykhovaiPage(content) {
                                 <input type="text" id="qkvNewLocName" class="qkv-input" placeholder="Ví dụ: Kệ A1" required />
                             </div>
                             <div class="qkv-form-group">
+                                <label class="qkv-label">Vị Trí Kệ</label>
+                                <input type="text" id="qkvNewLocShelfPosition" class="qkv-input" placeholder="Ví dụ: Kệ A1, Dãy 2" />
+                            </div>
+                            <div class="qkv-form-group">
                                 <label class="qkv-label">Mô tả / Ghi chú</label>
                                 <input type="text" id="qkvNewLocDesc" class="qkv-input" placeholder="Ví dụ: Dành cho vải Cotton" />
                             </div>
@@ -513,11 +517,14 @@ function _qkvRenderSidebarLocations() {
                         ${escapeHTML(loc.name)}
                         ${restrictionBadge}
                     </div>
-                    <div class="qkv-loc-desc">${loc.description ? escapeHTML(loc.description) : 'Không có ghi chú'}</div>
+                    <div class="qkv-loc-desc">
+                        ${loc.shelf_position ? `<span style="font-weight:700;color:#0f766e;margin-right:6px;">📍 ${escapeHTML(loc.shelf_position)}</span>` : ''}
+                        ${loc.description ? escapeHTML(loc.description) : 'Không có ghi chú'}
+                    </div>
                 </div>
                 <div class="qkv-loc-actions">
                     <button class="qkv-btn-icon" onclick="_qkvShowLocationQRCode('${escapeJS(loc.name)}')" title="Xem mã QR kệ">📷</button>
-                    <button class="qkv-btn-icon" onclick="_qkvEditLocation(${loc.id}, '${escapeJS(loc.name)}', '${escapeJS(loc.description || '')}', ${loc.is_restricted ? 'true' : 'false'}, ${loc.restricted_material_id || 'null'})" title="Sửa tên/mô tả/giới hạn">✏️</button>
+                    <button class="qkv-btn-icon" onclick="_qkvEditLocation(${loc.id}, '${escapeJS(loc.name)}', '${escapeJS(loc.description || '')}', ${loc.is_restricted ? 'true' : 'false'}, ${loc.restricted_material_id || 'null'}, '${escapeJS(loc.shelf_position || '')}')" title="Sửa tên/mô tả/giới hạn">✏️</button>
                     <button class="qkv-btn-icon" onclick="_qkvDeleteLocation(${loc.id}, '${escapeJS(loc.name)}')" title="Xóa vị trí">🗑️</button>
                 </div>
             </div>
@@ -1147,10 +1154,12 @@ async function _qkvOnAddLocation(e) {
     }
     
     var nameEl = document.getElementById('qkvNewLocName');
+    var posEl = document.getElementById('qkvNewLocShelfPosition');
     var descEl = document.getElementById('qkvNewLocDesc');
     var isRestrictedEl = document.getElementById('qkvNewLocIsRestricted');
     
     var name = nameEl.value.trim();
+    var shelfPosition = posEl ? posEl.value.trim() : '';
     var desc = descEl.value.trim();
     var isRestricted = isRestrictedEl ? (isRestrictedEl.value === 'true') : false;
     
@@ -1161,7 +1170,8 @@ async function _qkvOnAddLocation(e) {
             warehouse_id: _qkv.selectedWid,
             name: name,
             description: desc,
-            is_restricted: isRestricted
+            is_restricted: isRestricted,
+            shelf_position: shelfPosition
         });
         
         if (res.error) {
@@ -1171,6 +1181,7 @@ async function _qkvOnAddLocation(e) {
         
         showToast(`Tạo vị trí "${name}" thành công!`, 'success');
         nameEl.value = '';
+        if (posEl) posEl.value = '';
         descEl.value = '';
         if (isRestrictedEl) isRestrictedEl.value = 'false';
         
@@ -1182,7 +1193,7 @@ async function _qkvOnAddLocation(e) {
 }
 
 // 9. Edit Location modal
-function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId) {
+function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId, shelfPosition) {
     var statusText = '';
     if (isRestricted) {
         statusText = `<div style="font-size:11px;color:#e11d48;margin-top:6px;font-weight:600;">🔒 Chỉ các chất liệu được xếp dưới đây mới được phép di chuyển vào kệ này.</div>`;
@@ -1228,6 +1239,10 @@ function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId) {
                 <input type="text" id="qkvEditName" class="form-control" value="${escapeHTML(name)}" required />
             </div>
             <div class="form-group" style="margin-bottom:12px;">
+                <label class="form-label" style="font-weight:700;font-size:12px;">Vị Trí Kệ</label>
+                <input type="text" id="qkvEditShelfPosition" class="form-control" value="${escapeHTML(shelfPosition || '')}" />
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Mô tả / Ghi chú</label>
                 <input type="text" id="qkvEditDesc" class="form-control" value="${escapeHTML(desc)}" />
             </div>
@@ -1270,7 +1285,7 @@ async function _qkvRemoveMaterialFromLocation(matId, locId) {
         var loc = (_qkv.locations || []).find(l => l.id == locId);
         if (loc) {
             closeModal();
-            _qkvEditLocation(loc.id, loc.name, loc.description || '', loc.is_restricted, loc.restricted_material_id);
+            _qkvEditLocation(loc.id, loc.name, loc.description || '', loc.is_restricted, loc.restricted_material_id, loc.shelf_position || '');
         } else {
             closeModal();
         }
@@ -1284,6 +1299,7 @@ async function _qkvRemoveMaterialFromLocation(matId, locId) {
 async function _qkvSaveLocation(id) {
     if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var name = document.getElementById('qkvEditName').value.trim();
+    var shelfPosition = document.getElementById('qkvEditShelfPosition') ? document.getElementById('qkvEditShelfPosition').value.trim() : '';
     var desc = document.getElementById('qkvEditDesc').value.trim();
     var isRestrictedEl = document.getElementById('qkvEditIsRestricted');
     var isRestricted = isRestrictedEl ? (isRestrictedEl.value === 'true') : false;
@@ -1296,6 +1312,7 @@ async function _qkvSaveLocation(id) {
     try {
         var res = await apiCall(`/api/khovai/locations/${id}`, 'PUT', {
             name: name,
+            shelf_position: shelfPosition,
             description: desc,
             is_restricted: isRestricted
         });

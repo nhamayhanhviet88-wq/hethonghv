@@ -1298,7 +1298,7 @@ module.exports = async function (fastify) {
 
     // POST /api/khovai/locations — Create location
     fastify.post('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
-        const { warehouse_id, name, description, is_restricted, restricted_material_id } = request.body || {};
+        const { warehouse_id, name, description, is_restricted, restricted_material_id, shelf_position } = request.body || {};
         const wId = Number(warehouse_id);
         if (!warehouse_id || isNaN(wId) || !Number.isInteger(wId)) return { error: 'Vui lòng chọn một kho vải cụ thể để tạo vị trí!' };
         if (!name || !name.trim()) return { error: 'Tên vị trí không được trống' };
@@ -1307,16 +1307,16 @@ module.exports = async function (fastify) {
         if (exists) return { error: 'Tên vị trí này đã tồn tại trong kho' };
 
         const row = await db.get(
-            `INSERT INTO kv_locations (warehouse_id, name, description, is_restricted, restricted_material_id)
-              VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [wId, name.trim(), description ? description.trim() : null, is_restricted ? true : false, (!is_restricted) ? null : (restricted_material_id ? Number(restricted_material_id) : null)]
+            `INSERT INTO kv_locations (warehouse_id, name, description, is_restricted, restricted_material_id, shelf_position)
+              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [wId, name.trim(), description ? description.trim() : null, is_restricted ? true : false, (!is_restricted) ? null : (restricted_material_id ? Number(restricted_material_id) : null), shelf_position ? shelf_position.trim() : null]
         );
         return { success: true, location: row };
     });
 
     // PUT /api/khovai/locations/:id — Update location
     fastify.put('/api/khovai/locations/:id', { preHandler: [authenticate] }, async (request) => {
-        const { name, description, is_restricted, restricted_material_id } = request.body || {};
+        const { name, description, is_restricted, restricted_material_id, shelf_position } = request.body || {};
         const id = request.params.id;
 
         const oldLoc = await db.get('SELECT * FROM kv_locations WHERE id = $1', [id]);
@@ -1346,6 +1346,10 @@ module.exports = async function (fastify) {
             // If explicitly toggled to multipurpose, clear restriction
             updates.push(`restricted_material_id = NULL`);
         }
+        if (shelf_position !== undefined) {
+            updates.push(`shelf_position = $${idx++}`);
+            params.push(shelf_position ? shelf_position.trim() : null);
+        }
 
         if (!updates.length) return { error: 'Không có gì thay đổi' };
 
@@ -1361,6 +1365,7 @@ module.exports = async function (fastify) {
 
         return { success: true };
     });
+
 
     // DELETE /api/khovai/locations/:id — Delete location
     fastify.delete('/api/khovai/locations/:id', { preHandler: [authenticate] }, async (request) => {

@@ -148,9 +148,7 @@ async function _kkLoadSessionStatus(content) {
             // Default active warehouse to first warehouse in tree
             const treeRes = await apiCall('/api/stockcheck/tree');
             _kk.tree = treeRes;
-            if (treeRes.tree && treeRes.tree.length > 0) {
-                _kk.activeWarehouseId = treeRes.tree[0].id;
-            }
+            _kk.activeWarehouseId = 'all';
             await _kkLoadShelves();
         } else {
             _kk.view = 'setup';
@@ -501,7 +499,7 @@ async function _kkRenderAudit(content) {
     const progressPct = totalRolls > 0 ? Math.min(100, Math.round((checkedCount / totalRolls) * 100)) : 0;
     
     // Warehouse selection options
-    let whOptions = '';
+    let whOptions = `<option value="all" ${_kk.activeWarehouseId === 'all' ? 'selected' : ''}>🏭 TẤT CẢ KHO</option>`;
     if (_kk.tree && _kk.tree.tree) {
         _kk.tree.tree.forEach(w => {
             whOptions += `<option value="${w.id}" ${w.id === _kk.activeWarehouseId ? 'selected' : ''}>🏭 ${w.name}</option>`;
@@ -800,7 +798,7 @@ async function _kkRenderAudit(content) {
 
 // ========== SWITCH WAREHOUSE ==========
 async function _kkChangeWarehouse(val) {
-    _kk.activeWarehouseId = Number(val);
+    _kk.activeWarehouseId = val === 'all' ? 'all' : Number(val);
     _kk.activeLocation = null;
     await _kkLoadShelves();
     const content = _kkGetContainer();
@@ -1066,13 +1064,15 @@ function _kkOpenAddSurplusModal() {
     // Populate Materials selection from _kk.tree
     let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
     if (_kk.tree && _kk.tree.tree) {
-        // Find current warehouse materials
-        const currentWh = _kk.tree.tree.find(w => w.id === _kk.activeWarehouseId);
-        if (currentWh && currentWh.materials) {
-            currentWh.materials.forEach(m => {
-                matOptions += `<option value="${m.id}">${m.name}</option>`;
-            });
-        }
+        // Find materials
+        _kk.tree.tree.forEach(w => {
+            if (_kk.activeWarehouseId !== 'all' && w.id !== _kk.activeWarehouseId) return;
+            if (w.materials) {
+                w.materials.forEach(m => {
+                    matOptions += `<option value="${m.id}">[${w.name}] ${m.name}</option>`;
+                });
+            }
+        });
     }
 
     const modalHtml = `

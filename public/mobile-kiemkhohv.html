@@ -288,13 +288,18 @@ async function mInit(){
         document.getElementById('mAuditPanel').style.display = 'block';
         
         // Fetch Photo settings
-        const setRes = await api('/api/stockcheck/settings');
-        photoMode = setRes.photo_mode || 'none';
-        
         // Fetch Tree to populate Warehouse
         tree = await api('/api/stockcheck/tree');
         const wSel=document.getElementById('mFW');
         wSel.innerHTML = '';
+        
+        // Add 'all' option first
+        const totalTreeRolls = tree.tree.reduce((sum, w) => sum + Number(w.roll_count || 0), 0);
+        const oAll = document.createElement('option');
+        oAll.value = 'all';
+        oAll.textContent = '🏭 TẤT CẢ KHO (' + totalTreeRolls + ')';
+        wSel.appendChild(oAll);
+
         tree.tree.forEach(w=>{
             const o=document.createElement('option');
             o.value=w.id;
@@ -302,10 +307,8 @@ async function mInit(){
             wSel.appendChild(o);
         });
         
-        if(tree.tree.length){
-            wSel.value=tree.tree[0].id;
-            await onWhChange();
-        }
+        wSel.value = 'all';
+        await onWhChange();
     }catch(e){
         document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi: '+e.message+'</div></div>'
     }
@@ -482,6 +485,8 @@ function mCheckPhotoRequired(rollImg) {
     return false;
 }
 
+
+
 function mTriggerCamera(rollId, callback) {
     const inp = document.getElementById('mRollPhotoUploader');
     if (!inp) return;
@@ -511,7 +516,7 @@ function mTriggerCamera(rollId, callback) {
             toast(e.message || 'Lỗi lưu ảnh', 'error');
         }
     };
-    
+
     inp.value = '';
     inp.click();
 }
@@ -544,7 +549,7 @@ async function mMarkPresent(rollId, systemWeight, rollImg) {
             toast(e.message || 'Lỗi cập nhật', 'error');
         }
     };
-    
+
     if (mCheckPhotoRequired(rollImg)) {
         if (confirm('Yêu cầu chụp ảnh minh chứng trước khi xác nhận. Mở camera?')) {
             mTriggerCamera(rollId, runCheck);
@@ -612,7 +617,10 @@ function mOpenAddSurplusModal() {
     // Populate Materials selection from tree.tree
     let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
     if (tree && tree.tree) {
-        const currentWh = tree.tree.find(w => Number(w.id) === Number(activeWarehouseId));
+        const curShelf = mShelves.find(s => s.name === activeLocation);
+        const actualWhId = curShelf ? Number(curShelf.warehouse_id) : Number(activeWarehouseId);
+        
+        const currentWh = tree.tree.find(w => Number(w.id) === actualWhId);
         if (currentWh && currentWh.materials) {
             currentWh.materials.forEach(m => {
                 matOptions += `<option value="${m.id}">${m.name}</option>`;
@@ -732,8 +740,11 @@ async function mSubmitSurplus() {
     if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { toast('Vui lòng nhập cân nặng hợp lệ (lớn hơn 0)', 'error'); return; }
 
     try {
+        const curShelf = mShelves.find(s => s.name === activeLocation);
+        const actualWhId = curShelf ? Number(curShelf.warehouse_id) : Number(activeWarehouseId);
+
         const body = {
-            warehouse_id: activeWarehouseId,
+            warehouse_id: actualWhId,
             material_id: materialId,
             new_material_name: '',
             color_id: colorId,

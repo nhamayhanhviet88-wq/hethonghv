@@ -230,6 +230,12 @@ async function start() {
         await db.exec(`ALTER TABLE kv_locations ADD COLUMN IF NOT EXISTS is_restricted BOOLEAN DEFAULT FALSE`);
     } catch(e) { /* already exists */ }
 
+    // Migration: kv_locations - add shelf_position column
+    try {
+        await db.exec(`ALTER TABLE kv_locations ADD COLUMN IF NOT EXISTS shelf_position TEXT`);
+    } catch(e) { /* already exists */ }
+
+
 
 
     // Migration: Payment Records — Sổ Ghi Nhận Tiền (Bộ Phận Văn Phòng)
