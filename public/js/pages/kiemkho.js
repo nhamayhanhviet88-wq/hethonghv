@@ -1,4 +1,3 @@
-// ========== KIỂM KHO — Desktop SPA ==========
 var _kk = {
     view: 'setup', // 'setup', 'audit', 'report'
     session: null,
@@ -16,7 +15,17 @@ var _kk = {
     historySessions: [],
     yearlySummary: null,
     currentYear: new Date().getFullYear(),
-    container: null
+    container: null,
+    collapsedGroups: new Set()
+};
+
+window._kkToggleGroup = function(groupKey) {
+    if (_kk.collapsedGroups.has(groupKey)) {
+        _kk.collapsedGroups.delete(groupKey);
+    } else {
+        _kk.collapsedGroups.add(groupKey);
+    }
+    _kkRenderActiveLocation();
 };
 
 function _kkGetContainer() {
@@ -518,7 +527,7 @@ async function _kkRenderAudit(content) {
         `;
     });
 
-    // Render Expected Rolls table
+    // Render Expected Rolls table with Grouping by Material + Color
     let tableRows = '';
     if (_kk.rolls.length === 0) {
         tableRows = `
@@ -533,73 +542,152 @@ async function _kkRenderAudit(content) {
             </tr>
         `;
     } else {
-        _kk.rolls.forEach((r, idx) => {
-            const hasChecked = r.is_checked;
-            const rowClass = hasChecked ? 'table-success' : '';
+        // Group rolls by material_name + color_name
+        const groups = {};
+        const groupOrder = [];
+        
+        _kk.rolls.forEach(r => {
+            const key = `${r.material_name}_${r.color_name}`;
+            if (!groups[key]) {
+                groups[key] = {
+                    material_name: r.material_name,
+                    color_name: r.color_name,
+                    original_weight: 0,
+                    system_weight: 0,
+                    actual_weight: 0,
+                    difference: 0,
+                    rolls: [],
+                    checkedCount: 0
+                };
+                groupOrder.push(key);
+            }
+            const g = groups[key];
+            g.rolls.push(r);
+            g.original_weight += Number(r.original_weight || 0);
+            g.system_weight += Number(r.system_weight || 0);
+            if (r.is_checked) {
+                g.actual_weight += Number(r.actual_weight || 0);
+                g.difference += Number(r.difference || 0);
+                g.checkedCount++;
+            }
+        });
+
+        let groupIdx = 1;
+        groupOrder.forEach(key => {
+            const g = groups[key];
+            const isCollapsed = _kk.collapsedGroups.has(key);
+            const chevron = isCollapsed ? '▶' : '▼';
             
-            // Badges for locks and reservations
-            let badges = '';
-            if (r.locked_by_cutting_id) {
-                badges += `<span class="kk-lock-badge" title="Cây đang bị khóa bởi phiếu cắt ở xưởng">🔒 ${r.locked_order_code || 'CẮT'}</span>`;
-            }
-            if (r.reserved_order_code) {
-                badges += `<span class="kk-reserve-badge" title="Cây vải đã đặt trước cho đơn hàng">🔖 ${r.reserved_order_code}</span>`;
-            }
-
-            // Photo preview/thumbnail
-            let photoBtn = '';
-            if (r.roll_img) {
-                photoBtn = `<img src="${r.roll_img}" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1; cursor:pointer;" onclick="viewImage('${r.roll_img}')" title="Xem ảnh gốc">`;
-            } else {
-                photoBtn = `<button class="kk-action-btn" onclick="_kkTriggerPhotoUpload(${r.roll_id})" title="Chụp ảnh cây vải">📷</button>`;
-            }
-
-            // Difference display
-            let diffLabel = '—';
-            if (hasChecked) {
-                if (r.actual_weight === 0) {
-                    diffLabel = `<span class="kk-diff-badge missing">❌ Báo mất</span>`;
-                } else if (Number(r.difference) === 0) {
-                    diffLabel = `<span class="kk-diff-badge ok">Khớp</span>`;
+            // Format sums
+            const sumOrig = Number(g.original_weight.toFixed(2)).toLocaleString('vi-VN') + ' kg';
+            const sumSys = Number(g.system_weight.toFixed(2)).toLocaleString('vi-VN') + ' kg';
+            const sumAct = g.checkedCount > 0 
+                ? Number(g.actual_weight.toFixed(2)).toLocaleString('vi-VN') + ' kg'
+                : '<span style="color:#94a3b8; font-weight:normal;">—</span>';
+                
+            // Calculate group difference based on checked rolls
+            let groupDiffLabel = '—';
+            if (g.checkedCount > 0) {
+                const checkedSysW = g.rolls.filter(r => r.is_checked).reduce((sum, r) => sum + Number(r.system_weight || 0), 0);
+                const diffVal = Number((checkedSysW - g.actual_weight).toFixed(2));
+                if (diffVal === 0) {
+                    groupDiffLabel = `<span class="kk-diff-badge ok">Khớp</span>`;
                 } else {
-                    const diffVal = Number(r.difference);
-                    diffLabel = `<span class="kk-diff-badge ${diffVal > 0 ? 'missing' : 'surplus'}">
-                        ${diffVal > 0 ? 'Thiếu ' + diffVal : 'Thừa ' + Math.abs(diffVal)} kg
+                    groupDiffLabel = `<span class="kk-diff-badge ${diffVal > 0 ? 'missing' : 'surplus'}">
+                        ${diffVal > 0 ? 'Thiếu ' + diffVal.toLocaleString('vi-VN') : 'Thừa ' + Math.abs(diffVal).toLocaleString('vi-VN')} kg
                     </span>`;
                 }
             }
 
+            // Render Group Header Row
             tableRows += `
-                <tr class="${rowClass}">
-                    <td class="text-center font-weight-bold text-muted">${idx + 1}</td>
-                    <td>
-                        <div style="font-weight:700; color:#0d9488; font-size:13px;">${r.material_name}</div>
-                    </td>
-                    <td>
-                        <div style="font-weight:700; color:#0f766e; font-size:13px;">${r.color_name}</div>
-                        <div style="margin-top:2px; display:flex; gap:4px; flex-wrap:wrap;">${badges}</div>
-                    </td>
-                    <td class="text-center font-weight-bold">${Number(r.original_weight || 0).toLocaleString('vi-VN')} kg</td>
-                    <td class="text-center font-weight-bold text-primary" style="font-size:13px;">${Number(r.system_weight || 0).toLocaleString('vi-VN')} kg</td>
-                    <td class="text-center font-weight-bold text-success" style="font-size:14px;">
-                        ${hasChecked ? Number(r.actual_weight).toLocaleString('vi-VN') + ' kg' : '<span style="color:#94a3b8; font-weight:normal;">—</span>'}
-                    </td>
-                    <td class="text-center">${diffLabel}</td>
-                    <td>
-                        <span style="font-size:10px; color:#64748b; max-width:120px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.sc_notes || ''}">
-                            ${r.sc_notes || '—'}
-                        </span>
-                    </td>
-                    <td class="text-center">
-                        <div style="display:flex; align-items:center; justify-content:center; gap:2px;">
-                            ${photoBtn}
-                            <button class="kk-action-btn green" onclick="_kkMarkPresent(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📋 Có mặt (Khớp)">📋</button>
-                            <button class="kk-action-btn red" onclick="_kkMarkMissing(${r.roll_id}, '${r.roll_code}')" title="❌ Báo mất">❌</button>
-                            <button class="kk-action-btn blue" onclick="_kkInputWeightPrompt(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📝 Nhập thực tế">📝</button>
-                        </div>
+                <tr style="background-color: #f1f5f9; cursor: pointer; font-weight: bold; border-left: 4px solid #0f766e;" onclick="_kkToggleGroup('${key}')">
+                    <td class="text-center" style="font-size: 14px; color: #0f766e;">${chevron}</td>
+                    <td style="color: #0f766e; font-weight: 800; font-size: 13px;">${g.material_name}</td>
+                    <td style="color: #0f766e; font-weight: 800; font-size: 13px;">${g.color_name}</td>
+                    <td class="text-center" style="color: #0f766e;">${sumOrig}</td>
+                    <td class="text-center" style="color: #0d9488;">${sumSys}</td>
+                    <td class="text-center" style="color: #10b981;">${sumAct}</td>
+                    <td class="text-center">${groupDiffLabel}</td>
+                    <td colspan="2" style="font-size: 11px; color: #475569; font-weight: 600; text-align: left; padding-left: 15px;">
+                        📦 ${g.rolls.length} cây (${g.checkedCount} đã kiểm)
                     </td>
                 </tr>
             `;
+            
+            // Render sub-rows if not collapsed
+            if (!isCollapsed) {
+                g.rolls.forEach((r, subIdx) => {
+                    const hasChecked = r.is_checked;
+                    const rowClass = hasChecked ? 'table-success' : '';
+                    
+                    // Badges for locks and reservations
+                    let badges = '';
+                    if (r.locked_by_cutting_id) {
+                        badges += `<span class="kk-lock-badge" title="Cây đang bị khóa bởi phiếu cắt ở xưởng">🔒 ${r.locked_order_code || 'CẮT'}</span>`;
+                    }
+                    if (r.reserved_order_code) {
+                        badges += `<span class="kk-reserve-badge" title="Cây vải đã đặt trước cho đơn hàng">🔖 ${r.reserved_order_code}</span>`;
+                    }
+
+                    // Photo preview/thumbnail
+                    let photoBtn = '';
+                    if (r.roll_img) {
+                        photoBtn = `<img src="${r.roll_img}" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1; cursor:pointer;" onclick="event.stopPropagation(); viewImage('${r.roll_img}')" title="Xem ảnh gốc">`;
+                    } else {
+                        photoBtn = `<button class="kk-action-btn" onclick="event.stopPropagation(); _kkTriggerPhotoUpload(${r.roll_id})" title="Chụp ảnh cây vải">📷</button>`;
+                    }
+
+                    // Difference display
+                    let diffLabel = '—';
+                    if (hasChecked) {
+                        if (r.actual_weight === 0) {
+                            diffLabel = `<span class="kk-diff-badge missing">❌ Báo mất</span>`;
+                        } else if (Number(r.difference) === 0) {
+                            diffLabel = `<span class="kk-diff-badge ok">Khớp</span>`;
+                        } else {
+                            const diffVal = Number(r.difference);
+                            diffLabel = `<span class="kk-diff-badge ${diffVal > 0 ? 'missing' : 'surplus'}">
+                                ${diffVal > 0 ? 'Thiếu ' + diffVal : 'Thừa ' + Math.abs(diffVal)} kg
+                            </span>`;
+                        }
+                    }
+
+                    tableRows += `
+                        <tr class="${rowClass}" style="background-color: #ffffff;">
+                            <td class="text-center text-muted" style="padding-left: 20px; font-size: 11px;">${groupIdx}.${subIdx + 1}</td>
+                            <td style="padding-left: 20px;">
+                                <div style="font-weight: 700; color: #0d9488; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                                    └─ <span style="font-family: monospace;">${r.roll_code}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="margin-top:2px; display:flex; gap:4px; flex-wrap:wrap;">${badges}</div>
+                            </td>
+                            <td class="text-center">${Number(r.original_weight || 0).toLocaleString('vi-VN')} kg</td>
+                            <td class="text-center text-primary" style="font-size:12px;">${Number(r.system_weight || 0).toLocaleString('vi-VN')} kg</td>
+                            <td class="text-center text-success" style="font-size:13px; font-weight: 700;">
+                                ${hasChecked ? Number(r.actual_weight).toLocaleString('vi-VN') + ' kg' : '<span style="color:#94a3b8; font-weight:normal;">—</span>'}
+                            </td>
+                            <td class="text-center">${diffLabel}</td>
+                            <td>
+                                <span style="font-size:10px; color:#64748b; max-width:120px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.sc_notes || ''}">
+                                    ${r.sc_notes || '—'}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <div style="display:flex; align-items:center; justify-content:center; gap:2px;">
+                                    ${photoBtn}
+                                    <button class="kk-action-btn green" onclick="event.stopPropagation(); _kkMarkPresent(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📋 Có mặt (Khớp)">📋</button>
+                                    <button class="kk-action-btn red" onclick="event.stopPropagation(); _kkMarkMissing(${r.roll_id}, '${r.roll_code}')" title="❌ Báo mất">❌</button>
+                                    <button class="kk-action-btn blue" onclick="event.stopPropagation(); _kkInputWeightPrompt(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📝 Nhập thực tế">📝</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            groupIdx++;
         });
     }
 
