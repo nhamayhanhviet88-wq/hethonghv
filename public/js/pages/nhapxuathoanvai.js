@@ -1979,6 +1979,16 @@ async function openConfirm2Modal(id) {
 
     var initialQty = Number(tx.total_quantity) || 0;
 
+    let formattedDate = '';
+    if (tx.tx_date) {
+        try {
+            const p = tx.tx_date.split('T')[0].split('-');
+            formattedDate = p[2] + '/' + p[1] + '/' + p[0];
+        } catch (e) {
+            formattedDate = tx.tx_date;
+        }
+    }
+
     var bodyHTML = '<div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">' +
         '<div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:10px; color:#d97706; line-height:1.4;">' +
             'ℹ️ <strong>Xác nhận lần 2 (Kế toán):</strong> Nhập số kg cân đo thực tế từ nhà vải cung cấp để đối chiếu và xuất kho hoàn tất.' +
@@ -1989,7 +1999,47 @@ async function openConfirm2Modal(id) {
         '</div>' +
         '<div>' +
             '<label style="font-weight:700; display:block; margin-bottom:4px;">Nhập số kg thực tế đo được (Bắt buộc):</label>' +
-            '<input type="number" step="0.01" id="confirm2ActualQty" class="form-control" placeholder="Ví dụ: 25.5" value="' + initialQty + '" style="width:100%; font-size:12px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none;" oninput="updateConfirm2WeightCheck(' + initialQty + ')" />' +
+            '<input type="number" step="0.01" id="confirm2ActualQty" class="form-control" placeholder="Ví dụ: 25.5" value="' + initialQty + '" style="width:100%; font-size:12px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none;" oninput="updateConfirm2WeightCheck(' + initialQty + ', ' + (tx.price || 0) + ', \'' + (tx.unit || 'kg') + '\')" />' +
+        '</div>' +
+        '<div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc; display: flex; flex-direction: column; gap: 10px;">' +
+            '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:4px;">Nguồn Vải (Nhà cung cấp):</label>' +
+                    '<input type="text" value="' + (tx.source_name || '') + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed;" />' +
+                '</div>' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:4px;">Ngày Hoàn Vải:</label>' +
+                    '<input type="text" value="' + formattedDate + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed;" />' +
+                '</div>' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Thực Hiện:</label>' +
+                    '<input type="text" value="' + (tx.staff_name || '') + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed;" />' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:4px;">Chất Liệu:</label>' +
+                    '<input type="text" value="' + (tx.material_name || '') + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed;" />' +
+                '</div>' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:4px;">Màu Vải:</label>' +
+                    '<input type="text" value="' + (tx.color_name || '') + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed;" />' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:4px;">Số Lượng:</label>' +
+                    '<input type="text" id="confirm2DetailQty" value="' + _nxhvFN(initialQty) + ' ' + (tx.unit || 'kg') + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed; font-weight: 700; color: #1e293b;" />' +
+                '</div>' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>' +
+                    '<input type="text" value="' + _nxhvFN(tx.price) + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed;" />' +
+                '</div>' +
+                '<div>' +
+                    '<label style="font-weight:700; display:block; margin-bottom:4px;">Thanh Toán:</label>' +
+                    '<input type="text" id="confirm2DetailAmount" value="' + _nxhvFN(tx.price * initialQty) + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed; font-weight: 700; color: #10b981;" />' +
+                '</div>' +
+            '</div>' +
         '</div>' +
         '<div id="confirm2WeightNotice" style="display:none; padding:8px 12px; border-radius:6px; font-weight:600; line-height:1.4;"></div>' +
         '<div id="confirm2PasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; position:relative; transition:all 0.2s; overflow:hidden;">' +
@@ -2016,11 +2066,11 @@ async function openConfirm2Modal(id) {
     openModal('🟨 Xác Nhận Cân Nặng Thực Tế (Lần 2)', bodyHTML, footerHTML);
     var container = document.getElementById('modalContainer');
     if (container) {
-        container.style.width = '480px';
+        container.style.width = '560px';
         container.style.maxWidth = '95%';
     }
 
-    updateConfirm2WeightCheck(initialQty);
+    updateConfirm2WeightCheck(initialQty, tx.price || 0, tx.unit || 'kg');
 
     _confirm2PasteHandler = function(e) {
         var items = (e.clipboardData || e.originalEvent.clipboardData).items;
@@ -2053,7 +2103,7 @@ function clearConfirm2Image() {
 }
 window.clearConfirm2Image = clearConfirm2Image;
 
-function updateConfirm2WeightCheck(initialQty) {
+function updateConfirm2WeightCheck(initialQty, price, unit) {
     var actQtyInput = document.getElementById('confirm2ActualQty');
     var noticeBox = document.getElementById('confirm2WeightNotice');
     var pasteArea = document.getElementById('confirm2PasteArea');
@@ -2064,6 +2114,17 @@ function updateConfirm2WeightCheck(initialQty) {
     if (isNaN(val) || val <= 0) {
         noticeBox.style.display = 'none';
         return;
+    }
+
+    // Dynamic detail table fields update
+    var detailQtyInput = document.getElementById('confirm2DetailQty');
+    var detailAmountInput = document.getElementById('confirm2DetailAmount');
+    if (detailQtyInput) {
+        detailQtyInput.value = val + ' ' + (unit || 'kg');
+    }
+    if (detailAmountInput) {
+        var totalAmount = val * (price || 0);
+        detailAmountInput.value = _nxhvFN(totalAmount);
     }
 
     var diff = val - initialQty;
