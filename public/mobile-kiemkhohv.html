@@ -82,6 +82,9 @@
             <div class="mf-row">
                 <select id="mFL" onchange="mLoad()"><option value="">-- Chọn Kệ Kiểm --</option></select>
             </div>
+            <div class="mf-row">
+                <input type="text" id="mSearchRoll" placeholder="🔍 Tìm mã cây, màu, chất liệu..." oninput="onSearchInput(this.value)" style="flex:1; padding:10px 12px; border:1.5px solid rgba(255,255,255,.12); border-radius:10px; font-size:13px; font-weight:600; font-family:inherit; background:rgba(255,255,255,.06); color:#e2e8f0; outline:none;">
+            </div>
         </div>
         <div id="mSB" class="ms">
             <div style="background:linear-gradient(135deg,#0d9488,#14b8a6)"><div class="mv" id="sT">0</div><div class="ml">TỔNG CÂY</div></div>
@@ -111,6 +114,7 @@
 let cu=null, mr=[], tree=null, activeSession=null, photoMode='none';
 let activeWarehouseId=null, activeLocation=null;
 let pendingPhotoCallback=null;
+let mSearchText='', mSearchTimeout=null;
 
 async function api(u,m='GET',b=null){
     const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};
@@ -198,7 +202,8 @@ async function onWhChange(){
     
     // Load shelves for this warehouse
     try {
-        const res = await api('/api/stockcheck/shelves?warehouse_id=' + activeWarehouseId);
+        const query = '/api/stockcheck/shelves?warehouse_id=' + activeWarehouseId + (mSearchText ? '&search=' + encodeURIComponent(mSearchText) : '');
+        const res = await api(query);
         const lSel = document.getElementById('mFL');
         lSel.innerHTML = '';
         res.shelves.forEach(s => {
@@ -209,10 +214,21 @@ async function onWhChange(){
         });
         
         if (res.shelves.length > 0) {
-            lSel.value = res.shelves[0].name;
+            if (mSearchText) {
+                const activeShelf = res.shelves.find(s => s.name === activeLocation);
+                if (!activeShelf || activeShelf.roll_count === 0) {
+                    const firstMatch = res.shelves.find(s => s.roll_count > 0);
+                    if (firstMatch) {
+                        activeLocation = firstMatch.name;
+                    }
+                }
+            } else if (!activeLocation || !res.shelves.find(s => s.name === activeLocation)) {
+                activeLocation = res.shelves[0].name;
+            }
+            lSel.value = activeLocation;
             await mLoad();
         } else {
-            document.getElementById('mC').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">Không có kệ nào trong kho này.</div>';
+            document.getElementById('mC').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">Không có kệ nào chứa vải tìm kiếm.</div>';
         }
     } catch(e) {
         toast('Lỗi tải kệ: ' + e.message, 'error');
@@ -224,7 +240,8 @@ async function mLoad(){
     if (!activeWarehouseId || !activeLocation) return;
     
     try{
-        const r=await api('/api/stockcheck/rolls?warehouse_id=' + activeWarehouseId + '&location=' + encodeURIComponent(activeLocation));
+        const query = '/api/stockcheck/rolls?warehouse_id=' + activeWarehouseId + '&location=' + encodeURIComponent(activeLocation) + (mSearchText ? '&search=' + encodeURIComponent(mSearchText) : '');
+        const r=await api(query);
         mr=r.rolls||[];
         
         // Refresh session stats in UI
@@ -244,6 +261,14 @@ async function mLoad(){
     }catch(e){
         document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'
     }
+}
+
+function onSearchInput(val) {
+    clearTimeout(mSearchTimeout);
+    mSearchTimeout = setTimeout(async () => {
+        mSearchText = val.trim();
+        await onWhChange();
+    }, 300);
 }
 
 function mCards(){
