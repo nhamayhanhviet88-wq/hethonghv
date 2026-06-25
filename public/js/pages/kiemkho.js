@@ -573,8 +573,7 @@ async function _kkRenderAudit(content) {
                 <tr class="${rowClass}">
                     <td class="text-center font-weight-bold text-muted">${idx + 1}</td>
                     <td>
-                        <div style="font-weight:700; color:#0d9488; font-size:13px;">${r.roll_code}</div>
-                        <div style="font-size:10px; color:#64748b;">${r.material_name}</div>
+                        <div style="font-weight:700; color:#0d9488; font-size:13px;">${r.material_name}</div>
                     </td>
                     <td>
                         <div style="font-weight:700; color:#0f766e; font-size:13px;">${r.color_name}</div>
