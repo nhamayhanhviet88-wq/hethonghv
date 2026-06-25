@@ -376,6 +376,15 @@ async function _kkStartSession() {
         
         // Attempt starting audit
         const res = await apiCall('/api/stockcheck/start-session', 'POST');
+        if (res && res.error) {
+            if (res.active_cuts) {
+                _kkShowBlockedCutsModal(res.active_cuts);
+            } else {
+                showToast(res.error, 'error');
+            }
+            return;
+        }
+        
         showToast('✅ Đã bắt đầu kiểm kho! Kho vải đã bị khóa.', 'success');
         
         // Reload page to enter audit view
