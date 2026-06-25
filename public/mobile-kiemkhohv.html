@@ -213,9 +213,9 @@
             </div>
         </div>
         <!-- Global Progress Bar -->
-        <div style="padding: 12px 16px 4px; display: flex; flex-direction: column; gap: 4px;">
+        <div onclick="mSelectGlobalMode()" style="padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; background: rgba(255,255,255,0.02); border-radius: 8px; margin: 4px 16px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: #94a3b8;">
-                <span>📊 TIẾN ĐỘ TOÀN KHO:</span>
+                <span>📊 TIẾN ĐỘ TOÀN KHO (Bấm để xem):</span>
                 <span id="mGlobalProgressText" style="color: #5eead4;">0 / 0 cây (0%)</span>
             </div>
             <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
@@ -223,12 +223,12 @@
             </div>
         </div>
         <div id="mSB" class="ms">
-            <div onclick="mSetFilter('all')" style="background:linear-gradient(135deg,#0d9488,#14b8a6); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sT">0</div><div class="ml">TỔNG CÂY KỆ</div></div>
-            <div style="background:linear-gradient(135deg,#0f766e,#0d9488);"><div class="mv" id="sW">0</div><div class="ml">TỔNG KG KỆ</div></div>
-            <div onclick="mSetFilter('checked')" style="background:linear-gradient(135deg,#059669,#10b981); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sC">0</div><div class="ml">ĐÃ KIỂM KỆ</div></div>
-            <div onclick="mSetFilter('unchecked')" style="background:linear-gradient(135deg,#f59e0b,#d97706); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sU">0</div><div class="ml">CHƯA KIỂM KỆ</div></div>
-            <div onclick="mSetFilter('missing')" style="background:linear-gradient(135deg,#991b1b,#ef4444); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sM">0</div><div class="ml">CÂY BÁO MẤT</div></div>
-            <div onclick="mSetFilter('surplus')" style="background:linear-gradient(135deg,#5b21b6,#8b5cf6); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sS">0</div><div class="ml">CÂY THỪA</div></div>
+            <div onclick="mSetFilter('all')" style="background:linear-gradient(135deg,#0d9488,#14b8a6); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sT">0</div><div class="ml" id="lbl_sT">TỔNG CÂY KỆ</div></div>
+            <div style="background:linear-gradient(135deg,#0f766e,#0d9488);"><div class="mv" id="sW">0</div><div class="ml" id="lbl_sW">TỔNG KG KỆ</div></div>
+            <div onclick="mSetFilter('checked')" style="background:linear-gradient(135deg,#059669,#10b981); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sC">0</div><div class="ml" id="lbl_sC">ĐÃ KIỂM KỆ</div></div>
+            <div onclick="mSetFilter('unchecked')" style="background:linear-gradient(135deg,#f59e0b,#d97706); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sU">0</div><div class="ml" id="lbl_sU">CHƯA KIỂM KỆ</div></div>
+            <div onclick="mSetFilter('missing')" style="background:linear-gradient(135deg,#991b1b,#ef4444); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sM">0</div><div class="ml" id="lbl_sM">CÂY BÁO MẤT</div></div>
+            <div onclick="mSetFilter('surplus')" style="background:linear-gradient(135deg,#5b21b6,#8b5cf6); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sS">0</div><div class="ml" id="lbl_sS">CÂY THỪA</div></div>
         </div>
         <div class="mc" id="mC">
             <div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div>
@@ -378,6 +378,13 @@ async function onWhChange(){
         mShelves = shelves;
         const lSel = document.getElementById('mFL');
         lSel.innerHTML = '';
+        
+        // Add "Xem Toàn Kho" option
+        const oAll = document.createElement('option');
+        oAll.value = 'all_shelves';
+        oAll.textContent = '🌍 Xem Toàn Kho (Tất cả kệ)';
+        lSel.appendChild(oAll);
+
         mShelves.forEach(s => {
             const o = document.createElement('option');
             o.value = s.name;
@@ -394,7 +401,7 @@ async function onWhChange(){
                         activeLocation = firstMatch.name;
                     }
                 }
-            } else if (!activeLocation || !mShelves.find(s => s.name === activeLocation)) {
+            } else if (!activeLocation || (activeLocation !== 'all_shelves' && !mShelves.find(s => s.name === activeLocation))) {
                 activeLocation = mShelves[0].name;
             }
             lSel.value = activeLocation;
@@ -414,37 +421,46 @@ async function mLoad(){
     if (!activeWarehouseId || !activeLocation) return;
 
     // Check if the current shelf is blocked for surplus declarations
-    const cleanActive = activeLocation.replace(/^📍\s*/, '').trim().toLowerCase();
-    const isBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanActive);
+    const isGlobal = (activeLocation === 'all_shelves');
+    const cleanActive = isGlobal ? '' : activeLocation.replace(/^📍\s*/, '').trim().toLowerCase();
+    const isBlocked = isGlobal || ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanActive);
     const surplusContainer = document.getElementById('mSurplusBtnContainer');
     if (surplusContainer) {
         surplusContainer.style.display = isBlocked ? 'none' : 'flex';
     }
     
     try{
-        const query = '/api/stockcheck/rolls?warehouse_id=' + activeWarehouseId + '&location=' + encodeURIComponent(activeLocation) + (mSearchText ? '&search=' + encodeURIComponent(mSearchText) : '');
+        let query = '/api/stockcheck/rolls?warehouse_id=' + activeWarehouseId + (mSearchText ? '&search=' + encodeURIComponent(mSearchText) : '');
+        if (!isGlobal) {
+            query += '&location=' + encodeURIComponent(activeLocation);
+        }
         const r=await api(query);
         mr=r.rolls||[];
         
         // Show materials list for current shelf
-        const curShelf = mShelves.find(s => s.name === activeLocation);
+        const curShelf = isGlobal ? null : mShelves.find(s => s.name === activeLocation);
         const matTextEl = document.getElementById('mFLMaterialsText');
         const containerEl = document.getElementById('mFLMaterialsContainer');
-        if (curShelf && curShelf.materials_list) {
-            matTextEl.textContent = curShelf.materials_list;
-            containerEl.style.display = 'block';
-        } else {
-            containerEl.style.display = 'none';
-        }
-
-        // Show position for current shelf
         const posTextEl = document.getElementById('mFLPositionText');
         const posContainerEl = document.getElementById('mFLPositionContainer');
-        if (curShelf && curShelf.shelf_position) {
-            posTextEl.textContent = curShelf.shelf_position;
+
+        if (isGlobal) {
+            containerEl.style.display = 'none';
+            posTextEl.textContent = 'Đang xem số liệu toàn kho';
             posContainerEl.style.display = 'block';
         } else {
-            posContainerEl.style.display = 'none';
+            if (curShelf && curShelf.materials_list) {
+                matTextEl.textContent = curShelf.materials_list;
+                containerEl.style.display = 'block';
+            } else {
+                containerEl.style.display = 'none';
+            }
+            if (curShelf && curShelf.shelf_position) {
+                posTextEl.textContent = curShelf.shelf_position;
+                posContainerEl.style.display = 'block';
+            } else {
+                posContainerEl.style.display = 'none';
+            }
         }
         
         // Refresh session stats in UI
@@ -468,12 +484,20 @@ async function mLoad(){
         const shelfMissing = mr.filter(r => r.is_checked && Number(r.actual_weight) === 0).length;
         const shelfSurplus = mr.filter(r => r.source === 'kiem_kho_du').length;
 
-        document.getElementById('sT').textContent = mr.length; // Total rolls on current shelf
-        document.getElementById('sW').textContent = fn(shelfWeight); // Total system weight on current shelf
-        document.getElementById('sC').textContent = shelfChecked; // Checked rolls on current shelf
-        document.getElementById('sU').textContent = shelfUnchecked; // Unchecked rolls on current shelf
-        document.getElementById('sM').textContent = shelfMissing; // Missing rolls on current shelf
-        document.getElementById('sS').textContent = shelfSurplus; // Surplus rolls on current shelf
+        document.getElementById('sT').textContent = mr.length; // Total rolls
+        document.getElementById('sW').textContent = fn(shelfWeight); // Total system weight
+        document.getElementById('sC').textContent = shelfChecked; // Checked rolls
+        document.getElementById('sU').textContent = shelfUnchecked; // Unchecked rolls
+        document.getElementById('sM').textContent = shelfMissing; // Missing rolls
+        document.getElementById('sS').textContent = shelfSurplus; // Surplus rolls
+
+        // Update statistics labels
+        document.getElementById('lbl_sT').textContent = isGlobal ? 'TỔNG CÂY KHO' : 'TỔNG CÂY KỆ';
+        document.getElementById('lbl_sW').textContent = isGlobal ? 'TỔNG KG KHO' : 'TỔNG KG KỆ';
+        document.getElementById('lbl_sC').textContent = isGlobal ? 'ĐÃ KIỂM KHO' : 'ĐÃ KIỂM KỆ';
+        document.getElementById('lbl_sU').textContent = isGlobal ? 'CHƯA KIỂM KHO' : 'CHƯA KIỂM KỆ';
+        document.getElementById('lbl_sM').textContent = isGlobal ? 'CÂY BÁO MẤT KHO' : 'CÂY BÁO MẤT';
+        document.getElementById('lbl_sS').textContent = isGlobal ? 'CÂY THỪA KHO' : 'CÂY THỪA';
         
         mUpdateFilterUI();
         mCards();
@@ -545,8 +569,9 @@ function onSearchInput(val) {
 
 function mCards(){
     const c=document.getElementById('mC');
+    const isGlobal = (activeLocation === 'all_shelves');
     if(!mr.length){
-        c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:700">Kệ trống hoặc đã kiểm hết</div></div>';
+        c.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:700">${isGlobal ? 'Kho trống hoặc đã kiểm hết' : 'Kệ trống hoặc đã kiểm hết'}</div></div>`;
         return;
     }
     
@@ -564,10 +589,10 @@ function mCards(){
 
     if (!displayRolls.length) {
         let msg = 'Kệ trống hoặc đã kiểm hết';
-        if (mFilterStatus === 'checked') msg = 'Chưa có cây vải nào đã kiểm trên kệ này';
-        if (mFilterStatus === 'unchecked') msg = 'Kệ này đã được kiểm xong tất cả!';
-        if (mFilterStatus === 'missing') msg = 'Kệ này không có cây vải nào báo mất!';
-        if (mFilterStatus === 'surplus') msg = 'Kệ này không có cây vải nào thừa!';
+        if (mFilterStatus === 'checked') msg = isGlobal ? 'Chưa có cây vải nào đã kiểm trong kho' : 'Chưa có cây vải nào đã kiểm trên kệ này';
+        if (mFilterStatus === 'unchecked') msg = isGlobal ? 'Kho đã được kiểm xong tất cả!' : 'Kệ này đã được kiểm xong tất cả!';
+        if (mFilterStatus === 'missing') msg = isGlobal ? 'Kho không có cây vải nào báo mất!' : 'Kệ này không có cây vải nào báo mất!';
+        if (mFilterStatus === 'surplus') msg = isGlobal ? 'Kho không có cây vải nào thừa!' : 'Kệ này không có cây vải nào thừa!';
         c.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:700">${msg}</div></div>`;
         return;
     }
@@ -615,6 +640,12 @@ function mCards(){
                 badges += `<span class="m-reserve-badge">🔖 ${r.reserved_order_code}</span>`;
             }
 
+            // Location Badge in Global Mode
+            let shelfBadge = '';
+            if (isGlobal && r.location) {
+                shelfBadge = `<span style="font-size:10px; background:rgba(255,255,255,0.12); color:#cbd5e1; padding:2px 6px; border-radius:4px; border:1px solid rgba(255,255,255,0.08); font-weight:700; margin-left:4px;">📍 ${r.location}</span>`;
+            }
+            
             // Thumbnail
             let thumb = '';
             if (r.roll_img) {
@@ -633,8 +664,8 @@ function mCards(){
                     <div class="cb">
                         <div class="cr">
                             <span class="cl">🎨 Màu</span>
-                            <span class="cv" style="color:#5eead4;font-size:12px; display:flex; align-items:center; gap:4px;">
-                                ${thumb} ${r.color_name} ${badges}
+                            <span class="cv" style="color:#5eead4;font-size:12px; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                                ${thumb} ${r.color_name} ${badges} ${shelfBadge}
                             </span>
                         </div>
                         <div class="cr"><span class="cl">⚖️ Tồn Hệ Thống</span><span class="cv" style="color:#5eead4;font-size:18px;font-weight:900">${fn(r.system_weight)} kg</span></div>
@@ -1120,6 +1151,15 @@ async function mSubmitSurplus() {
         await mLoad();
     } catch (e) {
         toast(e.message || 'Lỗi khai báo cây thừa.', 'error');
+    }
+}
+
+async function mSelectGlobalMode() {
+    const lSel = document.getElementById('mFL');
+    if (lSel) {
+        lSel.value = 'all_shelves';
+        mFilterStatus = 'all';
+        await mLoad();
     }
 }
 

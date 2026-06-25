@@ -390,7 +390,7 @@ module.exports = async function(fastify) {
         }
 
         const rows = await db.all(`
-            SELECT r.id AS roll_id, r.roll_code, r.weight AS system_weight, r.original_weight, r.source, r.note AS roll_note, r.image_path AS roll_img,
+            SELECT r.id AS roll_id, r.roll_code, r.weight AS system_weight, r.original_weight, r.source, r.note AS roll_note, r.image_path AS roll_img, r.location,
                    fc.id AS fabric_color_id, fc.color_name, m.id AS material_id, m.name AS material_name,
                    w.name AS warehouse_name, w.unit,
                    sc.id AS sc_id, sc.actual_weight, sc.difference, sc.is_checked, sc.checked_at, sc.notes AS sc_notes,
