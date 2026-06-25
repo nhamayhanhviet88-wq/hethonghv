@@ -302,14 +302,16 @@ module.exports = async function (fastify) {
     // POST /api/khovai/rolls/:id/request-return — Request return for a roll
     fastify.post('/api/khovai/rolls/:id/request-return', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
-        const roll = await db.get('SELECT id FROM kv_rolls WHERE id = $1', [id]);
+        const roll = await db.get('SELECT id, location, original_location FROM kv_rolls WHERE id = $1', [id]);
         if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
         
+        const origLoc = roll.location !== '📍 Kệ Dự Định Hoàn Vải' ? (roll.location || null) : roll.original_location;
         await db.run(
             `UPDATE kv_rolls 
-             SET return_requested = true, return_requested_by = $1, return_requested_at = NOW()
-             WHERE id = $2`,
-            [request.user.id, id]
+             SET return_requested = true, return_requested_by = $1, return_requested_at = NOW(),
+                 location = '📍 Kệ Dự Định Hoàn Vải', original_location = $2
+             WHERE id = $3`,
+            [request.user.id, origLoc, id]
         );
         return { success: true };
     });
@@ -317,14 +319,16 @@ module.exports = async function (fastify) {
     // POST /api/khovai/rolls/:id/cancel-return-request — Cancel return request for a roll
     fastify.post('/api/khovai/rolls/:id/cancel-return-request', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
-        const roll = await db.get('SELECT id FROM kv_rolls WHERE id = $1', [id]);
+        const roll = await db.get('SELECT id, location, original_location FROM kv_rolls WHERE id = $1', [id]);
         if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
         
+        const nextLoc = roll.location === '📍 Kệ Dự Định Hoàn Vải' ? roll.original_location : roll.location;
         await db.run(
             `UPDATE kv_rolls 
-             SET return_requested = false, return_requested_by = NULL, return_requested_at = NULL
+             SET return_requested = false, return_requested_by = NULL, return_requested_at = NULL,
+                 location = $1, original_location = NULL
              WHERE id = $2`,
-            [id]
+            [nextLoc, id]
         );
         return { success: true };
     });
