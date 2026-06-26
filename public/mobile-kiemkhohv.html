@@ -698,10 +698,13 @@ function mCards(){
                             <span class="cl">🎨 Màu</span>
                             <span class="cv" style="color:#5eead4;font-size:12px; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
                                 ${thumb} ${r.color_name} 
-                                ${Number(r.system_weight) === Number(r.original_weight)
-                                    ? `<span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.25); padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700;">🌲 Cây Nguyên</span>`
-                                    : `<span style="background:rgba(249,115,22,0.15); color:#fb923c; border:1px solid rgba(249,115,22,0.25); padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700;">✂️ Cây Lẻ</span>`}
                                 ${badges} ${shelfBadge}
+                            </span>
+                        </div>
+                        <div class="cr">
+                            <span class="cl">🌲 Cây</span>
+                            <span class="cv" style="color:#ffffff; font-size:12px; font-weight:700;">
+                                ${Number(r.system_weight) === Number(r.original_weight) ? 'Cây Nguyên' : 'Cây Lẻ'}
                             </span>
                         </div>
                         <div class="cr"><span class="cl">⚖️ Tồn Hệ Thống</span><span class="cv" style="color:#5eead4;font-size:18px;font-weight:900">${fn(r.system_weight)} kg</span></div>
