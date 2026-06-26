@@ -201,9 +201,12 @@
                     <strong>📍 Vị Trí Kệ:</strong> <span id="mFLPositionText">...</span>
                 </div>
             </div>
-            <div class="mf-row" id="mFLMaterialsContainer" style="display:none; margin-top:-4px;">
-                <div style="font-size:11px; color:#5eead4; background:rgba(20,184,166,0.1); border:1px solid rgba(20,184,166,0.2); border-radius:8px; padding:6px 10px; width:100%; word-break:break-word;">
-                    <strong>📦 Chất liệu kệ:</strong> <span id="mFLMaterialsText">...</span>
+            <div class="mf-row" id="mFLMaterialsContainer" style="display:none; margin-top:-4px; cursor:pointer;" onclick="mOpenMaterialsSelector()">
+                <div style="font-size:11px; color:#5eead4; background:rgba(20,184,166,0.1); border:1px solid rgba(20,184,166,0.2); border-radius:8px; padding:8px 10px; width:100%; word-break:break-word; display:flex; align-items:center; justify-content:space-between; transition:background 0.15s;" onmouseover="this.style.background='rgba(20,184,166,0.18)'" onmouseout="this.style.background='rgba(20,184,166,0.1)'">
+                    <div>
+                        <strong>📦 Chất liệu kệ:</strong> <span id="mFLMaterialsText">...</span>
+                    </div>
+                    <span style="font-size:10px; opacity:0.8; margin-left:6px;">▼</span>
                 </div>
             </div>
             <div class="mf-row">
@@ -1563,6 +1566,110 @@ async function mSelectGlobalMode() {
         mFilterStatus = 'all';
         await mLoad();
     }
+}
+
+function mOpenMaterialsSelector() {
+    const isGlobal = (activeLocation === 'all_shelves');
+    if (isGlobal) return;
+    const curShelf = mShelves.find(s => s.name === activeLocation);
+    if (!curShelf || !curShelf.materials_list) return;
+    
+    // Parse materials list (split by comma, trim whitespace)
+    const materials = curShelf.materials_list.split(',').map(m => m.trim()).filter(Boolean);
+    if (materials.length === 0) return;
+    
+    let itemsHtml = '';
+    materials.forEach(mat => {
+        itemsHtml += `
+            <div onclick="mSelectMaterialForSearch('${mat.replace(/'/g, "\\'")}')" style="
+                padding: 12px 14px;
+                border-radius: 10px;
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.08);
+                color: #e2e8f0;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                transition: all 0.15s ease;
+                margin-bottom: 6px;
+                -webkit-tap-highlight-color: transparent;
+            " onmouseover="this.style.background='rgba(20,184,166,0.15)'; this.style.borderColor='rgba(20,184,166,0.4)'; this.style.color='#5eead4';"
+              onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.08)'; this.style.color='#e2e8f0';">
+                <span>📦 ${mat}</span>
+                <span style="font-size: 11px; opacity: 0.6;">Chọn ➔</span>
+            </div>
+        `;
+    });
+    
+    // Add an option to clear search / filter
+    itemsHtml += `
+        <div onclick="mSelectMaterialForSearch('')" style="
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.15);
+            color: #fca5a5;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.15s ease;
+            margin-top: 6px;
+            -webkit-tap-highlight-color: transparent;
+        " onmouseover="this.style.background='rgba(239,68,68,0.15)';"
+          onmouseout="this.style.background='rgba(239,68,68,0.08)';">
+            <span>❌ Bỏ tìm kiếm theo chất liệu</span>
+            <span style="font-size: 11px; opacity: 0.6;">Xóa ➔</span>
+        </div>
+    `;
+
+    const modalHtml = `
+        <div class="m-modal-overlay" id="mMaterialSelectModal">
+            <div class="m-modal" style="max-height: 80vh;">
+                <div class="m-modal-header">
+                    <div class="m-modal-title" style="display:flex; align-items:center; gap:6px;">
+                        📦 Chọn Chất Liệu Để Tìm Kiếm
+                    </div>
+                    <button class="m-modal-close" onclick="mCloseModal('mMaterialSelectModal')">&times;</button>
+                </div>
+                <div class="m-modal-body" style="gap:8px;">
+                    <div style="font-size:11px; color:#94a3b8; margin-bottom:4px; line-height:1.4;">
+                        Chọn chất liệu của kệ <strong>${activeLocation}</strong> để điền nhanh vào ô tìm kiếm:
+                    </div>
+                    ${itemsHtml}
+                </div>
+                <div class="m-modal-footer">
+                    <button class="m-btn m-btn-secondary" onclick="mCloseModal('mMaterialSelectModal')">Hủy</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('mMaterialSelectModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'mMaterialSelectModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+}
+
+function mSelectMaterialForSearch(mat) {
+    const searchInp = document.getElementById('mSearchRoll');
+    if (searchInp) {
+        searchInp.value = mat;
+    }
+    mCloseModal('mMaterialSelectModal');
+    
+    // Clear timeout and trigger immediately
+    clearTimeout(mSearchTimeout);
+    mSearchText = mat.trim();
+    onWhChange();
 }
 
 function viewImage(imgUrl) {

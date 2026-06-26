@@ -525,6 +525,8 @@ async function _kkRenderAudit(content) {
     const isGiamDoc = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
     const cleanActiveLoc = (_kk.activeLocation || '').replace(/^📍\s*/, '').trim().toLowerCase();
     const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanActiveLoc);
+    const activeShelf = _kk.shelves ? _kk.shelves.find(s => s.name === _kk.activeLocation) : null;
+    const activeMatsList = activeShelf ? activeShelf.materials_list : '';
     
     // Progress calculation
     const totalRolls = _kk.session.total_rolls || 0;
@@ -815,7 +817,15 @@ async function _kkRenderAudit(content) {
                     <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; flex-wrap:wrap; gap:10px;">
                         <div>
                             <h3 style="font-weight:900; color:#0f766e; margin:0; font-size:16px;">📍 Kệ: ${_kk.activeLocation}</h3>
-                            <span style="font-size:11px; color:#64748b;">Tổng số trên kệ: ${_kk.rolls.length} cây</span>
+                            <div style="font-size:11px; color:#64748b; display:flex; align-items:center; gap:8px; margin-top:2px;">
+                                <span>Tổng số trên kệ: ${_kk.rolls.length} cây</span>
+                                ${activeMatsList ? `
+                                    <span style="color:#cbd5e1;">|</span>
+                                    <span style="color:#0d9488; cursor:pointer; font-weight:700; background:#f0fdfa; border:1px solid #ccfbf1; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" onmouseover="this.style.background='#ccfbf1'" onmouseout="this.style.background='#f0fdfa'" onclick="_kkOpenMaterialsSelector()" title="Bấm để lọc theo chất liệu">
+                                        📦 Chất liệu: ${activeMatsList} ▼
+                                    </span>
+                                ` : ''}
+                            </div>
                         </div>
                         <div style="display:flex; gap:8px;">
                             <input id="kkSearchRoll" placeholder="🔍 Tìm mã cây, màu, chất liệu..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; width:220px; outline:none;" value="${_kk.search}" oninput="_kkSearchRolls(this.value)">
@@ -2053,3 +2063,151 @@ function viewImage(imgUrl) {
 }
 
 window.viewImage = viewImage;
+
+function _kkOpenMaterialsSelector() {
+    const activeShelf = _kk.shelves ? _kk.shelves.find(s => s.name === _kk.activeLocation) : null;
+    if (!activeShelf || !activeShelf.materials_list) return;
+    
+    const materials = activeShelf.materials_list.split(',').map(m => m.trim()).filter(Boolean);
+    if (materials.length === 0) return;
+    
+    let itemsHtml = '';
+    materials.forEach(mat => {
+        itemsHtml += `
+            <div onclick="_kkSelectMaterialForSearch('${mat.replace(/'/g, "\\'")}')" style="
+                padding: 12px 14px;
+                border-radius: 10px;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                color: #334155;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                transition: all 0.15s ease;
+                margin-bottom: 6px;
+            " onmouseover="this.style.background='#f0fdfa'; this.style.borderColor='#99f6e4'; this.style.color='#0f766e';"
+              onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0'; this.style.color='#334155';">
+                <span>📦 ${mat}</span>
+                <span style="font-size: 11px; color: #0d9488; font-weight: bold;">Chọn ➔</span>
+            </div>
+        `;
+    });
+    
+    itemsHtml += `
+        <div onclick="_kkSelectMaterialForSearch('')" style="
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #ef4444;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.15s ease;
+            margin-top: 6px;
+        " onmouseover="this.style.background='#fee2e2';"
+          onmouseout="this.style.background='#fef2f2';">
+            <span>❌ Bỏ tìm kiếm theo chất liệu</span>
+            <span style="font-size: 11px; opacity: 0.8;">Xóa ➔</span>
+        </div>
+    `;
+
+    const modalHtml = `
+        <div class="kk-modal-overlay" id="kkMaterialSelectModal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        ">
+            <div class="kk-modal" style="
+                background: #ffffff;
+                border-radius: 12px;
+                box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+                max-width: 400px;
+                width: 90%;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            ">
+                <div class="kk-modal-header" style="
+                    padding: 16px 20px;
+                    border-bottom: 1px solid #e2e8f0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <div class="kk-modal-title" style="font-weight: 800; font-size: 15px; color: #0f766e; display: flex; align-items: center; gap: 6px;">
+                        📦 Chọn Chất Liệu Để Tìm Kiếm
+                    </div>
+                    <button onclick="_kkCloseModal('kkMaterialSelectModal')" style="border:none; background:none; font-size:24px; cursor:pointer; color:#94a3b8;">&times;</button>
+                </div>
+                <div class="kk-modal-body" style="
+                    padding: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                ">
+                    <div style="font-size: 12px; color: #64748b; margin-bottom: 4px; line-height: 1.4;">
+                        Chọn chất liệu của kệ <strong>${_kk.activeLocation}</strong> để điền nhanh vào ô tìm kiếm:
+                    </div>
+                    ${itemsHtml}
+                </div>
+                <div class="kk-modal-footer" style="
+                    padding: 12px 20px;
+                    border-top: 1px solid #e2e8f0;
+                    background: #f8fafc;
+                    display: flex;
+                    justify-content: flex-end;
+                ">
+                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkMaterialSelectModal')" style="padding: 6px 14px; font-size: 12px;">Hủy</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('kkMaterialSelectModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'kkMaterialSelectModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+}
+
+function _kkCloseModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.parentElement.remove();
+}
+
+function _kkSelectMaterialForSearch(mat) {
+    const searchInp = document.getElementById('kkSearchRoll');
+    if (searchInp) {
+        searchInp.value = mat;
+    }
+    _kkCloseModal('kkMaterialSelectModal');
+    
+    // Trigger search immediately
+    clearTimeout(_kkSearchTimeout);
+    _kk.search = mat.trim();
+    _kkLoadShelves().then(() => {
+        const content = _kkGetContainer();
+        if (content) _kkRenderMain(content);
+    });
+}
+
+window._kkOpenMaterialsSelector = _kkOpenMaterialsSelector;
+window._kkCloseModal = _kkCloseModal;
+window._kkSelectMaterialForSearch = _kkSelectMaterialForSearch;
