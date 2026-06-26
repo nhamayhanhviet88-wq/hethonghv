@@ -99,6 +99,51 @@ module.exports = async function(fastify) {
             active_cuts_count: activeCutsCount ? activeCutsCount.cnt : 0
         };
     });
+    
+    // ========== GET ROLL ORIGIN DETAILS ==========
+    fastify.get('/api/stockcheck/roll-origin/:rollId', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const rollId = parseInt(req.params.rollId);
+            if (isNaN(rollId)) return reply.code(400).send({ error: 'Mã cây vải không hợp lệ.' });
+
+            const roll = await db.get(`
+                SELECT r.id, r.roll_code, r.weight, r.original_weight, r.location, r.note, r.source, r.created_at,
+                       fc.color_name, m.name AS material_name, u.full_name AS creator_name, u.username AS creator_username
+                FROM kv_rolls r
+                JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                JOIN kv_materials m ON m.id = fc.material_id
+                LEFT JOIN users u ON u.id = r.created_by
+                WHERE r.id = $1
+            `, [rollId]);
+
+            if (!roll) {
+                return reply.code(404).send({ error: 'Không tìm thấy thông tin cây vải này.' });
+            }
+
+            // Formatting creation date to Vietnam Timezone format: hh:mm ngày dd/mm/yyyy
+            let formattedDate = '—';
+            if (roll.created_at) {
+                formattedDate = vnFormat(roll.created_at, 'HH:mm [ngày] DD/MM/YYYY');
+            }
+
+            return {
+                id: roll.id,
+                roll_code: roll.roll_code,
+                weight: Number(roll.weight) || 0,
+                original_weight: Number(roll.original_weight) || 0,
+                location: roll.location || 'Chưa xếp kệ',
+                note: roll.note || '',
+                source: roll.source || '',
+                created_at_formatted: formattedDate,
+                creator_name: roll.creator_name ? `${roll.creator_name} (${roll.creator_username})` : 'Hệ thống (tự động)',
+                material_name: roll.material_name || '',
+                color_name: roll.color_name || ''
+            };
+        } catch (e) {
+            console.error('[KK] Get roll origin error:', e);
+            return reply.code(500).send({ error: 'Lỗi máy chủ khi truy xuất nguồn gốc cây vải.' });
+        }
+    });
 
     // ========== START SESSION (LOCK WAREHOUSE) ==========
     fastify.post('/api/stockcheck/start-session', { preHandler: [authenticate] }, async (req, reply) => {

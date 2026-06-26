@@ -795,7 +795,7 @@ function mCards(){
                                             ${fn(r.system_weight)} kg
                                         </span>
                                     ` : `
-                                        <span style="cursor:pointer; opacity: 0.7; color:#94a3b8; font-weight:normal;" onclick="event.stopPropagation(); toast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                        <span style="cursor:pointer; text-decoration:underline; font-weight:900; color:#c084fc;" onclick="event.stopPropagation(); mOpenRollOrigin(${r.roll_id})" title="Nhấp để xem nguồn gốc cây vải thừa/tự tạo">
                                             ${fn(r.system_weight)} kg
                                         </span>
                                     `
@@ -1623,9 +1623,28 @@ function mOnSurplusShelfChange(shelfName) {
     mValidateSurplusForm();
 }
 
+function mUpdateBodyScroll() {
+    var hasOpenModal = document.getElementById('mRollOriginModal') || 
+                       document.getElementById('_fabDetailOv') || 
+                       document.getElementById('_bnhImgOv') || 
+                       document.getElementById('_fabViolationOv') ||
+                       document.getElementById('mViewSurplusModal') ||
+                       document.getElementById('mWeightModal') ||
+                       document.getElementById('mMissingModal') ||
+                       document.getElementById('mFinishConfirmModal') ||
+                       document.getElementById('mMaterialSelectModal');
+    if (hasOpenModal) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
+}
+window.mUpdateBodyScroll = mUpdateBodyScroll;
+
 function mCloseModal(id) {
     const el = document.getElementById(id);
     if (el) el.parentElement.remove();
+    mUpdateBodyScroll();
 }
 
 async function mOnSurplusMatChange(val) {
@@ -2087,6 +2106,98 @@ function mOpenImportBill(importId) {
         document.head.appendChild(s);
     }
 }
+
+async function mOpenRollOrigin(rollId) {
+    try {
+        const r = await apiCall('/api/stockcheck/roll-origin/' + rollId);
+        if (!r) {
+            toast('Không lấy được thông tin nguồn gốc cây vải', 'error');
+            return;
+        }
+
+        const isNguyen = Number(r.weight) === Number(r.original_weight);
+        const typeLabel = isNguyen 
+            ? '<span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700;">🌲 Cây Nguyên (Chưa cắt)</span>' 
+            : '<span style="background:rgba(249,115,22,0.15); color:#fb923c; border:1px solid rgba(249,115,22,0.3); padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700;">✂️ Cây Lẻ (Đã cắt dở)</span>';
+
+        const originText = r.source === 'kiem_kho_du'
+            ? '<strong style="color:#a855f7;">💜 Báo dư từ đợt kiểm kê</strong>'
+            : '<strong>Tạo thủ công / Cắt dư từ đơn hàng</strong>';
+
+        const modalHtml = `
+            <div class="m-modal-overlay" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:99999; display:flex; align-items:center; justify-content:center; padding:12px; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);">
+                <div class="m-modal" id="mRollOriginModal" style="background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:16px; width:100%; max-width:400px; box-shadow:0 25px 50px rgba(0,0,0,0.5); overflow:hidden; display:flex; flex-direction:column;">
+                    <div class="m-modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid #334155; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff;">
+                        <div class="m-modal-title" style="font-size:14px; font-weight:800; display:flex; align-items:center; gap:6px;">🔍 Truy Xuất Nguồn Gốc Cây Vải</div>
+                        <button onclick="mCloseModal('mRollOriginModal')" style="background:rgba(255,255,255,0.2); border:none; color:#fff; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:11px; font-weight:700;">✕</button>
+                    </div>
+                    <div class="m-modal-body" style="padding:16px; font-size:12px; display:flex; flex-direction:column; gap:10px; max-height:65vh; overflow-y:auto; text-align:left;">
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Mã Cây Vải:</span>
+                            <span style="font-weight:700; font-family:monospace; color:#c084fc; font-size:13px;">${r.roll_code}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Xuất Xứ Cây:</span>
+                            <span>${originText}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Thời Gian Kiểm/Tạo:</span>
+                            <span style="font-weight:700; color:#e2e8f0;">${r.created_at_formatted}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Nhân Viên Thực Hiện:</span>
+                            <span style="font-weight:700; color:#e2e8f0;">${r.creator_name}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Chất Liệu Vải:</span>
+                            <span style="font-weight:700; color:#e2e8f0;">${r.material_name}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Màu Vải:</span>
+                            <span style="font-weight:700; color:#2dd4bf;">${r.color_name}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Trọng Lượng Lúc Báo Dư:</span>
+                            <span style="font-weight:800; color:#34d399; font-size:13px;">${r.original_weight} kg</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Trọng Lượng Hiện Tại:</span>
+                            <span style="font-weight:800; color:#2dd4bf; font-size:13px;">${r.weight} kg</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Phân Loại Cây:</span>
+                            <span>${typeLabel}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #334155; padding-bottom:6px;">
+                            <span style="color:#94a3b8; font-weight:600;">Vị Trí Kệ:</span>
+                            <span style="font-weight:700; color:#818cf8;">📍 ${r.location}</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; background:#0f172a; padding:8px 12px; border-radius:8px; border:1px solid #334155; text-align:left;">
+                            <span style="color:#94a3b8; font-weight:600; font-size:10px;">Ghi chú chi tiết lúc kiểm:</span>
+                            <span style="font-style:italic; color:#cbd5e1; font-weight:500; line-height:1.4;">${r.note || 'Không có ghi chú thêm'}</span>
+                        </div>
+                    </div>
+                    <div class="m-modal-footer" style="background:#0f172a; display:flex; justify-content:flex-end; padding:10px 16px; border-top:1px solid #334155;">
+                        <button class="m-btn m-btn-secondary" onclick="mCloseModal('mRollOriginModal')" style="background:#4b5563; border-color:#4b5563; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const oldContainer = document.getElementById('mRollOriginModal');
+        if (oldContainer) oldContainer.parentElement.remove();
+
+        const div = document.createElement('div');
+        div.innerHTML = modalHtml;
+        document.body.appendChild(div);
+        
+        mUpdateBodyScroll();
+    } catch (e) {
+        console.error('[KK-Mobile] Open roll origin detail error:', e);
+        toast('Không lấy được thông tin chi tiết cây vải', 'error');
+    }
+}
+window.mOpenRollOrigin = mOpenRollOrigin;
 
 mInit();
 </script>
