@@ -1267,7 +1267,7 @@ function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
 
                     <div class="kk-form-group" style="margin-bottom:12px;">
                         <label class="kk-form-label">Cân nặng thực tế (kg) <span style="color:#ef4444;">*</span></label>
-                        <input type="number" id="kkInputActualW" class="kk-form-input" placeholder="Nhập số kg thực tế..." step="0.1" min="0" oninput="_kkCalculateDifference(${systemWeight})">
+                        <input type="number" id="kkInputActualW" class="kk-form-input" placeholder="Nhập số kg thực tế..." step="0.1" min="0.1" oninput="_kkCalculateDifference(${systemWeight})">
                     </div>
 
                     <div class="kk-form-group" style="margin-bottom:12px;">
@@ -1321,8 +1321,8 @@ function _kkCalculateDifference(systemWeight) {
     }
     
     const actual = Number(val);
-    if (isNaN(actual) || actual < 0) {
-        diffEl.innerHTML = '<span style="color:#ef4444; font-weight:600;">Cân nặng không hợp lệ</span>';
+    if (isNaN(actual) || actual <= 0) {
+        diffEl.innerHTML = '<span style="color:#ef4444; font-weight:600;">Cân nặng phải lớn hơn 0</span>';
         btnEl.disabled = true;
         btnEl.style.opacity = '0.5';
         return;
@@ -1343,8 +1343,8 @@ function _kkCalculateDifference(systemWeight) {
 
 async function _kkSubmitWeightInput(rollId, systemWeight, rollImg) {
     const valStr = document.getElementById('kkInputActualW').value;
-    if (!valStr || isNaN(Number(valStr)) || Number(valStr) < 0) {
-        showToast('Trọng lượng không hợp lệ', 'error');
+    if (!valStr || isNaN(Number(valStr)) || Number(valStr) <= 0) {
+        showToast('Trọng lượng phải lớn hơn 0', 'error');
         return;
     }
     const val = Number(valStr);
