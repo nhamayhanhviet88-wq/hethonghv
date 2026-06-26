@@ -173,7 +173,7 @@ function _nxhvRender(){
                 } else if (!r.is_approved) {
                     btnHTML = '<button class="nxhv-ib" style="background:#eab308; border-color:#eab308; color:#fff;" onclick="event.stopPropagation(); openConfirm2Modal(' + r.id + ')" title="Xác nhận lần 2 (Kế toán đối chiếu cân nặng)">🟨</button>';
                     if (r.needs_discrepancy_approval) {
-                        btnHTML += '<span style="color:#d97706;font-size:9.5px;font-weight:700;display:block;margin-top:4px;white-space:normal;line-height:1.2;max-width:140px">⚠️ Chờ QL Lê Việt Trinh duyệt sai lệch (' + _nxhvFN(r.actual_quantity) + ' kg)</span>';
+                        btnHTML += '<span style="color:#d97706;font-size:9.5px;font-weight:700;display:block;margin-top:4px;white-space:normal;line-height:1.2;max-width:140px">⚠️ Chờ QL Trinh duyệt sai lệch</span>';
                         if (isGdOrTrinhFront()) {
                             btnHTML += '<button class="nxhv-ib" style="background:#10b981; border-color:#10b981; color:#fff; margin-top:5px; padding:3px 8px; font-size:10px; font-weight:700; border-radius:4px; height:auto; width:auto; line-height:1.2; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); approveDiscrepancy(' + r.id + ', ' + r.actual_quantity + ', ' + r.total_quantity + ')" title="Duyệt sai lệch cân nặng">🔔 Duyệt</button>';
                         }
