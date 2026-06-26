@@ -230,16 +230,13 @@ module.exports = async function(fastify) {
         await db.run('BEGIN TRANSACTION');
         try {
             if (sessionInfo.session_id) {
-                const session = await db.get("SELECT started_at FROM stockcheck_sessions WHERE id = $1", [sessionInfo.session_id]);
-                if (session) {
-                    // Find all surplus rolls created during this session
-                    const surplusRolls = await db.all("SELECT roll_code FROM kv_rolls WHERE source = 'kiem_kho_du' AND created_at >= $1", [session.started_at]);
-                    for (const r of surplusRolls) {
-                        await db.run("DELETE FROM kv_transactions WHERE description LIKE $1", [`%(${r.roll_code})%`]);
-                    }
-                    // Delete from kv_rolls (cascades to stockcheck_records and stockcheck_history)
-                    await db.run("DELETE FROM kv_rolls WHERE source = 'kiem_kho_du' AND created_at >= $1", [session.started_at]);
+                // Find all surplus rolls created during this session
+                const surplusRolls = await db.all("SELECT roll_code FROM kv_rolls WHERE source = 'kiem_kho_du' AND created_at >= (SELECT started_at FROM stockcheck_sessions WHERE id = $1)", [sessionInfo.session_id]);
+                for (const r of surplusRolls) {
+                    await db.run("DELETE FROM kv_transactions WHERE description LIKE $1", [`%(${r.roll_code})%`]);
                 }
+                // Delete from kv_rolls (cascades to stockcheck_records and stockcheck_history)
+                await db.run("DELETE FROM kv_rolls WHERE source = 'kiem_kho_du' AND created_at >= (SELECT started_at FROM stockcheck_sessions WHERE id = $1)", [sessionInfo.session_id]);
                 
                 await db.run(`
                     UPDATE stockcheck_sessions
@@ -449,14 +446,14 @@ module.exports = async function(fastify) {
             if (activeRow && activeRow.value) {
                 try { session = JSON.parse(activeRow.value); } catch(e) {}
             }
-            if (session && session.started_at) {
+            if (session && session.session_id) {
                 await db.run(`
                     INSERT INTO stockcheck_records (roll_id, fabric_color_id, system_weight, actual_weight, difference, is_checked, checked_at, checked_by, created_by, created_at)
                     SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
                     FROM kv_rolls r
                     LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
-                    WHERE r.source = 'kiem_kho_du' AND r.created_at >= $1 AND sc.id IS NULL AND r.is_returned = false
-                `, [session.started_at]);
+                    WHERE r.source = 'kiem_kho_du' AND r.created_at >= (SELECT started_at FROM stockcheck_sessions WHERE id = $1) AND sc.id IS NULL AND r.is_returned = false
+                `, [session.session_id]);
             }
         } catch(e) {
             console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
@@ -498,14 +495,14 @@ module.exports = async function(fastify) {
             if (activeRow && activeRow.value) {
                 try { session = JSON.parse(activeRow.value); } catch(e) {}
             }
-            if (session && session.started_at) {
+            if (session && session.session_id) {
                 await db.run(`
                     INSERT INTO stockcheck_records (roll_id, fabric_color_id, system_weight, actual_weight, difference, is_checked, checked_at, checked_by, created_by, created_at)
                     SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
                     FROM kv_rolls r
                     LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
-                    WHERE r.source = 'kiem_kho_du' AND r.created_at >= $1 AND sc.id IS NULL AND r.is_returned = false
-                `, [session.started_at]);
+                    WHERE r.source = 'kiem_kho_du' AND r.created_at >= (SELECT started_at FROM stockcheck_sessions WHERE id = $1) AND sc.id IS NULL AND r.is_returned = false
+                `, [session.session_id]);
             }
         } catch(e) {
             console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
@@ -891,6 +888,13 @@ module.exports = async function(fastify) {
     fastify.post('/api/stockcheck/finish-session', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isKhoManager(req))) return reply.code(403).send({ error: 'Chỉ Quản lý kho hoặc Giám đốc mới có quyền chốt sổ kiểm kê.' });
 
+        const activeRow = await db.get("SELECT value FROM app_config WHERE key = 'stockcheck_active_session'");
+        if (!activeRow || !activeRow.value) return reply.code(400).send({ error: 'Không có phiên kiểm kê nào đang hoạt động.' });
+
+        let sessionInfo = {};
+        try { sessionInfo = JSON.parse(activeRow.value); } catch(e) {}
+        const sessionId = sessionInfo.session_id;
+
         // Self-heal: ensure all surplus rolls have a stockcheck record
         try {
             await db.run(`
@@ -898,18 +902,11 @@ module.exports = async function(fastify) {
                 SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
                 FROM kv_rolls r
                 LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
-                WHERE r.source = 'kiem_kho_du' AND sc.id IS NULL AND r.is_returned = false
-            `);
+                WHERE r.source = 'kiem_kho_du' AND r.created_at >= (SELECT started_at FROM stockcheck_sessions WHERE id = $1) AND sc.id IS NULL AND r.is_returned = false
+            `, [sessionId]);
         } catch(e) {
             console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
         }
-
-        const activeRow = await db.get("SELECT value FROM app_config WHERE key = 'stockcheck_active_session'");
-        if (!activeRow || !activeRow.value) return reply.code(400).send({ error: 'Không có phiên kiểm kê nào đang hoạt động.' });
-
-        let sessionInfo = {};
-        try { sessionInfo = JSON.parse(activeRow.value); } catch(e) {}
-        const sessionId = sessionInfo.session_id;
 
         // Verify all expected rolls are audited
         const expectedCount = await db.get(`
