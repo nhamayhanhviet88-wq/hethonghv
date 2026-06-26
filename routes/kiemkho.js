@@ -1019,7 +1019,13 @@ module.exports = async function(fastify) {
                     surplusWeight += newW;
                     type = 'surplus';
                     if (diff !== 0) {
-                        await db.run('UPDATE kv_rolls SET weight = $1, original_weight = $1 WHERE id = $2', [newW, rec.roll_id]);
+                        const isLe = Number(rec.old_weight) < Number(rec.original_weight);
+                        if (isLe) {
+                            const diffOrig = Number(rec.original_weight) - Number(rec.old_weight);
+                            await db.run('UPDATE kv_rolls SET weight = $1, original_weight = $2 WHERE id = $3', [newW, newW + diffOrig, rec.roll_id]);
+                        } else {
+                            await db.run('UPDATE kv_rolls SET weight = $1, original_weight = $1 WHERE id = $2', [newW, rec.roll_id]);
+                        }
                     }
                 } else if (newW === 0) {
                     // Missing roll (Loss 100%)

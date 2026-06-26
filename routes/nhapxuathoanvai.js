@@ -406,8 +406,8 @@ module.exports = async function(fastify) {
     fastify.delete('/api/fabrictx/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isNxhvManager(req)) && req.user.role !== 'ke_toan') return reply.code(403).send({ error: 'Chỉ QLX/GĐ/KT' });
         const id = Number(req.params.id);
-        await db.run(`DELETE FROM kv_transactions WHERE description LIKE 'Trả NCC (Duyệt hoàn ' || $1 || '):%'`, [id]);
-        await db.run(`UPDATE kv_rolls SET location = original_location, original_location = NULL, return_tx_id = NULL WHERE return_tx_id = $1`, [id]);
+        await db.run(`DELETE FROM kv_transactions WHERE description LIKE 'Trả NCC (%' || $1 || '):%'`, [id]);
+        await db.run(`UPDATE kv_rolls SET is_returned = false, location = original_location, original_location = NULL, return_tx_id = NULL WHERE return_tx_id = $1`, [id]);
         await db.run('DELETE FROM fabric_transactions WHERE id=$1', [id]);
         return { success: true };
     });
@@ -485,10 +485,22 @@ module.exports = async function(fastify) {
                 [now, req.user.id, JSON.stringify(billImgs), id]
             );
 
-            // 2. Update rolls location to '📍 Đã Bàn Giao NCC'
+            // 2. Insert kv_transactions & Update kv_rolls (mark as returned immediately to deduct inventory)
+            const rollsRes = await client.query(
+                `SELECT id, fabric_color_id, weight FROM kv_rolls WHERE return_tx_id = $1 AND is_returned = false`,
+                [id]
+            );
+            for (const roll of rollsRes.rows) {
+                await client.query(
+                    `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by, created_at)
+                     VALUES ($1, 'XUAT', $2, $3, $4, $5)`,
+                    [roll.fabric_color_id, 'XUAT', Number(roll.weight), `Trả NCC (Bàn giao hoàn #${id}): cục ${roll.weight}`, req.user.id, now]
+                );
+            }
+
             await client.query(
                 `UPDATE kv_rolls 
-                 SET location = '📍 Đã Bàn Giao NCC', updated_at = $1 
+                 SET is_returned = true, location = NULL, updated_at = $1 
                  WHERE return_tx_id = $2 AND is_returned = false`,
                 [now, id]
             );
@@ -496,7 +508,7 @@ module.exports = async function(fastify) {
             // 3. History
             await client.query(
                 `INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at)
-                 VALUES ($1, 'confirm1', 'Xác nhận lần 1: Đã bàn giao cho nhà cung cấp lấy vải về', $2, $3)`,
+                 VALUES ($1, 'confirm1', 'Xác nhận lần 1: Đã bàn giao cho nhà cung cấp lấy vải về và xuất kho', $2, $3)`,
                 [id, req.user.id, now]
             );
 
@@ -759,22 +771,7 @@ module.exports = async function(fastify) {
                 [now, req.user.id, initialQty, actQty, JSON.stringify(actualImages), notes || null, totalAmount, debt, id]
             );
 
-            // 2. Insert kv_transactions & Update kv_rolls
-            const rolls = await client.query(`SELECT id, fabric_color_id, weight FROM kv_rolls WHERE return_tx_id = $1 AND is_returned = false`, [id]);
-            for (const roll of rolls.rows) {
-                await client.query(
-                    `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by, created_at)
-                     VALUES ($1, 'XUAT', $2, $3, $4, $5)`,
-                    [roll.fabric_color_id, 'XUAT', Number(roll.weight), `Trả NCC (Duyệt hoàn #${id}): cục ${roll.weight}`, req.user.id, now]
-                );
-            }
-
-            await client.query(
-                `UPDATE kv_rolls 
-                 SET is_returned = true, location = NULL, updated_at = $1 
-                 WHERE return_tx_id = $2`,
-                [now, id]
-            );
+            // 2. kv_rolls and kv_transactions are already updated in confirm1 (Step 1)
 
             // 3. Auto-create refund bill in import_records
             await createRefundBill(client, tx, actQty, tx.price, req.user.id, now);
@@ -865,22 +862,7 @@ module.exports = async function(fastify) {
                 [now, req.user.id, actQty, totalAmount, debt, id]
             );
 
-            // 2. Insert kv_transactions & Update kv_rolls
-            const rolls = await client.query(`SELECT id, fabric_color_id, weight FROM kv_rolls WHERE return_tx_id = $1 AND is_returned = false`, [id]);
-            for (const roll of rolls.rows) {
-                await client.query(
-                    `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by, created_at)
-                     VALUES ($1, 'XUAT', $2, $3, $4, $5)`,
-                    [roll.fabric_color_id, 'XUAT', Number(roll.weight), `Trả NCC (QL duyệt hoàn #${id}): cục ${roll.weight}`, req.user.id, now]
-                );
-            }
-
-            await client.query(
-                `UPDATE kv_rolls 
-                 SET is_returned = true, location = NULL, updated_at = $1 
-                 WHERE return_tx_id = $2`,
-                [now, id]
-            );
+            // 2. kv_rolls and kv_transactions are already updated in confirm1 (Step 1)
 
             // 3. Auto-create refund bill in import_records
             await createRefundBill(client, tx, actQty, tx.price, req.user.id, now);
