@@ -4701,6 +4701,7 @@ module.exports = async function(fastify) {
         await db.run(
             `UPDATE dht_orders 
              SET additional_vat_amount = $1,
+                 vat_amount = COALESCE(vat_amount, 0) - $2 + $3,
                  total_amount = total_amount - $2 + $3,
                  has_vat = $4,
                  last_updated_at = NOW()

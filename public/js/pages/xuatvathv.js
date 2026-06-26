@@ -167,6 +167,7 @@ async function renderXuatvathvPage(content) {
                                     <th style="padding:12px 8px;text-align:center;width:40px;">Hợp Đồng</th>
                                     <th style="padding:12px 8px;text-align:center;width:40px;">BB Bàn Giao</th>
                                     <th style="padding:12px 14px;">Lĩnh Vực</th>
+                                    <th style="padding:12px 14px;text-align:right;">Tiền VAT</th>
                                     <th style="padding:12px 14px;text-align:right;">Còn Lại</th>
                                     <th style="padding:12px 14px;">Mã Đơn</th>
                                     <th style="padding:12px 14px;">Tên Khách</th>
@@ -177,7 +178,7 @@ async function renderXuatvathvPage(content) {
                                 </tr>
                             </thead>
                             <tbody id="vatTbody">
-                                <tr><td colspan="12" style="text-align:center;padding:40px;color:#94a3b8;">⏳ Đang tải dữ liệu hóa đơn...</td></tr>
+                                <tr><td colspan="13" style="text-align:center;padding:40px;color:#94a3b8;">⏳ Đang tải dữ liệu hóa đơn...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -241,7 +242,7 @@ async function _vatLoadData() {
         console.error('[VAT Page Load Error]:', e);
         const tbody = document.getElementById('vatTbody');
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:40px;color:#ef4444;font-weight:700;">⚠️ Lỗi tải dữ liệu: ${e.message || 'Không thể kết nối đến máy chủ'}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:40px;color:#ef4444;font-weight:700;">⚠️ Lỗi tải dữ liệu: ${e.message || 'Không thể kết nối đến máy chủ'}</td></tr>`;
         }
     }
 }
@@ -487,7 +488,7 @@ function _vatRenderTable() {
 
     // 4. Render Table rows
     if (pagedItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:40px;color:#94a3b8;font-weight:600;">Không có đơn hàng nào khớp điều kiện</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:40px;color:#94a3b8;font-weight:600;">Không có đơn hàng nào khớp điều kiện</td></tr>`;
         const pag = document.getElementById('vatPagination');
         if (pag) pag.innerHTML = '';
         return;
@@ -552,6 +553,7 @@ function _vatRenderTable() {
                 </td>
                 <!-- Columns -->
                 <td style="padding:10px 14px;font-weight:600;color:#334155;">${o.category_name || '—'}</td>
+                <td style="padding:10px 14px;text-align:right;font-weight:700;color:#6366f1;">${_vatFmt(Number(o.vat_amount) || 0)} đ</td>
                 <td style="padding:10px 14px;text-align:right;font-weight:700;color:${o.remaining_amount > 0 ? '#ef4444' : '#10b981'};">${_vatFmt(o.remaining_amount)} đ</td>
                 <td style="padding:10px 14px;font-weight:700;color:#0284c7;cursor:pointer;text-decoration:underline;" onclick="if(window._dhtShowDetail) _dhtShowDetail('${o.id}')">${o.order_code || '—'}</td>
                 <td style="padding:10px 14px;font-weight:600;color:#1e293b;">${o.customer_name || '—'}</td>
