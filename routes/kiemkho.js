@@ -1111,16 +1111,40 @@ module.exports = async function(fastify) {
 
     // ========== LIST COMPLETED SESSIONS ==========
     fastify.get('/api/stockcheck/sessions', { preHandler: [authenticate] }, async () => {
-        return {
-            sessions: await db.all(`
-                SELECT s.*, u1.full_name AS started_by_name, u2.full_name AS finished_by_name
-                FROM stockcheck_sessions s
-                LEFT JOIN users u1 ON s.started_by = u1.id
-                LEFT JOIN users u2 ON s.finished_by = u2.id
-                WHERE s.status = 'completed'
-                ORDER BY s.finished_at DESC, s.id DESC
-            `)
-        };
+        const sessions = await db.all(`
+            SELECT s.*, u1.full_name AS started_by_name, u2.full_name AS finished_by_name
+            FROM stockcheck_sessions s
+            LEFT JOIN users u1 ON s.started_by = u1.id
+            LEFT JOIN users u2 ON s.finished_by = u2.id
+            WHERE s.status = 'completed'
+            ORDER BY s.finished_at DESC, s.id DESC
+        `);
+
+        const breakdowns = await db.all(`
+            SELECT session_id, unit, 
+                   SUM(CASE WHEN type = 'missing' THEN system_weight ELSE 0 END)::numeric AS missing_weight,
+                   SUM(CASE WHEN type = 'surplus' THEN actual_weight ELSE 0 END)::numeric AS surplus_weight,
+                   SUM(CASE WHEN type = 'difference' THEN difference ELSE 0 END)::numeric AS net_diff
+            FROM stockcheck_session_items
+            GROUP BY session_id, unit
+        `);
+
+        sessions.forEach(s => {
+            s.unit_breakdowns = breakdowns
+                .filter(b => b.session_id === s.id)
+                .map(b => {
+                    const missingW = Number(b.missing_weight || 0);
+                    const surplusW = Number(b.surplus_weight || 0);
+                    const netDiff = Number(b.net_diff || 0);
+                    const unitNetDiff = missingW - surplusW + netDiff;
+                    return {
+                        unit: b.unit || 'kg',
+                        net_difference: unitNetDiff
+                    };
+                });
+        });
+
+        return { sessions };
     });
 
     // ========== GET COMPLETED SESSION DETAIL ==========
@@ -1151,19 +1175,21 @@ module.exports = async function(fastify) {
     fastify.get('/api/stockcheck/yearly-summary', { preHandler: [authenticate] }, async (req) => {
         const year = Number(req.query.year) || new Date().getFullYear();
         
-        // Group differences by month for the specified year
+        // Group differences by month and unit for the specified year
         const query = `
-            SELECT EXTRACT(MONTH FROM finished_at)::int AS month,
-                   COUNT(*)::int AS audit_count,
-                   SUM(missing_rolls)::int AS missing_rolls,
-                   SUM(missing_weight)::numeric AS missing_weight,
-                   SUM(surplus_rolls)::int AS surplus_rolls,
-                   SUM(surplus_weight)::numeric AS surplus_weight,
-                   SUM(net_difference)::numeric AS net_difference
-            FROM stockcheck_sessions
-            WHERE status = 'completed' AND EXTRACT(YEAR FROM finished_at) = $1
-            GROUP BY EXTRACT(MONTH FROM finished_at)
-            ORDER BY month ASC
+            SELECT EXTRACT(MONTH FROM s.finished_at)::int AS month,
+                   i.unit,
+                   COUNT(DISTINCT s.id)::int AS audit_count,
+                   SUM(CASE WHEN i.type = 'missing' THEN 1 ELSE 0 END)::int AS missing_rolls,
+                   SUM(CASE WHEN i.type = 'missing' THEN i.system_weight ELSE 0 END)::numeric AS missing_weight,
+                   SUM(CASE WHEN i.type = 'surplus' THEN 1 ELSE 0 END)::int AS surplus_rolls,
+                   SUM(CASE WHEN i.type = 'surplus' THEN i.actual_weight ELSE 0 END)::numeric AS surplus_weight,
+                   SUM(CASE WHEN i.type = 'difference' THEN i.difference ELSE 0 END)::numeric AS net_diff
+            FROM stockcheck_sessions s
+            JOIN stockcheck_session_items i ON s.id = i.session_id
+            WHERE s.status = 'completed' AND EXTRACT(YEAR FROM s.finished_at) = $1
+            GROUP BY EXTRACT(MONTH FROM s.finished_at), i.unit
+            ORDER BY month ASC, i.unit ASC
         `;
         
         const rows = await db.all(query, [year]);
@@ -1172,24 +1198,27 @@ module.exports = async function(fastify) {
         const monthlyStats = Array.from({ length: 12 }, (_, i) => ({
             month: i + 1,
             audit_count: 0,
-            missing_rolls: 0,
-            missing_weight: 0,
-            surplus_rolls: 0,
-            surplus_weight: 0,
-            net_difference: 0
+            units: []
         }));
 
         for (const row of rows) {
             if (row.month >= 1 && row.month <= 12) {
-                monthlyStats[row.month - 1] = {
-                    month: row.month,
-                    audit_count: row.audit_count,
+                const monthIdx = row.month - 1;
+                monthlyStats[monthIdx].audit_count = Math.max(monthlyStats[monthIdx].audit_count, row.audit_count);
+                
+                const missingW = Number(row.missing_weight || 0);
+                const surplusW = Number(row.surplus_weight || 0);
+                const netDiff = Number(row.net_diff || 0);
+                const finalNetDifference = missingW - surplusW + netDiff;
+
+                monthlyStats[monthIdx].units.push({
+                    unit: row.unit || 'kg',
                     missing_rolls: row.missing_rolls,
-                    missing_weight: Number(row.missing_weight),
+                    missing_weight: missingW,
                     surplus_rolls: row.surplus_rolls,
-                    surplus_weight: Number(row.surplus_weight),
-                    net_difference: Number(row.net_difference)
-                };
+                    surplus_weight: surplusW,
+                    net_difference: finalNetDifference
+                });
             }
         }
 

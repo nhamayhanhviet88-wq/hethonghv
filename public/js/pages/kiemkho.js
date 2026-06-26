@@ -306,15 +306,24 @@ function _kkRenderSetup(content) {
 
             const billText = billNumbers[s.id] || '—';
             
-            const netDiff = Number(s.net_difference || 0);
-            let netDiffClass = 'text-muted';
-            let netDiffText = '0 kg';
-            if (netDiff > 0) {
-                netDiffClass = 'text-danger';
-                netDiffText = '-' + netDiff.toLocaleString('vi-VN') + ' kg';
-            } else if (netDiff < 0) {
-                netDiffClass = 'text-success';
-                netDiffText = '+' + Math.abs(netDiff).toLocaleString('vi-VN') + ' kg';
+            let netDiffHtml = '';
+            if (s.unit_breakdowns && s.unit_breakdowns.length > 0) {
+                netDiffHtml = s.unit_breakdowns.map(b => {
+                    const diff = Number(b.net_difference || 0);
+                    const formatted = Number(Math.abs(diff)).toLocaleString('vi-VN');
+                    let color = 'text-muted';
+                    let sign = '0';
+                    if (diff > 0) {
+                        color = 'text-danger';
+                        sign = `-${formatted}`;
+                    } else if (diff < 0) {
+                        color = 'text-success';
+                        sign = `+${formatted}`;
+                    }
+                    return `<span class="${color} font-weight-bold" style="white-space:nowrap;">${sign} ${b.unit}</span>`;
+                }).join(' / ');
+            } else {
+                netDiffHtml = `<span class="text-muted font-weight-bold">0 kg</span>`;
             }
 
             histHtml += `
@@ -324,7 +333,7 @@ function _kkRenderSetup(content) {
                     <td class="font-weight-bold text-dark">${billText}</td>
                     <td>${s.finished_by_name || 'Hệ thống'}</td>
                     <td class="text-center text-primary font-weight-bold">${s.checked_rolls} cây</td>
-                    <td class="text-right font-weight-bold ${netDiffClass}">${netDiffText}</td>
+                    <td class="text-right font-weight-bold">${netDiffHtml}</td>
                 </tr>
             `;
         });
@@ -334,15 +343,44 @@ function _kkRenderSetup(content) {
     if (_kk.yearlySummary) {
         _kk.yearlySummary.forEach(m => {
             if (m.audit_count > 0) {
+                let missingHtml = '';
+                let surplusHtml = '';
+                let netDiffHtml = '';
+
+                if (m.units && m.units.length > 0) {
+                    m.units.forEach(u => {
+                        const mWeight = Number(u.missing_weight || 0).toLocaleString('vi-VN');
+                        missingHtml += `<div style="margin-bottom: 2px;">${u.missing_rolls} cây (${mWeight} ${u.unit})</div>`;
+                        
+                        const sWeight = Number(u.surplus_weight || 0).toLocaleString('vi-VN');
+                        surplusHtml += `<div style="margin-bottom: 2px;">${u.surplus_rolls} cây (${sWeight} ${u.unit})</div>`;
+
+                        const diff = Number(u.net_difference || 0);
+                        const formatted = Number(Math.abs(diff)).toLocaleString('vi-VN');
+                        let colorClass = 'text-muted';
+                        let sign = '0';
+                        if (diff > 0) {
+                            colorClass = 'text-danger';
+                            sign = `-${formatted}`;
+                        } else if (diff < 0) {
+                            colorClass = 'text-primary';
+                            sign = `+${formatted}`;
+                        }
+                        netDiffHtml += `<div class="${colorClass} font-weight-bold" style="white-space:nowrap; margin-bottom: 2px;">${sign} ${u.unit}</div>`;
+                    });
+                } else {
+                    missingHtml = '<span class="text-muted">—</span>';
+                    surplusHtml = '<span class="text-muted">—</span>';
+                    netDiffHtml = '<span class="text-muted">—</span>';
+                }
+
                 summaryHtml += `
                     <tr>
                         <td class="font-weight-bold text-center">Tháng ${m.month}</td>
                         <td class="text-center font-weight-bold text-teal">${m.audit_count} đợt</td>
-                        <td class="text-center text-danger font-weight-bold">${m.missing_rolls} cây (${Number(m.missing_weight).toLocaleString('vi-VN')} kg)</td>
-                        <td class="text-center text-primary font-weight-bold">${m.surplus_rolls} cây (${Number(m.surplus_weight).toLocaleString('vi-VN')} kg)</td>
-                        <td class="text-right font-weight-bold ${m.net_difference > 0 ? 'text-danger' : m.net_difference < 0 ? 'text-primary' : 'text-success'}">
-                            ${m.net_difference > 0 ? '-' + Number(m.net_difference).toLocaleString('vi-VN') : m.net_difference < 0 ? '+' + Number(Math.abs(m.net_difference)).toLocaleString('vi-VN') : '0'} kg
-                        </td>
+                        <td class="text-center text-danger font-weight-bold">${missingHtml}</td>
+                        <td class="text-center text-primary font-weight-bold">${surplusHtml}</td>
+                        <td class="text-right font-weight-bold">${netDiffHtml}</td>
                     </tr>
                 `;
             }
