@@ -307,11 +307,8 @@ function _kvRenderTable() {
         }
 
         var stopBadge = '';
-        if (r.material_stop_import || r.color_stop_import) {
-            var reason = [];
-            if (r.material_stop_import) reason.push('chất liệu');
-            if (r.color_stop_import) reason.push('màu');
-            stopBadge = ' <span style="background:#fee2e2;color:#ef4444;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #fca5a5;font-weight:800;white-space:nowrap;margin-left:4px" title="Dừng nhập ' + reason.join(' & ') + '">🛑 Dừng nhập</span>';
+        if (r.color_stop_import) {
+            stopBadge = ' <span style="background:#fee2e2;color:#ef4444;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #fca5a5;font-weight:800;white-space:nowrap;margin-left:4px" title="Dừng nhập màu này">🛑 Dừng nhập</span>';
         }
 
         var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.85;background-color:#fee2e2"' : 'style="cursor:pointer"';
@@ -336,10 +333,10 @@ function _kvRenderTable() {
             } else {
                 h += '<button onclick="_kvToggleActive(' + r.id + ', true)" style="background:#64748b;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hiển thị ở tạo đơn">🔴 Ẩn</button>';
             }
-            if (r.color_stop_import || r.material_stop_import) {
-                h += '<button onclick="_kvToggleStopImport(' + r.id + ', false, ' + !!r.material_stop_import + ')" style="background:#f43f5e;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Hủy dừng nhập màu này">🛑 Dừng</button>';
+            if (r.color_stop_import) {
+                h += '<button onclick="_kvToggleStopImport(' + r.id + ', false)" style="background:#f43f5e;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Hủy dừng nhập màu này">🛑 Dừng</button>';
             } else {
-                h += '<button onclick="_kvToggleStopImport(' + r.id + ', true, ' + !!r.material_stop_import + ')" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập</button>';
+                h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập</button>';
             }
         }
         h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
@@ -1131,12 +1128,8 @@ async function _kvToggleActive(id, newState) {
 }
 window._kvToggleActive = _kvToggleActive;
 
-async function _kvToggleStopImport(id, newState, isMatStopped) {
+async function _kvToggleStopImport(id, newState) {
     if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
-    if (isMatStopped && !newState) {
-        alert('Chất liệu của màu này đang bị dừng nhập. Bạn cần bật lại nhập chất liệu này ở danh sách bên trái trước.');
-        return;
-    }
     var actionText = newState ? 'dừng nhập' : 'cho phép nhập mới';
     if (!confirm('Bạn có chắc chắn muốn ' + actionText + ' màu vải này?')) return;
     try {

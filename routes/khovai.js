@@ -121,6 +121,11 @@ module.exports = async function (fastify) {
         params.push(request.params.id);
         await db.run(`UPDATE kv_materials SET ${updates.join(', ')} WHERE id = $${idx}`, params);
 
+        if (stop_import !== undefined) {
+            // Cascade stop_import status to all colors under this material
+            await db.run(`UPDATE kv_fabric_colors SET stop_import = $1 WHERE material_id = $2`, [!!stop_import, request.params.id]);
+        }
+
         if (location !== undefined) {
             // Cascade to colors and rolls under this material to inherit (NULL location)
             await db.run('UPDATE kv_fabric_colors SET location = NULL WHERE material_id = $1', [request.params.id]);
@@ -205,10 +210,13 @@ module.exports = async function (fastify) {
             }
         }
 
+        const mat = await db.get(`SELECT stop_import FROM kv_materials WHERE id = $1`, [material_id]);
+        const stopImport = mat ? !!mat.stop_import : false;
+
         const row = await db.get(
-            `INSERT INTO kv_fabric_colors (material_id, color_name, price, original_tree_threshold, location)
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [material_id, color_name.trim(), price || 0, original_tree_threshold || 10, location ? location.trim() : null]
+            `INSERT INTO kv_fabric_colors (material_id, color_name, price, original_tree_threshold, location, stop_import)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [material_id, color_name.trim(), price || 0, original_tree_threshold || 10, location ? location.trim() : null, stopImport]
         );
         return { success: true, color: row };
     });

@@ -92,7 +92,7 @@ async function validateFabricStockLimits(items) {
             const color = await db.get(`SELECT color_name, stop_import FROM kv_fabric_colors WHERE id = $1`, [colId]);
             if (!mat || !color) continue;
 
-            if (mat.stop_import || color.stop_import) {
+            if (color.stop_import) {
                 // Stock check
                 const stockRow = await db.get(`
                     SELECT COALESCE(SUM(r.weight), 0) AS remaining_stock,
@@ -4254,7 +4254,7 @@ module.exports = async function(fastify) {
             targetRatio = ratioRow ? Number(ratioRow.target_ratio) || 0 : 0;
         }
 
-        const isStopped = !!(mat.stop_import || color.stop_import);
+        const isStopped = !!color.stop_import;
         const limitQty = isStopped ? (remainingStock * targetRatio) : null;
 
          return {
