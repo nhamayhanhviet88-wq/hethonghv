@@ -168,26 +168,32 @@ function _nxhvRender(){
             }
         } else {
             if (r.tx_type === 'HOAN') {
+                var buttonsWrap = '';
                 if (!r.is_approved_1) {
-                    btnHTML = '<button class="nxhv-ib" onclick="event.stopPropagation(); openConfirm1Modal(' + r.id + ')" title="Xác nhận lần 1 (Đã bàn giao NCC)">⬜</button>';
+                    buttonsWrap = '<button class="nxhv-ib" onclick="event.stopPropagation(); openConfirm1Modal(' + r.id + ')" title="Xác nhận lần 1 (Đã bàn giao NCC)">⬜</button>';
                 } else if (!r.is_approved) {
-                    btnHTML = '<button class="nxhv-ib" style="background:#eab308; border-color:#eab308; color:#fff;" onclick="event.stopPropagation(); openConfirm2Modal(' + r.id + ')" title="Xác nhận lần 2 (Kế toán đối chiếu cân nặng)">🟨</button>';
-                    if (r.needs_discrepancy_approval) {
-                        btnHTML += '<span style="color:#d97706;font-size:9.5px;font-weight:700;display:block;margin-top:4px;white-space:normal;line-height:1.2;max-width:140px">⚠️ Chờ QL Trinh duyệt sai lệch</span>';
-                        if (isGdOrTrinhFront()) {
-                            btnHTML += '<button class="nxhv-ib" style="background:#10b981; border-color:#10b981; color:#fff; margin-top:5px; padding:3px 8px; font-size:10px; font-weight:700; border-radius:4px; height:auto; width:auto; line-height:1.2; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); approveDiscrepancy(' + r.id + ', ' + r.actual_quantity + ', ' + r.total_quantity + ')" title="Duyệt sai lệch cân nặng">🔔 Duyệt</button>';
-                        }
-                    }
+                    buttonsWrap = '<button class="nxhv-ib" style="background:#eab308; border-color:#eab308; color:#fff;" onclick="event.stopPropagation(); openConfirm2Modal(' + r.id + ')" title="Xác nhận lần 2 (Kế toán đối chiếu cân nặng)">🟨</button>';
                 } else {
-                    btnHTML = '<span style="font-size:16px; color:#10b981;" title="Đã hoàn tất xác nhận 2 bước">✅</span>';
+                    buttonsWrap = '<span style="font-size:16px; color:#10b981;" title="Đã hoàn tất xác nhận 2 bước">✅</span>';
                 }
 
                 if (!r.is_approved) {
                     var pEmoji = r.is_postponed ? '⏳' : '📅';
                     var pClass = r.is_postponed ? ' postpone on' : ' postpone';
                     var pTitle = r.is_postponed ? 'Đã lùi lịch hoàn vải (Xem chi tiết/Hủy)' : 'Lùi lịch hoàn vải';
-                    btnHTML += '<button class="nxhv-ib' + pClass + '" style="margin-left:5px" onclick="event.stopPropagation(); openPostponeModal(' + r.id + ')" title="' + pTitle + '">' + pEmoji + '</button>';
+                    buttonsWrap += '<button class="nxhv-ib' + pClass + '" style="margin-left:5px" onclick="event.stopPropagation(); openPostponeModal(' + r.id + ')" title="' + pTitle + '">' + pEmoji + '</button>';
                 }
+
+                btnHTML = '<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;">' +
+                    '<div style="display:flex; align-items:center; justify-content:center; gap:5px;">' + buttonsWrap + '</div>';
+
+                if (r.is_approved_1 && !r.is_approved && r.needs_discrepancy_approval) {
+                    btnHTML += '<span style="color:#d97706;font-size:9.5px;font-weight:700;display:block;white-space:normal;line-height:1.2;max-width:140px;text-align:center;">⚠️ Chờ QL Trinh duyệt sai lệch</span>';
+                    if (isGdOrTrinhFront()) {
+                        btnHTML += '<button class="nxhv-ib" style="background:#10b981; border-color:#10b981; color:#fff; padding:3px 8px; font-size:10px; font-weight:700; border-radius:4px; height:auto; width:auto; line-height:1.2; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); approveDiscrepancy(' + r.id + ', ' + r.actual_quantity + ', ' + r.total_quantity + ')" title="Duyệt sai lệch cân nặng">🔔 Duyệt</button>';
+                    }
+                }
+                btnHTML += '</div>';
             } else {
                 btnHTML = '<button class="nxhv-ib'+aC+'" onclick="event.stopPropagation(); _nxhvTog('+r.id+',\''+aA+'\')" title="Duyệt">'+aI+'</button>';
             }
