@@ -2167,56 +2167,165 @@ async function _kkRenderReport(content) {
                     <div style="font-size:12px; margin-top:6px;">Ngày chốt sổ: ${s.finished_at ? s.finished_at.replace('T', ' ').slice(0, 16) : ''} | Người thực hiện: ${s.finished_by_name || 'Hệ thống'}</div>
                 </div>
 
-                <!-- Info Overview Card -->
-                <div class="kk-card" style="padding: 24px; margin-bottom: 20px;">
-                    <div style="font-weight: 800; font-size: 13px; color: #475569; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
-                        📊 BẢNG TỔNG HỢP SỐ LIỆU KIỂM KHO
+                <!-- Info Overview Grid -->
+                <div class="d-print-block-custom" style="margin-bottom: 24px;">
+                    <!-- Top Summary row of cards -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                        
+                        <!-- Card 1: Người chốt sổ -->
+                        <div style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 16px;">
+                            <div style="width: 48px; height: 48px; border-radius: 10px; background: rgba(99, 102, 241, 0.1); display: flex; align-items: center; justify-content: center; color: #6366f1; font-size: 22px;">
+                                👤
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Người chốt sổ</div>
+                                <div style="font-weight: 800; font-size: 15px; color: #0f172a;">${s.finished_by_name || 'Hệ thống'}</div>
+                                <span style="font-size: 10px; color: #6366f1; background: rgba(99, 102, 241, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block; margin-top: 4px;">Quản lý kho</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 2: Tồn hệ thống -->
+                        <div style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 16px;">
+                            <div style="width: 48px; height: 48px; border-radius: 10px; background: rgba(15, 118, 110, 0.1); display: flex; align-items: center; justify-content: center; color: #0f766e; font-size: 22px;">
+                                🗄️
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Tồn hệ thống trước kiểm</div>
+                                <div style="font-weight: 800; font-size: 15px; color: #0f766e;">${totalSystemWeight.toLocaleString('vi-VN')} kg</div>
+                                <div style="font-size: 11px; color: #475569; font-weight: 600; margin-top: 4px;">📦 ${totalSystemRolls} cây vải</div>
+                            </div>
+                        </div>
+
+                        <!-- Card 3: Thực tế sau kiểm -->
+                        <div style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 16px;">
+                            <div style="width: 48px; height: 48px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center; color: #10b981; font-size: 22px;">
+                                ⚖️
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Thực tế sau khi kiểm</div>
+                                <div style="font-weight: 800; font-size: 15px; color: #10b981;">${totalCheckedWeight.toLocaleString('vi-VN')} kg</div>
+                                <div style="font-size: 11px; color: #047857; font-weight: 600; margin-top: 4px;">✅ ${totalCheckedRolls} cây vải</div>
+                            </div>
+                        </div>
+
+                        <!-- Card 4: Chênh lệch -->
+                        <div style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 16px;">
+                            <div style="width: 48px; height: 48px; border-radius: 10px; background: ${totalCheckedWeight - totalSystemWeight >= 0 ? 'rgba(37, 99, 235, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; display: flex; align-items: center; justify-content: center; color: ${totalCheckedWeight - totalSystemWeight >= 0 ? '#2563eb' : '#ef4444'}; font-size: 22px;">
+                                ${totalCheckedWeight - totalSystemWeight >= 0 ? '📈' : '📉'}
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Chênh lệch kiểm kê</div>
+                                <div style="font-weight: 800; font-size: 15px; color: ${totalCheckedWeight - totalSystemWeight >= 0 ? '#2563eb' : '#ef4444'};">
+                                    ${totalCheckedWeight - totalSystemWeight >= 0 ? '+' : ''}${(totalCheckedWeight - totalSystemWeight).toLocaleString('vi-VN')} kg
+                                </div>
+                                <div style="font-size: 11px; color: ${totalCheckedWeight - totalSystemWeight >= 0 ? '#2563eb' : '#ef4444'}; font-weight: 600; margin-top: 4px;">
+                                    ${totalCheckedRolls - totalSystemRolls >= 0 ? '+' : ''}${totalCheckedRolls - totalSystemRolls} cây vải
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Người chốt sổ</div>
-                            <div style="font-weight:900; font-size:15px; color:#1e293b;">${s.finished_by_name || 'Hệ thống'}</div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Tồn hệ thống trước kiểm</div>
-                            <div style="font-weight:900; font-size:15px; color:#0f766e;">${totalSystemWeight.toLocaleString('vi-VN')} kg (${totalSystemRolls} cây)</div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Thực tế sau khi kiểm</div>
-                            <div style="font-weight:900; font-size:15px; color:#10b981;">${totalCheckedWeight.toLocaleString('vi-VN')} kg (${totalCheckedRolls} cây)</div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Chênh lệch kiểm kê</div>
-                            <div style="font-weight:900; font-size:15px; color:${totalCheckedWeight - totalSystemWeight >= 0 ? '#2563eb' : '#ef4444'};">
-                                ${totalCheckedWeight - totalSystemWeight >= 0 ? '+' : ''}${(totalCheckedWeight - totalSystemWeight).toLocaleString('vi-VN')} kg
+
+                    <!-- Breakdown Detail: Loss & Gain side-by-side -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+                        
+                        <!-- Box Loss: Thất thoát -->
+                        <div style="background: #ffffff; border: 1px solid #fee2e2; border-radius: 14px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.05); position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #ef4444;"></div>
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                    <div style="font-size: 12px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                                        <span>📉</span> TỔNG THẤT THOÁT HÀNG HÓA
+                                    </div>
+                                    <span style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;">Hao hụt & Mất mát</span>
+                                </div>
+                                
+                                <div style="font-size: 32px; font-weight: 900; color: #dc2626; margin-bottom: 16px; letter-spacing: -0.5px;">
+                                    -${totalLossWeight.toLocaleString('vi-VN')} <span style="font-size: 18px; font-weight: 700; color: #f87171;">kg</span>
+                                </div>
+                                
+                                <div style="display: flex; flex-direction: column; gap: 12px;">
+                                    <!-- Item 1: Cây báo mất -->
+                                    <div style="display: flex; justify-content: space-between; align-items: center; background: #fafafa; padding: 10px 14px; border-radius: 8px; border: 1px solid #f1f5f9;">
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <span style="font-size: 16px; color: #ef4444;">❌</span>
+                                            <div>
+                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">Cây vải báo mất (Không tìm thấy)</div>
+                                                <div style="font-size: 10px; color: #64748b;">Hệ thống tự động trừ tồn kho</div>
+                                            </div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <div style="font-weight: 800; font-size: 13px; color: #e11d48;">${missing.length} cây</div>
+                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">-${missingWeightSum.toLocaleString('vi-VN')} kg</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Item 2: Lệch cân hao hụt -->
+                                    <div style="display: flex; justify-content: space-between; align-items: center; background: #fafafa; padding: 10px 14px; border-radius: 8px; border: 1px solid #f1f5f9;">
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <span style="font-size: 16px; color: #ea580c;">⚖️</span>
+                                            <div>
+                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">Hao hụt cân nặng của các cây còn lại</div>
+                                                <div style="font-size: 10px; color: #64748b;">Lệch cân thực tế so với sổ sách</div>
+                                            </div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <div style="font-weight: 800; font-size: 13px; color: #ea580c;">${difference.filter(i => Number(i.difference) > 0).length} cây</div>
+                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">-${weightLossDiff.toLocaleString('vi-VN')} kg</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div style="border-top: 1px dashed #cbd5e1; margin-top: 12px; padding-top: 16px;" class="row">
-                        <div class="col-md-6 col-sm-12 mb-3" style="border-right: 1px solid #e2e8f0;">
-                            <div style="font-size:11px; font-weight:700; color:#ef4444; text-transform:uppercase; margin-bottom:4px; display: flex; align-items: center; gap: 4px;">
-                                📉 Tổng Thất Thoát (Mất cây + Hao hụt cân)
-                            </div>
-                            <div style="font-weight:900; font-size:20px; color:#ef4444;">
-                                -${totalLossWeight.toLocaleString('vi-VN')} kg
-                            </div>
-                            <div style="font-size:11px; color:#64748b; margin-top:4px; line-height: 1.6;">
-                                ❌ Cây báo mất: <strong>${missing.length} cây</strong> (${missingWeightSum.toLocaleString('vi-VN')} kg)<br>
-                                ⚖️ Hao hụt cân các cây còn lại: <strong>${difference.filter(i => Number(i.difference) > 0).length} cây</strong> (${weightLossDiff.toLocaleString('vi-VN')} kg)
+
+                        <!-- Box Gain: Dôi dư -->
+                        <div style="background: #ffffff; border: 1px solid #dbeafe; border-radius: 14px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.05); position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #2563eb;"></div>
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                    <div style="font-size: 12px; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                                        <span>📈</span> TỔNG DƯ THỪA HÀNG HÓA
+                                    </div>
+                                    <span style="background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;">Thừa cây & Dôi dư</span>
+                                </div>
+                                
+                                <div style="font-size: 32px; font-weight: 900; color: #1d4ed8; margin-bottom: 16px; letter-spacing: -0.5px;">
+                                    +${totalSurplusWeight.toLocaleString('vi-VN')} <span style="font-size: 18px; font-weight: 700; color: #60a5fa;">kg</span>
+                                </div>
+                                
+                                <div style="display: flex; flex-direction: column; gap: 12px;">
+                                    <!-- Item 1: Cây thừa mới -->
+                                    <div style="display: flex; justify-content: space-between; align-items: center; background: #fafafa; padding: 10px 14px; border-radius: 8px; border: 1px solid #f1f5f9;">
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <span style="font-size: 16px; color: #2563eb;">➕</span>
+                                            <div>
+                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">Cây thừa mới phát hiện (Khai báo thêm)</div>
+                                                <div style="font-size: 10px; color: #64748b;">Hệ thống tự động cộng tồn kho</div>
+                                            </div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <div style="font-weight: 800; font-size: 13px; color: #2563eb;">${surplus.length} cây</div>
+                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">+${surplusWeightSum.toLocaleString('vi-VN')} kg</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Item 2: Thừa cân nặng -->
+                                    <div style="display: flex; justify-content: space-between; align-items: center; background: #fafafa; padding: 10px 14px; border-radius: 8px; border: 1px solid #f1f5f9;">
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <span style="font-size: 16px; color: #0d9488;">⚖️</span>
+                                            <div>
+                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">Dôi dư cân nặng của các cây còn lại</div>
+                                                <div style="font-size: 10px; color: #64748b;">Lệch cân thực tế so với sổ sách</div>
+                                            </div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <div style="font-weight: 800; font-size: 13px; color: #0d9488;">${difference.filter(i => Number(i.difference) < 0).length} cây</div>
+                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">+${weightGainDiff.toLocaleString('vi-VN')} kg</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6 col-sm-12 mb-3" style="padding-left: 24px;">
-                            <div style="font-size:11px; font-weight:700; color:#2563eb; text-transform:uppercase; margin-bottom:4px; display: flex; align-items: center; gap: 4px;">
-                                📈 Tổng Dư Thừa (Cây thừa + Thừa cân)
-                            </div>
-                            <div style="font-weight:900; font-size:20px; color:#2563eb;">
-                                +${totalSurplusWeight.toLocaleString('vi-VN')} kg
-                            </div>
-                            <div style="font-size:11px; color:#64748b; margin-top:4px; line-height: 1.6;">
-                                ➕ Cây thừa mới phát hiện: <strong>${surplus.length} cây</strong> (${surplusWeightSum.toLocaleString('vi-VN')} kg)<br>
-                                ⚖️ Dư cân các cây còn lại: <strong>${difference.filter(i => Number(i.difference) < 0).length} cây</strong> (${weightGainDiff.toLocaleString('vi-VN')} kg)
-                            </div>
-                        </div>
+
                     </div>
                 </div>
 
