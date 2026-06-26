@@ -548,11 +548,13 @@ async function _kkRenderAudit(content) {
         shelfItemsHtml += `
             <div class="kk-sb-item ${isActive ? 'active' : ''}" onclick="_kkSelectShelf('${s.name}')" style="display:flex; flex-direction:column; align-items:stretch; padding:10px 12px; gap:4px; opacity:${isDimmed ? 0.4 : 1.0}; transition:opacity 0.2s;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700;">
-                        📍 ${s.name}
-                        ${(s.shelf_position || (['chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(s.name.trim().toLowerCase()) ? 'Hầm / Phòng Cắt' : '')) ? `<span style="font-size:9px; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; padding:1px 5px; border-radius:4px; margin-left:4px;">📍 ${s.shelf_position || 'Hầm / Phòng Cắt'}</span>` : ''}
-                    </span>
-                    <span class="kk-badge">${s.roll_count} cây</span>
+                    <div style="display:flex; align-items:center; gap:4px; min-width:0; flex:1;">
+                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700;" title="${s.name}">
+                            📍 ${s.name}
+                        </span>
+                        ${(s.shelf_position || (['chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(s.name.trim().toLowerCase()) ? 'Hầm / Phòng Cắt' : '')) ? `<span style="font-size:9px; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; padding:1px 5px; border-radius:4px; flex-shrink:0;">📍 ${s.shelf_position || 'Hầm / Phòng Cắt'}</span>` : ''}
+                    </div>
+                    <span class="kk-badge" style="flex-shrink:0;">${s.roll_count} cây</span>
                 </div>
                 <div style="font-size:10px; color:${isActive ? '#0d9488' : '#64748b'}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;" title="${materialsText}">
                     ${materialsText}
@@ -638,7 +640,7 @@ async function _kkRenderAudit(content) {
             // Render Group Header Row
             tableRows += `
                 <tr style="background-color: #f1f5f9; cursor: pointer; font-weight: bold; border-left: 4px solid #0f766e;" onclick="_kkToggleGroup('${key}')">
-                    <td class="text-center" style="font-size: 14px; color: #0f766e;">${chevron}</td>
+                    <td class="text-center" style="font-size: 13px; color: #0f766e; font-weight: 800;">${groupIdx} ${chevron}</td>
                     <td style="color: #0f766e; font-weight: 800; font-size: 13px;">${g.material_name}</td>
                     <td style="color: #0f766e; font-weight: 800; font-size: 13px;">${g.color_name}</td>
                     <td class="text-center" style="color: #0f766e;">${sumOrig}</td>
@@ -1477,7 +1479,6 @@ function _kkOnSurplusShelfChange(shelfName) {
     _kkValidateSurplusForm();
 }
 window._kkOnSurplusShelfChange = _kkOnSurplusShelfChange;
-}
 
 // On Material Selected in Surplus Form
 async function _kkOnSurplusMatChange(val) {
