@@ -269,12 +269,42 @@ function _kkRenderMain(content) {
 // ========== SETUP / PRE-AUDIT VIEW ==========
 function _kkRenderSetup(content) {
     const isGiamDoc = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+    
+    // Calculate Bill numbers for history sessions
+    const billNumbers = {};
+    const sortedSessions = [..._kk.historySessions].sort((a, b) => new Date(a.finished_at) - new Date(b.finished_at));
+    const yearCounters = {};
+    sortedSessions.forEach(s => {
+        if (!s.finished_at) return;
+        const dateVn = new Date(new Date(s.finished_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const year = dateVn.getFullYear();
+        if (!yearCounters[year]) {
+            yearCounters[year] = 0;
+        }
+        yearCounters[year]++;
+        billNumbers[s.id] = `Bill #${yearCounters[year]} Kiểm Kê - ${year}`;
+    });
+
     let histHtml = '';
     if (_kk.historySessions.length === 0) {
-        histHtml = `<tr><td colspan="5" class="text-center text-muted py-4">Chưa có lịch sử đợt kiểm kho nào hoàn thành.</td></tr>`;
+        histHtml = `<tr><td colspan="6" class="text-center text-muted py-4">Chưa có lịch sử đợt kiểm kho nào hoàn thành.</td></tr>`;
     } else {
         _kk.historySessions.forEach((s, idx) => {
-            const finishedDate = s.finished_at ? s.finished_at.split('T')[0] : '—';
+            // Format datetime: giờ:phút thứ ngày/tháng/năm
+            let finishedDateStr = '—';
+            if (s.finished_at) {
+                const dateVn = new Date(new Date(s.finished_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+                const hh = String(dateVn.getHours()).padStart(2, '0');
+                const mm = String(dateVn.getMinutes()).padStart(2, '0');
+                const dd = String(dateVn.getDate()).padStart(2, '0');
+                const m = String(dateVn.getMonth() + 1).padStart(2, '0');
+                const yyyy = dateVn.getFullYear();
+                const days = ['Chủ Nhật', 'thứ Hai', 'thứ Ba', 'thứ Tư', 'thứ Năm', 'thứ Sáu', 'thứ Bảy'];
+                const weekday = days[dateVn.getDay()];
+                finishedDateStr = `${hh}:${mm} ${weekday} ${dd}/${m}/${yyyy}`;
+            }
+
+            const billText = billNumbers[s.id] || '—';
             
             const netDiff = Number(s.net_difference || 0);
             let netDiffClass = 'text-muted';
@@ -290,7 +320,8 @@ function _kkRenderSetup(content) {
             histHtml += `
                 <tr style="cursor:pointer" onclick="_kkViewReport(${s.id})">
                     <td class="text-center font-weight-bold">${idx + 1}</td>
-                    <td>${finishedDate}</td>
+                    <td>${finishedDateStr}</td>
+                    <td class="font-weight-bold text-dark">${billText}</td>
                     <td>${s.finished_by_name || 'Hệ thống'}</td>
                     <td class="text-center text-primary font-weight-bold">${s.checked_rolls} cây</td>
                     <td class="text-right font-weight-bold ${netDiffClass}">${netDiffText}</td>
@@ -378,6 +409,7 @@ function _kkRenderSetup(content) {
                                     <tr style="background:#f1f5f9; color:#475569;">
                                         <th style="width:50px;" class="text-center">STT</th>
                                         <th>Ngày Hoàn Thành</th>
+                                        <th>Bill Kiểm Kê</th>
                                         <th>Người Kiểm</th>
                                         <th class="text-center">Đã Kiểm</th>
                                         <th class="text-right">Hao Hụt / Chênh Lệch</th>
