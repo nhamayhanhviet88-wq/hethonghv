@@ -1199,22 +1199,26 @@ function renderSidebar() {
 
     _sidebarSectionKeys = sectionOrder;
 
-    // Initialize default collapse states if not present in localStorage
+    // Initialize collapse states (auto-expand active section and parent group)
     sectionOrder.forEach(function(sectionName) {
-        if (_sidebarCollapsed[sectionName] === undefined) {
-            var items = sectionItems[sectionName] || [];
-            var containsActiveItem = items.some(function(item) { return item.id === currentPage; });
-            _sidebarCollapsed[sectionName] = !containsActiveItem;
+        var items = sectionItems[sectionName] || [];
+        var containsActiveItem = items.some(function(item) { return item.id === currentPage; });
+        if (containsActiveItem) {
+            _sidebarCollapsed[sectionName] = false;
+        } else if (_sidebarCollapsed[sectionName] === undefined) {
+            _sidebarCollapsed[sectionName] = true;
         }
     });
 
     PARENT_SECTIONS.forEach(function(parent) {
-        if (_sidebarParentCollapsed[parent.name] === undefined) {
-            var containsActive = parent.sections.some(function(sectionName) {
-                var items = sectionItems[sectionName] || [];
-                return items.some(function(item) { return item.id === currentPage; });
-            });
-            _sidebarParentCollapsed[parent.name] = !containsActive;
+        var containsActive = parent.sections.some(function(sectionName) {
+            var items = sectionItems[sectionName] || [];
+            return items.some(function(item) { return item.id === currentPage; });
+        });
+        if (containsActive) {
+            _sidebarParentCollapsed[parent.name] = false;
+        } else if (_sidebarParentCollapsed[parent.name] === undefined) {
+            _sidebarParentCollapsed[parent.name] = true;
         }
     });
 
