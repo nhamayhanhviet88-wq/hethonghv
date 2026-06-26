@@ -1870,6 +1870,15 @@ async function _kkConfirmFinishSession() {
     
     try {
         const res = await apiCall('/api/stockcheck/finish-session', 'POST');
+        if (res && res.error) {
+            if (res.is_mismatch) {
+                _kkShowMismatchModal(res.error);
+            } else {
+                showToast(res.error, 'error');
+            }
+            return;
+        }
+
         showToast('✅ Chốt sổ kiểm kê kho vải thành công!', 'success');
         
         // Direct to report view
@@ -1884,6 +1893,47 @@ async function _kkConfirmFinishSession() {
     } catch(e) {
         showToast(e.message || 'Lỗi chốt sổ.', 'error');
     }
+}
+
+function _kkShowMismatchModal(errorText) {
+    // Format error message to preserve linebreaks
+    const formattedText = String(errorText || '').replace(/\n/g, '<br>');
+
+    const modalHtml = `
+        <div id="kkMismatchModal" class="kk-modal-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; animation: kkFadeIn 0.2s ease;">
+            <div class="kk-modal" style="max-width:600px; width:92%; border-radius:16px; background:#fff; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow:hidden; border: 1px solid #fee2e2;">
+                <div class="kk-modal-header" style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-bottom:1px solid #fca5a5; padding:18px 24px; display:flex; align-items:center; justify-content:space-between;">
+                    <div class="kk-modal-title" style="font-weight:800; font-size:14px; color:#991b1b; display:flex; align-items:center; gap:8px;">
+                        🚨 CẢNH BÁO: LỆCH SỐ LIỆU KHO VẢI
+                    </div>
+                    <button class="close" onclick="_kkCloseModal('kkMismatchModal')" style="border:none; background:none; font-size:24px; color:#991b1b; cursor:pointer; font-weight:700;">&times;</button>
+                </div>
+                <div class="kk-modal-body" style="padding:24px; color:#334155; font-size:13px; line-height:1.6; max-height:400px; overflow-y:auto; text-align:left;">
+                    <div style="background:#fff5f5; border:1px solid #fecaca; color:#c53030; padding:16px; border-radius:12px; margin-bottom:18px; font-weight:500; font-family:inherit;">
+                        ${formattedText}
+                    </div>
+                    <div style="color:#64748b; font-size:12px; background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
+                        💡 <strong>Hướng dẫn xử lý:</strong><br>
+                        1. Sao chép (copy) các mã cây vải bị lệch ở trên.<br>
+                        2. Tìm và kiểm tra lại lịch sử giao dịch hoặc trọng lượng thực tế của cây vải đó.<br>
+                        3. Nhấp nút <strong>"Tải lại dữ liệu"</strong> bên dưới để đồng bộ dữ liệu mới nhất trước khi kiểm kho lại.
+                    </div>
+                </div>
+                <div class="kk-modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:16px 24px; display:flex; justify-content:flex-end; gap:12px;">
+                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkMismatchModal')" style="padding:10px 20px; font-size:13px; font-weight:600; border-radius:8px;">Đóng</button>
+                    <button class="kk-btn" onclick="location.reload()" style="padding:10px 22px; font-size:13px; font-weight:700; background:linear-gradient(135deg,#dc2626,#991b1b); color:#fff; border:none; border-radius:8px; cursor:pointer; box-shadow: 0 4px 12px rgba(220,38,38,0.25);">🔄 Tải lại dữ liệu</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('kkMismatchModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'kkMismatchModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
 }
 
 

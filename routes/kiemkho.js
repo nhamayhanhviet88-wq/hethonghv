@@ -1132,6 +1132,75 @@ module.exports = async function(fastify) {
                 `, [sessionId, rec.roll_id, rec.roll_code, rec.material_name, rec.color_name, rec.warehouse_name, rec.unit, oldW, newW, diff, type, rec.notes || null, rec.checked_at, rec.checked_by]);
             }
 
+            // Strict 100% validation check against actual kv_rolls in database
+            const finalRollsDb = await db.get(`
+                SELECT COUNT(*)::int AS cnt,
+                       COALESCE(SUM(r.weight), 0)::numeric AS weight
+                FROM kv_rolls r
+                JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
+                JOIN kv_materials m ON m.id=fc.material_id
+                JOIN kv_warehouses w ON w.id=m.warehouse_id
+                WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+            `);
+
+            const expectedRollsCount = expectedCount.cnt - missingRolls + surplusRolls;
+            const expectedRollsWeight = Number(expectedCount.weight) - Number(missingWeight) + Number(surplusWeight) - Number(netDiff);
+
+            const actualDbWeight = Number(finalRollsDb.weight || 0);
+            const weightDiff = Math.abs(actualDbWeight - expectedRollsWeight);
+            const countDiff = Math.abs((finalRollsDb.cnt || 0) - expectedRollsCount);
+
+            if (countDiff !== 0 || weightDiff > 0.001) {
+                // Find mismatching rolls
+                const mismatchedRolls = await db.all(`
+                    SELECT r.id, r.roll_code, r.weight AS db_weight, r.is_returned, r.location,
+                           sc.actual_weight AS sc_actual_weight, sc.is_checked,
+                           fc.color_name, m.name AS material_name
+                    FROM kv_rolls r
+                    LEFT JOIN stockcheck_records sc ON r.id = sc.roll_id
+                    JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                    JOIN kv_materials m ON m.id = fc.material_id
+                    JOIN kv_warehouses w ON w.id = m.warehouse_id
+                    WHERE (
+                        -- Active in DB but mismatch with stockcheck
+                        (r.is_returned = false AND w.is_active = true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+                         AND (sc.id IS NULL OR sc.is_checked = false OR Number(sc.actual_weight) <= 0 OR ABS(Number(r.weight) - Number(sc.actual_weight)) > 0.001))
+                        OR
+                        -- Inactive in DB but checked as active in stockcheck
+                        ((r.is_returned = true OR w.is_active = false OR r.weight <= 0 OR (r.location LIKE '%Đã Bàn Giao NCC%'))
+                         AND sc.id IS NOT NULL AND sc.is_checked = true AND Number(sc.actual_weight) > 0)
+                    )
+                `);
+
+                let reasonDetails = '';
+                if (mismatchedRolls.length > 0) {
+                    reasonDetails = mismatchedRolls.slice(0, 5).map(mr => {
+                        const matColor = `${mr.material_name} - ${mr.color_name}`;
+                        if (!mr.is_checked) {
+                            return `• Cây ${mr.roll_code} (${matColor}, Tồn DB: ${mr.db_weight}kg) chưa được kiểm kê.`;
+                        }
+                        if (mr.is_returned || mr.db_weight <= 0) {
+                            return `• Cây ${mr.roll_code} (${matColor}) đã bị xóa/trả NCC trên DB nhưng kiểm thực tế ghi nhận ${mr.sc_actual_weight}kg.`;
+                        }
+                        return `• Cây ${mr.roll_code} (${matColor}) chênh lệch giữa DB (${mr.db_weight}kg) và chốt kiểm (${mr.sc_actual_weight}kg).`;
+                    }).join('\n');
+                    if (mismatchedRolls.length > 5) {
+                        reasonDetails += `\n• ... và ${mismatchedRolls.length - 5} cây khác bị lệch.`;
+                    }
+                } else {
+                    reasonDetails = '• Không xác định được cây cụ thể lệch. Có thể do lỗi làm tròn hoặc đồng bộ dữ liệu.';
+                }
+
+                const err = new Error(`Số liệu sau chốt sổ không khớp 100% với kho vải thực tế!\n\n` +
+                                      `- Yêu cầu chốt: ${expectedRollsCount} cây (${expectedRollsWeight.toFixed(2)} kg)\n` +
+                                      `- Thực tế sau cập nhật: ${finalRollsDb.cnt} cây (${actualDbWeight.toFixed(2)} kg)\n` +
+                                      `- Lệch: ${countDiff} cây (${weightDiff.toFixed(2)} kg)\n\n` +
+                                      `Chi tiết các cây vải bị lệch:\n${reasonDetails}\n\n` +
+                                      `Vui lòng kiểm tra lại trạng thái cây vải hoặc tải lại trang kiểm kho để đối soát.`);
+                err.isMismatch = true;
+                throw err;
+            }
+
             const finalCheckedRolls = expectedCount.cnt - missingRolls + surplusRolls;
             const finalNetDifference = missingWeight - surplusWeight + netDiff;
 
@@ -1172,6 +1241,9 @@ module.exports = async function(fastify) {
         } catch (e) {
             await db.run('ROLLBACK');
             console.error('[KK Finish error]', e);
+            if (e.isMismatch) {
+                return reply.code(400).send({ error: e.message, is_mismatch: true });
+            }
             return reply.code(500).send({ error: 'Đã xảy ra lỗi hệ thống: ' + e.message });
         }
     });
