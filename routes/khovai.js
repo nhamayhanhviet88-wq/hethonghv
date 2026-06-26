@@ -9,6 +9,18 @@ function genRollCode() {
     return 'KV' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 10);
 }
 
+function isGdOrTrinh(user) {
+    if (!user) return false;
+    const name = user.full_name || '';
+    const uname = user.username || '';
+    const role = user.role || '';
+    if (role === 'giam_doc') return true;
+    if (name.includes('Lê Việt Trinh') || name.includes('Le Viet Trinh') || uname === 'leviettrinh' || uname === 'trinh.lvt' || uname === 'trinh') {
+        return true;
+    }
+    return false;
+}
+
 module.exports = async function (fastify) {
     // ========== WAREHOUSES (Kho Vải) ==========
 
@@ -108,8 +120,13 @@ module.exports = async function (fastify) {
     });
 
     // PUT /api/khovai/materials/:id — Update material
-    fastify.put('/api/khovai/materials/:id', { preHandler: [authenticate] }, async (request) => {
+    fastify.put('/api/khovai/materials/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { name, display_order, original_tree_threshold, location, stop_import } = request.body || {};
+        if (stop_import !== undefined) {
+            if (!isGdOrTrinh(request.user)) {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền dừng/nhập chất liệu!' });
+            }
+        }
         const updates = []; const params = []; let idx = 1;
         if (name !== undefined) { updates.push(`name = $${idx++}`); params.push(name.trim()); }
         if (display_order !== undefined) { updates.push(`display_order = $${idx++}`); params.push(display_order); }
@@ -221,9 +238,13 @@ module.exports = async function (fastify) {
         return { success: true, color: row };
     });
 
-    // PUT /api/khovai/colors/:id — Update color (name, price, threshold)
-    fastify.put('/api/khovai/colors/:id', { preHandler: [authenticate] }, async (request) => {
+    fastify.put('/api/khovai/colors/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { color_name, price, original_tree_threshold, notes, location, stop_import } = request.body || {};
+        if (stop_import !== undefined) {
+            if (!isGdOrTrinh(request.user)) {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền dừng/nhập màu vải!' });
+            }
+        }
         const updates = []; const params = []; let idx = 1;
         if (color_name !== undefined) { updates.push(`color_name = $${idx++}`); params.push(color_name.trim()); }
         if (price !== undefined) { updates.push(`price = $${idx++}`); params.push(price); }
@@ -1227,7 +1248,10 @@ module.exports = async function (fastify) {
     // ========== TOGGLE (Bật/Tắt) ==========
 
     // PUT /api/khovai/materials/:id/toggle — Toggle material + cascade to all colors
-    fastify.put('/api/khovai/materials/:id/toggle', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request) => {
+    fastify.put('/api/khovai/materials/:id/toggle', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!isGdOrTrinh(request.user)) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền ẩn/bán chất liệu!' });
+        }
         const { is_active } = request.body || {};
         await db.run('UPDATE kv_materials SET is_active = $1, updated_at = NOW() WHERE id = $2', [!!is_active, request.params.id]);
         // Cascade: toggle all colors in this material
@@ -1236,7 +1260,10 @@ module.exports = async function (fastify) {
     });
 
     // PUT /api/khovai/colors/:id/toggle — Toggle color is_active
-    fastify.put('/api/khovai/colors/:id/toggle', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request) => {
+    fastify.put('/api/khovai/colors/:id/toggle', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!isGdOrTrinh(request.user)) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền ẩn/bán màu vải!' });
+        }
         const { is_active } = request.body || {};
         await db.run('UPDATE kv_fabric_colors SET is_active = $1, updated_at = NOW() WHERE id = $2', [!!is_active, request.params.id]);
         return { success: true };

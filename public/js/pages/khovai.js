@@ -81,7 +81,13 @@ async function renderKhovaiPage(content) {
 // ========== SIDEBAR ==========
 function _kvRenderSidebar() {
     var sb = document.getElementById('kvSidebar'); if (!sb) return;
-    var isGD = typeof currentUser !== 'undefined' && currentUser && ['giam_doc','quan_ly_cap_cao'].includes(currentUser.role);
+    var isGD = typeof currentUser !== 'undefined' && currentUser && (
+        currentUser.role === 'giam_doc' || 
+        currentUser.username === 'trinh' || 
+        currentUser.username === 'leviettrinh' || 
+        currentUser.username === 'trinh.lvt' || 
+        (currentUser.full_name && (currentUser.full_name.indexOf('Lê Việt Trinh') !== -1 || currentUser.full_name.indexOf('Le Viet Trinh') !== -1))
+    );
     var h = '<div class="kv-sb-title"><span>🏬 Kho Vải</span>' + (isGD ? '<span onclick="navigate(\'caidatkhovai\')" style="cursor:pointer;font-size:16px" title="Cài đặt">⚙️</span>' : '') + '</div>';
     h += '<div style="padding:8px 12px"><input type="text" id="kvSbSearch" placeholder="🔍 Tìm chất liệu, kho..." oninput="_kvSbFilter(this.value)" /></div>';
 
@@ -202,7 +208,13 @@ function _kvSort(col) {
 function _kvRenderTable() {
     var wrap = document.getElementById('kvTableWrap'); if (!wrap) return;
     var sorted = _kv.summary.slice();
-    var isDirector = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+    var isDirector = typeof currentUser !== 'undefined' && currentUser && (
+        currentUser.role === 'giam_doc' || 
+        currentUser.username === 'trinh' || 
+        currentUser.username === 'leviettrinh' || 
+        currentUser.username === 'trinh.lvt' || 
+        (currentUser.full_name && (currentUser.full_name.indexOf('Lê Việt Trinh') !== -1 || currentUser.full_name.indexOf('Le Viet Trinh') !== -1))
+    );
 
     // Client-side active status filter
     var activeFilter = _kv.activeFilter || 'all';
