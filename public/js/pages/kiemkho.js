@@ -1329,6 +1329,21 @@ function _kkTriggerPhotoUpload(rollId, successCallback) {
     fileInput.click();
 }
 
+// Close color dropdown lists when clicking outside
+document.addEventListener('click', function(e) {
+    const container = document.getElementById('kkSurplusColorDropdownContainer');
+    const list = document.getElementById('kkSurplusColorDropdownList');
+    if (container && list && !container.contains(e.target)) {
+        list.style.display = 'none';
+    }
+    
+    const mContainer = document.getElementById('mSurplusColorDropdownContainer');
+    const mList = document.getElementById('mSurplusColorDropdownList');
+    if (mContainer && mList && !mContainer.contains(e.target)) {
+        mList.style.display = 'none';
+    }
+});
+
 // Global hook for photo input changes
 document.addEventListener('change', function(e) {
     if (e.target && e.target.id === 'kkRollPhotoUploader') {
@@ -1874,9 +1889,17 @@ function _kkOpenAddSurplusModal() {
                     <!-- Color Selector -->
                     <div class="kk-form-group">
                         <label class="kk-form-label">Màu Vải</label>
-                        <select id="kkSurplusColorSelect" class="kk-form-input" onchange="_kkValidateSurplusForm()">
-                            <option value="">-- Chọn chất liệu trước --</option>
-                        </select>
+                        <div style="position: relative;" id="kkSurplusColorDropdownContainer">
+                            <input type="text" id="kkSurplusColorSearch" class="kk-form-input" placeholder="-- Click để chọn / Gõ để tìm màu --" readonly style="cursor: pointer; background: #fff; color: #1e293b; padding-right: 30px;" onclick="_kkToggleColorDropdown()">
+                            <span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #64748b;">▼</span>
+                            <input type="hidden" id="kkSurplusColorSelect" value="">
+                            <div id="kkSurplusColorDropdownList" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-top: 4px;">
+                                <div style="padding: 8px; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; background: #ffffff;">
+                                    <input type="text" id="kkSurplusColorSearchFilter" class="kk-form-input" placeholder="🔎 Tìm màu..." style="background: #f8fafc; color: #1e293b; font-size: 13px;" oninput="_kkOnSurplusColorSearchInput(this.value)">
+                                </div>
+                                <div id="kkSurplusColorItemsContainer"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Details -->
@@ -2019,37 +2042,107 @@ function _kkOnSurplusShelfChange(shelfName) {
 }
 window._kkOnSurplusShelfChange = _kkOnSurplusShelfChange;
 
+let _kkSurplusLoadedColors = [];
+
+function _kkRenderColorOptions(filterText = '') {
+    const container = document.getElementById('kkSurplusColorItemsContainer');
+    if (!container) return;
+    
+    const query = filterText.toLowerCase().trim();
+    const filtered = _kkSurplusLoadedColors.filter(c => {
+        return c.color_name.toLowerCase().includes(query);
+    });
+    
+    let html = '';
+    if (filtered.length === 0) {
+        html = `<div style="padding: 10px 12px; color: #64748b; font-size: 13px; text-align: center;">Không tìm thấy màu phù hợp</div>`;
+    } else {
+        filtered.forEach(c => {
+            const suffix = c.is_active ? '' : ' (Không bán)';
+            html += `
+                <div class="kk-color-item" 
+                     onclick="_kkSelectColorItem('${c.id}', '${c.color_name}')"
+                     onmouseover="this.style.background='#f1f5f9'"
+                     onmouseout="this.style.background='transparent'"
+                     style="padding: 10px 12px; cursor: pointer; color: #1e293b; font-size: 13px; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;">
+                     ${c.color_name}${suffix}
+                </div>
+            `;
+        });
+    }
+    container.innerHTML = html;
+}
+window._kkRenderColorOptions = _kkRenderColorOptions;
+
+function _kkOnSurplusColorSearchInput(val) {
+    _kkRenderColorOptions(val);
+}
+window._kkOnSurplusColorSearchInput = _kkOnSurplusColorSearchInput;
+
+function _kkToggleColorDropdown() {
+    const matVal = document.getElementById('kkSurplusMatSelect').value;
+    if (!matVal) {
+        showToast('Vui lòng chọn chất liệu vải trước', 'warning');
+        return;
+    }
+    
+    const list = document.getElementById('kkSurplusColorDropdownList');
+    const filterInput = document.getElementById('kkSurplusColorSearchFilter');
+    if (!list) return;
+    
+    if (list.style.display === 'none') {
+        list.style.display = 'block';
+        if (filterInput) {
+            filterInput.value = '';
+            filterInput.focus();
+        }
+        _kkRenderColorOptions('');
+    } else {
+        list.style.display = 'none';
+    }
+}
+window._kkToggleColorDropdown = _kkToggleColorDropdown;
+
+function _kkSelectColorItem(id, name) {
+    const colorSelect = document.getElementById('kkSurplusColorSelect');
+    const searchInput = document.getElementById('kkSurplusColorSearch');
+    const dropdownList = document.getElementById('kkSurplusColorDropdownList');
+    
+    if (colorSelect) colorSelect.value = id;
+    if (searchInput) searchInput.value = name;
+    if (dropdownList) dropdownList.style.display = 'none';
+    
+    _kkValidateSurplusForm();
+}
+window._kkSelectColorItem = _kkSelectColorItem;
+
 // On Material Selected in Surplus Form
 async function _kkOnSurplusMatChange(val) {
+    const searchFilter = document.getElementById('kkSurplusColorSearchFilter');
+    const searchInput = document.getElementById('kkSurplusColorSearch');
     const colorSelect = document.getElementById('kkSurplusColorSelect');
+    
+    if (colorSelect) colorSelect.value = '';
+    if (searchInput) searchInput.value = '';
+    if (searchFilter) searchFilter.value = '';
 
     if (!val) {
-        colorSelect.innerHTML = `<option value="">-- Chọn chất liệu trước --</option>`;
+        _kkSurplusLoadedColors = [];
+        _kkRenderColorOptions('');
         return;
     }
 
-    // Load colors from tree structure
-    let colorOptions = `<option value="">-- Chọn màu --</option>`;
     try {
-        // Fetch rolls of this material to populate existing colors.
-        const res = await apiCall('/api/stockcheck/rolls?material_id=' + val);
-        const colorSet = new Set();
-        const colors = [];
-        res.rolls.forEach(r => {
-            if (!colorSet.has(r.fabric_color_id)) {
-                colorSet.add(r.fabric_color_id);
-                colors.push({ id: r.fabric_color_id, name: r.color_name });
-            }
-        });
-        
-        colors.forEach(c => {
-            colorOptions += `<option value="${c.id}">${c.name}</option>`;
-        });
+        const res = await apiCall('/api/khovai/colors?include_inactive=true&mid=' + val);
+        _kkSurplusLoadedColors = res.colors || [];
+        _kkRenderColorOptions('');
     } catch(e) {
         console.error('Cannot load colors', e);
+        _kkSurplusLoadedColors = [];
+        _kkRenderColorOptions('');
     }
-    colorSelect.innerHTML = colorOptions;
 }
+window._kkOnSurplusMatChange = _kkOnSurplusMatChange;
 
 // Submit Surplus Rolls
 async function _kkSubmitSurplus() {
@@ -2147,7 +2240,9 @@ function _kkValidateSurplusForm() {
     const hasPhoto = !!_kk.surplusFile;
     const hasType = !!typeVal;
     
-    if (mat && col && hasWeight && hasPhoto && hasType) {
+    let valid = mat && col && hasWeight && hasPhoto && hasType;
+    
+    if (valid) {
         btn.disabled = false;
         btn.style.opacity = '1.0';
     } else {

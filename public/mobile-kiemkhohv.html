@@ -1513,9 +1513,17 @@ function mOpenAddSurplusModal() {
                     <!-- Color Selector -->
                     <div class="m-form-group">
                         <label class="m-form-label">Màu Vải</label>
-                        <select id="mSurplusColorSelect" class="m-form-input" onchange="mValidateSurplusForm()" style="color:#e2e8f0; background:#1e293b;">
-                            <option value="">-- Chọn chất liệu trước --</option>
-                        </select>
+                        <div style="position: relative;" id="mSurplusColorDropdownContainer">
+                            <input type="text" id="mSurplusColorSearch" class="m-form-input" placeholder="-- Click để chọn / Gõ để tìm màu --" readonly style="cursor: pointer; background: #1e293b; color: #fff; padding-right: 30px;" onclick="mToggleColorDropdown()">
+                            <span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #94a3b8;">▼</span>
+                            <input type="hidden" id="mSurplusColorSelect" value="">
+                            <div id="mSurplusColorDropdownList" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); margin-top: 4px;">
+                                <div style="padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; background: #1e293b;">
+                                    <input type="text" id="mSurplusColorSearchFilter" class="m-form-input" placeholder="🔎 Tìm màu..." style="background: rgba(255,255,255,0.05); color: #fff; font-size: 13px;" oninput="mOnSurplusColorSearchInput(this.value)">
+                                </div>
+                                <div id="mSurplusColorItemsContainer"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Details -->
@@ -1674,34 +1682,100 @@ function mCloseModal(id) {
     mUpdateBodyScroll();
 }
 
-async function mOnSurplusMatChange(val) {
+let mSurplusLoadedColors = [];
+
+function mRenderColorOptions(filterText = '') {
+    const container = document.getElementById('mSurplusColorItemsContainer');
+    if (!container) return;
+    
+    const query = filterText.toLowerCase().trim();
+    const filtered = mSurplusLoadedColors.filter(c => {
+        return c.color_name.toLowerCase().includes(query);
+    });
+    
+    let html = '';
+    if (filtered.length === 0) {
+        html = `<div style="padding: 10px 12px; color: #94a3b8; font-size: 13px; text-align: center;">Không tìm thấy màu phù hợp</div>`;
+    } else {
+        filtered.forEach(c => {
+            const suffix = c.is_active ? '' : ' (Không bán)';
+            html += `
+                <div class="m-color-item" 
+                     onclick="mSelectColorItem('${c.id}', '${c.color_name}')"
+                     onmouseover="this.style.background='rgba(255,255,255,0.08)'"
+                     onmouseout="this.style.background='transparent'"
+                     style="padding: 12px 14px; cursor: pointer; color: #ffffff; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">
+                     ${c.color_name}${suffix}
+                </div>
+            `;
+        });
+    }
+    container.innerHTML = html;
+}
+
+function mOnSurplusColorSearchInput(val) {
+    mRenderColorOptions(val);
+}
+
+function mToggleColorDropdown() {
+    const matVal = document.getElementById('mSurplusMatSelect').value;
+    if (!matVal) {
+        toast('Vui lòng chọn chất liệu vải trước', 'warning');
+        return;
+    }
+    
+    const list = document.getElementById('mSurplusColorDropdownList');
+    const filterInput = document.getElementById('mSurplusColorSearchFilter');
+    if (!list) return;
+    
+    if (list.style.display === 'none') {
+        list.style.display = 'block';
+        if (filterInput) {
+            filterInput.value = '';
+            filterInput.focus();
+        }
+        mRenderColorOptions('');
+    } else {
+        list.style.display = 'none';
+    }
+}
+
+function mSelectColorItem(id, name) {
     const colorSelect = document.getElementById('mSurplusColorSelect');
+    const searchInput = document.getElementById('mSurplusColorSearch');
+    const dropdownList = document.getElementById('mSurplusColorDropdownList');
+    
+    if (colorSelect) colorSelect.value = id;
+    if (searchInput) searchInput.value = name;
+    if (dropdownList) dropdownList.style.display = 'none';
+    
+    mValidateSurplusForm();
+}
+
+async function mOnSurplusMatChange(val) {
+    const searchFilter = document.getElementById('mSurplusColorSearchFilter');
+    const searchInput = document.getElementById('mSurplusColorSearch');
+    const colorSelect = document.getElementById('mSurplusColorSelect');
+    
+    if (colorSelect) colorSelect.value = '';
+    if (searchInput) searchInput.value = '';
+    if (searchFilter) searchFilter.value = '';
 
     if (!val) {
-        colorSelect.innerHTML = `<option value="">-- Chọn chất liệu trước --</option>`;
+        mSurplusLoadedColors = [];
+        mRenderColorOptions('');
         return;
     }
 
-    // Load colors
-    let colorOptions = `<option value="">-- Chọn màu --</option>`;
     try {
-        const res = await api('/api/stockcheck/rolls?material_id=' + val);
-        const colorSet = new Set();
-        const colors = [];
-        res.rolls.forEach(r => {
-            if (!colorSet.has(r.fabric_color_id)) {
-                colorSet.add(r.fabric_color_id);
-                colors.push({ id: r.fabric_color_id, name: r.color_name });
-            }
-        });
-        
-        colors.forEach(c => {
-            colorOptions += `<option value="${c.id}">${c.name}</option>`;
-        });
+        const res = await api('/api/khovai/colors?include_inactive=true&mid=' + val);
+        mSurplusLoadedColors = res.colors || [];
+        mRenderColorOptions('');
     } catch(e) {
         console.error('Cannot load colors', e);
+        mSurplusLoadedColors = [];
+        mRenderColorOptions('');
     }
-    colorSelect.innerHTML = colorOptions;
 }
 
 async function mSubmitSurplus() {
@@ -1798,7 +1872,9 @@ function mValidateSurplusForm() {
     const hasPhoto = !!mSurplusFile;
     const hasType = !!typeVal;
     
-    if (mat && col && hasWeight && hasPhoto && hasType) {
+    let valid = mat && col && hasWeight && hasPhoto && hasType;
+    
+    if (valid) {
         btn.disabled = false;
         btn.style.opacity = '1.0';
     } else {
