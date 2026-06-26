@@ -661,7 +661,7 @@ function mCards(){
         const weightList = rows.map(r => fn(r.system_weight) + 'kg').join(', ');
         html+=`<div class="grp"><span>📦 ${idx+1} - ${k}</span><span class="gs">${rows.length} cây | ${weightList}</span></div>`;
         
-        rows.forEach(r=>{
+        rows.forEach((r, subIdx)=>{
             const cA=r.is_checked;
             const isMissing = cA && Number(r.actual_weight) === 0;
             const isSurplus = r.source === 'kiem_kho_du';
@@ -741,7 +741,7 @@ function mCards(){
                             </span>
                         </div>
                         <div class="cr">
-                            <span class="cl">🌲 Cây</span>
+                            <span class="cl">🌲 Cây ${subIdx + 1}</span>
                             <span class="cv" style="font-size:11px;">
                                 ${Number(r.system_weight) === Number(r.original_weight)
                                     ? `<span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">🌲 Cây Nguyên</span>`
