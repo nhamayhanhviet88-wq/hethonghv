@@ -1387,6 +1387,57 @@ async function _dhtAddItem(editIdx) {
 // Live calc inside popup
 function _ppCalc() {
     var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
+    
+    // Auto-cap quantity if fabric is stopped and has limit
+    var limits = window._ppStockLimits || {};
+    var maxLimit = null;
+    var matInputs = document.querySelectorAll('[id^="_ppMatVal"]');
+    for (var pi = 0; pi < matInputs.length; pi++) {
+        var info = limits[pi];
+        if (info && info.is_stopped && info.limit_qty !== null) {
+            if (maxLimit === null || info.limit_qty < maxLimit) {
+                maxLimit = info.limit_qty;
+            }
+        }
+    }
+    
+    if (maxLimit !== null) {
+        var totalQty = 0;
+        for (var i = 0; i < qs.length; i++) {
+            totalQty += Number(qs[i].value) || 0;
+        }
+        
+        if (totalQty > maxLimit) {
+            var activeQtyInput = document.activeElement;
+            var isQtyInputActive = activeQtyInput && activeQtyInput.classList.contains('_pp_qty') && 
+                                   Array.from(qs).includes(activeQtyInput);
+            
+            if (isQtyInputActive) {
+                var otherQty = 0;
+                for (var i = 0; i < qs.length; i++) {
+                    if (qs[i] !== activeQtyInput) {
+                        otherQty += Number(qs[i].value) || 0;
+                    }
+                }
+                var allowed = maxLimit - otherQty;
+                if (allowed < 0) allowed = 0;
+                activeQtyInput.value = allowed;
+                showToast('⚠️ Vải đã dừng nhập. Số lượng tối đa được phép đặt là ' + maxLimit.toFixed(1) + ' sản phẩm!', 'warning');
+            } else {
+                var lastInput = qs[qs.length - 1];
+                if (lastInput) {
+                    var otherQty = 0;
+                    for (var i = 0; i < qs.length - 1; i++) {
+                        otherQty += Number(qs[i].value) || 0;
+                    }
+                    var allowed = maxLimit - otherQty;
+                    if (allowed < 0) allowed = 0;
+                    lastInput.value = allowed;
+                }
+            }
+        }
+    }
+
     var raw=0;
     for(var i=0;i<qs.length;i++) raw+=(Number(qs[i].value)||0)*(Number(ps[i].value)||0);
     var vp=Number(document.getElementById('_pp_vat')?.value)||0;
