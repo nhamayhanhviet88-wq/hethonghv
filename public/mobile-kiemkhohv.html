@@ -658,7 +658,8 @@ function mCards(){
     let html='';
     order.forEach((k, idx)=>{
         const rows=groups[k],gw=rows.reduce((s,r)=>s+Number(r.system_weight||0),0);
-        html+=`<div class="grp"><span>📦 ${idx+1} - ${k}</span><span class="gs">${rows.length} cây | ${fn(gw)} kg</span></div>`;
+        const weightList = rows.map(r => fn(r.system_weight) + 'kg').join(', ');
+        html+=`<div class="grp"><span>📦 ${idx+1} - ${k}</span><span class="gs">${rows.length} cây | ${weightList}</span></div>`;
         
         rows.forEach(r=>{
             const cA=r.is_checked;
