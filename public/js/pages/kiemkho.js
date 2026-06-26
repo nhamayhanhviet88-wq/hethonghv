@@ -431,8 +431,8 @@ async function _kkStartSession() {
         // Attempt starting audit
         const res = await apiCall('/api/stockcheck/start-session', 'POST');
         if (res && res.error) {
-            if (res.pending_returns || res.violating_returns) {
-                _kkShowBlockedReturnsModal(res.pending_returns, res.violating_returns);
+            if (res.pending_returns) {
+                _kkShowBlockedReturnsModal(res.pending_returns);
             } else if (res.active_cuts) {
                 _kkShowBlockedCutsModal(res.active_cuts);
             } else {
@@ -451,8 +451,8 @@ async function _kkStartSession() {
     } catch (e) {
         // Handle blocked cuts or returns (409 Conflict)
         if (e.status === 409 && e.data) {
-            if (e.data.pending_returns || e.data.violating_returns) {
-                _kkShowBlockedReturnsModal(e.data.pending_returns, e.data.violating_returns);
+            if (e.data.pending_returns) {
+                _kkShowBlockedReturnsModal(e.data.pending_returns);
             } else if (e.data.active_cuts) {
                 _kkShowBlockedCutsModal(e.data.active_cuts);
             } else {
@@ -526,9 +526,8 @@ function _kkShowBlockedCutsModal(cuts) {
 }
 
 // ========== SHOW MODAL FOR BLOCKED RETURNS ==========
-function _kkShowBlockedReturnsModal(pendingReturns, violatingReturns) {
+function _kkShowBlockedReturnsModal(pendingReturns) {
     let pendingRowsHtml = '';
-    let violatingRowsHtml = '';
 
     if (pendingReturns && pendingReturns.length > 0) {
         pendingReturns.forEach((r, idx) => {
@@ -546,25 +545,11 @@ function _kkShowBlockedReturnsModal(pendingReturns, violatingReturns) {
         });
     }
 
-    if (violatingReturns && violatingReturns.length > 0) {
-        violatingReturns.forEach((r, idx) => {
-            violatingRowsHtml += `
-                <tr>
-                    <td class="text-center font-weight-bold">${idx + 1}</td>
-                    <td><span class="badge badge-warning" style="font-size:11px;">Bill #${r.seq_num}</span></td>
-                    <td class="font-weight-bold">${r.source_name || '—'}</td>
-                    <td>${r.material_name || '—'} màu ${r.color_name || '—'}</td>
-                    <td><span class="badge badge-danger" style="font-size:11px;">Chưa xử lý</span></td>
-                </tr>
-            `;
-        });
-    }
-
     let bodyHtml = '';
     if (pendingRowsHtml) {
         bodyHtml += `
             <div style="font-weight: 800; color: #b91c1c; font-size: 13px; margin-top: 10px; margin-bottom: 6px;">⚠️ YÊU CẦU LẬP BILL HOÀN VẢI TRƯỚC (CHƯA XỬ LÝ)</div>
-            <div style="max-height:180px; overflow-y:auto; border:1px solid #f1f5f9; border-radius:8px; margin-bottom: 16px;">
+            <div style="max-height:220px; overflow-y:auto; border:1px solid #f1f5f9; border-radius:8px; margin-bottom: 16px;">
                 <table class="table" style="font-size:11px; margin:0;">
                     <thead>
                         <tr style="background:#fafafa;">
@@ -578,28 +563,6 @@ function _kkShowBlockedReturnsModal(pendingReturns, violatingReturns) {
                     </thead>
                     <tbody>
                         ${pendingRowsHtml}
-                    </tbody>
-                </table>
-            </div>
-        `;
-    }
-
-    if (violatingRowsHtml) {
-        bodyHtml += `
-            <div style="font-weight: 800; color: #b91c1c; font-size: 13px; margin-top: 10px; margin-bottom: 6px;">⚠️ YÊU CẦU XỬ LÝ BILL HOÀN VẢI QUÁ HẠN</div>
-            <div style="max-height:180px; overflow-y:auto; border:1px solid #f1f5f9; border-radius:8px; margin-bottom: 16px;">
-                <table class="table" style="font-size:11px; margin:0;">
-                    <thead>
-                        <tr style="background:#fafafa;">
-                            <th style="width:40px;" class="text-center">STT</th>
-                            <th>Số Bill</th>
-                            <th>Nguồn NCC</th>
-                            <th>Vải</th>
-                            <th>Trạng Thái</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${violatingRowsHtml}
                     </tbody>
                 </table>
             </div>
@@ -620,7 +583,7 @@ function _kkShowBlockedReturnsModal(pendingReturns, violatingReturns) {
                 </div>
                 <div class="kk-modal-body">
                     <p style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.5;">
-                        Hệ thống phát hiện có <strong>yêu cầu lập bill hoàn hoặc bill hoàn vải chưa xử lý</strong> từ bộ phận kho. Kế toán bắt buộc phải xử lý hết trước khi tiếp tục thực hiện kiểm kho.
+                        Hệ thống phát hiện có <strong>yêu cầu lập bill hoàn vải chưa xử lý</strong> từ bộ phận kho. Kế toán bắt buộc phải xử lý hết trước khi tiếp tục thực hiện kiểm kho.
                     </p>
                     ${bodyHtml}
                 </div>

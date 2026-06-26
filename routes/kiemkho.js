@@ -104,29 +104,7 @@ module.exports = async function(fastify) {
     fastify.post('/api/stockcheck/start-session', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isKhoManager(req))) return reply.code(403).send({ error: 'Chỉ Quản lý kho hoặc Giám đốc mới có quyền bắt đầu đợt kiểm kê.' });
 
-        // Check for pending returns or violating returns
-        const todayStr = vnDateStr(vnNow());
-        const violatingReturns = await db.all(`
-            WITH seq_hoan AS (
-                SELECT id, ROW_NUMBER() OVER (ORDER BY tx_date ASC NULLS FIRST, created_at ASC, id ASC) as seq_num
-                FROM fabric_transactions
-                WHERE tx_type = 'HOAN'
-            )
-            SELECT ft.id, ft.tx_date, ft.source_name, ft.material_name, ft.color_name, 
-                   ft.is_postponed, ft.postponed_target_date, s.seq_num
-            FROM fabric_transactions ft
-            JOIN seq_hoan s ON ft.id = s.id
-            WHERE ft.tx_type = 'HOAN'
-              AND COALESCE(ft.is_approved, false) = false
-              AND COALESCE(ft.is_canceled, false) = false
-              AND (
-                  COALESCE(ft.is_postponed, false) = false
-                  OR ft.postponed_target_date IS NULL
-                  OR ft.postponed_target_date <= $1
-              )
-            ORDER BY ft.id ASC
-        `, [todayStr]);
-
+        // Check for pending returns
         const pendingRequestedReturns = await db.all(`
             SELECT r.id, r.weight, r.roll_code, r.created_at, r.return_requested_at,
                    fc.color_name, m.name AS material_name, u.full_name AS requester_name
@@ -138,11 +116,10 @@ module.exports = async function(fastify) {
             ORDER BY r.return_requested_at DESC
         `);
 
-        if (pendingRequestedReturns.length > 0 || violatingReturns.length > 0) {
+        if (pendingRequestedReturns.length > 0) {
             return reply.code(409).send({
                 error: 'Không thể bắt đầu kiểm kê do còn yêu cầu hoàn vải chưa xử lý!',
-                pending_returns: pendingRequestedReturns,
-                violating_returns: violatingReturns
+                pending_returns: pendingRequestedReturns
             });
         }
 
