@@ -2107,6 +2107,29 @@ async function _kkRenderReport(content) {
         const weightGainDiff = difference.filter(i => Number(i.difference) < 0).reduce((sum, i) => sum + Math.abs(Number(i.difference || 0)), 0);
         const totalSurplusWeight = surplusWeightSum + weightGainDiff;
 
+        // Dynamic Unit & Item Labels
+        const unitLabel = (items.length > 0 && items[0].unit) ? items[0].unit.trim() : 'kg';
+        let itemLabel = 'cây';
+        let itemLabelCap = 'Cây';
+        
+        if (unitLabel.toLowerCase() === 'cái' || unitLabel.toLowerCase() === 'bộ' || unitLabel.toLowerCase() === 'chiếc' || unitLabel.toLowerCase() === 'sản phẩm') {
+            itemLabel = 'sản phẩm';
+            itemLabelCap = 'Sản phẩm';
+        } else if (unitLabel.toLowerCase() === 'm' || unitLabel.toLowerCase() === 'mét') {
+            itemLabel = 'cây';
+            itemLabelCap = 'Cây';
+        }
+
+        const missingTitle = itemLabel === 'cây' ? 'Cây vải báo mất (Không tìm thấy)' : `${itemLabelCap} báo mất (Không tìm thấy)`;
+        const surplusTitle = itemLabel === 'cây' ? 'Cây thừa mới phát hiện (Khai báo thêm)' : `${itemLabelCap} thừa mới phát hiện`;
+        const diffTitle = itemLabel === 'cây' ? 'Hao hụt cân nặng của các cây còn lại' : `Hao hụt số lượng / kích thước`;
+        const gainTitle = itemLabel === 'cây' ? 'Dôi dư cân nặng của các cây còn lại' : `Dôi dư số lượng / kích thước`;
+
+        const netWeightDiff = totalCheckedWeight - totalSystemWeight;
+        const netRollDiff = totalCheckedRolls - totalSystemRolls;
+        
+        const summaryHeader = itemLabel === 'cây' ? '📉 Tổng Hợp Chênh Lệch Nhóm Vải' : '📉 Tổng Hợp Chênh Lệch Nhóm Hàng';
+
         // Group details by material/color for summary view
         const matSummary = {};
         items.forEach(item => {
@@ -2163,14 +2186,14 @@ async function _kkRenderReport(content) {
 
                 <!-- Print-only Title -->
                 <div class="d-none d-print-block" style="text-align: center; margin-bottom: 24px;">
-                    <h2 style="font-weight:900; margin:0; font-size:24px; color:#000;">BÁO CÁO CHI TIẾT PHIÊN KIỂM KHO VẢI</h2>
+                    <h2 style="font-weight:900; margin:0; font-size:24px; color:#000;">BÁO CÁO CHI TIẾT PHIÊN KIỂM KHO</h2>
                     <div style="font-size:12px; margin-top:6px;">Ngày chốt sổ: ${s.finished_at ? s.finished_at.replace('T', ' ').slice(0, 16) : ''} | Người thực hiện: ${s.finished_by_name || 'Hệ thống'}</div>
                 </div>
 
                 <!-- Info Overview Grid -->
-                <div class="d-print-block-custom" style="margin-bottom: 24px;">
-                    <!-- Top Summary row of cards -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                <div class="d-print-block-custom" style="margin-bottom: 24px; display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Top Summary row of cards (3 cards) -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
                         
                         <!-- Card 1: Người chốt sổ -->
                         <div style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 16px;">
@@ -2191,8 +2214,8 @@ async function _kkRenderReport(content) {
                             </div>
                             <div>
                                 <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Tồn hệ thống trước kiểm</div>
-                                <div style="font-weight: 800; font-size: 15px; color: #0f766e;">${totalSystemWeight.toLocaleString('vi-VN')} kg</div>
-                                <div style="font-size: 11px; color: #475569; font-weight: 600; margin-top: 4px;">📦 ${totalSystemRolls} cây vải</div>
+                                <div style="font-weight: 800; font-size: 15px; color: #0f766e;">${totalSystemWeight.toLocaleString('vi-VN')} ${unitLabel}</div>
+                                <div style="font-size: 11px; color: #475569; font-weight: 600; margin-top: 4px;">📦 ${totalSystemRolls} ${itemLabel}</div>
                             </div>
                         </div>
 
@@ -2203,25 +2226,43 @@ async function _kkRenderReport(content) {
                             </div>
                             <div>
                                 <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Thực tế sau khi kiểm</div>
-                                <div style="font-weight: 800; font-size: 15px; color: #10b981;">${totalCheckedWeight.toLocaleString('vi-VN')} kg</div>
-                                <div style="font-size: 11px; color: #047857; font-weight: 600; margin-top: 4px;">✅ ${totalCheckedRolls} cây vải</div>
+                                <div style="font-weight: 800; font-size: 15px; color: #10b981;">${totalCheckedWeight.toLocaleString('vi-VN')} ${unitLabel}</div>
+                                <div style="font-size: 11px; color: #047857; font-weight: 600; margin-top: 4px;">✅ ${totalCheckedRolls} ${itemLabel}</div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Card 4: Chênh lệch -->
-                        <div style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 16px;">
-                            <div style="width: 48px; height: 48px; border-radius: 10px; background: ${totalCheckedWeight - totalSystemWeight >= 0 ? 'rgba(37, 99, 235, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; display: flex; align-items: center; justify-content: center; color: ${totalCheckedWeight - totalSystemWeight >= 0 ? '#2563eb' : '#ef4444'}; font-size: 22px;">
-                                ${totalCheckedWeight - totalSystemWeight >= 0 ? '📈' : '📉'}
+                    <!-- Highlight Banner: Chênh lệch kiểm kê (MOST IMPORTANT - FULL WIDTH) -->
+                    <div style="background: ${netWeightDiff > 0 ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : netWeightDiff < 0 ? 'linear-gradient(135deg, #fff5f5 0%, #ffe3e3 100%)' : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'}; border: 2px solid ${netWeightDiff > 0 ? '#3b82f6' : netWeightDiff < 0 ? '#ef4444' : '#10b981'}; border-radius: 16px; padding: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; position: relative;">
+                        <div style="position: absolute; top: -10px; right: 15px; background: ${netWeightDiff > 0 ? '#2563eb' : netWeightDiff < 0 ? '#dc2626' : '#16a34a'}; color: white; font-size: 9px; font-weight: 800; padding: 2px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            ⭐ Chỉ số quan trọng nhất
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 20px; flex: 1; min-width: 280px;">
+                            <div style="width: 64px; height: 64px; border-radius: 12px; background: ${netWeightDiff > 0 ? 'rgba(37, 99, 235, 0.15)' : netWeightDiff < 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)'}; display: flex; align-items: center; justify-content: center; color: ${netWeightDiff > 0 ? '#2563eb' : netWeightDiff < 0 ? '#ef4444' : '#10b981'}; font-size: 32px; flex-shrink: 0; box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.06);">
+                                ${netWeightDiff > 0 ? '📈' : netWeightDiff < 0 ? '📉' : '✅'}
                             </div>
                             <div>
-                                <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Chênh lệch kiểm kê</div>
-                                <div style="font-weight: 800; font-size: 15px; color: ${totalCheckedWeight - totalSystemWeight >= 0 ? '#2563eb' : '#ef4444'};">
-                                    ${totalCheckedWeight - totalSystemWeight >= 0 ? '+' : ''}${(totalCheckedWeight - totalSystemWeight).toLocaleString('vi-VN')} kg
-                                </div>
-                                <div style="font-size: 11px; color: ${totalCheckedWeight - totalSystemWeight >= 0 ? '#2563eb' : '#ef4444'}; font-weight: 600; margin-top: 4px;">
-                                    ${totalCheckedRolls - totalSystemRolls >= 0 ? '+' : ''}${totalCheckedRolls - totalSystemRolls} cây vải
+                                <span style="background: ${netWeightDiff > 0 ? '#2563eb' : netWeightDiff < 0 ? '#dc2626' : '#16a34a'}; color: white; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; margin-bottom: 8px;">
+                                    ${netWeightDiff > 0 ? 'Dôi dư tồn kho' : netWeightDiff < 0 ? 'Thất thoát tồn kho' : 'Số liệu trùng khớp'}
+                                </span>
+                                <h3 style="font-weight: 900; font-size: 30px; color: ${netWeightDiff > 0 ? '#1d4ed8' : netWeightDiff < 0 ? '#b91c1c' : '#047857'}; margin: 0; line-height: 1.1; letter-spacing: -0.5px;">
+                                    ${netWeightDiff >= 0 ? '+' : ''}${netWeightDiff.toLocaleString('vi-VN')} <span style="font-size: 20px; font-weight: 700;">${unitLabel}</span>
+                                </h3>
+                                <div style="font-size: 14px; color: ${netWeightDiff > 0 ? '#1e40af' : netWeightDiff < 0 ? '#991b1b' : '#065f46'}; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                                    <span>Lệch thực tế:</span>
+                                    <strong style="font-size: 16px;">${netRollDiff >= 0 ? '+' : ''}${netRollDiff}</strong> ${itemLabel}
                                 </div>
                             </div>
+                        </div>
+                        <div style="min-width: 250px; flex: 1.2; border-left: 1px dashed ${netWeightDiff > 0 ? '#bfdbfe' : netWeightDiff < 0 ? '#fecaca' : '#bbf7d0'}; padding-left: 24px;">
+                            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Tóm tắt kết luận kiểm kê</div>
+                            <p style="font-size: 12px; line-height: 1.5; color: #475569; margin: 0;">
+                                ${netWeightDiff > 0 
+                                    ? `Tổng lượng thực tế kiểm đếm được <strong>nhiều hơn</strong> sổ sách hệ thống là <strong>${netWeightDiff.toLocaleString('vi-VN')} ${unitLabel}</strong> (tăng <strong>${netRollDiff}</strong> ${itemLabel}). Hệ thống sẽ tự động cập nhật ghi nhận tăng tồn.`
+                                    : netWeightDiff < 0 
+                                    ? `Tổng lượng thực tế kiểm đếm được <strong>ít hơn</strong> sổ sách hệ thống là <strong>${Math.abs(netWeightDiff).toLocaleString('vi-VN')} ${unitLabel}</strong> (giảm <strong>${Math.abs(netRollDiff)}</strong> ${itemLabel}). Vui lòng kiểm tra lại nguyên nhân thất thoát.`
+                                    : `Số lượng thực tế khớp hoàn toàn 100% với dữ liệu hệ thống (đúng <strong>${totalCheckedRolls}</strong> ${itemLabel} và <strong>${totalCheckedWeight.toLocaleString('vi-VN')} ${unitLabel}</strong>).`}
+                            </p>
                         </div>
                     </div>
 
@@ -2240,7 +2281,7 @@ async function _kkRenderReport(content) {
                                 </div>
                                 
                                 <div style="font-size: 32px; font-weight: 900; color: #dc2626; margin-bottom: 16px; letter-spacing: -0.5px;">
-                                    -${totalLossWeight.toLocaleString('vi-VN')} <span style="font-size: 18px; font-weight: 700; color: #f87171;">kg</span>
+                                    -${totalLossWeight.toLocaleString('vi-VN')} <span style="font-size: 18px; font-weight: 700; color: #f87171;">${unitLabel}</span>
                                 </div>
                                 
                                 <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -2249,13 +2290,13 @@ async function _kkRenderReport(content) {
                                         <div style="display: flex; align-items: center; gap: 10px;">
                                             <span style="font-size: 16px; color: #ef4444;">❌</span>
                                             <div>
-                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">Cây vải báo mất (Không tìm thấy)</div>
+                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">${missingTitle}</div>
                                                 <div style="font-size: 10px; color: #64748b;">Hệ thống tự động trừ tồn kho</div>
                                             </div>
                                         </div>
                                         <div style="text-align: right;">
-                                            <div style="font-weight: 800; font-size: 13px; color: #e11d48;">${missing.length} cây</div>
-                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">-${missingWeightSum.toLocaleString('vi-VN')} kg</div>
+                                            <div style="font-weight: 800; font-size: 13px; color: #e11d48;">${missing.length} ${itemLabel}</div>
+                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">-${missingWeightSum.toLocaleString('vi-VN')} ${unitLabel}</div>
                                         </div>
                                     </div>
                                     
@@ -2264,13 +2305,13 @@ async function _kkRenderReport(content) {
                                         <div style="display: flex; align-items: center; gap: 10px;">
                                             <span style="font-size: 16px; color: #ea580c;">⚖️</span>
                                             <div>
-                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">Hao hụt cân nặng của các cây còn lại</div>
-                                                <div style="font-size: 10px; color: #64748b;">Lệch cân thực tế so với sổ sách</div>
+                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">${diffTitle}</div>
+                                                <div style="font-size: 10px; color: #64748b;">Lệch thực tế so với sổ sách</div>
                                             </div>
                                         </div>
                                         <div style="text-align: right;">
-                                            <div style="font-weight: 800; font-size: 13px; color: #ea580c;">${difference.filter(i => Number(i.difference) > 0).length} cây</div>
-                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">-${weightLossDiff.toLocaleString('vi-VN')} kg</div>
+                                            <div style="font-weight: 800; font-size: 13px; color: #ea580c;">${difference.filter(i => Number(i.difference) > 0).length} ${itemLabel}</div>
+                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">-${weightLossDiff.toLocaleString('vi-VN')} ${unitLabel}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -2289,7 +2330,7 @@ async function _kkRenderReport(content) {
                                 </div>
                                 
                                 <div style="font-size: 32px; font-weight: 900; color: #1d4ed8; margin-bottom: 16px; letter-spacing: -0.5px;">
-                                    +${totalSurplusWeight.toLocaleString('vi-VN')} <span style="font-size: 18px; font-weight: 700; color: #60a5fa;">kg</span>
+                                    +${totalSurplusWeight.toLocaleString('vi-VN')} <span style="font-size: 18px; font-weight: 700; color: #60a5fa;">${unitLabel}</span>
                                 </div>
                                 
                                 <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -2298,13 +2339,13 @@ async function _kkRenderReport(content) {
                                         <div style="display: flex; align-items: center; gap: 10px;">
                                             <span style="font-size: 16px; color: #2563eb;">➕</span>
                                             <div>
-                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">Cây thừa mới phát hiện (Khai báo thêm)</div>
+                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">${surplusTitle}</div>
                                                 <div style="font-size: 10px; color: #64748b;">Hệ thống tự động cộng tồn kho</div>
                                             </div>
                                         </div>
                                         <div style="text-align: right;">
-                                            <div style="font-weight: 800; font-size: 13px; color: #2563eb;">${surplus.length} cây</div>
-                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">+${surplusWeightSum.toLocaleString('vi-VN')} kg</div>
+                                            <div style="font-weight: 800; font-size: 13px; color: #2563eb;">${surplus.length} ${itemLabel}</div>
+                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">+${surplusWeightSum.toLocaleString('vi-VN')} ${unitLabel}</div>
                                         </div>
                                     </div>
                                     
@@ -2313,13 +2354,13 @@ async function _kkRenderReport(content) {
                                         <div style="display: flex; align-items: center; gap: 10px;">
                                             <span style="font-size: 16px; color: #0d9488;">⚖️</span>
                                             <div>
-                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">Dôi dư cân nặng của các cây còn lại</div>
-                                                <div style="font-size: 10px; color: #64748b;">Lệch cân thực tế so với sổ sách</div>
+                                                <div style="font-weight: 700; font-size: 12px; color: #334155;">${gainTitle}</div>
+                                                <div style="font-size: 10px; color: #64748b;">Lệch thực tế so với sổ sách</div>
                                             </div>
                                         </div>
                                         <div style="text-align: right;">
-                                            <div style="font-weight: 800; font-size: 13px; color: #0d9488;">${difference.filter(i => Number(i.difference) < 0).length} cây</div>
-                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">+${weightGainDiff.toLocaleString('vi-VN')} kg</div>
+                                            <div style="font-weight: 800; font-size: 13px; color: #0d9488;">${difference.filter(i => Number(i.difference) < 0).length} ${itemLabel}</div>
+                                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">+${weightGainDiff.toLocaleString('vi-VN')} ${unitLabel}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -2333,7 +2374,7 @@ async function _kkRenderReport(content) {
                 <div class="row">
                     <div class="col-md-5">
                         <div class="kk-card" style="padding:20px;">
-                            <h4 style="font-weight:800; color:#1e293b; margin-bottom:14px; font-size:13px;">📉 Tổng Hợp Chênh Lệch Nhóm Vải</h4>
+                            <h4 style="font-weight:800; color:#1e293b; margin-bottom:14px; font-size:13px;">${summaryHeader}</h4>
                             <table class="table" style="font-size:11px; margin:0;">
                                 <thead>
                                     <tr style="background:#fafafa;">
@@ -2354,9 +2395,9 @@ async function _kkRenderReport(content) {
                         <div class="kk-card" style="padding:20px; min-height:400px; display:flex; flex-direction:column;">
                             <!-- Tabs header -->
                             <div style="display:flex; border-bottom:1px solid #e2e8f0; margin-bottom:14px; flex-shrink:0;" class="d-print-none">
-                                <div class="kk-rep-tab-btn active" id="kkTabBtnMissing" onclick="_kkSwitchRepTab('missing')">❌ Cây bị mất (${missing.length})</div>
-                                <div class="kk-rep-tab-btn" id="kkTabBtnSurplus" onclick="_kkSwitchRepTab('surplus')">➕ Cây thừa (${surplus.length})</div>
-                                <div class="kk-rep-tab-btn" id="kkTabBtnDiff" onclick="_kkSwitchRepTab('diff')">⚖️ Lệch cân (${difference.length})</div>
+                                <div class="kk-rep-tab-btn active" id="kkTabBtnMissing" onclick="_kkSwitchRepTab('missing')">❌ ${itemLabelCap} mất (${missing.length})</div>
+                                <div class="kk-rep-tab-btn" id="kkTabBtnSurplus" onclick="_kkSwitchRepTab('surplus')">➕ ${itemLabelCap} thừa (${surplus.length})</div>
+                                <div class="kk-rep-tab-btn" id="kkTabBtnDiff" onclick="_kkSwitchRepTab('diff')">⚖️ Lệch ${unitLabel} (${difference.length})</div>
                                 <div class="kk-rep-tab-btn" id="kkTabBtnMatch" onclick="_kkSwitchRepTab('match')">✅ Khớp (${matched.length})</div>
                             </div>
                             
@@ -2377,8 +2418,13 @@ async function _kkRenderReport(content) {
 
 // Return Report list item rows
 function _kkRenderReportTabItems(items, type) {
+    const unitLabel = (items.length > 0 && items[0].unit) ? items[0].unit.trim() : 'kg';
+    const isProduct = (unitLabel.toLowerCase() === 'cái' || unitLabel.toLowerCase() === 'bộ' || unitLabel.toLowerCase() === 'chiếc' || unitLabel.toLowerCase() === 'sản phẩm');
+    const labelCap = isProduct ? 'Sản phẩm' : 'Cây vải';
+    const labelLower = isProduct ? 'sản phẩm' : 'cây vải';
+
     if (items.length === 0) {
-        return `<div class="text-center text-muted py-5">Không có cây vải nào thuộc trạng thái này.</div>`;
+        return `<div class="text-center text-muted py-5">Không có ${labelLower} nào thuộc trạng thái này.</div>`;
     }
 
     let rowsHtml = '';
@@ -2388,9 +2434,11 @@ function _kkRenderReportTabItems(items, type) {
             diffText = `<span style="color:#ef4444; font-weight:700;">-${item.system_weight} ${item.unit}</span>`;
         } else if (type === 'surplus') {
             const isLe = item.notes && item.notes.includes("Cây lẻ");
-            const typeBadge = isLe 
-                ? `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">✂️ Cây Lẻ</span>` 
-                : `<span style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">🌲 Cây Nguyên</span>`;
+            const typeBadge = isProduct 
+                ? '' 
+                : (isLe 
+                    ? `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">✂️ Cây Lẻ</span>` 
+                    : `<span style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">🌲 Cây Nguyên</span>`);
             diffText = `<span style="color:#3b82f6; font-weight:700;">+${item.actual_weight} ${item.unit}</span>${typeBadge}`;
         } else if (type === 'diff') {
             const d = Number(item.difference);
@@ -2424,7 +2472,7 @@ function _kkRenderReportTabItems(items, type) {
             <thead>
                 <tr style="background:#fafafa; color:#475569;">
                     <th style="width:40px;" class="text-center">STT</th>
-                    <th>Cây Vải & Mã Hàng</th>
+                    <th>${labelCap} & Mã Hàng</th>
                     <th class="text-center">Tồn Ban Đầu</th>
                     <th class="text-center">Kiểm Thực Tế</th>
                     <th class="text-right">Chênh Lệch</th>
