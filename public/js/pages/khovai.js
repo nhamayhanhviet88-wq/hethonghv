@@ -99,8 +99,19 @@ function _kvRenderSidebar() {
         h += '<div class="kv-wh-mats" data-wid="' + w.id + '">';
         mats.forEach(function(m) {
             var isActiveM = _kv.selectedMid === m.id;
+            var settingBtn = '';
+            if (isGD) {
+                var btnStyle = 'cursor:pointer;font-size:10px;margin-left:6px;padding:1px 4px;border-radius:4px;border:none;display:inline-block;vertical-align:middle;';
+                if (m.stop_import) {
+                    btnStyle += 'background:#fee2e2;color:#ef4444;font-weight:800;border:1px solid #fca5a5;';
+                    settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', false)" style="' + btnStyle + '" title="Chất liệu này đang dừng nhập. Bấm để cho phép nhập mới.">🛑 Dừng</span>';
+                } else {
+                    btnStyle += 'background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;';
+                    settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', true)" style="' + btnStyle + '" title="Bấm để dừng nhập chất liệu này.">⚙️</span>';
+                }
+            }
             h += '<div class="kv-sb-mat' + (isActiveM ? ' active' : '') + '" onclick="_kvFilterMat(' + w.id + ',' + m.id + ')">';
-            h += '<span>🧵 ' + m.name + '</span>';
+            h += '<span>🧵 ' + m.name + settingBtn + '</span>';
             h += '<span style="color:' + (Number(m.total_balance) >= 0 ? '#059669' : '#dc2626') + ';font-weight:700">' + _kvFmt(m.total_balance) + '</span></div>';
         });
         h += '</div>';
@@ -1139,6 +1150,28 @@ async function _kvToggleStopImport(id, newState) {
     }
 }
 window._kvToggleStopImport = _kvToggleStopImport;
+
+async function _kvToggleMatStop(id, newState) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
+    var actionText = newState ? 'dừng nhập' : 'cho phép nhập mới';
+    if (!confirm('Bạn có chắc chắn muốn ' + actionText + ' chất liệu này?')) return;
+    try {
+        var res = await apiCall('/api/khovai/materials/' + id, 'PUT', { stop_import: newState });
+        if (res.success) {
+            showToast('Đã cập nhật trạng thái dừng nhập thành công!', 'success');
+            // Reload sidebar tree and main list
+            var treeData = await apiCall('/api/khovai/tree');
+            _kv.tree = treeData.tree || [];
+            _kvRenderSidebar();
+            _kvLoadSummary();
+        } else {
+            showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối: ' + e.message, 'error');
+    }
+}
+window._kvToggleMatStop = _kvToggleMatStop;
 
 function _kvOnActiveFilterChange(val) {
     _kv.activeFilter = val;

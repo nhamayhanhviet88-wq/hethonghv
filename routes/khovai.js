@@ -1200,7 +1200,7 @@ module.exports = async function (fastify) {
 
         for (const w of warehouses) {
             w.materials = await db.all(`
-                SELECT m.id, m.name, m.display_order,
+                SELECT m.id, m.name, m.display_order, m.stop_import,
                        COALESCE((
                            SELECT SUM(r.weight)
                            FROM kv_rolls r
