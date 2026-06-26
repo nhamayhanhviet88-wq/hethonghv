@@ -249,18 +249,18 @@ module.exports = async function(fastify) {
     fastify.get('/api/stockcheck/shelves', { preHandler: [authenticate] }, async (req) => {
         const whParam = req.query.warehouse_id;
         const isAll = !whParam || whParam === 'all' || whParam === '0';
-
         const search = req.query.search;
-        let rollFilter = "r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')";
-        let params = [];
-        let idx = 1;
-        if (search && search.trim()) {
-            rollFilter += ` AND (fc.color_name ILIKE $${idx} OR m.name ILIKE $${idx} OR r.roll_code ILIKE $${idx})`;
-            params.push(`%${search.trim()}%`);
-            idx++;
-        }
 
         // 1. Get real shelves with stats
+        let realParams = [];
+        let realIdx = 1;
+        let realRollFilter = "r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')";
+        if (search && search.trim()) {
+            realRollFilter += ` AND (fc.color_name ILIKE $${realIdx} OR m.name ILIKE $${realIdx} OR r.roll_code ILIKE $${realIdx})`;
+            realParams.push(`%${search.trim()}%`);
+            realIdx++;
+        }
+
         let sqlReal = `
             SELECT l.id, l.name, l.description, l.warehouse_id, l.shelf_position, l.is_restricted,
                    (SELECT string_agg(m.id::text, ',') FROM kv_materials m WHERE LOWER(REGEXP_REPLACE(m.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND m.is_active = true) AS allowed_material_ids,
@@ -268,11 +268,11 @@ module.exports = async function(fastify) {
                    COALESCE((SELECT COUNT(*)::int FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND ${rollFilter}), 0) AS roll_count,
+                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND ${realRollFilter}), 0) AS roll_count,
                    COALESCE((SELECT SUM(r.weight)::numeric FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND ${rollFilter}), 0) AS total_weight,
+                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND ${realRollFilter}), 0) AS total_weight,
                    (SELECT string_agg(DISTINCT m.name, ', ') FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
@@ -284,23 +284,30 @@ module.exports = async function(fastify) {
         if (isAll) {
             sqlReal += ` WHERE l.warehouse_id IN (SELECT id FROM kv_warehouses WHERE is_active = true) `;
         } else {
-            sqlReal += ` WHERE l.warehouse_id = $${idx} `;
-            params.push(Number(whParam));
-            idx++;
+            sqlReal += ` WHERE l.warehouse_id = $${realIdx} `;
+            realParams.push(Number(whParam));
+            realIdx++;
         }
         sqlReal += ` ORDER BY l.name `;
 
-        const shelves = await db.all(sqlReal, params);
+        const shelves = await db.all(sqlReal, realParams);
 
         // 2. Get unassigned rolls count and weight
+        let unassignedParams = [];
+        let unassignedIdx = 1;
+        let unassignedRollFilter = "r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')";
+        if (search && search.trim()) {
+            unassignedRollFilter += ` AND (fc.color_name ILIKE $${unassignedIdx} OR m.name ILIKE $${unassignedIdx} OR r.roll_code ILIKE $${unassignedIdx})`;
+            unassignedParams.push(`%${search.trim()}%`);
+            unassignedIdx++;
+        }
+
         let sqlUnassigned = `
             SELECT r.weight, r.original_weight, m.name AS material_name
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
         `;
-        let unassignedParams = [...params];
-        let uIdx = params.length + 1;
 
         if (isAll) {
             sqlUnassigned += `
@@ -310,18 +317,19 @@ module.exports = async function(fastify) {
                   AND fc.is_active = true
                   AND m.is_active = true
                   AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = m.warehouse_id))
-                  AND ${rollFilter}
+                  AND ${unassignedRollFilter}
             `;
         } else {
             sqlUnassigned += `
-                WHERE m.warehouse_id = $${uIdx}
+                WHERE m.warehouse_id = $${unassignedIdx}
                   AND r.is_returned = false
                   AND fc.is_active = true
                   AND m.is_active = true
-                  AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = $${uIdx}))
-                  AND ${rollFilter}
+                  AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = $${unassignedIdx}))
+                  AND ${unassignedRollFilter}
             `;
             unassignedParams.push(Number(whParam));
+            unassignedIdx++;
         }
 
         const unassignedRolls = await db.all(sqlUnassigned, unassignedParams);
@@ -341,14 +349,14 @@ module.exports = async function(fastify) {
         }
 
         // Get complete materials list for unassigned rolls (without search filter)
+        let unassignedAllParams = [];
+        let unassignedAllIdx = 1;
         let sqlUnassignedAll = `
             SELECT r.weight, r.original_weight, m.name AS material_name
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
         `;
-        let unassignedAllParams = [];
-        let uaIdx = 1;
         if (isAll) {
             sqlUnassignedAll += `
                 JOIN kv_warehouses w ON w.id = m.warehouse_id
@@ -362,15 +370,16 @@ module.exports = async function(fastify) {
             `;
         } else {
             sqlUnassignedAll += `
-                WHERE m.warehouse_id = $${uaIdx}
+                WHERE m.warehouse_id = $${unassignedAllIdx}
                   AND r.is_returned = false
                   AND fc.is_active = true
                   AND m.is_active = true
-                  AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = $${uaIdx}))
+                  AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = $${unassignedAllIdx}))
                   AND r.weight > 0
                   AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
             `;
             unassignedAllParams.push(Number(whParam));
+            unassignedAllIdx++;
         }
 
         const unassignedRollsAll = await db.all(sqlUnassignedAll, unassignedAllParams);
