@@ -236,6 +236,7 @@ async function start() {
     } catch(e) { /* already exists */ }
     try {
         await db.run("UPDATE kv_locations SET shelf_position = 'Hầm / Phòng Cắt' WHERE name = 'Kệ Dự Định Hoàn Vải' AND (shelf_position IS NULL OR shelf_position = '')");
+        await db.run("UPDATE kv_locations SET shelf_position = 'Hầm / Phòng Cắt' WHERE name IN ('Chưa xếp kệ - Cây Nguyên', 'Chưa xếp kệ - Cây Lẻ') AND (shelf_position IS NULL OR shelf_position = '')");
     } catch(e) { /* fail-safe */ }
 
 

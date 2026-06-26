@@ -461,8 +461,12 @@ async function mLoad(){
             } else {
                 containerEl.style.display = 'none';
             }
-            if (curShelf && curShelf.shelf_position) {
-                posTextEl.textContent = curShelf.shelf_position;
+            const cleanName = activeLocation.replace(/^📍\s*/, '').trim().toLowerCase();
+            const fallbackPos = ['chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanName) ? 'Hầm / Phòng Cắt' : '';
+            const actualPos = (curShelf && curShelf.shelf_position) ? curShelf.shelf_position : fallbackPos;
+
+            if (actualPos) {
+                posTextEl.textContent = actualPos;
                 posContainerEl.style.display = 'block';
             } else {
                 posContainerEl.style.display = 'none';

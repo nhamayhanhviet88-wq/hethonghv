@@ -550,7 +550,7 @@ async function _kkRenderAudit(content) {
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                     <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700;">
                         📍 ${s.name}
-                        ${s.shelf_position ? `<span style="font-size:9px; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; padding:1px 5px; border-radius:4px; margin-left:4px;">📍 ${s.shelf_position}</span>` : ''}
+                        ${(s.shelf_position || (['chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(s.name.trim().toLowerCase()) ? 'Hầm / Phòng Cắt' : '')) ? `<span style="font-size:9px; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; padding:1px 5px; border-radius:4px; margin-left:4px;">📍 ${s.shelf_position || 'Hầm / Phòng Cắt'}</span>` : ''}
                     </span>
                     <span class="kk-badge">${s.roll_count} cây</span>
                 </div>
@@ -1413,7 +1413,11 @@ function _kkOnSurplusShelfChange(shelfName) {
     // Update Shelf info labels
     const posEl = document.getElementById('kkSurplusShelfPos');
     const matsEl = document.getElementById('kkSurplusShelfMats');
-    if (posEl) posEl.textContent = shelf.shelf_position || 'Chưa cấu hình';
+    if (posEl) {
+        const cleanName = shelfName.replace(/^📍\s*/, '').trim().toLowerCase();
+        const fallbackPos = ['chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanName) ? 'Hầm / Phòng Cắt' : 'Chưa cấu hình';
+        posEl.textContent = shelf.shelf_position || fallbackPos;
+    }
     if (matsEl) {
         matsEl.textContent = shelf.is_restricted ? (shelf.allowed_materials || 'Chưa gán chất liệu nào') : 'Đa năng (Chất liệu nào cũng được)';
         matsEl.style.color = shelf.is_restricted ? '#c084fc' : '#ffffff';
