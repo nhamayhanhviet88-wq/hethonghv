@@ -290,18 +290,18 @@ function _kkRenderSetup(content) {
         histHtml = `<tr><td colspan="6" class="text-center text-muted py-4">Chưa có lịch sử đợt kiểm kho nào hoàn thành.</td></tr>`;
     } else {
         _kk.historySessions.forEach((s, idx) => {
-            // Format datetime: giờ:phút thứ ngày/tháng/năm
+            // Format datetime: 18:56 Thứ 6 - 26/6/26
             let finishedDateStr = '—';
             if (s.finished_at) {
                 const dateVn = new Date(new Date(s.finished_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
                 const hh = String(dateVn.getHours()).padStart(2, '0');
                 const mm = String(dateVn.getMinutes()).padStart(2, '0');
-                const dd = String(dateVn.getDate()).padStart(2, '0');
-                const m = String(dateVn.getMonth() + 1).padStart(2, '0');
-                const yyyy = dateVn.getFullYear();
-                const days = ['Chủ Nhật', 'thứ Hai', 'thứ Ba', 'thứ Tư', 'thứ Năm', 'thứ Sáu', 'thứ Bảy'];
+                const d = dateVn.getDate();
+                const m = dateVn.getMonth() + 1;
+                const yy = String(dateVn.getFullYear()).slice(-2);
+                const days = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
                 const weekday = days[dateVn.getDay()];
-                finishedDateStr = `${hh}:${mm} ${weekday} ${dd}/${m}/${yyyy}`;
+                finishedDateStr = `${hh}:${mm} ${weekday} - ${d}/${m}/${yy}`;
             }
 
             const billText = billNumbers[s.id] || '—';
