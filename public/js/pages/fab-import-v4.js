@@ -505,6 +505,19 @@ _bnhFabPickGroup = function(gi) { _origPickGroup(gi); _bnhFabWarnUnsaved(); };
 var _origClose = _bnhFabClose;
 _bnhFabClose = function() { window._bnhFabUnsaved = false; _origClose(); };
 
+// ========== Body Scroll Lock Helper ==========
+function _bnhUpdateBodyScroll() {
+    var hasOpenModal = document.getElementById('_fabDetailOv') || 
+                       document.getElementById('_bnhImgOv') || 
+                       document.getElementById('_fabViolationOv');
+    if (hasOpenModal) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
+}
+window._bnhUpdateBodyScroll = _bnhUpdateBodyScroll;
+
 // ========== Fabric Detail Modal ==========
 async function _bnhFabDetail(id) {
     try {
@@ -673,13 +686,24 @@ async function _bnhFabDetail(id) {
     var ov = document.createElement('div');
     ov.id = '_fabDetailOv';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.onclick = function() { ov.remove(); };
+    
+    var closeDetail = function() {
+        ov.remove();
+        _bnhUpdateBodyScroll();
+    };
+    
+    ov.onclick = closeDetail;
     ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:100%;max-width:650px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:16px 16px 0 0;color:#fff">'
         + '<div style="font-size:15px;font-weight:800">🧵 Chi Tiết Bill Nhập Vải</div>'
-        + '<button onclick="document.getElementById(\'_fabDetailOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button>'
+        + '<button id="_fabDetailCloseBtn" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button>'
         + '</div><div style="padding:16px 20px">' + h + '</div></div>';
+    
     document.body.appendChild(ov);
+    _bnhUpdateBodyScroll();
+    
+    var closeBtn = ov.querySelector('#_fabDetailCloseBtn');
+    if (closeBtn) closeBtn.onclick = function(e) { e.stopPropagation(); closeDetail(); };
 }
 
 if (!window._bnhViewImage) {
@@ -708,7 +732,10 @@ if (!window._bnhViewImage) {
             ov.style.opacity = '0';
             img.style.transform = 'scale(0.95)';
             document.removeEventListener('keydown', escClose);
-            setTimeout(function() { ov.remove(); }, 200);
+            setTimeout(function() { 
+                ov.remove(); 
+                _bnhUpdateBodyScroll();
+            }, 200);
         };
         var escClose = function(e) { if (e.key === 'Escape') close(); };
         ov.onclick = close;
@@ -716,6 +743,7 @@ if (!window._bnhViewImage) {
         img.onclick = function(e) { e.stopPropagation(); };
         document.addEventListener('keydown', escClose);
         document.body.appendChild(ov);
+        _bnhUpdateBodyScroll();
         requestAnimationFrame(function() {
             ov.style.opacity = '1';
             img.style.transform = 'scale(1)';
@@ -746,10 +774,15 @@ function _bnhFabShowViolationModal(violatingReturns) {
             + '</div>';
     }).join('');
 
+    var closeViolation = function() {
+        ov.remove();
+        _bnhUpdateBodyScroll();
+    };
+
     ov.innerHTML = '<div style="background:#fff;border-radius:20px;width:100%;max-width:620px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,.3);overflow:hidden;border:1px solid rgba(220,38,38,0.1);animation:_bnhScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid #fee2e2;background:linear-gradient(135deg,#dc2626,#f87171);color:#fff">'
         + '<div style="font-size:16px;font-weight:900;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">⚠️ YÊU CẦU XỬ LÝ BILL HOÀN VẢI</div>'
-        + '<button onclick="document.getElementById(\'_fabViolationOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,.2)\'">✕ Đóng</button></div>'
+        + '<button id="_fabViolationCloseBtn" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,.2)\'">✕ Đóng</button></div>'
         + '<div style="padding:24px;overflow-y:auto;flex:1;">'
         + '<p style="font-size:13px;color:#475569;line-height:1.6;margin-top:0;margin-bottom:20px;font-weight:500;text-align:left;">'
         + 'Hệ thống phát hiện các bill hoàn vải dưới đây <strong>chưa được hoàn thành</strong> hoặc <strong>chưa lùi lịch/quá hạn lùi lịch</strong>. Kế toán bắt buộc phải xử lý lịch lùi hoặc duyệt hoàn thành các bill này trước khi tiếp tục thực hiện nhập vải mới.'
@@ -757,7 +790,7 @@ function _bnhFabShowViolationModal(violatingReturns) {
         + '<div style="max-height:45vh;overflow-y:auto;padding-right:4px;">' + listHTML + '</div>'
         + '</div>'
         + '<div style="background:#f8fafc;padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;">'
-        + '<button onclick="document.getElementById(\'_fabViolationOv\').remove()" class="btn" style="background:#64748b;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">Đồng ý</button>'
+        + '<button id="_fabViolationAgreeBtn" class="btn" style="background:#64748b;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">Đồng ý</button>'
         + '</div>'
         + '</div>'
         + '<style>'
@@ -765,12 +798,21 @@ function _bnhFabShowViolationModal(violatingReturns) {
         + '</style>';
 
     document.body.appendChild(ov);
+    _bnhUpdateBodyScroll();
     ov.querySelector('div').onclick = function (e) { e.stopPropagation(); };
+    
+    var closeBtn = ov.querySelector('#_fabViolationCloseBtn');
+    if (closeBtn) closeBtn.onclick = closeViolation;
+    var agreeBtn = ov.querySelector('#_fabViolationAgreeBtn');
+    if (agreeBtn) agreeBtn.onclick = closeViolation;
 }
 
 function _bnhFabGoToResolve(billId) {
     var ov = document.getElementById('_fabViolationOv');
-    if (ov) ov.remove();
+    if (ov) {
+        ov.remove();
+        _bnhUpdateBodyScroll();
+    }
     
     // Store highlight info
     sessionStorage.setItem('nxhv_highlight_bill', billId);

@@ -37,7 +37,7 @@ function renderBillnhaphangPage(content){
 
 async function _bnhLoadAll(){
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260626_1';document.head.appendChild(s);}
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260626_2';document.head.appendChild(s);}
     try{
         var u=window._currentUser||window.currentUser||{};
         var promises = [
