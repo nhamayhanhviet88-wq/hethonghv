@@ -1047,6 +1047,7 @@ async function mInputWeight(rollId, systemWeight, rollImg) {
     const colorName = r ? r.color_name : '—';
     const materialName = r ? r.material_name : '—';
     const isPhotoRequired = mCheckPhotoRequiredForRoll(r);
+    const isNguyen = r ? (Number(r.system_weight) >= Number(r.original_weight)) : false;
     
     const existingWeight = (r && r.is_checked && r.actual_weight !== null) ? r.actual_weight : '';
     const existingNotes = (r && r.sc_notes) ? r.sc_notes : '';
@@ -1067,6 +1068,7 @@ async function mInputWeight(rollId, systemWeight, rollImg) {
                         <div style="font-size:13px; color:#e2e8f0; display:flex; flex-direction:column; gap:4px; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
                             <div><strong>Chất liệu:</strong> ${materialName}</div>
                             <div><strong>Màu:</strong> ${colorName}</div>
+                            <div><strong>Phân loại:</strong> ${isNguyen ? `<span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px; font-size:11px;">🌲 Cây Nguyên</span>` : `<span style="background:rgba(249,115,22,0.15); color:#fb923c; border:1px solid rgba(249,115,22,0.3); padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px; font-size:11px;">✂️ Cây Lẻ</span>`}</div>
                             <div><strong>Tồn hệ thống:</strong> ${systemWeight} kg</div>
                         </div>
                     </div>

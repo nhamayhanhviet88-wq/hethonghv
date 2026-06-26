@@ -1247,6 +1247,7 @@ function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
     }
     const colorName = r ? r.color_name : '—';
     const materialName = r ? r.material_name : '—';
+    const isNguyen = r ? (Number(r.system_weight) >= Number(r.original_weight)) : false;
 
     const modalHtml = `
         <div class="kk-modal-overlay" id="kkWeightInputModal">
@@ -1261,6 +1262,7 @@ function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
                         <div style="font-size:12px; color:#334155; display:flex; flex-direction:column; gap:4px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0;">
                             <div><strong>Chất liệu:</strong> ${materialName}</div>
                             <div><strong>Màu:</strong> ${colorName}</div>
+                            <div><strong>Phân loại:</strong> ${isNguyen ? `<span style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px; font-size:11px;">🌲 Cây Nguyên</span>` : `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px; font-size:11px;">✂️ Cây Lẻ</span>`}</div>
                             <div><strong>Tồn hệ thống:</strong> ${systemWeight} kg</div>
                         </div>
                     </div>
