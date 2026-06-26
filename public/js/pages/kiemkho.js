@@ -420,6 +420,7 @@ async function _kkChangeYear(year) {
 
 // ========== START SESSION AND CHECK LOCKS ==========
 async function _kkStartSession() {
+    if (!confirm('Bạn có chắc chắn muốn BẮT ĐẦU đợt kiểm kê mới?\n\n⚠️ LƯU Ý: Vui lòng đảm bảo các cây vải chờ trả nhà cung cấp đã được di chuyển vào "Kệ Dự Định Hoàn Vải" trên hệ thống trước khi bắt đầu!')) return;
     const isGiamDoc = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
     try {
         if (isGiamDoc) {
@@ -773,8 +774,11 @@ async function _kkRenderAudit(content) {
 
                     // Difference display
                     let diffLabel = '—';
+                    const isReturnRoll = r.location && r.location.toLowerCase().includes('dự định hoàn vải');
                     if (isSurplus) {
                         diffLabel = `<span class="kk-diff-badge ok" style="background:#f3e8ff; color:#6b21a8; border:1px solid #c084fc;">💜 Cây thừa</span>`;
+                    } else if (isReturnRoll) {
+                        diffLabel = `<span class="kk-diff-badge ok" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;">🔄 Chờ hoàn NCC</span>`;
                     } else if (hasChecked) {
                         if (r.actual_weight === 0) {
                             diffLabel = `<span class="kk-diff-badge missing">❌ Báo mất</span>`;
@@ -795,6 +799,8 @@ async function _kkRenderAudit(content) {
                                 💜 Xem chi tiết
                             </button>
                         `;
+                    } else if (isReturnRoll) {
+                        actionHtml = `<span style="font-size:11px; color:#0369a1; font-weight:bold;">🔄 Không cần kiểm</span>`;
                     } else {
                         actionHtml = `
                             <button class="kk-action-btn blue" onclick="event.stopPropagation(); _kkInputWeightPrompt(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📝 Nhập thực tế">📝</button>
@@ -1156,6 +1162,10 @@ async function _kkMarkPresent(rollId, systemWeight, rollImg) {
 // 2. Mark Missing (Báo mất)
 async function _kkMarkMissing(rollId, rollCode) {
     const r = _kk.rolls.find(item => item.roll_id === rollId);
+    if (r && r.location && r.location.toLowerCase().includes('dự định hoàn vải')) {
+        showToast('⚠️ Cây vải đang trong quá trình hoàn trả NCC, không được thay đổi số liệu.', 'warning');
+        return;
+    }
     const colorName = r ? r.color_name : '—';
     const materialName = r ? r.material_name : '—';
     const systemWeight = r ? r.system_weight : 0;
@@ -1227,6 +1237,10 @@ async function _kkSubmitMissing(rollId, rollCode) {
 // 3. Weight Input Modal (Nhập thực tế)
 function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
     const r = _kk.rolls.find(item => item.roll_id === rollId);
+    if (r && r.location && r.location.toLowerCase().includes('dự định hoàn vải')) {
+        showToast('⚠️ Cây vải đang trong quá trình hoàn trả NCC, không được thay đổi số liệu.', 'warning');
+        return;
+    }
     const colorName = r ? r.color_name : '—';
     const materialName = r ? r.material_name : '—';
 
@@ -1850,7 +1864,7 @@ async function _kkRenderReport(content) {
         const missing = items.filter(i => i.type === 'missing');
         const surplus = items.filter(i => i.type === 'surplus');
         const difference = items.filter(i => i.type === 'difference');
-        const matched = items.filter(i => i.type === 'match');
+        const matched = items.filter(i => i.type === 'match' || i.type === 'return_confirm');
 
         // Totals calculation
         const totalMissingW = missing.reduce((sum, i) => sum + Number(i.system_weight || 0), 0);
@@ -1991,7 +2005,11 @@ function _kkRenderReportTabItems(items, type) {
                 ${d > 0 ? '-' + d : '+' + Math.abs(d)} ${item.unit}
             </span>`;
         } else {
-            diffText = `<span class="text-success font-weight-bold">Khớp</span>`;
+            if (item.type === 'return_confirm') {
+                diffText = `<span class="text-success font-weight-bold">Khớp</span> <span class="kk-diff-badge ok" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-size:9px; padding:1px 5px; margin-left:4px;">🔄 Chờ hoàn NCC</span>`;
+            } else {
+                diffText = `<span class="text-success font-weight-bold">Khớp</span>`;
+            }
         }
 
         rowsHtml += `
@@ -2047,7 +2065,7 @@ function _kkSwitchRepTab(type) {
         dataList = items.filter(i => i.type === 'difference');
     } else if (type === 'match') {
         activeBtnId = 'kkTabBtnMatch';
-        dataList = items.filter(i => i.type === 'match');
+        dataList = items.filter(i => i.type === 'match' || i.type === 'return_confirm');
     }
     
     const btn = document.getElementById(activeBtnId);

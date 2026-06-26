@@ -282,6 +282,8 @@ function toast(m,t='success'){
 function fn(n){return Number(n||0).toLocaleString('vi-VN')}
 
 function diff(r){
+    const isReturnRoll = r.location && r.location.toLowerCase().includes('dự định hoàn vải');
+    if (isReturnRoll) return '<span class="df ok" style="background:rgba(59,130,246,0.2);color:#93c5fd">🔄 Chờ hoàn NCC</span>';
     if(!r.is_checked)return'<span class="df none">— Chưa kiểm</span>';
     if(r.actual_weight === 0)return'<span class="df short">❌ Mất</span>';
     const d=Number(r.difference)||0;
@@ -693,12 +695,22 @@ function mCards(){
             const missingBtnClass = isMissing ? 'ab red on' : 'ab red';
 
             let actionRowHtml = '';
+            const isReturnRoll = r.location && r.location.toLowerCase().includes('dự định hoàn vải');
             if (isSurplus) {
                 actionRowHtml = `
                     <div class="ca" style="grid-template-columns: 1fr;">
                         <button class="ab" style="border-color: rgba(168, 85, 247, 0.4); background: rgba(168, 85, 247, 0.15); color: #e9d5ff;" onclick="mViewSurplusDetail(${r.roll_id})">
                             <span class="ai">💜</span>
                             <span class="al" style="color: #e9d5ff; font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">CÂY VẢI THỪA (XEM CHI TIẾT)</span>
+                        </button>
+                    </div>
+                `;
+            } else if (isReturnRoll) {
+                actionRowHtml = `
+                    <div class="ca" style="grid-template-columns: 1fr;">
+                        <button class="ab" style="border-color: rgba(59,130,246,0.4); background: rgba(59,130,246,0.15); color: #93c5fd; pointer-events: none;" disabled>
+                            <span class="ai">🔄</span>
+                            <span class="al" style="color: #93c5fd; font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">KHÔNG CẦN KIỂM (🔄 CHỜ HOÀN NCC)</span>
                         </button>
                     </div>
                 `;
@@ -882,6 +894,10 @@ async function mMarkPresent(rollId, systemWeight, rollImg) {
 
 async function mMarkMissing(rollId, rollCode) {
     const r = mr.find(item => item.roll_id === rollId);
+    if (r && r.location && r.location.toLowerCase().includes('dự định hoàn vải')) {
+        toast('⚠️ Cây vải đang trong quá trình hoàn trả NCC, không được thay đổi số liệu.', 'error');
+        return;
+    }
     const colorName = r ? r.color_name : '—';
     const materialName = r ? r.material_name : '—';
     const systemWeight = r ? r.system_weight : 0;
@@ -989,6 +1005,10 @@ async function mInputWeight(rollId, systemWeight, rollImg) {
     }
 
     const r = mr.find(item => item.roll_id === rollId);
+    if (r && r.location && r.location.toLowerCase().includes('dự định hoàn vải')) {
+        toast('⚠️ Cây vải đang trong quá trình hoàn trả NCC, không được thay đổi số liệu.', 'error');
+        return;
+    }
     const colorName = r ? r.color_name : '—';
     const materialName = r ? r.material_name : '—';
     const isPhotoRequired = mCheckPhotoRequiredForRoll(r);

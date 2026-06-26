@@ -179,6 +179,37 @@ module.exports = async function(fastify) {
         await db.run('DELETE FROM stockcheck_history');
         await db.run('DELETE FROM stockcheck_records');
 
+        // Auto-check rolls on "Kệ Dự Định Hoàn Vải"
+        const returnRolls = await db.all(`
+            SELECT r.id AS roll_id, r.fabric_color_id, r.weight
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+            WHERE r.is_returned = false 
+              AND fc.is_active = true 
+              AND m.is_active = true 
+              AND r.weight > 0 
+              AND (r.location IS NOT NULL AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = 'kệ dự định hoàn vải')
+        `);
+
+        const now = vnNow();
+        for (const r of returnRolls) {
+            const scResult = await db.run(`
+                INSERT INTO stockcheck_records (
+                    roll_id, fabric_color_id, system_weight, actual_weight, difference,
+                    is_checked, checked_at, checked_by, created_by, notes, created_at, updated_at
+                ) VALUES ($1, $2, $3, $3, 0, true, $4, $5, $5, $6, $4, $4)
+            `, [r.roll_id, r.fabric_color_id, r.weight, now, req.user.id, 'Tự động xác nhận (Kệ dự định hoàn vải)']);
+
+            const scId = scResult.lastInsertRowid;
+            if (scId) {
+                await db.run(`
+                    INSERT INTO stockcheck_history (stockcheck_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'check', 'Tự động xác nhận do đang chờ hoàn trả nhà cung cấp', $2, $3)
+                `, [scId, req.user.id, now]);
+            }
+        }
+
         clearStockcheckLockCache();
 
         return { success: true, session_id: sessionId };
@@ -489,10 +520,16 @@ module.exports = async function(fastify) {
     });
 
     // ========== CHECK / UPDATE ==========
-    fastify.post('/api/stockcheck/check/:rollId', { preHandler: [authenticate] }, async (req) => {
+    fastify.post('/api/stockcheck/check/:rollId', { preHandler: [authenticate] }, async (req, reply) => {
         const rollId = Number(req.params.rollId), { actual_weight, notes, action } = req.body || {}, now = vnNow();
         const roll = await db.get('SELECT r.*, fc.id AS fcid FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id WHERE r.id=$1', [rollId]);
-        if (!roll) return { error: 'Cây vải không tồn tại' };
+        if (!roll) return reply.code(404).send({ error: 'Cây vải không tồn tại' });
+
+        const cleanLoc = (roll.location || '').toLowerCase();
+        if (cleanLoc.includes('dự định hoàn vải')) {
+            return reply.code(400).send({ error: 'Cây vải đang trong quá trình hoàn trả NCC, không được thay đổi số liệu.' });
+        }
+
         const existing = await db.get('SELECT * FROM stockcheck_records WHERE roll_id=$1', [rollId]);
 
         if (action === 'toggle_check') {
@@ -540,6 +577,12 @@ module.exports = async function(fastify) {
         const now = vnNow();
 
         if (!warehouse_id) return reply.code(400).send({ error: 'Thiếu kho vải.' });
+        if (location) {
+            const cleanLoc = location.trim().toLowerCase();
+            if (cleanLoc.includes('dự định hoàn vải')) {
+                return reply.code(400).send({ error: 'Không được khai báo cây vải thừa tại kệ dự định hoàn vải.' });
+            }
+        }
         if (!weight || Number(weight) <= 0) return reply.code(400).send({ error: 'Trọng lượng/Số lượng cây phải lớn hơn 0.' });
         const count = roll_count ? Math.max(1, Number(roll_count)) : 1;
 
@@ -682,7 +725,9 @@ module.exports = async function(fastify) {
 
                 let type = 'match';
 
-                if (rec.source === 'kiem_kho_du') {
+                if (rec.notes && rec.notes.includes('Kệ dự định hoàn vải')) {
+                    type = 'return_confirm';
+                } else if (rec.source === 'kiem_kho_du') {
                     // Added as surplus during audit
                     surplusRolls++;
                     surplusWeight += newW;
