@@ -838,7 +838,9 @@ module.exports = async function(fastify) {
         if (!session) return reply.code(400).send({ error: 'Không tìm thấy thông tin phiên kiểm kê.' });
 
         const expectedCount = await db.get(`
-            SELECT COUNT(*)::int AS cnt FROM kv_rolls r
+            SELECT COUNT(*)::int AS cnt,
+                   COALESCE(SUM(r.weight), 0)::numeric AS weight
+            FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
             JOIN kv_materials m ON m.id=fc.material_id
             JOIN kv_warehouses w ON w.id=m.warehouse_id
@@ -874,8 +876,9 @@ module.exports = async function(fastify) {
             JOIN kv_materials m ON m.id=fc.material_id
             JOIN kv_warehouses w ON w.id=m.warehouse_id
             WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+              AND NOT (r.source = 'kiem_kho_du' AND r.created_at >= $1)
             GROUP BY w.unit
-        `);
+        `, [session.started_at]);
 
         const by_unit = {};
         for (const ig of initialGroups) {
@@ -950,16 +953,16 @@ module.exports = async function(fastify) {
             uStats.checked_rolls = uStats.initial_rolls - uStats.missing_rolls + uStats.surplus_rolls;
         }
 
-        const initialWeight = Number(session.total_weight || 0);
+        const initialWeight = Number(expectedCount.weight || 0);
         const actualWeight = initialWeight - missingWeight + surplusWeight - netDiff;
         const totalNetDiff = initialWeight - actualWeight;
-        const finalCheckedRolls = Number(session.total_rolls || 0) - missingRolls + surplusRolls;
+        const finalCheckedRolls = expectedCount.cnt - missingRolls + surplusRolls;
 
         return {
             success: true,
             session_id: sessionId,
             time: vnFormat(vnNow()),
-            initial_rolls: session.total_rolls || 0,
+            initial_rolls: expectedCount.cnt,
             expected_rolls: expectedCount.cnt,
             checked_rolls: finalCheckedRolls,
             initial_weight: initialWeight,
@@ -1002,7 +1005,9 @@ module.exports = async function(fastify) {
 
         // Verify all expected rolls are audited
         const expectedCount = await db.get(`
-            SELECT COUNT(*)::int AS cnt FROM kv_rolls r
+            SELECT COUNT(*)::int AS cnt,
+                   COALESCE(SUM(r.weight), 0)::numeric AS weight
+            FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
             JOIN kv_materials m ON m.id=fc.material_id
             JOIN kv_warehouses w ON w.id=m.warehouse_id
@@ -1127,17 +1132,30 @@ module.exports = async function(fastify) {
                 `, [sessionId, rec.roll_id, rec.roll_code, rec.material_name, rec.color_name, rec.warehouse_name, rec.unit, oldW, newW, diff, type, rec.notes || null, rec.checked_at, rec.checked_by]);
             }
 
-            const finalCheckedRolls = Number(session.total_rolls || 0) - missingRolls + surplusRolls;
+            const finalCheckedRolls = expectedCount.cnt - missingRolls + surplusRolls;
             const finalNetDifference = missingWeight - surplusWeight + netDiff;
 
             // Update session overview stats
             await db.run(`
                 UPDATE stockcheck_sessions
                 SET status = 'completed', finished_at = $1, finished_by = $2,
-                    checked_rolls = $3, missing_rolls = $4, missing_weight = $5,
-                    surplus_rolls = $6, surplus_weight = $7, net_difference = $8
-                WHERE id = $9
-            `, [now, req.user.id, finalCheckedRolls, missingRolls, missingWeight, surplusRolls, surplusWeight, finalNetDifference, sessionId]);
+                    total_rolls = $3, total_weight = $4,
+                    checked_rolls = $5, missing_rolls = $6, missing_weight = $7,
+                    surplus_rolls = $8, surplus_weight = $9, net_difference = $10
+                WHERE id = $11
+            `, [
+                now, 
+                req.user.id, 
+                expectedCount.cnt,
+                Number(expectedCount.weight),
+                finalCheckedRolls, 
+                missingRolls, 
+                missingWeight, 
+                surplusRolls, 
+                surplusWeight, 
+                finalNetDifference, 
+                sessionId
+            ]);
 
             // Clear active session flag (unlocks warehouse)
             await db.run("DELETE FROM app_config WHERE key = 'stockcheck_active_session'");
