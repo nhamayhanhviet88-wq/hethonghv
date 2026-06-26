@@ -1199,6 +1199,25 @@ function renderSidebar() {
 
     _sidebarSectionKeys = sectionOrder;
 
+    // Initialize default collapse states if not present in localStorage
+    sectionOrder.forEach(function(sectionName) {
+        if (_sidebarCollapsed[sectionName] === undefined) {
+            var items = sectionItems[sectionName] || [];
+            var containsActiveItem = items.some(function(item) { return item.id === currentPage; });
+            _sidebarCollapsed[sectionName] = !containsActiveItem;
+        }
+    });
+
+    PARENT_SECTIONS.forEach(function(parent) {
+        if (_sidebarParentCollapsed[parent.name] === undefined) {
+            var containsActive = parent.sections.some(function(sectionName) {
+                var items = sectionItems[sectionName] || [];
+                return items.some(function(item) { return item.id === currentPage; });
+            });
+            _sidebarParentCollapsed[parent.name] = !containsActive;
+        }
+    });
+
     // ★ SEARCH BOX — tìm kiếm menu nhanh
     html += '<div id="sidebarSearchWrap" style="padding:8px 14px 4px;">';
     html += '<div style="position:relative;">';

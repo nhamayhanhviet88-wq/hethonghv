@@ -11,7 +11,8 @@ function _kvSaveState() {
         activeFilter: _kv.activeFilter,
         sortCol: _kv.sortCol,
         sortDir: _kv.sortDir,
-        sidebarSearchText: document.getElementById('kvSbSearch') ? document.getElementById('kvSbSearch').value : ''
+        sidebarSearchText: document.getElementById('kvSbSearch') ? document.getElementById('kvSbSearch').value : '',
+        hideZero: document.getElementById('kvSbHideZero') ? document.getElementById('kvSbHideZero').checked : true
     };
     localStorage.setItem('_kv_state', JSON.stringify(state));
 }
@@ -129,9 +130,14 @@ function _kvRenderSidebar() {
         try { savedState = JSON.parse(savedStateStr); } catch(e) {}
     }
     var savedSbSearch = (savedState && savedState.sidebarSearchText) ? savedState.sidebarSearchText : '';
+    var hideZero = (savedState && savedState.hideZero !== undefined) ? savedState.hideZero : true;
 
     var h = '<div class="kv-sb-title"><span>🏬 Kho Vải</span>' + (isGD ? '<span onclick="localStorage.setItem(\'cdsxActiveTab\', \'kho-vai\'); navigate(\'caidatsanxuat\')" style="cursor:pointer;font-size:16px" title="Cài đặt">⚙️</span>' : '') + '</div>';
-    h += '<div style="padding:8px 12px"><input type="text" id="kvSbSearch" placeholder="🔍 Tìm chất liệu, kho..." value="' + savedSbSearch.replace(/"/g, '&quot;') + '" oninput="_kvSbFilter(this.value)" /></div>';
+    h += '<div style="padding:8px 12px 0"><input type="text" id="kvSbSearch" placeholder="🔍 Tìm chất liệu, kho..." value="' + savedSbSearch.replace(/"/g, '&quot;') + '" oninput="_kvSbFilter(this.value)" /></div>';
+    h += '<div style="padding:6px 12px 8px; display:flex; align-items:center; gap:6px; font-size:11px; color:#475569;">'
+       + '<input type="checkbox" id="kvSbHideZero" ' + (hideZero ? 'checked' : '') + ' onchange="_kvSbToggleHideZero(this.checked)" style="cursor:pointer; width:13px; height:13px; margin:0;" />'
+       + '<label for="kvSbHideZero" style="cursor:pointer; user-select:none; font-weight:600; display:flex; align-items:center; gap:4px;">Ẩn chất liệu hết hàng (=0)</label>'
+       + '</div>';
 
     var totalBal = 0;
     var totalRolls = 0;
@@ -168,9 +174,7 @@ function _kvRenderSidebar() {
     });
     sb.innerHTML = h;
 
-    if (savedSbSearch) {
-        _kvSbFilter(savedSbSearch);
-    }
+    _kvSbFilter(document.getElementById('kvSbSearch') ? document.getElementById('kvSbSearch').value : savedSbSearch);
     
     var savedSidebarScroll = localStorage.getItem('_kv_sidebar_scroll');
     if (savedSidebarScroll) {
@@ -183,26 +187,46 @@ function _kvRenderSidebar() {
 }
 
 var _kvSbFilterText = '';
+function _kvSbToggleHideZero(checked) {
+    _kvSaveState();
+    var searchVal = document.getElementById('kvSbSearch') ? document.getElementById('kvSbSearch').value : '';
+    _kvSbFilter(searchVal);
+}
+
 function _kvSbFilter(val) {
     _kvSbFilterText = (val || '').toLowerCase().trim();
     _kvSaveState();
-    var items = document.querySelectorAll('.kv-sb-wh, .kv-wh-mats');
+    var hideZero = document.getElementById('kvSbHideZero') ? document.getElementById('kvSbHideZero').checked : true;
+
     _kv.tree.forEach(function(w) {
         var whEl = document.querySelector('[data-wid="' + w.id + '"].kv-sb-wh');
         var matsEl = document.querySelector('.kv-wh-mats[data-wid="' + w.id + '"]');
         if (!whEl || !matsEl) return;
-        if (!_kvSbFilterText) { whEl.style.display = ''; matsEl.style.display = ''; var matItems = matsEl.querySelectorAll('.kv-sb-mat'); for(var i=0;i<matItems.length;i++) matItems[i].style.display=''; return; }
+
         var whMatch = w.name.toLowerCase().indexOf(_kvSbFilterText) >= 0;
         var anyMatMatch = false;
         var mats = w.materials || [];
         var matItems = matsEl.querySelectorAll('.kv-sb-mat');
+        
         mats.forEach(function(m, idx) {
             var matMatch = m.name.toLowerCase().indexOf(_kvSbFilterText) >= 0;
-            if (matMatch) anyMatMatch = true;
-            if (matItems[idx]) matItems[idx].style.display = (whMatch || matMatch) ? '' : 'none';
+            var isZero = Number(m.total_balance) <= 0 && Number(m.total_rolls || 0) <= 0;
+            
+            var shouldShow = true;
+            if (hideZero && isZero && _kv.selectedMid !== m.id) {
+                shouldShow = false;
+            }
+            if (_kvSbFilterText) {
+                shouldShow = shouldShow && (whMatch || matMatch);
+            }
+            
+            if (shouldShow) anyMatMatch = true;
+            if (matItems[idx]) matItems[idx].style.display = shouldShow ? '' : 'none';
         });
-        whEl.style.display = (whMatch || anyMatMatch) ? '' : 'none';
-        matsEl.style.display = (whMatch || anyMatMatch) ? '' : 'none';
+
+        var showWh = whMatch || anyMatMatch;
+        whEl.style.display = showWh ? '' : 'none';
+        matsEl.style.display = showWh ? '' : 'none';
     });
 }
 
