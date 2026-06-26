@@ -1541,15 +1541,19 @@ async function openPostponeModal(id, forceForm = false) {
             targetDateStr = tParts[2] + '/' + tParts[1] + '/' + tParts[0];
         }
         
-        var imgHtml = '—';
+        var imgHtml = '';
         try {
             var imgs = typeof tx.postponed_images === 'string' ? JSON.parse(tx.postponed_images) : tx.postponed_images;
             if (imgs && imgs.length) {
-                imgHtml = imgs.map(function(url) {
+                var imagesList = imgs.map(function(url) {
                     return '<a href="' + url + '" target="_blank">' +
                            '<img src="' + url + '" style="max-width:100%; max-height:220px; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 8px rgba(0,0,0,0.06); object-fit:contain; margin-top:6px;" />' +
                            '</a>';
                 }).join('');
+                imgHtml = '<div style="margin-top:4px; border-top:1px solid #e2e8f0; padding-top:8px;">' +
+                    '<label style="font-weight:700; display:block; margin-bottom:4px;">📸 Ảnh bằng chứng lùi lịch:</label>' +
+                    '<div style="text-align:center;">' + imagesList + '</div>' +
+                '</div>';
             }
         } catch(e) {}
         
@@ -1576,10 +1580,7 @@ async function openPostponeModal(id, forceForm = false) {
                 '<label style="font-weight:700; display:block; margin-bottom:2px;">Ghi chú / Lý do:</label>' +
                 '<textarea class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; height:50px; background:#f1f5f9; cursor:not-allowed; resize:none;">' + (tx.postponed_notes || '—') + '</textarea>' +
             '</div>' +
-            '<div style="margin-top:4px; border-top:1px solid #e2e8f0; padding-top:8px;">' +
-                '<label style="font-weight:700; display:block; margin-bottom:4px;">📸 Ảnh bằng chứng lùi lịch:</label>' +
-                '<div style="text-align:center;">' + imgHtml + '</div>' +
-            '</div>' +
+            imgHtml +
         '</div>';
         
         var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>' +
@@ -1596,16 +1597,6 @@ async function openPostponeModal(id, forceForm = false) {
         var bodyHTML = '<div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">' +
             '<div style="background:#fffbeb; border:1px solid #feebc8; border-radius:8px; padding:10px; color:#c05621; line-height:1.4;">' +
                 'ℹ️ <strong>Thông báo:</strong> Cây vải sẽ vẫn hiển thị ở <strong>📍 Kệ Dự Định Hoàn Vải</strong> và bộ phận cắt vẫn có thể gọi cây vải này để cắt (khi đó bill hoàn sẽ tự động hủy).' +
-            '</div>' +
-            '<div id="postponePasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; position:relative; transition:all 0.2s; overflow:hidden;">' +
-                '<div id="postponePastePlaceholder">' +
-                    '<span style="font-size:24px; display:block; margin-bottom:6px;">📋</span>' +
-                    '<span style="font-weight:700; color:#475569; display:block; font-size:12px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>' +
-                '</div>' +
-                '<div id="postponeImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">' +
-                    '<img id="postponeImagePreview" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05); object-fit:contain;" />' +
-                    '<button id="btnPostponeClearImg" type="button" class="btn" style="position:absolute; top:4px; right:4px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); clearPostponeImage()">❌ Xóa</button>' +
-                '</div>' +
             '</div>' +
             '<div style="margin-top:4px;">' +
                 '<label style="font-weight:700; display:block; margin-bottom:4px;">📅 Chọn ngày hẹn hoàn vải (Bắt buộc):</label>' +
@@ -1629,7 +1620,7 @@ async function openPostponeModal(id, forceForm = false) {
         '</div>';
         
         var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>' +
-            '<button class="btn btn-primary" id="btnConfirmPostpone" disabled onclick="submitPostpone(' + tx.id + ')" style="width:auto; font-weight:700; background:#d97706; border:none; color:#fff;">Xác nhận lùi lịch</button>';
+            '<button class="btn btn-primary" id="btnConfirmPostpone" onclick="submitPostpone(' + tx.id + ')" style="width:auto; font-weight:700; background:#d97706; border:none; color:#fff;">Xác nhận lùi lịch</button>';
             
         openModal('⏳ Yêu Cầu Lùi Lịch Hoàn Vải', bodyHTML, footerHTML);
         var container = document.getElementById('modalContainer');
@@ -1640,22 +1631,6 @@ async function openPostponeModal(id, forceForm = false) {
         
         var currentTargetDate = tx.postponed_target_date || tx.tx_date;
         initCustomCalendar(maxDays, _postponeHolidays, currentTargetDate);
-        
-        _postponePasteHandler = function(e) {
-            var items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            var imageItem = null;
-            for (var i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    imageItem = items[i];
-                    break;
-                }
-            }
-            if (imageItem) {
-                var blob = imageItem.getAsFile();
-                processAndPreviewPostponeImage(blob);
-            }
-        };
-        document.addEventListener('paste', _postponePasteHandler);
     }
 }
 window.openPostponeModal = openPostponeModal;
@@ -1684,32 +1659,16 @@ async function submitPostpone(id) {
     }
 
     var notes = document.getElementById('postponeNotes').value.trim();
-    if (!_postponeImageBlob) {
-        showToast('Vui lòng dán hoặc chọn hình ảnh chứng minh', 'warning');
-        return;
-    }
     
     var btn = document.getElementById('btnConfirmPostpone');
     if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Đang tải ảnh...';
+        btn.textContent = 'Đang lưu...';
     }
     
     try {
-        // 1. Upload proof image
-        var formData = new FormData();
-        formData.append('file', _postponeImageBlob, 'postpone_proof.webp');
-        
-        var uploadRes = await apiCall('/api/fabrictx/upload-postpone/' + id, 'POST', formData);
-        if (!uploadRes.url) {
-            throw new Error(uploadRes.error || 'Lỗi upload ảnh chứng minh');
-        }
-        
-        if (btn) btn.textContent = 'Đang lưu...';
-        
-        // 2. Submit postpone request
         var postponeRes = await apiCall('/api/fabrictx/postpone/' + id, 'POST', {
-            images: [uploadRes.url],
+            images: [],
             notes: notes,
             target_date: targetDate
         });
@@ -1720,12 +1679,6 @@ async function submitPostpone(id) {
         
         showToast('⏳ Đã cập nhật lùi lịch hoàn vải');
         closeModal();
-        
-        // Clean up
-        if (_postponePasteHandler) {
-            document.removeEventListener('paste', _postponePasteHandler);
-            _postponePasteHandler = null;
-        }
         
         await _nxhvLoadAll();
     } catch(e) {

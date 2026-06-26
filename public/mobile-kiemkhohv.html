@@ -1178,8 +1178,8 @@ function mCalculateDifference(systemWeight, rollId) {
     }
     
     const actual = Number(val);
-    if (isNaN(actual) || actual < 0) {
-        diffEl.innerHTML = '<span style="color:#ef4444; font-weight:600;">Cân nặng không hợp lệ</span>';
+    if (isNaN(actual) || actual <= 0) {
+        diffEl.innerHTML = '<span style="color:#ef4444; font-weight:600;">Cân nặng phải lớn hơn 0</span>';
         btnEl.disabled = true;
         btnEl.style.opacity = '0.5';
         return;
@@ -1219,8 +1219,8 @@ async function mSubmitWeight(rollId, systemWeight, rollImg) {
         return;
     }
     const n = Number(val);
-    if (isNaN(n) || n < 0) {
-        toast('Số lượng không hợp lệ', 'error');
+    if (isNaN(n) || n <= 0) {
+        toast('Cân nặng phải lớn hơn 0', 'error');
         return;
     }
     const note = notesEl ? notesEl.value.trim() : '';
