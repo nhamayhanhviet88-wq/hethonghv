@@ -1221,7 +1221,14 @@ module.exports = async function (fastify) {
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials mat ON mat.id = fc.material_id
                        WHERE mat.warehouse_id = w.id AND mat.is_active = true AND r.is_returned = false
-                   ), 0) AS total_balance
+                   ), 0) AS total_balance,
+                   COALESCE((
+                       SELECT COUNT(r.id)
+                       FROM kv_rolls r
+                       JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                       JOIN kv_materials mat ON mat.id = fc.material_id
+                       WHERE mat.warehouse_id = w.id AND mat.is_active = true AND r.is_returned = false AND r.weight > 0
+                   ), 0)::int AS total_rolls
             FROM kv_warehouses w
             WHERE w.is_active = true
             ORDER BY w.display_order, w.id
@@ -1235,7 +1242,13 @@ module.exports = async function (fastify) {
                            FROM kv_rolls r
                            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                            WHERE fc.material_id = m.id AND r.is_returned = false
-                       ), 0) AS total_balance
+                       ), 0) AS total_balance,
+                       COALESCE((
+                           SELECT COUNT(r.id)
+                           FROM kv_rolls r
+                           JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                           WHERE fc.material_id = m.id AND r.is_returned = false AND r.weight > 0
+                       ), 0)::int AS total_rolls
                 FROM kv_materials m
                 WHERE m.warehouse_id = $1 AND m.is_active = true
                 ORDER BY m.display_order, m.name
