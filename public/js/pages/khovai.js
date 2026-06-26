@@ -32,11 +32,12 @@ async function renderKhovaiPage(content) {
             '.kv-badge-xuatkk{background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
             '.kv-badge-update{background:#6366f1;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
             '.kv-stat-card{background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:100px;box-shadow:0 2px 8px rgba(0,0,0,0.15)}',
-            '.kv-stat-card.ton-kho-highlight{background:linear-gradient(135deg,#0d9488,#115e59);color:#fff;border:2px solid #2dd4bf;box-shadow:0 0 15px rgba(45,212,191,0.6),inset 0 0 8px rgba(255,255,255,0.2);min-width:120px;padding:6px 18px;transform:scale(1.15);margin:0 10px;transition:all 0.3s}',
-            '.kv-stat-card.ton-kho-highlight .kv-stat-label{color:#a7f3d0;font-size:10px;font-weight:900;text-shadow:0 0 5px rgba(45,212,191,0.3)}',
-            '.kv-stat-card.ton-kho-highlight .kv-stat-val{font-size:17px;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,0.3)}',
-            '.kv-stat-card.ton-kho-highlight.negative{background:linear-gradient(135deg,#e11d48,#9f1239);border-color:#fda4af;box-shadow:0 0 15px rgba(244,63,94,0.6),inset 0 0 8px rgba(255,255,255,0.2)}',
+            '.kv-stat-card.ton-kho-highlight{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#451a03;border:2px solid #fef08a;box-shadow:0 0 15px rgba(245,158,11,0.8),inset 0 0 8px rgba(255,255,255,0.4);min-width:120px;padding:6px 18px;transform:scale(1.15);margin:0 10px;transition:all 0.3s}',
+            '.kv-stat-card.ton-kho-highlight .kv-stat-label{color:#78350f;font-size:10px;font-weight:900;text-shadow:none}',
+            '.kv-stat-card.ton-kho-highlight .kv-stat-val{font-size:18px;font-weight:900;color:#451a03}',
+            '.kv-stat-card.ton-kho-highlight.negative{background:linear-gradient(135deg,#f43f5e,#be123c);border-color:#fda4af;box-shadow:0 0 15px rgba(244,63,94,0.8),inset 0 0 8px rgba(255,255,255,0.2)}',
             '.kv-stat-card.ton-kho-highlight.negative .kv-stat-label{color:#ffe4e6}',
+            '.kv-stat-card.ton-kho-highlight.negative .kv-stat-val{color:#fff}',
             '.kv-stat-label{font-size:9px;font-weight:700;color:#0d9488;letter-spacing:1px;margin-bottom:2px}',
             '.kv-stat-val{font-size:13px;font-weight:900}',
             '@media(max-width:768px){.kv-sidebar{width:220px;min-width:220px}.kv-table{font-size:11px}}',
@@ -174,7 +175,7 @@ function _kvRenderToolbar() {
         + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
         + '<div class="kv-stat-card"><div class="kv-stat-label">NHẬP</div><div id="kvStatNhap" class="kv-stat-val" style="color:#059669">0</div></div>'
         + '<div class="kv-stat-card"><div class="kv-stat-label">XUẤT</div><div id="kvStatXuat" class="kv-stat-val" style="color:#dc2626">0</div></div>'
-        + '<div id="kvStatCuoiCard" class="kv-stat-card ton-kho-highlight"><div class="kv-stat-label">TỒN KHO</div><div id="kvStatCuoi" class="kv-stat-val" style="color:#fff">0</div></div>'
+        + '<div id="kvStatCuoiCard" class="kv-stat-card ton-kho-highlight"><div class="kv-stat-label">TỒN KHO</div><div id="kvStatCuoi" class="kv-stat-val">0</div></div>'
         + '</div>';
 }
 
