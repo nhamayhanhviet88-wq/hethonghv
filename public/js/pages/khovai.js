@@ -336,10 +336,10 @@ function _kvRenderTable() {
             } else {
                 h += '<button onclick="_kvToggleActive(' + r.id + ', true)" style="background:#64748b;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hiển thị ở tạo đơn">🔴 Ẩn</button>';
             }
-            if (r.color_stop_import) {
-                h += '<button onclick="_kvToggleStopImport(' + r.id + ', false)" style="background:#f43f5e;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Hủy dừng nhập màu này">🛑 Dừng</button>';
+            if (r.color_stop_import || r.material_stop_import) {
+                h += '<button onclick="_kvToggleStopImport(' + r.id + ', false, ' + !!r.material_stop_import + ')" style="background:#f43f5e;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Hủy dừng nhập màu này">🛑 Dừng</button>';
             } else {
-                h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập</button>';
+                h += '<button onclick="_kvToggleStopImport(' + r.id + ', true, ' + !!r.material_stop_import + ')" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập</button>';
             }
         }
         h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
@@ -1131,8 +1131,12 @@ async function _kvToggleActive(id, newState) {
 }
 window._kvToggleActive = _kvToggleActive;
 
-async function _kvToggleStopImport(id, newState) {
+async function _kvToggleStopImport(id, newState, isMatStopped) {
     if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
+    if (isMatStopped && !newState) {
+        alert('Chất liệu của màu này đang bị dừng nhập. Bạn cần bật lại nhập chất liệu này ở danh sách bên trái trước.');
+        return;
+    }
     var actionText = newState ? 'dừng nhập' : 'cho phép nhập mới';
     if (!confirm('Bạn có chắc chắn muốn ' + actionText + ' màu vải này?')) return;
     try {
