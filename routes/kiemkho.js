@@ -957,7 +957,7 @@ module.exports = async function(fastify) {
                     type = 'missing';
 
                     // Update weight in catalog
-                    await db.run('UPDATE kv_rolls SET weight = 0, note = $1 WHERE id = $2', [`Báo mất khi kiểm kê đợt ${now.split('T')[0]}`, rec.roll_id]);
+                    await db.run('UPDATE kv_rolls SET weight = 0, note = $1 WHERE id = $2', [`Báo mất khi kiểm kê đợt ${vnDateStr(now)}`, rec.roll_id]);
 
                     // Release reservations (just in case)
                     try {
