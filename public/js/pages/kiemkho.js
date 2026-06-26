@@ -718,6 +718,9 @@ async function _kkRenderAudit(content) {
                             <td>
                                 <div style="margin-top:2px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                     <span style="font-weight:600; color:#334155;">${r.color_name}</span>
+                                    ${Number(r.system_weight) === Number(r.original_weight)
+                                        ? `<span style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700;">🌲 Cây Nguyên</span>`
+                                        : `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700;">✂️ Cây Lẻ</span>`}
                                     ${badges}
                                 </div>
                             </td>
@@ -1313,9 +1316,9 @@ function _kkOpenAddSurplusModal() {
                         <select id="kkSurplusLocation" class="kk-form-input" onchange="_kkOnSurplusShelfChange(this.value)">
                             ${shelfOptions}
                         </select>
-                        <div id="kkSurplusShelfInfo" style="margin-top: 6px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
-                            <div>📍 <span style="color:#fde047;">Vị trí kệ:</span> <span id="kkSurplusShelfPos" style="color:#ffffff;">--</span></div>
-                            <div>📦 <span style="color:#2dd4bf;">Chất liệu kệ:</span> <span id="kkSurplusShelfMats" style="color:#ffffff;">--</span></div>
+                        <div id="kkSurplusShelfInfo" style="margin-top: 6px; padding: 8px 10px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+                            <div>📍 <span style="color:#854d0e; font-weight: 600;">Vị trí kệ:</span> <span id="kkSurplusShelfPos" style="color:#1e293b; font-weight: 700;">--</span></div>
+                            <div>📦 <span style="color:#0f766e; font-weight: 600;">Chất liệu kệ:</span> <span id="kkSurplusShelfMats" style="color:#1e293b; font-weight: 700;">--</span></div>
                         </div>
                     </div>
 
@@ -1346,7 +1349,23 @@ function _kkOpenAddSurplusModal() {
                         <div class="col-6">
                             <div class="kk-form-group">
                                 <label class="kk-form-label">Số Cây Thừa</label>
-                                <input type="number" id="kkSurplusCount" class="kk-form-input" value="1" readonly style="background:rgba(255,255,255,0.02); color:#94a3b8;">
+                                <input type="number" id="kkSurplusCount" class="kk-form-input" value="1" readonly style="background:rgba(0,0,0,0.02); color:#64748b;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Roll Type Selector (Cây Nguyên hay Cây Lẻ) -->
+                    <div class="kk-form-group">
+                        <label class="kk-form-label">Phân Loại Cây Vải <span style="color:#ef4444;">*</span></label>
+                        <input type="hidden" id="kkSurplusRollType" value="">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:4px;">
+                            <div style="border: 2px solid #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.2s; background:#ffffff;" id="labelSurplusTypeNguyen" onclick="_kkOnSurplusTypeChange('nguyen')">
+                                <span style="font-weight:700; font-size:13px; color:#1e293b;">🌲 Cây Nguyên</span>
+                                <span style="font-size:10px; color:#64748b;">Chưa cắt bao giờ</span>
+                            </div>
+                            <div style="border: 2px solid #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.2s; background:#ffffff;" id="labelSurplusTypeLe" onclick="_kkOnSurplusTypeChange('le')">
+                                <span style="font-weight:700; font-size:13px; color:#1e293b;">✂️ Cây Lẻ</span>
+                                <span style="font-size:10px; color:#64748b;">Đã từng cắt dở</span>
                             </div>
                         </div>
                     </div>
@@ -1496,10 +1515,12 @@ async function _kkSubmitSurplus() {
     const count = document.getElementById('kkSurplusCount').value;
     const location = document.getElementById('kkSurplusLocation').value;
     const note = document.getElementById('kkSurplusNote').value;
+    const rollType = document.getElementById('kkSurplusRollType').value;
 
     if (!materialId) { showToast('Vui lòng chọn chất liệu vải', 'error'); return; }
     if (!colorId) { showToast('Vui lòng chọn màu vải', 'error'); return; }
     if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { showToast('Vui lòng nhập cân nặng hợp lệ (lớn hơn 0)', 'error'); return; }
+    if (!rollType) { showToast('Vui lòng chọn loại cây vải (Cây Nguyên hoặc Cây Lẻ)', 'error'); return; }
     if (!_kk.surplusFile) { showToast('Bắt buộc phải tải ảnh minh chứng cho cây vải thừa!', 'error'); return; }
 
     try {
@@ -1515,7 +1536,8 @@ async function _kkSubmitSurplus() {
             weight: Number(weight),
             roll_count: Number(count),
             location: location,
-            note: note
+            note: note,
+            roll_type: rollType
         };
 
         showToast('⏳ Đang xử lý khai báo...', 'info');
@@ -1573,13 +1595,15 @@ function _kkValidateSurplusForm() {
     const mat = document.getElementById('kkSurplusMatSelect').value;
     const col = document.getElementById('kkSurplusColorSelect').value;
     const wVal = document.getElementById('kkSurplusWeight').value;
+    const typeVal = document.getElementById('kkSurplusRollType')?.value;
     const btn = document.getElementById('kkSurplusSubmitBtn');
     if (!btn) return;
     
     const hasWeight = wVal && !isNaN(Number(wVal)) && Number(wVal) > 0;
     const hasPhoto = !!_kk.surplusFile;
+    const hasType = !!typeVal;
     
-    if (mat && col && hasWeight && hasPhoto) {
+    if (mat && col && hasWeight && hasPhoto && hasType) {
         btn.disabled = false;
         btn.style.opacity = '1.0';
     } else {
@@ -1588,12 +1612,40 @@ function _kkValidateSurplusForm() {
     }
 }
 
+function _kkOnSurplusTypeChange(type) {
+    const input = document.getElementById('kkSurplusRollType');
+    if (!input) return;
+    input.value = type;
+    
+    const btnNguyen = document.getElementById('labelSurplusTypeNguyen');
+    const btnLe = document.getElementById('labelSurplusTypeLe');
+    if (!btnNguyen || !btnLe) return;
+    
+    if (type === 'nguyen') {
+        btnNguyen.style.borderColor = '#0d9488';
+        btnNguyen.style.background = '#f0fdfa';
+        btnLe.style.borderColor = '#cbd5e1';
+        btnLe.style.background = '#ffffff';
+    } else {
+        btnLe.style.borderColor = '#0d9488';
+        btnLe.style.background = '#f0fdfa';
+        btnNguyen.style.borderColor = '#cbd5e1';
+        btnNguyen.style.background = '#ffffff';
+    }
+    _kkValidateSurplusForm();
+}
+
 function _kkViewSurplusDetail(rollId) {
     const r = _kk.rolls.find(item => item.roll_id === rollId);
     if (!r) {
         showToast('Không tìm thấy thông tin cây vải thừa', 'error');
         return;
     }
+
+    const isOriginal = Number(r.system_weight) === Number(r.original_weight);
+    const typeLabel = isOriginal 
+        ? '<span style="font-weight:700; color:#16a34a;">🌲 Cây Nguyên (Chưa cắt bao giờ)</span>' 
+        : '<span style="font-weight:700; color:#ea580c;">✂️ Cây Lẻ (Đã từng cắt dở)</span>';
 
     const modalHtml = `
         <div class="kk-modal-overlay" id="kkViewSurplusModal">
@@ -1606,6 +1658,10 @@ function _kkViewSurplusDetail(rollId) {
                     <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
                         <span style="color:#64748b; font-weight:600;">Mã Cây Vải:</span>
                         <span style="font-weight:700; font-family:monospace; color:#6b21a8;">${r.roll_code}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                        <span style="color:#64748b; font-weight:600;">Phân Loại:</span>
+                        <span>${typeLabel}</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
                         <span style="color:#64748b; font-weight:600;">Chất Liệu:</span>

@@ -469,7 +469,7 @@ module.exports = async function(fastify) {
 
     // ========== ADD SURPLUS FULL (SUPPORT CREATE MAT/COLOR ON THE FLY) ==========
     fastify.post('/api/stockcheck/add-surplus-full', { preHandler: [authenticate] }, async (req, reply) => {
-        const { warehouse_id, material_id, new_material_name, color_id, new_color_name, weight, roll_count, location, note } = req.body || {};
+        const { warehouse_id, material_id, new_material_name, color_id, new_color_name, weight, roll_count, location, note, roll_type } = req.body || {};
         const now = vnNow();
 
         if (!warehouse_id) return reply.code(400).send({ error: 'Thiếu kho vải.' });
@@ -504,11 +504,12 @@ module.exports = async function(fastify) {
         // 3. Create rolls and checked records
         for (let i = 0; i < count; i++) {
             const rollCode = 'KK' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0,10);
+            const origWeight = roll_type === 'le' ? Number(weight) + 1.0 : Number(weight);
             
             const rollResult = await db.run(`
                 INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, location, source, note, created_by)
-                VALUES ($1, $2, $3, $3, $4, 'kiem_kho_du', $5, $6)
-            `, [Number(finalColorId), rollCode, Number(weight), location || '', note || 'Nhập từ kiểm kho (Cây thừa)', req.user.id]);
+                VALUES ($1, $2, $3, $4, $5, 'kiem_kho_du', $6, $7)
+            `, [Number(finalColorId), rollCode, Number(weight), origWeight, location || '', note || 'Nhập từ kiểm kho (Cây thừa)', req.user.id]);
             
             const rollId = rollResult.lastInsertRowid;
 
@@ -527,7 +528,7 @@ module.exports = async function(fastify) {
             await db.run(`
                 INSERT INTO stockcheck_history (stockcheck_id, action, details, performed_by, performed_at)
                 VALUES ($1, 'create', $2, $3, $4)
-            `, [scResult.lastInsertRowid, `📋 Phát hiện cây thừa: ${weight} (Kệ: ${location || 'Chưa xếp'})`, req.user.id, now]);
+            `, [scResult.lastInsertRowid, `📋 Phát hiện cây thừa (${roll_type === 'le' ? 'Cây lẻ' : 'Cây nguyên'}): ${weight} (Kệ: ${location || 'Chưa xếp'})`, req.user.id, now]);
 
             rollsCreated.push({ id: rollId, code: rollCode });
         }

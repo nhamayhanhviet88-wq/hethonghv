@@ -697,7 +697,11 @@ function mCards(){
                         <div class="cr">
                             <span class="cl">🎨 Màu</span>
                             <span class="cv" style="color:#5eead4;font-size:12px; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-                                ${thumb} ${r.color_name} ${badges} ${shelfBadge}
+                                ${thumb} ${r.color_name} 
+                                ${Number(r.system_weight) === Number(r.original_weight)
+                                    ? `<span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.25); padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700;">🌲 Cây Nguyên</span>`
+                                    : `<span style="background:rgba(249,115,22,0.15); color:#fb923c; border:1px solid rgba(249,115,22,0.25); padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700;">✂️ Cây Lẻ</span>`}
+                                ${badges} ${shelfBadge}
                             </span>
                         </div>
                         <div class="cr"><span class="cl">⚖️ Tồn Hệ Thống</span><span class="cv" style="color:#5eead4;font-size:18px;font-weight:900">${fn(r.system_weight)} kg</span></div>
@@ -1189,6 +1193,22 @@ function mOpenAddSurplusModal() {
                         </div>
                     </div>
 
+                    <!-- Roll Type Selector (Cây Nguyên hay Cây Lẻ) -->
+                    <div class="m-form-group">
+                        <label class="m-form-label">Phân Loại Cây Vải <span style="color:#ef4444;">*</span></label>
+                        <input type="hidden" id="mSurplusRollType" value="">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:4px;">
+                            <div style="border: 2px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.2s; background:transparent;" id="labelMSurplusTypeNguyen" onclick="mOnSurplusTypeChange('nguyen')">
+                                <span style="font-weight:700; font-size:13px; color:#fff;">🌲 Cây Nguyên</span>
+                                <span style="font-size:10px; color:#94a3b8;">Chưa cắt bao giờ</span>
+                            </div>
+                            <div style="border: 2px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.2s; background:transparent;" id="labelMSurplusTypeLe" onclick="mOnSurplusTypeChange('le')">
+                                <span style="font-weight:700; font-size:13px; color:#fff;">✂️ Cây Lẻ</span>
+                                <span style="font-size:10px; color:#94a3b8;">Đã từng cắt dở</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Photo Upload for Surplus -->
                     <div class="m-form-group">
                         <label class="m-form-label">Ảnh minh chứng cây thừa <span style="color:#ef4444;">*</span></label>
@@ -1335,10 +1355,12 @@ async function mSubmitSurplus() {
     const count = document.getElementById('mSurplusCount').value;
     const location = document.getElementById('mSurplusLocation').value;
     const note = document.getElementById('mSurplusNote').value;
+    const rollType = document.getElementById('mSurplusRollType').value;
 
     if (!materialId) { toast('Vui lòng chọn chất liệu vải', 'error'); return; }
     if (!colorId) { toast('Vui lòng chọn màu vải', 'error'); return; }
     if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { toast('Vui lòng nhập cân nặng hợp lệ (lớn hơn 0)', 'error'); return; }
+    if (!rollType) { toast('Vui lòng chọn loại cây vải (Cây Nguyên hoặc Cây Lẻ)', 'error'); return; }
     if (!mSurplusFile) { toast('Bắt buộc phải chụp hình ảnh cây vải thừa!', 'error'); return; }
 
     try {
@@ -1354,7 +1376,8 @@ async function mSubmitSurplus() {
             weight: Number(weight),
             roll_count: Number(count),
             location: location,
-            note: note
+            note: note,
+            roll_type: rollType
         };
 
         toast('⏳ Đang xử lý khai báo...');
@@ -1411,13 +1434,15 @@ function mValidateSurplusForm() {
     const mat = document.getElementById('mSurplusMatSelect').value;
     const col = document.getElementById('mSurplusColorSelect').value;
     const wVal = document.getElementById('mSurplusWeight').value;
+    const typeVal = document.getElementById('mSurplusRollType')?.value;
     const btn = document.getElementById('mSurplusSubmitBtn');
     if (!btn) return;
     
     const hasWeight = wVal && !isNaN(Number(wVal)) && Number(wVal) > 0;
     const hasPhoto = !!mSurplusFile;
+    const hasType = !!typeVal;
     
-    if (mat && col && hasWeight && hasPhoto) {
+    if (mat && col && hasWeight && hasPhoto && hasType) {
         btn.disabled = false;
         btn.style.opacity = '1.0';
     } else {
@@ -1426,12 +1451,40 @@ function mValidateSurplusForm() {
     }
 }
 
+function mOnSurplusTypeChange(type) {
+    const input = document.getElementById('mSurplusRollType');
+    if (!input) return;
+    input.value = type;
+    
+    const btnNguyen = document.getElementById('labelMSurplusTypeNguyen');
+    const btnLe = document.getElementById('labelMSurplusTypeLe');
+    if (!btnNguyen || !btnLe) return;
+    
+    if (type === 'nguyen') {
+        btnNguyen.style.borderColor = '#10b981';
+        btnNguyen.style.background = 'rgba(16,185,129,0.1)';
+        btnLe.style.borderColor = 'rgba(255,255,255,0.15)';
+        btnLe.style.background = 'transparent';
+    } else {
+        btnLe.style.borderColor = '#10b981';
+        btnLe.style.background = 'rgba(16,185,129,0.1)';
+        btnNguyen.style.borderColor = 'rgba(255,255,255,0.15)';
+        btnNguyen.style.background = 'transparent';
+    }
+    mValidateSurplusForm();
+}
+
 function mViewSurplusDetail(rollId) {
     const r = mr.find(item => item.roll_id === rollId);
     if (!r) {
         toast('Không tìm thấy thông tin cây vải thừa', 'error');
         return;
     }
+
+    const isOriginal = Number(r.system_weight) === Number(r.original_weight);
+    const typeLabel = isOriginal 
+        ? '<span style="font-weight:700; color:#34d399;">🌲 Cây Nguyên (Chưa cắt)</span>' 
+        : '<span style="font-weight:700; color:#fb923c;">✂️ Cây Lẻ (Đã cắt)</span>';
 
     const modalHtml = `
         <div class="m-modal-overlay" id="mViewSurplusModal">
@@ -1444,6 +1497,10 @@ function mViewSurplusDetail(rollId) {
                     <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
                         <span style="color:#94a3b8;">Mã Cây Vải:</span>
                         <span style="font-weight:700; font-family:monospace; color:#e9d5ff;">${r.roll_code}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
+                        <span style="color:#94a3b8;">Phân Loại:</span>
+                        <span>${typeLabel}</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
                         <span style="color:#94a3b8;">Chất Liệu:</span>
