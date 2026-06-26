@@ -1263,7 +1263,7 @@ function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
                             <div><strong>Chất liệu:</strong> ${materialName}</div>
                             <div><strong>Màu:</strong> ${colorName}</div>
                             <div><strong>Phân loại:</strong> ${isNguyen ? `<span style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px; font-size:11px;">🌲 Cây Nguyên</span>` : `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px; font-size:11px;">✂️ Cây Lẻ</span>`}</div>
-                            <div><strong>Tồn hệ thống:</strong> ${systemWeight} kg</div>
+                            <div><strong>Tồn hệ thống:</strong> <span style="color:#2563eb; font-weight:800; font-size:13px; background:#eff6ff; padding:2px 8px; border-radius:6px; margin-left:4px; border:1px solid #bfdbfe; display:inline-flex; align-items:center;">${systemWeight} kg</span></div>
                         </div>
                     </div>
 
