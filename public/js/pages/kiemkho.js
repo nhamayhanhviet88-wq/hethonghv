@@ -1429,39 +1429,66 @@ async function _kkOpenFinishConfirmModal() {
                 const uSurpW = Number(u.surplus_weight).toLocaleString('vi-VN');
                 const uDiffW = Number(Math.abs(u.net_difference)).toLocaleString('vi-VN');
 
-                let uDiffClass = 'text-success';
-                let uDiffText = 'Khớp';
+                let title = `KIỂM KÊ KHO VẢI ${u.unit.toUpperCase()}`;
+                if (u.unit.toLowerCase() === 'mét') title = 'KIỂM KÊ KHO VẢI MÉT';
+                if (u.unit.toLowerCase() === 'cái') title = 'KIỂM KÊ KHO SẴN';
+
+                let uDiffStyle = 'color: #10b981; font-weight: bold;';
+                let uDiffText = 'Khớp hoàn toàn';
                 if (u.net_difference > 0) {
-                    uDiffClass = 'text-danger';
                     uDiffText = `Hao hụt -${uDiffW} ${u.unit}`;
+                    uDiffStyle = 'color: #ef4444; font-weight: bold;';
                 } else if (u.net_difference < 0) {
-                    uDiffClass = 'text-primary';
                     uDiffText = `Dư +${uDiffW} ${u.unit}`;
+                    uDiffStyle = 'color: #3b82f6; font-weight: bold;';
                 }
 
                 unitsHtml += `
-                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 12px; padding: 12px; background:#f8fafc;">
-                        <div style="font-weight: 800; font-size: 12px; color: #0284c7; margin-bottom: 8px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
-                            <span>📦 ĐƠN VỊ: ${u.unit.toUpperCase()}</span>
-                            <span style="font-weight: 800; font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 20px;">
-                                ${u.checked_rolls}/${u.initial_rolls} cây
-                            </span>
+                    <div style="margin-bottom: 24px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 20px;">
+                        <!-- Tiêu đề kho -->
+                        <div style="font-weight: 800; font-size: 13px; color: #1e293b; margin-bottom: 12px; text-transform: uppercase; border-left: 4px solid #3b82f6; padding-left: 8px; letter-spacing: 0.5px;">
+                            ${title}
                         </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; font-size: 12px;">
-                            <div>• Tồn HT đầu: <strong>${uInitW} ${u.unit}</strong></div>
-                            <div>• Kiểm thực tế: <strong>${uActW} ${u.unit}</strong></div>
+
+                        <!-- 2 cột tổng quan (Tồn HT & Thực tế) -->
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:12px 10px; border-radius:8px; text-align:center;">
+                                <div style="color:#64748b; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Tồn Hệ Thống</div>
+                                <div style="font-size:18px; font-weight:900; color:#0f172a; margin-top:4px;">${uInitW} ${u.unit}</div>
+                                <div style="color:#94a3b8; font-size:10px; margin-top:2px;">(${u.initial_rolls} cây)</div>
+                            </div>
+                            <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px 10px; border-radius:8px; text-align:center;">
+                                <div style="color:#166534; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Kiểm Thực Tế</div>
+                                <div style="font-size:18px; font-weight:900; color:#15803d; margin-top:4px;">${uActW} ${u.unit}</div>
+                                <div style="color:#166534; font-size:10px; margin-top:2px;">(${u.checked_rolls} cây)</div>
+                            </div>
                         </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #475569;">
-                            <div>• Báo mất: <span style="color:#ef4444; font-weight:700;">${u.missing_rolls} cây (${uMissW} ${u.unit})</span></div>
-                            <div>• Thừa mới: <span style="color:#3b82f6; font-weight:700;">${u.surplus_rolls} cây (${uSurpW} ${u.unit})</span></div>
-                        </div>
-                        <div style="border-top: 1px dashed #cbd5e1; margin-top: 8px; padding-top: 6px; display: flex; justify-content: space-between; font-size: 13px;">
-                            <span style="font-weight: 700; color: #1e293b;">⚖️ Chênh lệch ròng:</span>
-                            <span class="${uDiffClass}" style="font-weight: 900;">${uDiffText}</span>
+
+                        <!-- Chi tiết kết quả kiểm kê -->
+                        <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background: #fff;">
+                            <div style="background:#f8fafc; padding:8px 12px; font-weight:700; border-bottom:1px solid #e2e8f0; color:#475569; font-size:10px; text-transform:uppercase; letter-spacing:0.5px;">
+                                Chi Tiết Kết Quả Kiểm Kê
+                            </div>
+                            <div style="padding:10px 12px; display:flex; flex-direction:column; gap:8px; font-size:12px; color: #334155;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span>❌ Số cây báo mất:</span>
+                                    <span style="font-weight:700; color:#ef4444;">${u.missing_rolls} cây (${uMissW} ${u.unit})</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span>➕ Số cây thừa mới:</span>
+                                    <span style="font-weight:700; color:#3b82f6;">${u.surplus_rolls} cây (${uSurpW} ${u.unit})</span>
+                                </div>
+                                <div style="border-top:1px dashed #e2e8f0; margin-top:4px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:13px;">
+                                    <span style="font-weight:700; color:#0f172a;">⚖️ Chênh lệch ròng:</span>
+                                    <span style="${uDiffStyle}">${uDiffText}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
             });
+            // remove last border
+            unitsHtml = unitsHtml.replace(/border-bottom: 1px dashed #e2e8f0; padding-bottom: 20px;(?=[^;]*<\/div>\s*$)/g, '');
         } else {
             unitsHtml = `
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
