@@ -750,7 +750,8 @@ module.exports = async function(fastify) {
             SELECT COUNT(*)::int AS cnt FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
             JOIN kv_materials m ON m.id=fc.material_id
-            WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+            JOIN kv_warehouses w ON w.id=m.warehouse_id
+            WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
         `);
         const checkedCount = await db.get(`
             SELECT COUNT(*)::int AS cnt FROM stockcheck_records WHERE is_checked=true
@@ -901,7 +902,8 @@ module.exports = async function(fastify) {
             SELECT COUNT(*)::int AS cnt FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
             JOIN kv_materials m ON m.id=fc.material_id
-            WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+            JOIN kv_warehouses w ON w.id=m.warehouse_id
+            WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
         `);
         const checkedCount = await db.get(`
             SELECT COUNT(*)::int AS cnt FROM stockcheck_records WHERE is_checked=true
