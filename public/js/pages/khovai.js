@@ -105,7 +105,7 @@ function _kvRenderSidebar() {
                 if (m.stop_import) {
                     settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', false)" style="' + btnStyle + 'background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;" title="Chất liệu này đang dừng nhập. Bấm để cho phép nhập mới.">🛑 Dừng</span>';
                 } else {
-                    settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', true)" style="' + btnStyle + 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;" title="Chất liệu đang nhập mới. Bấm để dừng nhập.">📥 Nhập</span>';
+                    settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', true)" style="' + btnStyle + 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;" title="Chất liệu đang nhập mới. Bấm để dừng nhập.">📥 Vẫn Nhập</span>';
                 }
             }
             h += '<div class="kv-sb-mat' + (isActiveM ? ' active' : '') + '" onclick="_kvFilterMat(' + w.id + ',' + m.id + ')">';
@@ -339,7 +339,7 @@ function _kvRenderTable() {
             if (r.color_stop_import) {
                 h += '<button onclick="_kvToggleStopImport(' + r.id + ', false)" style="background:#f43f5e;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Hủy dừng nhập màu này">🛑 Dừng</button>';
             } else {
-                h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập mới</button>';
+                h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Vẫn Nhập Vải</button>';
             }
         }
         h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
