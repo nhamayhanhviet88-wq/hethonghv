@@ -703,8 +703,10 @@ function mCards(){
                         </div>
                         <div class="cr">
                             <span class="cl">🌲 Cây</span>
-                            <span class="cv" style="color:#ffffff; font-size:12px; font-weight:700;">
-                                ${Number(r.system_weight) === Number(r.original_weight) ? 'Cây Nguyên' : 'Cây Lẻ'}
+                            <span class="cv" style="font-size:11px;">
+                                ${Number(r.system_weight) === Number(r.original_weight)
+                                    ? `<span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">🌲 Cây Nguyên</span>`
+                                    : `<span style="background:rgba(249,115,22,0.15); color:#fb923c; border:1px solid rgba(249,115,22,0.3); padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">✂️ Cây Lẻ</span>`}
                             </span>
                         </div>
                         <div class="cr"><span class="cl">⚖️ Tồn Hệ Thống</span><span class="cv" style="color:#5eead4;font-size:18px;font-weight:900">${fn(r.system_weight)} kg</span></div>
