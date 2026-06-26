@@ -442,6 +442,19 @@ module.exports = async function(fastify) {
 
     // ========== TREE — Sync from kv_* ==========
     fastify.get('/api/stockcheck/tree', { preHandler: [authenticate] }, async () => {
+        // Self-heal: ensure all surplus rolls have a stockcheck record
+        try {
+            await db.run(`
+                INSERT INTO stockcheck_records (roll_id, fabric_color_id, system_weight, actual_weight, difference, is_checked, checked_at, checked_by, created_by, created_at)
+                SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
+                FROM kv_rolls r
+                LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
+                WHERE r.source = 'kiem_kho_du' AND sc.id IS NULL AND r.is_returned = false
+            `);
+        } catch(e) {
+            console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
+        }
+
         const warehouses = await db.all(`
             SELECT w.id, w.name, w.unit,
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
@@ -471,6 +484,19 @@ module.exports = async function(fastify) {
 
     // ========== LIST — Rolls per shelf/material with stockcheck data ==========
     fastify.get('/api/stockcheck/rolls', { preHandler: [authenticate] }, async (req) => {
+        // Self-heal: ensure all surplus rolls have a stockcheck record
+        try {
+            await db.run(`
+                INSERT INTO stockcheck_records (roll_id, fabric_color_id, system_weight, actual_weight, difference, is_checked, checked_at, checked_by, created_by, created_at)
+                SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
+                FROM kv_rolls r
+                LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
+                WHERE r.source = 'kiem_kho_du' AND sc.id IS NULL AND r.is_returned = false
+            `);
+        } catch(e) {
+            console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
+        }
+
         const { material_id, warehouse_id, search, location, material_name } = req.query;
         let where = "WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')", params = [], idx = 1;
 
@@ -709,6 +735,19 @@ module.exports = async function(fastify) {
     // ========== FINISH SESSION (APPLY DIFFERENCES + HISTORY) ==========
     fastify.post('/api/stockcheck/finish-session', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isKhoManager(req))) return reply.code(403).send({ error: 'Chỉ Quản lý kho hoặc Giám đốc mới có quyền chốt sổ kiểm kê.' });
+
+        // Self-heal: ensure all surplus rolls have a stockcheck record
+        try {
+            await db.run(`
+                INSERT INTO stockcheck_records (roll_id, fabric_color_id, system_weight, actual_weight, difference, is_checked, checked_at, checked_by, created_by, created_at)
+                SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
+                FROM kv_rolls r
+                LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
+                WHERE r.source = 'kiem_kho_du' AND sc.id IS NULL AND r.is_returned = false
+            `);
+        } catch(e) {
+            console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
+        }
 
         const activeRow = await db.get("SELECT value FROM app_config WHERE key = 'stockcheck_active_session'");
         if (!activeRow || !activeRow.value) return reply.code(400).send({ error: 'Không có phiên kiểm kê nào đang hoạt động.' });
