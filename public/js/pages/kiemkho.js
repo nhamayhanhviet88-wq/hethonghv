@@ -2797,8 +2797,6 @@ function _kkOpenImportBill(importId) {
     }
 }
 
-}
-
 async function _kkOpenRollOrigin(rollId) {
     try {
         const r = await apiCall('/api/stockcheck/roll-origin/' + rollId);
