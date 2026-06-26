@@ -40,7 +40,7 @@
         .df{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:800}
         .df.ok{background:rgba(16,185,129,.2);color:#6ee7b7}.df.short{background:rgba(239,68,68,.2);color:#fca5a5}.df.over{background:rgba(59,130,246,.2);color:#93c5fd}.df.none{background:rgba(148,163,184,.1);color:#94a3b8}
         
-        .ca{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:8px;border-top:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,0.15);}
+        .ca{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;padding:8px;border-top:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,0.15);}
         .ab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 2px;border-radius:8px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#94a3b8;cursor:pointer;transition:all 0.1s;-webkit-tap-highlight-color:transparent}
         .ab:active{transform:scale(.92)}
         .ab .ai{font-size:16px}
@@ -680,10 +680,6 @@ function mCards(){
                             <span class="ai">${weightBtnIcon}</span>
                             <span class="al">${weightBtnText}</span>
                         </button>
-                        <button class="ab" onclick="mTriggerCamera(${r.roll_id})">
-                            <span class="ai">📷</span>
-                            <span class="al">CHỤP ẢNH</span>
-                        </button>
                         <button class="${missingBtnClass}" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
                             <span class="ai">❌</span>
                             <span class="al">${missingBtnText}</span>
@@ -842,10 +838,56 @@ async function mSubmitMissing(rollId, rollCode) {
     }
 }
 
+function mCheckPhotoRequiredForRoll(roll) {
+    if (photoMode === 'all') return true;
+    if (photoMode === 'missing_only') {
+        return !(roll && roll.roll_img);
+    }
+    return false;
+}
+
+async function mModalTriggerCamera(rollId) {
+    mTriggerCamera(rollId, async (newPath) => {
+        const r = mr.find(item => item.roll_id === rollId);
+        if (r) {
+            r.roll_img = newPath;
+        }
+        
+        // Update preview in modal
+        const previewEl = document.getElementById('mModalPhotoPreview');
+        if (previewEl) {
+            previewEl.innerHTML = `<img src="${newPath}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.15);" onclick="viewImage('${newPath}')">`;
+        }
+        
+        // Update the star requirement label visibility
+        const isPhotoRequired = mCheckPhotoRequiredForRoll(r);
+        const starEl = document.getElementById('mPhotoRequiredStar');
+        if (starEl) {
+            starEl.style.display = isPhotoRequired ? '' : 'none';
+        }
+        
+        // Re-evaluate the confirm button disabled status
+        mCalculateDifference(r ? r.system_weight : 0, rollId);
+    });
+}
+
 async function mInputWeight(rollId, systemWeight, rollImg) {
+    // Real-time photo mode fetch
+    try {
+        const setRes = await api('/api/stockcheck/settings');
+        photoMode = setRes.photo_mode || 'none';
+    } catch(e) {
+        console.error('[Mobile settings fetch]', e);
+    }
+
     const r = mr.find(item => item.roll_id === rollId);
     const colorName = r ? r.color_name : '—';
     const materialName = r ? r.material_name : '—';
+    const isPhotoRequired = mCheckPhotoRequiredForRoll(r);
+    
+    const existingWeight = (r && r.is_checked && r.actual_weight !== null) ? r.actual_weight : '';
+    const existingNotes = (r && r.sc_notes) ? r.sc_notes : '';
+    const currentImg = (r && r.roll_img) ? r.roll_img : '';
 
     const modalHtml = `
         <div class="m-modal-overlay" id="mWeightModal">
@@ -868,7 +910,7 @@ async function mInputWeight(rollId, systemWeight, rollImg) {
 
                     <div class="m-form-group">
                         <label class="m-form-label">Cân nặng thực tế (kg) <span style="color:#ef4444;">*</span></label>
-                        <input type="number" id="mActualWeightInput" class="m-form-input" placeholder="Nhập số kg thực tế..." step="0.1" min="0" oninput="mCalculateDifference(${systemWeight})">
+                        <input type="number" id="mActualWeightInput" class="m-form-input" placeholder="Nhập số kg thực tế..." step="0.1" min="0" value="${existingWeight}" oninput="mCalculateDifference(${systemWeight}, ${rollId})">
                     </div>
 
                     <div class="m-form-group">
@@ -879,8 +921,20 @@ async function mInputWeight(rollId, systemWeight, rollImg) {
                     </div>
 
                     <div class="m-form-group">
+                        <label class="m-form-label">Ảnh minh chứng <span id="mPhotoRequiredStar" style="color:#ef4444; ${isPhotoRequired ? '' : 'display:none;'}">*</span></label>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <button type="button" class="m-btn" style="background:#334155; color:#f8fafc; border:1.5px solid rgba(255,255,255,0.12); display:flex; align-items:center; gap:6px; font-weight:700; padding:8px 12px; border-radius:8px;" onclick="mModalTriggerCamera(${rollId})">
+                                📷 Chụp ảnh
+                            </button>
+                            <div id="mModalPhotoPreview" style="display:flex; align-items:center; gap:8px;">
+                                ${currentImg ? `<img src="${currentImg}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.15);" onclick="viewImage('${currentImg}')">` : '<span style="color:#94a3b8; font-size:12px; font-style:italic;">Chưa có ảnh</span>'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="m-form-group">
                         <label class="m-form-label">Ghi chú (Tùy chọn)</label>
-                        <input type="text" id="mWeightNotes" class="m-form-input" placeholder="Nhập ghi chú kiểm kho...">
+                        <input type="text" id="mWeightNotes" class="m-form-input" placeholder="Nhập ghi chú kiểm kho..." value="${existingNotes}">
                     </div>
                 </div>
                 <div class="m-modal-footer">
@@ -904,9 +958,12 @@ async function mInputWeight(rollId, systemWeight, rollImg) {
         const inp = document.getElementById('mActualWeightInput');
         if (inp) inp.focus();
     }, 100);
+
+    // Initial check to set difference label & button disabled status
+    mCalculateDifference(systemWeight, rollId);
 }
 
-function mCalculateDifference(systemWeight) {
+function mCalculateDifference(systemWeight, rollId) {
     const inputEl = document.getElementById('mActualWeightInput');
     const diffEl = document.getElementById('mWeightDiffLabel');
     const btnEl = document.getElementById('mWeightConfirmBtn');
@@ -929,9 +986,6 @@ function mCalculateDifference(systemWeight) {
         return;
     }
     
-    btnEl.disabled = false;
-    btnEl.style.opacity = '1.0';
-    
     const diff = actual - systemWeight;
     if (diff === 0) {
         diffEl.innerHTML = '<span style="color:#34d399; font-weight:700;">✅ Khớp (0 kg)</span>';
@@ -939,6 +993,19 @@ function mCalculateDifference(systemWeight) {
         diffEl.innerHTML = `<span style="color:#f87171; font-weight:700;">📉 Thiếu ${Math.abs(diff).toFixed(2)} kg</span>`;
     } else {
         diffEl.innerHTML = `<span style="color:#60a5fa; font-weight:700;">📈 Thừa +${diff.toFixed(2)} kg</span>`;
+    }
+
+    // Photo validation logic:
+    const r = mr.find(item => item.roll_id === rollId);
+    const isPhotoRequired = mCheckPhotoRequiredForRoll(r);
+    const hasPhoto = !!(r && r.roll_img);
+
+    if (isPhotoRequired && !hasPhoto) {
+        btnEl.disabled = true;
+        btnEl.style.opacity = '0.5';
+    } else {
+        btnEl.disabled = false;
+        btnEl.style.opacity = '1.0';
     }
 }
 
@@ -959,32 +1026,20 @@ async function mSubmitWeight(rollId, systemWeight, rollImg) {
     }
     const note = notesEl ? notesEl.value.trim() : '';
 
-    mCloseModal('mWeightModal');
-
-    // Real-time photo mode fetch
-    try {
-        const setRes = await api('/api/stockcheck/settings');
-        photoMode = setRes.photo_mode || 'none';
-    } catch(e) {
-        console.error('[Mobile settings fetch]', e);
+    const r = mr.find(item => item.roll_id === rollId);
+    if (mCheckPhotoRequiredForRoll(r)) {
+        toast('Yêu cầu phải có ảnh chụp minh chứng!', 'error');
+        return;
     }
 
-    const runCheck = async () => {
-        try {
-            await api('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: n, notes: note || '' });
-            toast('✅ Đã kiểm: ' + n + ' kg');
-            await mLoad();
-        } catch(e) {
-            toast(e.message || 'Lỗi cập nhật', 'error');
-        }
-    };
-    
-    if (mCheckPhotoRequired(rollImg)) {
-        if (confirm('Yêu cầu chụp ảnh minh chứng trước khi xác nhận. Mở camera?')) {
-            mTriggerCamera(rollId, runCheck);
-        }
-    } else {
-        await runCheck();
+    mCloseModal('mWeightModal');
+
+    try {
+        await api('/api/stockcheck/check/' + rollId, 'POST', { actual_weight: n, notes: note || '' });
+        toast('✅ Đã kiểm: ' + n + ' kg');
+        await mLoad();
+    } catch(e) {
+        toast(e.message || 'Lỗi cập nhật', 'error');
     }
 }
 
