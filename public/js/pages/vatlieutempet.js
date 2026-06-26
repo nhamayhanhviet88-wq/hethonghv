@@ -5,7 +5,8 @@ var _ptOpen={};
 var _ptTL={PET:'PET',TEM:'Tem',DECAL:'Decal'};
 var _ptIC={PET:'🏷️',TEM:'🎫',DECAL:'📋'};
 var _ptCL={PET:'#e11d48',TEM:'#7c3aed',DECAL:'#d97706'};
-var _ptImpStocks={PET:0,TEM:0};
+var _ptImpStocks={PET:0,TEM:0,DECAL:0};
+var _ptAllowedWaste = { PET: 5, TEM: 5, DECAL: 10 };
 
 function renderVatlieutempetPage(content){
     if(!document.getElementById('_ptStyle')){
@@ -62,8 +63,12 @@ function renderVatlieutempetPage(content){
         +'@keyframes ptFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }'
         +'@media(max-width:768px){.pt-sb{display:none}}';
         document.head.appendChild(st);}
+    var configBtnHtml = '';
+    if (window.currentUser && window.currentUser.role === 'giam_doc') {
+        configBtnHtml = '<button class="pt-btn" style="background:#475569;color:#fff;border:1px solid #475569" onclick="openPtConfigWasteModal()">⚙️ Cài đặt hao hụt</button>';
+    }
     content.innerHTML='<div class="pt-wrap"><div class="pt-sb" id="ptSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="pt-main">'
-    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="ptInfo" style="font-size:12px"></div><div id="ptStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div><button class="pt-btn pt-btn-primary" onclick="openPtImportModal()">➕ Thêm Vật Liệu</button><input id="ptSearch" placeholder="🔍 Tìm lĩnh vực, ghi chú..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="ptInfo" style="font-size:12px"></div><div id="ptStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div>' + configBtnHtml + '<button class="pt-btn pt-btn-primary" onclick="openPtImportModal()">➕ Thêm Vật Liệu</button><input id="ptSearch" placeholder="🔍 Tìm lĩnh vực, ghi chú..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="ptTable"><thead><tr style="background:var(--gray-800)">'
     +'<th>STT</th><th id="ptColCay">Cây</th><th>Ngày Nhập</th><th>Lĩnh Vực</th><th>Tên Vật Liệu</th><th>SL Nhập</th><th>Hao Hụt</th><th>SL Sai</th><th>Tồn Cuối</th><th>Đã In</th><th>Người Chốt</th><th>Ghi Chú</th><th>Lịch sử CN</th>'
     +'</tr></thead><tbody id="ptTb"><tr><td colspan="13" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
@@ -71,7 +76,28 @@ function renderVatlieutempetPage(content){
     _ptLoadAll();
 }
 
-async function _ptLoadAll(){try{var tR=await apiCall('/api/pettem/tree');_pt.tree=tR;_ptRenderSb();await _ptLoadRolls();}catch(e){console.error('[PT]',e);}}
+async function _ptLoadAll(){
+    try{
+        var tR=await apiCall('/api/pettem/tree');
+        _pt.tree=tR;
+        _ptRenderSb();
+        
+        try {
+            var configs = await apiCall('/api/app-configs/batch', 'POST', {
+                keys: ['pettem_allowed_waste_pet', 'pettem_allowed_waste_tem', 'pettem_allowed_waste_decal']
+            });
+            if (configs) {
+                if (configs.pettem_allowed_waste_pet !== null && configs.pettem_allowed_waste_pet !== undefined) _ptAllowedWaste.PET = Number(configs.pettem_allowed_waste_pet);
+                if (configs.pettem_allowed_waste_tem !== null && configs.pettem_allowed_waste_tem !== undefined) _ptAllowedWaste.TEM = Number(configs.pettem_allowed_waste_tem);
+                if (configs.pettem_allowed_waste_decal !== null && configs.pettem_allowed_waste_decal !== undefined) _ptAllowedWaste.DECAL = Number(configs.pettem_allowed_waste_decal);
+            }
+        } catch(cfgErr) {
+            console.error('[PT] Fetch config failed:', cfgErr);
+        }
+        
+        await _ptLoadRolls();
+    }catch(e){console.error('[PT]',e);}
+}
 function getVNDateParts(d) {
     var date = new Date(d);
     if (isNaN(date.getTime())) return null;
@@ -680,6 +706,23 @@ async function openPtDetailsModal(rollId) {
         var rem = Number(roll.qty_remaining) || 0;
         var canClose = Math.abs(rem) <= 0.001 && !roll.confirmed_by;
         
+        var allowedPct = _ptAllowedWaste[roll.roll_type] || 5;
+        var qtyImported = Number(roll.qty_imported) || 0;
+        var maxAllowed = qtyImported * (allowedPct / 100);
+        var totalWasteError = (Number(roll.qty_waste) || 0) + (Number(roll.qty_error) || 0);
+        var isExceeded = totalWasteError - maxAllowed > 0.001;
+        
+        var statusColor = isExceeded ? '#dc2626' : '#059669';
+        var statusBg = isExceeded ? '#fee2e2' : '#d1fae5';
+        var statusBorder = isExceeded ? '#fca5a5' : '#a7f3d0';
+        var statusText = isExceeded ? '🔴 Vượt hạn mức hao hụt' : '🟢 Trong hạn mức hao hụt';
+        
+        var limitHtml = '<div style="background:' + statusBg + ';border:1px solid ' + statusBorder + ';color:' + statusColor + ';padding:10px;border-radius:8px;font-size:11px;font-weight:700;margin-bottom:16px;line-height:1.4;text-align:left">'
+                  + '  <div>Hạn mức cho phép: <span style="font-size:12px;font-weight:800">' + allowedPct + '%</span> (Tối đa ' + maxAllowed.toFixed(2) + 'm trên ' + qtyImported + 'm nhập)</div>'
+                  + '  <div style="margin-top:2px">Thực tế hao hụt + lỗi: <span style="font-size:12px;font-weight:800">' + totalWasteError.toFixed(2) + 'm</span> (' + (qtyImported > 0 ? ((totalWasteError/qtyImported)*100).toFixed(1) : 0) + '%)</div>'
+                  + '  <div style="margin-top:4px;font-size:10.5px">' + statusText + '</div>'
+                  + '</div>';
+                  
         var actHtml = '';
         if (roll.confirmed_by) {
             actHtml = '<div class="pt-badge-closed">🔒 ĐÃ CHỐT CUỘN<br><span style="font-size:9px;font-weight:normal">Bởi ' + (roll.confirmed_by_name || 'Hệ thống') + '<br>' + _ptFDT(roll.confirmed_at) + '</span></div>';
@@ -825,6 +868,7 @@ async function openPtDetailsModal(rollId) {
           + '        <div style="background:#e0f2fe;padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:#0369a1;font-weight:700">ĐÃ IN (SX)</div><div style="font-size:12px;font-weight:800;color:#0369a1">' + _ptFN(roll.qty_printed) + 'm</div></div>'
           + '        <div style="background:#d1fae5;padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:#065f46;font-weight:700">TỒN CUỐI</div><div style="font-size:12px;font-weight:800;color:#065f46">' + _ptFN(roll.qty_remaining) + 'm</div></div>'
           + '      </div>'
+          +        limitHtml
           + '      <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px;margin-bottom:20px">'
           + '        <div style="background:#fffbeb;border:2px solid #f59e0b;padding:8px;border-radius:6px;text-align:center;box-shadow:0 2px 8px rgba(245,158,11,0.15)"><div style="font-size:9px;color:#d97706;font-weight:800;letter-spacing:0.5px">⚠️ HAO HỤT</div><div style="font-size:14px;font-weight:800;color:#b45309;margin-top:2px">' + _ptFN(roll.qty_waste) + 'm</div></div>'
           + '        <div style="background:#fef2f2;border:2px solid #ef4444;padding:8px;border-radius:6px;text-align:center;box-shadow:0 2px 8px rgba(239,68,68,0.15)"><div style="font-size:9px;color:#dc2626;font-weight:800;letter-spacing:0.5px">❌ SX LỖI</div><div style="font-size:14px;font-weight:800;color:#991b1b;margin-top:2px">' + _ptFN(roll.qty_error) + 'm</div></div>'
@@ -899,13 +943,17 @@ async function ptDetailsSubmitAction(type, rollId) {
     
     try {
         var url = type === 'waste' ? '/api/pettem/rolls/' + rollId + '/adjust-waste' : '/api/pettem/rolls/' + rollId + '/adjust-error';
-        await apiCall(url, 'POST', {
+        var res = await apiCall(url, 'POST', {
             qty: qty,
             reason: reason
         });
-        showToast('✅ Cập nhật hao hụt/lỗi thành công!');
-        await openPtDetailsModal(rollId);
-        _ptLoadAll();
+        if (res && res.error) {
+            showToast(res.error, 'error');
+        } else {
+            showToast('✅ Cập nhật hao hụt/lỗi thành công!');
+            await openPtDetailsModal(rollId);
+            _ptLoadAll();
+        }
     } catch(e) {
         showToast(e.message || 'Lỗi', 'error');
     }
@@ -923,14 +971,118 @@ async function ptDetailsReset(rollId) {
     }
 }
 
-async function ptDetailsCloseRoll(rollId) {
-    if (!confirm('Bạn có chắc chắn muốn chốt cây vật liệu này? Sau khi chốt sẽ không thể chỉnh sửa hoặc dùng in đơn mới.')) return;
+async function ptDetailsCloseRoll(rollId, masterKey = null) {
+    if (!masterKey) {
+        if (!confirm('Bạn có chắc chắn muốn chốt cây vật liệu này? Sau khi chốt sẽ không thể chỉnh sửa hoặc dùng in đơn mới.')) return;
+    }
     try {
-        await apiCall('/api/pettem/rolls/' + rollId + '/close', 'POST');
-        showToast('✅ Đã chốt cây vật liệu!');
-        await openPtDetailsModal(rollId);
-        _ptLoadAll();
+        var res = await apiCall('/api/pettem/rolls/' + rollId + '/close', 'POST', { master_key: masterKey });
+        if (res && res.error) {
+            if (res.error === 'exceeded_waste_limit') {
+                var enteredKey = prompt(res.message + '\n\nVui lòng nhập Mã Khóa Tổng để duyệt chốt cuộn:');
+                if (enteredKey === null) return; // user cancelled
+                if (!enteredKey.trim()) {
+                    showToast('Chưa nhập mã khóa tổng', 'error');
+                    return;
+                }
+                await ptDetailsCloseRoll(rollId, enteredKey);
+            } else {
+                showToast(res.message || res.error, 'error');
+            }
+        } else {
+            showToast('✅ Đã chốt cây vật liệu!');
+            await openPtDetailsModal(rollId);
+            _ptLoadAll();
+        }
     } catch(e) {
         showToast(e.message || 'Lỗi', 'error');
+    }
+}
+
+// ========== CONFIG ALLOWED WASTE MODAL ==========
+function openPtConfigWasteModal() {
+    var m = document.getElementById('ptConfigWasteModal');
+    if (!m) {
+        m = document.createElement('div');
+        m.id = 'ptConfigWasteModal';
+        m.className = 'pt-modal';
+        document.body.appendChild(m);
+        
+        m.innerHTML = 
+            '<div class="pt-modal-content">'
+            + '  <div class="pt-modal-header">'
+            + '    <h3>⚙️ Cài đặt tỷ lệ hao hụt cho phép</h3>'
+            + '    <span class="pt-close-btn" onclick="closePtConfigWasteModal()">&times;</span>'
+            + '  </div>'
+            + '  <form id="ptConfigWasteForm" onsubmit="submitPtConfigWasteForm(event)">'
+            + '    <div class="pt-modal-body">'
+            + '      <div style="font-size:11px;color:#64748b;margin-bottom:16px;line-height:1.4">'
+            + '        Chỉ Giám đốc mới có quyền thay đổi thông số này. Nếu (Hao hụt + Lỗi) vượt quá tỷ lệ cấu hình, Quản lý xưởng bắt buộc phải được Giám đốc duyệt (hoặc nhập Mã Khóa Tổng) mới được chốt cuộn.'
+            + '      </div>'
+            + '      <div class="pt-form-group">'
+            + '        <label>Tỉ lệ hao hụt PET (%)</label>'
+            + '        <input type="number" id="ptCfgWastePet" step="0.1" min="0" max="100" required>'
+            + '      </div>'
+            + '      <div class="pt-form-group">'
+            + '        <label>Tỉ lệ hao hụt TEM (%)</label>'
+            + '        <input type="number" id="ptCfgWasteTem" step="0.1" min="0" max="100" required>'
+            + '      </div>'
+            + '      <div class="pt-form-group">'
+            + '        <label>Tỉ lệ hao hụt DECAL (%)</label>'
+            + '        <input type="number" id="ptCfgWasteDecal" step="0.1" min="0" max="100" required>'
+            + '      </div>'
+            + '      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">'
+            + '        <button type="button" class="pt-btn" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1" onclick="closePtConfigWasteModal()">Hủy</button>'
+            + '        <button type="submit" id="submitPtCfgWasteBtn" class="pt-btn pt-btn-primary">Lưu Cài Đặt</button>'
+            + '      </div>'
+            + '    </div>'
+            + '  </form>'
+            + '</div>';
+    }
+    
+    document.getElementById('ptCfgWastePet').value = _ptAllowedWaste.PET;
+    document.getElementById('ptCfgWasteTem').value = _ptAllowedWaste.TEM;
+    document.getElementById('ptCfgWasteDecal').value = _ptAllowedWaste.DECAL;
+    
+    m.style.display = 'flex';
+}
+
+function closePtConfigWasteModal() {
+    var m = document.getElementById('ptConfigWasteModal');
+    if (m) m.style.display = 'none';
+}
+
+async function submitPtConfigWasteForm(event) {
+    event.preventDefault();
+    var btn = document.getElementById('submitPtCfgWasteBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Đang lưu...';
+    }
+    
+    var petVal = parseFloat(document.getElementById('ptCfgWastePet').value);
+    var temVal = parseFloat(document.getElementById('ptCfgWasteTem').value);
+    var decalVal = parseFloat(document.getElementById('ptCfgWasteDecal').value);
+    
+    try {
+        await apiCall('/api/app-config/pettem_allowed_waste_pet', 'PUT', { value: petVal });
+        await apiCall('/api/app-config/pettem_allowed_waste_tem', 'PUT', { value: temVal });
+        await apiCall('/api/app-config/pettem_allowed_waste_decal', 'PUT', { value: decalVal });
+        
+        _ptAllowedWaste.PET = petVal;
+        _ptAllowedWaste.TEM = temVal;
+        _ptAllowedWaste.DECAL = decalVal;
+        
+        showToast('Đã cập nhật cấu hình tỷ lệ hao hụt!', 'success');
+        closePtConfigWasteModal();
+        _ptLoadAll();
+    } catch(e) {
+        console.error('[PT] save configs failed:', e);
+        showToast('Có lỗi xảy ra khi lưu cấu hình: ' + e.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = 'Lưu Cài Đặt';
+        }
     }
 }

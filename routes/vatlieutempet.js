@@ -527,11 +527,59 @@ module.exports = async function(fastify) {
     // ========== CLOSE ROLL ==========
     fastify.post('/api/pettem/rolls/:id/close', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id);
-        const roll = await db.get('SELECT qty_remaining FROM pettem_rolls WHERE id=$1', [id]);
+        const roll = await db.get('SELECT roll_type, qty_imported, qty_waste, qty_error, qty_remaining FROM pettem_rolls WHERE id=$1', [id]);
         if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
         
         if (Math.abs(Number(roll.qty_remaining)) > 0.001) {
             return reply.code(400).send({ error: 'Chỉ được chốt cuộn khi tồn cuối bằng 0 (đã sử dụng hết)' });
+        }
+
+        // Check waste + error limit
+        const type = roll.roll_type;
+        const qtyImported = Number(roll.qty_imported) || 0;
+        const totalWasteError = (Number(roll.qty_waste) || 0) + (Number(roll.qty_error) || 0);
+
+        let allowedPct = 5; // default
+        if (type === 'PET') allowedPct = 5;
+        else if (type === 'TEM') allowedPct = 5;
+        else if (type === 'DECAL') allowedPct = 10;
+
+        const configKey = `pettem_allowed_waste_${type.toLowerCase()}`;
+        const configRow = await db.get('SELECT value FROM app_config WHERE key = ?', [configKey]);
+        if (configRow && configRow.value) {
+            const val = Number(configRow.value);
+            if (!isNaN(val)) allowedPct = val;
+        }
+
+        const maxAllowed = qtyImported * (allowedPct / 100);
+        const isExceeded = totalWasteError - maxAllowed > 0.001;
+
+        let closeMethod = 'Chốt cuộn vật liệu';
+
+        if (isExceeded) {
+            const isDirector = req.user.role === 'giam_doc';
+            const { master_key } = req.body || {};
+            let isMasterKeyValid = false;
+
+            if (!isDirector) {
+                if (master_key) {
+                    const bcrypt = require('bcrypt');
+                    const mkRow = await db.get("SELECT value FROM app_config WHERE key = 'master_login_key'");
+                    if (mkRow && mkRow.value) {
+                        isMasterKeyValid = await bcrypt.compare(master_key, mkRow.value);
+                    }
+                }
+
+                if (!isMasterKeyValid) {
+                    return reply.code(400).send({
+                        error: 'exceeded_waste_limit',
+                        message: `Hao hụt & Lỗi (${totalWasteError.toFixed(2)}m) vượt quá tỷ lệ cho phép (${allowedPct}% ~ ${maxAllowed.toFixed(2)}m). Cần Giám đốc phê duyệt hoặc nhập Mã Khóa Tổng để chốt cuộn.`
+                    });
+                }
+                closeMethod = `Chốt cuộn bằng Mã Khóa Tổng (vượt hạn mức: ${totalWasteError.toFixed(2)}m > ${maxAllowed.toFixed(2)}m)`;
+            } else {
+                closeMethod = `Giám đốc duyệt chốt cuộn (vượt hạn mức: ${totalWasteError.toFixed(2)}m > ${maxAllowed.toFixed(2)}m)`;
+            }
         }
         
         await db.run(`
@@ -543,7 +591,7 @@ module.exports = async function(fastify) {
         await db.run(`
             INSERT INTO pettem_history (roll_id, action, details, performed_by, performed_at)
             VALUES ($1, $2, $3, $4, NOW())
-        `, [id, 'close', 'Chốt cuộn vật liệu', req.user.id]);
+        `, [id, 'close', closeMethod, req.user.id]);
         
         return { success: true };
     });
