@@ -1032,6 +1032,8 @@ module.exports = async function (fastify) {
                    GREATEST(0, COALESCE((SELECT SUM(t.quantity) FROM kv_transactions t
                              WHERE t.fabric_color_id = fc.id AND t.tx_type = 'NHAP'), 0) - COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0)) AS xuat,
+                    COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
+                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0) AS cuoi_ky,
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0), 0) AS so_cuc,
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
