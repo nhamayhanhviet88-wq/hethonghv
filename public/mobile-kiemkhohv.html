@@ -191,7 +191,7 @@
     <div id="mAuditPanel" style="display:none;">
         <div id="mFB" class="mf">
             <div class="mf-row">
-                <select id="mFW" onchange="onWhChange()"><option value="">Chọn kho</option></select>
+                <select id="mFW" onchange="mMaterialFilter=''; onWhChange()"><option value="">Chọn kho</option></select>
             </div>
             <div class="mf-row">
                 <select id="mFL" onchange="mFilterStatus='all'; mMaterialFilter=''; mLoad()"><option value="">-- Chọn Kệ Kiểm --</option></select>
@@ -346,7 +346,6 @@ async function mInit(){
 
 async function onWhChange() {
     activeWarehouseId = document.getElementById('mFW')?.value || '';
-    mMaterialFilter = '';
     if (!activeWarehouseId) return;
     
     // Load shelves for this warehouse
