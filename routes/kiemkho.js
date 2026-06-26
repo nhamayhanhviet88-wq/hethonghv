@@ -736,7 +736,7 @@ module.exports = async function(fastify) {
 
         // Load all checked records
         const records = await db.all(`
-            SELECT sc.*, r.roll_code, r.weight AS old_weight, r.source, r.location,
+            SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location,
                    fc.color_name, fc.id AS color_id, m.name AS material_name, w.name AS warehouse_name, w.unit
             FROM stockcheck_records sc
             JOIN kv_rolls r ON r.id = sc.roll_id
@@ -796,7 +796,13 @@ module.exports = async function(fastify) {
                     type = 'difference';
 
                     // Update weight in catalog
-                    await db.run('UPDATE kv_rolls SET weight = $1 WHERE id = $2', [newW, rec.roll_id]);
+                    // If the roll was a whole roll (old_weight >= original_weight), keep it as a whole roll by updating both weight and original_weight
+                    const wasNguyen = Number(rec.old_weight) >= Number(rec.original_weight);
+                    if (wasNguyen) {
+                        await db.run('UPDATE kv_rolls SET weight = $1, original_weight = $2 WHERE id = $3', [newW, newW, rec.roll_id]);
+                    } else {
+                        await db.run('UPDATE kv_rolls SET weight = $1 WHERE id = $2', [newW, rec.roll_id]);
+                    }
 
                     if (diff > 0) {
                         // Loss (Shortage) -> XUAT
