@@ -892,9 +892,11 @@ async function _kkRenderAudit(content) {
                         `}
                     </div>
                     <div>
+                        ${isGiamDoc ? `
                         <button class="kk-btn kk-btn-danger" style="padding:6px 12px; font-size:12px;" onclick="_kkAbortSession()">
                             🚫 Hủy Đợt Kiểm
                         </button>
+                        ` : ''}
                     </div>
                 </div>
 
@@ -938,9 +940,11 @@ async function _kkRenderAudit(content) {
                                 ➕ Thêm Cây Thừa
                             </button>
                             `}
-                            <button class="kk-btn ${progressPct === 100 ? 'kk-btn-primary' : 'kk-btn-disabled'}" style="padding:6px 16px; font-size:12px;" onclick="_kkFinishSession(${progressPct === 100})">
-                                ✅ Chốt Sổ Kiểm Kho
+                            ${progressPct === 100 ? `
+                            <button class="kk-btn kk-btn-primary" style="padding:6px 16px; font-size:12px; background:linear-gradient(135deg, #059669, #10b981);" onclick="_kkFinishSession(true)">
+                                ✅ Hoàn Thành Kiểm Kho
                             </button>
+                            ` : ''}
                         </div>
                     </div>
 
@@ -1866,9 +1870,30 @@ async function _kkRenderReport(content) {
         const difference = items.filter(i => i.type === 'difference');
         const matched = items.filter(i => i.type === 'match' || i.type === 'return_confirm');
 
-        // Totals calculation
-        const totalMissingW = missing.reduce((sum, i) => sum + Number(i.system_weight || 0), 0);
-        const totalSurplusW = surplus.reduce((sum, i) => sum + Number(i.actual_weight || 0), 0);
+        // Calculations
+        const totalSystemRolls = s.total_rolls || 0;
+        const totalSystemWeight = Number(s.total_weight || 0);
+
+        // Checked rolls from system (excluding surplus)
+        const checkedSystemRolls = items.filter(i => i.type !== 'surplus').length;
+        const checkedSystemWeight = items.filter(i => i.type !== 'surplus').reduce((sum, i) => sum + Number(i.actual_weight || 0), 0);
+
+        // Surplus weight & count
+        const surplusRollsCount = surplus.length;
+        const surplusWeightSum = surplus.reduce((sum, i) => sum + Number(i.actual_weight || 0), 0);
+
+        // Total checked rolls (including surplus)
+        const totalCheckedRolls = checkedSystemRolls + surplusRollsCount;
+        const totalCheckedWeight = checkedSystemWeight + surplusWeightSum;
+
+        // Total loss weight (Mất cây + Hao hụt cân)
+        const missingWeightSum = missing.reduce((sum, i) => sum + Number(i.system_weight || 0), 0);
+        const weightLossDiff = difference.filter(i => Number(i.difference) > 0).reduce((sum, i) => sum + Number(i.difference || 0), 0);
+        const totalLossWeight = missingWeightSum + weightLossDiff;
+
+        // Total surplus weight (Cây thừa + Dôi dư cân)
+        const weightGainDiff = difference.filter(i => Number(i.difference) < 0).reduce((sum, i) => sum + Math.abs(Number(i.difference || 0)), 0);
+        const totalSurplusWeight = surplusWeightSum + weightGainDiff;
 
         // Group details by material/color for summary view
         const matSummary = {};
@@ -1904,12 +1929,18 @@ async function _kkRenderReport(content) {
 
         // Render Page
         content.innerHTML = `
-            <div class="container-fluid" style="padding: 24px; max-width: 1100px; margin: 0 auto;">
+            <div class="container-fluid kk-report-printable-area" style="padding: 24px; max-width: 1100px; margin: 0 auto;">
                 <!-- Header -->
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
-                    <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;" class="d-print-none">
+                    <div style="display: flex; gap: 8px;">
                         <button class="kk-btn kk-btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="_kkGoBackToSetup()">
                             ⬅️ Quay Lại Lịch Sử
+                        </button>
+                        <button class="kk-btn kk-btn-primary" style="padding:6px 12px; font-size:12px; background:#16a34a; border-color:#16a34a; color:#fff;" onclick="_kkExportReportToExcel()">
+                            📊 Xuất Excel Báo Cáo
+                        </button>
+                        <button class="kk-btn kk-btn-primary" style="padding:6px 12px; font-size:12px; background:#475569; border-color:#475569; color:#fff;" onclick="window.print()">
+                            🖨️ In Báo Cáo
                         </button>
                     </div>
                     <div style="text-align:right;">
@@ -1918,24 +1949,61 @@ async function _kkRenderReport(content) {
                     </div>
                 </div>
 
+                <!-- Print-only Title -->
+                <div class="d-none d-print-block" style="text-align: center; margin-bottom: 24px;">
+                    <h2 style="font-weight:900; margin:0; font-size:24px; color:#000;">BÁO CÁO CHI TIẾT PHIÊN KIỂM KHO VẢI</h2>
+                    <div style="font-size:12px; margin-top:6px;">Ngày chốt sổ: ${s.finished_at ? s.finished_at.replace('T', ' ').slice(0, 16) : ''} | Người thực hiện: ${s.finished_by_name || 'Hệ thống'}</div>
+                </div>
+
                 <!-- Info Overview Card -->
-                <div class="kk-card" style="padding: 24px;">
+                <div class="kk-card" style="padding: 24px; margin-bottom: 20px;">
+                    <div style="font-weight: 800; font-size: 13px; color: #475569; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
+                        📊 BẢNG TỔNG HỢP SỐ LIỆU KIỂM KHO
+                    </div>
                     <div class="row">
                         <div class="col-md-3 col-sm-6 mb-3">
                             <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Người chốt sổ</div>
                             <div style="font-weight:900; font-size:15px; color:#1e293b;">${s.finished_by_name || 'Hệ thống'}</div>
                         </div>
                         <div class="col-md-3 col-sm-6 mb-3">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Tổng số đã kiểm</div>
-                            <div style="font-weight:900; font-size:15px; color:#0d9488;">${s.checked_rolls} cây</div>
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Tồn hệ thống trước kiểm</div>
+                            <div style="font-weight:900; font-size:15px; color:#0f766e;">${totalSystemWeight.toLocaleString('vi-VN')} kg (${totalSystemRolls} cây)</div>
                         </div>
                         <div class="col-md-3 col-sm-6 mb-3">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Hao hụt (Mất)</div>
-                            <div style="font-weight:900; font-size:15px; color:#ef4444;">${s.missing_rolls} cây (${Number(s.missing_weight).toLocaleString('vi-VN')} kg)</div>
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Thực tế sau khi kiểm</div>
+                            <div style="font-weight:900; font-size:15px; color:#10b981;">${totalCheckedWeight.toLocaleString('vi-VN')} kg (${totalCheckedRolls} cây)</div>
                         </div>
                         <div class="col-md-3 col-sm-6 mb-3">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Dư ròng (Hao hụt ròng)</div>
-                            <div style="font-weight:900; font-size:15px; color:#3b82f6;">${Number(s.net_difference).toLocaleString('vi-VN')} kg</div>
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Chênh lệch kiểm kê</div>
+                            <div style="font-weight:900; font-size:15px; color:${totalCheckedWeight - totalSystemWeight >= 0 ? '#2563eb' : '#ef4444'};">
+                                ${totalCheckedWeight - totalSystemWeight >= 0 ? '+' : ''}${(totalCheckedWeight - totalSystemWeight).toLocaleString('vi-VN')} kg
+                            </div>
+                        </div>
+                    </div>
+                    <div style="border-top: 1px dashed #cbd5e1; margin-top: 12px; padding-top: 16px;" class="row">
+                        <div class="col-md-6 col-sm-12 mb-3" style="border-right: 1px solid #e2e8f0;">
+                            <div style="font-size:11px; font-weight:700; color:#ef4444; text-transform:uppercase; margin-bottom:4px; display: flex; align-items: center; gap: 4px;">
+                                📉 Tổng Thất Thoát (Mất cây + Hao hụt cân)
+                            </div>
+                            <div style="font-weight:900; font-size:20px; color:#ef4444;">
+                                -${totalLossWeight.toLocaleString('vi-VN')} kg
+                            </div>
+                            <div style="font-size:11px; color:#64748b; margin-top:4px; line-height: 1.6;">
+                                ❌ Cây báo mất: <strong>${missing.length} cây</strong> (${missingWeightSum.toLocaleString('vi-VN')} kg)<br>
+                                ⚖️ Hao hụt cân các cây còn lại: <strong>${difference.filter(i => Number(i.difference) > 0).length} cây</strong> (${weightLossDiff.toLocaleString('vi-VN')} kg)
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-sm-12 mb-3" style="padding-left: 24px;">
+                            <div style="font-size:11px; font-weight:700; color:#2563eb; text-transform:uppercase; margin-bottom:4px; display: flex; align-items: center; gap: 4px;">
+                                📈 Tổng Dư Thừa (Cây thừa + Thừa cân)
+                            </div>
+                            <div style="font-weight:900; font-size:20px; color:#2563eb;">
+                                +${totalSurplusWeight.toLocaleString('vi-VN')} kg
+                            </div>
+                            <div style="font-size:11px; color:#64748b; margin-top:4px; line-height: 1.6;">
+                                ➕ Cây thừa mới phát hiện: <strong>${surplus.length} cây</strong> (${surplusWeightSum.toLocaleString('vi-VN')} kg)<br>
+                                ⚖️ Dư cân các cây còn lại: <strong>${difference.filter(i => Number(i.difference) < 0).length} cây</strong> (${weightGainDiff.toLocaleString('vi-VN')} kg)
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1944,7 +2012,7 @@ async function _kkRenderReport(content) {
                 <div class="row">
                     <div class="col-md-5">
                         <div class="kk-card" style="padding:20px;">
-                            <h4 style="font-weight:800; color:#1e293b; margin-bottom:14px;">📉 Tổng Hợp Chênh Lệch Nhóm Vải</h4>
+                            <h4 style="font-weight:800; color:#1e293b; margin-bottom:14px; font-size:13px;">📉 Tổng Hợp Chênh Lệch Nhóm Vải</h4>
                             <table class="table" style="font-size:11px; margin:0;">
                                 <thead>
                                     <tr style="background:#fafafa;">
@@ -1964,7 +2032,7 @@ async function _kkRenderReport(content) {
                     <div class="col-md-7">
                         <div class="kk-card" style="padding:20px; min-height:400px; display:flex; flex-direction:column;">
                             <!-- Tabs header -->
-                            <div style="display:flex; border-bottom:1px solid #e2e8f0; margin-bottom:14px; flex-shrink:0;">
+                            <div style="display:flex; border-bottom:1px solid #e2e8f0; margin-bottom:14px; flex-shrink:0;" class="d-print-none">
                                 <div class="kk-rep-tab-btn active" id="kkTabBtnMissing" onclick="_kkSwitchRepTab('missing')">❌ Cây bị mất (${missing.length})</div>
                                 <div class="kk-rep-tab-btn" id="kkTabBtnSurplus" onclick="_kkSwitchRepTab('surplus')">➕ Cây thừa (${surplus.length})</div>
                                 <div class="kk-rep-tab-btn" id="kkTabBtnDiff" onclick="_kkSwitchRepTab('diff')">⚖️ Lệch cân (${difference.length})</div>
@@ -1998,7 +2066,11 @@ function _kkRenderReportTabItems(items, type) {
         if (type === 'missing') {
             diffText = `<span style="color:#ef4444; font-weight:700;">-${item.system_weight} ${item.unit}</span>`;
         } else if (type === 'surplus') {
-            diffText = `<span style="color:#3b82f6; font-weight:700;">+${item.actual_weight} ${item.unit}</span>`;
+            const isLe = item.notes && item.notes.includes("Cây lẻ");
+            const typeBadge = isLe 
+                ? `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">✂️ Cây Lẻ</span>` 
+                : `<span style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">🌲 Cây Nguyên</span>`;
+            diffText = `<span style="color:#3b82f6; font-weight:700;">+${item.actual_weight} ${item.unit}</span>${typeBadge}`;
         } else if (type === 'diff') {
             const d = Number(item.difference);
             diffText = `<span style="color:${d > 0 ? '#ef4444' : '#3b82f6'}; font-weight:700;">
@@ -2320,6 +2392,156 @@ function _kkSelectMaterialForSearch(mat) {
     });
 }
 
+async function _kkExportReportToExcel() {
+    if (typeof XLSX === 'undefined') {
+        showToast('⏳ Đang tải thư viện XLSX từ CDN...', 'info');
+        const script = document.createElement('script');
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+        document.head.appendChild(script);
+        await new Promise((resolve) => {
+            script.onload = resolve;
+            script.onerror = () => {
+                showToast('❌ Không thể tải thư viện XLSX từ CDN.', 'error');
+            };
+        });
+    }
+
+    try {
+        const res = _kk.selectedSessionData;
+        if (!res) {
+            showToast('Không có dữ liệu báo cáo để xuất.', 'error');
+            return;
+        }
+
+        const s = res.session;
+        const items = res.items || [];
+
+        // Sheet 1: General Summary Info
+        const summaryData = [
+            ["BÁO CÁO PHIÊN KIỂM KHO VẢI PHÁT HÀNH CHI TIẾT"],
+            ["Đợt kiểm:", s.finished_at ? s.finished_at.replace('T', ' ').slice(0, 16) : ''],
+            ["Người chốt sổ:", s.finished_by_name || 'Hệ thống'],
+            [""],
+            ["CHỈ SỐ TỔNG HỢP", "GIÁ TRỊ", "ĐƠN VỊ"],
+            ["Tổng số cây kiểm kê thực tế", s.checked_rolls, "cây"],
+            ["Tồn hệ thống trước kiểm", Number(s.total_weight), "kg"],
+            ["Cân thực tế sau kiểm", items.reduce((sum, i) => sum + Number(i.actual_weight || 0), 0), "kg"],
+            ["Tổng số cây báo mất", s.missing_rolls, "cây"],
+            ["Tổng trọng lượng cây báo mất", Number(s.missing_weight), "kg"],
+            ["Tổng số cây thừa mới phát hiện", s.surplus_rolls, "cây"],
+            ["Tổng trọng lượng cây thừa mới phát hiện", Number(s.surplus_weight), "kg"],
+            ["Chênh lệch kiểm kê ròng (Thực tế - Hệ thống)", items.reduce((sum, i) => sum + Number(i.actual_weight || 0), 0) - Number(s.total_weight), "kg"]
+        ];
+
+        // Sheet 2: Grouped Difference Summary
+        const groupedRows = [
+            ["STT", "Chất Liệu & Màu Vải", "Tồn Hệ Thống (kg)", "Thực Tế Kiểm (kg)", "Chênh Lệch (kg)"]
+        ];
+        const matSummary = {};
+        items.forEach(item => {
+            const k = item.material_name + ' - ' + item.color_name;
+            if (!matSummary[k]) {
+                matSummary[k] = { expected: 0, checked: 0, diff: 0 };
+            }
+            matSummary[k].expected += Number(item.system_weight || 0);
+            matSummary[k].checked += Number(item.actual_weight || 0);
+            matSummary[k].diff += Number(item.difference || 0);
+        });
+        
+        let gIdx = 1;
+        Object.keys(matSummary).forEach(k => {
+            const sum = matSummary[k];
+            groupedRows.push([
+                gIdx++,
+                k,
+                sum.expected,
+                sum.checked,
+                sum.diff === 0 ? 0 : -sum.diff
+            ]);
+        });
+
+        // Sheet 3: Missing Rolls List
+        const missingRows = [
+            ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Cân Hệ Thống (kg)", "Cân Thực Tế (kg)", "Hao Hụt (kg)", "Ghi Chú"]
+        ];
+        const missingItems = items.filter(i => i.type === 'missing');
+        missingItems.forEach((i, idx) => {
+            missingRows.push([
+                idx + 1,
+                i.roll_code,
+                i.material_name,
+                i.color_name,
+                Number(i.system_weight),
+                0,
+                -Number(i.system_weight),
+                i.notes || ''
+            ]);
+        });
+
+        // Sheet 4: Surplus Rolls List
+        const surplusRows = [
+            ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Cân Thực Tế (kg)", "Phân Loại", "Ghi Chú"]
+        ];
+        const surplusItems = items.filter(i => i.type === 'surplus');
+        surplusItems.forEach((i, idx) => {
+            const isLe = i.notes && i.notes.includes("Cây lẻ");
+            surplusRows.push([
+                idx + 1,
+                i.roll_code,
+                i.material_name,
+                i.color_name,
+                Number(i.actual_weight),
+                isLe ? "Cây Lẻ" : "Cây Nguyên",
+                i.notes || ''
+            ]);
+        });
+
+        // Sheet 5: Checked Difference Rolls (excluding 100% missing)
+        const diffRows = [
+            ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Cân Hệ Thống (kg)", "Cân Thực Tế (kg)", "Lệch (kg)", "Ghi Chú"]
+        ];
+        const diffItems = items.filter(i => i.type === 'difference');
+        diffItems.forEach((i, idx) => {
+            diffRows.push([
+                idx + 1,
+                i.roll_code,
+                i.material_name,
+                i.color_name,
+                Number(i.system_weight),
+                Number(i.actual_weight),
+                -Number(i.difference),
+                i.notes || ''
+            ]);
+        });
+
+        // Create workbook & sheets
+        const wb = XLSX.utils.book_new();
+        
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Tổng quan");
+
+        const wsGrouped = XLSX.utils.aoa_to_sheet(groupedRows);
+        XLSX.utils.book_append_sheet(wb, wsGrouped, "Chênh lệch nhóm");
+
+        const wsMissing = XLSX.utils.aoa_to_sheet(missingRows);
+        XLSX.utils.book_append_sheet(wb, wsMissing, "Cây báo mất");
+
+        const wsSurplus = XLSX.utils.aoa_to_sheet(surplusRows);
+        XLSX.utils.book_append_sheet(wb, wsSurplus, "Cây thừa");
+
+        const wsDiff = XLSX.utils.aoa_to_sheet(diffRows);
+        XLSX.utils.book_append_sheet(wb, wsDiff, "Lệch cân");
+
+        const fileName = `BaoCao_KiemKho_${s.finished_at ? s.finished_at.split('T')[0] : 'ChiTiet'}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showToast('✅ Đã tải xuống file Excel báo cáo kiểm kho!', 'success');
+    } catch (e) {
+        console.error('[Excel export error]', e);
+        showToast('Lỗi xuất Excel: ' + e.message, 'error');
+    }
+}
+
 window._kkOpenMaterialsSelector = _kkOpenMaterialsSelector;
 window._kkCloseModal = _kkCloseModal;
 window._kkSelectMaterialForSearch = _kkSelectMaterialForSearch;
+window._kkExportReportToExcel = _kkExportReportToExcel;

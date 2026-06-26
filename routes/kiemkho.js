@@ -217,7 +217,9 @@ module.exports = async function(fastify) {
 
     // ========== ABORT SESSION (UNLOCK WAREHOUSE) ==========
     fastify.post('/api/stockcheck/abort-session', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isKhoManager(req))) return reply.code(403).send({ error: 'Chỉ Quản lý kho hoặc Giám đốc mới có quyền hủy đợt kiểm kê.' });
+        if (req.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền hủy đợt kiểm kê.' });
+        }
 
         const activeRow = await db.get("SELECT value FROM app_config WHERE key = 'stockcheck_active_session'");
         if (!activeRow || !activeRow.value) return reply.code(400).send({ error: 'Không có phiên kiểm kê nào đang hoạt động.' });
@@ -225,20 +227,40 @@ module.exports = async function(fastify) {
         let sessionInfo = {};
         try { sessionInfo = JSON.parse(activeRow.value); } catch(e) {}
 
-        if (sessionInfo.session_id) {
-            await db.run(`
-                UPDATE stockcheck_sessions
-                SET status = 'aborted', finished_at = $1, finished_by = $2
-                WHERE id = $3
-            `, [vnNow(), req.user.id, sessionInfo.session_id]);
+        await db.run('BEGIN TRANSACTION');
+        try {
+            if (sessionInfo.session_id) {
+                const session = await db.get("SELECT started_at FROM stockcheck_sessions WHERE id = $1", [sessionInfo.session_id]);
+                if (session) {
+                    // Find all surplus rolls created during this session
+                    const surplusRolls = await db.all("SELECT roll_code FROM kv_rolls WHERE source = 'kiem_kho_du' AND created_at >= $1", [session.started_at]);
+                    for (const r of surplusRolls) {
+                        await db.run("DELETE FROM kv_transactions WHERE description LIKE $1", [`%(${r.roll_code})%`]);
+                    }
+                    // Delete from kv_rolls (cascades to stockcheck_records and stockcheck_history)
+                    await db.run("DELETE FROM kv_rolls WHERE source = 'kiem_kho_du' AND created_at >= $1", [session.started_at]);
+                }
+                
+                await db.run(`
+                    UPDATE stockcheck_sessions
+                    SET status = 'aborted', finished_at = $1, finished_by = $2
+                    WHERE id = $3
+                `, [vnNow(), req.user.id, sessionInfo.session_id]);
+            }
+
+            // Clean up temp tables
+            await db.run('DELETE FROM stockcheck_history');
+            await db.run('DELETE FROM stockcheck_records');
+
+            // Delete session key
+            await db.run("DELETE FROM app_config WHERE key = 'stockcheck_active_session'");
+
+            await db.run('COMMIT');
+        } catch (e) {
+            await db.run('ROLLBACK');
+            console.error('[KK Abort error]', e);
+            return reply.code(500).send({ error: 'Lỗi khi hủy phiên kiểm kê: ' + e.message });
         }
-
-        // Clean up temp tables
-        await db.run('DELETE FROM stockcheck_history');
-        await db.run('DELETE FROM stockcheck_records');
-
-        // Delete session key
-        await db.run("DELETE FROM app_config WHERE key = 'stockcheck_active_session'");
 
         clearStockcheckLockCache();
 
@@ -626,10 +648,15 @@ module.exports = async function(fastify) {
             const rollCode = 'KK' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0,10);
             const origWeight = roll_type === 'le' ? Number(weight) + 1.0 : Number(weight);
             
+            const defaultNote = roll_type === 'le' 
+                ? 'Nhập từ kiểm kho (Cây lẻ đã từng cắt đơn rồi)' 
+                : 'Nhập từ kiểm kho (Cây nguyên chưa cắt lần nào)';
+            const finalNote = note ? `${note.trim()} - ${defaultNote}` : defaultNote;
+
             const rollResult = await db.run(`
                 INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, location, source, note, created_by)
                 VALUES ($1, $2, $3, $4, $5, 'kiem_kho_du', $6, $7)
-            `, [Number(finalColorId), rollCode, Number(weight), origWeight, location || '', note || 'Nhập từ kiểm kho (Cây thừa)', req.user.id]);
+            `, [Number(finalColorId), rollCode, Number(weight), origWeight, location || '', finalNote, req.user.id]);
             
             const rollId = rollResult.lastInsertRowid;
 
