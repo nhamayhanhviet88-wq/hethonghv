@@ -578,15 +578,6 @@ module.exports = async function(fastify) {
                 [sc.id, 'create', `Kiểm: ${aw} (Tồn: ${sw}, Lệch: ${diff})`, req.user.id, now]);
         }
 
-        if (aw === 0) {
-            try {
-                const { releaseReservationsForRoll } = require('../utils/qlx_fabric_helper');
-                await releaseReservationsForRoll(rollId, req.user.id);
-            } catch (e) {
-                console.error('[STOCKCHECK CHECK] Error releasing reservations for roll:', e);
-            }
-        }
-
         return { success: true, difference: diff };
     });
 
