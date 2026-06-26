@@ -843,7 +843,8 @@ module.exports = async function(fastify) {
             JOIN kv_materials m ON m.id=fc.material_id
             JOIN kv_warehouses w ON w.id=m.warehouse_id
             WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
-        `);
+              AND NOT (r.source = 'kiem_kho_du' AND r.created_at >= $1)
+        `, [session.started_at]);
         const checkedCount = await db.get(`
             SELECT COUNT(*)::int AS cnt 
             FROM stockcheck_records sc
@@ -1006,7 +1007,8 @@ module.exports = async function(fastify) {
             JOIN kv_materials m ON m.id=fc.material_id
             JOIN kv_warehouses w ON w.id=m.warehouse_id
             WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
-        `);
+              AND NOT (r.source = 'kiem_kho_du' AND r.created_at >= $1)
+        `, [session.started_at]);
         const checkedCount = await db.get(`
             SELECT COUNT(*)::int AS cnt 
             FROM stockcheck_records sc
