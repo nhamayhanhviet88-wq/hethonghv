@@ -22,7 +22,7 @@ async function renderKhovaiPage(content) {
         var st = document.createElement('style'); st.id = 'kvStyles';
         st.textContent = [
             '.kv-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden}',
-            '.kv-sidebar{width:370px;min-width:370px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;display:flex;flex-direction:column}',
+            '.kv-sidebar{width:330px;min-width:330px;background:#fff;border-right:1px solid var(--gray-200);overflow-y:auto;display:flex;flex-direction:column}',
             '.kv-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;padding:16px}',
             '.kv-toolbar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;border-radius:10px;margin-bottom:12px;flex-wrap:wrap}',
             '.kv-table-wrap{overflow-x:auto}',
