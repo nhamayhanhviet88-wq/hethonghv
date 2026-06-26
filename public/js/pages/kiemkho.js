@@ -275,13 +275,25 @@ function _kkRenderSetup(content) {
     } else {
         _kk.historySessions.forEach((s, idx) => {
             const finishedDate = s.finished_at ? s.finished_at.split('T')[0] : '—';
+            
+            const netDiff = Number(s.net_difference || 0);
+            let netDiffClass = 'text-muted';
+            let netDiffText = '0 kg';
+            if (netDiff > 0) {
+                netDiffClass = 'text-danger';
+                netDiffText = '-' + netDiff.toLocaleString('vi-VN') + ' kg';
+            } else if (netDiff < 0) {
+                netDiffClass = 'text-success';
+                netDiffText = '+' + Math.abs(netDiff).toLocaleString('vi-VN') + ' kg';
+            }
+
             histHtml += `
                 <tr style="cursor:pointer" onclick="_kkViewReport(${s.id})">
                     <td class="text-center font-weight-bold">${idx + 1}</td>
                     <td>${finishedDate}</td>
                     <td>${s.finished_by_name || 'Hệ thống'}</td>
                     <td class="text-center text-primary font-weight-bold">${s.checked_rolls} cây</td>
-                    <td class="text-right text-danger font-weight-bold">${s.net_difference ? Number(s.net_difference).toLocaleString('vi-VN') + ' kg' : '0 kg'}</td>
+                    <td class="text-right font-weight-bold ${netDiffClass}">${netDiffText}</td>
                 </tr>
             `;
         });

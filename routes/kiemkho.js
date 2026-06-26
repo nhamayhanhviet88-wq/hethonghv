@@ -881,7 +881,6 @@ module.exports = async function(fastify) {
             }
 
             const uStats = by_unit[unit];
-            uStats.checked_rolls++;
 
             if (rec.notes && rec.notes.includes('Kệ dự định hoàn vải')) {
                 // Ignore return confirm rolls
@@ -909,11 +908,13 @@ module.exports = async function(fastify) {
             const uStats = by_unit[unit];
             uStats.actual_weight = uStats.initial_weight - uStats.missing_weight + uStats.surplus_weight - uStats.net_difference;
             uStats.net_difference = uStats.initial_weight - uStats.actual_weight;
+            uStats.checked_rolls = uStats.initial_rolls - uStats.missing_rolls + uStats.surplus_rolls;
         }
 
         const initialWeight = Number(session.total_weight || 0);
         const actualWeight = initialWeight - missingWeight + surplusWeight - netDiff;
         const totalNetDiff = initialWeight - actualWeight;
+        const finalCheckedRolls = Number(session.total_rolls || 0) - missingRolls + surplusRolls;
 
         return {
             success: true,
@@ -921,7 +922,7 @@ module.exports = async function(fastify) {
             time: vnFormat(vnNow()),
             initial_rolls: session.total_rolls || 0,
             expected_rolls: expectedCount.cnt,
-            checked_rolls: checkedCount.cnt,
+            checked_rolls: finalCheckedRolls,
             initial_weight: initialWeight,
             actual_weight: actualWeight,
             missing_rolls: missingRolls,
@@ -957,7 +958,7 @@ module.exports = async function(fastify) {
             console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
         }
 
-        const session = await db.get("SELECT started_at FROM stockcheck_sessions WHERE id = $1", [sessionId]);
+        const session = await db.get("SELECT started_at, total_rolls, total_weight FROM stockcheck_sessions WHERE id = $1", [sessionId]);
         if (!session) return reply.code(400).send({ error: 'Không tìm thấy phiên kiểm kê.' });
 
         // Verify all expected rolls are audited
@@ -1077,6 +1078,9 @@ module.exports = async function(fastify) {
                 `, [sessionId, rec.roll_id, rec.roll_code, rec.material_name, rec.color_name, rec.warehouse_name, rec.unit, oldW, newW, diff, type, rec.notes || null, rec.checked_at, rec.checked_by]);
             }
 
+            const finalCheckedRolls = Number(session.total_rolls || 0) - missingRolls + surplusRolls;
+            const finalNetDifference = missingWeight - surplusWeight + netDiff;
+
             // Update session overview stats
             await db.run(`
                 UPDATE stockcheck_sessions
@@ -1084,7 +1088,7 @@ module.exports = async function(fastify) {
                     checked_rolls = $3, missing_rolls = $4, missing_weight = $5,
                     surplus_rolls = $6, surplus_weight = $7, net_difference = $8
                 WHERE id = $9
-            `, [now, req.user.id, checkedCount.cnt, missingRolls, missingWeight, surplusRolls, surplusWeight, netDiff, sessionId]);
+            `, [now, req.user.id, finalCheckedRolls, missingRolls, missingWeight, surplusRolls, surplusWeight, finalNetDifference, sessionId]);
 
             // Clear active session flag (unlocks warehouse)
             await db.run("DELETE FROM app_config WHERE key = 'stockcheck_active_session'");
