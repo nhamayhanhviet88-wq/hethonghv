@@ -157,7 +157,7 @@ module.exports = async function (fastify) {
     // GET /api/khovai/colors?mid= — List colors for a material
     fastify.get('/api/khovai/colors', { preHandler: [authenticate] }, async (request) => {
         const { mid, include_inactive } = request.query;
-        let sql = `SELECT fc.id, fc.material_id, fc.color_name, fc.price, fc.original_tree_threshold, fc.location, fc.created_by, fc.created_at, fc.updated_by, fc.updated_at,
+        let sql = `SELECT fc.id, fc.material_id, fc.color_name, fc.price, fc.original_tree_threshold, fc.notes, fc.location, fc.created_at, fc.updated_at,
                           (fc.is_active AND m.is_active) AS is_active,
                           m.name AS material_name, w.name AS warehouse_name, w.unit
                    FROM kv_fabric_colors fc
