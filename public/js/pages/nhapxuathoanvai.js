@@ -1994,6 +1994,7 @@ async function openConfirm2Modal(id) {
     _confirm2ImageBlob = null;
 
     var initialQty = Number(tx.total_quantity) || 0;
+    var isReadOnly = !!tx.needs_discrepancy_approval || !!tx.is_approved;
 
     let formattedDate = '';
     if (tx.tx_date) {
@@ -2005,17 +2006,65 @@ async function openConfirm2Modal(id) {
         }
     }
 
-    var bodyHTML = '<div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">' +
-        '<div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:10px; color:#d97706; line-height:1.4;">' +
+    var existingImgUrl = '';
+    if (isReadOnly && tx.actual_quantity_images) {
+        try {
+            var imgs = typeof tx.actual_quantity_images === 'string' ? JSON.parse(tx.actual_quantity_images) : tx.actual_quantity_images;
+            if (imgs && imgs.length) {
+                existingImgUrl = imgs[0];
+            }
+        } catch(e) {}
+    }
+
+    var infoBoxHTML = '';
+    if (isReadOnly) {
+        infoBoxHTML = '<div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:10px; color:#475569; line-height:1.4;">' +
+            'ℹ️ <strong>Lịch sử xác nhận lần 2:</strong> Số kg thực tế đã được gửi xác nhận và đang chờ quản lý duyệt hoặc đã hoàn tất.' +
+        '</div>';
+    } else {
+        infoBoxHTML = '<div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:10px; color:#d97706; line-height:1.4;">' +
             'ℹ️ <strong>Xác nhận lần 2 (Kế toán):</strong> Nhập số kg cân đo thực tế từ nhà vải cung cấp để đối chiếu và xuất kho hoàn tất.' +
-        '</div>' +
+        '</div>';
+    }
+
+    var pasteAreaHTML = '';
+    if (isReadOnly) {
+        if (existingImgUrl) {
+            pasteAreaHTML = '<div id="confirm2PasteArea" style="border: 1px solid #cbd5e1; border-radius:8px; padding:12px; text-align:center; background:#f8fafc; position:relative;">' +
+                '<span style="font-weight:700; color:#475569; display:block; font-size:11px; margin-bottom:8px; text-align:left;">📸 Hình ảnh cân thực tế chứng minh:</span>' +
+                '<img src="' + existingImgUrl + '" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; cursor:pointer; object-fit:contain;" onclick="_bnhViewImage(this.src)" />' +
+            '</div>';
+        } else {
+            pasteAreaHTML = '<div id="confirm2PasteArea" style="border: 1px solid #cbd5e1; border-radius:8px; padding:12px; text-align:center; background:#f8fafc;">' +
+                '<span style="color:#64748b; font-size:11px;">(Không có hình ảnh chứng minh cân nặng thực tế)</span>' +
+            '</div>';
+        }
+    } else {
+        pasteAreaHTML = '<div id="confirm2PasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; position:relative; transition:all 0.2s; overflow:hidden;">' +
+            '<div id="confirm2PastePlaceholder">' +
+                '<span style="font-size:24px; display:block; margin-bottom:6px;">📸</span>' +
+                '<span id="confirm2PhotoTitle" style="font-weight:700; color:#475569; display:block; font-size:12px; margin-bottom:8px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>' +
+                '<button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById(\'confirm2ImgFile\').click()" style="padding:4px 12px; font-size:11px; background:#e2e8f0; border:1px solid #cbd5e1; color:#475569; font-weight:600; border-radius:6px; cursor:pointer;">hoặc Chọn File / Chụp ảnh</button>' +
+            '</div>' +
+            '<input type="file" id="confirm2ImgFile" accept="image/*" capture="environment" style="display:none;" onchange="handleConfirmImgChange(this, processAndPreviewConfirm2Image)" />' +
+            '<div id="confirm2ImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">' +
+                '<img id="confirm2ImagePreview" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05); object-fit:contain;" />' +
+                '<button id="btnConfirm2ClearImg" type="button" class="btn" style="position:absolute; top:4px; right:4px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); clearConfirm2Image()">❌ Xóa</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    var actQtyValue = tx.actual_quantity !== null && tx.actual_quantity !== undefined ? tx.actual_quantity : initialQty;
+
+    var bodyHTML = '<div class="nxhv-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">' +
+        infoBoxHTML +
         '<div>' +
             '<label style="font-weight:700; display:block; margin-bottom:4px;">Số kg ban đầu đã nhập:</label>' +
             '<input type="text" value="' + _nxhvFN(initialQty) + ' kg" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; cursor:not-allowed;" />' +
         '</div>' +
         '<div>' +
-            '<label style="font-weight:700; display:block; margin-bottom:4px;">Nhập số kg thực tế đo được (Bắt buộc):</label>' +
-            '<input type="number" step="0.01" id="confirm2ActualQty" class="form-control" placeholder="Ví dụ: 25.5" value="' + initialQty + '" style="width:100%; font-size:12px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none;" oninput="updateConfirm2WeightCheck(' + initialQty + ', ' + (tx.price || 0) + ', \'' + (tx.unit || 'kg') + '\')" />' +
+            '<label style="font-weight:700; display:block; margin-bottom:4px;">' + (isReadOnly ? 'Số kg thực tế đo được:' : 'Nhập số kg thực tế đo được (Bắt buộc):') + '</label>' +
+            '<input type="number" step="0.01" id="confirm2ActualQty" class="form-control" placeholder="Ví dụ: 25.5" value="' + actQtyValue + '" style="width:100%; font-size:12px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; outline:none;' + (isReadOnly ? ' background:#f1f5f9; cursor:not-allowed;' : '') + '" ' + (isReadOnly ? 'readonly' : 'oninput="updateConfirm2WeightCheck(' + initialQty + ', ' + (tx.price || 0) + ', \'' + (tx.unit || 'kg') + '\')"') + ' />' +
         '</div>' +
         '<div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc; display: flex; flex-direction: column; gap: 10px;">' +
             '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">' +
@@ -2045,7 +2094,7 @@ async function openConfirm2Modal(id) {
             '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">' +
                 '<div>' +
                     '<label style="font-weight:700; display:block; margin-bottom:4px;">Số Lượng:</label>' +
-                    '<input type="text" id="confirm2DetailQty" value="' + _nxhvFN(initialQty) + ' ' + (tx.unit || 'kg') + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed; font-weight: 700; color: #1e293b;" />' +
+                    '<input type="text" id="confirm2DetailQty" value="' + _nxhvFN(actQtyValue) + ' ' + (tx.unit || 'kg') + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed; font-weight: 700; color: #1e293b;" />' +
                 '</div>' +
                 '<div>' +
                     '<label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>' +
@@ -2053,33 +2102,28 @@ async function openConfirm2Modal(id) {
                 '</div>' +
                 '<div>' +
                     '<label style="font-weight:700; display:block; margin-bottom:4px;">Thanh Toán:</label>' +
-                    '<input type="text" id="confirm2DetailAmount" value="' + _nxhvFN(tx.price * initialQty) + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed; font-weight: 700; color: #10b981;" />' +
+                    '<input type="text" id="confirm2DetailAmount" value="' + _nxhvFN(tx.price * actQtyValue) + '" class="form-control" readonly style="width:100%; font-size:11px; padding:5px 8px; background:#f1f5f9; cursor:not-allowed; font-weight: 700; color: #10b981;" />' +
                 '</div>' +
             '</div>' +
         '</div>' +
         '<div id="confirm2WeightNotice" style="display:none; padding:8px 12px; border-radius:6px; font-weight:600; line-height:1.4;"></div>' +
-        '<div id="confirm2PasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:24px 16px; text-align:center; background:#f8fafc; position:relative; transition:all 0.2s; overflow:hidden;">' +
-            '<div id="confirm2PastePlaceholder">' +
-                '<span style="font-size:24px; display:block; margin-bottom:6px;">📸</span>' +
-                '<span id="confirm2PhotoTitle" style="font-weight:700; color:#475569; display:block; font-size:12px; margin-bottom:8px;">Nhấn Ctrl+V để dán ảnh chứng minh</span>' +
-                '<button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById(\'confirm2ImgFile\').click()" style="padding:4px 12px; font-size:11px; background:#e2e8f0; border:1px solid #cbd5e1; color:#475569; font-weight:600; border-radius:6px; cursor:pointer;">hoặc Chọn File / Chụp ảnh</button>' +
-            '</div>' +
-            '<input type="file" id="confirm2ImgFile" accept="image/*" capture="environment" style="display:none;" onchange="handleConfirmImgChange(this, processAndPreviewConfirm2Image)" />' +
-            '<div id="confirm2ImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">' +
-                '<img id="confirm2ImagePreview" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05); object-fit:contain;" />' +
-                '<button id="btnConfirm2ClearImg" type="button" class="btn" style="position:absolute; top:4px; right:4px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); clearConfirm2Image()">❌ Xóa</button>' +
-            '</div>' +
-        '</div>' +
+        pasteAreaHTML +
         '<div>' +
             '<label style="font-weight:700; display:block; margin-bottom:4px;">Ghi chú đối chiếu (nếu có):</label>' +
-            '<textarea id="confirm2Notes" class="form-control" placeholder="Nhập ghi chú đối chiếu cân nặng thực tế..." style="width:100%; font-size:12px; padding:6px 10px; height:50px; border-radius:6px; border:1px solid #cbd5e1; outline:none; resize:none;"></textarea>' +
+            '<textarea id="confirm2Notes" class="form-control" placeholder="' + (isReadOnly ? 'Không có ghi chú' : 'Nhập ghi chú đối chiếu cân nặng thực tế...') + '" style="width:100%; font-size:12px; padding:6px 10px; height:50px; border-radius:6px; border:1px solid #cbd5e1; outline:none; resize:none;' + (isReadOnly ? ' background:#f1f5f9; cursor:not-allowed;' : '') + '" ' + (isReadOnly ? 'readonly' : '') + '>' + (tx.actual_quantity_notes || '') + '</textarea>' +
         '</div>' +
     '</div>';
 
-    var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>' +
-        '<button class="btn btn-primary" id="btnConfirm2Submit" onclick="submitConfirm2(' + id + ', ' + initialQty + ')" style="width:auto; font-weight:700; background:#eab308; border:none; color:#fff;">Duyệt hoàn tất (Lần 2)</button>';
+    var footerHTML = '';
+    if (isReadOnly) {
+        footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
+    } else {
+        footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>' +
+            '<button class="btn btn-primary" id="btnConfirm2Submit" onclick="submitConfirm2(' + id + ', ' + initialQty + ')" style="width:auto; font-weight:700; background:#eab308; border:none; color:#fff;">Duyệt hoàn tất (Lần 2)</button>';
+    }
 
-    openModal('🟨 Xác Nhận Cân Nặng Thực Tế (Lần 2)', bodyHTML, footerHTML);
+    var modalTitle = isReadOnly ? '🟨 Chi Tiết Xác Nhận Cân Nặng Thực Tế (Lần 2)' : '🟨 Xác Nhận Cân Nặng Thực Tế (Lần 2)';
+    openModal(modalTitle, bodyHTML, footerHTML);
     var container = document.getElementById('modalContainer');
     if (container) {
         container.style.width = '560px';
@@ -2088,21 +2132,23 @@ async function openConfirm2Modal(id) {
 
     updateConfirm2WeightCheck(initialQty, tx.price || 0, tx.unit || 'kg');
 
-    _confirm2PasteHandler = function(e) {
-        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
-        var imageItem = null;
-        for (var i = 0; i < items.length; i++) {
-            if (items[i].type.indexOf('image') !== -1) {
-                imageItem = items[i];
-                break;
+    if (!isReadOnly) {
+        _confirm2PasteHandler = function(e) {
+            var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            var imageItem = null;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    imageItem = items[i];
+                    break;
+                }
             }
-        }
-        if (imageItem) {
-            var blob = imageItem.getAsFile();
-            processAndPreviewConfirm2Image(blob);
-        }
-    };
-    document.addEventListener('paste', _confirm2PasteHandler);
+            if (imageItem) {
+                var blob = imageItem.getAsFile();
+                processAndPreviewConfirm2Image(blob);
+            }
+        };
+        document.addEventListener('paste', _confirm2PasteHandler);
+    }
 }
 window.openConfirm2Modal = openConfirm2Modal;
 
@@ -2143,6 +2189,8 @@ function updateConfirm2WeightCheck(initialQty, price, unit) {
         detailAmountInput.value = _nxhvFN(totalAmount);
     }
 
+    var isReadOnly = actQtyInput.hasAttribute('readonly');
+
     var diff = val - initialQty;
     if (Math.abs(diff) > 0.001) {
         noticeBox.style.display = 'block';
@@ -2150,18 +2198,26 @@ function updateConfirm2WeightCheck(initialQty, price, unit) {
         noticeBox.style.color = '#dc2626';
         noticeBox.style.border = '1px solid #fca5a5';
         noticeBox.innerHTML = '⚠️ <strong>Cân nặng thực tế lệch:</strong> ' + (diff > 0 ? '+' : '') + diff.toFixed(2) + ' kg so với ban đầu. <strong>Bắt buộc phải chụp/dán hình ảnh cân thực tế để chứng minh!</strong>';
-        pasteArea.style.borderStyle = 'dashed';
-        pasteArea.style.borderColor = '#fca5a5';
-        if (photoTitle) photoTitle.innerHTML = 'Nhấn Ctrl+V để dán ảnh chứng minh <span style="color:#ef4444;">(Bắt buộc)</span>';
+        if (!isReadOnly) {
+            if (pasteArea) {
+                pasteArea.style.borderStyle = 'dashed';
+                pasteArea.style.borderColor = '#fca5a5';
+            }
+            if (photoTitle) photoTitle.innerHTML = 'Nhấn Ctrl+V để dán ảnh chứng minh <span style="color:#ef4444;">(Bắt buộc)</span>';
+        }
     } else {
         noticeBox.style.display = 'block';
         noticeBox.style.background = '#ecfdf5';
         noticeBox.style.color = '#059669';
         noticeBox.style.border = '1px solid #a7f3d0';
         noticeBox.innerHTML = '✅ <strong>Cân nặng trùng khớp!</strong> Không có chênh lệch so với ban đầu. Hình ảnh chứng minh không bắt buộc.';
-        pasteArea.style.borderStyle = 'dashed';
-        pasteArea.style.borderColor = '#cbd5e1';
-        if (photoTitle) photoTitle.textContent = 'Nhấn Ctrl+V để dán ảnh chứng minh (Không bắt buộc)';
+        if (!isReadOnly) {
+            if (pasteArea) {
+                pasteArea.style.borderStyle = 'dashed';
+                pasteArea.style.borderColor = '#cbd5e1';
+            }
+            if (photoTitle) photoTitle.textContent = 'Nhấn Ctrl+V để dán ảnh chứng minh (Không bắt buộc)';
+        }
     }
 }
 window.updateConfirm2WeightCheck = updateConfirm2WeightCheck;
