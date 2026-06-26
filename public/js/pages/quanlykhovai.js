@@ -95,6 +95,7 @@ async function renderQuanlykhovaiPage(content) {
             
             // Locations list in Sidebar
             '.qkv-loc-list { flex: 1; overflow-y: auto; padding: 12px 20px; }',
+            '.qkv-sb-collapse { flex: 1; min-height: 0; display: flex; flex-direction: column; }',
             '.qkv-loc-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; transition: all 0.15s; }',
             '.qkv-loc-item:hover { background: #f1f5f9; border-color: #cbd5e1; }',
             '.qkv-loc-name { font-size: 12px; font-weight: 700; color: #334155; }',
@@ -247,8 +248,8 @@ async function renderQuanlykhovaiPage(content) {
             '  .qkv-grid { grid-template-columns: 1fr; gap: 16px; }',
             '  .qkv-search-container { flex-direction: column; align-items: stretch; gap: 10px; }',
             '  .qkv-btn-qr { width: 100%; height: 44px; }',
-            '  .qkv-sb-collapse { display: none; }',
-            '  .qkv-sb-collapse.show { display: block; }',
+            '  .qkv-sb-collapse { display: none !important; }',
+            '  .qkv-sb-collapse.show { display: block !important; }',
             '  .qkv-sb-toggle-btn { display: block; width: calc(100% - 40px); margin: 12px 20px; padding: 10px; text-align: center; font-size: 12px; color: #4f46e5; font-weight: 700; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 8px; cursor: pointer; }',
             '}',
             '@media (min-width: 769px) {',
