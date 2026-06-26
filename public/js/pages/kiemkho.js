@@ -431,7 +431,9 @@ async function _kkStartSession() {
         // Attempt starting audit
         const res = await apiCall('/api/stockcheck/start-session', 'POST');
         if (res && res.error) {
-            if (res.active_cuts) {
+            if (res.pending_returns || res.violating_returns) {
+                _kkShowBlockedReturnsModal(res.pending_returns, res.violating_returns);
+            } else if (res.active_cuts) {
                 _kkShowBlockedCutsModal(res.active_cuts);
             } else {
                 showToast(res.error, 'error');
@@ -447,9 +449,15 @@ async function _kkStartSession() {
             _kkLoadSessionStatus(content);
         }
     } catch (e) {
-        // Handle blocked cuts (409 Conflict)
-        if (e.status === 409 && e.data && e.data.active_cuts) {
-            _kkShowBlockedCutsModal(e.data.active_cuts);
+        // Handle blocked cuts or returns (409 Conflict)
+        if (e.status === 409 && e.data) {
+            if (e.data.pending_returns || e.data.violating_returns) {
+                _kkShowBlockedReturnsModal(e.data.pending_returns, e.data.violating_returns);
+            } else if (e.data.active_cuts) {
+                _kkShowBlockedCutsModal(e.data.active_cuts);
+            } else {
+                showToast(e.message || 'Không thể bắt đầu kiểm kê.', 'error');
+            }
         } else {
             showToast(e.message || 'Không thể bắt đầu kiểm kê.', 'error');
         }
@@ -513,6 +521,122 @@ function _kkShowBlockedCutsModal(cuts) {
     // Append to body
     const div = document.createElement('div');
     div.id = 'kkBlockedCutsModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+}
+
+// ========== SHOW MODAL FOR BLOCKED RETURNS ==========
+function _kkShowBlockedReturnsModal(pendingReturns, violatingReturns) {
+    let pendingRowsHtml = '';
+    let violatingRowsHtml = '';
+
+    if (pendingReturns && pendingReturns.length > 0) {
+        pendingReturns.forEach((r, idx) => {
+            const dateStr = r.return_requested_at ? new Date(r.return_requested_at).toLocaleDateString('vi-VN') : '—';
+            pendingRowsHtml += `
+                <tr>
+                    <td class="text-center font-weight-bold">${idx + 1}</td>
+                    <td class="font-weight-bold">${r.material_name || '—'}</td>
+                    <td><span class="badge badge-secondary" style="font-size:11px; background-color:#f1f5f9; color:#334155; border: 1px solid #e2e8f0;">${r.color_name || '—'}</span></td>
+                    <td class="font-weight-bold text-teal">${r.weight ? r.weight + ' kg' : '—'}</td>
+                    <td><span class="badge badge-info" style="font-size:11px;">${r.requester_name || '—'}</span></td>
+                    <td><span class="text-muted" style="font-size:11px;">${dateStr}</span></td>
+                </tr>
+            `;
+        });
+    }
+
+    if (violatingReturns && violatingReturns.length > 0) {
+        violatingReturns.forEach((r, idx) => {
+            violatingRowsHtml += `
+                <tr>
+                    <td class="text-center font-weight-bold">${idx + 1}</td>
+                    <td><span class="badge badge-warning" style="font-size:11px;">Bill #${r.seq_num}</span></td>
+                    <td class="font-weight-bold">${r.source_name || '—'}</td>
+                    <td>${r.material_name || '—'} màu ${r.color_name || '—'}</td>
+                    <td><span class="badge badge-danger" style="font-size:11px;">Chưa xử lý</span></td>
+                </tr>
+            `;
+        });
+    }
+
+    let bodyHtml = '';
+    if (pendingRowsHtml) {
+        bodyHtml += `
+            <div style="font-weight: 800; color: #b91c1c; font-size: 13px; margin-top: 10px; margin-bottom: 6px;">⚠️ YÊU CẦU LẬP BILL HOÀN VẢI TRƯỚC (CHƯA XỬ LÝ)</div>
+            <div style="max-height:180px; overflow-y:auto; border:1px solid #f1f5f9; border-radius:8px; margin-bottom: 16px;">
+                <table class="table" style="font-size:11px; margin:0;">
+                    <thead>
+                        <tr style="background:#fafafa;">
+                            <th style="width:40px;" class="text-center">STT</th>
+                            <th>Chất Liệu</th>
+                            <th>Màu Sắc</th>
+                            <th>Cân Nặng</th>
+                            <th>Người Gửi</th>
+                            <th>Ngày Gửi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${pendingRowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    if (violatingRowsHtml) {
+        bodyHtml += `
+            <div style="font-weight: 800; color: #b91c1c; font-size: 13px; margin-top: 10px; margin-bottom: 6px;">⚠️ YÊU CẦU XỬ LÝ BILL HOÀN VẢI QUÁ HẠN</div>
+            <div style="max-height:180px; overflow-y:auto; border:1px solid #f1f5f9; border-radius:8px; margin-bottom: 16px;">
+                <table class="table" style="font-size:11px; margin:0;">
+                    <thead>
+                        <tr style="background:#fafafa;">
+                            <th style="width:40px;" class="text-center">STT</th>
+                            <th>Số Bill</th>
+                            <th>Nguồn NCC</th>
+                            <th>Vải</th>
+                            <th>Trạng Thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${violatingRowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    const isMobile = window.location.pathname.startsWith('/m/');
+    const redirectUrl = isMobile ? '/m/nhapxuathoanvai' : '/nhapxuathoanvai';
+
+    const modalHtml = `
+        <div class="kk-modal-overlay" id="kkBlockedReturnsModal">
+            <div class="kk-modal" style="max-width:680px; width:95%;">
+                <div class="kk-modal-header" style="background:#fef2f2; border-bottom:1px solid #fee2e2;">
+                    <div class="kk-modal-title" style="color:#b91c1c; display:flex; align-items:center; gap:8px;">
+                        <span>🚫 KHÔNG THỂ BẮT ĐẦU KIỂM KHO</span>
+                    </div>
+                    <button class="close" onclick="_kkCloseModal('kkBlockedReturnsModal')" style="font-size:24px; border:none; background:none;">&times;</button>
+                </div>
+                <div class="kk-modal-body">
+                    <p style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.5;">
+                        Hệ thống phát hiện có <strong>yêu cầu lập bill hoàn hoặc bill hoàn vải chưa xử lý</strong> từ bộ phận kho. Kế toán bắt buộc phải xử lý hết trước khi tiếp tục thực hiện kiểm kho.
+                    </p>
+                    ${bodyHtml}
+                </div>
+                <div class="kk-modal-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <a href="${redirectUrl}" class="kk-btn kk-btn-primary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#e53e3e,#c53030); border:none; color:#fff; font-weight:700;">
+                        🔄 Đi đến Nhập Xuất Hoàn Vải
+                    </a>
+                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkBlockedReturnsModal')">Đóng</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Append to body
+    const div = document.createElement('div');
+    div.id = 'kkBlockedReturnsModalContainer';
     div.innerHTML = modalHtml;
     document.body.appendChild(div);
 }
