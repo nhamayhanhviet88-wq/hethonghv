@@ -20,6 +20,39 @@ var _kk = {
     materialFilter: ''
 };
 
+function formatVnDateTime(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const d = new Date(dateStr);
+        return new Intl.DateTimeFormat('sv-SE', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).format(d);
+    } catch (e) {
+        return dateStr.replace('T', ' ').slice(0, 16);
+    }
+}
+
+function formatVnDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const d = new Date(dateStr);
+        return new Intl.DateTimeFormat('sv-SE', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(d);
+    } catch (e) {
+        return dateStr.split('T')[0];
+    }
+}
+
 window._kkToggleGroup = function(groupKey) {
     if (_kk.collapsedGroups.has(groupKey)) {
         _kk.collapsedGroups.delete(groupKey);
@@ -2496,7 +2529,7 @@ async function _kkRenderReport(content) {
                     <div style="text-align:right;">
                         <h2 style="font-weight:900; margin:0; font-size:20px; color:#0f766e;">Báo Cáo Kiểm Kho Chi Tiết</h2>
                         <span style="font-size:12px; font-weight:700; color:#475569; display:block; margin:2px 0;">${billText}</span>
-                        <span style="font-size:11px; color:#64748b;">Đợt kiểm ngày: ${s.finished_at ? s.finished_at.split('T')[0] : ''}</span>
+                        <span style="font-size:11px; color:#64748b;">Đợt kiểm ngày: ${formatVnDate(s.finished_at)}</span>
                     </div>
                 </div>
 
@@ -2504,7 +2537,7 @@ async function _kkRenderReport(content) {
                 <div class="d-none d-print-block" style="text-align: center; margin-bottom: 24px;">
                     <h2 style="font-weight:900; margin:0; font-size:24px; color:#000;">BÁO CÁO CHI TIẾT PHIÊN KIỂM KHO</h2>
                     <h3 style="font-weight:800; margin:4px 0 0 0; font-size:18px; color:#334155;">(${billText})</h3>
-                    <div style="font-size:12px; margin-top:6px;">Ngày chốt sổ: ${s.finished_at ? s.finished_at.replace('T', ' ').slice(0, 16) : ''} | Người thực hiện: ${s.finished_by_name || 'Hệ thống'}</div>
+                    <div style="font-size:12px; margin-top:6px;">Ngày chốt sổ: ${formatVnDateTime(s.finished_at)} | Người thực hiện: ${s.finished_by_name || 'Hệ thống'}</div>
                 </div>
 
                 <!-- Info Overview Grid -->
@@ -3110,7 +3143,7 @@ async function _kkExportReportToExcel() {
         // Sheet 1: General Summary Info
         const summaryData = [
             ["BÁO CÁO PHIÊN KIỂM KHO VẢI PHÁT HÀNH CHI TIẾT"],
-            ["Đợt kiểm:", s.finished_at ? s.finished_at.replace('T', ' ').slice(0, 16) : ''],
+            ["Đợt kiểm:", formatVnDateTime(s.finished_at)],
             ["Người chốt sổ:", s.finished_by_name || 'Hệ thống'],
             [""],
             ["CHỈ SỐ TỔNG HỢP", "GIÁ TRỊ", "ĐƠN VỊ"],
@@ -3223,7 +3256,7 @@ async function _kkExportReportToExcel() {
         const wsDiff = XLSX.utils.aoa_to_sheet(diffRows);
         XLSX.utils.book_append_sheet(wb, wsDiff, "Lệch cân");
 
-        const fileName = `BaoCao_KiemKho_${s.finished_at ? s.finished_at.split('T')[0] : 'ChiTiet'}.xlsx`;
+        const fileName = `BaoCao_KiemKho_${s.finished_at ? formatVnDate(s.finished_at) : 'ChiTiet'}.xlsx`;
         XLSX.writeFile(wb, fileName);
         showToast('✅ Đã tải xuống file Excel báo cáo kiểm kho!', 'success');
     } catch (e) {
