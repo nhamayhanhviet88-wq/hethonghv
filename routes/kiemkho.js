@@ -509,15 +509,6 @@ module.exports = async function(fastify) {
             materials_list: Array.from(nguyenMaterials).join(', '),
             warehouse_id: isAll ? null : Number(whParam)
         });
-        shelves.push({
-            id: 'unassigned_le',
-            name: 'Chưa xếp kệ - Cây Lẻ',
-            description: 'Các cây lẻ chưa xếp vị trí',
-            roll_count: leCount,
-            total_weight: leWeight,
-            materials_list: Array.from(leMaterials).join(', '),
-            warehouse_id: isAll ? null : Number(whParam)
-        });
 
         return { shelves };
     });
