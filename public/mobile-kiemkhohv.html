@@ -253,6 +253,7 @@ let cu=null, mr=[], tree=null, activeSession=null, photoMode='none';
 let activeWarehouseId=null, activeLocation=null, mShelves=[];
 let pendingPhotoCallback=null;
 let mSearchText='', mSearchTimeout=null, mFilterStatus='all';
+let mSurplusFile = null;
 
 async function api(u,m='GET',b=null){
     const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};
@@ -1057,6 +1058,8 @@ function mOpenAddSurplusModal() {
         return;
     }
 
+    mSurplusFile = null; // Clear previous state
+
     // Populate Materials selection from tree.tree
     let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
     if (tree && tree.tree) {
@@ -1082,7 +1085,7 @@ function mOpenAddSurplusModal() {
                     <!-- Material Selector -->
                     <div class="m-form-group">
                         <label class="m-form-label">Chất Liệu Vải</label>
-                        <select id="mSurplusMatSelect" class="m-form-input" onchange="mOnSurplusMatChange(this.value)" style="color:#e2e8f0; background:#1e293b;">
+                        <select id="mSurplusMatSelect" class="m-form-input" onchange="mOnSurplusMatChange(this.value); mValidateSurplusForm();" style="color:#e2e8f0; background:#1e293b;">
                             ${matOptions}
                         </select>
                     </div>
@@ -1090,7 +1093,7 @@ function mOpenAddSurplusModal() {
                     <!-- Color Selector -->
                     <div class="m-form-group">
                         <label class="m-form-label">Màu Vải</label>
-                        <select id="mSurplusColorSelect" class="m-form-input" style="color:#e2e8f0; background:#1e293b;">
+                        <select id="mSurplusColorSelect" class="m-form-input" onchange="mValidateSurplusForm()" style="color:#e2e8f0; background:#1e293b;">
                             <option value="">-- Chọn chất liệu trước --</option>
                         </select>
                     </div>
@@ -1099,7 +1102,7 @@ function mOpenAddSurplusModal() {
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div class="m-form-group">
                             <label class="m-form-label">Cân nặng (kg)</label>
-                            <input type="number" id="mSurplusWeight" class="m-form-input" placeholder="0.0" step="0.1" min="0.1">
+                            <input type="number" id="mSurplusWeight" class="m-form-input" placeholder="0.0" step="0.1" min="0.1" oninput="mValidateSurplusForm()">
                         </div>
                         <div class="m-form-group">
                             <label class="m-form-label">Số Cây Thừa</label>
@@ -1112,6 +1115,20 @@ function mOpenAddSurplusModal() {
                         <input type="text" id="mSurplusLocation" class="m-form-input" value="${activeLocation}" readonly style="background: rgba(255,255,255,0.02); color:#94a3b8;">
                     </div>
 
+                    <!-- Photo Upload for Surplus -->
+                    <div class="m-form-group">
+                        <label class="m-form-label">Ảnh minh chứng cây thừa <span style="color:#ef4444;">*</span></label>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <button type="button" class="m-btn" style="background:#334155; color:#f8fafc; border:1.5px solid rgba(255,255,255,0.12); display:flex; align-items:center; gap:6px; font-weight:700; padding:8px 12px; border-radius:8px;" onclick="document.getElementById('mSurplusPhotoUploader').click()">
+                                📷 Chụp ảnh
+                            </button>
+                            <input type="file" id="mSurplusPhotoUploader" accept="image/*" capture="environment" style="display:none" onchange="mOnSurplusPhotoSelected(this)">
+                            <div id="mSurplusPhotoPreview" style="display:flex; align-items:center; gap:8px;">
+                                <span style="color:#94a3b8; font-size:12px; font-style:italic;">Bắt buộc chụp ảnh</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="m-form-group">
                         <label class="m-form-label">Ghi Chú</label>
                         <input type="text" id="mSurplusNote" class="m-form-input" placeholder="Ghi chú cây dư thừa phát hiện...">
@@ -1119,7 +1136,7 @@ function mOpenAddSurplusModal() {
                 </div>
                 <div class="m-modal-footer">
                     <button class="m-btn m-btn-secondary" onclick="mCloseModal('mSurplusModal')">Hủy</button>
-                    <button class="m-btn m-btn-primary" onclick="mSubmitSurplus()">Thêm Cây Vải</button>
+                    <button class="m-btn m-btn-primary" id="mSurplusSubmitBtn" disabled style="opacity:0.5;" onclick="mSubmitSurplus()">Thêm Cây Vải</button>
                 </div>
             </div>
         </div>
@@ -1181,6 +1198,7 @@ async function mSubmitSurplus() {
     if (!materialId) { toast('Vui lòng chọn chất liệu vải', 'error'); return; }
     if (!colorId) { toast('Vui lòng chọn màu vải', 'error'); return; }
     if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { toast('Vui lòng nhập cân nặng hợp lệ (lớn hơn 0)', 'error'); return; }
+    if (!mSurplusFile) { toast('Bắt buộc phải chụp hình ảnh cây vải thừa!', 'error'); return; }
 
     try {
         const curShelf = mShelves.find(s => s.name === activeLocation);
@@ -1199,7 +1217,26 @@ async function mSubmitSurplus() {
         };
 
         toast('⏳ Đang xử lý khai báo...');
-        await api('/api/stockcheck/add-surplus-full', 'POST', body);
+        const res = await api('/api/stockcheck/add-surplus-full', 'POST', body);
+        
+        if (res && res.rolls && res.rolls.length > 0) {
+            const newRollId = res.rolls[0].id;
+            toast('⏳ Đang tải ảnh cây vải lên...');
+            
+            const formData = new FormData();
+            formData.append('image', mSurplusFile);
+            
+            const uploadRes = await fetch('/api/khovai/rolls/' + newRollId + '/image', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            const uploadData = await uploadRes.json();
+            if (!uploadRes.ok) {
+                throw new Error(uploadData.error || 'Tải ảnh lên thất bại');
+            }
+        }
+        
         toast('✅ Đã khai báo cây thừa thành công!', 'success');
         mCloseModal('mSurplusModal');
         
@@ -1208,6 +1245,37 @@ async function mSubmitSurplus() {
         await mLoad();
     } catch (e) {
         toast(e.message || 'Lỗi khai báo cây thừa.', 'error');
+    }
+}
+
+function mOnSurplusPhotoSelected(input) {
+    if (input.files && input.files[0]) {
+        mSurplusFile = input.files[0];
+        const previewUrl = URL.createObjectURL(mSurplusFile);
+        const previewEl = document.getElementById('mSurplusPhotoPreview');
+        if (previewEl) {
+            previewEl.innerHTML = `<img src="${previewUrl}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.15);" onclick="viewImage('${previewUrl}')">`;
+        }
+        mValidateSurplusForm();
+    }
+}
+
+function mValidateSurplusForm() {
+    const mat = document.getElementById('mSurplusMatSelect').value;
+    const col = document.getElementById('mSurplusColorSelect').value;
+    const wVal = document.getElementById('mSurplusWeight').value;
+    const btn = document.getElementById('mSurplusSubmitBtn');
+    if (!btn) return;
+    
+    const hasWeight = wVal && !isNaN(Number(wVal)) && Number(wVal) > 0;
+    const hasPhoto = !!mSurplusFile;
+    
+    if (mat && col && hasWeight && hasPhoto) {
+        btn.disabled = false;
+        btn.style.opacity = '1.0';
+    } else {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
     }
 }
 

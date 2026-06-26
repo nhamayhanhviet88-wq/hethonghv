@@ -1218,6 +1218,8 @@ function _kkOpenAddSurplusModal() {
         return;
     }
 
+    _kk.surplusFile = null; // Clear previous state
+
     // Populate Materials selection from _kk.tree
     let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
     if (_kk.tree && _kk.tree.tree) {
@@ -1243,7 +1245,7 @@ function _kkOpenAddSurplusModal() {
                     <!-- Material Selector -->
                     <div class="kk-form-group">
                         <label class="kk-form-label">Chất Liệu Vải</label>
-                        <select id="kkSurplusMatSelect" class="kk-form-input" onchange="_kkOnSurplusMatChange(this.value)">
+                        <select id="kkSurplusMatSelect" class="kk-form-input" onchange="_kkOnSurplusMatChange(this.value); _kkValidateSurplusForm();">
                             ${matOptions}
                         </select>
                     </div>
@@ -1251,7 +1253,7 @@ function _kkOpenAddSurplusModal() {
                     <!-- Color Selector -->
                     <div class="kk-form-group">
                         <label class="kk-form-label">Màu Vải</label>
-                        <select id="kkSurplusColorSelect" class="kk-form-input">
+                        <select id="kkSurplusColorSelect" class="kk-form-input" onchange="_kkValidateSurplusForm()">
                             <option value="">-- Chọn chất liệu trước --</option>
                         </select>
                     </div>
@@ -1261,7 +1263,7 @@ function _kkOpenAddSurplusModal() {
                         <div class="col-6">
                             <div class="kk-form-group">
                                 <label class="kk-form-label">Trọng Lượng (kg)</label>
-                                <input type="number" id="kkSurplusWeight" class="kk-form-input" placeholder="0.0" step="0.1" min="0.1">
+                                <input type="number" id="kkSurplusWeight" class="kk-form-input" placeholder="0.0" step="0.1" min="0.1" oninput="_kkValidateSurplusForm()">
                             </div>
                         </div>
                         <div class="col-6">
@@ -1277,6 +1279,20 @@ function _kkOpenAddSurplusModal() {
                         <input type="text" id="kkSurplusLocation" class="kk-form-input" value="${_kk.activeLocation || ''}" readonly>
                     </div>
 
+                    <!-- Photo Upload for Surplus (Desktop) -->
+                    <div class="kk-form-group">
+                        <label class="kk-form-label">Ảnh Minh Chứng Cây Thừa <span style="color:#ef4444;">*</span></label>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <button type="button" class="kk-btn" style="background:#475569; color:#f8fafc; border:1px solid #cbd5e1; display:flex; align-items:center; gap:6px; font-weight:700; padding:8px 12px; border-radius:8px;" onclick="document.getElementById('kkSurplusPhotoUploader').click()">
+                                📁 Chọn ảnh tải lên
+                            </button>
+                            <input type="file" id="kkSurplusPhotoUploader" accept="image/*" style="display:none" onchange="_kkOnSurplusPhotoSelected(this)">
+                            <div id="kkSurplusPhotoPreview" style="display:flex; align-items:center; gap:8px;">
+                                <span style="color:#94a3b8; font-size:12px; font-style:italic;">Bắt buộc phải có ảnh</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="kk-form-group">
                         <label class="kk-form-label">Ghi Chú</label>
                         <input type="text" id="kkSurplusNote" class="kk-form-input" placeholder="Ghi chú cây dư thừa phát hiện...">
@@ -1284,7 +1300,7 @@ function _kkOpenAddSurplusModal() {
                 </div>
                 <div class="kk-modal-footer">
                     <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkSurplusModal')">Hủy</button>
-                    <button class="kk-btn kk-btn-primary" onclick="_kkSubmitSurplus()">Thêm Cây Vải</button>
+                    <button class="kk-btn kk-btn-primary" id="kkSurplusSubmitBtn" disabled style="opacity:0.5;" onclick="_kkSubmitSurplus()">Thêm Cây Vải</button>
                 </div>
             </div>
         </div>
@@ -1340,6 +1356,7 @@ async function _kkSubmitSurplus() {
     if (!materialId) { showToast('Vui lòng chọn chất liệu vải', 'error'); return; }
     if (!colorId) { showToast('Vui lòng chọn màu vải', 'error'); return; }
     if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) { showToast('Vui lòng nhập cân nặng hợp lệ (lớn hơn 0)', 'error'); return; }
+    if (!_kk.surplusFile) { showToast('Bắt buộc phải tải ảnh minh chứng cho cây vải thừa!', 'error'); return; }
 
     try {
         const body = {
@@ -1354,7 +1371,25 @@ async function _kkSubmitSurplus() {
             note: note
         };
 
-        await apiCall('/api/stockcheck/add-surplus-full', 'POST', body);
+        showToast('⏳ Đang xử lý khai báo...', 'info');
+        const res = await apiCall('/api/stockcheck/add-surplus-full', 'POST', body);
+        if (res && res.error) {
+            throw new Error(res.error);
+        }
+
+        if (res && res.rolls && res.rolls.length > 0) {
+            const newRollId = res.rolls[0].id;
+            showToast('⏳ Đang tải ảnh cây vải lên...', 'info');
+            
+            const formData = new FormData();
+            formData.append('image', _kk.surplusFile);
+            
+            const uploadRes = await apiCall('/api/khovai/rolls/' + newRollId + '/image', 'POST', formData);
+            if (uploadRes && uploadRes.error) {
+                throw new Error(uploadRes.error || 'Tải ảnh lên thất bại');
+            }
+        }
+
         showToast('✅ Đã khai báo cây thừa thành công!', 'success');
         _kkCloseModal('kkSurplusModal');
         
@@ -1366,6 +1401,37 @@ async function _kkSubmitSurplus() {
         if (content) _kkRenderMain(content);
     } catch (e) {
         showToast(e.message || 'Lỗi khai báo cây thừa.', 'error');
+    }
+}
+
+function _kkOnSurplusPhotoSelected(input) {
+    if (input.files && input.files[0]) {
+        _kk.surplusFile = input.files[0];
+        const previewUrl = URL.createObjectURL(_kk.surplusFile);
+        const previewEl = document.getElementById('kkSurplusPhotoPreview');
+        if (previewEl) {
+            previewEl.innerHTML = `<img src="${previewUrl}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; border:1px solid rgba(0,0,0,0.15);" onclick="window.open('${previewUrl}', '_blank')">`;
+        }
+        _kkValidateSurplusForm();
+    }
+}
+
+function _kkValidateSurplusForm() {
+    const mat = document.getElementById('kkSurplusMatSelect').value;
+    const col = document.getElementById('kkSurplusColorSelect').value;
+    const wVal = document.getElementById('kkSurplusWeight').value;
+    const btn = document.getElementById('kkSurplusSubmitBtn');
+    if (!btn) return;
+    
+    const hasWeight = wVal && !isNaN(Number(wVal)) && Number(wVal) > 0;
+    const hasPhoto = !!_kk.surplusFile;
+    
+    if (mat && col && hasWeight && hasPhoto) {
+        btn.disabled = false;
+        btn.style.opacity = '1.0';
+    } else {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
     }
 }
 
