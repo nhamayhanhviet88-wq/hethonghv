@@ -3,6 +3,19 @@ var _kv = { tree: [], summary: [], filter: {}, selectedWid: null, selectedMid: n
 
 function _kvFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
 
+function _kvSaveState() {
+    var state = {
+        selectedWid: _kv.selectedWid,
+        selectedMid: _kv.selectedMid,
+        searchText: _kv.searchText,
+        activeFilter: _kv.activeFilter,
+        sortCol: _kv.sortCol,
+        sortDir: _kv.sortDir,
+        sidebarSearchText: document.getElementById('kvSbSearch') ? document.getElementById('kvSbSearch').value : ''
+    };
+    localStorage.setItem('_kv_state', JSON.stringify(state));
+}
+
 async function renderKhovaiPage(content) {
     if (!document.getElementById('kvStyles')) {
         var st = document.createElement('style'); st.id = 'kvStyles';
@@ -73,7 +86,29 @@ async function renderKhovaiPage(content) {
         _kv.tree = treeData.tree || [];
     } catch(e) { _kv.tree = []; }
 
-    _kv.filter = {}; _kv.selectedWid = null; _kv.selectedMid = null;
+    // Restore state from localStorage
+    var savedStateStr = localStorage.getItem('_kv_state');
+    var savedState = null;
+    if (savedStateStr) {
+        try { savedState = JSON.parse(savedStateStr); } catch(e) {}
+    }
+    if (savedState) {
+        _kv.selectedWid = savedState.selectedWid;
+        _kv.selectedMid = savedState.selectedMid;
+        _kv.searchText = savedState.searchText || '';
+        _kv.activeFilter = savedState.activeFilter || 'all';
+        _kv.sortCol = savedState.sortCol || '';
+        _kv.sortDir = savedState.sortDir || 'desc';
+        if (_kv.selectedMid) {
+            _kv.filter = { wid: _kv.selectedWid, mid: _kv.selectedMid };
+        } else if (_kv.selectedWid) {
+            _kv.filter = { wid: _kv.selectedWid };
+        } else {
+            _kv.filter = {};
+        }
+    } else {
+        _kv.filter = {}; _kv.selectedWid = null; _kv.selectedMid = null; _kv.searchText = ''; _kv.activeFilter = 'all'; _kv.sortCol = ''; _kv.sortDir = 'desc';
+    }
     _kvRenderSidebar();
     await _kvLoadSummary();
 }
@@ -88,8 +123,15 @@ function _kvRenderSidebar() {
         currentUser.username === 'trinh.lvt' || 
         (currentUser.full_name && (currentUser.full_name.indexOf('Lê Việt Trinh') !== -1 || currentUser.full_name.indexOf('Le Viet Trinh') !== -1))
     );
+    var savedStateStr = localStorage.getItem('_kv_state');
+    var savedState = null;
+    if (savedStateStr) {
+        try { savedState = JSON.parse(savedStateStr); } catch(e) {}
+    }
+    var savedSbSearch = (savedState && savedState.sidebarSearchText) ? savedState.sidebarSearchText : '';
+
     var h = '<div class="kv-sb-title"><span>🏬 Kho Vải</span>' + (isGD ? '<span onclick="navigate(\'caidatkhovai\')" style="cursor:pointer;font-size:16px" title="Cài đặt">⚙️</span>' : '') + '</div>';
-    h += '<div style="padding:8px 12px"><input type="text" id="kvSbSearch" placeholder="🔍 Tìm chất liệu, kho..." oninput="_kvSbFilter(this.value)" /></div>';
+    h += '<div style="padding:8px 12px"><input type="text" id="kvSbSearch" placeholder="🔍 Tìm chất liệu, kho..." value="' + savedSbSearch.replace(/"/g, '&quot;') + '" oninput="_kvSbFilter(this.value)" /></div>';
 
     var totalBal = 0;
     _kv.tree.forEach(function(w) { totalBal += Number(w.total_balance || 0); });
@@ -121,11 +163,25 @@ function _kvRenderSidebar() {
         h += '</div>';
     });
     sb.innerHTML = h;
+
+    if (savedSbSearch) {
+        _kvSbFilter(savedSbSearch);
+    }
+    
+    var savedSidebarScroll = localStorage.getItem('_kv_sidebar_scroll');
+    if (savedSidebarScroll) {
+        sb.scrollTop = parseFloat(savedSidebarScroll);
+    }
+
+    sb.onscroll = function() {
+        localStorage.setItem('_kv_sidebar_scroll', sb.scrollTop);
+    };
 }
 
 var _kvSbFilterText = '';
 function _kvSbFilter(val) {
     _kvSbFilterText = (val || '').toLowerCase().trim();
+    _kvSaveState();
     var items = document.querySelectorAll('.kv-sb-wh, .kv-wh-mats');
     _kv.tree.forEach(function(w) {
         var whEl = document.querySelector('[data-wid="' + w.id + '"].kv-sb-wh');
@@ -146,9 +202,9 @@ function _kvSbFilter(val) {
     });
 }
 
-function _kvFilterAll() { _kv.selectedWid = null; _kv.selectedMid = null; _kv.filter = {}; _kvLoadSummary(); _kvRenderSidebar(); }
-function _kvFilterWh(wid) { _kv.selectedWid = wid; _kv.selectedMid = null; _kv.filter = { wid: wid }; _kvLoadSummary(); _kvRenderSidebar(); }
-function _kvFilterMat(wid, mid) { _kv.selectedWid = wid; _kv.selectedMid = mid; _kv.filter = { wid: wid, mid: mid }; _kvLoadSummary(); _kvRenderSidebar(); }
+function _kvFilterAll() { _kv.selectedWid = null; _kv.selectedMid = null; _kv.filter = {}; _kvSaveState(); _kvLoadSummary(); _kvRenderSidebar(); }
+function _kvFilterWh(wid) { _kv.selectedWid = wid; _kv.selectedMid = null; _kv.filter = { wid: wid }; _kvSaveState(); _kvLoadSummary(); _kvRenderSidebar(); }
+function _kvFilterMat(wid, mid) { _kv.selectedWid = wid; _kv.selectedMid = mid; _kv.filter = { wid: wid, mid: mid }; _kvSaveState(); _kvLoadSummary(); _kvRenderSidebar(); }
 
 // ========== LOAD SUMMARY ==========
 async function _kvLoadSummary() {
@@ -196,6 +252,7 @@ function _kvRenderToolbar() {
 
 function _kvOnSearch(val) {
     _kv.searchText = val;
+    _kvSaveState();
     _kvRenderTable();
 }
 
@@ -203,6 +260,7 @@ function _kvOnSearch(val) {
 function _kvSort(col) {
     if (_kv.sortCol === col) { _kv.sortDir = _kv.sortDir === 'asc' ? 'desc' : 'asc'; }
     else { _kv.sortCol = col; _kv.sortDir = 'desc'; }
+    _kvSaveState();
     _kvRenderTable();
 }
 function _kvRenderTable() {
@@ -357,6 +415,17 @@ function _kvRenderTable() {
     });
     h += '</tbody></table>';
     wrap.innerHTML = h;
+
+    var mainEl = document.querySelector('.kv-main');
+    if (mainEl) {
+        var savedMainScroll = localStorage.getItem('_kv_main_scroll');
+        if (savedMainScroll) {
+            mainEl.scrollTop = parseFloat(savedMainScroll);
+        }
+        mainEl.onscroll = function() {
+            localStorage.setItem('_kv_main_scroll', mainEl.scrollTop);
+        };
+    }
 }
 
 // ========== DETAIL MODAL ==========
