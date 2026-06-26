@@ -716,8 +716,26 @@ function mCards(){
                     </div>
                 `;
             } else {
-                const showMissingBtn = !cA || Number(r.actual_weight) === 0;
-                if (showMissingBtn) {
+                const isMissing = cA && Number(r.actual_weight) === 0;
+                if (isMissing) {
+                    actionRowHtml = `
+                        <div class="ca" style="grid-template-columns: 1fr;">
+                            <button class="${missingBtnClass}" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
+                                <span class="ai">❌</span>
+                                <span class="al">${missingBtnText}</span>
+                            </button>
+                        </div>
+                    `;
+                } else if (cA) {
+                    actionRowHtml = `
+                        <div class="ca" style="grid-template-columns: 1fr;">
+                            <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
+                                <span class="ai">${weightBtnIcon}</span>
+                                <span class="al">${weightBtnText}</span>
+                            </button>
+                        </div>
+                    `;
+                } else {
                     actionRowHtml = `
                         <div class="ca">
                             <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
@@ -727,15 +745,6 @@ function mCards(){
                             <button class="${missingBtnClass}" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
                                 <span class="ai">❌</span>
                                 <span class="al">${missingBtnText}</span>
-                            </button>
-                        </div>
-                    `;
-                } else {
-                    actionRowHtml = `
-                        <div class="ca" style="grid-template-columns: 1fr;">
-                            <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
-                                <span class="ai">${weightBtnIcon}</span>
-                                <span class="al">${weightBtnText}</span>
                             </button>
                         </div>
                     `;
@@ -909,6 +918,19 @@ async function mMarkMissing(rollId, rollCode) {
     const r = mr.find(item => item.roll_id === rollId);
     if (r && r.location && r.location.toLowerCase().includes('dự định hoàn vải')) {
         toast('⚠️ Cây vải đang trong quá trình hoàn trả NCC, không được thay đổi số liệu.', 'error');
+        return;
+    }
+    const isMissing = r && r.is_checked && Number(r.actual_weight) === 0;
+    if (isMissing) {
+        if (confirm(`Bạn có muốn hủy báo mất cho cây vải ${rollCode} để kiểm kê lại không?`)) {
+            try {
+                await api('/api/stockcheck/check/' + rollId, 'POST', { action: 'toggle_check' });
+                toast('↩️ Đã hủy báo mất cho cây ' + rollCode);
+                await mLoad();
+            } catch(e) {
+                toast(e.message || 'Lỗi hủy báo mất', 'error');
+            }
+        }
         return;
     }
     const colorName = r ? r.color_name : '—';
