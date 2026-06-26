@@ -1776,3 +1776,84 @@ async function _kkChangePhotoModeDuringAudit(val) {
         showToast(e.message || 'Lỗi cập nhật cấu hình', 'error');
     }
 }
+
+function viewImage(imgUrl) {
+    if (!imgUrl) return;
+    
+    // Remove existing viewer if any
+    const existing = document.getElementById('global-image-viewer');
+    if (existing) existing.remove();
+    
+    const viewerHtml = `
+        <div id="global-image-viewer" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(8px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        ">
+            <!-- Close button -->
+            <button onclick="document.getElementById('global-image-viewer').style.opacity='0'; setTimeout(()=>document.getElementById('global-image-viewer').remove(), 250);" style="
+                position: absolute;
+                top: 16px;
+                right: 16px;
+                width: 44px;
+                height: 44px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                color: #ffffff;
+                font-size: 24px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: background 0.2s;
+                z-index: 100000;
+            " onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                &times;
+            </button>
+            
+            <!-- Image container -->
+            <div style="max-width: 95%; max-height: 85%; display: flex; align-items: center; justify-content: center; position: relative;">
+                <img src="${imgUrl}" style="
+                    max-width: 100%;
+                    max-height: 85vh;
+                    object-fit: contain;
+                    border-radius: 8px;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                ">
+            </div>
+        </div>
+    `;
+    
+    const container = document.createElement('div');
+    container.innerHTML = viewerHtml;
+    const viewerDiv = container.firstElementChild;
+    
+    // Close when clicking the background
+    viewerDiv.addEventListener('click', function(e) {
+        if (e.target === viewerDiv || e.target.tagName === 'DIV') {
+            viewerDiv.style.opacity = '0';
+            setTimeout(() => viewerDiv.remove(), 250);
+        }
+    });
+    
+    document.body.appendChild(viewerDiv);
+    
+    // Trigger transition
+    setTimeout(() => {
+        viewerDiv.style.opacity = '1';
+    }, 10);
+}
+
+window.viewImage = viewImage;
