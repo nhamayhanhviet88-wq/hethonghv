@@ -1247,6 +1247,85 @@ async function mOpenFinishConfirmModal() {
             diffSign = `Dư +${diffWeight} kg`;
         }
 
+        let unitsHtml = '';
+        if (preview.by_unit && preview.by_unit.length > 0) {
+            preview.by_unit.forEach(u => {
+                const uInitW = Number(u.initial_weight).toLocaleString('vi-VN');
+                const uActW = Number(u.actual_weight).toLocaleString('vi-VN');
+                const uMissW = Number(u.missing_weight).toLocaleString('vi-VN');
+                const uSurpW = Number(u.surplus_weight).toLocaleString('vi-VN');
+                const uDiffW = Number(Math.abs(u.net_difference)).toLocaleString('vi-VN');
+
+                let uDiffClass = 'color: #34d399;';
+                let uDiffText = 'Khớp';
+                if (u.net_difference > 0) {
+                    uDiffClass = 'color: #f87171;';
+                    uDiffText = `Hao hụt -${uDiffW} ${u.unit}`;
+                } else if (u.net_difference < 0) {
+                    uDiffClass = 'color: #60a5fa;';
+                    uDiffText = `Dư +${uDiffW} ${u.unit}`;
+                }
+
+                unitsHtml += `
+                    <div style="border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; background: rgba(255,255,255,0.01); margin-bottom: 12px; padding: 12px;">
+                        <div style="font-weight: 800; font-size: 12px; color: #38bdf8; margin-bottom: 8px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
+                            <span>📦 ĐƠN VỊ: ${u.unit.toUpperCase()}</span>
+                            <span style="font-weight: 800; font-size: 11px; background: rgba(56,189,248,0.15); color: #38bdf8; padding: 2px 8px; border-radius: 20px;">
+                                ${u.checked_rolls}/${u.initial_rolls} cây
+                            </span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; font-size: 12px; color: #f8fafc;">
+                            <div>• Tồn HT đầu: <strong>${uInitW} ${u.unit}</strong></div>
+                            <div>• Kiểm thực tế: <strong>${uActW} ${u.unit}</strong></div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #94a3b8;">
+                            <div>• Báo mất: <span style="color:#f87171; font-weight:700;">${u.missing_rolls} cây (${uMissW} ${u.unit})</span></div>
+                            <div>• Thừa mới: <span style="color:#60a5fa; font-weight:700;">${u.surplus_rolls} cây (${uSurpW} ${u.unit})</span></div>
+                        </div>
+                        <div style="border-top: 1px dashed rgba(255,255,255,0.08); margin-top: 8px; padding-top: 6px; display: flex; justify-content: space-between; font-size: 13px;">
+                            <span>⚖️ Chênh lệch ròng:</span>
+                            <span style="font-weight: 900; ${uDiffClass}">${uDiffText}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            unitsHtml = `
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); padding:10px; border-radius:10px; text-align:center;">
+                        <div style="color:#94a3b8; font-size:10px; font-weight:700; text-transform:uppercase;">Tồn Hệ Thống</div>
+                        <div style="font-size:16px; font-weight:900; color:#f8fafc; margin-top:4px;">${initialWeight} kg</div>
+                        <div style="color:#64748b; font-size:10px; margin-top:2px;">(${preview.initial_rolls} cây)</div>
+                    </div>
+                    <div style="background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.1); padding:10px; border-radius:10px; text-align:center;">
+                        <div style="color:#34d399; font-size:10px; font-weight:700; text-transform:uppercase;">Kiểm Thực Tế</div>
+                        <div style="font-size:16px; font-weight:900; color:#34d399; margin-top:4px;">${actualWeight} kg</div>
+                        <div style="color:#059669; font-size:10px; margin-top:2px;">(${preview.checked_rolls} cây)</div>
+                    </div>
+                </div>
+
+                <div style="border:1px solid rgba(255,255,255,0.06); border-radius:10px; overflow:hidden; background:rgba(255,255,255,0.01);">
+                    <div style="background:rgba(255,255,255,0.02); padding:8px 12px; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.06); color:#94a3b8; font-size:10px; text-transform:uppercase;">
+                        Chi Tiết Kết Quả Kiểm Kê
+                    </div>
+                    <div style="padding:12px; display:flex; flex-direction:column; gap:8px; font-size:12px; color:#e2e8f0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>❌ Số cây báo mất:</span>
+                            <span style="font-weight:700; color:#f87171;">${preview.missing_rolls} cây (${missingWeight} kg)</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>➕ Số cây thừa mới:</span>
+                            <span style="font-weight:700; color:#60a5fa;">${preview.surplus_rolls} cây (${surplusWeight} kg)</span>
+                        </div>
+                        <div style="border-top:1px dashed rgba(255,255,255,0.08); margin-top:4px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:13px;">
+                            <span style="font-weight:700; color:#f8fafc;">⚖️ Chênh lệch ròng:</span>
+                            <span style="font-weight:900; ${diffClass}">${diffSign}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         const modalHtml = `
             <div class="m-modal-overlay" id="mFinishConfirmModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px;">
                 <div class="m-modal" style="width:100%; max-width:400px; background:#1e293b; border:1px solid rgba(255,255,255,0.08); border-radius:16px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
@@ -1261,38 +1340,7 @@ async function mOpenFinishConfirmModal() {
                             ⏰ <span style="font-weight:700;">Hoàn thành lúc:</span> ${preview.time}
                         </div>
 
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); padding:10px; border-radius:10px; text-align:center;">
-                                <div style="color:#94a3b8; font-size:10px; font-weight:700; text-transform:uppercase;">Tồn Hệ Thống</div>
-                                <div style="font-size:16px; font-weight:900; color:#f8fafc; margin-top:4px;">${initialWeight} kg</div>
-                                <div style="color:#64748b; font-size:10px; margin-top:2px;">(${preview.initial_rolls} cây)</div>
-                            </div>
-                            <div style="background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.1); padding:10px; border-radius:10px; text-align:center;">
-                                <div style="color:#34d399; font-size:10px; font-weight:700; text-transform:uppercase;">Kiểm Thực Tế</div>
-                                <div style="font-size:16px; font-weight:900; color:#34d399; margin-top:4px;">${actualWeight} kg</div>
-                                <div style="color:#059669; font-size:10px; margin-top:2px;">(${preview.checked_rolls} cây)</div>
-                            </div>
-                        </div>
-
-                        <div style="border:1px solid rgba(255,255,255,0.06); border-radius:10px; overflow:hidden; background:rgba(255,255,255,0.01);">
-                            <div style="background:rgba(255,255,255,0.02); padding:8px 12px; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.06); color:#94a3b8; font-size:10px; text-transform:uppercase;">
-                                Chi Tiết Kết Quả Kiểm Kê
-                            </div>
-                            <div style="padding:12px; display:flex; flex-direction:column; gap:8px; font-size:12px; color:#e2e8f0;">
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span>❌ Số cây báo mất:</span>
-                                    <span style="font-weight:700; color:#f87171;">${preview.missing_rolls} cây (${missingWeight} kg)</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span>➕ Số cây thừa mới:</span>
-                                    <span style="font-weight:700; color:#60a5fa;">${preview.surplus_rolls} cây (${surplusWeight} kg)</span>
-                                </div>
-                                <div style="border-top:1px dashed rgba(255,255,255,0.08); margin-top:4px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:13px;">
-                                    <span style="font-weight:700; color:#f8fafc;">⚖️ Chênh lệch ròng:</span>
-                                    <span style="font-weight:900; ${diffClass}">${diffSign}</span>
-                                </div>
-                            </div>
-                        </div>
+                        ${unitsHtml}
 
                         <div style="color:#f87171; background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.2); padding:10px; border-radius:8px; font-size:11px; font-weight:600; line-height:1.5;">
                             ⚠️ LƯU Ý: Chốt sổ kiểm kho sẽ cập nhật toàn bộ số dư thực tế, ghi nhận hóa đơn nhập/xuất hao hụt và mở khóa kho vải. Hành động này không thể hoàn tác!

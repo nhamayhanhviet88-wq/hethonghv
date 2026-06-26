@@ -767,6 +767,33 @@ module.exports = async function(fastify) {
             WHERE sc.is_checked = true
         `);
 
+        const initialGroups = await db.all(`
+            SELECT w.unit, COUNT(*)::int AS initial_rolls, SUM(r.weight)::numeric AS initial_weight
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
+            JOIN kv_materials m ON m.id=fc.material_id
+            JOIN kv_warehouses w ON w.id=m.warehouse_id
+            WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+            GROUP BY w.unit
+        `);
+
+        const by_unit = {};
+        for (const ig of initialGroups) {
+            const unit = ig.unit || 'kg';
+            by_unit[unit] = {
+                unit: unit,
+                initial_rolls: ig.initial_rolls || 0,
+                initial_weight: Number(ig.initial_weight || 0),
+                checked_rolls: 0,
+                actual_weight: Number(ig.initial_weight || 0),
+                missing_rolls: 0,
+                missing_weight: 0,
+                surplus_rolls: 0,
+                surplus_weight: 0,
+                net_difference: 0
+            };
+        }
+
         let missingRolls = 0, missingWeight = 0;
         let surplusRolls = 0, surplusWeight = 0;
         let netDiff = 0;
@@ -775,18 +802,52 @@ module.exports = async function(fastify) {
             const oldW = Number(rec.old_weight);
             const newW = Number(rec.actual_weight !== null ? rec.actual_weight : rec.old_weight);
             const diff = oldW - newW;
+            const unit = rec.unit || 'kg';
+
+            if (!by_unit[unit]) {
+                by_unit[unit] = {
+                    unit: unit,
+                    initial_rolls: 0,
+                    initial_weight: 0,
+                    checked_rolls: 0,
+                    actual_weight: 0,
+                    missing_rolls: 0,
+                    missing_weight: 0,
+                    surplus_rolls: 0,
+                    surplus_weight: 0,
+                    net_difference: 0
+                };
+            }
+
+            const uStats = by_unit[unit];
+            uStats.checked_rolls++;
 
             if (rec.notes && rec.notes.includes('Kệ dự định hoàn vải')) {
                 // Ignore return confirm rolls
             } else if (rec.source === 'kiem_kho_du') {
                 surplusRolls++;
                 surplusWeight += newW;
+
+                uStats.surplus_rolls++;
+                uStats.surplus_weight += newW;
             } else if (newW === 0) {
                 missingRolls++;
                 missingWeight += oldW;
-            } else if (diff !== 0) {
-                netDiff += diff;
+
+                uStats.missing_rolls++;
+                uStats.missing_weight += oldW;
+            } else {
+                if (diff !== 0) {
+                    netDiff += diff;
+                    uStats.net_difference += diff;
+                }
             }
+        }
+
+        for (const unit in by_unit) {
+            const uStats = by_unit[unit];
+            uStats.actual_weight = uStats.initial_weight - uStats.missing_weight + uStats.surplus_weight - uStats.net_difference;
+            uStats.net_difference = uStats.initial_weight - uStats.actual_weight;
         }
 
         const initialWeight = Number(session.total_weight || 0);
@@ -806,7 +867,8 @@ module.exports = async function(fastify) {
             missing_weight: missingWeight,
             surplus_rolls: surplusRolls,
             surplus_weight: surplusWeight,
-            net_difference: totalNetDiff
+            net_difference: totalNetDiff,
+            by_unit: Object.values(by_unit)
         };
     });
 

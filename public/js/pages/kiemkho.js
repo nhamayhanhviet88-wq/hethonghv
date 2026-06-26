@@ -1420,6 +1420,85 @@ async function _kkOpenFinishConfirmModal() {
             diffSign = `Dư +${diffWeight} kg`;
         }
 
+        let unitsHtml = '';
+        if (preview.by_unit && preview.by_unit.length > 0) {
+            preview.by_unit.forEach(u => {
+                const uInitW = Number(u.initial_weight).toLocaleString('vi-VN');
+                const uActW = Number(u.actual_weight).toLocaleString('vi-VN');
+                const uMissW = Number(u.missing_weight).toLocaleString('vi-VN');
+                const uSurpW = Number(u.surplus_weight).toLocaleString('vi-VN');
+                const uDiffW = Number(Math.abs(u.net_difference)).toLocaleString('vi-VN');
+
+                let uDiffClass = 'text-success';
+                let uDiffText = 'Khớp';
+                if (u.net_difference > 0) {
+                    uDiffClass = 'text-danger';
+                    uDiffText = `Hao hụt -${uDiffW} ${u.unit}`;
+                } else if (u.net_difference < 0) {
+                    uDiffClass = 'text-primary';
+                    uDiffText = `Dư +${uDiffW} ${u.unit}`;
+                }
+
+                unitsHtml += `
+                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 12px; padding: 12px; background:#f8fafc;">
+                        <div style="font-weight: 800; font-size: 12px; color: #0284c7; margin-bottom: 8px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
+                            <span>📦 ĐƠN VỊ: ${u.unit.toUpperCase()}</span>
+                            <span style="font-weight: 800; font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 20px;">
+                                ${u.checked_rolls}/${u.initial_rolls} cây
+                            </span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; font-size: 12px;">
+                            <div>• Tồn HT đầu: <strong>${uInitW} ${u.unit}</strong></div>
+                            <div>• Kiểm thực tế: <strong>${uActW} ${u.unit}</strong></div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #475569;">
+                            <div>• Báo mất: <span style="color:#ef4444; font-weight:700;">${u.missing_rolls} cây (${uMissW} ${u.unit})</span></div>
+                            <div>• Thừa mới: <span style="color:#3b82f6; font-weight:700;">${u.surplus_rolls} cây (${uSurpW} ${u.unit})</span></div>
+                        </div>
+                        <div style="border-top: 1px dashed #cbd5e1; margin-top: 8px; padding-top: 6px; display: flex; justify-content: space-between; font-size: 13px;">
+                            <span style="font-weight: 700; color: #1e293b;">⚖️ Chênh lệch ròng:</span>
+                            <span class="${uDiffClass}" style="font-weight: 900;">${uDiffText}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            unitsHtml = `
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+                    <div style="background:#f8fafc; border:1px solid #f1f5f9; padding:10px; border-radius:8px; text-align:center;">
+                        <div style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase;">Tồn Hệ Thống Đầu Kì</div>
+                        <div style="font-size:18px; font-weight:900; color:#1e293b; margin-top:4px;">${initialWeight} kg</div>
+                        <div style="color:#94a3b8; font-size:11px; margin-top:2px;">(${preview.initial_rolls} cây)</div>
+                    </div>
+                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:8px; text-align:center;">
+                        <div style="color:#166534; font-size:11px; font-weight:700; text-transform:uppercase;">Kiểm Thực Tế Cuối Kì</div>
+                        <div style="font-size:18px; font-weight:900; color:#14532d; margin-top:4px;">${actualWeight} kg</div>
+                        <div style="color:#166534; font-size:11px; margin-top:2px;">(${preview.checked_rolls} cây)</div>
+                    </div>
+                </div>
+
+                <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; margin-bottom:16px;">
+                    <div style="background:#f8fafc; padding:8px 12px; font-weight:700; border-bottom:1px solid #e2e8f0; color:#475569; font-size:11px; text-transform:uppercase;">
+                        Chi Tiết Kết Quả Kiểm Kê
+                    </div>
+                    <div style="padding:12px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>❌ Số cây báo mất:</span>
+                            <span style="font-weight:700; color:#ef4444;">${preview.missing_rolls} cây (${missingWeight} kg)</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>➕ Số cây thừa mới:</span>
+                            <span style="font-weight:700; color:#3b82f6;">${preview.surplus_rolls} cây (${surplusWeight} kg)</span>
+                        </div>
+                        <div style="border-top:1px dashed #e2e8f0; margin-top:4px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:14px;">
+                            <span style="font-weight:700; color:#1e293b;">⚖️ Chênh lệch ròng:</span>
+                            <span class="${diffClass}" style="font-weight:900;">${diffSign}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         const modalHtml = `
             <div class="kk-modal-overlay" id="kkFinishConfirmModal">
                 <div class="kk-modal" style="max-width:500px; border-radius:12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);">
@@ -1434,38 +1513,7 @@ async function _kkOpenFinishConfirmModal() {
                             ⏰ <span style="font-weight:700;">Thời gian hoàn thành:</span> ${preview.time}
                         </div>
 
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
-                            <div style="background:#f8fafc; border:1px solid #f1f5f9; padding:10px; border-radius:8px; text-align:center;">
-                                <div style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase;">Tồn Hệ Thống Đầu Kì</div>
-                                <div style="font-size:18px; font-weight:900; color:#1e293b; margin-top:4px;">${initialWeight} kg</div>
-                                <div style="color:#94a3b8; font-size:11px; margin-top:2px;">(${preview.initial_rolls} cây)</div>
-                            </div>
-                            <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:8px; text-align:center;">
-                                <div style="color:#166534; font-size:11px; font-weight:700; text-transform:uppercase;">Kiểm Thực Tế Cuối Kì</div>
-                                <div style="font-size:18px; font-weight:900; color:#14532d; margin-top:4px;">${actualWeight} kg</div>
-                                <div style="color:#166534; font-size:11px; margin-top:2px;">(${preview.checked_rolls} cây)</div>
-                            </div>
-                        </div>
-
-                        <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; margin-bottom:16px;">
-                            <div style="background:#f8fafc; padding:8px 12px; font-weight:700; border-bottom:1px solid #e2e8f0; color:#475569; font-size:11px; text-transform:uppercase;">
-                                Chi Tiết Kết Quả Kiểm Kê
-                            </div>
-                            <div style="padding:12px; display:flex; flex-direction:column; gap:8px;">
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span>❌ Số cây báo mất:</span>
-                                    <span style="font-weight:700; color:#ef4444;">${preview.missing_rolls} cây (${missingWeight} kg)</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span>➕ Số cây thừa mới:</span>
-                                    <span style="font-weight:700; color:#3b82f6;">${preview.surplus_rolls} cây (${surplusWeight} kg)</span>
-                                </div>
-                                <div style="border-top:1px dashed #e2e8f0; margin-top:4px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:14px;">
-                                    <span style="font-weight:700; color:#1e293b;">⚖️ Chênh lệch ròng:</span>
-                                    <span class="${diffClass}" style="font-weight:900;">${diffSign}</span>
-                                </div>
-                            </div>
-                        </div>
+                        ${unitsHtml}
 
                         <div style="color:#ef4444; background:#fef2f2; border:1px solid #fee2e2; padding:10px; border-radius:8px; font-size:12px; font-weight:600;">
                             ⚠️ LƯU Ý: Sau khi bấm xác nhận, hệ thống sẽ chốt sổ vĩnh viễn, tự động xuất/nhập hao hụt và mở khóa kho vải. Hành động này không thể hoàn tác!
