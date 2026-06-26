@@ -228,6 +228,12 @@
                 <div id="mGlobalProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #14b8a6, #10b981); transition: width 0.3s ease;"></div>
             </div>
         </div>
+        <!-- Finish Stock Check Button -->
+        <div id="mFinishSessionContainer" style="display: none; padding: 0 16px 8px; margin-top: 4px;">
+            <button onclick="mFinishSession()" style="width:100%; padding:12px; border:none; border-radius:10px; font-size:13px; font-weight:800; background:linear-gradient(135deg,#059669,#10b981); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 12px rgba(16,185,129,0.2);">
+                ✅ HOÀN THÀNH KIỂM KHO
+            </button>
+        </div>
         <div id="mSB" class="ms">
             <div onclick="mSetFilter('all')" style="background:linear-gradient(135deg,#0d9488,#14b8a6); cursor:pointer; transition:all 0.2s ease;"><div class="mv" id="sT">0</div><div class="ml" id="lbl_sT">TỔNG CÂY KỆ</div></div>
             <div style="background:linear-gradient(135deg,#0f766e,#0d9488);"><div class="mv" id="sW">0</div><div class="ml" id="lbl_sW">TỔNG KG KỆ</div></div>
@@ -509,6 +515,11 @@ async function mLoad(){
         if (progressTextEl && progressBarEl) {
             progressTextEl.textContent = `${globalChecked} / ${globalTotal} cây (${globalPct}%)`;
             progressBarEl.style.width = `${globalPct}%`;
+        }
+
+        const finishContainer = document.getElementById('mFinishSessionContainer');
+        if (finishContainer) {
+            finishContainer.style.display = globalPct === 100 ? 'block' : 'none';
         }
 
         // Calculate shelf-specific statistics
@@ -1205,6 +1216,20 @@ async function mSubmitWeight(rollId, systemWeight, rollImg) {
         await mLoad();
     } catch(e) {
         toast(e.message || 'Lỗi cập nhật', 'error');
+    }
+}
+
+async function mFinishSession() {
+    if (!confirm('⚠️ XÁC NHẬN CHỐT SỔ KIỂM KHO?\n\nHệ thống sẽ chốt sổ, cập nhật số dư kho, ghi nhận hóa đơn nhập/xuất hao hụt, và mở khóa kho vải. Hành động này không thể hoàn tác!')) return;
+
+    try {
+        await api('/api/stockcheck/finish-session', 'POST');
+        toast('✅ Chốt sổ kiểm kê kho vải thành công!');
+        setTimeout(() => {
+            location.reload();
+        }, 1500);
+    } catch(e) {
+        toast(e.message || 'Lỗi chốt sổ.', 'error');
     }
 }
 
