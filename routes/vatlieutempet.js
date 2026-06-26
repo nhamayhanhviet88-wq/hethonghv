@@ -20,6 +20,7 @@ module.exports = async function(fastify) {
     )`);
     await db.exec(`ALTER TABLE pettem_rolls ADD COLUMN IF NOT EXISTS material_tx_id INTEGER REFERENCES material_transactions(id) ON DELETE SET NULL`);
     await db.exec(`ALTER TABLE pettem_rolls ADD COLUMN IF NOT EXISTS xuat_tx_id INTEGER REFERENCES material_transactions(id) ON DELETE SET NULL`);
+    await db.exec(`ALTER TABLE pettem_rolls ADD COLUMN IF NOT EXISTS pending_approval BOOLEAN DEFAULT FALSE`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_type ON pettem_rolls(roll_type)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_date ON pettem_rolls(import_date)`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_ptr_material_tx ON pettem_rolls(material_tx_id)`);
@@ -455,8 +456,10 @@ module.exports = async function(fastify) {
         if (isNaN(qNum) || qNum <= 0) return reply.code(400).send({ error: 'Số lượng không hợp lệ' });
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Lý do hao hụt là bắt buộc' });
         
-        const roll = await db.get('SELECT qty_imported, qty_waste, qty_error, qty_printed FROM pettem_rolls WHERE id=$1', [id]);
+        const roll = await db.get('SELECT qty_imported, qty_waste, qty_error, qty_printed, pending_approval, confirmed_by FROM pettem_rolls WHERE id=$1', [id]);
         if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        if (roll.confirmed_by) return reply.code(400).send({ error: 'Cuộn vật liệu đã chốt' });
+        if (roll.pending_approval) return reply.code(400).send({ error: 'Cuộn vật liệu đang chờ Giám đốc duyệt chốt cuộn, không thể điều chỉnh.' });
         
         const newWaste = (Number(roll.qty_waste) || 0) + qNum;
         const rem = (Number(roll.qty_imported) || 0) - newWaste - (Number(roll.qty_error) || 0) - (Number(roll.qty_printed) || 0);
@@ -483,8 +486,10 @@ module.exports = async function(fastify) {
         if (isNaN(qNum) || qNum <= 0) return reply.code(400).send({ error: 'Số lượng không hợp lệ' });
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Lý do lỗi sản xuất là bắt buộc' });
         
-        const roll = await db.get('SELECT qty_imported, qty_waste, qty_error, qty_printed FROM pettem_rolls WHERE id=$1', [id]);
+        const roll = await db.get('SELECT qty_imported, qty_waste, qty_error, qty_printed, pending_approval, confirmed_by FROM pettem_rolls WHERE id=$1', [id]);
         if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        if (roll.confirmed_by) return reply.code(400).send({ error: 'Cuộn vật liệu đã chốt' });
+        if (roll.pending_approval) return reply.code(400).send({ error: 'Cuộn vật liệu đang chờ Giám đốc duyệt chốt cuộn, không thể điều chỉnh.' });
         
         const newError = (Number(roll.qty_error) || 0) + qNum;
         const rem = (Number(roll.qty_imported) || 0) - (Number(roll.qty_waste) || 0) - newError - (Number(roll.qty_printed) || 0);
@@ -512,7 +517,7 @@ module.exports = async function(fastify) {
         const rem = (Number(roll.qty_imported) || 0) - (Number(roll.qty_printed) || 0);
         await db.run(`
             UPDATE pettem_rolls
-            SET qty_waste = 0, qty_error = 0, qty_remaining = $1, confirmed_by = NULL, updated_at = NOW()
+            SET qty_waste = 0, qty_error = 0, qty_remaining = $1, confirmed_by = NULL, pending_approval = FALSE, updated_at = NOW()
             WHERE id = $2
         `, [rem, id]);
         
@@ -527,8 +532,15 @@ module.exports = async function(fastify) {
     // ========== CLOSE ROLL ==========
     fastify.post('/api/pettem/rolls/:id/close', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id);
-        const roll = await db.get('SELECT roll_type, qty_imported, qty_waste, qty_error, qty_remaining FROM pettem_rolls WHERE id=$1', [id]);
+        const roll = await db.get('SELECT roll_type, qty_imported, qty_waste, qty_error, qty_remaining, confirmed_by, pending_approval FROM pettem_rolls WHERE id=$1', [id]);
         if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        
+        if (roll.confirmed_by) {
+            return reply.code(400).send({ error: 'Cuộn vật liệu đã chốt' });
+        }
+        if (roll.pending_approval) {
+            return reply.code(400).send({ error: 'Cuộn vật liệu đang chờ Giám đốc duyệt chốt' });
+        }
         
         if (Math.abs(Number(roll.qty_remaining)) > 0.001) {
             return reply.code(400).send({ error: 'Chỉ được chốt cuộn khi tồn cuối bằng 0 (đã sử dụng hết)' });
@@ -554,45 +566,95 @@ module.exports = async function(fastify) {
         const maxAllowed = qtyImported * (allowedPct / 100);
         const isExceeded = totalWasteError - maxAllowed > 0.001;
 
-        let closeMethod = 'Chốt cuộn vật liệu';
-
         if (isExceeded) {
             const isDirector = req.user.role === 'giam_doc';
-            const { master_key } = req.body || {};
-            let isMasterKeyValid = false;
-
             if (!isDirector) {
-                if (master_key) {
-                    const bcrypt = require('bcrypt');
-                    const mkRow = await db.get("SELECT value FROM app_config WHERE key = 'master_login_key'");
-                    if (mkRow && mkRow.value) {
-                        isMasterKeyValid = await bcrypt.compare(master_key, mkRow.value);
-                    }
-                }
+                await db.run(`
+                    UPDATE pettem_rolls
+                    SET pending_approval = TRUE, updated_at = NOW()
+                    WHERE id = $1
+                `, [id]);
 
-                if (!isMasterKeyValid) {
-                    return reply.code(400).send({
-                        error: 'exceeded_waste_limit',
-                        message: `Hao hụt & Lỗi (${totalWasteError.toFixed(2)}m) vượt quá tỷ lệ cho phép (${allowedPct}% ~ ${maxAllowed.toFixed(2)}m). Cần Giám đốc phê duyệt hoặc nhập Mã Khóa Tổng để chốt cuộn.`
-                    });
-                }
-                closeMethod = `Chốt cuộn bằng Mã Khóa Tổng (vượt hạn mức: ${totalWasteError.toFixed(2)}m > ${maxAllowed.toFixed(2)}m)`;
-            } else {
-                closeMethod = `Giám đốc duyệt chốt cuộn (vượt hạn mức: ${totalWasteError.toFixed(2)}m > ${maxAllowed.toFixed(2)}m)`;
+                await db.run(`
+                    INSERT INTO pettem_history (roll_id, action, details, performed_by, performed_at)
+                    VALUES ($1, $2, $3, $4, NOW())
+                `, [id, 'pending_approval', `Gửi yêu cầu chốt cuộn lên Giám đốc (vượt hạn mức: ${totalWasteError.toFixed(2)}m > ${maxAllowed.toFixed(2)}m)`, req.user.id]);
+
+                return { success: true, pending_approval: true, message: 'Đã gửi yêu cầu chốt cuộn lên Giám đốc.' };
             }
         }
         
+        // Either not exceeded, or is director -> close immediately
         await db.run(`
             UPDATE pettem_rolls
-            SET confirmed_by = $1, updated_at = NOW()
+            SET confirmed_by = $1, pending_approval = FALSE, updated_at = NOW()
             WHERE id = $2
         `, [req.user.id, id]);
         
+        const closeMethod = isExceeded 
+            ? `Giám đốc duyệt chốt cuộn trực tiếp (vượt hạn mức: ${totalWasteError.toFixed(2)}m > ${maxAllowed.toFixed(2)}m)`
+            : 'Chốt cuộn vật liệu';
+
         await db.run(`
             INSERT INTO pettem_history (roll_id, action, details, performed_by, performed_at)
             VALUES ($1, $2, $3, $4, NOW())
         `, [id, 'close', closeMethod, req.user.id]);
         
+        return { success: true };
+    });
+
+    // ========== APPROVE CLOSE ROLL (DIRECTOR ONLY) ==========
+    fastify.post('/api/pettem/rolls/:id/approve', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        if (req.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc mới có quyền duyệt chốt cuộn.' });
+        }
+        
+        const roll = await db.get('SELECT roll_type, qty_imported, qty_waste, qty_error, pending_approval, confirmed_by FROM pettem_rolls WHERE id=$1', [id]);
+        if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        if (roll.confirmed_by) return reply.code(400).send({ error: 'Cuộn vật liệu đã chốt' });
+        if (!roll.pending_approval) return reply.code(400).send({ error: 'Cuộn vật liệu không trong trạng thái chờ duyệt' });
+
+        const qtyImported = Number(roll.qty_imported) || 0;
+        const totalWasteError = (Number(roll.qty_waste) || 0) + (Number(roll.qty_error) || 0);
+
+        await db.run(`
+            UPDATE pettem_rolls
+            SET confirmed_by = $1, pending_approval = FALSE, updated_at = NOW()
+            WHERE id = $2
+        `, [req.user.id, id]);
+
+        await db.run(`
+            INSERT INTO pettem_history (roll_id, action, details, performed_by, performed_at)
+            VALUES ($1, $2, $3, $4, NOW())
+        `, [id, 'close', `Giám đốc phê duyệt yêu cầu chốt cuộn (hao hụt: ${totalWasteError.toFixed(2)}m / ${qtyImported}m)`, req.user.id]);
+
+        return { success: true };
+    });
+
+    // ========== REJECT CLOSE ROLL (DIRECTOR ONLY) ==========
+    fastify.post('/api/pettem/rolls/:id/reject', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        if (req.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc mới có quyền từ chối chốt cuộn.' });
+        }
+        
+        const roll = await db.get('SELECT pending_approval, confirmed_by FROM pettem_rolls WHERE id=$1', [id]);
+        if (!roll) return reply.code(404).send({ error: 'Không tìm thấy cuộn vật liệu' });
+        if (roll.confirmed_by) return reply.code(400).send({ error: 'Cuộn vật liệu đã chốt' });
+        if (!roll.pending_approval) return reply.code(400).send({ error: 'Cuộn vật liệu không trong trạng thái chờ duyệt' });
+
+        await db.run(`
+            UPDATE pettem_rolls
+            SET pending_approval = FALSE, updated_at = NOW()
+            WHERE id = $1
+        `, [id]);
+
+        await db.run(`
+            INSERT INTO pettem_history (roll_id, action, details, performed_by, performed_at)
+            VALUES ($1, $2, $3, $4, NOW())
+        `, [id, 'reject', 'Giám đốc từ chối yêu cầu chốt cuộn', req.user.id]);
+
         return { success: true };
     });
 };

@@ -216,6 +216,13 @@ function _ptRender(){
             nameCellHtml = '<div style="display:flex;align-items:center;justify-content:flex-start;text-align:left">' + treeBadge + '<span>' + displayFieldName + '</span></div>';
         }
         
+        var confirmedCell = '—';
+        if (r.confirmed_by_name) {
+            confirmedCell = r.confirmed_by_name;
+        } else if (r.pending_approval) {
+            confirmedCell = '<span style="color:#d97706;font-weight:800;font-size:9.5px;background:#fef3c7;padding:2px 6px;border-radius:4px;border:1px solid #fde68a">⏳ Chờ duyệt</span>';
+        }
+        
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
         +'<td style="text-align:center"><button class="pt-btn" style="padding:2px 8px;font-size:10px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer" onclick="openPtDetailsModal('+r.id+')">🌲 ' + btnLabel + '</button></td>'
         +'<td style="font-size:10px">'+_ptFD(r.import_date)+'</td>'
@@ -226,7 +233,7 @@ function _ptRender(){
         +'<td style="text-align:center;color:#dc2626;font-weight:600">'+_ptFN(r.qty_error)+'</td>'
         +'<td><span class="pt-rem '+rC+'">'+rL+'</span></td>'
         +'<td style="text-align:center;font-weight:700;color:#059669">'+_ptFN(r.qty_printed)+'</td>'
-        +'<td style="font-size:10px;color:#6366f1;font-weight:600">'+(r.confirmed_by_name||'—')+'</td>'
+        +'<td style="font-size:10px;color:#6366f1;font-weight:600">'+confirmedCell+'</td>'
         +'<td style="font-size:9px;max-width:100px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';}).join('');}
     var el=document.getElementById('ptInfo');if(el){var lbl=_pt.filter.roll_type?(_ptTL[_pt.filter.roll_type]||''):'Tất cả';
@@ -726,6 +733,15 @@ async function openPtDetailsModal(rollId) {
         var actHtml = '';
         if (roll.confirmed_by) {
             actHtml = '<div class="pt-badge-closed">🔒 ĐÃ CHỐT CUỘN<br><span style="font-size:9px;font-weight:normal">Bởi ' + (roll.confirmed_by_name || 'Hệ thống') + '<br>' + _ptFDT(roll.confirmed_at) + '</span></div>';
+        } else if (roll.pending_approval) {
+            var isDirector = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+            if (isDirector) {
+                actHtml = '<div style="background:#fef3c7;border:1px solid #fde68a;color:#d97706;padding:8px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:8px;line-height:1.4;text-align:center">⚠️ ĐANG CHỜ DUYỆT CHỐT</div>'
+                        + '<button class="pt-action-btn" style="background:#059669;color:#fff;border:none;margin-top:4px" onclick="ptDetailsApproveRoll(' + roll.id + ')">✅ Duyệt chốt</button>'
+                        + '<button class="pt-action-btn" style="background:#dc2626;color:#fff;border:none;margin-top:8px" onclick="ptDetailsRejectRoll(' + roll.id + ')">❌ Từ chối</button>';
+            } else {
+                actHtml = '<div class="pt-badge-closed" style="background:#fef3c7;color:#d97706;border:1px solid #fde68a">⏳ CHỜ DUYỆT CHỐT<br><span style="font-size:9px;font-weight:normal">Đang chờ Giám đốc duyệt chốt do vượt hao hụt</span></div>';
+            }
         } else {
             actHtml = '<button class="pt-action-btn waste" onclick="ptDetailsAction(\'waste\', ' + roll.id + ')">⚠️ Hao hụt</button>'
                     + '<button class="pt-action-btn error" style="margin-top:8px" onclick="ptDetailsAction(\'error\', ' + roll.id + ')">❌ Sản xuất lỗi</button>';
@@ -746,6 +762,10 @@ async function openPtDetailsModal(rollId) {
                 badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:4px;font-weight:700">Chốt cuộn</span>';
             } else if (h.action === 'reset') {
                 badge = '<span style="background:#e2e8f0;color:#475569;padding:2px 6px;border-radius:4px;font-weight:700">Reset</span>';
+            } else if (h.action === 'pending_approval') {
+                badge = '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-weight:700">Chờ duyệt</span>';
+            } else if (h.action === 'reject') {
+                badge = '<span style="background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-weight:700">Từ chối</span>';
             } else {
                 badge = '<span style="background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;font-weight:700">Nhập kho</span>';
             }
@@ -971,26 +991,50 @@ async function ptDetailsReset(rollId) {
     }
 }
 
-async function ptDetailsCloseRoll(rollId, masterKey = null) {
-    if (!masterKey) {
-        if (!confirm('Bạn có chắc chắn muốn chốt cây vật liệu này? Sau khi chốt sẽ không thể chỉnh sửa hoặc dùng in đơn mới.')) return;
-    }
+async function ptDetailsCloseRoll(rollId) {
+    if (!confirm('Bạn có chắc chắn muốn chốt cây vật liệu này? Sau khi chốt sẽ không thể chỉnh sửa hoặc dùng in đơn mới.')) return;
     try {
-        var res = await apiCall('/api/pettem/rolls/' + rollId + '/close', 'POST', { master_key: masterKey });
+        var res = await apiCall('/api/pettem/rolls/' + rollId + '/close', 'POST');
         if (res && res.error) {
-            if (res.error === 'exceeded_waste_limit') {
-                var enteredKey = prompt(res.message + '\n\nVui lòng nhập Mã Khóa Tổng để duyệt chốt cuộn:');
-                if (enteredKey === null) return; // user cancelled
-                if (!enteredKey.trim()) {
-                    showToast('Chưa nhập mã khóa tổng', 'error');
-                    return;
-                }
-                await ptDetailsCloseRoll(rollId, enteredKey);
-            } else {
-                showToast(res.message || res.error, 'error');
-            }
+            showToast(res.message || res.error, 'error');
+        } else if (res && res.pending_approval) {
+            showToast(res.message || 'Đã gửi yêu cầu chốt cuộn lên Giám đốc.');
+            await openPtDetailsModal(rollId);
+            _ptLoadAll();
         } else {
             showToast('✅ Đã chốt cây vật liệu!');
+            await openPtDetailsModal(rollId);
+            _ptLoadAll();
+        }
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    }
+}
+
+async function ptDetailsApproveRoll(rollId) {
+    if (!confirm('Bạn có chắc chắn muốn DUYỆT chốt cây vật liệu này?')) return;
+    try {
+        var res = await apiCall('/api/pettem/rolls/' + rollId + '/approve', 'POST');
+        if (res && res.error) {
+            showToast(res.error, 'error');
+        } else {
+            showToast('✅ Đã duyệt chốt cây vật liệu!');
+            await openPtDetailsModal(rollId);
+            _ptLoadAll();
+        }
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    }
+}
+
+async function ptDetailsRejectRoll(rollId) {
+    if (!confirm('Bạn có chắc chắn muốn TỪ CHỐI yêu cầu chốt cây vật liệu này?')) return;
+    try {
+        var res = await apiCall('/api/pettem/rolls/' + rollId + '/reject', 'POST');
+        if (res && res.error) {
+            showToast(res.error, 'error');
+        } else {
+            showToast('✅ Đã từ chối yêu cầu chốt cuộn!');
             await openPtDetailsModal(rollId);
             _ptLoadAll();
         }
