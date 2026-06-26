@@ -622,7 +622,7 @@ async function _kkRenderAudit(content) {
     const activeMatsList = activeShelf ? activeShelf.materials_list : '';
     
     // Progress calculation
-    const totalRolls = _kk.session.total_rolls || 0;
+    const totalRolls = _kk.tree.totals ? _kk.tree.totals.total_rolls || 0 : 0;
     const checkedCount = _kk.tree.checked_count || 0;
     const progressPct = totalRolls > 0 ? Math.min(100, Math.round((checkedCount / totalRolls) * 100)) : 0;
     
