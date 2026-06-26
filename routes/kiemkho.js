@@ -188,6 +188,46 @@ module.exports = async function(fastify) {
             });
         }
 
+        // Check if there are unassigned retail rolls (Cây Lẻ Cần Xử Lý Kho)
+        const unassignedFreeLe = await db.all(`
+            SELECT r.id, r.weight, r.roll_code, r.location,
+                   fc.color_name, m.name AS material_name, w.name AS warehouse_name
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+            JOIN kv_warehouses w ON w.id = m.warehouse_id
+            WHERE r.is_returned = false
+              AND r.weight > 0
+              AND r.weight < r.original_weight
+              AND fc.is_active = true
+              AND m.is_active = true
+              AND w.is_active = true
+              AND (r.locked_by_cutting_id IS NULL OR r.locked_by_cutting_id NOT IN (
+                  SELECT id FROM cutting_records WHERE is_cut_done = false
+              ))
+              AND NOT EXISTS (
+                  SELECT 1 FROM qlx_fabric_reservations res
+                  WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
+              )
+              AND (
+                  r.location IS NULL 
+                  OR TRIM(r.location) = '' 
+                  OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (
+                      SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', ''))
+                      FROM kv_locations l
+                      WHERE l.warehouse_id = m.warehouse_id
+                  )
+              )
+            ORDER BY m.name, fc.color_name, r.id
+        `);
+
+        if (unassignedFreeLe.length > 0) {
+            return reply.code(409).send({
+                error: 'Không thể bắt đầu kiểm kê do còn cây lẻ cần xử lý kho chưa xếp lên kệ!',
+                unassigned_free_le: unassignedFreeLe
+            });
+        }
+
         // Count current warehouse statistics to store in the session
         const stats = await db.get(`
             SELECT COUNT(*)::int AS total_rolls,

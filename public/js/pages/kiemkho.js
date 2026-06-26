@@ -525,6 +525,8 @@ async function _kkStartSession() {
                 _kkShowBlockedReturnsModal(res.pending_returns);
             } else if (res.active_cuts) {
                 _kkShowBlockedCutsModal(res.active_cuts);
+            } else if (res.unassigned_free_le) {
+                _kkShowBlockedUnassignedLeModal(res.unassigned_free_le);
             } else {
                 showToast(res.error, 'error');
             }
@@ -539,12 +541,14 @@ async function _kkStartSession() {
             _kkLoadSessionStatus(content);
         }
     } catch (e) {
-        // Handle blocked cuts or returns (409 Conflict)
+        // Handle blocked cuts, returns or unassigned retail rolls (409 Conflict)
         if (e.status === 409 && e.data) {
             if (e.data.pending_returns) {
                 _kkShowBlockedReturnsModal(e.data.pending_returns);
             } else if (e.data.active_cuts) {
                 _kkShowBlockedCutsModal(e.data.active_cuts);
+            } else if (e.data.unassigned_free_le) {
+                _kkShowBlockedUnassignedLeModal(e.data.unassigned_free_le);
             } else {
                 showToast(e.message || 'Không thể bắt đầu kiểm kê.', 'error');
             }
@@ -694,6 +698,74 @@ function _kkShowBlockedReturnsModal(pendingReturns) {
     document.body.appendChild(div);
 }
 
+// ========== SHOW MODAL FOR BLOCKED UNASSIGNED LE ROLLS ==========
+function _kkShowBlockedUnassignedLeModal(rolls) {
+    let rowsHtml = '';
+    rolls.forEach((r, idx) => {
+        rowsHtml += `
+            <tr>
+                <td class="text-center font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${idx + 1}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-warning" style="font-size:11px; background-color:#fffbeb; color:#b45309; border: 1px solid #fde68a; padding: 3px 6px; border-radius: 4px;">${r.roll_code || '—'}</span></td>
+                <td class="font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${r.material_name || '—'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-secondary" style="font-size:11px; background-color:#f1f5f9; color:#334155; border: 1px solid #e2e8f0; padding: 3px 6px; border-radius: 4px;">${r.color_name || '—'}</span></td>
+                <td class="font-weight-bold text-teal" style="padding: 8px; border-bottom: 1px solid #f1f5f9; color:#0d9488;">${r.weight ? r.weight + ' kg' : '—'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-info" style="font-size:11px; background-color:#ecfeff; color:#0891b2; border: 1px solid #cffafe; padding: 3px 6px; border-radius: 4px;">${r.warehouse_name || '—'}</span></td>
+            </tr>
+        `;
+    });
+
+    const isMobile = window.location.pathname.startsWith('/m/');
+    const redirectUrl = isMobile ? '/m/quanlykhovai' : '/quanlykhovai';
+
+    const modalHtml = `
+        <div class="kk-modal-overlay" id="kkBlockedUnassignedLeModal">
+            <div class="kk-modal" style="max-width:680px; width:95%; background:#fff; border-radius:12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); overflow:hidden;">
+                <div class="kk-modal-header" style="background:#fffbeb; border-bottom:1px solid #fef3c7; padding: 16px 20px; display:flex; justify-content:space-between; align-items:center;">
+                    <div class="kk-modal-title" style="color:#b45309; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                        <span>⚠️ KHÔNG THỂ BẮT ĐẦU KIỂM KHO</span>
+                    </div>
+                    <button class="close" onclick="_kkCloseModal('kkBlockedUnassignedLeModal')" style="font-size:24px; border:none; background:none; cursor:pointer; color:#94a3b8;">&times;</button>
+                </div>
+                <div class="kk-modal-body" style="padding: 20px;">
+                    <p style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.5;">
+                        Hệ thống phát hiện có <strong>cây lẻ chưa được xếp lên kệ</strong> (trong mục 🛠️ Cây Lẻ Cần Xử Lý Kho). Bạn bắt buộc phải xếp hết các cây lẻ này lên vị trí kệ trước khi bắt đầu đợt kiểm kê mới:
+                    </p>
+                    <div style="max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom: 16px;">
+                        <table class="table" style="font-size:11px; margin:0; width:100%; border-collapse:collapse; text-align:left;">
+                            <thead>
+                                <tr style="background:#f8fafc;">
+                                    <th style="width:40px; padding:8px; border-bottom: 1px solid #e2e8f0;" class="text-center">STT</th>
+                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Mã Cây Vải</th>
+                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Chất Liệu</th>
+                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Màu Sắc</th>
+                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Cân Nặng</th>
+                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Kho Vải</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="kk-modal-footer" style="padding: 16px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <a href="${redirectUrl}" class="kk-btn kk-btn-primary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#f59e0b,#d97706); border:none; color:#fff; font-weight:700; padding:8px 16px; border-radius:6px; font-size:12px; cursor:pointer;">
+                        🚚 Đi đến Quản Lý Nhập Kho Vải
+                    </a>
+                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkBlockedUnassignedLeModal')" style="padding:8px 16px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; color:#475569; font-size:12px; cursor:pointer;">Đóng</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Append to body
+    const div = document.createElement('div');
+    div.id = 'kkBlockedUnassignedLeModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+    _kkUpdateBodyScroll();
+}
+
 function _kkUpdateBodyScroll() {
     var hasOpenModal = document.getElementById('kkRollOriginModal') || 
                        document.getElementById('_fabDetailOv') || 
@@ -704,6 +776,7 @@ function _kkUpdateBodyScroll() {
                        document.getElementById('kkMissingModal') ||
                        document.getElementById('kkBlockedCutsModal') ||
                        document.getElementById('kkBlockedReturnsModal') ||
+                       document.getElementById('kkBlockedUnassignedLeModal') ||
                        document.getElementById('kkFinishConfirmModal') ||
                        document.getElementById('kkMaterialSelectModal');
     if (hasOpenModal) {
