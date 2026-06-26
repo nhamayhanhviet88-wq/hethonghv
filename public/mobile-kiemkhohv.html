@@ -2109,7 +2109,7 @@ function mOpenImportBill(importId) {
 
 async function mOpenRollOrigin(rollId) {
     try {
-        const r = await apiCall('/api/stockcheck/roll-origin/' + rollId);
+        const r = await api('/api/stockcheck/roll-origin/' + rollId);
         if (!r) {
             toast('Không lấy được thông tin nguồn gốc cây vải', 'error');
             return;
