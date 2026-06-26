@@ -716,18 +716,30 @@ function mCards(){
                     </div>
                 `;
             } else {
-                actionRowHtml = `
-                    <div class="ca">
-                        <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
-                            <span class="ai">${weightBtnIcon}</span>
-                            <span class="al">${weightBtnText}</span>
-                        </button>
-                        <button class="${missingBtnClass}" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
-                            <span class="ai">❌</span>
-                            <span class="al">${missingBtnText}</span>
-                        </button>
-                    </div>
-                `;
+                const showMissingBtn = !cA || Number(r.actual_weight) === 0;
+                if (showMissingBtn) {
+                    actionRowHtml = `
+                        <div class="ca">
+                            <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
+                                <span class="ai">${weightBtnIcon}</span>
+                                <span class="al">${weightBtnText}</span>
+                            </button>
+                            <button class="${missingBtnClass}" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
+                                <span class="ai">❌</span>
+                                <span class="al">${missingBtnText}</span>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionRowHtml = `
+                        <div class="ca" style="grid-template-columns: 1fr;">
+                            <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
+                                <span class="ai">${weightBtnIcon}</span>
+                                <span class="al">${weightBtnText}</span>
+                            </button>
+                        </div>
+                    `;
+                }
             }
 
             html+=`
