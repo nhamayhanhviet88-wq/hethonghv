@@ -22,7 +22,7 @@ async function compressImage(inputBuffer, options = {}) {
     const format = options.format || 'webp';
     const originalSize = inputBuffer.length;
 
-    let pipeline = sharp(inputBuffer);
+    let pipeline = sharp(inputBuffer).rotate();
     const metadata = await pipeline.metadata();
 
     // Resize if too wide
