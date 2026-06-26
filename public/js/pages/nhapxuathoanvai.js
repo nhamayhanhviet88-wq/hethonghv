@@ -1484,7 +1484,7 @@ async function submitNxhvConfig() {
 }
 window.submitNxhvConfig = submitNxhvConfig;
 
-async function openPostponeModal(id) {
+async function openPostponeModal(id, forceForm = false) {
     if (!isAccountantOrMgmtFront()) {
         showToast('Chỉ Kế toán, Giám đốc, hoặc Lê Việt Trinh mới có quyền lùi lịch hoàn vải!', 'error');
         return;
@@ -1522,7 +1522,7 @@ async function openPostponeModal(id) {
         console.error('Failed to load max postpone days config:', e);
     }
     
-    if (tx.is_postponed) {
+    if (tx.is_postponed && !forceForm) {
         // CASE: Already postponed - show detail & option to unpostpone
         var dateStr = '—';
         if (tx.postponed_at) {
@@ -1577,7 +1577,8 @@ async function openPostponeModal(id) {
         '</div>';
         
         var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>' +
-            '<button class="btn btn-danger" onclick="submitUnpostpone(' + tx.id + ')" style="width:auto; background:#ef4444; border:none; color:#fff; font-weight:700;">Hủy Lùi Lịch</button>';
+            '<button class="btn btn-danger" onclick="submitUnpostpone(' + tx.id + ')" style="width:auto; background:#ef4444; border:none; color:#fff; font-weight:700;">Hủy Lùi Lịch</button>' +
+            '<button class="btn btn-primary" onclick="openPostponeModal(' + tx.id + ', true)" style="width:auto; background:#d97706; border:none; color:#fff; font-weight:700; margin-left:5px;">Lùi Tiếp Lịch</button>';
             
         openModal('⏳ Chi Tiết Lùi Lịch Hoàn Vải', bodyHTML, footerHTML);
         var container = document.getElementById('modalContainer');
