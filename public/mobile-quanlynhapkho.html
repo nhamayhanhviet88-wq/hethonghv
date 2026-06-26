@@ -1620,6 +1620,7 @@
 
             populateMoveSelect(materialId);
             document.getElementById('moveModal').style.display = 'flex';
+            updateBodyScroll();
         }
 
         function openSingleMoveModal(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode) {
@@ -1644,11 +1645,13 @@
             
             populateMoveSelect(materialId);
             document.getElementById('moveModal').style.display = 'flex';
+            updateBodyScroll();
         }
 
         function closeMoveModal() {
             document.getElementById('moveModal').style.display = 'none';
             activeMoveItem = null;
+            updateBodyScroll();
         }
 
         async function executeMove() {
@@ -1694,6 +1697,7 @@
             }
 
             document.getElementById('qkvQrModal').style.display = 'flex';
+            updateBodyScroll();
             scanner = new Html5Qrcode("qkvQrReader");
             var config = { fps: 10, qrbox: { width: 220, height: 220 } };
 
@@ -1720,6 +1724,7 @@
 
         function stopQR() {
             document.getElementById('qkvQrModal').style.display = 'none';
+            updateBodyScroll();
             if (scanner) {
                 scanner.stop().then(() => {
                     scanner.clear();
@@ -1783,11 +1788,29 @@
             document.getElementById('importModal').style.display = 'flex';
             
             renderImportList();
+            updateBodyScroll();
         }
 
         function closeImportModal() {
             document.getElementById('importModal').style.display = 'none';
             activeImportShelf = null;
+            updateBodyScroll();
+        }
+
+        function updateBodyScroll() {
+            var hasOpenModal = 
+                (document.getElementById('importModal') && document.getElementById('importModal').style.display === 'flex') ||
+                (document.getElementById('moveModal') && document.getElementById('moveModal').style.display === 'flex') ||
+                (document.getElementById('qkvQrModal') && document.getElementById('qkvQrModal').style.display === 'flex') ||
+                (document.getElementById('qkvImagePreviewModal') && document.getElementById('qkvImagePreviewModal').style.display === 'flex') ||
+                (document.getElementById('qkvBillDetailOverlay') && document.getElementById('qkvBillDetailOverlay').style.display === 'flex') ||
+                (document.getElementById('qrViewModal') && document.getElementById('qrViewModal').style.display === 'flex');
+            
+            if (hasOpenModal) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
         }
 
         function renderImportList() {
@@ -2048,10 +2071,12 @@
             document.getElementById('qrViewImage').src = qrUrl;
             document.getElementById('qrViewShelfName').textContent = locName;
             document.getElementById('qrViewModal').style.display = 'flex';
+            updateBodyScroll();
         }
 
         function closeQrViewModal() {
             document.getElementById('qrViewModal').style.display = 'none';
+            updateBodyScroll();
         }
 
         function printQr() {
@@ -2186,6 +2211,7 @@
         async function openImagePreviewModal(imgUrl, rollId = null) {
             document.getElementById('qkvImagePreviewContent').src = imgUrl;
             document.getElementById('qkvImagePreviewModal').style.display = 'flex';
+            updateBodyScroll();
             
             var infoContainer = document.getElementById('qkvImageInfoContainer');
             if (infoContainer) {
@@ -2307,6 +2333,7 @@
             document.getElementById('qkvImagePreviewModal').style.display = 'none';
             var infoContainer = document.getElementById('qkvImageInfoContainer');
             if (infoContainer) infoContainer.style.display = 'none';
+            updateBodyScroll();
         }
 
         async function performDirectRollReturn(rollId) {
@@ -2436,6 +2463,7 @@
             try {
                 document.getElementById('qkvBillDetailBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8"><div style="width:28px;height:28px;border:3px solid rgba(255,255,255,.1);border-top-color:#6366f1;border-radius:50%;animation:qkvSn .6s linear infinite;display:inline-block;margin-bottom:8px"></div><div>Đang tải chi tiết...</div></div>';
                 document.getElementById('qkvBillDetailOverlay').style.display = 'flex';
+                updateBodyScroll();
                 
                 const res = await api('/api/import/fabric-detail/' + id);
                 const r = res.record;
@@ -2560,6 +2588,7 @@
 
         function closeQkvBillDetail() {
             document.getElementById('qkvBillDetailOverlay').style.display = 'none';
+            updateBodyScroll();
         }
 
         async function qkvTogBill(id, a) {
