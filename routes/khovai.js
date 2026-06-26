@@ -157,14 +157,16 @@ module.exports = async function (fastify) {
     // GET /api/khovai/colors?mid= — List colors for a material
     fastify.get('/api/khovai/colors', { preHandler: [authenticate] }, async (request) => {
         const { mid, include_inactive } = request.query;
-        let sql = `SELECT fc.*, m.name AS material_name, w.name AS warehouse_name, w.unit
+        let sql = `SELECT fc.id, fc.material_id, fc.color_name, fc.price, fc.original_tree_threshold, fc.location, fc.created_by, fc.created_at, fc.updated_by, fc.updated_at,
+                          (fc.is_active AND m.is_active) AS is_active,
+                          m.name AS material_name, w.name AS warehouse_name, w.unit
                    FROM kv_fabric_colors fc
                    JOIN kv_materials m ON m.id = fc.material_id
                    JOIN kv_warehouses w ON w.id = m.warehouse_id
-                   WHERE m.is_active = true`;
+                   WHERE w.is_active = true`;
         const params = [];
         if (include_inactive !== 'true') {
-            sql += ' AND fc.is_active = true';
+            sql += ' AND m.is_active = true AND fc.is_active = true';
         }
         if (mid) {
             sql += ` AND fc.material_id = $${params.length + 1}`;

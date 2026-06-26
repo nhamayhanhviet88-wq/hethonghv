@@ -108,7 +108,9 @@ module.exports = async function(fastify) {
 
             const roll = await db.get(`
                 SELECT r.id, r.roll_code, r.weight, r.original_weight, r.location, r.note, r.source, r.created_at,
-                       fc.color_name, m.name AS material_name, u.full_name AS creator_name, u.username AS creator_username
+                       CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
+                       CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
+                       u.full_name AS creator_name, u.username AS creator_username
                 FROM kv_rolls r
                 JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                 JOIN kv_materials m ON m.id = fc.material_id
@@ -152,7 +154,9 @@ module.exports = async function(fastify) {
         // Check for pending returns
         const pendingRequestedReturns = await db.all(`
             SELECT r.id, r.weight, r.roll_code, r.created_at, r.return_requested_at,
-                   fc.color_name, m.name AS material_name, u.full_name AS requester_name
+                   CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
+                   CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
+                   u.full_name AS requester_name
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
@@ -172,7 +176,9 @@ module.exports = async function(fastify) {
         const activeCuts = await db.all(`
             SELECT DISTINCT cr.id AS cut_id, cr.dht_order_id,
                             o.order_code, r.roll_code, r.location,
-                            r.weight, fc.color_name, m.name AS material_name
+                            r.weight,
+                            CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
+                            CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name
             FROM kv_rolls r
             JOIN cutting_records cr ON cr.id = r.locked_by_cutting_id
             LEFT JOIN dht_orders o ON o.id = cr.dht_order_id
@@ -191,7 +197,9 @@ module.exports = async function(fastify) {
         // Check if there are unassigned retail rolls (Cây Lẻ Cần Xử Lý Kho)
         const unassignedFreeLe = await db.all(`
             SELECT r.id, r.weight, r.roll_code, r.location,
-                   fc.color_name, m.name AS material_name, w.name AS warehouse_name
+                   CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
+                   CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
+                   w.name AS warehouse_name
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
@@ -511,12 +519,14 @@ module.exports = async function(fastify) {
             FROM kv_warehouses w WHERE w.is_active=true ORDER BY w.display_order, w.id`);
         for (const w of warehouses) {
             w.materials = await db.all(`
-                SELECT m.id, m.name,
+                SELECT m.id,
+                       CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS name,
+                       m.is_active,
                        COALESCE((SELECT COUNT(*) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
                            WHERE fc.material_id=m.id AND r.is_returned=false AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::int AS roll_count,
                        COALESCE((SELECT SUM(r.weight) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
                            WHERE fc.material_id=m.id AND r.is_returned=false AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::numeric AS total_weight
-                FROM kv_materials m WHERE m.warehouse_id=$1 AND m.is_active=true ORDER BY m.display_order, m.name`, [w.id]);
+                FROM kv_materials m WHERE m.warehouse_id=$1 ORDER BY m.display_order, m.name`, [w.id]);
         }
         const totals = await db.get(`SELECT
             COALESCE((SELECT COUNT(*) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id JOIN kv_materials m ON m.id=fc.material_id JOIN kv_warehouses w ON w.id=m.warehouse_id WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::int AS total_rolls,
@@ -598,7 +608,10 @@ module.exports = async function(fastify) {
 
         const rows = await db.all(`
             SELECT r.id AS roll_id, r.roll_code, r.weight AS system_weight, r.original_weight, r.source, r.created_at, r.note AS roll_note, r.image_path AS roll_img, r.location, r.source_import_id,
-                   fc.id AS fabric_color_id, fc.color_name, m.id AS material_id, m.name AS material_name,
+                   fc.id AS fabric_color_id,
+                   CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
+                   m.id AS material_id,
+                   CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
                    w.name AS warehouse_name, w.unit,
                    sc.id AS sc_id, sc.actual_weight, sc.difference, sc.is_checked, sc.checked_at, sc.notes AS sc_notes,
                    u_ck.full_name AS checked_by_name,
@@ -841,7 +854,10 @@ module.exports = async function(fastify) {
 
         const records = await db.all(`
             SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location, r.created_at AS roll_created_at,
-                   fc.color_name, fc.id AS color_id, m.name AS material_name, w.name AS warehouse_name, w.unit
+                   CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
+                   fc.id AS color_id,
+                   CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
+                   w.name AS warehouse_name, w.unit
             FROM stockcheck_records sc
             JOIN kv_rolls r ON r.id = sc.roll_id
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
@@ -1008,7 +1024,10 @@ module.exports = async function(fastify) {
         // Load all checked records
         const records = await db.all(`
             SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location, r.created_at AS roll_created_at,
-                   fc.color_name, fc.id AS color_id, m.name AS material_name, w.name AS warehouse_name, w.unit
+                   CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
+                   fc.id AS color_id,
+                   CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
+                   w.name AS warehouse_name, w.unit
             FROM stockcheck_records sc
             JOIN kv_rolls r ON r.id = sc.roll_id
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
