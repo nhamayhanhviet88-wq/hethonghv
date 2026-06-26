@@ -1,4 +1,5 @@
 const db = require('../db/pool');
+const { vnNow } = require('./timezone');
 
 async function recalculateOrderFabricStatus(orderId) {
     if (!orderId) return;
@@ -129,6 +130,78 @@ async function recalculateOrderFabricStatus(orderId) {
     }
 }
 
+async function releaseReservationsForRoll(rollId, performedBy = 1) {
+    if (!rollId) return;
+    const now = vnNow();
+
+    try {
+        // Find active reservations for this roll
+        const activeRes = await db.all(`
+            SELECT id, dht_order_id, item_id, phoi_index, roll_code, kg_reserved, unit
+            FROM qlx_fabric_reservations 
+            WHERE roll_id = $1 AND status IN ('reserved', 'arrived')
+        `, [rollId]);
+
+        if (activeRes.length > 0) {
+            console.log(`[QLX FABRIC HELPER] Releasing ${activeRes.length} reservations on roll ${rollId} by user ${performedBy}`);
+            
+            // Release the reservations in DB
+            await db.run(`
+                UPDATE qlx_fabric_reservations 
+                SET status = 'released', updated_at = $1 
+                WHERE roll_id = $2 AND status IN ('reserved', 'arrived')
+            `, [now, rollId]);
+
+            // Track affected order IDs to recalculate later
+            const affectedOrderIds = new Set();
+
+            for (const res of activeRes) {
+                affectedOrderIds.add(res.dht_order_id);
+
+                // Insert history entry for reservation release
+                await db.run(`
+                    INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'fabric_release', $2, $3, $4)
+                `, [res.dht_order_id, `Tự hủy giữ vải do cây vải bị báo mất/xóa: ${res.roll_code || ''} (${res.kg_reserved}${res.unit || 'kg'})`, performedBy, now]);
+
+                // Check if there are other active reservations for item_id & phoi_index
+                const otherActive = await db.get(`
+                    SELECT 1 FROM qlx_fabric_reservations
+                    WHERE item_id = $1 AND phoi_index = $2 AND status IN ('reserved', 'arrived', 'fulfilled')
+                    LIMIT 1
+                `, [res.item_id, res.phoi_index]);
+
+                if (!otherActive) {
+                    // Delete incomplete cutting record if it exists
+                    const cuttingRec = await db.get(`
+                        SELECT id FROM cutting_records
+                        WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = false
+                        LIMIT 1
+                    `, [res.item_id, res.phoi_index]);
+                    
+                    if (cuttingRec) {
+                        await db.run('DELETE FROM cutting_records WHERE id = $1', [cuttingRec.id]);
+                        console.log(`[QLX FABRIC HELPER] Deleted incomplete cutting record for item ${res.item_id}, phoi ${res.phoi_index}.`);
+                        
+                        await db.run(`
+                            INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                            VALUES ($1, 'fabric_release_reset_claim', $2, $3, $4)
+                        `, [res.dht_order_id, `Hủy nhận cắt phối ${res.phoi_index + 1} do hết vải/hủy giữ vải`, performedBy, now]);
+                    }
+                }
+            }
+
+            // Recalculate status for each affected order
+            for (const orderId of affectedOrderIds) {
+                await recalculateOrderFabricStatus(orderId);
+            }
+        }
+    } catch (err) {
+        console.error(`[QLX FABRIC HELPER] Error releasing reservations for roll ${rollId}:`, err);
+    }
+}
+
 module.exports = {
-    recalculateOrderFabricStatus
+    recalculateOrderFabricStatus,
+    releaseReservationsForRoll
 };

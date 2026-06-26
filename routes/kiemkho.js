@@ -577,6 +577,16 @@ module.exports = async function(fastify) {
             await db.run(`INSERT INTO stockcheck_history (stockcheck_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
                 [sc.id, 'create', `Kiểm: ${aw} (Tồn: ${sw}, Lệch: ${diff})`, req.user.id, now]);
         }
+
+        if (aw === 0) {
+            try {
+                const { releaseReservationsForRoll } = require('../utils/qlx_fabric_helper');
+                await releaseReservationsForRoll(rollId, req.user.id);
+            } catch (e) {
+                console.error('[STOCKCHECK CHECK] Error releasing reservations for roll:', e);
+            }
+        }
+
         return { success: true, difference: diff };
     });
 
@@ -749,6 +759,14 @@ module.exports = async function(fastify) {
 
                     // Update weight in catalog
                     await db.run('UPDATE kv_rolls SET weight = 0, note = $1 WHERE id = $2', [`Báo mất khi kiểm kê đợt ${now.split('T')[0]}`, rec.roll_id]);
+
+                    // Release reservations (just in case)
+                    try {
+                        const { releaseReservationsForRoll } = require('../utils/qlx_fabric_helper');
+                        await releaseReservationsForRoll(rec.roll_id, req.user.id);
+                    } catch (e) {
+                        console.error('[STOCKCHECK FINISH] Error releasing reservations:', e);
+                    }
 
                     // Add XUAT transaction
                     await db.run(`

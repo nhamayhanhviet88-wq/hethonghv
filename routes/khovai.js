@@ -564,7 +564,15 @@ module.exports = async function (fastify) {
             );
         }
 
-        if (weight !== undefined && Number(weight) !== Number(oldRoll.weight)) {
+        const isLostOrReturned = (weight !== undefined && Number(weight) === 0) || (is_returned === true && !oldRoll.is_returned);
+        if (isLostOrReturned) {
+            try {
+                const { releaseReservationsForRoll } = require('../utils/qlx_fabric_helper');
+                await releaseReservationsForRoll(request.params.id, user.id);
+            } catch (e) {
+                console.error('[QLX FABRIC RELEASE] Error in PUT /api/khovai/rolls/:id:', e);
+            }
+        } else if (weight !== undefined && Number(weight) !== Number(oldRoll.weight)) {
             try {
                 const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
                 const affectedOrders = await db.all('SELECT DISTINCT dht_order_id FROM qlx_fabric_reservations WHERE roll_id = $1', [request.params.id]);
@@ -686,7 +694,13 @@ module.exports = async function (fastify) {
         const roll = await db.get('SELECT * FROM kv_rolls WHERE id = $1', [request.params.id]);
         if (!roll) return { error: 'Cục vải không tồn tại' };
 
-        const affectedOrders = await db.all('SELECT DISTINCT dht_order_id FROM qlx_fabric_reservations WHERE roll_id = $1', [request.params.id]);
+        // Release reservations first, which will also recalculate affected orders
+        try {
+            const { releaseReservationsForRoll } = require('../utils/qlx_fabric_helper');
+            await releaseReservationsForRoll(request.params.id, user.id);
+        } catch (e) {
+            console.error('[QLX FABRIC DELETE RELEASE] Error in DELETE /api/khovai/rolls/:id:', e);
+        }
 
         await db.run('DELETE FROM kv_rolls WHERE id = $1', [request.params.id]);
 
@@ -696,15 +710,6 @@ module.exports = async function (fastify) {
              VALUES ($1, 'XUAT', $2, $3, $4)`,
             [roll.fabric_color_id, Number(roll.weight), `Xóa cục ${roll.weight}`, user.id]
         );
-
-        try {
-            const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
-            for (const ord of affectedOrders) {
-                await recalculateOrderFabricStatus(ord.dht_order_id);
-            }
-        } catch (e) {
-            console.error('[QLX FABRIC RECALC] Error in DELETE /api/khovai/rolls/:id:', e);
-        }
 
         return { success: true };
     });
