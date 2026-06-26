@@ -828,7 +828,21 @@ async function _kkRenderAudit(content) {
                                 </div>
                             </td>
                             <td class="text-center">${Number(r.original_weight || 0).toLocaleString('vi-VN')} kg</td>
-                            <td class="text-center text-primary" style="font-size:12px;">${Number(r.system_weight || 0).toLocaleString('vi-VN')} kg</td>
+                            <td class="text-center text-primary" style="font-size:12px;">
+                                ${_kkCanViewBill() ? (
+                                    r.source_import_id ? `
+                                        <span style="cursor:pointer; color:#3b82f6; text-decoration:underline; font-weight:700;" onclick="event.stopPropagation(); _kkOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
+                                            ${Number(r.system_weight || 0).toLocaleString('vi-VN')} kg
+                                        </span>
+                                    ` : `
+                                        <span style="cursor:pointer; color:#475569;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                            ${Number(r.system_weight || 0).toLocaleString('vi-VN')} kg
+                                        </span>
+                                    `
+                                ) : `
+                                    <span>${Number(r.system_weight || 0).toLocaleString('vi-VN')} kg</span>
+                                `}
+                            </td>
                             <td class="text-center text-success" style="font-size:13px; font-weight: 700;">
                                 ${hasChecked ? Number(r.actual_weight).toLocaleString('vi-VN') + ' kg' : '<span style="color:#94a3b8; font-weight:normal;">—</span>'}
                             </td>
@@ -2725,4 +2739,43 @@ window._kkExportReportToExcel = _kkExportReportToExcel;
 window._kkFinishSession = _kkFinishSession;
 window._kkOpenFinishConfirmModal = _kkOpenFinishConfirmModal;
 window._kkConfirmFinishSession = _kkConfirmFinishSession;
+
+function _kkCanViewBill() {
+    var u = typeof currentUser !== 'undefined' ? currentUser : null;
+    if (!u) return false;
+    if (u.role === 'giam_doc') return true;
+    if (u.role === 'quan_ly_xuong') return true;
+    if (u.username === 'ketoan' || u.username === 'ketoan1' || u.role === 'ke_toan') return true;
+    if (u.role === 'quan_ly_cap_cao' && (u.username === 'trinh' || u.username === 'quanlyxuong')) return true;
+    return false;
+}
+
+function _kkOpenImportBill(importId) {
+    if (typeof _bnhFD !== 'function') {
+        window._bnhFD = function(d) {
+            if (!d) return '—';
+            try {
+                var p = d.split('T')[0].split('-');
+                return p[2] + '/' + p[1] + '/' + p[0];
+            } catch(e) { return d; }
+        };
+    }
+    if (typeof _bnhFM !== 'function') {
+        window._bnhFM = function(n) {
+            if (!n && n !== 0) return '0';
+            return Number(n).toLocaleString('vi-VN');
+        };
+    }
+    if (typeof _bnhFabDetail === 'function') {
+        _bnhFabDetail(importId);
+    } else {
+        var s = document.createElement('script');
+        s.src = '/js/pages/fab-import-v4.js?v=20260625_4';
+        s.onload = function() { _bnhFabDetail(importId); };
+        document.head.appendChild(s);
+    }
+}
+
+window._kkCanViewBill = _kkCanViewBill;
+window._kkOpenImportBill = _kkOpenImportBill;
 

@@ -786,7 +786,24 @@ function mCards(){
                                     : `<span style="background:rgba(249,115,22,0.15); color:#fb923c; border:1px solid rgba(249,115,22,0.3); padding:2px 8px; border-radius:6px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">✂️ Cây Lẻ</span>`}
                             </span>
                         </div>
-                        <div class="cr"><span class="cl">⚖️ Tồn Hệ Thống</span><span class="cv" style="color:#5eead4;font-size:18px;font-weight:900">${fn(r.system_weight)} kg</span></div>
+                        <div class="cr">
+                            <span class="cl">⚖️ Tồn Hệ Thống</span>
+                            <span class="cv" style="color:#5eead4;font-size:18px;font-weight:900">
+                                ${mCanViewBill() ? (
+                                    r.source_import_id ? `
+                                        <span style="cursor:pointer; text-decoration:underline; font-weight:900; color:#5eead4;" onclick="event.stopPropagation(); mOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
+                                            ${fn(r.system_weight)} kg
+                                        </span>
+                                    ` : `
+                                        <span style="cursor:pointer; opacity: 0.7; color:#94a3b8; font-weight:normal;" onclick="event.stopPropagation(); toast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
+                                            ${fn(r.system_weight)} kg
+                                        </span>
+                                    `
+                                ) : `
+                                    <span>${fn(r.system_weight)} kg</span>
+                                `}
+                            </span>
+                        </div>
                         <div class="cr"><span class="cl">📋 Thực Tế</span><span class="cv" style="color:${cA?'#34d399':'#64748b'}">${cA?fn(r.actual_weight)+' kg':'— Chưa kiểm'}</span></div>
                         <div class="cr"><span class="cl">📊 Chênh Lệch</span>${diff(r)}</div>
                         ${r.sc_notes?`<div class="cr"><span class="cl">📝 Ghi Chú</span><span class="cv" style="font-size:11px">${r.sc_notes}</span></div>`:''}
@@ -2024,6 +2041,51 @@ function viewImage(imgUrl) {
     setTimeout(() => {
         viewerDiv.style.opacity = '1';
     }, 10);
+}
+
+function mCanViewBill() {
+    if (!cu) return false;
+    if (cu.role === 'giam_doc') return true;
+    if (cu.role === 'quan_ly_xuong') return true;
+    if (cu.username === 'ketoan' || cu.username === 'ketoan1' || cu.role === 'ke_toan') return true;
+    if (cu.role === 'quan_ly_cap_cao' && (cu.username === 'trinh' || cu.username === 'quanlyxuong')) return true;
+    return false;
+}
+
+function mOpenImportBill(importId) {
+    if (typeof _bnhFD !== 'function') {
+        window._bnhFD = function(d) {
+            if (!d) return '—';
+            try {
+                var p = d.split('T')[0].split('-');
+                return p[2] + '/' + p[1] + '/' + p[0];
+            } catch(e) { return d; }
+        };
+    }
+    if (typeof _bnhFM !== 'function') {
+        window._bnhFM = function(n) {
+            if (!n && n !== 0) return '0';
+            return Number(n).toLocaleString('vi-VN');
+        };
+    }
+    if (typeof window.apiCall !== 'function') {
+        window.apiCall = async function(url, method = 'GET', body = null) {
+            return await api(url, method, body);
+        };
+    }
+    if (typeof window.showToast !== 'function') {
+        window.showToast = function(msg, type = 'success') {
+            toast(msg, type);
+        };
+    }
+    if (typeof _bnhFabDetail === 'function') {
+        _bnhFabDetail(importId);
+    } else {
+        var s = document.createElement('script');
+        s.src = '/js/pages/fab-import-v4.js?v=20260625_4';
+        s.onload = function() { _bnhFabDetail(importId); };
+        document.head.appendChild(s);
+    }
 }
 
 mInit();
