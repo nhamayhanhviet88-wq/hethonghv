@@ -145,13 +145,13 @@ function _kvRenderSidebar() {
         totalBal += Number(w.total_balance || 0);
         totalRolls += Number(w.total_rolls || 0);
     });
-    h += '<div class="kv-sb-total" onclick="_kvFilterAll()"><span>📦 Tất cả kho</span><span>' + _kvFmt(totalBal) + ' (' + _kvFmt(totalRolls) + ' cây)</span></div>';
+    h += '<div class="kv-sb-total" onclick="_kvFilterAll()"><span>📦 Tất cả kho</span><span>' + _kvFmt(totalBal) + ' <span style="font-weight:normal;opacity:0.85;font-size:11px;">(' + _kvFmt(totalRolls) + ' cây)</span></span></div>';
 
     _kv.tree.forEach(function(w) {
         var isActiveW = _kv.selectedWid === w.id && !_kv.selectedMid;
         h += '<div class="kv-sb-wh' + (isActiveW ? ' active' : '') + '" onclick="_kvFilterWh(' + w.id + ')" data-wid="' + w.id + '">';
         h += '<span>🏭 ' + w.name + ' (' + (w.unit||'kg') + ')</span>';
-        h += '<span style="background:rgba(0,0,0,0.08);padding:2px 8px;border-radius:10px;font-size:10px">' + _kvFmt(w.total_balance) + ' (' + _kvFmt(w.total_rolls || 0) + ' cây)</span></div>';
+        h += '<span style="background:rgba(0,0,0,0.08);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:#1e293b;">' + _kvFmt(w.total_balance) + ' <span style="color:#64748b;font-weight:500;">(' + _kvFmt(w.total_rolls || 0) + ' cây)</span></span></div>';
 
         var mats = w.materials || [];
         h += '<div class="kv-wh-mats" data-wid="' + w.id + '">';
@@ -168,7 +168,9 @@ function _kvRenderSidebar() {
             }
             h += '<div class="kv-sb-mat' + (isActiveM ? ' active' : '') + '" onclick="_kvFilterMat(' + w.id + ',' + m.id + ')">';
             h += '<span>🧵 ' + m.name + settingBtn + '</span>';
-            h += '<span style="color:' + (Number(m.total_balance) >= 0 ? '#059669' : '#dc2626') + ';font-weight:700">' + _kvFmt(m.total_balance) + ' (' + _kvFmt(m.total_rolls || 0) + ' cây)</span></div>';
+            h += '<span style="font-weight:700;display:flex;align-items:center;gap:4px;">' +
+                 '<span style="color:' + (Number(m.total_balance) >= 0 ? '#15803d' : '#b91c1c') + ';">' + _kvFmt(m.total_balance) + '</span>' +
+                 '<span style="color:#2563eb;font-weight:600;font-size:10.5px;">(' + _kvFmt(m.total_rolls || 0) + ' cây)</span></span></div>';
         });
         h += '</div>';
     });
