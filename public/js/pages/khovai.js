@@ -130,7 +130,7 @@ function _kvRenderSidebar() {
     }
     var savedSbSearch = (savedState && savedState.sidebarSearchText) ? savedState.sidebarSearchText : '';
 
-    var h = '<div class="kv-sb-title"><span>🏬 Kho Vải</span>' + (isGD ? '<span onclick="navigate(\'caidatkhovai\')" style="cursor:pointer;font-size:16px" title="Cài đặt">⚙️</span>' : '') + '</div>';
+    var h = '<div class="kv-sb-title"><span>🏬 Kho Vải</span>' + (isGD ? '<span onclick="localStorage.setItem(\'cdsxActiveTab\', \'kho-vai\'); navigate(\'caidatsanxuat\')" style="cursor:pointer;font-size:16px" title="Cài đặt">⚙️</span>' : '') + '</div>';
     h += '<div style="padding:8px 12px"><input type="text" id="kvSbSearch" placeholder="🔍 Tìm chất liệu, kho..." value="' + savedSbSearch.replace(/"/g, '&quot;') + '" oninput="_kvSbFilter(this.value)" /></div>';
 
     var totalBal = 0;

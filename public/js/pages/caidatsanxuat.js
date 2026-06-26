@@ -5,8 +5,9 @@ let _cdsxCurrentTab = 'sp-qt';
 async function renderCaidatsanxuatPage(container) {
     container.innerHTML = `
         <div class="card">
-            <div class="card-header">
-                <h3>🏭 Cài Đặt Sản Xuất</h3>
+            <div class="card-header" style="display:flex;align-items:center;gap:12px;">
+                <button onclick="navigate('khovai')" style="background:none;border:none;font-size:20px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:var(--gray-600);padding:4px;border-radius:4px;transition:background 0.2s" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'" title="Quay lại Kho Vải">←</button>
+                <h3 style="margin:0;">🏭 Cài Đặt Sản Xuất</h3>
             </div>
             <div class="card-body">
                 <div class="tabs" style="flex-wrap:wrap;" id="cdsxTabs">
