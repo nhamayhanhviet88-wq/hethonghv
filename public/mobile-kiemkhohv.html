@@ -724,14 +724,25 @@ function mCards(){
                     </div>
                 `;
             } else if (isReturnRoll) {
-                actionRowHtml = `
-                    <div class="ca" style="grid-template-columns: 1fr;">
-                        <button class="ab" style="border-color: rgba(59,130,246,0.4); background: rgba(59,130,246,0.15); color: #93c5fd; pointer-events: none;" disabled>
-                            <span class="ai">🔄</span>
-                            <span class="al" style="color: #93c5fd; font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">KHÔNG CẦN KIỂM (🔄 CHỜ HOÀN NCC)</span>
-                        </button>
-                    </div>
-                `;
+                if (cA) {
+                    actionRowHtml = `
+                        <div class="ca" style="grid-template-columns: 1fr;">
+                            <button class="ab" style="border-color: #10b981; background: rgba(16,185,129,0.15); color: #34d399;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true)">
+                                <span class="ai">✅</span>
+                                <span class="al" style="color: #34d399; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;">ĐÃ XÁC NHẬN CÓ CÂY NÀY (HỦY?)</span>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionRowHtml = `
+                        <div class="ca" style="grid-template-columns: 1fr;">
+                            <button class="ab" style="border-color: #d97706; background: rgba(217,119,6,0.15); color: #fbbf24;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false)">
+                                <span class="ai">🔍</span>
+                                <span class="al" style="color: #fbbf24; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;">KIỂM XEM CÓ CÂY NÀY KHÔNG</span>
+                            </button>
+                        </div>
+                    `;
+                }
             } else {
                 const isMissing = cA && Number(r.actual_weight) === 0;
                 if (isMissing) {
@@ -1028,6 +1039,22 @@ async function mSubmitMissing(rollId, rollCode) {
         await mLoad();
     } catch(e) {
         toast(e.message || 'Lỗi báo mất', 'error');
+    }
+}
+
+async function mToggleReturnRollCheck(rollId, rollCode, isCurrentlyChecked) {
+    const confirmMsg = isCurrentlyChecked 
+        ? `Xác nhận hủy kiểm tra cây hoàn này (mã ${rollCode})?`
+        : `Xác nhận có cây hoàn này (mã ${rollCode}) trong kho?`;
+    
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        await api('/api/stockcheck/check/' + rollId, 'POST', { action: 'toggle_check' });
+        toast(isCurrentlyChecked ? '↩️ Đã hủy kiểm cây hoàn' : '✅ Đã xác nhận có cây hoàn');
+        await mLoad();
+    } catch(e) {
+        toast(e.message || 'Lỗi cập nhật', 'error');
     }
 }
 

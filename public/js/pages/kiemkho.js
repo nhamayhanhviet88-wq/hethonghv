@@ -984,7 +984,19 @@ async function _kkRenderAudit(content) {
                             </button>
                         `;
                     } else if (isReturnRoll) {
-                        actionHtml = `<span style="font-size:11px; color:#0369a1; font-weight:bold;">🔄 Không cần kiểm</span>`;
+                        if (hasChecked) {
+                            actionHtml = `
+                                <button class="kk-action-btn" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true)" title="Hủy xác nhận có cây hoàn này">
+                                    ✅ Có cây hoàn (Hủy?)
+                                </button>
+                            `;
+                        } else {
+                            actionHtml = `
+                                <button class="kk-action-btn" style="background: rgba(217, 119, 6, 0.15); border: 1px solid #d97706; color: #ea580c; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false)" title="Xác nhận có cây hoàn này trong kho">
+                                    🔍 Kiểm xem có cây này không
+                                </button>
+                            `;
+                        }
                     } else {
                         actionHtml = `
                             <button class="kk-action-btn blue" onclick="event.stopPropagation(); _kkInputWeightPrompt(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📝 Nhập thực tế">📝</button>
@@ -1358,6 +1370,28 @@ async function _kkMarkPresent(rollId, systemWeight, rollImg) {
         }
     } else {
         await runCheck();
+    }
+}
+
+async function _kkToggleReturnRollCheck(rollId, rollCode, isCurrentlyChecked) {
+    const confirmMsg = isCurrentlyChecked 
+        ? `Xác nhận hủy kiểm tra cây hoàn này (mã ${rollCode})?`
+        : `Xác nhận có cây hoàn này (mã ${rollCode}) trong kho?`;
+    
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        await apiCall('/api/stockcheck/check/' + rollId, 'POST', { action: 'toggle_check' });
+        showToast(isCurrentlyChecked ? '↩️ Đã hủy kiểm cây hoàn' : '✅ Đã xác nhận có cây hoàn', 'success');
+        
+        // Reload
+        const treeRes = await apiCall('/api/stockcheck/tree');
+        _kk.tree = treeRes;
+        await _kkLoadRolls();
+        const content = _kkGetContainer();
+        if (content) _kkRenderMain(content);
+    } catch(e) {
+        showToast(e.message || 'Lỗi cập nhật', 'error');
     }
 }
 
