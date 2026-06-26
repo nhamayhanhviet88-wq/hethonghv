@@ -487,7 +487,9 @@ async function start() {
         try { await db.exec(`ALTER TABLE kv_warehouses ADD COLUMN IF NOT EXISTS original_tree_threshold NUMERIC NOT NULL DEFAULT 10`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_materials ADD COLUMN IF NOT EXISTS original_tree_threshold NUMERIC`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_materials ADD COLUMN IF NOT EXISTS location TEXT`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_materials ADD COLUMN IF NOT EXISTS stop_import BOOLEAN DEFAULT FALSE`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS location TEXT`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS stop_import BOOLEAN DEFAULT FALSE`); } catch(e) {}
         // Migrations for kv_rolls
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS original_weight NUMERIC NOT NULL DEFAULT 0`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS is_cutting BOOLEAN DEFAULT false`); } catch(e) {}

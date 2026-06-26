@@ -109,12 +109,13 @@ module.exports = async function (fastify) {
 
     // PUT /api/khovai/materials/:id — Update material
     fastify.put('/api/khovai/materials/:id', { preHandler: [authenticate] }, async (request) => {
-        const { name, display_order, original_tree_threshold, location } = request.body || {};
+        const { name, display_order, original_tree_threshold, location, stop_import } = request.body || {};
         const updates = []; const params = []; let idx = 1;
         if (name !== undefined) { updates.push(`name = $${idx++}`); params.push(name.trim()); }
         if (display_order !== undefined) { updates.push(`display_order = $${idx++}`); params.push(display_order); }
         if (original_tree_threshold !== undefined) { updates.push(`original_tree_threshold = $${idx++}`); params.push(original_tree_threshold); }
         if (location !== undefined) { updates.push(`location = $${idx++}`); params.push(location ? location.trim() : null); }
+        if (stop_import !== undefined) { updates.push(`stop_import = $${idx++}`); params.push(!!stop_import); }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push('updated_at = NOW()');
         params.push(request.params.id);
@@ -158,6 +159,7 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/colors', { preHandler: [authenticate] }, async (request) => {
         const { mid, include_inactive } = request.query;
         let sql = `SELECT fc.id, fc.material_id, fc.color_name, fc.price, fc.original_tree_threshold, fc.notes, fc.location, fc.created_at, fc.updated_at,
+                          fc.stop_import,
                           (fc.is_active AND m.is_active) AS is_active,
                           m.name AS material_name, w.name AS warehouse_name, w.unit
                    FROM kv_fabric_colors fc
@@ -213,12 +215,13 @@ module.exports = async function (fastify) {
 
     // PUT /api/khovai/colors/:id — Update color (name, price, threshold)
     fastify.put('/api/khovai/colors/:id', { preHandler: [authenticate] }, async (request) => {
-        const { color_name, price, original_tree_threshold, notes, location } = request.body || {};
+        const { color_name, price, original_tree_threshold, notes, location, stop_import } = request.body || {};
         const updates = []; const params = []; let idx = 1;
         if (color_name !== undefined) { updates.push(`color_name = $${idx++}`); params.push(color_name.trim()); }
         if (price !== undefined) { updates.push(`price = $${idx++}`); params.push(price); }
         if (original_tree_threshold !== undefined) { updates.push(`original_tree_threshold = $${idx++}`); params.push(original_tree_threshold); }
         if (notes !== undefined) { updates.push(`notes = $${idx++}`); params.push(notes); }
+        if (stop_import !== undefined) { updates.push(`stop_import = $${idx++}`); params.push(!!stop_import); }
         if (location !== undefined) {
             if (location) {
                 const colorRecord = await db.get('SELECT material_id FROM kv_fabric_colors WHERE id = $1', [request.params.id]);
@@ -271,6 +274,7 @@ module.exports = async function (fastify) {
         if (price !== undefined) changes.push('Đổi giá: ' + price);
         if (original_tree_threshold !== undefined) changes.push('Đổi ngưỡng cây nguyên: ' + original_tree_threshold);
         if (location !== undefined) changes.push('Đổi vị trí kho: ' + (location || 'Trống'));
+        if (stop_import !== undefined) changes.push('Đổi trạng thái dừng nhập: ' + (stop_import ? 'Bật' : 'Tắt'));
         if (changes.length) {
             await db.run(
                 `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
@@ -1022,6 +1026,7 @@ module.exports = async function (fastify) {
             SELECT fc.id, fc.color_name, fc.price, fc.is_active,
                    COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
                    fc.notes, fc.material_id, fc.updated_at,
+                   fc.stop_import AS color_stop_import, m.stop_import AS material_stop_import,
                    m.name AS material_name, m.warehouse_id,
                    w.name AS warehouse_name, w.unit,
                    fc.location AS color_location,

@@ -67,6 +67,67 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
     return parts.join(' , ');
 }
 
+async function validateFabricStockLimits(items) {
+    if (!items || !Array.isArray(items)) return;
+    for (const item of items) {
+        if (!item.material_pairs || !Array.isArray(item.material_pairs)) continue;
+        const totalQty = Number(item.quantity) || 0;
+        if (totalQty <= 0) continue;
+
+        // Get product's cutting category
+        const prodDb = await db.get(`
+            SELECT cc.name AS cutting_category_name
+            FROM dht_products p
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+            WHERE p.name = $1 AND p.is_active = true
+        `, [item.product_name]);
+        const cuttingCategory = prodDb ? (prodDb.cutting_category_name || '') : '';
+
+        for (const pair of item.material_pairs) {
+            const matId = Number(pair.material_id);
+            const colId = Number(pair.color_id);
+            if (!matId || !colId) continue;
+
+            const mat = await db.get(`SELECT name, stop_import FROM kv_materials WHERE id = $1`, [matId]);
+            const color = await db.get(`SELECT color_name, stop_import FROM kv_fabric_colors WHERE id = $1`, [colId]);
+            if (!mat || !color) continue;
+
+            if (mat.stop_import || color.stop_import) {
+                // Stock check
+                const stockRow = await db.get(`
+                    SELECT COALESCE(SUM(r.weight), 0) AS remaining_stock,
+                           COALESCE(w.unit, 'kg') AS unit
+                    FROM kv_rolls r
+                    JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                    JOIN kv_materials m ON m.id = fc.material_id
+                    JOIN kv_warehouses w ON w.id = m.warehouse_id
+                    WHERE r.fabric_color_id = $1 AND r.is_returned = false
+                    GROUP BY w.unit
+                `, [colId]);
+                const remainingStock = Number(stockRow ? stockRow.remaining_stock : 0);
+                const unit = stockRow ? stockRow.unit : 'kg';
+
+                // Cutting ratio
+                let targetRatio = 0;
+                if (cuttingCategory) {
+                    const ratioRow = await db.get(`
+                        SELECT target_ratio
+                        FROM kv_material_cutting_targets
+                        WHERE material_id = $1 AND cutting_category = $2
+                    `, [matId, cuttingCategory.trim()]);
+                    targetRatio = ratioRow ? Number(ratioRow.target_ratio) || 0 : 0;
+                }
+
+                const limitQty = remainingStock * targetRatio;
+                if (totalQty > limitQty) {
+                    throw new Error(`Vải [${mat.name} - ${color.color_name}] đã dừng nhập. Tồn kho còn ${remainingStock} ${unit}, tỉ lệ cắt là ${targetRatio} sp/${unit}. Số lượng tối đa được phép đặt là ${limitQty.toFixed(1)} sản phẩm. Bạn đã nhập ${totalQty} sản phẩm.`);
+                }
+            }
+        }
+    }
+}
+
+
 module.exports = async function(fastify) {
 
     // Auto-migrate: create dht_order_notes table
@@ -1609,6 +1670,13 @@ module.exports = async function(fastify) {
         // Check duplicate (safety net — sequence should prevent this)
         const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [orderCode]);
         if (existing) return reply.code(409).send({ error: `Mã đơn "${orderCode}" đã tồn tại!` });
+
+        // Validate fabric stock limits
+        try {
+            await validateFabricStockLimits(b.items);
+        } catch (err) {
+            return reply.code(400).send({ error: err.message });
+        }
 
         const result = await db.get(`
             INSERT INTO dht_orders (
@@ -3339,6 +3407,14 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.id);
         const b = request.body || {};
 
+        if (Array.isArray(b.items)) {
+            try {
+                await validateFabricStockLimits(b.items);
+            } catch (err) {
+                return reply.code(400).send({ error: err.message });
+            }
+        }
+
         if (b.tracking_code) {
             const trackingCode = String(b.tracking_code).trim();
             if (trackingCode) {
@@ -4135,8 +4211,65 @@ module.exports = async function(fastify) {
     // Cascade: colors by material
     fastify.get('/api/dht/material-colors/:materialId', { preHandler: [authenticate] }, async (request, reply) => {
         const mid = Number(request.params.materialId);
-        const colors = await db.all(`SELECT id, color_name as name FROM kv_fabric_colors WHERE material_id = $1 AND is_active = true ORDER BY color_name ASC`, [mid]);
+        const colors = await db.all(`SELECT id, color_name as name, stop_import FROM kv_fabric_colors WHERE material_id = $1 AND is_active = true ORDER BY color_name ASC`, [mid]);
         return { colors };
+    });
+
+    // Check stock limit for stopped fabrics
+    fastify.get('/api/dht/check-stock-limit', { preHandler: [authenticate] }, async (request, reply) => {
+        const { material_id, color_id, cutting_category } = request.query;
+        if (!material_id || !color_id) {
+            return reply.code(400).send({ error: 'Thiếu material_id hoặc color_id' });
+        }
+
+        const mat = await db.get(`SELECT stop_import, name FROM kv_materials WHERE id = $1`, [Number(material_id)]);
+        const color = await db.get(`SELECT stop_import, color_name FROM kv_fabric_colors WHERE id = $1`, [Number(color_id)]);
+
+        if (!mat || !color) {
+            return reply.code(404).send({ error: 'Không tìm thấy chất liệu hoặc màu vải' });
+        }
+
+        // Remaining stock (in kg, meters, etc.)
+        const stockRow = await db.get(`
+            SELECT COALESCE(SUM(r.weight), 0) AS remaining_stock,
+                   COALESCE(w.unit, 'kg') AS unit
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+            JOIN kv_warehouses w ON w.id = m.warehouse_id
+            WHERE r.fabric_color_id = $1 AND r.is_returned = false
+            GROUP BY w.unit
+        `, [Number(color_id)]);
+        const remainingStock = Number(stockRow ? stockRow.remaining_stock : 0);
+        const unit = stockRow ? stockRow.unit : 'kg';
+
+        // Cutting ratio
+        let targetRatio = 0;
+        if (cutting_category) {
+            const ratioRow = await db.get(`
+                SELECT target_ratio
+                FROM kv_material_cutting_targets
+                WHERE material_id = $1 AND cutting_category = $2
+            `, [Number(material_id), cutting_category.trim()]);
+            targetRatio = ratioRow ? Number(ratioRow.target_ratio) || 0 : 0;
+        }
+
+        const isStopped = !!(mat.stop_import || color.stop_import);
+        const limitQty = isStopped ? (remainingStock * targetRatio) : null;
+
+         return {
+            material_id: Number(material_id),
+            color_id: Number(color_id),
+            material_name: mat.name,
+            color_name: color.color_name,
+            material_stop_import: !!mat.stop_import,
+            color_stop_import: !!color.stop_import,
+            is_stopped: isStopped,
+            remaining_stock: remainingStock,
+            unit: unit,
+            target_ratio: targetRatio,
+            limit_qty: limitQty
+        };
     });
 
     // Settings Options CRUD (director only)
@@ -4196,10 +4329,9 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
-    // GET materials assigned to a product
     fastify.get('/api/dht/product-materials/:productId', { preHandler: [authenticate] }, async (request, reply) => {
         const pid = Number(request.params.productId);
-        const rows = await db.all(`SELECT pm.id, pm.material_id, m.name as material_name
+        const rows = await db.all(`SELECT pm.id, pm.material_id, m.name as material_name, m.stop_import
             FROM dht_product_materials pm JOIN kv_materials m ON m.id = pm.material_id
             WHERE pm.product_id = $1 AND pm.is_active = true AND m.is_active = true ORDER BY m.name ASC`, [pid]);
         return { materials: rows };

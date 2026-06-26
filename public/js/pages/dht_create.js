@@ -1304,6 +1304,7 @@ function _dhtSavePhieuFree(idx) {
 }
 
 async function _dhtAddItem(editIdx) {
+    window._ppStockLimits = {};
     var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
     var existing = _dhtCreate.phieuItems[idx] || {};
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
@@ -1349,6 +1350,7 @@ async function _dhtAddItem(editIdx) {
         +'<div id="_pp_specImage" style="display:none;margin-bottom:8px"></div>'
         +'<div id="_pp_mixInfo" style="display:none;background:linear-gradient(135deg,#faf5ff,#ede9fe);border:1px solid #c4b5fd;border-radius:8px;padding:6px 12px;margin-bottom:8px;font-size:11px;font-weight:700;color:#7c3aed"></div>'
         +'<div id="_pp_matColorPairs" style="margin-bottom:8px"></div>'
+        +'<div id="_pp_stockLimitWarnings" style="display:none;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:11.5px;color:#b45309;line-height:1.5"></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Chi Tiết May Thêm</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div>'+(isRestricted ? '' : '<button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button>')+'</div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple'+(isRestricted?' disabled':'')+'>'+( extOpts||noOpt)+'</select></div></div>'
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div>'+(isRestricted ? '' : '<button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button>')+'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
@@ -1414,6 +1416,7 @@ function _dhtSaleChange() {
 
 // Cascade: product → show process steps + store assigned materials globally
 async function _dhtProductChange() {
+    window._ppStockLimits = {};
     var prodName=document.getElementById('_pp_product')?.value;
     var bar=document.getElementById('_pp_processBar');
     var stepsEl=document.getElementById('_pp_processSteps');
@@ -1466,6 +1469,7 @@ function _dhtMatChange() {}
 
 // ========== PATTERN CHANGE → Dynamic Material/Color Pairs ==========
 function _dhtPatternChange(existing) {
+    window._ppStockLimits = {};
     var patName = document.getElementById('_pp_pattern')?.value;
     var pairsEl = document.getElementById('_pp_matColorPairs');
     var mixInfo = document.getElementById('_pp_mixInfo');
@@ -1556,6 +1560,7 @@ function _ppPickPairColor(pairIdx, el) {
     document.getElementById('_ppColor'+pairIdx).value = el.dataset.txt;
     document.getElementById('_ppColorVal'+pairIdx).value = el.dataset.val;
     document.getElementById('_ppColorList'+pairIdx).style.display = 'none';
+    _ppUpdateStockLimit(pairIdx);
 }
 // Load colors for a material pair
 async function _ppPairMatLoad(pairIdx, preselectColorId) {
@@ -1575,7 +1580,64 @@ async function _ppPairMatLoad(pairIdx, preselectColorId) {
         if(found){
             document.getElementById('_ppColor'+pairIdx).value=found.name;
             document.getElementById('_ppColorVal'+pairIdx).value=found.id;
+            _ppUpdateStockLimit(pairIdx);
         }
+    }
+}
+
+async function _ppUpdateStockLimit(pairIdx) {
+    var matId = document.getElementById('_ppMatVal' + pairIdx)?.value;
+    var colId = document.getElementById('_ppColorVal' + pairIdx)?.value;
+    var prodName = document.getElementById('_pp_product')?.value;
+    if (!matId || !colId || !prodName) return;
+
+    var allProds = (_dhtCreate.phieuOpts || {}).products || [];
+    var prod = allProds.find(function(p) { return p.name === prodName; });
+    var cutCat = prod ? (prod.cutting_category_name || '') : '';
+
+    try {
+        var res = await apiCall('/api/dht/check-stock-limit?material_id=' + matId + '&color_id=' + colId + '&cutting_category=' + encodeURIComponent(cutCat));
+        window._ppStockLimits = window._ppStockLimits || {};
+        window._ppStockLimits[pairIdx] = res;
+        _ppRenderStockLimitMessage();
+    } catch (e) {
+        console.error('Error fetching stock limit:', e);
+    }
+}
+
+function _ppRenderStockLimitMessage() {
+    var container = document.getElementById('_pp_stockLimitWarnings');
+    if (!container) return;
+    
+    var warnings = [];
+    var limits = window._ppStockLimits || {};
+    
+    for (var key in limits) {
+        var info = limits[key];
+        if (!info) continue;
+        
+        var mVal = document.getElementById('_ppMatVal' + key)?.value;
+        var cVal = document.getElementById('_ppColorVal' + key)?.value;
+        if (!mVal || !cVal || String(info.material_id) !== String(mVal) || String(info.color_id) !== String(cVal)) {
+            continue;
+        }
+
+        if (info.is_stopped) {
+            var ratioText = info.target_ratio ? (info.target_ratio + ' sp/' + info.unit) : 'chưa cấu hình tỉ lệ cắt';
+            var limitText = info.limit_qty !== null ? (info.limit_qty.toFixed(1) + ' sp') : '0 sp (không thể đặt)';
+            warnings.push('⚠️ <b>' + info.material_name + ' - ' + info.color_name + '</b> đã dừng nhập!<br/>'
+                + '• Tồn kho còn: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>'
+                + '• Tỉ lệ cắt: <b>' + ratioText + '</b><br/>'
+                + '• Số lượng tối đa có thể sản xuất: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>');
+        }
+    }
+    
+    if (warnings.length > 0) {
+        container.innerHTML = warnings.join('<hr style="border-top:1px solid #fde68a;margin:6px 0"/>');
+        container.style.display = 'block';
+    } else {
+        container.innerHTML = '';
+        container.style.display = 'none';
     }
 }
 // Close pair dropdowns when clicking outside
@@ -1626,6 +1688,22 @@ function _dhtSavePhieu(idx) {
     var qtyPairs=[], raw=0;
     for(var i=0;i<qs.length;i++){var qv=Number(qs[i].value)||0,pv=Number(ps[i].value)||0;qtyPairs.push({qty:qv,price:pv,subtotal:qv*pv});raw+=qv*pv;}
     if(!qtyPairs.length||qtyPairs[0].qty===0){showToast('SL1 phải > 0','error');return;}
+    
+    // Check stopped fabric quantity limits
+    var totalQty = qtyPairs.reduce(function(s, x) { return s + (Number(x.qty) || 0); }, 0);
+    var limits = window._ppStockLimits || {};
+    for (var i = 0; i < pairs.length; i++) {
+        var info = limits[i];
+        if (info && info.is_stopped) {
+            if (String(info.material_id) === String(pairs[i].material_id) && String(info.color_id) === String(pairs[i].color_id)) {
+                if (info.limit_qty !== null && totalQty > info.limit_qty) {
+                    showToast('⚠️ Vải [' + info.material_name + ' - ' + info.color_name + '] đã dừng nhập.<br/>Số lượng tối đa được phép đặt là ' + info.limit_qty.toFixed(1) + ' sản phẩm. Bạn đã nhập ' + totalQty + ' sản phẩm.', 'error');
+                    return;
+                }
+            }
+        }
+    }
+
     var va=Math.round(raw*vp/100);
     var sewArr = (window._ppSewItems || []).slice();
     var extArr=Array.from(document.getElementById('_pp_extraMat')?.selectedOptions||[]).map(function(o){return o.value;});
