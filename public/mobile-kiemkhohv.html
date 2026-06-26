@@ -268,8 +268,11 @@ let mSearchText='', mFilterStatus='all', mSearchTimeout=null, mMaterialFilter=''
 let mSurplusFile = null;
 
 async function api(u,m='GET',b=null){
-    const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};
-    if(b)o.body=JSON.stringify(b);
+    const o={method:m,headers:{},credentials:'include'};
+    if(b){
+        o.headers['Content-Type']='application/json';
+        o.body=JSON.stringify(b);
+    }
     const r=await fetch(u,o);
     if(r.status===401){location.href='/index.html';return}
     const d=await r.json();

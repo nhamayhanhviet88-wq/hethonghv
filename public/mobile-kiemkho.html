@@ -60,7 +60,7 @@
     <a href="/kiemkho" class="mb">← Về trang Desktop</a>
 <script>
 let cu=null,mr=[],tree=null;
-async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
+async function api(u,m='GET',b=null){const o={method:m,headers:{},credentials:'include'};if(b){o.headers['Content-Type']='application/json';o.body=JSON.stringify(b)}const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function fn(n){return Number(n||0).toLocaleString('vi-VN')}
 function diff(r){if(r.actual_weight===null||r.actual_weight===undefined)return'<span class="df none">— Chưa kiểm</span>';const d=Number(r.difference)||0;if(d===0)return'<span class="df ok">✅ Khớp</span>';if(d>0)return'<span class="df short">🔴 Thiếu '+fn(d)+'</span>';return'<span class="df over">🔵 Dư '+fn(Math.abs(d))+'</span>';}
