@@ -752,7 +752,8 @@ module.exports = async function (fastify) {
             `SELECT r.*, fc.color_name, m.name AS material_name, w.name AS warehouse_name, w.unit,
                     u.full_name AS created_by_name,
                     cr.product_name AS cutting_order_name,
-                    u_cut.full_name AS cutting_by_name
+                    u_cut.full_name AS cutting_by_name,
+                    (SELECT session_id FROM stockcheck_session_items WHERE roll_id = r.id ORDER BY session_id DESC LIMIT 1) AS stockcheck_session_id
              FROM kv_rolls r
              JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
              JOIN kv_materials m ON m.id = fc.material_id

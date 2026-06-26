@@ -466,6 +466,8 @@ async function _kvShowRollDetail(rollId) {
         var billLink = '<span style="color:var(--gray-400)">Chưa có</span>';
         if (rl.source_import_id) {
             billLink = '<a href="javascript:void(0)" onclick="_kvOpenImportBill(' + rl.source_import_id + ')" style="color:#7c3aed;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #7c3aed">🧵 Xem Chi Tiết Bill Nhập Vải</a>';
+        } else if (rl.stockcheck_session_id) {
+            billLink = '<a href="javascript:void(0)" onclick="_kvOpenStockcheckBill(' + rl.stockcheck_session_id + ')" style="color:#0284c7;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #0284c7">📋 Xem Bill Kiểm Kê</a>';
         } else if (rl.receipt_image) {
             billLink = '<a href="' + rl.receipt_image + '" target="_blank" style="color:#0d9488;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #0d9488">🖼 Xem ảnh phiếu</a>';
         }
@@ -893,6 +895,15 @@ window._kvOpenImportBill = function(importId) {
         s.onload = function() { _bnhFabDetail(importId); };
         document.head.appendChild(s);
     }
+};
+
+window._kvOpenStockcheckBill = function(sessionId) {
+    closeModal();
+    const url = new URL(window.location.href);
+    url.pathname = '/kiemkhohv';
+    url.searchParams.set('session_id', sessionId);
+    window.history.pushState({ page: 'kiemkhohv', view: 'report', sessionId: sessionId }, '', url.pathname + url.search);
+    handleRoute();
 };
 
 function _kvInjectCuttingDetailStyles() {
