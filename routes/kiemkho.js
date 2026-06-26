@@ -799,7 +799,7 @@ module.exports = async function(fastify) {
         try { sessionInfo = JSON.parse(activeRow.value); } catch(e) {}
         const sessionId = sessionInfo.session_id;
 
-        const session = await db.get("SELECT total_rolls, total_weight FROM stockcheck_sessions WHERE id = $1", [sessionId]);
+        const session = await db.get("SELECT total_rolls, total_weight, started_at FROM stockcheck_sessions WHERE id = $1", [sessionId]);
         if (!session) return reply.code(400).send({ error: 'Không tìm thấy thông tin phiên kiểm kê.' });
 
         const expectedCount = await db.get(`
@@ -810,8 +810,12 @@ module.exports = async function(fastify) {
             WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
         `);
         const checkedCount = await db.get(`
-            SELECT COUNT(*)::int AS cnt FROM stockcheck_records WHERE is_checked=true
-        `);
+            SELECT COUNT(*)::int AS cnt 
+            FROM stockcheck_records sc
+            JOIN kv_rolls r ON r.id = sc.roll_id
+            WHERE sc.is_checked = true 
+              AND NOT (r.source = 'kiem_kho_du' AND r.created_at >= $1)
+        `, [session.started_at]);
 
         const records = await db.all(`
             SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location,
@@ -953,6 +957,9 @@ module.exports = async function(fastify) {
             console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
         }
 
+        const session = await db.get("SELECT started_at FROM stockcheck_sessions WHERE id = $1", [sessionId]);
+        if (!session) return reply.code(400).send({ error: 'Không tìm thấy phiên kiểm kê.' });
+
         // Verify all expected rolls are audited
         const expectedCount = await db.get(`
             SELECT COUNT(*)::int AS cnt FROM kv_rolls r
@@ -962,8 +969,12 @@ module.exports = async function(fastify) {
             WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
         `);
         const checkedCount = await db.get(`
-            SELECT COUNT(*)::int AS cnt FROM stockcheck_records WHERE is_checked=true
-        `);
+            SELECT COUNT(*)::int AS cnt 
+            FROM stockcheck_records sc
+            JOIN kv_rolls r ON r.id = sc.roll_id
+            WHERE sc.is_checked = true 
+              AND NOT (r.source = 'kiem_kho_du' AND r.created_at >= $1)
+        `, [session.started_at]);
 
         if (checkedCount.cnt < expectedCount.cnt) {
             return reply.code(400).send({

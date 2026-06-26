@@ -2086,26 +2086,22 @@ async function _kkRenderReport(content) {
         const totalSystemRolls = s.total_rolls || 0;
         const totalSystemWeight = Number(s.total_weight || 0);
 
-        // Checked rolls from system (excluding surplus)
-        const checkedSystemRolls = items.filter(i => i.type !== 'surplus').length;
-        const checkedSystemWeight = items.filter(i => i.type !== 'surplus').reduce((sum, i) => sum + Number(i.actual_weight || 0), 0);
-
-        // Surplus weight & count
-        const surplusRollsCount = surplus.length;
-        const surplusWeightSum = surplus.reduce((sum, i) => sum + Number(i.actual_weight || 0), 0);
-
-        // Total checked rolls (including surplus)
-        const totalCheckedRolls = checkedSystemRolls + surplusRollsCount;
-        const totalCheckedWeight = checkedSystemWeight + surplusWeightSum;
-
         // Total loss weight (Mất cây + Hao hụt cân)
         const missingWeightSum = missing.reduce((sum, i) => sum + Number(i.system_weight || 0), 0);
         const weightLossDiff = difference.filter(i => Number(i.difference) > 0).reduce((sum, i) => sum + Number(i.difference || 0), 0);
         const totalLossWeight = missingWeightSum + weightLossDiff;
 
+        // Surplus weight & count
+        const surplusRollsCount = surplus.length;
+        const surplusWeightSum = surplus.reduce((sum, i) => sum + Number(i.actual_weight || 0), 0);
+
         // Total surplus weight (Cây thừa + Dôi dư cân)
         const weightGainDiff = difference.filter(i => Number(i.difference) < 0).reduce((sum, i) => sum + Math.abs(Number(i.difference || 0)), 0);
         const totalSurplusWeight = surplusWeightSum + weightGainDiff;
+
+        // Total checked rolls & weight (Intuitive ledger-based calculation to prevent display mismatches if some rolls were left unchecked)
+        const totalCheckedWeight = totalSystemWeight - totalLossWeight + totalSurplusWeight;
+        const totalCheckedRolls = totalSystemRolls - missing.length + surplus.length;
 
         // Dynamic Unit & Item Labels
         const unitLabel = (items.length > 0 && items[0].unit) ? items[0].unit.trim() : 'kg';
