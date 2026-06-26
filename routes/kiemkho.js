@@ -1,7 +1,7 @@
 // ========== KIỂM KHO — Routes (Sync từ Kho Vải kv_*) ==========
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
-const { vnNow, vnDateStr } = require('../utils/timezone');
+const { vnNow, vnDateStr, vnFormat } = require('../utils/timezone');
 const crypto = require('crypto');
 const { clearStockcheckLockCache } = require('../utils/stockcheckLock');
 
@@ -730,6 +730,84 @@ module.exports = async function(fastify) {
         `, [photo_mode]);
 
         return { success: true };
+    });
+
+    // ========== FINISH SESSION PREVIEW ==========
+    fastify.get('/api/stockcheck/finish-preview', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isKhoManager(req))) return reply.code(403).send({ error: 'Chỉ Quản lý kho hoặc Giám đốc mới có quyền xem trước chốt sổ.' });
+
+        const activeRow = await db.get("SELECT value FROM app_config WHERE key = 'stockcheck_active_session'");
+        if (!activeRow || !activeRow.value) return reply.code(400).send({ error: 'Không có phiên kiểm kê nào đang hoạt động.' });
+
+        let sessionInfo = {};
+        try { sessionInfo = JSON.parse(activeRow.value); } catch(e) {}
+        const sessionId = sessionInfo.session_id;
+
+        const session = await db.get("SELECT total_rolls, total_weight FROM stockcheck_sessions WHERE id = $1", [sessionId]);
+        if (!session) return reply.code(400).send({ error: 'Không tìm thấy thông tin phiên kiểm kê.' });
+
+        const expectedCount = await db.get(`
+            SELECT COUNT(*)::int AS cnt FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
+            JOIN kv_materials m ON m.id=fc.material_id
+            WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+        `);
+        const checkedCount = await db.get(`
+            SELECT COUNT(*)::int AS cnt FROM stockcheck_records WHERE is_checked=true
+        `);
+
+        const records = await db.all(`
+            SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location,
+                   fc.color_name, fc.id AS color_id, m.name AS material_name, w.name AS warehouse_name, w.unit
+            FROM stockcheck_records sc
+            JOIN kv_rolls r ON r.id = sc.roll_id
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+            JOIN kv_warehouses w ON w.id = m.warehouse_id
+            WHERE sc.is_checked = true
+        `);
+
+        let missingRolls = 0, missingWeight = 0;
+        let surplusRolls = 0, surplusWeight = 0;
+        let netDiff = 0;
+
+        for (const rec of records) {
+            const oldW = Number(rec.old_weight);
+            const newW = Number(rec.actual_weight !== null ? rec.actual_weight : rec.old_weight);
+            const diff = oldW - newW;
+
+            if (rec.notes && rec.notes.includes('Kệ dự định hoàn vải')) {
+                // Ignore return confirm rolls
+            } else if (rec.source === 'kiem_kho_du') {
+                surplusRolls++;
+                surplusWeight += newW;
+            } else if (newW === 0) {
+                missingRolls++;
+                missingWeight += oldW;
+            } else if (diff !== 0) {
+                netDiff += diff;
+            }
+        }
+
+        const initialWeight = Number(session.total_weight || 0);
+        const actualWeight = initialWeight - missingWeight + surplusWeight - netDiff;
+        const totalNetDiff = initialWeight - actualWeight;
+
+        return {
+            success: true,
+            session_id: sessionId,
+            time: vnFormat(vnNow()),
+            initial_rolls: session.total_rolls || 0,
+            expected_rolls: expectedCount.cnt,
+            checked_rolls: checkedCount.cnt,
+            initial_weight: initialWeight,
+            actual_weight: actualWeight,
+            missing_rolls: missingRolls,
+            missing_weight: missingWeight,
+            surplus_rolls: surplusRolls,
+            surplus_weight: surplusWeight,
+            net_difference: totalNetDiff
+        };
     });
 
     // ========== FINISH SESSION (APPLY DIFFERENCES + HISTORY) ==========

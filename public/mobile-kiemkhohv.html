@@ -1220,8 +1220,107 @@ async function mSubmitWeight(rollId, systemWeight, rollImg) {
 }
 
 async function mFinishSession() {
-    if (!confirm('⚠️ XÁC NHẬN CHỐT SỔ KIỂM KHO?\n\nHệ thống sẽ chốt sổ, cập nhật số dư kho, ghi nhận hóa đơn nhập/xuất hao hụt, và mở khóa kho vải. Hành động này không thể hoàn tác!')) return;
+    mOpenFinishConfirmModal();
+}
 
+async function mOpenFinishConfirmModal() {
+    try {
+        const preview = await api('/api/stockcheck/finish-preview', 'GET');
+        if (!preview.success) {
+            toast(preview.error || 'Không thể tải thông tin xem trước.', 'error');
+            return;
+        }
+
+        const initialWeight = Number(preview.initial_weight).toLocaleString('vi-VN');
+        const actualWeight = Number(preview.actual_weight).toLocaleString('vi-VN');
+        const diffWeight = Number(Math.abs(preview.net_difference)).toLocaleString('vi-VN');
+        const missingWeight = Number(preview.missing_weight).toLocaleString('vi-VN');
+        const surplusWeight = Number(preview.surplus_weight).toLocaleString('vi-VN');
+
+        let diffClass = 'color: #34d399;';
+        let diffSign = 'Khớp hoàn toàn';
+        if (preview.net_difference > 0) {
+            diffClass = 'color: #f87171;';
+            diffSign = `Hao hụt -${diffWeight} kg`;
+        } else if (preview.net_difference < 0) {
+            diffClass = 'color: #60a5fa;';
+            diffSign = `Dư +${diffWeight} kg`;
+        }
+
+        const modalHtml = `
+            <div class="m-modal-overlay" id="mFinishConfirmModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px;">
+                <div class="m-modal" style="width:100%; max-width:400px; background:#1e293b; border:1px solid rgba(255,255,255,0.08); border-radius:16px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+                    <div class="m-modal-header" style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:15px; font-weight:800; color:#fff; display:flex; align-items:center; gap:8px;">
+                            📋 XÁC NHẬN CHỐT SỔ KIỂM KHO
+                        </span>
+                        <button class="m-modal-close" onclick="mCloseModal('mFinishConfirmModal')" style="border:none; background:none; color:#94a3b8; font-size:24px; cursor:pointer; padding:0; line-height:1;">&times;</button>
+                    </div>
+                    <div class="m-modal-body" style="padding:16px; overflow-y:auto; max-height:calc(100vh - 180px); display:flex; flex-direction:column; gap:12px;">
+                        <div style="background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); color:#93c5fd; padding:10px; border-radius:8px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px;">
+                            ⏰ <span style="font-weight:700;">Hoàn thành lúc:</span> ${preview.time}
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                            <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); padding:10px; border-radius:10px; text-align:center;">
+                                <div style="color:#94a3b8; font-size:10px; font-weight:700; text-transform:uppercase;">Tồn Hệ Thống</div>
+                                <div style="font-size:16px; font-weight:900; color:#f8fafc; margin-top:4px;">${initialWeight} kg</div>
+                                <div style="color:#64748b; font-size:10px; margin-top:2px;">(${preview.initial_rolls} cây)</div>
+                            </div>
+                            <div style="background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.1); padding:10px; border-radius:10px; text-align:center;">
+                                <div style="color:#34d399; font-size:10px; font-weight:700; text-transform:uppercase;">Kiểm Thực Tế</div>
+                                <div style="font-size:16px; font-weight:900; color:#34d399; margin-top:4px;">${actualWeight} kg</div>
+                                <div style="color:#059669; font-size:10px; margin-top:2px;">(${preview.checked_rolls} cây)</div>
+                            </div>
+                        </div>
+
+                        <div style="border:1px solid rgba(255,255,255,0.06); border-radius:10px; overflow:hidden; background:rgba(255,255,255,0.01);">
+                            <div style="background:rgba(255,255,255,0.02); padding:8px 12px; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.06); color:#94a3b8; font-size:10px; text-transform:uppercase;">
+                                Chi Tiết Kết Quả Kiểm Kê
+                            </div>
+                            <div style="padding:12px; display:flex; flex-direction:column; gap:8px; font-size:12px; color:#e2e8f0;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span>❌ Số cây báo mất:</span>
+                                    <span style="font-weight:700; color:#f87171;">${preview.missing_rolls} cây (${missingWeight} kg)</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span>➕ Số cây thừa mới:</span>
+                                    <span style="font-weight:700; color:#60a5fa;">${preview.surplus_rolls} cây (${surplusWeight} kg)</span>
+                                </div>
+                                <div style="border-top:1px dashed rgba(255,255,255,0.08); margin-top:4px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:13px;">
+                                    <span style="font-weight:700; color:#f8fafc;">⚖️ Chênh lệch ròng:</span>
+                                    <span style="font-weight:900; ${diffClass}">${diffSign}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="color:#f87171; background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.2); padding:10px; border-radius:8px; font-size:11px; font-weight:600; line-height:1.5;">
+                            ⚠️ LƯU Ý: Chốt sổ kiểm kho sẽ cập nhật toàn bộ số dư thực tế, ghi nhận hóa đơn nhập/xuất hao hụt và mở khóa kho vải. Hành động này không thể hoàn tác!
+                        </div>
+                    </div>
+                    <div class="m-modal-footer" style="padding:12px 16px; border-top:1px solid rgba(255,255,255,0.06); display:flex; gap:8px; background:rgba(255,255,255,0.01);">
+                        <button class="m-btn m-btn-secondary" onclick="mCloseModal('mFinishConfirmModal')" style="flex:1; padding:10px; font-size:12px; font-weight:600; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#e2e8f0; cursor:pointer;">Hủy</button>
+                        <button class="m-btn m-btn-primary" onclick="mConfirmFinishSession()" style="flex:1; padding:10px; font-size:12px; font-weight:700; border-radius:8px; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.2);">Xác Nhận</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const oldContainer = document.getElementById('mFinishConfirmModalContainer');
+        if (oldContainer) oldContainer.remove();
+
+        const div = document.createElement('div');
+        div.id = 'mFinishConfirmModalContainer';
+        div.innerHTML = modalHtml;
+        document.body.appendChild(div);
+    } catch (e) {
+        toast(e.message || 'Lỗi tải thông tin xem trước.', 'error');
+    }
+}
+
+async function mConfirmFinishSession() {
+    mCloseModal('mFinishConfirmModal');
+    
     try {
         await api('/api/stockcheck/finish-session', 'POST');
         toast('✅ Chốt sổ kiểm kê kho vải thành công!');

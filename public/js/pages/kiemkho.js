@@ -941,7 +941,7 @@ async function _kkRenderAudit(content) {
                             </button>
                             `}
                             ${progressPct === 100 ? `
-                            <button class="kk-btn kk-btn-primary" style="padding:6px 16px; font-size:12px; background:linear-gradient(135deg, #059669, #10b981);" onclick="_kkFinishSession(true)">
+                            <button class="kk-btn kk-btn-primary" style="padding:6px 16px; font-size:12px; background:linear-gradient(135deg, #059669, #10b981);" onclick="_kkOpenFinishConfirmModal()">
                                 ✅ Hoàn Thành Kiểm Kho
                             </button>
                             ` : ''}
@@ -1393,9 +1393,107 @@ async function _kkFinishSession(ready) {
         showToast('Bạn phải hoàn thành kiểm kê 100% số cây vải trước khi chốt sổ.', 'warning');
         return;
     }
+    _kkOpenFinishConfirmModal();
+}
 
-    if (!confirm('⚠️ XÁC NHẬN CHỐT SỔ KIỂM KHO?\n\nHệ thống sẽ chốt sổ, cập nhật số dư kho, ghi nhận hóa đơn nhập/xuất hao hụt, và mở khóa kho vải. Hành động này không thể hoàn tác!')) return;
+async function _kkOpenFinishConfirmModal() {
+    try {
+        const preview = await apiCall('/api/stockcheck/finish-preview', 'GET');
+        if (!preview.success) {
+            showToast(preview.error || 'Không thể tải thông tin xem trước.', 'error');
+            return;
+        }
 
+        const initialWeight = Number(preview.initial_weight).toLocaleString('vi-VN');
+        const actualWeight = Number(preview.actual_weight).toLocaleString('vi-VN');
+        const diffWeight = Number(Math.abs(preview.net_difference)).toLocaleString('vi-VN');
+        const missingWeight = Number(preview.missing_weight).toLocaleString('vi-VN');
+        const surplusWeight = Number(preview.surplus_weight).toLocaleString('vi-VN');
+
+        let diffClass = 'text-success';
+        let diffSign = 'Khớp hoàn toàn';
+        if (preview.net_difference > 0) {
+            diffClass = 'text-danger';
+            diffSign = `Hao hụt -${diffWeight} kg`;
+        } else if (preview.net_difference < 0) {
+            diffClass = 'text-primary';
+            diffSign = `Dư +${diffWeight} kg`;
+        }
+
+        const modalHtml = `
+            <div class="kk-modal-overlay" id="kkFinishConfirmModal">
+                <div class="kk-modal" style="max-width:500px; border-radius:12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);">
+                    <div class="kk-modal-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:16px 20px;">
+                        <div class="kk-modal-title" style="font-weight:800; font-size:16px; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                            📋 XÁC NHẬN CHỐT SỔ KIỂM KHO
+                        </div>
+                        <button class="close" onclick="_kkCloseModal('kkFinishConfirmModal')" style="border:none; background:none; font-size:24px; cursor:pointer;">&times;</button>
+                    </div>
+                    <div class="kk-modal-body" style="padding:20px; color:#334155; font-size:13px; line-height:1.6;">
+                        <div style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; padding:12px; border-radius:8px; margin-bottom:16px; font-weight:600; display:flex; align-items:center; gap:8px;">
+                            ⏰ <span style="font-weight:700;">Thời gian hoàn thành:</span> ${preview.time}
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+                            <div style="background:#f8fafc; border:1px solid #f1f5f9; padding:10px; border-radius:8px; text-align:center;">
+                                <div style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase;">Tồn Hệ Thống Đầu Kì</div>
+                                <div style="font-size:18px; font-weight:900; color:#1e293b; margin-top:4px;">${initialWeight} kg</div>
+                                <div style="color:#94a3b8; font-size:11px; margin-top:2px;">(${preview.initial_rolls} cây)</div>
+                            </div>
+                            <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:8px; text-align:center;">
+                                <div style="color:#166534; font-size:11px; font-weight:700; text-transform:uppercase;">Kiểm Thực Tế Cuối Kì</div>
+                                <div style="font-size:18px; font-weight:900; color:#14532d; margin-top:4px;">${actualWeight} kg</div>
+                                <div style="color:#166534; font-size:11px; margin-top:2px;">(${preview.checked_rolls} cây)</div>
+                            </div>
+                        </div>
+
+                        <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; margin-bottom:16px;">
+                            <div style="background:#f8fafc; padding:8px 12px; font-weight:700; border-bottom:1px solid #e2e8f0; color:#475569; font-size:11px; text-transform:uppercase;">
+                                Chi Tiết Kết Quả Kiểm Kê
+                            </div>
+                            <div style="padding:12px; display:flex; flex-direction:column; gap:8px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span>❌ Số cây báo mất:</span>
+                                    <span style="font-weight:700; color:#ef4444;">${preview.missing_rolls} cây (${missingWeight} kg)</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span>➕ Số cây thừa mới:</span>
+                                    <span style="font-weight:700; color:#3b82f6;">${preview.surplus_rolls} cây (${surplusWeight} kg)</span>
+                                </div>
+                                <div style="border-top:1px dashed #e2e8f0; margin-top:4px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:14px;">
+                                    <span style="font-weight:700; color:#1e293b;">⚖️ Chênh lệch ròng:</span>
+                                    <span class="${diffClass}" style="font-weight:900;">${diffSign}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="color:#ef4444; background:#fef2f2; border:1px solid #fee2e2; padding:10px; border-radius:8px; font-size:12px; font-weight:600;">
+                            ⚠️ LƯU Ý: Sau khi bấm xác nhận, hệ thống sẽ chốt sổ vĩnh viễn, tự động xuất/nhập hao hụt và mở khóa kho vải. Hành động này không thể hoàn tác!
+                        </div>
+                    </div>
+                    <div class="kk-modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 20px; display:flex; justify-content:flex-end; gap:8px; border-bottom-left-radius:12px; border-bottom-right-radius:12px;">
+                        <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkFinishConfirmModal')" style="padding:8px 16px; font-size:13px; font-weight:600;">Hủy</button>
+                        <button class="kk-btn" onclick="_kkConfirmFinishSession()" style="padding:8px 20px; font-size:13px; font-weight:700; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; border-radius:6px; cursor:pointer;">Xác Nhận Hoàn Thành</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const oldContainer = document.getElementById('kkFinishConfirmModalContainer');
+        if (oldContainer) oldContainer.remove();
+
+        const div = document.createElement('div');
+        div.id = 'kkFinishConfirmModalContainer';
+        div.innerHTML = modalHtml;
+        document.body.appendChild(div);
+    } catch (e) {
+        showToast(e.message || 'Lỗi tải thông tin xem trước.', 'error');
+    }
+}
+
+async function _kkConfirmFinishSession() {
+    _kkCloseModal('kkFinishConfirmModal');
+    
     try {
         const res = await apiCall('/api/stockcheck/finish-session', 'POST');
         showToast('✅ Chốt sổ kiểm kê kho vải thành công!', 'success');
@@ -1413,6 +1511,7 @@ async function _kkFinishSession(ready) {
         showToast(e.message || 'Lỗi chốt sổ.', 'error');
     }
 }
+
 
 // ========== ADD SURPLUS MODAL (CÂY THỪA) ==========
 function _kkOpenAddSurplusModal() {
@@ -2547,3 +2646,7 @@ window._kkOpenMaterialsSelector = _kkOpenMaterialsSelector;
 window._kkCloseModal = _kkCloseModal;
 window._kkSelectMaterialForSearch = _kkSelectMaterialForSearch;
 window._kkExportReportToExcel = _kkExportReportToExcel;
+window._kkFinishSession = _kkFinishSession;
+window._kkOpenFinishConfirmModal = _kkOpenFinishConfirmModal;
+window._kkConfirmFinishSession = _kkConfirmFinishSession;
+
