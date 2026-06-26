@@ -989,13 +989,13 @@ async function _kkRenderAudit(content) {
                     } else if (isSpecialShelf) {
                         if (hasChecked) {
                             actionHtml = `
-                                <button class="kk-action-btn" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true)" title="Hủy xác nhận có cây hoàn/cây nguyên chưa xếp kệ">
+                                <button class="kk-action-btn" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true, ${isReturnRoll})" title="Hủy xác nhận có cây hoàn/cây nguyên chưa xếp kệ">
                                     ✅ Có cây này (Hủy?)
                                 </button>
                             `;
                         } else {
                             actionHtml = `
-                                <button class="kk-action-btn" style="background: rgba(217, 119, 6, 0.15); border: 1px solid #d97706; color: #ea580c; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false)" title="Xác nhận có cây hoàn/cây nguyên chưa xếp kệ trong kho">
+                                <button class="kk-action-btn" style="background: rgba(217, 119, 6, 0.15); border: 1px solid #d97706; color: #ea580c; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false, ${isReturnRoll})" title="Xác nhận có cây hoàn/cây nguyên chưa xếp kệ trong kho">
                                     🔍 Kiểm xem có cây này không
                                 </button>
                             `;
@@ -1391,16 +1391,17 @@ async function _kkMarkPresent(rollId, systemWeight, rollImg) {
     }
 }
 
-async function _kkToggleReturnRollCheck(rollId, rollCode, isCurrentlyChecked) {
+async function _kkToggleReturnRollCheck(rollId, rollCode, isCurrentlyChecked, isReturnRoll = false) {
+    const rollTypeLabel = isReturnRoll ? 'cây hoàn' : 'cây nguyên';
     const confirmMsg = isCurrentlyChecked 
-        ? `Xác nhận hủy kiểm tra cây hoàn này (mã ${rollCode})?`
-        : `Xác nhận có cây hoàn này (mã ${rollCode}) trong kho?`;
+        ? `Xác nhận hủy kiểm tra ${rollTypeLabel} này (mã ${rollCode})?`
+        : `Xác nhận có ${rollTypeLabel} này (mã ${rollCode}) trong kho?`;
     
     if (!confirm(confirmMsg)) return;
 
     try {
         await apiCall('/api/stockcheck/check/' + rollId, 'POST', { action: 'toggle_check' });
-        showToast(isCurrentlyChecked ? '↩️ Đã hủy kiểm cây hoàn' : '✅ Đã xác nhận có cây hoàn', 'success');
+        showToast(isCurrentlyChecked ? `↩️ Đã hủy kiểm ${rollTypeLabel}` : `✅ Đã xác nhận có ${rollTypeLabel}`, 'success');
         
         // Reload
         const treeRes = await apiCall('/api/stockcheck/tree');
