@@ -818,7 +818,7 @@ module.exports = async function(fastify) {
         `, [session.started_at]);
 
         const records = await db.all(`
-            SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location,
+            SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location, r.created_at AS roll_created_at,
                    fc.color_name, fc.id AS color_id, m.name AS material_name, w.name AS warehouse_name, w.unit
             FROM stockcheck_records sc
             JOIN kv_rolls r ON r.id = sc.roll_id
@@ -885,7 +885,7 @@ module.exports = async function(fastify) {
 
             if (rec.notes && rec.notes.includes('Kệ dự định hoàn vải')) {
                 // Ignore return confirm rolls
-            } else if (rec.source === 'kiem_kho_du') {
+            } else if (rec.source === 'kiem_kho_du' && new Date(rec.roll_created_at) >= new Date(session.started_at)) {
                 surplusRolls++;
                 surplusWeight += newW;
 
@@ -984,7 +984,7 @@ module.exports = async function(fastify) {
 
         // Load all checked records
         const records = await db.all(`
-            SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location,
+            SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location, r.created_at AS roll_created_at,
                    fc.color_name, fc.id AS color_id, m.name AS material_name, w.name AS warehouse_name, w.unit
             FROM stockcheck_records sc
             JOIN kv_rolls r ON r.id = sc.roll_id
@@ -1012,11 +1012,14 @@ module.exports = async function(fastify) {
 
                 if (rec.notes && rec.notes.includes('Kệ dự định hoàn vải')) {
                     type = 'return_confirm';
-                } else if (rec.source === 'kiem_kho_du') {
+                } else if (rec.source === 'kiem_kho_du' && new Date(rec.roll_created_at) >= new Date(session.started_at)) {
                     // Added as surplus during audit
                     surplusRolls++;
                     surplusWeight += newW;
                     type = 'surplus';
+                    if (diff !== 0) {
+                        await db.run('UPDATE kv_rolls SET weight = $1, original_weight = $1 WHERE id = $2', [newW, rec.roll_id]);
+                    }
                 } else if (newW === 0) {
                     // Missing roll (Loss 100%)
                     missingRolls++;
