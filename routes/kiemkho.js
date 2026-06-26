@@ -611,6 +611,15 @@ module.exports = async function(fastify) {
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
                    r.locked_by_cutting_id,
                    (
+                       r.location IS NULL 
+                       OR TRIM(r.location) = '' 
+                       OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (
+                           SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) 
+                           FROM kv_locations 
+                           WHERE warehouse_id = m.warehouse_id
+                       )
+                   ) AS is_unassigned,
+                   (
                        SELECT o.order_code || ' - P' || 
                               COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id), 1) || '.' || 
                               (COALESCE(res.phoi_index, 0) + 1)
@@ -635,11 +644,27 @@ module.exports = async function(fastify) {
     // ========== CHECK / UPDATE ==========
     fastify.post('/api/stockcheck/check/:rollId', { preHandler: [authenticate] }, async (req, reply) => {
         const rollId = Number(req.params.rollId), { actual_weight, notes, action } = req.body || {}, now = vnNow();
-        const roll = await db.get('SELECT r.*, fc.id AS fcid FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id WHERE r.id=$1', [rollId]);
+        const roll = await db.get(`
+            SELECT r.*, fc.id AS fcid,
+                   (
+                       r.location IS NULL 
+                       OR TRIM(r.location) = '' 
+                       OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (
+                           SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) 
+                           FROM kv_locations 
+                           WHERE warehouse_id = m.warehouse_id
+                       )
+                   ) AS is_unassigned
+            FROM kv_rolls r 
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id 
+            JOIN kv_materials m ON m.id = fc.material_id
+            WHERE r.id = $1
+        `, [rollId]);
         if (!roll) return reply.code(404).send({ error: 'Cây vải không tồn tại' });
+        
         const cleanLoc = (roll.location || '').toLowerCase();
         const isReturnRoll = cleanLoc.includes('dự định hoàn vải');
-        const isUnassignedNguyen = (!roll.location || roll.location.trim() === '') && (Number(roll.weight) >= Number(roll.original_weight));
+        const isUnassignedNguyen = roll.is_unassigned && (Number(roll.weight) >= Number(roll.original_weight));
         if (isReturnRoll || isUnassignedNguyen) {
             if (action !== 'toggle_check') {
                 return reply.code(400).send({ error: 'Cây vải này chỉ được xác nhận có/không, không được nhập cân lệch.' });

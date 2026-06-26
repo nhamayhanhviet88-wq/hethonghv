@@ -723,7 +723,7 @@ function mCards(){
                         </button>
                     </div>
                 `;
-            } else if (isReturnRoll || ((!r.location || r.location.trim() === '') && (Number(r.system_weight) >= Number(r.original_weight)))) {
+            } else if (isReturnRoll || (r.is_unassigned && (Number(r.system_weight) >= Number(r.original_weight)))) {
                 if (cA) {
                     actionRowHtml = `
                         <div class="ca" style="grid-template-columns: 1fr;">
