@@ -78,6 +78,8 @@ function renderKiemkhoPage(content) {
             .kk-diff-badge.ok { background: #d1fae5; color: #065f46; }
             .kk-diff-badge.missing { background: #fee2e2; color: #991b1b; }
             .kk-diff-badge.surplus { background: #dbeafe; color: #1e40af; }
+            .kk-tr-surplus { background-color: #f3e8ff !important; color: #6b21a8 !important; }
+            .kk-tr-surplus td { color: #6b21a8 !important; }
             
             /* Progress bar */
             .kk-progress-container { width: 100%; height: 16px; background: #e2e8f0; border-radius: 8px; overflow: hidden; margin: 12px 0; position: relative; }
@@ -653,7 +655,8 @@ async function _kkRenderAudit(content) {
             if (!isCollapsed) {
                 g.rolls.forEach((r, subIdx) => {
                     const hasChecked = r.is_checked;
-                    const rowClass = hasChecked ? 'table-success' : '';
+                    const isSurplus = r.source === 'kiem_kho_du';
+                    const rowClass = isSurplus ? 'kk-tr-surplus' : (hasChecked ? 'table-success' : '');
                     
                     // Badges for locks and reservations
                     let badges = '';
@@ -674,7 +677,9 @@ async function _kkRenderAudit(content) {
 
                     // Difference display
                     let diffLabel = '—';
-                    if (hasChecked) {
+                    if (isSurplus) {
+                        diffLabel = `<span class="kk-diff-badge ok" style="background:#f3e8ff; color:#6b21a8; border:1px solid #c084fc;">💜 Cây thừa</span>`;
+                    } else if (hasChecked) {
                         if (r.actual_weight === 0) {
                             diffLabel = `<span class="kk-diff-badge missing">❌ Báo mất</span>`;
                         } else if (Number(r.difference) === 0) {
@@ -685,6 +690,21 @@ async function _kkRenderAudit(content) {
                                 ${diffVal > 0 ? 'Thiếu ' + diffVal : 'Thừa ' + Math.abs(diffVal)} kg
                             </span>`;
                         }
+                    }
+
+                    let actionHtml = '';
+                    if (isSurplus) {
+                        actionHtml = `
+                            <button class="kk-action-btn" style="background: rgba(139, 92, 246, 0.15); border: 1px solid #8b5cf6; color: #8b5cf6; padding: 4px 8px; border-radius: 6px; font-weight: bold; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkViewSurplusDetail(${r.roll_id})" title="Xem chi tiết cây vải thừa">
+                                💜 Xem chi tiết
+                            </button>
+                        `;
+                    } else {
+                        actionHtml = `
+                            <button class="kk-action-btn blue" onclick="event.stopPropagation(); _kkInputWeightPrompt(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📝 Nhập thực tế">📝</button>
+                            ${photoBtn}
+                            <button class="kk-action-btn red" onclick="event.stopPropagation(); _kkMarkMissing(${r.roll_id}, '${r.roll_code}')" title="❌ Báo mất">❌</button>
+                        `;
                     }
 
                     tableRows += `
@@ -714,9 +734,7 @@ async function _kkRenderAudit(content) {
                             </td>
                             <td class="text-center">
                                 <div style="display:flex; align-items:center; justify-content:center; gap:2px;">
-                                    <button class="kk-action-btn blue" onclick="event.stopPropagation(); _kkInputWeightPrompt(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')" title="📝 Nhập thực tế">📝</button>
-                                    ${photoBtn}
-                                    <button class="kk-action-btn red" onclick="event.stopPropagation(); _kkMarkMissing(${r.roll_id}, '${r.roll_code}')" title="❌ Báo mất">❌</button>
+                                    ${actionHtml}
                                 </div>
                             </td>
                         </tr>
@@ -1433,6 +1451,70 @@ function _kkValidateSurplusForm() {
         btn.disabled = true;
         btn.style.opacity = '0.5';
     }
+}
+
+function _kkViewSurplusDetail(rollId) {
+    const r = _kk.rolls.find(item => item.roll_id === rollId);
+    if (!r) {
+        showToast('Không tìm thấy thông tin cây vải thừa', 'error');
+        return;
+    }
+
+    const modalHtml = `
+        <div class="kk-modal-overlay" id="kkViewSurplusModal">
+            <div class="kk-modal" style="max-width:450px;">
+                <div class="kk-modal-header">
+                    <div class="kk-modal-title" style="color: #6b21a8; font-weight: 800;">💜 Chi Tiết Cây Vải Thừa</div>
+                    <button class="close" onclick="_kkCloseModal('kkViewSurplusModal')" style="border:none; background:none; font-size:24px; cursor:pointer;">&times;</button>
+                </div>
+                <div class="kk-modal-body" style="font-size:13px; display:flex; flex-direction:column; gap:12px; color:#334155;">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                        <span style="color:#64748b; font-weight:600;">Mã Cây Vải:</span>
+                        <span style="font-weight:700; font-family:monospace; color:#6b21a8;">${r.roll_code}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                        <span style="color:#64748b; font-weight:600;">Chất Liệu:</span>
+                        <span style="font-weight:700;">${r.material_name}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                        <span style="color:#64748b; font-weight:600;">Màu Vải:</span>
+                        <span style="font-weight:700; color:#0d9488;">${r.color_name}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                        <span style="color:#64748b; font-weight:600;">Trọng Lượng Thực Tế:</span>
+                        <span style="font-weight:900; color:#059669; font-size:15px;">${r.actual_weight} kg</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                        <span style="color:#64748b; font-weight:600;">Vị Trí Kệ:</span>
+                        <span style="font-weight:700; color:#6b21a8;">📍 ${r.location || 'Chưa rõ'}</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                        <span style="color:#64748b; font-weight:600;">Ghi Chú:</span>
+                        <span style="font-style:italic; color:#475569;">${r.sc_notes || 'Không có ghi chú'}</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <span style="color:#64748b; font-weight:600;">Ảnh Minh Chứng:</span>
+                        ${r.roll_img ? `
+                            <img src="${r.roll_img}" style="width:100%; max-height:240px; object-fit:contain; border-radius:8px; border:1px solid #cbd5e1; cursor:pointer;" onclick="viewImage('${r.roll_img}')">
+                        ` : `
+                            <span style="color:#ef4444; font-style:italic;">Không có ảnh minh chứng</span>
+                        `}
+                    </div>
+                </div>
+                <div class="kk-modal-footer" style="background:#fafafa; display:flex; justify-content:flex-end; padding:12px 24px;">
+                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkViewSurplusModal')">Đóng</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('kkViewSurplusModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'kkViewSurplusModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
 }
 
 // ========== VIEW COMPLETED SESSION REPORT VIEW ==========

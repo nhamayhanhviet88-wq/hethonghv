@@ -33,6 +33,9 @@
         .card.missing { background: rgba(153, 27, 27, 0.45) !important; border-color: #ef4444 !important; }
         .card.missing .cl { color: #fca5a5 !important; }
         .card.missing .cv { color: #ffffff !important; }
+        .card.surplus { background: rgba(168, 85, 247, 0.18) !important; border-color: rgba(168, 85, 247, 0.4) !important; }
+        .card.surplus .cl { color: #e9d5ff !important; }
+        .card.surplus .cv { color: #ffffff !important; }
         .cb{padding:12px 16px}
         .cr{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
         .cl{font-size:11px;color:#94a3b8;font-weight:600}.cv{font-size:13px;color:#e2e8f0;font-weight:700}
@@ -632,7 +635,8 @@ function mCards(){
         rows.forEach(r=>{
             const cA=r.is_checked;
             const isMissing = cA && Number(r.actual_weight) === 0;
-            const cardClass = cA ? (isMissing ? 'card missing' : 'card checked') : 'card';
+            const isSurplus = r.source === 'kiem_kho_du';
+            const cardClass = isSurplus ? 'card surplus' : (cA ? (isMissing ? 'card missing' : 'card checked') : 'card');
             
             // Badges
             let badges = '';
@@ -662,6 +666,31 @@ function mCards(){
             const missingBtnText = isMissing ? 'ĐÃ BÁO MẤT' : 'BÁO MẤT';
             const missingBtnClass = isMissing ? 'ab red on' : 'ab red';
 
+            let actionRowHtml = '';
+            if (isSurplus) {
+                actionRowHtml = `
+                    <div class="ca" style="grid-template-columns: 1fr;">
+                        <button class="ab" style="border-color: rgba(168, 85, 247, 0.4); background: rgba(168, 85, 247, 0.15); color: #e9d5ff;" onclick="mViewSurplusDetail(${r.roll_id})">
+                            <span class="ai">💜</span>
+                            <span class="al" style="color: #e9d5ff; font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">CÂY VẢI THỪA (XEM CHI TIẾT)</span>
+                        </button>
+                    </div>
+                `;
+            } else {
+                actionRowHtml = `
+                    <div class="ca">
+                        <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
+                            <span class="ai">${weightBtnIcon}</span>
+                            <span class="al">${weightBtnText}</span>
+                        </button>
+                        <button class="${missingBtnClass}" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
+                            <span class="ai">❌</span>
+                            <span class="al">${missingBtnText}</span>
+                        </button>
+                    </div>
+                `;
+            }
+
             html+=`
                 <div class="${cardClass}">
                     <div class="cb">
@@ -676,16 +705,7 @@ function mCards(){
                         <div class="cr"><span class="cl">📊 Chênh Lệch</span>${diff(r)}</div>
                         ${r.sc_notes?`<div class="cr"><span class="cl">📝 Ghi Chú</span><span class="cv" style="font-size:11px">${r.sc_notes}</span></div>`:''}
                     </div>
-                    <div class="ca">
-                        <button class="ab blue" onclick="mInputWeight(${r.roll_id}, ${r.system_weight}, '${r.roll_img}')">
-                            <span class="ai">${weightBtnIcon}</span>
-                            <span class="al">${weightBtnText}</span>
-                        </button>
-                        <button class="${missingBtnClass}" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
-                            <span class="ai">❌</span>
-                            <span class="al">${missingBtnText}</span>
-                        </button>
-                    </div>
+                    ${actionRowHtml}
                 </div>`;
         });
     });
@@ -1277,6 +1297,70 @@ function mValidateSurplusForm() {
         btn.disabled = true;
         btn.style.opacity = '0.5';
     }
+}
+
+function mViewSurplusDetail(rollId) {
+    const r = mr.find(item => item.roll_id === rollId);
+    if (!r) {
+        toast('Không tìm thấy thông tin cây vải thừa', 'error');
+        return;
+    }
+
+    const modalHtml = `
+        <div class="m-modal-overlay" id="mViewSurplusModal">
+            <div class="m-modal">
+                <div class="m-modal-header">
+                    <div class="m-modal-title">💜 Chi Tiết Cây Vải Thừa</div>
+                    <button class="m-modal-close" onclick="mCloseModal('mViewSurplusModal')">&times;</button>
+                </div>
+                <div class="m-modal-body" style="color:#e2e8f0; font-size:13px; display:flex; flex-direction:column; gap:12px;">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
+                        <span style="color:#94a3b8;">Mã Cây Vải:</span>
+                        <span style="font-weight:700; font-family:monospace; color:#e9d5ff;">${r.roll_code}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
+                        <span style="color:#94a3b8;">Chất Liệu:</span>
+                        <span style="font-weight:700;">${r.material_name}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
+                        <span style="color:#94a3b8;">Màu Vải:</span>
+                        <span style="font-weight:700; color:#5eead4;">${r.color_name}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
+                        <span style="color:#94a3b8;">Trọng Lượng Thực Tế:</span>
+                        <span style="font-weight:900; color:#34d399; font-size:15px;">${r.actual_weight} kg</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
+                        <span style="color:#94a3b8;">Vị Trí Kệ:</span>
+                        <span style="font-weight:700; color:#e9d5ff;">📍 ${r.location || 'Chưa rõ'}</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
+                        <span style="color:#94a3b8;">Ghi Chú:</span>
+                        <span style="font-style:italic; color:#cbd5e1;">${r.sc_notes || 'Không có ghi chú'}</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <span style="color:#94a3b8;">Ảnh Minh Chứng:</span>
+                        ${r.roll_img ? `
+                            <img src="${r.roll_img}" style="width:100%; max-height:220px; object-fit:contain; border-radius:8px; border:1px solid rgba(255,255,255,0.15);" onclick="viewImage('${r.roll_img}')">
+                        ` : `
+                            <span style="color:#f87171; font-style:italic;">Không có ảnh minh chứng</span>
+                        `}
+                    </div>
+                </div>
+                <div class="m-modal-footer" style="padding:12px 16px; border-top:1px solid rgba(255,255,255,0.08); display:flex; justify-content:flex-end;">
+                    <button class="m-btn m-btn-primary" style="background:#4b5563; border-color:#4b5563;" onclick="mCloseModal('mViewSurplusModal')">Đóng</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('mViewSurplusModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'mViewSurplusModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
 }
 
 async function mSelectGlobalMode() {
