@@ -2807,8 +2807,8 @@ function _kkRenderReportTabItems(items, type) {
             <tr>
                 <td class="text-center text-muted font-weight-bold">${idx + 1}</td>
                 <td>
-                    <div style="font-weight:700; color:#0f766e;">${item.roll_code}</div>
-                    <div style="font-size:10px; color:#64748b;">${item.material_name} - ${item.color_name}</div>
+                    <div style="font-weight:700; color:#0f172a; font-size:11.5px; margin-bottom:2px;">${item.material_name} - ${item.color_name}</div>
+                    <div style="font-size:10px; color:#64748b;">${item.roll_code}</div>
                 </td>
                 <td class="text-center">${Number(item.system_weight).toLocaleString('vi-VN')} ${item.unit}</td>
                 <td class="text-center">${Number(item.actual_weight).toLocaleString('vi-VN')} ${item.unit}</td>
