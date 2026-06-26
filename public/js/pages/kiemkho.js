@@ -62,6 +62,21 @@ window._kkToggleGroup = function(groupKey) {
     _kkRenderActiveLocation();
 };
 
+window._kkToggleReportGroup = function(groupKey) {
+    _kk.collapsedReportGroups = _kk.collapsedReportGroups || new Set();
+    if (_kk.collapsedReportGroups.has(groupKey)) {
+        _kk.collapsedReportGroups.delete(groupKey);
+    } else {
+        _kk.collapsedReportGroups.add(groupKey);
+    }
+    let activeType = 'missing';
+    if (document.getElementById('kkTabBtnSurplus')?.classList.contains('active')) activeType = 'surplus';
+    else if (document.getElementById('kkTabBtnDiff')?.classList.contains('active')) activeType = 'diff';
+    else if (document.getElementById('kkTabBtnMatch')?.classList.contains('active')) activeType = 'match';
+    
+    _kkSwitchRepTab(activeType);
+};
+
 function _kkGetContainer() {
     return _kk.container || document.getElementById('contentArea') || document.getElementById('mainContent') || document.querySelector('.kk-wrap')?.parentElement || document.querySelector('.kk-main')?.parentElement;
 }
@@ -2777,44 +2792,117 @@ function _kkRenderReportTabItems(items, type) {
         return `<div class="text-center text-muted py-5">Không có ${labelLower} nào thuộc trạng thái này.</div>`;
     }
 
+    // Group items by material_name + color_name
+    const groups = {};
+    const groupOrder = [];
+
+    items.forEach(item => {
+        const key = `${item.material_name || 'Chưa rõ'}_${item.color_name || 'Chưa rõ'}`;
+        if (!groups[key]) {
+            groups[key] = {
+                material_name: item.material_name || 'Chưa rõ',
+                color_name: item.color_name || 'Chưa rõ',
+                system_weight: 0,
+                actual_weight: 0,
+                difference: 0,
+                unit: item.unit || 'kg',
+                items: []
+            };
+            groupOrder.push(key);
+        }
+        const g = groups[key];
+        g.items.push(item);
+        g.system_weight += Number(item.system_weight || 0);
+        g.actual_weight += Number(item.actual_weight || 0);
+        g.difference += Number(item.difference || 0);
+    });
+
     let rowsHtml = '';
-    items.forEach((item, idx) => {
-        let diffText = '—';
+    _kk.collapsedReportGroups = _kk.collapsedReportGroups || new Set();
+
+    groupOrder.forEach((key, gIdx) => {
+        const g = groups[key];
+        const isCollapsed = _kk.collapsedReportGroups.has(key);
+        const chevron = isCollapsed ? '▶' : '▼';
+
+        // Sum values formatting
+        const sumSys = Number(g.system_weight.toFixed(2)).toLocaleString('vi-VN') + ' ' + g.unit;
+        const sumAct = Number(g.actual_weight.toFixed(2)).toLocaleString('vi-VN') + ' ' + g.unit;
+
+        let sumDiffText = '—';
         if (type === 'missing') {
-            diffText = `<span style="color:#ef4444; font-weight:700;">-${item.system_weight} ${item.unit}</span>`;
+            sumDiffText = `<span style="color:#ef4444; font-weight:700;">-${Number(g.system_weight.toFixed(2)).toLocaleString('vi-VN')} ${g.unit}</span>`;
         } else if (type === 'surplus') {
-            const isLe = item.notes && item.notes.includes("Cây lẻ");
-            const typeBadge = isProduct 
-                ? '' 
-                : (isLe 
-                    ? `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">✂️ Cây Lẻ</span>` 
-                    : `<span style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">🌲 Cây Nguyên</span>`);
-            diffText = `<span style="color:#3b82f6; font-weight:700;">+${item.actual_weight} ${item.unit}</span>${typeBadge}`;
+            sumDiffText = `<span style="color:#3b82f6; font-weight:700;">+${Number(g.actual_weight.toFixed(2)).toLocaleString('vi-VN')} ${g.unit}</span>`;
         } else if (type === 'diff') {
-            const d = Number(item.difference);
-            diffText = `<span style="color:${d > 0 ? '#ef4444' : '#3b82f6'}; font-weight:700;">
-                ${d > 0 ? '-' + d : '+' + Math.abs(d)} ${item.unit}
+            const d = Number(g.difference.toFixed(2));
+            sumDiffText = `<span style="color:${d > 0 ? '#ef4444' : '#3b82f6'}; font-weight:700;">
+                ${d > 0 ? '-' + d.toLocaleString('vi-VN') : '+' + Math.abs(d).toLocaleString('vi-VN')} ${g.unit}
             </span>`;
         } else {
-            if (item.type === 'return_confirm') {
-                diffText = `<span class="text-success font-weight-bold">Khớp</span> <span class="kk-diff-badge ok" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-size:9px; padding:1px 5px; margin-left:4px;">🔄 Chờ hoàn NCC</span>`;
+            const hasReturn = g.items.some(i => i.type === 'return_confirm');
+            if (hasReturn) {
+                sumDiffText = `<span class="text-success font-weight-bold">Khớp</span> <span class="kk-diff-badge ok" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-size:9px; padding:1px 5px; margin-left:4px;">🔄 Chờ hoàn NCC</span>`;
             } else {
-                diffText = `<span class="text-success font-weight-bold">Khớp</span>`;
+                sumDiffText = `<span class="text-success font-weight-bold">Khớp</span>`;
             }
         }
 
+        // Group Header Row
         rowsHtml += `
-            <tr>
-                <td class="text-center text-muted font-weight-bold">${idx + 1}</td>
-                <td>
-                    <div style="font-weight:700; color:#0f172a; font-size:11.5px; margin-bottom:2px;">${item.material_name} - ${item.color_name}</div>
-                    <div style="font-size:10px; color:#64748b;">${item.roll_code}</div>
+            <tr style="background-color: #f1f5f9; cursor: pointer; font-weight: bold; border-left: 4px solid #0f766e;" onclick="_kkToggleReportGroup('${key}')">
+                <td class="text-center" style="font-size: 11px; color: #0f766e; font-weight: 800;">${gIdx + 1} ${chevron}</td>
+                <td style="color: #0f766e; font-weight: 800; font-size: 12px;">
+                    ${g.material_name} - ${g.color_name}
                 </td>
-                <td class="text-center">${Number(item.system_weight).toLocaleString('vi-VN')} ${item.unit}</td>
-                <td class="text-center">${Number(item.actual_weight).toLocaleString('vi-VN')} ${item.unit}</td>
-                <td class="text-right">${diffText}</td>
+                <td class="text-center" style="color: #0f766e;">${sumSys}</td>
+                <td class="text-center" style="color: #10b981;">${sumAct}</td>
+                <td class="text-right">${sumDiffText}</td>
             </tr>
         `;
+
+        // Child Rows (individual rolls)
+        if (!isCollapsed) {
+            g.items.forEach((item, subIdx) => {
+                let diffText = '—';
+                if (type === 'missing') {
+                    diffText = `<span style="color:#ef4444; font-weight:600;">-${Number(item.system_weight).toLocaleString('vi-VN')} ${item.unit}</span>`;
+                } else if (type === 'surplus') {
+                    const isLe = item.notes && item.notes.includes("Cây lẻ");
+                    const typeBadge = isProduct 
+                        ? '' 
+                        : (isLe 
+                            ? `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">✂️ Cây Lẻ</span>` 
+                            : `<span style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:6px;">🌲 Cây Nguyên</span>`);
+                    diffText = `<span style="color:#3b82f6; font-weight:600;">+${Number(item.actual_weight).toLocaleString('vi-VN')} ${item.unit}</span>${typeBadge}`;
+                } else if (type === 'diff') {
+                    const d = Number(item.difference);
+                    diffText = `<span style="color:${d > 0 ? '#ef4444' : '#3b82f6'}; font-weight:600;">
+                        ${d > 0 ? '-' + d.toLocaleString('vi-VN') : '+' + Math.abs(d).toLocaleString('vi-VN')} ${item.unit}
+                    </span>`;
+                } else {
+                    if (item.type === 'return_confirm') {
+                        diffText = `<span class="text-success font-weight-bold">Khớp</span> <span class="kk-diff-badge ok" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-size:9px; padding:1px 5px; margin-left:4px;">🔄 Chờ hoàn NCC</span>`;
+                    } else {
+                        diffText = `<span class="text-success font-weight-bold">Khớp</span>`;
+                    }
+                }
+
+                rowsHtml += `
+                    <tr style="background-color: #ffffff;">
+                        <td class="text-center text-muted" style="padding-left: 20px; font-size: 11px;">${gIdx + 1}.${subIdx + 1}</td>
+                        <td style="padding-left: 20px;">
+                            <div style="font-weight: 700; color: #0f172a; font-size: 11.5px; display: flex; align-items: center; gap: 4px;">
+                                └─ <span style="font-family: monospace; color: #0d9488;">${item.roll_code}</span>
+                            </div>
+                        </td>
+                        <td class="text-center">${Number(item.system_weight).toLocaleString('vi-VN')} ${item.unit}</td>
+                        <td class="text-center">${Number(item.actual_weight).toLocaleString('vi-VN')} ${item.unit}</td>
+                        <td class="text-right">${diffText}</td>
+                    </tr>
+                `;
+            });
+        }
     });
 
     return `
