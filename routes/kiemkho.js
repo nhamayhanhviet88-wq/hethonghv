@@ -212,7 +212,9 @@ module.exports = async function(fastify) {
 
         // 1. Get real shelves with stats
         let sqlReal = `
-            SELECT l.id, l.name, l.description, l.warehouse_id, l.shelf_position,
+            SELECT l.id, l.name, l.description, l.warehouse_id, l.shelf_position, l.is_restricted,
+                   (SELECT string_agg(m.id::text, ',') FROM kv_materials m WHERE LOWER(REGEXP_REPLACE(m.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND m.is_active = true) AS allowed_material_ids,
+                   (SELECT string_agg(DISTINCT m.name, ', ') FROM kv_materials m WHERE LOWER(REGEXP_REPLACE(m.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND m.is_active = true) AS allowed_materials,
                    COALESCE((SELECT COUNT(*)::int FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id

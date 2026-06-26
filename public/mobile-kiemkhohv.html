@@ -1080,19 +1080,14 @@ function mOpenAddSurplusModal() {
 
     mSurplusFile = null; // Clear previous state
 
-    // Populate Materials selection from tree.tree
-    let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
-    if (tree && tree.tree) {
-        const curShelf = mShelves.find(s => s.name === activeLocation);
-        const actualWhId = curShelf ? Number(curShelf.warehouse_id) : Number(activeWarehouseId);
-        
-        const currentWh = tree.tree.find(w => Number(w.id) === actualWhId);
-        if (currentWh && currentWh.materials) {
-            currentWh.materials.forEach(m => {
-                matOptions += `<option value="${m.id}">${m.name}</option>`;
-            });
-        }
-    }
+    // Populate Shelf selection options from mShelves
+    let shelfOptions = '';
+    mShelves.forEach(s => {
+        const cleanName = s.name.replace(/^📍\s*/, '').trim().toLowerCase();
+        const isBlockedShelf = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanName);
+        if (isBlockedShelf) return;
+        shelfOptions += `<option value="${s.name}" ${s.name === activeLocation ? 'selected' : ''}>${s.name}</option>`;
+    });
 
     const modalHtml = `
         <div class="m-modal-overlay" id="mSurplusModal">
@@ -1102,12 +1097,24 @@ function mOpenAddSurplusModal() {
                     <button class="m-modal-close" onclick="mCloseModal('mSurplusModal')">&times;</button>
                 </div>
                 <div class="m-modal-body">
+                    <!-- Shelf Selector -->
+                    <div class="m-form-group">
+                        <label class="m-form-label">Kệ chứa cây thừa</label>
+                        <select id="mSurplusLocation" class="m-form-input" onchange="mOnSurplusShelfChange(this.value)" style="color:#e2e8f0; background:#1e293b;">
+                            ${shelfOptions}
+                        </select>
+                        <div id="mSurplusShelfInfo" style="margin-top: 6px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+                            <div>📍 <span style="color:#fde047;">Vị trí kệ:</span> <span id="mSurplusShelfPos" style="color:#ffffff;">--</span></div>
+                            <div>📦 <span style="color:#2dd4bf;">Chất liệu kệ:</span> <span id="mSurplusShelfMats" style="color:#ffffff;">--</span></div>
+                        </div>
+                    </div>
+
                     <!-- Material Selector -->
                     <div class="m-form-group">
                         <label class="m-form-label">Chất Liệu Vải</label>
                         <select id="mSurplusMatSelect" class="m-form-input" onchange="mOnSurplusMatChange(this.value); mValidateSurplusForm();" style="color:#e2e8f0; background:#1e293b;">
-                            ${matOptions}
                         </select>
+                        <div id="mSurplusMatWarning" style="color:#f59e0b; font-size:12px; margin-top:4px; display:none;">⚠️ Kệ này đang bị giới hạn nhưng chưa được gán chất liệu nào!</div>
                     </div>
 
                     <!-- Color Selector -->
@@ -1128,11 +1135,6 @@ function mOpenAddSurplusModal() {
                             <label class="m-form-label">Số Cây Thừa</label>
                             <input type="number" id="mSurplusCount" class="m-form-input" value="1" readonly style="background: rgba(255,255,255,0.02); color:#94a3b8;">
                         </div>
-                    </div>
-
-                    <div class="m-form-group">
-                        <label class="m-form-label">Kệ chứa cây thừa</label>
-                        <input type="text" id="mSurplusLocation" class="m-form-input" value="${activeLocation}" readonly style="background: rgba(255,255,255,0.02); color:#94a3b8;">
                     </div>
 
                     <!-- Photo Upload for Surplus -->
@@ -1170,6 +1172,73 @@ function mOpenAddSurplusModal() {
     div.id = 'mSurplusModalContainer';
     div.innerHTML = modalHtml;
     document.body.appendChild(div);
+
+    // Initialize labels and populate materials for the selected shelf
+    mOnSurplusShelfChange(activeLocation);
+}
+
+function mOnSurplusShelfChange(shelfName) {
+    const shelf = mShelves.find(s => s.name === shelfName);
+    if (!shelf) return;
+
+    // Update Shelf info labels
+    const posEl = document.getElementById('mSurplusShelfPos');
+    const matsEl = document.getElementById('mSurplusShelfMats');
+    if (posEl) posEl.textContent = shelf.shelf_position || 'Chưa cấu hình';
+    if (matsEl) {
+        matsEl.textContent = shelf.is_restricted ? (shelf.allowed_materials || 'Chưa gán chất liệu nào') : 'Đa năng (Chất liệu nào cũng được)';
+        matsEl.style.color = shelf.is_restricted ? '#f472b6' : '#ffffff';
+    }
+
+    // Filter material options
+    const matSelect = document.getElementById('mSurplusMatSelect');
+    if (!matSelect) return;
+
+    const prevSelected = matSelect.value;
+    let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
+
+    // Get all materials of the warehouse
+    const actualWhId = Number(shelf.warehouse_id);
+    const currentWh = tree.tree.find(w => Number(w.id) === actualWhId);
+
+    let allowedIds = [];
+    if (shelf.is_restricted && shelf.allowed_material_ids) {
+        allowedIds = shelf.allowed_material_ids.split(',').map(Number);
+    }
+
+    let validPrevSelected = false;
+
+    if (currentWh && currentWh.materials) {
+        currentWh.materials.forEach(m => {
+            if (shelf.is_restricted) {
+                // Only allow assigned materials
+                if (!allowedIds.includes(Number(m.id))) return;
+            }
+            matOptions += `<option value="${m.id}">${m.name}</option>`;
+            if (Number(m.id) === Number(prevSelected)) {
+                validPrevSelected = true;
+            }
+        });
+    }
+
+    matSelect.innerHTML = matOptions;
+
+    // Warn if restricted but no materials
+    const warnEl = document.getElementById('mSurplusMatWarning');
+    if (shelf.is_restricted && allowedIds.length === 0) {
+        if (warnEl) warnEl.style.display = 'block';
+    } else {
+        if (warnEl) warnEl.style.display = 'none';
+    }
+
+    if (validPrevSelected) {
+        matSelect.value = prevSelected;
+    } else {
+        matSelect.value = "";
+        mOnSurplusMatChange("");
+    }
+
+    mValidateSurplusForm();
 }
 
 function mCloseModal(id) {
@@ -1221,7 +1290,7 @@ async function mSubmitSurplus() {
     if (!mSurplusFile) { toast('Bắt buộc phải chụp hình ảnh cây vải thừa!', 'error'); return; }
 
     try {
-        const curShelf = mShelves.find(s => s.name === activeLocation);
+        const curShelf = mShelves.find(s => s.name === location);
         const actualWhId = curShelf ? Number(curShelf.warehouse_id) : Number(activeWarehouseId);
 
         const body = {

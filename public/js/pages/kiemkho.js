@@ -1238,19 +1238,14 @@ function _kkOpenAddSurplusModal() {
 
     _kk.surplusFile = null; // Clear previous state
 
-    // Populate Materials selection from _kk.tree
-    let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
-    if (_kk.tree && _kk.tree.tree) {
-        // Find materials
-        _kk.tree.tree.forEach(w => {
-            if (_kk.activeWarehouseId !== 'all' && w.id !== _kk.activeWarehouseId) return;
-            if (w.materials) {
-                w.materials.forEach(m => {
-                    matOptions += `<option value="${m.id}">[${w.name}] ${m.name}</option>`;
-                });
-            }
-        });
-    }
+    // Populate Shelf selection options from _kk.shelves
+    let shelfOptions = '';
+    (_kk.shelves || []).forEach(s => {
+        const cleanName = s.name.replace(/^📍\s*/, '').trim().toLowerCase();
+        const isBlockedShelf = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanName);
+        if (isBlockedShelf) return;
+        shelfOptions += `<option value="${s.name}" ${s.name === _kk.activeLocation ? 'selected' : ''}>${s.name}</option>`;
+    });
 
     const modalHtml = `
         <div class="kk-modal-overlay" id="kkSurplusModal">
@@ -1260,12 +1255,24 @@ function _kkOpenAddSurplusModal() {
                     <button class="close" onclick="_kkCloseModal('kkSurplusModal')" style="border:none; background:none; font-size:24px;">&times;</button>
                 </div>
                 <div class="kk-modal-body">
+                    <!-- Shelf Selector -->
+                    <div class="kk-form-group">
+                        <label class="kk-form-label">Kệ Chứa Cây Thừa</label>
+                        <select id="kkSurplusLocation" class="kk-form-input" onchange="_kkOnSurplusShelfChange(this.value)">
+                            ${shelfOptions}
+                        </select>
+                        <div id="kkSurplusShelfInfo" style="margin-top: 6px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+                            <div>📍 <span style="color:#fde047;">Vị trí kệ:</span> <span id="kkSurplusShelfPos" style="color:#ffffff;">--</span></div>
+                            <div>📦 <span style="color:#2dd4bf;">Chất liệu kệ:</span> <span id="kkSurplusShelfMats" style="color:#ffffff;">--</span></div>
+                        </div>
+                    </div>
+
                     <!-- Material Selector -->
                     <div class="kk-form-group">
                         <label class="kk-form-label">Chất Liệu Vải</label>
                         <select id="kkSurplusMatSelect" class="kk-form-input" onchange="_kkOnSurplusMatChange(this.value); _kkValidateSurplusForm();">
-                            ${matOptions}
                         </select>
+                        <div id="kkSurplusMatWarning" style="color:#f59e0b; font-size:12px; margin-top:4px; display:none;">⚠️ Kệ này đang bị giới hạn nhưng chưa được gán chất liệu nào!</div>
                     </div>
 
                     <!-- Color Selector -->
@@ -1290,11 +1297,6 @@ function _kkOpenAddSurplusModal() {
                                 <input type="number" id="kkSurplusCount" class="kk-form-input" value="1" readonly style="background:rgba(255,255,255,0.02); color:#94a3b8;">
                             </div>
                         </div>
-                    </div>
-
-                    <div class="kk-form-group">
-                        <label class="kk-form-label">Vị Trí Kệ Thừa</label>
-                        <input type="text" id="kkSurplusLocation" class="kk-form-input" value="${_kk.activeLocation || ''}" readonly>
                     </div>
 
                     <!-- Photo Upload for Surplus (Desktop) -->
@@ -1328,6 +1330,78 @@ function _kkOpenAddSurplusModal() {
     div.id = 'kkSurplusModalContainer';
     div.innerHTML = modalHtml;
     document.body.appendChild(div);
+
+    // Initialize labels and populate materials for the selected shelf
+    _kkOnSurplusShelfChange(_kk.activeLocation);
+}
+
+function _kkOnSurplusShelfChange(shelfName) {
+    const shelf = (_kk.shelves || []).find(s => s.name === shelfName);
+    if (!shelf) return;
+
+    // Update Shelf info labels
+    const posEl = document.getElementById('kkSurplusShelfPos');
+    const matsEl = document.getElementById('kkSurplusShelfMats');
+    if (posEl) posEl.textContent = shelf.shelf_position || 'Chưa cấu hình';
+    if (matsEl) {
+        matsEl.textContent = shelf.is_restricted ? (shelf.allowed_materials || 'Chưa gán chất liệu nào') : 'Đa năng (Chất liệu nào cũng được)';
+        matsEl.style.color = shelf.is_restricted ? '#c084fc' : '#ffffff';
+    }
+
+    // Filter material options
+    const matSelect = document.getElementById('kkSurplusMatSelect');
+    if (!matSelect) return;
+
+    const prevSelected = matSelect.value;
+    let matOptions = `<option value="">-- Chọn chất liệu --</option>`;
+
+    // Get all materials of the warehouse
+    const actualWhId = Number(shelf.warehouse_id);
+    let allowedIds = [];
+    if (shelf.is_restricted && shelf.allowed_material_ids) {
+        allowedIds = shelf.allowed_material_ids.split(',').map(Number);
+    }
+
+    let validPrevSelected = false;
+
+    if (_kk.tree && _kk.tree.tree) {
+        _kk.tree.tree.forEach(w => {
+            if (Number(w.id) !== actualWhId) return;
+            if (w.materials) {
+                w.materials.forEach(m => {
+                    if (shelf.is_restricted) {
+                        // Only allow assigned materials
+                        if (!allowedIds.includes(Number(m.id))) return;
+                    }
+                    matOptions += `<option value="${m.id}">[${w.name}] ${m.name}</option>`;
+                    if (Number(m.id) === Number(prevSelected)) {
+                        validPrevSelected = true;
+                    }
+                });
+            }
+        });
+    }
+
+    matSelect.innerHTML = matOptions;
+
+    // Warn if restricted but no materials
+    const warnEl = document.getElementById('kkSurplusMatWarning');
+    if (shelf.is_restricted && allowedIds.length === 0) {
+        if (warnEl) warnEl.style.display = 'block';
+    } else {
+        if (warnEl) warnEl.style.display = 'none';
+    }
+
+    if (validPrevSelected) {
+        matSelect.value = prevSelected;
+    } else {
+        matSelect.value = "";
+        _kkOnSurplusMatChange("");
+    }
+
+    _kkValidateSurplusForm();
+}
+window._kkOnSurplusShelfChange = _kkOnSurplusShelfChange;
 }
 
 // On Material Selected in Surplus Form
@@ -1377,8 +1451,11 @@ async function _kkSubmitSurplus() {
     if (!_kk.surplusFile) { showToast('Bắt buộc phải tải ảnh minh chứng cho cây vải thừa!', 'error'); return; }
 
     try {
+        const curShelf = (_kk.shelves || []).find(s => s.name === location);
+        const actualWhId = curShelf ? Number(curShelf.warehouse_id) : (isNaN(Number(_kk.activeWarehouseId)) ? 0 : Number(_kk.activeWarehouseId));
+
         const body = {
-            warehouse_id: _kk.activeWarehouseId,
+            warehouse_id: actualWhId,
             material_id: materialId,
             new_material_name: '',
             color_id: colorId,
