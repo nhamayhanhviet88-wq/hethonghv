@@ -404,24 +404,29 @@ function _kvRenderTable() {
             rwHtml = ' - ' + parts.join(', ');
         }
 
-        var stopBadge = '';
+        var stopBadgeHtml = '';
         if (r.color_stop_import) {
-            stopBadge = ' <span style="background:#fee2e2;color:#ef4444;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #fca5a5;font-weight:800;white-space:nowrap;margin-left:4px" title="Dừng nhập màu này">🛑 Dừng nhập</span>';
+            stopBadgeHtml = '<div style="margin-top:2px"><span style="background:#fee2e2;color:#ef4444;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #fca5a5;font-weight:800;white-space:nowrap;display:inline-block" title="Dừng nhập màu này">🛑 Dừng nhập</span></div>';
         }
 
         var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.85;background-color:#fee2e2"' : 'style="cursor:pointer"';
         h += '<tr ' + rowStyle + ' onclick="_kvShowDetail(' + r.id + ')">';
         h += '<td style="color:var(--gray-400)">' + (i+1) + '</td>';
-        h += '<td style="font-weight:700;color:#0d9488;text-decoration:underline">' + (r.color_name||'') + stopBadge + '<span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></td>';
+        h += '<td style="font-weight:700;color:#0d9488;text-decoration:underline;white-space:nowrap">';
+        h += '<div style="display:inline-block;vertical-align:middle">';
+        h += '<div><span>' + (r.color_name||'') + '</span><span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></div>';
+        h += stopBadgeHtml;
+        h += '</div>';
+        h += '</td>';
         h += '<td>' + (r.material_name||'') + '</td>';
         h += '<td style="font-size:10px;color:#64748b">' + (r.warehouse_name||'') + '</td>';
         h += '<td style="font-size:10px">' + (r.unit||'kg') + '</td>';
         h += '<td style="font-size:11px;font-weight:600;color:#0284c7">' + (r.location||'—') + '</td>';
         h += '<td style="text-align:right;font-weight:700">' + (r.so_cuc||0) + '</td>';
         h += '<td style="text-align:right;font-weight:700;color:' + cayNguyenColor + '">' + (r.cay_nguyen||0) + '</td>';
-        h += '<td style="text-align:right;font-weight:700;color:#059669">' + _kvFmt(r.dau_ky) + '</td>';
-        h += '<td style="text-align:right;font-weight:700;color:#dc2626">' + _kvFmt(r.xuat) + '</td>';
-        h += '<td style="text-align:right;font-weight:900;color:' + cuoiColor + '">' + _kvFmt(r.cuoi_ky) + '</td>';
+        h += '<td style="text-align:right;font-weight:700;color:#059669;white-space:nowrap">' + _kvFmt(r.dau_ky) + '</td>';
+        h += '<td style="text-align:right;font-weight:700;color:#dc2626;white-space:nowrap">' + _kvFmt(r.xuat) + '</td>';
+        h += '<td style="text-align:right;font-weight:900;color:' + cuoiColor + ';white-space:nowrap">' + _kvFmt(r.cuoi_ky) + '</td>';
         h += '<td style="text-align:right;font-size:11px">' + (r.price ? _kvFmt(r.price) + '\u0111' : '\u2014') + '</td>';
         h += '<td style="white-space:nowrap">' + (lastUp || '<span style="color:var(--gray-300)">\u2014</span>') + '</td>';
         h += '<td style="white-space:nowrap" onclick="event.stopPropagation()">';
