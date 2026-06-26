@@ -146,6 +146,10 @@ async function _kkLoadSessionStatus(content) {
         const sRes = await apiCall('/api/stockcheck/settings');
         _kk.photoMode = sRes.photo_mode || 'none';
 
+        // Check if there is a session_id in the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSessionId = urlParams.get('session_id');
+
         if (res.active) {
             _kk.view = 'audit';
             // Default active warehouse to first warehouse in tree
@@ -153,6 +157,9 @@ async function _kkLoadSessionStatus(content) {
             _kk.tree = treeRes;
             _kk.activeWarehouseId = 'all';
             await _kkLoadShelves();
+        } else if (urlSessionId) {
+            _kk.view = 'report';
+            _kk.selectedSessionId = urlSessionId;
         } else {
             _kk.view = 'setup';
             await _kkLoadHistoryAndSummary();
@@ -2057,6 +2064,12 @@ function _kkViewSurplusDetail(rollId) {
 async function _kkViewReport(sessionId) {
     _kk.selectedSessionId = sessionId;
     _kk.view = 'report';
+    
+    // Update URL to include ?session_id=sessionId
+    const url = new URL(window.location.href);
+    url.searchParams.set('session_id', sessionId);
+    window.history.pushState({ page: 'kiem-kho', view: 'report', sessionId: sessionId }, '', url.pathname + url.search);
+
     const content = _kkGetContainer();
     if (content) {
         _kkRenderMain(content);
@@ -2520,6 +2533,11 @@ async function _kkGoBackToSetup() {
     _kk.view = 'setup';
     _kk.selectedSessionId = null;
     _kk.selectedSessionData = null;
+    
+    // Clear URL parameters
+    const url = new URL(window.location.href);
+    url.searchParams.delete('session_id');
+    window.history.pushState({ page: 'kiem-kho' }, '', url.pathname + url.search);
     
     const content = _kkGetContainer();
     if (content) {
