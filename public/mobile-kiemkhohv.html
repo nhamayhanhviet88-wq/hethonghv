@@ -526,11 +526,12 @@ async function mLoad(){
         }
 
         // Calculate shelf-specific statistics
+        const sessionStart = activeSession && activeSession.session ? new Date(activeSession.session.started_at) : null;
         const shelfChecked = mr.filter(r => r.is_checked).length;
         const shelfUnchecked = mr.length - shelfChecked;
         const shelfWeight = mr.reduce((sum, r) => sum + Number(r.system_weight || 0), 0);
         const shelfMissing = mr.filter(r => r.is_checked && Number(r.actual_weight) === 0).length;
-        const shelfSurplus = mr.filter(r => r.source === 'kiem_kho_du').length;
+        const shelfSurplus = mr.filter(r => r.source === 'kiem_kho_du' && sessionStart && new Date(r.created_at) >= sessionStart).length;
 
         document.getElementById('sT').textContent = mr.length; // Total rolls
         document.getElementById('sW').textContent = fn(shelfWeight); // Total system weight
@@ -625,6 +626,7 @@ function mCards(){
     
     // Apply status filter
     let displayRolls = mr;
+    const sessionStart = activeSession && activeSession.session ? new Date(activeSession.session.started_at) : null;
     if (mFilterStatus === 'checked') {
         displayRolls = mr.filter(r => r.is_checked);
     } else if (mFilterStatus === 'unchecked') {
@@ -632,7 +634,7 @@ function mCards(){
     } else if (mFilterStatus === 'missing') {
         displayRolls = mr.filter(r => r.is_checked && Number(r.actual_weight) === 0);
     } else if (mFilterStatus === 'surplus') {
-        displayRolls = mr.filter(r => r.source === 'kiem_kho_du');
+        displayRolls = mr.filter(r => r.source === 'kiem_kho_du' && sessionStart && new Date(r.created_at) >= sessionStart);
     }
 
     if (!displayRolls.length) {
@@ -678,7 +680,8 @@ function mCards(){
         rows.forEach((r, subIdx)=>{
             const cA=r.is_checked;
             const isMissing = cA && Number(r.actual_weight) === 0;
-            const isSurplus = r.source === 'kiem_kho_du';
+            const sessionStart = activeSession && activeSession.session ? new Date(activeSession.session.started_at) : null;
+            const isSurplus = r.source === 'kiem_kho_du' && sessionStart && new Date(r.created_at) >= sessionStart;
             const cardClass = isSurplus ? 'card surplus' : (cA ? (isMissing ? 'card missing' : 'card checked') : 'card');
             
             // Badges

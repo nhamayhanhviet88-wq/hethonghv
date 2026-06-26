@@ -444,13 +444,20 @@ module.exports = async function(fastify) {
     fastify.get('/api/stockcheck/tree', { preHandler: [authenticate] }, async () => {
         // Self-heal: ensure all surplus rolls have a stockcheck record
         try {
-            await db.run(`
-                INSERT INTO stockcheck_records (roll_id, fabric_color_id, system_weight, actual_weight, difference, is_checked, checked_at, checked_by, created_by, created_at)
-                SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
-                FROM kv_rolls r
-                LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
-                WHERE r.source = 'kiem_kho_du' AND sc.id IS NULL AND r.is_returned = false
-            `);
+            const activeRow = await db.get("SELECT value FROM app_config WHERE key = 'stockcheck_active_session'");
+            let session = null;
+            if (activeRow && activeRow.value) {
+                try { session = JSON.parse(activeRow.value); } catch(e) {}
+            }
+            if (session && session.started_at) {
+                await db.run(`
+                    INSERT INTO stockcheck_records (roll_id, fabric_color_id, system_weight, actual_weight, difference, is_checked, checked_at, checked_by, created_by, created_at)
+                    SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
+                    FROM kv_rolls r
+                    LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
+                    WHERE r.source = 'kiem_kho_du' AND r.created_at >= $1 AND sc.id IS NULL AND r.is_returned = false
+                `, [session.started_at]);
+            }
         } catch(e) {
             console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
         }
@@ -486,13 +493,20 @@ module.exports = async function(fastify) {
     fastify.get('/api/stockcheck/rolls', { preHandler: [authenticate] }, async (req) => {
         // Self-heal: ensure all surplus rolls have a stockcheck record
         try {
-            await db.run(`
-                INSERT INTO stockcheck_records (roll_id, fabric_color_id, system_weight, actual_weight, difference, is_checked, checked_at, checked_by, created_by, created_at)
-                SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
-                FROM kv_rolls r
-                LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
-                WHERE r.source = 'kiem_kho_du' AND sc.id IS NULL AND r.is_returned = false
-            `);
+            const activeRow = await db.get("SELECT value FROM app_config WHERE key = 'stockcheck_active_session'");
+            let session = null;
+            if (activeRow && activeRow.value) {
+                try { session = JSON.parse(activeRow.value); } catch(e) {}
+            }
+            if (session && session.started_at) {
+                await db.run(`
+                    INSERT INTO stockcheck_records (roll_id, fabric_color_id, system_weight, actual_weight, difference, is_checked, checked_at, checked_by, created_by, created_at)
+                    SELECT r.id, r.fabric_color_id, r.weight, r.weight, 0, true, NOW(), COALESCE(r.created_by, 1), COALESCE(r.created_by, 1), NOW()
+                    FROM kv_rolls r
+                    LEFT JOIN stockcheck_records sc ON sc.roll_id = r.id
+                    WHERE r.source = 'kiem_kho_du' AND r.created_at >= $1 AND sc.id IS NULL AND r.is_returned = false
+                `, [session.started_at]);
+            }
         } catch(e) {
             console.error('[STOCKCHECK SELF-HEAL ERROR]:', e);
         }
@@ -547,7 +561,7 @@ module.exports = async function(fastify) {
         }
 
         const rows = await db.all(`
-            SELECT r.id AS roll_id, r.roll_code, r.weight AS system_weight, r.original_weight, r.source, r.note AS roll_note, r.image_path AS roll_img, r.location,
+            SELECT r.id AS roll_id, r.roll_code, r.weight AS system_weight, r.original_weight, r.source, r.created_at, r.note AS roll_note, r.image_path AS roll_img, r.location,
                    fc.id AS fabric_color_id, fc.color_name, m.id AS material_id, m.name AS material_name,
                    w.name AS warehouse_name, w.unit,
                    sc.id AS sc_id, sc.actual_weight, sc.difference, sc.is_checked, sc.checked_at, sc.notes AS sc_notes,

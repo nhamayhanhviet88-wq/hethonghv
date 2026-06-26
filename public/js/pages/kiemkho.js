@@ -752,7 +752,8 @@ async function _kkRenderAudit(content) {
             if (!isCollapsed) {
                 g.rolls.forEach((r, subIdx) => {
                     const hasChecked = r.is_checked;
-                    const isSurplus = r.source === 'kiem_kho_du';
+                    const sessionStart = _kk.session ? new Date(_kk.session.started_at) : null;
+                    const isSurplus = r.source === 'kiem_kho_du' && sessionStart && new Date(r.created_at) >= sessionStart;
                     const rowClass = isSurplus ? 'kk-tr-surplus' : (hasChecked ? 'table-success' : '');
                     
                     // Badges for locks and reservations
