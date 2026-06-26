@@ -84,8 +84,8 @@ document.getElementById('sT').textContent=t;document.getElementById('sW').textCo
 function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:700">Chọn kho/chất liệu</div></div>';return}
 // Group
 const groups={},order=[];mr.forEach(r=>{const k=r.material_name+' - '+r.color_name;if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(r)});
-let html='';order.forEach(k=>{const rows=groups[k],gw=rows.reduce((s,r)=>s+Number(r.system_weight||0),0);
-html+='<div class="grp"><span>📦 '+k+'</span><span class="gs">'+rows.length+' cây | '+fn(gw)+' kg</span></div>';
+let html='';order.forEach((k, idx)=>{const rows=groups[k],gw=rows.reduce((s,r)=>s+Number(r.system_weight||0),0);
+html+='<div class="grp"><span>📦 '+(idx+1)+' - '+k+'</span><span class="gs">'+rows.length+' cây | '+fn(gw)+' kg</span></div>';
 rows.forEach(r=>{const cA=r.is_checked;
 html+='<div class="card"><div class="cb">'
 +'<div class="cr"><span class="cl">🏷️ Code</span><span class="cv" style="color:#5eead4;font-size:12px">'+r.roll_code+'</span></div>'

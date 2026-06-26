@@ -628,9 +628,9 @@ function mCards(){
     });
     
     let html='';
-    order.forEach(k=>{
+    order.forEach((k, idx)=>{
         const rows=groups[k],gw=rows.reduce((s,r)=>s+Number(r.system_weight||0),0);
-        html+='<div class="grp"><span>📦 '+k+'</span><span class="gs">'+rows.length+' cây | '+fn(gw)+' kg</span></div>';
+        html+=`<div class="grp"><span>📦 ${idx+1} - ${k}</span><span class="gs">${rows.length} cây | ${fn(gw)} kg</span></div>`;
         
         rows.forEach(r=>{
             const cA=r.is_checked;
