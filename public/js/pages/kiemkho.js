@@ -910,15 +910,67 @@ function _kkCheckPhotoRequired(rollImg) {
     return false;
 }
 
+function _kkResizeImageHelper(file, maxDimension = 1024) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxDimension || height > maxDimension) {
+                    if (width > height) {
+                        height = Math.round((height * maxDimension) / width);
+                        width = maxDimension;
+                    } else {
+                        width = Math.round((width * maxDimension) / height);
+                        height = maxDimension;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        resolve(file);
+                        return;
+                    }
+                    const resizedFile = new File([blob], file.name || 'image.jpg', {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+                    resolve(resizedFile);
+                }, 'image/jpeg', 0.8);
+            };
+            img.onerror = function() {
+                resolve(file);
+            };
+            img.src = event.target.result;
+        };
+        reader.onerror = function() {
+            resolve(file);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 function _kkTriggerPhotoUpload(rollId, successCallback) {
     const fileInput = document.getElementById('kkRollPhotoUploader');
     if (!fileInput) return;
     
     _kkPendingRollCallback = async function(file) {
-        const formData = new FormData();
-        formData.append('image', file);
-        
         try {
+            showToast('⏳ Đang tối ưu dung lượng ảnh...');
+            const optimizedFile = await _kkResizeImageHelper(file, 1024);
+
+            const formData = new FormData();
+            formData.append('image', optimizedFile);
+            
             showToast('⏳ Đang nén và tải ảnh lên...');
             const res = await apiCall('/api/khovai/rolls/' + rollId + '/image', 'POST', formData);
             showToast('✅ Tải ảnh lên thành công', 'success');
@@ -1499,15 +1551,21 @@ async function _kkSubmitSurplus() {
     }
 }
 
-function _kkOnSurplusPhotoSelected(input) {
+async function _kkOnSurplusPhotoSelected(input) {
     if (input.files && input.files[0]) {
-        _kk.surplusFile = input.files[0];
-        const previewUrl = URL.createObjectURL(_kk.surplusFile);
-        const previewEl = document.getElementById('kkSurplusPhotoPreview');
-        if (previewEl) {
-            previewEl.innerHTML = `<img src="${previewUrl}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; border:1px solid rgba(0,0,0,0.15);" onclick="window.open('${previewUrl}', '_blank')">`;
+        try {
+            showToast('⏳ Đang tối ưu dung lượng ảnh...');
+            const file = await _kkResizeImageHelper(input.files[0], 1024);
+            _kk.surplusFile = file;
+            const previewUrl = URL.createObjectURL(_kk.surplusFile);
+            const previewEl = document.getElementById('kkSurplusPhotoPreview');
+            if (previewEl) {
+                previewEl.innerHTML = `<img src="${previewUrl}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; border:1px solid rgba(0,0,0,0.15);" onclick="window.open('${previewUrl}', '_blank')">`;
+            }
+            _kkValidateSurplusForm();
+        } catch (e) {
+            console.error('Failed to optimize image', e);
         }
-        _kkValidateSurplusForm();
     }
 }
 
