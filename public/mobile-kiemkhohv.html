@@ -194,7 +194,7 @@
                 <select id="mFW" onchange="onWhChange()"><option value="">Chọn kho</option></select>
             </div>
             <div class="mf-row">
-                <select id="mFL" onchange="mFilterStatus='all'; mLoad()"><option value="">-- Chọn Kệ Kiểm --</option></select>
+                <select id="mFL" onchange="mFilterStatus='all'; mMaterialFilter=''; mLoad()"><option value="">-- Chọn Kệ Kiểm --</option></select>
             </div>
             <div class="mf-row" id="mFLPositionContainer" style="display:none; margin-top:-4px;">
                 <div style="font-size:11px; color:#fde047; background:rgba(250,204,21,0.1); border:1px solid rgba(250,204,21,0.2); border-radius:8px; padding:6px 10px; width:100%; word-break:break-word;">
@@ -258,7 +258,7 @@
 let cu=null, mr=[], tree=null, activeSession=null, photoMode='none';
 let activeWarehouseId=null, activeLocation=null, mShelves=[];
 let pendingPhotoCallback=null;
-let mSearchText='', mSearchTimeout=null, mFilterStatus='all';
+let mSearchText='', mFilterStatus='all', mSearchTimeout=null, mMaterialFilter='';
 let mSurplusFile = null;
 
 async function api(u,m='GET',b=null){
@@ -344,9 +344,9 @@ async function mInit(){
     }
 }
 
-async function onWhChange(){
-    mFilterStatus = 'all';
+async function onWhChange() {
     activeWarehouseId = document.getElementById('mFW')?.value || '';
+    mMaterialFilter = '';
     if (!activeWarehouseId) return;
     
     // Load shelves for this warehouse
@@ -443,6 +443,9 @@ async function mLoad(){
         if (!isGlobal) {
             query += '&location=' + encodeURIComponent(activeLocation);
         }
+        if (mMaterialFilter) {
+            query += '&material_name=' + encodeURIComponent(mMaterialFilter);
+        }
         const r=await api(query);
         mr=r.rolls||[];
         
@@ -459,7 +462,24 @@ async function mLoad(){
             posContainerEl.style.display = 'block';
         } else {
             if (curShelf && curShelf.materials_list) {
-                matTextEl.textContent = curShelf.materials_list;
+                if (mMaterialFilter) {
+                    const formatted = curShelf.materials_list.split(',').map(m => {
+                        const trimmed = m.trim();
+                        if (trimmed.toLowerCase() === mMaterialFilter.toLowerCase()) {
+                            return `<span style="color:#34d399; font-weight:800; text-decoration:underline; border-bottom: 2px solid #34d399; padding-bottom: 1px;">${m}</span>`;
+                        }
+                        return `<span style="opacity:0.6;">${m}</span>`;
+                    }).join(', ');
+                    matTextEl.innerHTML = formatted;
+                    containerEl.firstElementChild.style.background = 'rgba(16,185,129,0.15)';
+                    containerEl.firstElementChild.style.borderColor = 'rgba(16,185,129,0.3)';
+                    containerEl.firstElementChild.style.color = '#34d399';
+                } else {
+                    matTextEl.textContent = curShelf.materials_list;
+                    containerEl.firstElementChild.style.background = 'rgba(20,184,166,0.1)';
+                    containerEl.firstElementChild.style.borderColor = 'rgba(20,184,166,0.2)';
+                    containerEl.firstElementChild.style.color = '#5eead4';
+                }
                 containerEl.style.display = 'block';
             } else {
                 containerEl.style.display = 'none';
@@ -1580,15 +1600,16 @@ function mOpenMaterialsSelector() {
     
     let itemsHtml = '';
     materials.forEach(mat => {
+        const isActive = (mat.toLowerCase() === mMaterialFilter.toLowerCase());
         itemsHtml += `
             <div onclick="mSelectMaterialForSearch('${mat.replace(/'/g, "\\'")}')" style="
                 padding: 12px 14px;
                 border-radius: 10px;
-                background: rgba(255,255,255,0.04);
-                border: 1px solid rgba(255,255,255,0.08);
-                color: #e2e8f0;
+                background: ${isActive ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)'};
+                border: 1px solid ${isActive ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.08)'};
+                color: ${isActive ? '#34d399' : '#e2e8f0'};
                 font-size: 13px;
-                font-weight: 600;
+                font-weight: 700;
                 cursor: pointer;
                 display: flex;
                 align-items: center;
@@ -1597,9 +1618,9 @@ function mOpenMaterialsSelector() {
                 margin-bottom: 6px;
                 -webkit-tap-highlight-color: transparent;
             " onmouseover="this.style.background='rgba(20,184,166,0.15)'; this.style.borderColor='rgba(20,184,166,0.4)'; this.style.color='#5eead4';"
-              onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.08)'; this.style.color='#e2e8f0';">
-                <span>📦 ${mat}</span>
-                <span style="font-size: 11px; opacity: 0.6;">Chọn ➔</span>
+              onmouseout="this.style.background='${isActive ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)'}'; this.style.borderColor='${isActive ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.08)'}'; this.style.color='${isActive ? '#34d399' : '#e2e8f0'}';">
+                <span>📦 ${mat} ${isActive ? ' (Đang lọc)' : ''}</span>
+                <span style="font-size: 11px; opacity: 0.8;">${isActive ? '✓ Đang chọn' : 'Chọn ➔'}</span>
             </div>
         `;
     });
@@ -1639,7 +1660,7 @@ function mOpenMaterialsSelector() {
                 </div>
                 <div class="m-modal-body" style="gap:8px;">
                     <div style="font-size:11px; color:#94a3b8; margin-bottom:4px; line-height:1.4;">
-                        Chọn chất liệu của kệ <strong>${activeLocation}</strong> để điền nhanh vào ô tìm kiếm:
+                        Chọn chất liệu của kệ <strong>${activeLocation}</strong> để lọc tìm kiếm (Phần ô tìm kiếm bên dưới sẽ dùng để tìm kiếm màu/mã cây):
                     </div>
                     ${itemsHtml}
                 </div>
@@ -1660,16 +1681,9 @@ function mOpenMaterialsSelector() {
 }
 
 function mSelectMaterialForSearch(mat) {
-    const searchInp = document.getElementById('mSearchRoll');
-    if (searchInp) {
-        searchInp.value = mat;
-    }
     mCloseModal('mMaterialSelectModal');
-    
-    // Clear timeout and trigger immediately
-    clearTimeout(mSearchTimeout);
-    mSearchText = mat.trim();
-    onWhChange();
+    mMaterialFilter = mat.trim();
+    mLoad();
 }
 
 function viewImage(imgUrl) {

@@ -388,8 +388,13 @@ module.exports = async function(fastify) {
 
     // ========== LIST — Rolls per shelf/material with stockcheck data ==========
     fastify.get('/api/stockcheck/rolls', { preHandler: [authenticate] }, async (req) => {
-        const { material_id, warehouse_id, search, location } = req.query;
+        const { material_id, warehouse_id, search, location, material_name } = req.query;
         let where = 'WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0', params = [], idx = 1;
+
+        if (material_name && material_name.trim()) {
+            where += ` AND LOWER(m.name) = LOWER($${idx++})`;
+            params.push(material_name.trim());
+        }
 
         if (location) {
             const locClean = location.trim();

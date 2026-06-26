@@ -16,7 +16,8 @@ var _kk = {
     yearlySummary: null,
     currentYear: new Date().getFullYear(),
     container: null,
-    collapsedGroups: new Set()
+    collapsedGroups: new Set(),
+    materialFilter: ''
 };
 
 window._kkToggleGroup = function(groupKey) {
@@ -236,7 +237,11 @@ async function _kkLoadShelves() {
 async function _kkLoadRolls() {
     if (!_kk.activeWarehouseId || !_kk.activeLocation) return;
     try {
-        const res = await apiCall('/api/stockcheck/rolls?warehouse_id=' + _kk.activeWarehouseId + '&location=' + encodeURIComponent(_kk.activeLocation) + (_kk.search ? '&search=' + encodeURIComponent(_kk.search) : ''));
+        let query = '/api/stockcheck/rolls?warehouse_id=' + _kk.activeWarehouseId + '&location=' + encodeURIComponent(_kk.activeLocation) + (_kk.search ? '&search=' + encodeURIComponent(_kk.search) : '');
+        if (_kk.materialFilter) {
+            query += '&material_name=' + encodeURIComponent(_kk.materialFilter);
+        }
+        const res = await apiCall(query);
         _kk.rolls = res.rolls || [];
     } catch (e) {
         console.error('[KK rolls]', e);
@@ -821,9 +826,15 @@ async function _kkRenderAudit(content) {
                                 <span>Tổng số trên kệ: ${_kk.rolls.length} cây</span>
                                 ${activeMatsList ? `
                                     <span style="color:#cbd5e1;">|</span>
-                                    <span style="color:#0d9488; cursor:pointer; font-weight:700; background:#f0fdfa; border:1px solid #ccfbf1; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" onmouseover="this.style.background='#ccfbf1'" onmouseout="this.style.background='#f0fdfa'" onclick="_kkOpenMaterialsSelector()" title="Bấm để lọc theo chất liệu">
-                                        📦 Chất liệu: ${activeMatsList} ▼
-                                    </span>
+                                    ${_kk.materialFilter ? `
+                                        <span style="color:#15803d; cursor:pointer; font-weight:800; background:#d1fae5; border:1px solid #a7f3d0; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" onmouseover="this.style.background='#a7f3d0'" onmouseout="this.style.background='#d1fae5'" onclick="_kkOpenMaterialsSelector()" title="Bấm để lọc theo chất liệu">
+                                            📦 Đang lọc: ${_kk.materialFilter} (Bấm để đổi) ▼
+                                        </span>
+                                    ` : `
+                                        <span style="color:#0d9488; cursor:pointer; font-weight:700; background:#f0fdfa; border:1px solid #ccfbf1; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" onmouseover="this.style.background='#ccfbf1'" onmouseout="this.style.background='#f0fdfa'" onclick="_kkOpenMaterialsSelector()" title="Bấm để lọc theo chất liệu">
+                                            📦 Chất liệu: ${activeMatsList} ▼
+                                        </span>
+                                    `}
                                 ` : ''}
                             </div>
                         </div>
@@ -870,6 +881,7 @@ async function _kkRenderAudit(content) {
 async function _kkChangeWarehouse(val) {
     _kk.activeWarehouseId = val === 'all' ? 'all' : Number(val);
     _kk.activeLocation = null;
+    _kk.materialFilter = '';
     await _kkLoadShelves();
     const content = _kkGetContainer();
     if (content) {
@@ -880,6 +892,7 @@ async function _kkChangeWarehouse(val) {
 // ========== SELECT SHELF ==========
 async function _kkSelectShelf(shelfName) {
     _kk.activeLocation = shelfName;
+    _kk.materialFilter = '';
     await _kkLoadRolls();
     const content = _kkGetContainer();
     if (content) {
@@ -2073,15 +2086,16 @@ function _kkOpenMaterialsSelector() {
     
     let itemsHtml = '';
     materials.forEach(mat => {
+        const isActive = (mat.toLowerCase() === _kk.materialFilter.toLowerCase());
         itemsHtml += `
             <div onclick="_kkSelectMaterialForSearch('${mat.replace(/'/g, "\\'")}')" style="
                 padding: 12px 14px;
                 border-radius: 10px;
-                background: #f8fafc;
-                border: 1px solid #e2e8f0;
-                color: #334155;
+                background: ${isActive ? '#d1fae5' : '#f8fafc'};
+                border: 1px solid ${isActive ? '#a7f3d0' : '#e2e8f0'};
+                color: ${isActive ? '#15803d' : '#334155'};
                 font-size: 13px;
-                font-weight: 600;
+                font-weight: 700;
                 cursor: pointer;
                 display: flex;
                 align-items: center;
@@ -2089,9 +2103,9 @@ function _kkOpenMaterialsSelector() {
                 transition: all 0.15s ease;
                 margin-bottom: 6px;
             " onmouseover="this.style.background='#f0fdfa'; this.style.borderColor='#99f6e4'; this.style.color='#0f766e';"
-              onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0'; this.style.color='#334155';">
-                <span>📦 ${mat}</span>
-                <span style="font-size: 11px; color: #0d9488; font-weight: bold;">Chọn ➔</span>
+              onmouseout="this.style.background='${isActive ? '#d1fae5' : '#f8fafc'}'; this.style.borderColor='${isActive ? '#a7f3d0' : '#e2e8f0'}'; this.style.color='${isActive ? '#15803d' : '#334155'}';">
+                <span>📦 ${mat} ${isActive ? ' (Đang lọc)' : ''}</span>
+                <span style="font-size: 11px; font-weight: bold;">${isActive ? '✓ Đang chọn' : 'Chọn ➔'}</span>
             </div>
         `;
     });
@@ -2161,7 +2175,7 @@ function _kkOpenMaterialsSelector() {
                     gap: 8px;
                 ">
                     <div style="font-size: 12px; color: #64748b; margin-bottom: 4px; line-height: 1.4;">
-                        Chọn chất liệu của kệ <strong>${_kk.activeLocation}</strong> để điền nhanh vào ô tìm kiếm:
+                        Chọn chất liệu của kệ <strong>${_kk.activeLocation}</strong> để lọc tìm kiếm (Phần ô tìm kiếm bên dưới sẽ dùng để tìm kiếm màu/mã cây):
                     </div>
                     ${itemsHtml}
                 </div>
@@ -2193,16 +2207,9 @@ function _kkCloseModal(id) {
 }
 
 function _kkSelectMaterialForSearch(mat) {
-    const searchInp = document.getElementById('kkSearchRoll');
-    if (searchInp) {
-        searchInp.value = mat;
-    }
     _kkCloseModal('kkMaterialSelectModal');
-    
-    // Trigger search immediately
-    clearTimeout(_kkSearchTimeout);
-    _kk.search = mat.trim();
-    _kkLoadShelves().then(() => {
+    _kk.materialFilter = mat.trim();
+    _kkLoadRolls().then(() => {
         const content = _kkGetContainer();
         if (content) _kkRenderMain(content);
     });
