@@ -2165,6 +2165,10 @@ async function _kkRenderReport(content) {
     content.innerHTML = `<div style="padding:40px; text-align:center;" class="text-muted">⏳ Đang lập báo cáo chi tiết...</div>`;
 
     try {
+        if (!_kk.historySessions || _kk.historySessions.length === 0) {
+            await _kkLoadHistoryAndSummary();
+        }
+
         const res = await apiCall('/api/stockcheck/sessions/' + _kk.selectedSessionId);
         _kk.selectedSessionData = res;
         
@@ -2221,6 +2225,20 @@ async function _kkRenderReport(content) {
         
         const summaryHeader = itemLabel === 'cây' ? '📉 Tổng Hợp Chênh Lệch Nhóm Vải' : '📉 Tổng Hợp Chênh Lệch Nhóm Hàng';
 
+        // Calculate Bill number
+        const sorted = [..._kk.historySessions].sort((a, b) => new Date(a.finished_at) - new Date(b.finished_at));
+        const yearCounters = {};
+        const billNumbers = {};
+        sorted.forEach(item => {
+            if (!item.finished_at) return;
+            const dateVn = new Date(new Date(item.finished_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            const y = dateVn.getFullYear();
+            if (!yearCounters[y]) yearCounters[y] = 0;
+            yearCounters[y]++;
+            billNumbers[item.id] = `Bill #${yearCounters[y]} Kiểm Kê - ${y}`;
+        });
+        const billText = billNumbers[s.id] || '—';
+
         // Group details by material/color for summary view
         const matSummary = {};
         items.forEach(item => {
@@ -2271,6 +2289,7 @@ async function _kkRenderReport(content) {
                     </div>
                     <div style="text-align:right;">
                         <h2 style="font-weight:900; margin:0; font-size:20px; color:#0f766e;">Báo Cáo Kiểm Kho Chi Tiết</h2>
+                        <span style="font-size:12px; font-weight:700; color:#475569; display:block; margin:2px 0;">${billText}</span>
                         <span style="font-size:11px; color:#64748b;">Đợt kiểm ngày: ${s.finished_at ? s.finished_at.split('T')[0] : ''}</span>
                     </div>
                 </div>
@@ -2278,6 +2297,7 @@ async function _kkRenderReport(content) {
                 <!-- Print-only Title -->
                 <div class="d-none d-print-block" style="text-align: center; margin-bottom: 24px;">
                     <h2 style="font-weight:900; margin:0; font-size:24px; color:#000;">BÁO CÁO CHI TIẾT PHIÊN KIỂM KHO</h2>
+                    <h3 style="font-weight:800; margin:4px 0 0 0; font-size:18px; color:#334155;">(${billText})</h3>
                     <div style="font-size:12px; margin-top:6px;">Ngày chốt sổ: ${s.finished_at ? s.finished_at.replace('T', ' ').slice(0, 16) : ''} | Người thực hiện: ${s.finished_by_name || 'Hệ thống'}</div>
                 </div>
 
