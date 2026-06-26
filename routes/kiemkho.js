@@ -199,8 +199,6 @@ module.exports = async function(fastify) {
             WHERE r.is_returned = false
               AND r.weight > 0
               AND r.weight < r.original_weight
-              AND fc.is_active = true
-              AND m.is_active = true
               AND w.is_active = true
               AND (r.locked_by_cutting_id IS NULL OR r.locked_by_cutting_id NOT IN (
                   SELECT id FROM cutting_records WHERE is_cut_done = false
@@ -235,7 +233,7 @@ module.exports = async function(fastify) {
             FROM kv_rolls r
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             JOIN kv_materials m ON m.id = fc.material_id
-            WHERE r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+            WHERE r.is_returned = false AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
         `);
 
         // Create session entry in database
@@ -327,7 +325,7 @@ module.exports = async function(fastify) {
         // 1. Get real shelves with stats
         let realParams = [];
         let realIdx = 1;
-        let realRollFilter = "r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')";
+        let realRollFilter = "r.is_returned = false AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')";
         if (search && search.trim()) {
             realRollFilter += ` AND (fc.color_name ILIKE $${realIdx} OR m.name ILIKE $${realIdx} OR r.roll_code ILIKE $${realIdx})`;
             realParams.push(`%${search.trim()}%`);
@@ -350,7 +348,7 @@ module.exports = async function(fastify) {
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
                        WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', ''))
-                         AND r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0) AS materials_list
+                         AND r.is_returned = false AND r.weight > 0) AS materials_list
             FROM kv_locations l
         `;
 
@@ -368,7 +366,7 @@ module.exports = async function(fastify) {
         // 2. Get unassigned rolls count and weight
         let unassignedParams = [];
         let unassignedIdx = 1;
-        let unassignedRollFilter = "r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')";
+        let unassignedRollFilter = "r.is_returned = false AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')";
         if (search && search.trim()) {
             unassignedRollFilter += ` AND (fc.color_name ILIKE $${unassignedIdx} OR m.name ILIKE $${unassignedIdx} OR r.roll_code ILIKE $${unassignedIdx})`;
             unassignedParams.push(`%${search.trim()}%`);
@@ -387,8 +385,7 @@ module.exports = async function(fastify) {
                 JOIN kv_warehouses w ON w.id = m.warehouse_id
                 WHERE w.is_active = true
                   AND r.is_returned = false
-                  AND fc.is_active = true
-                  AND m.is_active = true
+
                   AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = m.warehouse_id))
                   AND ${unassignedRollFilter}
             `;
@@ -396,8 +393,7 @@ module.exports = async function(fastify) {
             sqlUnassigned += `
                 WHERE m.warehouse_id = $${unassignedIdx}
                   AND r.is_returned = false
-                  AND fc.is_active = true
-                  AND m.is_active = true
+
                   AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = $${unassignedIdx}))
                   AND ${unassignedRollFilter}
             `;
@@ -435,8 +431,7 @@ module.exports = async function(fastify) {
                 JOIN kv_warehouses w ON w.id = m.warehouse_id
                 WHERE w.is_active = true
                   AND r.is_returned = false
-                  AND fc.is_active = true
-                  AND m.is_active = true
+
                   AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = m.warehouse_id))
                   AND r.weight > 0
                   AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
@@ -445,8 +440,7 @@ module.exports = async function(fastify) {
             sqlUnassignedAll += `
                 WHERE m.warehouse_id = $${unassignedAllIdx}
                   AND r.is_returned = false
-                  AND fc.is_active = true
-                  AND m.is_active = true
+
                   AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = $${unassignedAllIdx}))
                   AND r.weight > 0
                   AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
@@ -509,24 +503,24 @@ module.exports = async function(fastify) {
                    COALESCE((SELECT COUNT(*) FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
                        JOIN kv_materials m ON m.id=fc.material_id
-                       WHERE m.warehouse_id=w.id AND r.is_returned=false AND fc.is_active=true AND m.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::int AS roll_count,
+                       WHERE m.warehouse_id=w.id AND r.is_returned=false AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::int AS roll_count,
                    COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
                        JOIN kv_materials m ON m.id=fc.material_id
-                       WHERE m.warehouse_id=w.id AND r.is_returned=false AND fc.is_active=true AND m.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::numeric AS total_weight
+                       WHERE m.warehouse_id=w.id AND r.is_returned=false AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::numeric AS total_weight
             FROM kv_warehouses w WHERE w.is_active=true ORDER BY w.display_order, w.id`);
         for (const w of warehouses) {
             w.materials = await db.all(`
                 SELECT m.id, m.name,
                        COALESCE((SELECT COUNT(*) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
-                           WHERE fc.material_id=m.id AND r.is_returned=false AND fc.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::int AS roll_count,
+                           WHERE fc.material_id=m.id AND r.is_returned=false AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::int AS roll_count,
                        COALESCE((SELECT SUM(r.weight) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
-                           WHERE fc.material_id=m.id AND r.is_returned=false AND fc.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::numeric AS total_weight
+                           WHERE fc.material_id=m.id AND r.is_returned=false AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::numeric AS total_weight
                 FROM kv_materials m WHERE m.warehouse_id=$1 AND m.is_active=true ORDER BY m.display_order, m.name`, [w.id]);
         }
         const totals = await db.get(`SELECT
-            COALESCE((SELECT COUNT(*) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id JOIN kv_materials m ON m.id=fc.material_id JOIN kv_warehouses w ON w.id=m.warehouse_id WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::int AS total_rolls,
-            COALESCE((SELECT SUM(r.weight) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id JOIN kv_materials m ON m.id=fc.material_id JOIN kv_warehouses w ON w.id=m.warehouse_id WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::numeric AS total_weight`);
+            COALESCE((SELECT COUNT(*) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id JOIN kv_materials m ON m.id=fc.material_id JOIN kv_warehouses w ON w.id=m.warehouse_id WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::int AS total_rolls,
+            COALESCE((SELECT SUM(r.weight) FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id JOIN kv_materials m ON m.id=fc.material_id JOIN kv_warehouses w ON w.id=m.warehouse_id WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')),0)::numeric AS total_weight`);
         const checked = await db.get(`SELECT COUNT(*)::int AS cnt FROM stockcheck_records WHERE is_checked=true`);
         return { tree: warehouses, totals: totals || {total_rolls:0,total_weight:0}, checked_count: (checked||{}).cnt||0 };
     });
@@ -554,7 +548,7 @@ module.exports = async function(fastify) {
         }
 
         const { material_id, warehouse_id, search, location, material_name } = req.query;
-        let where = "WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')", params = [], idx = 1;
+        let where = "WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')", params = [], idx = 1;
 
         if (material_name && material_name.trim()) {
             where += ` AND LOWER(m.name) = LOWER($${idx++})`;
@@ -835,7 +829,7 @@ module.exports = async function(fastify) {
             JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
             JOIN kv_materials m ON m.id=fc.material_id
             JOIN kv_warehouses w ON w.id=m.warehouse_id
-            WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+            WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
         `);
         const checkedCount = await db.get(`
             SELECT COUNT(*)::int AS cnt 
@@ -862,7 +856,7 @@ module.exports = async function(fastify) {
             JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
             JOIN kv_materials m ON m.id=fc.material_id
             JOIN kv_warehouses w ON w.id=m.warehouse_id
-            WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+            WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
             GROUP BY w.unit
         `);
 
@@ -995,7 +989,7 @@ module.exports = async function(fastify) {
             JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id
             JOIN kv_materials m ON m.id=fc.material_id
             JOIN kv_warehouses w ON w.id=m.warehouse_id
-            WHERE r.is_returned=false AND fc.is_active=true AND m.is_active=true AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
+            WHERE r.is_returned=false AND w.is_active=true AND r.weight > 0 AND (r.location IS NULL OR r.location NOT LIKE '%Đã Bàn Giao NCC%')
         `);
         const checkedCount = await db.get(`
             SELECT COUNT(*)::int AS cnt 
