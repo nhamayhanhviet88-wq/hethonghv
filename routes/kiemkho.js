@@ -226,7 +226,8 @@ module.exports = async function(fastify) {
                    (SELECT string_agg(DISTINCT m.name, ', ') FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials m ON m.id = fc.material_id
-                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND ${rollFilter}) AS materials_list
+                       WHERE m.warehouse_id = l.warehouse_id AND LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', ''))
+                         AND r.is_returned = false AND fc.is_active = true AND m.is_active = true AND r.weight > 0) AS materials_list
             FROM kv_locations l
         `;
 
@@ -277,18 +278,58 @@ module.exports = async function(fastify) {
 
         let nguyenCount = 0, nguyenWeight = 0;
         let leCount = 0, leWeight = 0;
-        const nguyenMaterials = new Set();
-        const leMaterials = new Set();
         for (const r of unassignedRolls) {
             const w = Number(r.weight);
             const ow = Number(r.original_weight);
             if (w >= ow) {
                 nguyenCount++;
                 nguyenWeight += w;
-                if (r.material_name) nguyenMaterials.add(r.material_name);
             } else {
                 leCount++;
                 leWeight += w;
+            }
+        }
+
+        // Get complete materials list for unassigned rolls (without search filter)
+        let sqlUnassignedAll = `
+            SELECT r.weight, r.original_weight, m.name AS material_name
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+        `;
+        let unassignedAllParams = [];
+        let uaIdx = 1;
+        if (isAll) {
+            sqlUnassignedAll += `
+                JOIN kv_warehouses w ON w.id = m.warehouse_id
+                WHERE w.is_active = true
+                  AND r.is_returned = false
+                  AND fc.is_active = true
+                  AND m.is_active = true
+                  AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = m.warehouse_id))
+                  AND r.weight > 0
+            `;
+        } else {
+            sqlUnassignedAll += `
+                WHERE m.warehouse_id = $${uaIdx}
+                  AND r.is_returned = false
+                  AND fc.is_active = true
+                  AND m.is_active = true
+                  AND (r.location IS NULL OR TRIM(r.location) = '' OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) FROM kv_locations WHERE warehouse_id = $${uaIdx}))
+                  AND r.weight > 0
+            `;
+            unassignedAllParams.push(Number(whParam));
+        }
+
+        const unassignedRollsAll = await db.all(sqlUnassignedAll, unassignedAllParams);
+        const nguyenMaterials = new Set();
+        const leMaterials = new Set();
+        for (const r of unassignedRollsAll) {
+            const w = Number(r.weight);
+            const ow = Number(r.original_weight);
+            if (w >= ow) {
+                if (r.material_name) nguyenMaterials.add(r.material_name);
+            } else {
                 if (r.material_name) leMaterials.add(r.material_name);
             }
         }
