@@ -64,7 +64,7 @@ function renderVatlieutempetPage(content){
         +'@media(max-width:768px){.pt-sb{display:none}}';
         document.head.appendChild(st);}
     var configBtnHtml = '';
-    if (window.currentUser && window.currentUser.role === 'giam_doc') {
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') {
         configBtnHtml = '<button class="pt-btn" style="background:#475569;color:#fff;border:1px solid #475569" onclick="openPtConfigWasteModal()">⚙️ Cài đặt hao hụt</button>';
     }
     content.innerHTML='<div class="pt-wrap"><div class="pt-sb" id="ptSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="pt-main">'
