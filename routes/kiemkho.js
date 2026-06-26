@@ -639,7 +639,7 @@ module.exports = async function(fastify) {
         if (!roll) return reply.code(404).send({ error: 'Cây vải không tồn tại' });
         const cleanLoc = (roll.location || '').toLowerCase();
         const isReturnRoll = cleanLoc.includes('dự định hoàn vải');
-        const isUnassignedNguyen = cleanLoc.includes('chưa xếp kệ - cây nguyên');
+        const isUnassignedNguyen = (!roll.location || roll.location.trim() === '') && (Number(roll.weight) >= Number(roll.original_weight));
         if (isReturnRoll || isUnassignedNguyen) {
             if (action !== 'toggle_check') {
                 return reply.code(400).send({ error: 'Cây vải này chỉ được xác nhận có/không, không được nhập cân lệch.' });

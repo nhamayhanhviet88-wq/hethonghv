@@ -959,9 +959,9 @@ async function _kkRenderAudit(content) {
                     // Difference display
                     let diffLabel = '—';
                     const isReturnRoll = r.location && r.location.toLowerCase().includes('dự định hoàn vải');
-                    const isUnassignedNguyen = r.location && r.location.toLowerCase().includes('chưa xếp kệ - cây nguyên');
+                    const isUnassignedNguyen = (!r.location || r.location.trim() === '') && (Number(r.system_weight) >= Number(r.original_weight));
                     const isSpecialShelf = isReturnRoll || isUnassignedNguyen;
-                    
+
                     if (isSurplus) {
                         diffLabel = `<span class="kk-diff-badge ok" style="background:#f3e8ff; color:#6b21a8; border:1px solid #c084fc;">💜 Cây thừa</span>`;
                     } else if (isReturnRoll) {
