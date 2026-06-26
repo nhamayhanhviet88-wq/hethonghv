@@ -518,8 +518,8 @@ async function _bnhFabDetail(id) {
 
     var h = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">'
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">MÃ NHẬP VẢI</div><div style="font-size:14px;font-weight:900;color:#7c3aed;letter-spacing:1px">' + (r.fabric_import_code||'—') + '</div></div>'
-        + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGÀY NHẬP</div><div style="font-size:12px;font-weight:600">' + _bnhFD(r.import_date) + '</div></div>'
-        + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NHÂN VIÊN</div><div style="font-size:12px;font-weight:600">' + (r.importer_name||'—') + '</div></div></div>';
+        + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGÀY NHẬP</div><div style="font-size:12px;font-weight:600;color:#1e293b">' + _bnhFD(r.import_date) + '</div></div>'
+        + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NHÂN VIÊN</div><div style="font-size:12px;font-weight:600;color:#1e293b">' + (r.importer_name||'—') + '</div></div></div>';
 
     var sourceColor = typeof _bnhGetSourceColor === 'function' ? _bnhGetSourceColor(r.source_name) : '#4f46e5';
     h += '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-bottom:12px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGUỒN NCC</div><div style="font-size:12px;font-weight:700;color:' + sourceColor + '">🏪 ' + (r.source_name||'—') + '</div></div>';
@@ -553,7 +553,7 @@ async function _bnhFabDetail(id) {
             + '<td style="padding:6px 8px;font-weight:600;color:#6b7280">' + (it.color_name||'—') + '</td>'
             + '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#4f46e5">' + trees.length + '</td>'
             + '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#7c3aed">' + _bnhFM(qty) + ' ' + unit + '</td>'
-            + '<td style="padding:6px 8px;text-align:right;font-weight:600">' + _bnhFM(price) + '</td>'
+            + '<td style="padding:6px 8px;text-align:right;font-weight:600;color:#334155">' + _bnhFM(price) + '</td>'
             + '<td style="padding:6px 8px;text-align:right;font-weight:800;color:#059669">' + _bnhFM(cost) + '</td>'
             + '</tr>';
 
