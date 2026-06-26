@@ -959,6 +959,9 @@ async function _kkRenderAudit(content) {
                     // Difference display
                     let diffLabel = '—';
                     const isReturnRoll = r.location && r.location.toLowerCase().includes('dự định hoàn vải');
+                    const isUnassignedNguyen = r.location && r.location.toLowerCase().includes('chưa xếp kệ - cây nguyên');
+                    const isSpecialShelf = isReturnRoll || isUnassignedNguyen;
+                    
                     if (isSurplus) {
                         diffLabel = `<span class="kk-diff-badge ok" style="background:#f3e8ff; color:#6b21a8; border:1px solid #c084fc;">💜 Cây thừa</span>`;
                     } else if (isReturnRoll) {
@@ -983,16 +986,16 @@ async function _kkRenderAudit(content) {
                                 💜 Xem chi tiết
                             </button>
                         `;
-                    } else if (isReturnRoll) {
+                    } else if (isSpecialShelf) {
                         if (hasChecked) {
                             actionHtml = `
-                                <button class="kk-action-btn" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true)" title="Hủy xác nhận có cây hoàn này">
-                                    ✅ Có cây hoàn (Hủy?)
+                                <button class="kk-action-btn" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true)" title="Hủy xác nhận có cây hoàn/cây nguyên chưa xếp kệ">
+                                    ✅ Có cây này (Hủy?)
                                 </button>
                             `;
                         } else {
                             actionHtml = `
-                                <button class="kk-action-btn" style="background: rgba(217, 119, 6, 0.15); border: 1px solid #d97706; color: #ea580c; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false)" title="Xác nhận có cây hoàn này trong kho">
+                                <button class="kk-action-btn" style="background: rgba(217, 119, 6, 0.15); border: 1px solid #d97706; color: #ea580c; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false)" title="Xác nhận có cây hoàn/cây nguyên chưa xếp kệ trong kho">
                                     🔍 Kiểm xem có cây này không
                                 </button>
                             `;

@@ -637,11 +637,12 @@ module.exports = async function(fastify) {
         const rollId = Number(req.params.rollId), { actual_weight, notes, action } = req.body || {}, now = vnNow();
         const roll = await db.get('SELECT r.*, fc.id AS fcid FROM kv_rolls r JOIN kv_fabric_colors fc ON fc.id=r.fabric_color_id WHERE r.id=$1', [rollId]);
         if (!roll) return reply.code(404).send({ error: 'Cây vải không tồn tại' });
-
         const cleanLoc = (roll.location || '').toLowerCase();
-        if (cleanLoc.includes('dự định hoàn vải')) {
+        const isReturnRoll = cleanLoc.includes('dự định hoàn vải');
+        const isUnassignedNguyen = cleanLoc.includes('chưa xếp kệ - cây nguyên');
+        if (isReturnRoll || isUnassignedNguyen) {
             if (action !== 'toggle_check') {
-                return reply.code(400).send({ error: 'Cây vải đang trong quá trình hoàn trả NCC, chỉ được xác nhận có/không, không được nhập cân lệch.' });
+                return reply.code(400).send({ error: 'Cây vải này chỉ được xác nhận có/không, không được nhập cân lệch.' });
             }
         }
 

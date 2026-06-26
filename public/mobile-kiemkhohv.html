@@ -723,7 +723,7 @@ function mCards(){
                         </button>
                     </div>
                 `;
-            } else if (isReturnRoll) {
+            } else if (isReturnRoll || (r.location && r.location.toLowerCase().includes('chưa xếp kệ - cây nguyên'))) {
                 if (cA) {
                     actionRowHtml = `
                         <div class="ca" style="grid-template-columns: 1fr;">
