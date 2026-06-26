@@ -586,7 +586,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_ck ON sc.checked_by=u_ck.id
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM stockcheck_history h WHERE h.stockcheck_id=sc.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
-            ${where} ORDER BY m.display_order, m.name, fc.color_name, r.weight DESC`, params);
+            ${where} ORDER BY m.display_order, m.name, fc.color_name, r.weight DESC, r.id ASC`, params);
         return { rolls: rows };
     });
 
