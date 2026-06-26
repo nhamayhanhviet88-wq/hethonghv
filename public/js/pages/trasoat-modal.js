@@ -46,7 +46,23 @@ if (typeof vnDateStr === 'undefined') {
     window.vnDateStr = vnDateStr;
 }
 
-function _tsCloseModal(){ const m=document.getElementById('tsModal'); if(m) m.remove(); }
+function _tsUpdateBodyScroll() {
+    const hasModal = document.getElementById('tsModal') || 
+                     document.getElementById('tsImagePreviewModal') || 
+                     document.getElementById('shippingBillLightbox') || 
+                     document.getElementById('tsRescheduleHistoryModal');
+    if (hasModal) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
+}
+
+function _tsCloseModal(){
+    const m=document.getElementById('tsModal');
+    if(m) m.remove();
+    _tsUpdateBodyScroll();
+}
 
 function _tsShowImagePreview(url) {
     if (!url) return;
@@ -82,6 +98,7 @@ function _tsShowImagePreview(url) {
     overlay.onclick = function(e) {
         if (e.target === this || e.target.id === 'tsCloseImagePreviewBtn') {
             overlay.remove();
+            _tsUpdateBodyScroll();
         }
     };
 
@@ -127,6 +144,7 @@ function _tsShowImagePreview(url) {
     overlay.appendChild(closeBtn);
     overlay.appendChild(img);
     document.body.appendChild(overlay);
+    _tsUpdateBodyScroll();
 }
 
 async function _tsOpenStepModal(orderId, stepName, itemId = null){
@@ -134,10 +152,11 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
     _tsModalOrderId = orderId;
     _tsCloseModal();
     // Show loading overlay
-    document.body.insertAdjacentHTML('beforeend',`<div id="tsModal" onclick="if(event.target===this)_tsCloseModal()" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;animation:tsFadeIn .2s">
-        <div style="background:white;border-radius:16px;width:90%;max-width:600px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)" id="tsModalBody">
+    document.body.insertAdjacentHTML('beforeend',`<div id="tsModal" onclick="if(event.target===this)_tsCloseModal()" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;animation:tsFadeIn .2s;overscroll-behavior:contain;">
+        <div style="background:white;border-radius:16px;width:90%;max-width:600px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);overscroll-behavior:contain;" id="tsModalBody">
             <div style="text-align:center;padding:40px;color:#9ca3af">⏳ Đang tải báo cáo...</div>
         </div></div>`);
+    _tsUpdateBodyScroll();
     try {
         let url = '/api/trasoat/orders/'+orderId+'/step/'+stepKey;
         if (itemId) url += '?item_id=' + itemId;
@@ -1977,8 +1996,8 @@ function showShippingBillLightbox(url) {
 
     const overlay = document.createElement('div');
     overlay.id = 'shippingBillLightbox';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:sbFadeIn .2s ease';
-    overlay.onclick = function() { overlay.remove(); };
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:sbFadeIn .2s ease;overscroll-behavior:contain;';
+    overlay.onclick = function() { overlay.remove(); _tsUpdateBodyScroll(); };
 
     if (!document.getElementById('shippingLightboxStyles')) {
         const style = document.createElement('style');
@@ -2001,14 +2020,16 @@ function showShippingBillLightbox(url) {
     const closeBtn = document.createElement('div');
     closeBtn.innerHTML = '✕';
     closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;cursor:pointer;font-weight:700';
-    closeBtn.onclick = function() { overlay.remove(); };
+    closeBtn.onclick = function() { overlay.remove(); _tsUpdateBodyScroll(); };
     overlay.appendChild(closeBtn);
 
     document.body.appendChild(overlay);
+    _tsUpdateBodyScroll();
 
     const escHandler = function(e) {
         if (e.key === 'Escape') {
             overlay.remove();
+            _tsUpdateBodyScroll();
             document.removeEventListener('keydown', escHandler);
         }
     };
@@ -2017,12 +2038,13 @@ function showShippingBillLightbox(url) {
 
 async function _tsShowRescheduleHistoryModal(id, code) {
     document.getElementById('tsRescheduleHistoryModal')?.remove();
+    _tsUpdateBodyScroll();
     try {
         const data = await apiCall(`/api/shipping/orders/${id}/history`);
         const rows = data.history || [];
         const m = document.createElement('div');
         m.id = 'tsRescheduleHistoryModal';
-        m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;overscroll-behavior:contain;';
         
         const formatDayOfWeekAndDate = d => {
             if (!d) return '—';
@@ -2133,7 +2155,7 @@ async function _tsShowRescheduleHistoryModal(id, code) {
             </div>
             
             <!-- Timeline Body -->
-            <div style="padding:24px;overflow-y:auto;flex:1;background:#f8fafc;display:flex;flex-direction:column;gap:20px;">
+            <div style="padding:24px;overflow-y:auto;flex:1;background:#f8fafc;display:flex;flex-direction:column;gap:20px;overscroll-behavior:contain;">
                 ${rows.length === 0 ? `
                 <div style="text-align:center;color:#64748b;padding:40px 20px;">
                     <div style="font-size:40px;margin-bottom:12px;">📅</div>
@@ -2227,10 +2249,11 @@ async function _tsShowRescheduleHistoryModal(id, code) {
             
             <!-- Footer -->
             <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:right;flex-shrink:0;">
-                <button onclick="document.getElementById('tsRescheduleHistoryModal')?.remove()" style="padding:8px 20px;border:1px solid #cbd5e1;border-radius:8px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">Đóng</button>
+                <button onclick="document.getElementById('tsRescheduleHistoryModal')?.remove(); _tsUpdateBodyScroll();" style="padding:8px 20px;border:1px solid #cbd5e1;border-radius:8px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">Đóng</button>
             </div>
         </div>`;
         document.body.appendChild(m);
-        m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+        _tsUpdateBodyScroll();
+        m.addEventListener('click', e => { if (e.target === m) { m.remove(); _tsUpdateBodyScroll(); } });
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
