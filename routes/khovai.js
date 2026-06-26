@@ -1182,12 +1182,11 @@ module.exports = async function (fastify) {
         const warehouses = await db.all(`
             SELECT w.id, w.name, w.unit, w.display_order,
                    COALESCE((
-                       SELECT SUM(
-                           COALESCE((SELECT SUM(CASE WHEN t.tx_type='NHAP' THEN t.quantity ELSE -t.quantity END)
-                                     FROM kv_transactions t WHERE t.fabric_color_id = fc.id), 0)
-                       ) FROM kv_fabric_colors fc
+                       SELECT SUM(r.weight)
+                       FROM kv_rolls r
+                       JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials mat ON mat.id = fc.material_id
-                       WHERE mat.warehouse_id = w.id AND mat.is_active = true
+                       WHERE mat.warehouse_id = w.id AND mat.is_active = true AND r.is_returned = false
                    ), 0) AS total_balance
             FROM kv_warehouses w
             WHERE w.is_active = true
@@ -1198,11 +1197,10 @@ module.exports = async function (fastify) {
             w.materials = await db.all(`
                 SELECT m.id, m.name, m.display_order,
                        COALESCE((
-                           SELECT SUM(
-                               COALESCE((SELECT SUM(CASE WHEN t.tx_type='NHAP' THEN t.quantity ELSE -t.quantity END)
-                                         FROM kv_transactions t WHERE t.fabric_color_id = fc.id), 0)
-                           ) FROM kv_fabric_colors fc
-                           WHERE fc.material_id = m.id
+                           SELECT SUM(r.weight)
+                           FROM kv_rolls r
+                           JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                           WHERE fc.material_id = m.id AND r.is_returned = false
                        ), 0) AS total_balance
                 FROM kv_materials m
                 WHERE m.warehouse_id = $1 AND m.is_active = true
