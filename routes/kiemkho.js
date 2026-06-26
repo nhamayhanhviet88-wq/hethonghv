@@ -1099,6 +1099,7 @@ module.exports = async function(fastify) {
                 FROM stockcheck_sessions s
                 LEFT JOIN users u1 ON s.started_by = u1.id
                 LEFT JOIN users u2 ON s.finished_by = u2.id
+                WHERE s.status = 'completed'
                 ORDER BY s.finished_at DESC, s.id DESC
             `)
         };
