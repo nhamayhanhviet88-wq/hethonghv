@@ -101,13 +101,11 @@ function _kvRenderSidebar() {
             var isActiveM = _kv.selectedMid === m.id;
             var settingBtn = '';
             if (isGD) {
-                var btnStyle = 'cursor:pointer;font-size:10px;margin-left:6px;padding:1px 4px;border-radius:4px;border:none;display:inline-block;vertical-align:middle;';
+                var btnStyle = 'cursor:pointer;font-size:9.5px;margin-left:6px;padding:1px 4px;border-radius:4px;border:none;display:inline-block;vertical-align:middle;font-weight:700;';
                 if (m.stop_import) {
-                    btnStyle += 'background:#fee2e2;color:#ef4444;font-weight:800;border:1px solid #fca5a5;';
-                    settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', false)" style="' + btnStyle + '" title="Chất liệu này đang dừng nhập. Bấm để cho phép nhập mới.">🛑 Dừng</span>';
+                    settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', false)" style="' + btnStyle + 'background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;" title="Chất liệu này đang dừng nhập. Bấm để cho phép nhập mới.">🛑 Dừng</span>';
                 } else {
-                    btnStyle += 'background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;';
-                    settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', true)" style="' + btnStyle + '" title="Bấm để dừng nhập chất liệu này.">⚙️</span>';
+                    settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', true)" style="' + btnStyle + 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;" title="Chất liệu đang nhập mới. Bấm để dừng nhập.">📥 Nhập</span>';
                 }
             }
             h += '<div class="kv-sb-mat' + (isActiveM ? ' active' : '') + '" onclick="_kvFilterMat(' + w.id + ',' + m.id + ')">';
