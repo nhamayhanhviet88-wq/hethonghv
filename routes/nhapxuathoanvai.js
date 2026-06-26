@@ -494,7 +494,7 @@ module.exports = async function(fastify) {
                 await client.query(
                     `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by, created_at)
                      VALUES ($1, 'XUAT', $2, $3, $4, $5)`,
-                    [roll.fabric_color_id, 'XUAT', Number(roll.weight), `Trả NCC (Bàn giao hoàn #${id}): cục ${roll.weight}`, req.user.id, now]
+                    [roll.fabric_color_id, Number(roll.weight), `Trả NCC (Bàn giao hoàn #${id}): cục ${roll.weight}`, req.user.id, now]
                 );
             }
 
