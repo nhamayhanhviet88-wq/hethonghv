@@ -152,7 +152,11 @@ async function validateFabricStockLimits(items, excludeOrderId = null) {
               AND (oc.id IS NULL OR oc.status <> 'cancelled')
               AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
               AND o.id <> $1
-        `, [Number(excludeOrderId) || -1]);
+              AND NOT EXISTS (
+                  SELECT 1 FROM kv_order_consumed_slips cs
+                  WHERE cs.order_id = o.id AND cs.color_id = $2
+              )
+        `, [Number(excludeOrderId) || -1, Number(info.colId)]);
 
         for (const oi of otherItems) {
             let hasPair = false;
@@ -4482,7 +4486,11 @@ module.exports = async function(fastify) {
               AND (oc.id IS NULL OR oc.status <> 'cancelled')
               AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
               AND o.id <> $1
-        `, [Number(exclude_order_id) || -1]);
+              AND NOT EXISTS (
+                  SELECT 1 FROM kv_order_consumed_slips cs
+                  WHERE cs.order_id = o.id AND cs.color_id = $2
+              )
+        `, [Number(exclude_order_id) || -1, Number(color_id)]);
 
         for (const oi of otherItems) {
             let hasPair = false;
