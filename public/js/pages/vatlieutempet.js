@@ -724,10 +724,10 @@ async function openPtDetailsModal(rollId) {
         var statusBorder = isExceeded ? '#fca5a5' : '#a7f3d0';
         var statusText = isExceeded ? '🔴 Vượt hạn mức hao hụt' : '🟢 Trong hạn mức hao hụt';
         
-        var limitHtml = '<div style="background:' + statusBg + ';border:1px solid ' + statusBorder + ';color:' + statusColor + ';padding:10px;border-radius:8px;font-size:11px;font-weight:700;margin-bottom:16px;line-height:1.4;text-align:left">'
-                  + '  <div>Hạn mức cho phép: <span style="font-size:12px;font-weight:800">' + allowedPct + '%</span> (Tối đa ' + maxAllowed.toFixed(2) + 'm trên ' + qtyImported + 'm nhập)</div>'
-                  + '  <div style="margin-top:2px">Thực tế hao hụt + lỗi: <span style="font-size:12px;font-weight:800">' + totalWasteError.toFixed(2) + 'm</span> (' + (qtyImported > 0 ? ((totalWasteError/qtyImported)*100).toFixed(1) : 0) + '%)</div>'
-                  + '  <div style="margin-top:4px;font-size:10.5px">' + statusText + '</div>'
+        var limitHtml = '<div style="background:' + statusBg + ';border:1px solid ' + statusBorder + ';color:' + statusColor + ';padding:12px;border-radius:10px;font-size:12px;font-weight:700;margin-bottom:16px;line-height:1.5;text-align:left">'
+                  + '  <div style="margin-bottom:4px">Hạn mức cho phép: <span style="font-size:15px;font-weight:900;color:#b45309">' + allowedPct + '%</span> (Tối đa <span style="font-size:15px;font-weight:900;color:#b45309">' + maxAllowed.toFixed(2) + 'm</span> trên ' + qtyImported + 'm nhập)</div>'
+                  + '  <div style="margin-bottom:4px">Thực tế hao hụt + lỗi: <span style="font-size:15px;font-weight:900;color:' + (isExceeded ? '#b91c1c' : '#047857') + ';text-decoration:underline">' + totalWasteError.toFixed(2) + 'm</span> (<span style="font-size:15px;font-weight:900;color:' + (isExceeded ? '#b91c1c' : '#047857') + '">' + (qtyImported > 0 ? ((totalWasteError/qtyImported)*100).toFixed(1) : 0) + '%</span>)</div>'
+                  + '  <div style="margin-top:6px;font-size:13px;font-weight:900">' + statusText + '</div>'
                   + '</div>';
                   
         var actHtml = '';

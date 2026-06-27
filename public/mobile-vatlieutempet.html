@@ -635,16 +635,16 @@ async function mOpenDetails(rollId) {
         
         let limitHtml = '';
         if (isExceeded) {
-            limitHtml = `<div class="m-alert-box exceeded">
-                <div>Hạn mức cho phép: <span style="font-weight:800">${allowedPct}%</span> (Tối đa ${maxAllowed.toFixed(2)}m trên ${qtyImported}m nhập)</div>
-                <div style="margin-top:2px">Thực tế hao hụt + lỗi: <span style="font-weight:800">${totalWasteError.toFixed(2)}m</span> (${qtyImported > 0 ? ((totalWasteError/qtyImported)*100).toFixed(1) : 0}%)</div>
-                <div style="margin-top:4px;color:#f87171">🔴 Vượt hạn mức hao hụt</div>
+            limitHtml = `<div class="m-alert-box exceeded" style="font-size:12px; line-height:1.5;">
+                <div style="margin-bottom:4px">Hạn mức cho phép: <span style="font-size:15px; font-weight:900; color:#fde047">${allowedPct}%</span> (Tối đa <span style="font-size:15px; font-weight:900; color:#fde047">${maxAllowed.toFixed(2)}m</span> trên ${qtyImported}m nhập)</div>
+                <div style="margin-bottom:4px">Thực tế hao hụt + lỗi: <span style="font-size:15px; font-weight:900; color:#ff8a8a; text-decoration:underline">${totalWasteError.toFixed(2)}m</span> (<span style="font-size:15px; font-weight:900; color:#ff8a8a">${qtyImported > 0 ? ((totalWasteError/qtyImported)*100).toFixed(1) : 0}%</span>)</div>
+                <div style="margin-top:6px; color:#ef4444; font-size:13px; font-weight:900">🔴 Vượt hạn mức hao hụt</div>
             </div>`;
         } else {
-            limitHtml = `<div class="m-alert-box normal">
-                <div>Hạn mức cho phép: <span style="font-weight:800">${allowedPct}%</span> (Tối đa ${maxAllowed.toFixed(2)}m trên ${qtyImported}m nhập)</div>
-                <div style="margin-top:2px">Thực tế hao hụt + lỗi: <span style="font-weight:800">${totalWasteError.toFixed(2)}m</span> (${qtyImported > 0 ? ((totalWasteError/qtyImported)*100).toFixed(1) : 0}%)</div>
-                <div style="margin-top:4px;color:#34d399">🟢 Trong hạn mức hao hụt</div>
+            limitHtml = `<div class="m-alert-box normal" style="font-size:12px; line-height:1.5;">
+                <div style="margin-bottom:4px">Hạn mức cho phép: <span style="font-size:15px; font-weight:900; color:#fde047">${allowedPct}%</span> (Tối đa <span style="font-size:15px; font-weight:900; color:#fde047">${maxAllowed.toFixed(2)}m</span> trên ${qtyImported}m nhập)</div>
+                <div style="margin-bottom:4px">Thực tế hao hụt + lỗi: <span style="font-size:15px; font-weight:900; color:#a7f3d0">${totalWasteError.toFixed(2)}m</span> (<span style="font-size:15px; font-weight:900; color:#a7f3d0">${qtyImported > 0 ? ((totalWasteError/qtyImported)*100).toFixed(1) : 0}%</span>)</div>
+                <div style="margin-top:6px; color:#34d399; font-size:13px; font-weight:900">🟢 Trong hạn mức hao hụt</div>
             </div>`;
         }
         
