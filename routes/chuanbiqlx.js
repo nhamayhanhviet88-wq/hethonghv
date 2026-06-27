@@ -1918,6 +1918,54 @@ module.exports = async function(fastify) {
             if (!Array.isArray(assignments) || assignments.length === 0) {
                 return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
             }
+
+            // Kiểm tra kệ vải khi phân công cho In 3D Thiện Linh
+            const allContractors = await db.all(`SELECT id, name FROM printing_contractors`);
+            const conMap = {};
+            allContractors.forEach(c => { conMap[c.id] = c.name; });
+
+            const thienLinhAssigned = assignments.some(assign => {
+                if (assign.operator_type === 'contractor') {
+                    const conName = (conMap[assign.operator_id] || '').toLowerCase().trim();
+                    return conName.includes('thiện linh') || conName.includes('thien linh');
+                }
+                return false;
+            });
+
+            if (thienLinhAssigned) {
+                let reservedRolls;
+                if (itemId) {
+                    reservedRolls = await db.all(`
+                        SELECT r.roll_id, roll.roll_code, roll.location, roll.weight
+                        FROM qlx_fabric_reservations r
+                        JOIN kv_rolls roll ON r.roll_id = roll.id
+                        WHERE r.item_id = $1 
+                          AND r.status IN ('reserved', 'arrived')
+                          AND roll.weight > 0
+                    `, [itemId]);
+                } else {
+                    reservedRolls = await db.all(`
+                        SELECT r.roll_id, roll.roll_code, roll.location, roll.weight
+                        FROM qlx_fabric_reservations r
+                        JOIN kv_rolls roll ON r.roll_id = roll.id
+                        WHERE r.dht_order_id = $1 
+                          AND r.status IN ('reserved', 'arrived')
+                          AND roll.weight > 0
+                    `, [orderId]);
+                }
+
+                const invalidRolls = reservedRolls.filter(r => {
+                    const loc = (r.location || '').toLowerCase().replace(/^📍\s*/, '').trim();
+                    return loc !== 'kệ 3d thiện linh';
+                });
+
+                if (invalidRolls.length > 0) {
+                    const listRolls = invalidRolls.map(r => `${r.roll_code} (${r.weight}kg - hiện ở: ${r.location || 'Chưa xếp kệ'})`).join(', ');
+                    return reply.code(400).send({ 
+                        error: `Không thể lưu phân công cho In 3D Thiện Linh! Cần chuyển các cây vải đã đánh dấu sau sang "Kệ 3D Thiện Linh" trước: ${listRolls}` 
+                    });
+                }
+            }
             if (!['yes', 'none'].includes(print_remind_choice)) {
                 return reply.code(400).send({ error: 'Vui lòng chọn trạng thái nhắc nhở cho bộ phận in!' });
             }
