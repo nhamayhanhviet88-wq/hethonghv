@@ -1715,11 +1715,23 @@ function _ppRenderStockLimitMessage() {
             var limitText = remainingLimit !== null ? (Math.floor(remainingLimit) + ' sp') : '0 sp (không thể đặt)';
             var consumedQty = info.limit_qty - remainingLimit;
             
-            var warningHtml = '⚠️ <b>' + info.material_name + ' - ' + info.color_name + '</b> đã dừng nhập!<br/>'
-                + '• Tồn kho còn: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>'
-                + '• Tỉ lệ cắt: <b>' + ratioText + '</b><br/>';
+            var warningHtml = '⚠️ <b>' + info.material_name + ' - ' + info.color_name + '</b> đã dừng nhập!<br/>';
+            
+            var otherConsumed = Number(info.other_fabric_consumed || 0);
+            if (otherConsumed > 0) {
+                var otherConsumedText = parseFloat(otherConsumed.toFixed(2));
+                var adjStockText = parseFloat(Number(info.adjusted_remaining_stock || 0).toFixed(2));
+                warningHtml += '• Tồn kho thực tế: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>'
+                    + '• Đang giữ cho đơn khác chưa cắt: <b style="color:#b45309">' + otherConsumedText + ' ' + info.unit + '</b><br/>'
+                    + '• Tồn kho khả dụng còn lại: <b style="color:#15803d">' + adjStockText + ' ' + info.unit + '</b><br/>';
+            } else {
+                warningHtml += '• Tồn kho còn: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>';
+            }
+            
+            warningHtml += '• Tỉ lệ cắt: <b>' + ratioText + '</b><br/>';
+            
             if (consumedQty > 0) {
-                warningHtml += '• Đã đặt ở phiếu khác: <b>' + consumedQty + ' sp</b><br/>';
+                warningHtml += '• Đã chọn ở phiếu khác của đơn này: <b>' + consumedQty + ' sp</b><br/>';
                 warningHtml += '• Số lượng tối đa có thể đặt thêm: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>';
             } else {
                 warningHtml += '• Số lượng tối đa có thể sản xuất: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>';
