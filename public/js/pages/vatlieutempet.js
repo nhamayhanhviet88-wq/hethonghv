@@ -750,7 +750,6 @@ async function openPtDetailsModal(rollId) {
             } else {
                 actHtml += '<div style="font-size:10px;color:#ef4444;background:#fef2f2;border:1px solid #fee2e2;padding:8px;border-radius:6px;font-weight:600;margin-top:8px;text-align:center">⚠️ Phải in và khai báo hết tồn mới được chốt cuộn.</div>';
             }
-            actHtml += '<button class="pt-action-btn reset" style="margin-top:16px;width:100%" onclick="ptDetailsReset(' + roll.id + ')">🔄 Đặt lại (Reset)</button>';
         }
         
         var histRows = history.map(function(h) {
@@ -980,17 +979,6 @@ async function ptDetailsSubmitAction(type, rollId) {
     }
 }
 
-async function ptDetailsReset(rollId) {
-    if (!confirm('Bạn có chắc chắn muốn reset toàn bộ hao hụt, sản xuất lỗi và trạng thái chốt của cây này không?')) return;
-    try {
-        await apiCall('/api/pettem/rolls/' + rollId + '/reset', 'POST');
-        showToast('✅ Đã reset cây vật liệu thành công!');
-        await openPtDetailsModal(rollId);
-        _ptLoadAll();
-    } catch(e) {
-        showToast(e.message || 'Lỗi', 'error');
-    }
-}
 
 async function ptDetailsCloseRoll(rollId) {
     if (!confirm('Bạn có chắc chắn muốn chốt cây vật liệu này? Sau khi chốt sẽ không thể chỉnh sửa hoặc dùng in đơn mới.')) return;

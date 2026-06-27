@@ -609,7 +609,6 @@ async function mOpenDetails(rollId) {
                     ⚠️ Phải in và khai báo hết tồn mới được chốt cuộn.
                 </div>`;
             }
-            actHtml += `<button class="m-action-btn" style="background:#475569;margin-top:12px" onclick="mReset(${roll.id})">🔄 Đặt lại (Reset)</button>`;
         }
         
         // Allowed waste & exceed banner
@@ -870,17 +869,6 @@ async function mClose(rollId) {
     }
 }
 
-async function mReset(rollId) {
-    if (!confirm('Bạn có chắc chắn muốn reset toàn bộ hao hụt, sản xuất lỗi và trạng thái chốt của cây này không?')) return;
-    try {
-        await api('/api/pettem/rolls/' + rollId + '/reset', 'POST');
-        toast('✅ Đã reset cây vật liệu thành công!');
-        mOpenDetails(rollId);
-        mLoad();
-    } catch(e) {
-        toast(e.message || 'Lỗi', 'error');
-    }
-}
 
 mInit();
 </script>
