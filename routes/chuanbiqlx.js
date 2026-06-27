@@ -1028,7 +1028,7 @@ module.exports = async function(fastify) {
         let cuttingRows = [];
         if (orderIds.length > 0) {
             cuttingRows = await db.all(`
-                SELECT dht_order_id, order_item_id, material_name, fabric_color, is_cutting, is_cut_done
+                SELECT dht_order_id, order_item_id, phoi_index, material_name, fabric_color, is_cutting, is_cut_done
                 FROM cutting_records
                 WHERE dht_order_id = ANY($1)
             `, [orderIds]);
@@ -1088,6 +1088,7 @@ module.exports = async function(fastify) {
                 const pColor = (p.color_name || '').trim().toLowerCase();
 
                 const match = itemCuts.find(c => {
+                    if (c.phoi_index === pIdx) return true;
                     const cMat = (c.material_name || '').trim().toLowerCase();
                     const cColor = (c.fabric_color || '').trim().toLowerCase();
                     return cMat === pMat && cColor === pColor;
@@ -1154,6 +1155,7 @@ module.exports = async function(fastify) {
 
                                 const itemCuts = cuttingRows.filter(c => c.order_item_id === it.id);
                                 const match = itemCuts.find(c => {
+                                    if (c.phoi_index === pIdx) return true;
                                     const cMat = (c.material_name || '').trim().toLowerCase();
                                     const cColor = (c.fabric_color || '').trim().toLowerCase();
                                     return cMat === pMat && cColor === pColor;

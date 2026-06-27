@@ -683,7 +683,7 @@ module.exports = async function(fastify) {
         let claimedRecs = [];
         if (unassignedItemIds.length > 0) {
             claimedRecs = await db.all(`
-                SELECT id, order_item_id, material_name, fabric_color, cutter_id, is_cut_done, cut_warning 
+                SELECT id, order_item_id, phoi_index, material_name, fabric_color, cutter_id, is_cut_done, cut_warning 
                 FROM cutting_records 
                 WHERE order_item_id = ANY($1)
             `, [unassignedItemIds]);
@@ -704,10 +704,12 @@ module.exports = async function(fastify) {
 
             let cnt = 0;
             if (pairs.length > 0) {
-                // Track which pairs have been claimed
+                // Track which indexes/pairs have been claimed
                 const claimedPairs = [];
+                const claimedIndexes = [];
                 for (const r of itemRecords) {
                     if (r.cutter_id !== null) {
+                        claimedIndexes.push(r.phoi_index);
                         claimedPairs.push({
                             material: (r.material_name || '').trim().toLowerCase(),
                             color: (r.fabric_color || '').trim().toLowerCase()
@@ -720,14 +722,16 @@ module.exports = async function(fastify) {
                     const pMat = (phoi.material_name || '').trim().toLowerCase();
                     const pCol = (phoi.color_name || '').trim().toLowerCase();
 
-                    // Check if claimed
-                    const isClaimed = claimedPairs.some(cp => cp.material === pMat && cp.color === pCol);
+                    // Check if claimed by index or exact name match
+                    const isClaimed = claimedIndexes.includes(pi) || claimedPairs.some(cp => cp.material === pMat && cp.color === pCol);
                     
                     // Check if there is an unclaimed record (compensation)
                     const unclaimedRec = itemRecords.find(r => 
                         r.cutter_id === null && !r.is_cut_done &&
-                        (r.material_name || '').trim().toLowerCase() === pMat &&
-                        (r.fabric_color || '').trim().toLowerCase() === pCol
+                        (r.phoi_index === pi || (
+                            (r.material_name || '').trim().toLowerCase() === pMat &&
+                            (r.fabric_color || '').trim().toLowerCase() === pCol
+                        ))
                     );
 
                     if (!isClaimed || unclaimedRec) {
