@@ -4255,7 +4255,7 @@ module.exports = async function(fastify) {
         }
 
         const isStopped = !!color.stop_import;
-        const limitQty = isStopped ? (remainingStock * targetRatio) : null;
+        const limitQty = isStopped ? Math.floor(remainingStock * targetRatio) : null;
 
          return {
             material_id: Number(material_id),

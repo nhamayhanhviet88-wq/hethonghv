@@ -1395,8 +1395,9 @@ function _ppCalc() {
     for (var pi = 0; pi < matInputs.length; pi++) {
         var info = limits[pi];
         if (info && info.is_stopped && info.limit_qty !== null) {
-            if (maxLimit === null || info.limit_qty < maxLimit) {
-                maxLimit = info.limit_qty;
+            var flooredLimit = Math.floor(info.limit_qty);
+            if (maxLimit === null || flooredLimit < maxLimit) {
+                maxLimit = flooredLimit;
             }
         }
     }
@@ -1422,7 +1423,7 @@ function _ppCalc() {
                 var allowed = maxLimit - otherQty;
                 if (allowed < 0) allowed = 0;
                 activeQtyInput.value = allowed;
-                showToast('⚠️ Vải đã dừng nhập. Số lượng tối đa được phép đặt là ' + maxLimit.toFixed(1) + ' sản phẩm!', 'warning');
+                showToast('⚠️ Vải đã dừng nhập. Số lượng tối đa được phép đặt là ' + maxLimit + ' sản phẩm!', 'warning');
             } else {
                 var lastInput = qs[qs.length - 1];
                 if (lastInput) {
@@ -1651,6 +1652,7 @@ async function _ppUpdateStockLimit(pairIdx) {
         window._ppStockLimits = window._ppStockLimits || {};
         window._ppStockLimits[pairIdx] = res;
         _ppRenderStockLimitMessage();
+        _ppCalc();
     } catch (e) {
         console.error('Error fetching stock limit:', e);
     }
@@ -1675,7 +1677,7 @@ function _ppRenderStockLimitMessage() {
 
         if (info.is_stopped) {
             var ratioText = info.target_ratio ? (info.target_ratio + ' sp/' + info.unit) : 'chưa cấu hình tỉ lệ cắt';
-            var limitText = info.limit_qty !== null ? (info.limit_qty.toFixed(1) + ' sp') : '0 sp (không thể đặt)';
+            var limitText = info.limit_qty !== null ? (Math.floor(info.limit_qty) + ' sp') : '0 sp (không thể đặt)';
             warnings.push('⚠️ <b>' + info.material_name + ' - ' + info.color_name + '</b> đã dừng nhập!<br/>'
                 + '• Tồn kho còn: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>'
                 + '• Tỉ lệ cắt: <b>' + ratioText + '</b><br/>'
@@ -1747,8 +1749,9 @@ function _dhtSavePhieu(idx) {
         var info = limits[i];
         if (info && info.is_stopped) {
             if (String(info.material_id) === String(pairs[i].material_id) && String(info.color_id) === String(pairs[i].color_id)) {
-                if (info.limit_qty !== null && totalQty > info.limit_qty) {
-                    showToast('⚠️ Vải [' + info.material_name + ' - ' + info.color_name + '] đã dừng nhập.<br/>Số lượng tối đa được phép đặt là ' + info.limit_qty.toFixed(1) + ' sản phẩm. Bạn đã nhập ' + totalQty + ' sản phẩm.', 'error');
+                var flooredLimit = Math.floor(info.limit_qty);
+                if (info.limit_qty !== null && totalQty > flooredLimit) {
+                    showToast('⚠️ Vải [' + info.material_name + ' - ' + info.color_name + '] đã dừng nhập.<br/>Số lượng tối đa được phép đặt là ' + flooredLimit + ' sản phẩm. Bạn đã nhập ' + totalQty + ' sản phẩm.', 'error');
                     return;
                 }
             }
