@@ -448,7 +448,7 @@ function _kvRenderTable() {
         h += '<td style="white-space:nowrap" onclick="event.stopPropagation()">';
         if (isDirector) {
             if (r.is_active !== false) {
-                if (r.allowed_slips !== null && r.allowed_slips !== undefined) {
+                if (r.allowed_slips !== null && r.allowed_slips !== undefined && !r.color_stop_import) {
                     h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#64748b;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hủy giới hạn và dừng bán ngay">🔴 Dừng Bán</button>';
                 } else {
                     h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#10b981;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để dừng bán">🟢 Bán</button>';
