@@ -1709,32 +1709,36 @@ function _ppRenderStockLimitMessage() {
             continue;
         }
 
-        if (info.is_stopped) {
-            var ratioText = info.target_ratio ? (info.target_ratio + ' sp/' + info.unit) : 'chưa cấu hình tỉ lệ cắt';
-            var remainingLimit = _ppGetRemainingLimitForPair(info.material_id, info.color_id, info.limit_qty, window._ppCurrentPhieuIdx);
-            var limitText = remainingLimit !== null ? (Math.floor(remainingLimit) + ' sp') : '0 sp (không thể đặt)';
-            var consumedQty = info.limit_qty - remainingLimit;
-            
+        if (info.is_stopped || info.has_allowed_slip) {
             var warningHtml = '⚠️ <b>' + info.material_name + ' - ' + info.color_name + '</b> đã dừng nhập!<br/>';
             
-            var otherConsumed = Number(info.other_fabric_consumed || 0);
-            if (otherConsumed > 0) {
-                var otherConsumedText = parseFloat(otherConsumed.toFixed(2));
-                var adjStockText = parseFloat(Number(info.adjusted_remaining_stock || 0).toFixed(2));
-                warningHtml += '• Tồn kho thực tế: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>'
-                    + '• Đang giữ cho đơn khác chưa cắt: <b style="color:#b45309">' + otherConsumedText + ' ' + info.unit + '</b><br/>'
-                    + '• Tồn kho khả dụng còn lại: <b style="color:#15803d">' + adjStockText + ' ' + info.unit + '</b><br/>';
+            if (info.has_allowed_slip) {
+                warningHtml += '<span style="color:#2563eb;font-weight:800;font-size:12.5px">🎟️ Đơn hàng này được phép tạo nhờ phiếu cấp thêm đơn (Không bị giới hạn bởi tồn kho).</span>';
             } else {
-                warningHtml += '• Tồn kho còn: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>';
-            }
-            
-            warningHtml += '• Tỉ lệ cắt: <b>' + ratioText + '</b><br/>';
-            
-            if (consumedQty > 0) {
-                warningHtml += '• Đã chọn ở phiếu khác của đơn này: <b>' + consumedQty + ' sp</b><br/>';
-                warningHtml += '• Số lượng tối đa có thể đặt thêm: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>';
-            } else {
-                warningHtml += '• Số lượng tối đa có thể sản xuất: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>';
+                var ratioText = info.target_ratio ? (info.target_ratio + ' sp/' + info.unit) : 'chưa cấu hình tỉ lệ cắt';
+                var remainingLimit = _ppGetRemainingLimitForPair(info.material_id, info.color_id, info.limit_qty, window._ppCurrentPhieuIdx);
+                var limitText = remainingLimit !== null ? (Math.floor(remainingLimit) + ' sp') : '0 sp (không thể đặt)';
+                var consumedQty = info.limit_qty - remainingLimit;
+                
+                var otherConsumed = Number(info.other_fabric_consumed || 0);
+                if (otherConsumed > 0) {
+                    var otherConsumedText = parseFloat(otherConsumed.toFixed(2));
+                    var adjStockText = parseFloat(Number(info.adjusted_remaining_stock || 0).toFixed(2));
+                    warningHtml += '• Tồn kho thực tế: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>'
+                        + '• Đang giữ cho đơn khác chưa cắt: <b style="color:#b45309">' + otherConsumedText + ' ' + info.unit + '</b><br/>'
+                        + '• Tồn kho khả dụng còn lại: <b style="color:#15803d">' + adjStockText + ' ' + info.unit + '</b><br/>';
+                } else {
+                    warningHtml += '• Tồn kho còn: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>';
+                }
+                
+                warningHtml += '• Tỉ lệ cắt: <b>' + ratioText + '</b><br/>';
+                
+                if (consumedQty > 0) {
+                    warningHtml += '• Đã chọn ở phiếu khác của đơn này: <b>' + consumedQty + ' sp</b><br/>';
+                    warningHtml += '• Số lượng tối đa có thể đặt thêm: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>';
+                } else {
+                    warningHtml += '• Số lượng tối đa có thể sản xuất: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>';
+                }
             }
             warnings.push(warningHtml);
         }

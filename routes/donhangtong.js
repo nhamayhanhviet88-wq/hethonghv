@@ -4450,7 +4450,7 @@ module.exports = async function(fastify) {
         }
 
         const mat = await db.get(`SELECT stop_import, name FROM kv_materials WHERE id = $1`, [Number(material_id)]);
-        const color = await db.get(`SELECT stop_import, color_name FROM kv_fabric_colors WHERE id = $1`, [Number(color_id)]);
+        const color = await db.get(`SELECT stop_import, color_name, allowed_slips FROM kv_fabric_colors WHERE id = $1`, [Number(color_id)]);
 
         if (!mat || !color) {
             return reply.code(404).send({ error: 'Không tìm thấy chất liệu hoặc màu vải' });
@@ -4537,7 +4537,8 @@ module.exports = async function(fastify) {
             targetRatio = ratioRow ? Number(ratioRow.target_ratio) || 0 : 0;
         }
 
-        const isStopped = !!color.stop_import && !(Number(color.allowed_slips) >= 1);
+        const hasAllowedSlip = !!color.stop_import && (Number(color.allowed_slips) >= 1);
+        const isStopped = !!color.stop_import && !hasAllowedSlip;
         const limitQty = isStopped ? Math.floor(adjustedRemainingStock * targetRatio) : null;
 
          return {
@@ -4548,6 +4549,7 @@ module.exports = async function(fastify) {
             material_stop_import: !!mat.stop_import,
             color_stop_import: !!color.stop_import,
             is_stopped: isStopped,
+            has_allowed_slip: hasAllowedSlip,
             remaining_stock: remainingStock,
             other_fabric_consumed: otherFabricConsumed,
             adjusted_remaining_stock: adjustedRemainingStock,
