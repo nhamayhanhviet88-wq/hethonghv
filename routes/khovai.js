@@ -1296,6 +1296,7 @@ module.exports = async function (fastify) {
         }
         const { is_active, allowed_slips } = request.body || {};
         if (is_active) {
+            let parsedSlips = null;
             if (allowed_slips !== undefined && allowed_slips !== null) {
                 const val = parseInt(allowed_slips, 10);
                 if (!isNaN(val) && val >= 0) {
