@@ -4481,12 +4481,44 @@ module.exports = async function(fastify) {
         return { success: true, product: r };
     });
 
-    // UPDATE product cutting_category
+    // UPDATE product cutting_category or name
     fastify.put('/api/dht/products/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const pid = Number(request.params.id);
-        const { cutting_category_id } = request.body || {};
-        await db.run('UPDATE dht_products SET cutting_category_id = $1 WHERE id = $2',
-            [cutting_category_id ? Number(cutting_category_id) : null, pid]);
+        const { cutting_category_id, name } = request.body || {};
+
+        const oldProd = await db.get('SELECT name, sale_type_id FROM dht_products WHERE id = $1', [pid]);
+        if (!oldProd) {
+            return reply.code(404).send({ error: 'Không tìm thấy sản phẩm' });
+        }
+
+        if (name !== undefined) {
+            const newName = name.trim();
+            if (!newName) return reply.code(400).send({ error: 'Tên sản phẩm không được để trống' });
+
+            if (newName !== oldProd.name) {
+                // check duplicate
+                const dup = await db.get('SELECT id FROM dht_products WHERE sale_type_id = $1 AND name = $2 AND is_active = true AND id <> $3', [oldProd.sale_type_id, newName, pid]);
+                if (dup) return reply.code(400).send({ error: 'Tên sản phẩm đã tồn tại trong nhóm này' });
+
+                await db.run('UPDATE dht_products SET name = $1 WHERE id = $2', [newName, pid]);
+
+                // Update in cascade tables
+                await db.run('UPDATE dht_order_items SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
+                await db.run('UPDATE cutting_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
+                await db.run('UPDATE printing_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
+                await db.run('UPDATE sewing_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
+                await db.run('UPDATE pressing_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
+                await db.run('UPDATE finishing_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
+                await db.run('UPDATE kv_cut_orders SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
+                await db.run('UPDATE don_gui_ao_mau SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
+            }
+        }
+
+        if (cutting_category_id !== undefined) {
+            await db.run('UPDATE dht_products SET cutting_category_id = $1 WHERE id = $2',
+                [cutting_category_id ? Number(cutting_category_id) : null, pid]);
+        }
+
         return { success: true };
     });
 

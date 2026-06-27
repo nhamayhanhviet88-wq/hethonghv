@@ -91,7 +91,11 @@ async function _spqtSelectProduct(pid) {
     var h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
         + '<div><span style="font-size:16px;font-weight:800;color:var(--navy,#1e293b)">🏷️ ' + p.name + '</span>'
         + '<span style="font-size:11px;color:#94a3b8;margin-left:8px">(' + p.sale_type_name + ')</span> ' + ccBadge + '</div>'
-        + '<button onclick="_spqtDeleteProduct(' + p.id + ')" style="background:#fee2e2;color:#dc2626;border:none;padding:4px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">🗑️ Xóa SP</button></div>';
+        + '<div style="display:flex;gap:6px">'
+        + '<button onclick="_spqtRenameProduct(' + p.id + ',\'' + p.name.replace(/'/g,"\\'") + '\')" style="background:#dbeafe;color:#2563eb;border:none;padding:4px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">✏️ Đổi Tên</button>'
+        + '<button onclick="_spqtDeleteProduct(' + p.id + ')" style="background:#fee2e2;color:#dc2626;border:none;padding:4px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">🗑️ Xóa SP</button>'
+        + '</div>'
+        + '</div>';
 
     // === Section 0: Loại Sản Phẩm Cắt ===
     var ccOpts = '<option value=""' + (!p.cutting_category_id ? ' selected' : '') + '>-- Chọn loại sản phẩm --</option>';
@@ -258,4 +262,17 @@ async function _spqtSaveSteps(pid) {
     var res = await apiCall('/api/dht/product-process/' + pid, 'PUT', { step_ids: ids });
     if (res.success) { showToast('✅ Đã lưu Quy Trình'); _spqtSelectProduct(pid); }
     else showToast(res.error || 'Lỗi', 'error');
+}
+
+async function _spqtRenameProduct(pid, oldName) {
+    var newName = prompt('Nhập tên mới cho sản phẩm:', oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return;
+    var res = await apiCall('/api/dht/products/' + pid, 'PUT', { name: newName.trim() });
+    if (res.success) {
+        showToast('✅ Đã đổi tên sản phẩm');
+        await _spqtLoadAll();
+        _spqt.selProduct = _spqt.products.find(function(p) { return p.id === pid; }) || null;
+        _spqtRenderSidebar();
+        if (_spqt.selProduct) _spqtSelectProduct(pid);
+    } else showToast(res.error || 'Lỗi', 'error');
 }
