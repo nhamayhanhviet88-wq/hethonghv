@@ -1670,13 +1670,41 @@ function _kvCloseRollOriginModal() {
 }
 window._kvCloseRollOriginModal = _kvCloseRollOriginModal;
 
-function _kvCreateOrderFromFabric(colorId, materialName, colorName) {
+async function _kvCreateOrderFromFabric(colorId, materialName, colorName) {
     var r = _kv.summary.find(function(x) { return x.id === colorId; });
     if (!r) return;
     
     if (r.is_active === false) {
-        showToast('Màu vải này đang dừng bán, không thể tạo đơn!', 'error');
-        return;
+        var countStr = prompt('Màu vải này đang dừng bán. Bạn muốn cho phép tạo thêm bao nhiêu đơn hàng cho Sale nhập?', '1');
+        if (countStr === null) return; // User cancelled
+        var count = parseInt(countStr, 10);
+        if (isNaN(count) || count <= 0) {
+            showToast('Số lượng đơn hàng không hợp lệ!', 'error');
+            return;
+        }
+
+        try {
+            var res = await apiCall('/api/khovai/colors/' + colorId + '/toggle', 'PUT', {
+                is_active: true,
+                allowed_slips: count
+            });
+            if (res && res.success) {
+                showToast('Đã mở giới hạn ' + count + ' đơn cho màu vải này!', 'success');
+                // Reload summary so it reflects locally
+                _kvLoadSummary();
+                try {
+                    var treeData = await apiCall('/api/khovai/tree');
+                    _kv.tree = treeData.tree || [];
+                    _kvRenderSidebar();
+                } catch(e) {}
+            } else {
+                showToast((res && res.error) || 'Lỗi khi mở bán giới hạn', 'error');
+                return;
+            }
+        } catch(e) {
+            showToast('Lỗi kết nối: ' + e.message, 'error');
+            return;
+        }
     }
 
     window._kvPreselectedFabric = {
