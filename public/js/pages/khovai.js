@@ -375,14 +375,14 @@ function _kvRenderTable() {
     }
     var thC = 'cursor:pointer;user-select:none';
     var h = '<table class="kv-table"><thead><tr>';
-    h += '<th>#</th><th>T\u00ean V\u1ea3i</th><th>Ch\u1ea5t Li\u1ec7u</th><th>Kho</th><th>\u0110VT</th><th>V\u1ecb Tr\u00ed Kho</th>';
+    h += '<th>#</th><th>T\u00ean V\u1ea3i</th><th>Ch\u1ea5t Li\u1ec7u</th><th>Kho</th><th>V\u1ecb Tr\u00ed Kho</th>';
     h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'so_cuc\')">' + 'S\u1ed1 C\u1ee5c' + sIco('so_cuc') + '</th>';
     h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'cay_nguyen\')">' + 'C\u00e2y Nguy\u00ean' + sIco('cay_nguyen') + '</th>';
     h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'dau_ky\')">' + '\u0110\u1ea7u K\u1ef3' + sIco('dau_ky') + '</th>';
     h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'xuat\')">' + 'Xu\u1ea5t' + sIco('xuat') + '</th>';
     h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'cuoi_ky\')">' + 'Cu\u1ed1i K\u1ef3' + sIco('cuoi_ky') + '</th>';
     h += '<th style="text-align:right;' + thC + '" onclick="_kvSort(\'price\')">' + 'Gi\u00e1' + sIco('price') + '</th>';
-    h += '<th>L\u1ecbch S\u1eed CN</th><th>Thao T\u00e1c</th></tr></thead><tbody>';
+    h += '<th>Thao T\u00e1c</th></tr></thead><tbody>';
 
     sorted.forEach(function(r, i) {
         var cuoiColor = Number(r.cuoi_ky) >= 0 ? '#059669' : '#dc2626';
@@ -434,7 +434,6 @@ function _kvRenderTable() {
         h += '</td>';
         h += '<td>' + (r.material_name||'') + '</td>';
         h += '<td style="font-size:10px;color:#64748b">' + (r.warehouse_name||'') + '</td>';
-        h += '<td style="font-size:10px">' + (r.unit||'kg') + '</td>';
         h += '<td style="font-size:11px;font-weight:600;color:#0284c7">' + (r.location||'—') + '</td>';
         h += '<td style="text-align:right;font-weight:700">' + (r.so_cuc||0) + '</td>';
         h += '<td style="text-align:right;font-weight:700;color:' + cayNguyenColor + '">' + (r.cay_nguyen||0) + '</td>';
@@ -442,7 +441,6 @@ function _kvRenderTable() {
         h += '<td style="text-align:right;font-weight:700;color:#dc2626;white-space:nowrap">' + _kvFmt(r.xuat) + '</td>';
         h += '<td style="text-align:right;font-weight:900;color:' + cuoiColor + ';white-space:nowrap">' + _kvFmt(r.cuoi_ky) + '</td>';
         h += '<td style="text-align:right;font-size:11px">' + (r.price ? _kvFmt(r.price) + '\u0111' : '\u2014') + '</td>';
-        h += '<td style="white-space:nowrap">' + (lastUp || '<span style="color:var(--gray-300)">\u2014</span>') + '</td>';
         h += '<td style="white-space:nowrap" onclick="event.stopPropagation()">';
         if (isDirector) {
             if (r.is_active !== false) {
