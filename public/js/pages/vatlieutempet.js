@@ -743,8 +743,8 @@ async function openPtDetailsModal(rollId) {
                 actHtml = '<div class="pt-badge-closed" style="background:#fef3c7;color:#d97706;border:1px solid #fde68a">⏳ CHỜ DUYỆT CHỐT<br><span style="font-size:9px;font-weight:normal">Đang chờ Giám đốc duyệt chốt do vượt hao hụt</span></div>';
             }
         } else {
-            actHtml = '<button class="pt-action-btn waste" onclick="ptDetailsAction(\'waste\', ' + roll.id + ')">⚠️ Hao hụt</button>'
-                    + '<button class="pt-action-btn error" style="margin-top:8px" onclick="ptDetailsAction(\'error\', ' + roll.id + ')">❌ Sản xuất lỗi</button>';
+            actHtml = '<button class="pt-action-btn waste" onclick="ptDetailsAction(\'waste\', ' + roll.id + ', ' + rem + ')">⚠️ Hao hụt</button>'
+                    + '<button class="pt-action-btn error" style="margin-top:8px" onclick="ptDetailsAction(\'error\', ' + roll.id + ', ' + rem + ')">❌ Sản xuất lỗi</button>';
             if (canClose) {
                 actHtml += '<button class="pt-action-btn close" style="margin-top:8px" onclick="ptDetailsCloseRoll(' + roll.id + ')">✅ Chốt cuộn</button>';
             } else {
@@ -920,7 +920,7 @@ function closePtDetailsModal() {
     if (m) m.style.display = 'none';
 }
 
-function ptDetailsAction(type, rollId) {
+function ptDetailsAction(type, rollId, maxQty) {
     var area = document.getElementById('ptDetailsFormArea');
     if (!area) return;
     
@@ -933,7 +933,8 @@ function ptDetailsAction(type, rollId) {
       + '  <div style="font-weight:800;font-size:11px;' + labelClass + ';margin-bottom:8px">' + title + '</div>'
       + '  <div class="pt-form-group">'
       + '    <label>Số lượng (mét) <span style="color:#ef4444">*</span></label>'
-      + '    <input type="number" id="ptActQty" min="0.01" step="0.01" required placeholder="Ví dụ: 2.34">'
+      + '    <input type="number" id="ptActQty" min="0.01" step="0.01" required placeholder="Ví dụ: 2.34" oninput="ptDetailsValQty(this, ' + maxQty + ')">'
+      + '    <div id="ptActQtyErr" style="color:#ef4444;font-size:10px;margin-top:4px;font-weight:700;display:none">⚠️ Không được lớn hơn tồn cuối (' + maxQty.toFixed(2) + 'm)</div>'
       + '  </div>'
       + '  <div class="pt-form-group">'
       + '    <label>Lý do bắt buộc <span style="color:#ef4444">*</span></label>'
@@ -941,19 +942,46 @@ function ptDetailsAction(type, rollId) {
       + '  </div>'
       + '  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">'
       + '    <button class="pt-btn" style="background:#f1f5f9;color:#475569;padding:4px 8px;font-size:10px" onclick="document.getElementById(\'ptDetailsFormArea\').innerHTML=\'\'">Hủy</button>'
-      + '    <button class="pt-btn pt-btn-primary" style="padding:4px 8px;font-size:10px" onclick="ptDetailsSubmitAction(\'' + type + '\', ' + rollId + ')">Xác nhận</button>'
+      + '    <button id="ptActSubmitBtn" class="pt-btn pt-btn-primary" style="padding:4px 8px;font-size:10px" onclick="ptDetailsSubmitAction(\'' + type + '\', ' + rollId + ', ' + maxQty + ')">Xác nhận</button>'
       + '  </div>'
       + '</div>';
     
     setTimeout(function() { document.getElementById('ptActQty').focus(); }, 50);
 }
 
-async function ptDetailsSubmitAction(type, rollId) {
+function ptDetailsValQty(inputEl, maxQty) {
+    var errEl = document.getElementById('ptActQtyErr');
+    var btnEl = document.getElementById('ptActSubmitBtn');
+    if (!errEl) return;
+    
+    var val = Number(inputEl.value) || 0;
+    if (val > maxQty) {
+        errEl.style.display = 'block';
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.style.opacity = '0.5';
+            btnEl.style.cursor = 'not-allowed';
+        }
+    } else {
+        errEl.style.display = 'none';
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.style.opacity = '1';
+            btnEl.style.cursor = 'pointer';
+        }
+    }
+}
+
+async function ptDetailsSubmitAction(type, rollId, maxQty) {
     var qty = Number(document.getElementById('ptActQty').value);
     var reason = document.getElementById('ptActReason').value || '';
     
     if (!qty || qty <= 0) {
         showToast('Số lượng mét phải lớn hơn 0', 'error');
+        return;
+    }
+    if (qty > maxQty) {
+        showToast('Số lượng khai báo không được lớn hơn tồn cuối (' + maxQty.toFixed(2) + 'm)', 'error');
         return;
     }
     if (!reason.trim()) {
