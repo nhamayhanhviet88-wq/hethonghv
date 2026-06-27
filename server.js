@@ -239,6 +239,13 @@ async function start() {
         await db.run("UPDATE kv_locations SET shelf_position = 'Hầm / Phòng Cắt' WHERE name IN ('Chưa xếp kệ - Cây Nguyên', 'Chưa xếp kệ - Cây Lẻ') AND (shelf_position IS NULL OR shelf_position = '')");
     } catch(e) { /* fail-safe */ }
 
+    // Migration: kv_locations - add printing_contractor_id and user_id columns
+    try {
+        await db.exec(`ALTER TABLE kv_locations ADD COLUMN IF NOT EXISTS printing_contractor_id INTEGER REFERENCES printing_contractors(id) ON DELETE SET NULL`);
+        await db.exec(`ALTER TABLE kv_locations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+    } catch(e) { /* already exists */ }
+
+
 
 
 

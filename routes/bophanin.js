@@ -1211,9 +1211,12 @@ module.exports = async function(fastify) {
             ORDER BY display_order, name
         `);
         const assigned = await db.all(`
-            SELECT operator_type, operator_id
-            FROM printing_field_operators
-            WHERE field_id = $1
+            SELECT a.operator_type, a.operator_id, l.id AS location_id, l.name AS location_name
+            FROM printing_field_operators a
+            LEFT JOIN kv_locations l ON 
+                (a.operator_type = 'contractor' AND l.printing_contractor_id = a.operator_id)
+                OR (a.operator_type = 'user' AND l.user_id = a.operator_id)
+            WHERE a.field_id = $1
         `, [fieldId]);
 
         return { staff, contractors, assigned };
@@ -1225,6 +1228,41 @@ module.exports = async function(fastify) {
         const { operators } = req.body || {};
         if (!Array.isArray(operators)) return reply.code(400).send({ error: 'Operators must be an array' });
 
+        const field = await db.get('SELECT name FROM printing_fields WHERE id = $1', [fieldId]);
+        const fieldName = field ? field.name : '';
+        const is3DField = fieldName.toLowerCase().includes('3d') || fieldName.toLowerCase().includes('cắt');
+
+        if (is3DField) {
+            for (const op of operators) {
+                if (!op.location_id) {
+                    return reply.code(400).send({ error: `Nhân sự/Gia công thuộc Lĩnh vực in 3D/Cắt bắt buộc phải chọn kệ liên kết!` });
+                }
+                const currentLink = await db.get(`
+                    SELECT name FROM kv_locations 
+                    WHERE id = $1 
+                      AND (
+                          (printing_contractor_id IS NOT NULL AND printing_contractor_id != $2)
+                          OR (user_id IS NOT NULL AND user_id != $3)
+                      )
+                `, [op.location_id, op.operator_type === 'contractor' ? op.operator_id : -1, op.operator_type === 'user' ? op.operator_id : -1]);
+                if (currentLink) {
+                    return reply.code(400).send({ error: `Kệ "${currentLink.name}" đã được liên kết với người khác!` });
+                }
+            }
+        }
+
+        // Fetch old operators before deleting to clean up their linked locations
+        const oldAssigned = await db.all(`
+            SELECT operator_type, operator_id FROM printing_field_operators WHERE field_id = $1
+        `, [fieldId]);
+        for (const op of oldAssigned) {
+            if (op.operator_type === 'contractor') {
+                await db.run(`UPDATE kv_locations SET printing_contractor_id = NULL WHERE printing_contractor_id = $1`, [op.operator_id]);
+            } else if (op.operator_type === 'user') {
+                await db.run(`UPDATE kv_locations SET user_id = NULL WHERE user_id = $1`, [op.operator_id]);
+            }
+        }
+
         await db.run(`DELETE FROM printing_field_operators WHERE field_id = $1`, [fieldId]);
         for (const op of operators) {
             if (['user', 'contractor'].includes(op.operator_type) && op.operator_id) {
@@ -1233,6 +1271,16 @@ module.exports = async function(fastify) {
                     VALUES ($1, $2, $3)
                     ON CONFLICT DO NOTHING
                 `, [fieldId, op.operator_type, Number(op.operator_id)]);
+
+                if (is3DField && op.location_id) {
+                    if (op.operator_type === 'contractor') {
+                        await db.run(`UPDATE kv_locations SET printing_contractor_id = NULL WHERE printing_contractor_id = $1`, [Number(op.operator_id)]);
+                        await db.run(`UPDATE kv_locations SET printing_contractor_id = $1 WHERE id = $2`, [Number(op.operator_id), Number(op.location_id)]);
+                    } else if (op.operator_type === 'user') {
+                        await db.run(`UPDATE kv_locations SET user_id = NULL WHERE user_id = $1`, [Number(op.operator_id)]);
+                        await db.run(`UPDATE kv_locations SET user_id = $1 WHERE id = $2`, [Number(op.operator_id), Number(op.location_id)]);
+                    }
+                }
             }
         }
         return { success: true };

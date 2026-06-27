@@ -1363,9 +1363,19 @@ module.exports = async function (fastify) {
         return { locations: rows };
     });
 
+    fastify.get('/api/khovai/operators', { preHandler: [authenticate] }, async (request) => {
+        const contractors = await db.all(`
+            SELECT id, name FROM printing_contractors WHERE is_active=true ORDER BY display_order, name
+        `);
+        const users = await db.all(`
+            SELECT id, full_name FROM users WHERE status='active' ORDER BY full_name
+        `);
+        return { contractors, users };
+    });
+
     // POST /api/khovai/locations — Create location
     fastify.post('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
-        const { warehouse_id, name, description, is_restricted, restricted_material_id, shelf_position } = request.body || {};
+        const { warehouse_id, name, description, is_restricted, restricted_material_id, shelf_position, printing_contractor_id, user_id } = request.body || {};
         const wId = Number(warehouse_id);
         if (!warehouse_id || isNaN(wId) || !Number.isInteger(wId)) return { error: 'Vui lòng chọn một kho vải cụ thể để tạo vị trí!' };
         if (!name || !name.trim()) return { error: 'Tên vị trí không được trống' };
@@ -1374,16 +1384,16 @@ module.exports = async function (fastify) {
         if (exists) return { error: 'Tên vị trí này đã tồn tại trong kho' };
 
         const row = await db.get(
-            `INSERT INTO kv_locations (warehouse_id, name, description, is_restricted, restricted_material_id, shelf_position)
-              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [wId, name.trim(), description ? description.trim() : null, is_restricted ? true : false, (!is_restricted) ? null : (restricted_material_id ? Number(restricted_material_id) : null), shelf_position ? shelf_position.trim() : null]
+            `INSERT INTO kv_locations (warehouse_id, name, description, is_restricted, restricted_material_id, shelf_position, printing_contractor_id, user_id)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [wId, name.trim(), description ? description.trim() : null, is_restricted ? true : false, (!is_restricted) ? null : (restricted_material_id ? Number(restricted_material_id) : null), shelf_position ? shelf_position.trim() : null, printing_contractor_id ? Number(printing_contractor_id) : null, user_id ? Number(user_id) : null]
         );
         return { success: true, location: row };
     });
 
     // PUT /api/khovai/locations/:id — Update location
     fastify.put('/api/khovai/locations/:id', { preHandler: [authenticate] }, async (request) => {
-        const { name, description, is_restricted, restricted_material_id, shelf_position } = request.body || {};
+        const { name, description, is_restricted, restricted_material_id, shelf_position, printing_contractor_id, user_id } = request.body || {};
         const id = request.params.id;
 
         const oldLoc = await db.get('SELECT * FROM kv_locations WHERE id = $1', [id]);
@@ -1416,6 +1426,14 @@ module.exports = async function (fastify) {
         if (shelf_position !== undefined) {
             updates.push(`shelf_position = $${idx++}`);
             params.push(shelf_position ? shelf_position.trim() : null);
+        }
+        if (printing_contractor_id !== undefined) {
+            updates.push(`printing_contractor_id = $${idx++}`);
+            params.push(printing_contractor_id ? Number(printing_contractor_id) : null);
+        }
+        if (user_id !== undefined) {
+            updates.push(`user_id = $${idx++}`);
+            params.push(user_id ? Number(user_id) : null);
         }
 
         if (!updates.length) return { error: 'Không có gì thay đổi' };

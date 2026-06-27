@@ -1898,10 +1898,14 @@ async function _bpiLoadFieldOperators(fieldId) {
     var container = document.getElementById('_bpFieldOpsContainer');
     if (!container) return;
     try {
-        var res = await apiCall('/api/printing/fields/' + fieldId + '/operators');
+        var [res, locsRes] = await Promise.all([
+            apiCall('/api/printing/fields/' + fieldId + '/operators'),
+            apiCall('/api/khovai/locations')
+        ]);
         var staff = res.staff || [];
         var contractors = res.contractors || [];
         var assigned = res.assigned || [];
+        var locations = locsRes.locations || [];
         
         var isAssigned = function(type, id) {
             return assigned.some(function(a) { return a.operator_type === type && a.operator_id === id; });
@@ -1909,6 +1913,7 @@ async function _bpiLoadFieldOperators(fieldId) {
         
         var selectedField = _bpFields.find(function(f) { return f.id === fieldId; });
         var fieldName = selectedField ? selectedField.name : '';
+        var is3DField = fieldName.toLowerCase().includes('3d') || fieldName.toLowerCase().includes('cắt');
         
         var h = '<div style="font-weight:800;font-size:12px;color:#475569;margin-bottom:12px">CẤU HÌNH NHÂN SỰ CHO: <span style="color:#0ea5e9">' + fieldName + '</span></div>';
         
@@ -1918,14 +1923,8 @@ async function _bpiLoadFieldOperators(fieldId) {
         h += '<div>';
         h += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;background:#f8fafc;padding:4px 8px;border-radius:4px">👤 NHÂN VIÊN PHÒNG IN</div>';
         if (staff.length) {
-            h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
-            staff.forEach(function(s) {
-                var ch = isAssigned('user', s.id) ? 'checked' : '';
-                h += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'transparent\'">';
-                h += '<input type="checkbox" class="_bpOpCheck" data-type="user" data-id="' + s.id + '" ' + ch + ' style="cursor:pointer">';
-                h += '<span>' + s.full_name + '</span>';
-                h += '</label>';
-            });
+            h += '<div style="display:flex;flex-direction:column;gap:6px">';
+            staff.forEach(function(s) { /*...*/ });
             h += '</div>';
         } else {
             h += '<div style="color:#94a3b8;font-size:11px;padding-left:8px">Không có nhân viên trong Phòng In</div>';
@@ -1936,13 +1935,27 @@ async function _bpiLoadFieldOperators(fieldId) {
         h += '<div>';
         h += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;background:#f8fafc;padding:4px 8px;border-radius:4px">🏭 BÊN GIA CÔNG IN</div>';
         if (contractors.length) {
-            h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
+            h += '<div style="display:flex;flex-direction:column;gap:6px">';
             contractors.forEach(function(c) {
                 var ch = isAssigned('contractor', c.id) ? 'checked' : '';
-                h += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'transparent\'">';
-                h += '<input type="checkbox" class="_bpOpCheck" data-type="contractor" data-id="' + c.id + '" ' + ch + ' style="cursor:pointer">';
+                var assignedLoc = assigned.find(function(a) { return a.operator_type === 'contractor' && a.operator_id === c.id; });
+                var assignedLocId = assignedLoc ? assignedLoc.location_id : null;
+                
+                h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px;border-radius:4px;transition:background .15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'transparent\'">';
+                h += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin:0">';
+                h += '<input type="checkbox" class="_bpOpCheck" data-type="contractor" data-id="' + c.id + '" ' + ch + ' onchange="var sel=this.parentElement.parentElement.querySelector(\'select\'); if(sel) sel.style.display=this.checked?\'inline-block\':\'none\';" style="cursor:pointer">';
                 h += '<span>🏭 ' + c.name + '</span>';
                 h += '</label>';
+                
+                if (is3DField) {
+                    h += '<select class="_bpOpLocSelect" style="font-size:11px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;width:150px;' + (ch ? '' : 'display:none;') + '">';
+                    h += '<option value="">-- Chọn kệ liên kết --</option>';
+                    locations.forEach(function(l) {
+                        h += '<option value="' + l.id + '" ' + (l.id === assignedLocId ? 'selected' : '') + '>' + escapeHTML(l.name) + '</option>';
+                    });
+                    h += '</select>';
+                }
+                h += '</div>';
             });
             h += '</div>';
         } else {
@@ -1966,9 +1979,15 @@ async function _bpiSaveFieldOperators(fieldId) {
     var operators = [];
     checks.forEach(function(ch) {
         if (ch.checked) {
+            var type = ch.getAttribute('data-type');
+            var id = Number(ch.getAttribute('data-id'));
+            var sel = ch.parentElement.parentElement.querySelector('select');
+            var locationId = sel && sel.value ? Number(sel.value) : null;
+            
             operators.push({
-                operator_type: ch.getAttribute('data-type'),
-                operator_id: Number(ch.getAttribute('data-id'))
+                operator_type: type,
+                operator_id: id,
+                location_id: locationId
             });
         }
     });

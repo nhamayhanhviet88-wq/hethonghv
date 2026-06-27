@@ -440,13 +440,15 @@ async function _qkvLoadData() {
     
     try {
         var widParam = _qkv.selectedWid === 'all' ? '' : `?wid=${_qkv.selectedWid}`;
-        var [locRes, sumRes, matRes] = await Promise.all([
+        var [locRes, sumRes, matRes, opRes] = await Promise.all([
             apiCall(`/api/khovai/locations`),
             apiCall(`/api/khovai/summary`),
-            apiCall(`/api/khovai/materials${widParam}`)
+            apiCall(`/api/khovai/materials${widParam}`),
+            apiCall(`/api/khovai/operators`)
         ]);
         
         const locs = locRes.locations || [];
+        _qkv.operators = opRes || { contractors: [], users: [] };
         locs.sort((a, b) => {
             const nameA = (a.name || '').trim().toLowerCase();
             const nameB = (b.name || '').trim().toLowerCase();
@@ -544,7 +546,7 @@ function _qkvRenderSidebarLocations() {
                 </div>
                 <div class="qkv-loc-actions">
                     <button class="qkv-btn-icon" onclick="_qkvShowLocationQRCode('${escapeJS(loc.name)}')" title="Xem mã QR kệ">📷</button>
-                    <button class="qkv-btn-icon" onclick="_qkvEditLocation(${loc.id}, '${escapeJS(loc.name)}', '${escapeJS(loc.description || '')}', ${loc.is_restricted ? 'true' : 'false'}, ${loc.restricted_material_id || 'null'}, '${escapeJS(loc.shelf_position || '')}')" title="Sửa tên/mô tả/giới hạn">✏️</button>
+                    <button class="qkv-btn-icon" onclick="_qkvEditLocation(${loc.id}, '${escapeJS(loc.name)}', '${escapeJS(loc.description || '')}', ${loc.is_restricted ? 'true' : 'false'}, ${loc.restricted_material_id || 'null'}, '${escapeJS(loc.shelf_position || '')}', ${loc.printing_contractor_id || 'null'}, ${loc.user_id || 'null'})" title="Sửa tên/mô tả/giới hạn">✏️</button>
                     <button class="qkv-btn-icon" onclick="_qkvDeleteLocation(${loc.id}, '${escapeJS(loc.name)}')" title="Xóa vị trí">🗑️</button>
                 </div>
             </div>
@@ -1213,7 +1215,7 @@ async function _qkvOnAddLocation(e) {
 }
 
 // 9. Edit Location modal
-function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId, shelfPosition) {
+function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId, shelfPosition, printingContractorId, userId) {
     var statusText = '';
     if (isRestricted) {
         statusText = `<div style="font-size:11px;color:#e11d48;margin-top:6px;font-weight:600;">🔒 Chỉ các chất liệu được xếp dưới đây mới được phép di chuyển vào kệ này.</div>`;
@@ -1266,6 +1268,21 @@ function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId, sh
                 <label class="form-label" style="font-weight:700;font-size:12px;">Mô tả / Ghi chú</label>
                 <input type="text" id="qkvEditDesc" class="form-control" value="${escapeHTML(desc)}" />
             </div>
+            
+            <div class="form-group" style="margin-bottom:12px;">
+                <label class="form-label" style="font-weight:700;font-size:12px;">Liên kết Gia công in (Lĩnh vực 3D/Cắt)</label>
+                <select id="qkvEditPrintingContractorId" class="form-control" style="height:38px; padding:4px 12px; line-height:30px;">
+                    <option value="">-- Không liên kết --</option>
+                    ${(_qkv.operators?.contractors || []).map(c => `<option value="${c.id}" ${c.id === printingContractorId ? 'selected' : ''}>${escapeHTML(c.name)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label class="form-label" style="font-weight:700;font-size:12px;">Liên kết Nhân sự in (Lĩnh vực 3D/Cắt)</label>
+                <select id="qkvEditUserId" class="form-control" style="height:38px; padding:4px 12px; line-height:30px;">
+                    <option value="">-- Không liên kết --</option>
+                    ${(_qkv.operators?.users || []).map(u => `<option value="${u.id}" ${u.id === userId ? 'selected' : ''}>${escapeHTML(u.full_name)}</option>`).join('')}
+                </select>
+            </div>
             <div class="form-group" style="margin-bottom:12px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Giới hạn chất liệu</label>
                 <select id="qkvEditIsRestricted" class="form-control" style="height:38px; padding:4px 12px; line-height:30px;">
@@ -1305,7 +1322,7 @@ async function _qkvRemoveMaterialFromLocation(matId, locId) {
         var loc = (_qkv.locations || []).find(l => l.id == locId);
         if (loc) {
             closeModal();
-            _qkvEditLocation(loc.id, loc.name, loc.description || '', loc.is_restricted, loc.restricted_material_id, loc.shelf_position || '');
+            _qkvEditLocation(loc.id, loc.name, loc.description || '', loc.is_restricted, loc.restricted_material_id, loc.shelf_position || '', loc.printing_contractor_id || null, loc.user_id || null);
         } else {
             closeModal();
         }
@@ -1323,6 +1340,10 @@ async function _qkvSaveLocation(id) {
     var desc = document.getElementById('qkvEditDesc').value.trim();
     var isRestrictedEl = document.getElementById('qkvEditIsRestricted');
     var isRestricted = isRestrictedEl ? (isRestrictedEl.value === 'true') : false;
+    var printingContractorIdEl = document.getElementById('qkvEditPrintingContractorId');
+    var printingContractorId = printingContractorIdEl && printingContractorIdEl.value ? Number(printingContractorIdEl.value) : null;
+    var userIdEl = document.getElementById('qkvEditUserId');
+    var userId = userIdEl && userIdEl.value ? Number(userIdEl.value) : null;
     
     if (!name) {
         showToast('Tên vị trí không được để trống', 'error');
@@ -1334,7 +1355,9 @@ async function _qkvSaveLocation(id) {
             name: name,
             shelf_position: shelfPosition,
             description: desc,
-            is_restricted: isRestricted
+            is_restricted: isRestricted,
+            printing_contractor_id: printingContractorId,
+            user_id: userId
         });
         
         if (res.error) {

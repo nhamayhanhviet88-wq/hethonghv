@@ -5,6 +5,33 @@ const { vnNow, vnFormat } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
+    async function get3DCuttingContractor(dhtOrderId) {
+        if (!dhtOrderId) return null;
+        const assignment = await db.get(`
+            SELECT qa.assigned_contractor_id
+            FROM qlx_assignments qa
+            JOIN printing_fields pf ON qa.printing_field_id = pf.id
+            WHERE qa.dht_order_id = $1 
+              AND qa.assignment_type = 'in'
+              AND qa.assigned_contractor_id IS NOT NULL
+              AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+            LIMIT 1
+        `, [dhtOrderId]);
+        return assignment ? assignment.assigned_contractor_id : null;
+    }
+
+    async function isContractorLocation(locationName) {
+        if (!locationName) return false;
+        const loc = await db.get(`
+            SELECT id FROM kv_locations 
+            WHERE LOWER(name) = LOWER($1) 
+              AND (printing_contractor_id IS NOT NULL OR user_id IS NOT NULL)
+            LIMIT 1
+        `, [locationName.trim()]);
+        return !!loc;
+    }
+
+
     function resolveRollLocationName(r) {
         const rawLoc = (r.roll_loc !== null && r.roll_loc !== undefined) ? r.roll_loc.trim() : null;
         const isNguyen = Number(r.weight) >= Number(r.original_weight);
@@ -81,8 +108,13 @@ module.exports = async function(fastify) {
                     targetLocation = '📍 Kệ Dự Định Hoàn Vải';
                     nextReturnRequested = true;
                 } else {
-                    const isOriginal = Number(roll.weight) >= Number(roll.original_weight);
-                    targetLocation = isOriginal ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
+                    const isContractorLoc = await isContractorLocation(roll.location || roll.original_location);
+                    if (isContractorLoc) {
+                        targetLocation = roll.location || roll.original_location;
+                    } else {
+                        const isOriginal = Number(roll.weight) >= Number(roll.original_weight);
+                        targetLocation = isOriginal ? 'Chưa Phân Vị Trí Cây Nguyên' : 'Chưa Phân Vị Trí Cây Lẻ';
+                    }
                 }
             }
             
@@ -149,12 +181,12 @@ module.exports = async function(fastify) {
                 product_name, material_name, fabric_color,
                 order_quantity, cut_quantity, kg_cut, cut_ratio,
                 ratio_reason, kg_start, kg_end, cut_warning, cut_shared,
-                created_by, created_at, cutting_category, selected_roll_ids
-            ) VALUES ($1, $2, $3, CURRENT_DATE, $4, $5, $6, $7, $8, 0, 0, 0, NULL, 0, 0, $9, NULL, $10, $11, $12, '[]')
+                created_by, created_at, cutting_category, selected_roll_ids, printing_contractor_id
+            ) VALUES ($1, $2, $3, CURRENT_DATE, $4, $5, $6, $7, $8, 0, 0, 0, NULL, 0, 0, $9, NULL, $10, $11, $12, '[]', $13)
             RETURNING id
         `, [
             rec.dht_order_id, rec.order_item_id, rec.phoi_index || 0, rec.cutter_id, rec.product_name, rec.material_name, rec.fabric_color,
-            remQty, `Cắt bù phần thiếu: ${remQty} áo`, performedBy, timeStr, rec.cutting_category
+            remQty, `Cắt bù phần thiếu: ${remQty} áo`, performedBy, timeStr, rec.cutting_category, rec.printing_contractor_id || null
         ]);
         await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [newRec.id, 'create', `Tạo phiếu cắt bù cho đơn thiếu (${remQty} áo)`, performedBy, timeStr]);
@@ -746,6 +778,7 @@ module.exports = async function(fastify) {
                    sch.cut_expected_at
              FROM cutting_records cr
              LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
+             LEFT JOIN printing_contractors pc_cutter ON cr.printing_contractor_id = pc_cutter.id
              LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
              LEFT JOIN users u_salary ON cr.salary_approved_by = u_salary.id
              LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
@@ -803,8 +836,8 @@ module.exports = async function(fastify) {
                        )
                    )::boolean AS has_compensation_ticket,
                    (cr.ratio_image IS NOT NULL AND cr.ratio_image != '') AS has_ratio_image,
-                   u_cutter.full_name AS cutter_name,
-                   u_done.full_name AS cut_done_by_name,
+                    COALESCE(pc_cutter.name, u_cutter.full_name) AS cutter_name,
+                    u_done.full_name AS cut_done_by_name,
                    u_salary.full_name AS salary_approved_by_name,
                    u_wash.full_name AS wash_reported_by_name,
                    o.order_code, o.shipping_priority,
@@ -822,8 +855,9 @@ module.exports = async function(fastify) {
                    ceo.error_images AS error_images_json,
                    sch.cut_expected_at
             FROM cutting_records cr
-            LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
-            LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
+             LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
+             LEFT JOIN printing_contractors pc_cutter ON cr.printing_contractor_id = pc_cutter.id
+             LEFT JOIN users u_done ON cr.cut_done_by = u_done.id
             LEFT JOIN users u_salary ON cr.salary_approved_by = u_salary.id
             LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
             LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
@@ -857,14 +891,15 @@ module.exports = async function(fastify) {
         const b = request.body || {};
         const now = vnNow();
 
+        const contractorId = await get3DCuttingContractor(b.dht_order_id);
         const result = await db.get(`
             INSERT INTO cutting_records (
                 dht_order_id, order_item_id, phoi_index, cut_date, cutter_id,
                 product_name, material_name, fabric_color,
                 order_quantity, cut_quantity, kg_cut, cut_ratio,
                 ratio_reason, kg_start, kg_end, cut_warning, cut_shared,
-                created_by, created_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                created_by, created_at, printing_contractor_id
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
             RETURNING id
         `, [
             b.dht_order_id || null,
@@ -885,7 +920,8 @@ module.exports = async function(fastify) {
             b.cut_warning || null,
             b.cut_shared || null,
             request.user.id,
-            now
+            now,
+            contractorId || null
         ]);
 
         await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
@@ -948,9 +984,10 @@ module.exports = async function(fastify) {
                 image_path: r.image_path,
                 source_import_id: r.source_import_id
             }));
+            const startContractorId = await get3DCuttingContractor(rec.dht_order_id);
             await db.run(
-                `UPDATE cutting_records SET is_cutting = true, cutting_at = $1, cutting_by = $2, kg_start = $3, selected_roll_ids = $4, updated_at = $1 WHERE id = $5`,
-                [now, request.user.id, kgStart, JSON.stringify(rollSnapshot), id]
+                `UPDATE cutting_records SET is_cutting = true, cutting_at = $1, cutting_by = $2, kg_start = $3, selected_roll_ids = $4, printing_contractor_id = $5, updated_at = $1 WHERE id = $6`,
+                [now, request.user.id, kgStart, JSON.stringify(rollSnapshot), startContractorId || rec.printing_contractor_id || null, id]
             );
 
             // Release unselected reservations for this coordination part
@@ -1183,6 +1220,9 @@ module.exports = async function(fastify) {
                         
                         const rollDb = await db.get('SELECT return_tx_id, roll_code, location, original_location FROM kv_rolls WHERE id = $1', [s.roll_id]);
                         let nextLocation = wasCut ? 'Chưa Phân Vị Trí Cây Lẻ' : (rollDb ? rollDb.location : '');
+                        if (rollDb && (await isContractorLocation(rollDb.location || rollDb.original_location))) {
+                            nextLocation = rollDb.location || rollDb.original_location;
+                        }
                         let nextOriginalLocation = rollDb ? rollDb.original_location : null;
                         let nextReturnTxId = null;
                         let nextReturnRequested = false;
@@ -1300,6 +1340,9 @@ module.exports = async function(fastify) {
                     
                     const rollDb = await db.get('SELECT return_tx_id, roll_code, location, original_location FROM kv_rolls WHERE id = $1', [s.roll_id]);
                     let nextLocation = wasCut ? 'Chưa Phân Vị Trí Cây Lẻ' : (rollDb ? rollDb.location : '');
+                        if (rollDb && (await isContractorLocation(rollDb.location || rollDb.original_location))) {
+                            nextLocation = rollDb.location || rollDb.original_location;
+                        }
                     let nextOriginalLocation = rollDb ? rollDb.original_location : null;
                     let nextReturnTxId = null;
                     let nextReturnRequested = false;
@@ -1827,6 +1870,40 @@ module.exports = async function(fastify) {
         const orderItemId = order_item_id ? Number(order_item_id) : null;
         const phoiIdx = phoi_index !== undefined && phoi_index !== null ? Number(phoi_index) : 0;
 
+        let filterLocationIds = [];
+        if (orderId) {
+            const assignment = await db.get(`
+                SELECT qa.assigned_contractor_id, qa.assigned_user_id
+                FROM qlx_assignments qa
+                JOIN printing_fields pf ON qa.printing_field_id = pf.id
+                WHERE qa.dht_order_id = $1 
+                  AND qa.assignment_type = 'in'
+                  AND (qa.assigned_contractor_id IS NOT NULL OR qa.assigned_user_id IS NOT NULL)
+                  AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                LIMIT 1
+            `, [orderId]);
+            if (assignment) {
+                let locs = [];
+                if (assignment.assigned_contractor_id) {
+                    locs = await db.all(`SELECT name FROM kv_locations WHERE printing_contractor_id = $1`, [assignment.assigned_contractor_id]);
+                } else if (assignment.assigned_user_id) {
+                    locs = await db.all(`SELECT name FROM kv_locations WHERE user_id = $1`, [assignment.assigned_user_id]);
+                }
+                if (locs.length > 0) {
+                    filterLocationIds = locs.map(l => l.name.trim().toLowerCase());
+                } else {
+                    filterLocationIds = ['__none__'];
+                }
+            }
+        }
+
+        let locationFilter = '';
+        let queryParams = ['%' + material_name.trim() + '%', '%' + color_name.trim() + '%', orderId, orderItemId, phoiIdx];
+        if (filterLocationIds.length > 0) {
+            locationFilter = ` AND LOWER(TRIM(r.location)) = ANY($6) `;
+            queryParams.push(filterLocationIds);
+        }
+
         const rolls = await db.all(`
             SELECT r.id, r.roll_code, r.weight, r.original_weight, r.locked_by_cutting_id, r.image_path,
                    r.called_for_orders,
@@ -1866,6 +1943,7 @@ module.exports = async function(fastify) {
               AND r.weight > 0
               AND TRIM(m.name) ILIKE $1
               AND TRIM(fc.color_name) ILIKE $2
+              ${locationFilter}
             ORDER BY
               (CASE WHEN EXISTS (
                   SELECT 1 FROM qlx_fabric_reservations res
@@ -1877,7 +1955,7 @@ module.exports = async function(fastify) {
                     AND res.reservation_type = 'from_stock'
               ) THEN 0 ELSE 1 END) ASC,
               r.weight ASC
-        `, ['%' + material_name.trim() + '%', '%' + color_name.trim() + '%', orderId, orderItemId, phoiIdx]);
+        `, queryParams);
 
         for (const r of rolls) {
             const resTotalObj = await db.get(`
@@ -2268,11 +2346,12 @@ module.exports = async function(fastify) {
         let isCompensation = false;
 
         if (unassignedRec) {
+            const claimContractorId = await get3DCuttingContractor(dht_order_id);
             await db.run(`
                 UPDATE cutting_records 
-                SET cutter_id = $1, created_by = $1, created_at = $2 
-                WHERE id = $3
-            `, [userId, now, unassignedRec.id]);
+                SET cutter_id = $1, created_by = $1, created_at = $2, printing_contractor_id = $3
+                WHERE id = $4
+            `, [userId, now, claimContractorId || null, unassignedRec.id]);
             createdId = unassignedRec.id;
             isCompensation = true;
         } else {
@@ -2282,27 +2361,29 @@ module.exports = async function(fastify) {
                 const productName = totalPhoi > 1
                     ? order.order_code + ' — Phiếu ' + itemIdx + ' — P' + (phoi_index + 1) + (it.description ? ' — ' + it.description : '')
                     : order.order_code + (it.description ? ' — ' + it.description : '');
+                const claimContractorId = await get3DCuttingContractor(dht_order_id);
                 const result = await db.get(`
                     INSERT INTO cutting_records (
                         dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
                         product_name, material_name, fabric_color,
-                        order_quantity, cutting_category, created_by, created_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4, $11)
+                        order_quantity, cutting_category, created_by, created_at, printing_contractor_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4, $11, $12)
                     RETURNING id
-                `, [dht_order_id, it.id, phoi_index, userId, now, productName, phoi.material_name || null, phoi.color_name || null, it.quantity || 0, cuttingCategory, now]);
+                `, [dht_order_id, it.id, phoi_index, userId, now, productName, phoi.material_name || null, phoi.color_name || null, it.quantity || 0, cuttingCategory, now, claimContractorId || null]);
                 if (result) createdId = result.id;
             } else {
                 const productName = totalPhoi > 1
                     ? order.order_code + ' — Phiếu ' + itemIdx + ' — P1' + (it.description ? ' — ' + it.description : '')
                     : order.order_code + (it.description ? ' — ' + it.description : '');
+                const claimContractorId = await get3DCuttingContractor(dht_order_id);
                 const result = await db.get(`
                     INSERT INTO cutting_records (
                         dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
                         product_name, material_name, fabric_color,
-                        order_quantity, cutting_category, created_by, created_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL, $7, $8, $4, $9)
+                        order_quantity, cutting_category, created_by, created_at, printing_contractor_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL, $7, $8, $4, $9, $10)
                     RETURNING id
-                `, [dht_order_id, it.id, 0, userId, now, productName, it.quantity || 0, cuttingCategory, now]);
+                `, [dht_order_id, it.id, 0, userId, now, productName, it.quantity || 0, cuttingCategory, now, claimContractorId || null]);
                 if (result) createdId = result.id;
             }
         }
