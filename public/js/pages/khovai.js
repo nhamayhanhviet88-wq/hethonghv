@@ -1269,7 +1269,23 @@ async function _kvToggleActive(id, newState) {
         return;
     }
     
-    _kvShowActiveSlipsModal(id);
+    if (!confirm('Bạn có chắc chắn muốn mở bán vĩnh viễn màu vải này?')) return;
+    try {
+        var res = await apiCall('/api/khovai/colors/' + id + '/toggle', 'PUT', { is_active: true, allowed_slips: null });
+        if (res.success) {
+            showToast('Đã mở bán màu vải thành công!', 'success');
+            _kvLoadSummary();
+            try {
+                var treeData = await apiCall('/api/khovai/tree');
+                _kv.tree = treeData.tree || [];
+                _kvRenderSidebar();
+            } catch(e) {}
+        } else {
+            showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối: ' + e.message, 'error');
+    }
 }
 window._kvToggleActive = _kvToggleActive;
 
@@ -1408,7 +1424,18 @@ async function _kvToggleStopImport(id, newState) {
             showToast('Lỗi kết nối: ' + e.message, 'error');
         }
     } else {
-        _kvShowImportSlipsModal(id);
+        if (!confirm('Bạn có chắc chắn muốn mở nhập vải vĩnh viễn màu vải này?')) return;
+        try {
+            var res = await apiCall('/api/khovai/colors/' + id, 'PUT', { stop_import: false, allowed_import_slips: null });
+            if (res.success) {
+                showToast('Đã mở nhập màu vải thành công!', 'success');
+                _kvLoadSummary();
+            } else {
+                showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
+            }
+        } catch(e) {
+            showToast('Lỗi kết nối: ' + e.message, 'error');
+        }
     }
 }
 window._kvToggleStopImport = _kvToggleStopImport;
