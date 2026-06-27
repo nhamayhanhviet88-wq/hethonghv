@@ -240,9 +240,16 @@ module.exports = async function (fastify) {
 
     fastify.put('/api/khovai/colors/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { color_name, price, original_tree_threshold, notes, location, stop_import, allowed_import_slips } = request.body || {};
-        if (stop_import !== undefined) {
+        if (stop_import !== undefined || allowed_import_slips !== undefined) {
             if (!isGdOrTrinh(request.user)) {
                 return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền dừng/nhập màu vải!' });
+            }
+            const color = await db.get('SELECT is_active, allowed_slips FROM kv_fabric_colors WHERE id = $1', [request.params.id]);
+            if (!color) {
+                return reply.code(404).send({ error: 'Không tìm thấy màu vải!' });
+            }
+            if (!color.is_active || color.allowed_slips !== null) {
+                return reply.code(400).send({ error: 'Màu vải đang ở trạng thái ẩn bán hoặc giới hạn bán. Vui lòng mở bán vĩnh viễn trước khi thay đổi trạng thái nhập!' });
             }
         }
         const updates = []; const params = []; let idx = 1;
@@ -1295,6 +1302,14 @@ module.exports = async function (fastify) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền ẩn/bán màu vải!' });
         }
         const { is_active, allowed_slips } = request.body || {};
+        const color = await db.get('SELECT stop_import, allowed_import_slips FROM kv_fabric_colors WHERE id = $1', [request.params.id]);
+        if (!color) {
+            return reply.code(404).send({ error: 'Không tìm thấy màu vải!' });
+        }
+        if (color.stop_import || color.allowed_import_slips !== null) {
+            return reply.code(400).send({ error: 'Màu vải đang ở trạng thái dừng nhập hoặc giới hạn nhập. Vui lòng mở nhập vĩnh viễn trước khi thay đổi trạng thái bán!' });
+        }
+
         if (is_active) {
             let parsedSlips = null;
             if (allowed_slips !== undefined && allowed_slips !== null) {

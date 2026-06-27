@@ -1240,6 +1240,13 @@ window._kvOpenCuttingDetail = _kvOpenCuttingDetail;
 
 async function _kvToggleActive(id, newState) {
     if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
+    var colRecord = _kv.summary.find(function(x) { return x.id === id; });
+    if (colRecord) {
+        if (colRecord.color_stop_import === true || colRecord.allowed_import_slips !== null) {
+            showToast('Màu vải đang ở trạng thái dừng nhập hoặc giới hạn nhập. Vui lòng mở nhập vĩnh viễn trước khi thay đổi trạng thái bán!', 'error');
+            return;
+        }
+    }
     if (!newState) {
         if (!confirm('Bạn có chắc chắn muốn ẩn màu vải này khỏi danh sách tạo đơn?')) return;
         try {
@@ -1266,6 +1273,13 @@ async function _kvToggleActive(id, newState) {
 window._kvToggleActive = _kvToggleActive;
 
 function _kvShowActiveSlipsModal(colorId) {
+    var colRecord = _kv.summary.find(function(x) { return x.id === colorId; });
+    if (colRecord) {
+        if (colRecord.color_stop_import === true || colRecord.allowed_import_slips !== null) {
+            showToast('Màu vải đang ở trạng thái dừng nhập hoặc giới hạn nhập. Vui lòng mở nhập vĩnh viễn trước khi thay đổi trạng thái bán!', 'error');
+            return;
+        }
+    }
     const modalHtml = `
         <div class="kk-modal-overlay" id="kvActiveSlipsModal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.6); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);">
             <div class="kk-modal" style="background:#fff; border-radius:16px; width:100%; max-width:440px; box-shadow:0 25px 60px rgba(0,0,0,0.25); overflow:hidden; font-family:Inter,system-ui,sans-serif; transform:scale(1); transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);">
@@ -1372,6 +1386,13 @@ window._kvSubmitActiveSlips = _kvSubmitActiveSlips;
 
 async function _kvToggleStopImport(id, newState) {
     if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
+    var colRecord = _kv.summary.find(function(x) { return x.id === id; });
+    if (colRecord) {
+        if (colRecord.is_active === false || colRecord.allowed_slips !== null) {
+            showToast('Màu vải đang ở trạng thái ẩn bán hoặc giới hạn bán. Vui lòng mở bán vĩnh viễn trước khi thay đổi trạng thái nhập!', 'error');
+            return;
+        }
+    }
     if (newState) {
         if (!confirm('Bạn có chắc chắn muốn dừng nhập màu vải này?')) return;
         try {
@@ -1392,6 +1413,13 @@ async function _kvToggleStopImport(id, newState) {
 window._kvToggleStopImport = _kvToggleStopImport;
 
 function _kvShowImportSlipsModal(colorId) {
+    var colRecord = _kv.summary.find(function(x) { return x.id === colorId; });
+    if (colRecord) {
+        if (colRecord.is_active === false || colRecord.allowed_slips !== null) {
+            showToast('Màu vải đang ở trạng thái ẩn bán hoặc giới hạn bán. Vui lòng mở bán vĩnh viễn trước khi thay đổi trạng thái nhập!', 'error');
+            return;
+        }
+    }
     const modalHtml = `
         <div class="kk-modal-overlay" id="kvImportSlipsModalContainer" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.6); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);">
             <div class="kk-modal" style="background:#fff; border-radius:16px; width:100%; max-width:440px; box-shadow:0 25px 60px rgba(0,0,0,0.25); overflow:hidden; font-family:Inter,system-ui,sans-serif; transform:scale(1); transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);">
