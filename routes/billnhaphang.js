@@ -140,6 +140,36 @@ module.exports = async function(fastify) {
         if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('kế toán') || n.includes('ke toan')) return true; }
         return false;
     }
+    async function canViewImportBill(req) {
+        const user = req.user;
+        if (!user) return false;
+        const name = user.full_name || '';
+        const uname = user.username || '';
+        const role = user.role || '';
+
+        // 1. Giám đốc
+        if (role === 'giam_doc') return true;
+
+        // 2. Kế toán
+        if (role === 'ke_toan' || uname === 'ketoan' || uname === 'ketoan1') return true;
+        const d = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [user.id]);
+        if (d && d.name) { 
+            const n = d.name.toLowerCase(); 
+            if (n.includes('kế toán') || n.includes('ke toan')) return true; 
+        }
+
+        // 3. Lê Việt Trinh
+        if (name.includes('Lê Việt Trinh') || name.includes('Le Viet Trinh') || uname === 'leviettrinh' || uname === 'trinh.lvt' || uname === 'trinh') {
+            return true;
+        }
+
+        // 4. Lê Công Thực
+        if (name.includes('Lê Công Thực') || name.includes('Le Cong Thuc') || uname === 'lecongthuc' || uname === 'thuc.lct' || uname === 'thuc') {
+            return true;
+        }
+
+        return false;
+    }
     async function isDuyetUser(req) {
         if (req.user.role === 'giam_doc') return true;
         const u = await db.get('SELECT full_name FROM users WHERE id=$1', [req.user.id]);
@@ -801,6 +831,9 @@ module.exports = async function(fastify) {
 
     // ========== FABRIC DETAIL ==========
     fastify.get('/api/import/fabric-detail/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await canViewImportBill(req))) {
+            return reply.code(403).send({ error: 'Bạn không có quyền xem chi tiết bill nhập vải!' });
+        }
         const rec = await db.get(`
             SELECT ir.*, s.name AS source_name, COALESCE(u.full_name, uc.full_name) AS importer_name,
                    w.name AS warehouse_name, mi.name AS material_item_name, mt_list.txs

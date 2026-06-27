@@ -646,7 +646,25 @@ async function _kvShowRollDetail(rollId) {
         if (rl.source === 'kiem_kho_du') {
             billLink = '<a href="javascript:void(0)" onclick="_kvOpenRollOrigin(' + rl.id + ')" style="color:#0284c7;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #0284c7">📋 Xem Bill Kiểm Kê</a>';
         } else if (rl.source_import_id) {
-            billLink = '<a href="javascript:void(0)" onclick="_kvOpenImportBill(' + rl.source_import_id + ')" style="color:#7c3aed;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #7c3aed">🧵 Xem Chi Tiết Bill Nhập Vải</a>';
+            var canViewBill = typeof currentUser !== 'undefined' && currentUser && (
+                currentUser.role === 'giam_doc' || 
+                currentUser.role === 'ke_toan' || 
+                currentUser.username === 'ketoan' || 
+                currentUser.username === 'ketoan1' ||
+                currentUser.username === 'leviettrinh' || 
+                currentUser.username === 'trinh.lvt' || 
+                currentUser.username === 'trinh' || 
+                (currentUser.full_name && (currentUser.full_name.indexOf('Lê Việt Trinh') !== -1 || currentUser.full_name.indexOf('Le Viet Trinh') !== -1)) ||
+                currentUser.username === 'lecongthuc' || 
+                currentUser.username === 'thuc.lct' || 
+                currentUser.username === 'thuc' || 
+                (currentUser.full_name && (currentUser.full_name.indexOf('Lê Công Thực') !== -1 || currentUser.full_name.indexOf('Le Cong Thuc') !== -1))
+            );
+            if (canViewBill) {
+                billLink = '<a href="javascript:void(0)" onclick="_kvOpenImportBill(' + rl.source_import_id + ')" style="color:#7c3aed;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #7c3aed">🧵 Xem Chi Tiết Bill Nhập Vải</a>';
+            } else {
+                billLink = '<span style="color:#ef4444;font-weight:600">🔒 Chỉ Kế toán/Quản lý mới được xem</span>';
+            }
         } else if (rl.stockcheck_session_id) {
             billLink = '<a href="javascript:void(0)" onclick="_kvOpenStockcheckBill(' + rl.stockcheck_session_id + ')" style="color:#0284c7;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #0284c7">📋 Xem Bill Kiểm Kê</a>';
         } else if (rl.receipt_image) {
@@ -1068,6 +1086,24 @@ async function _kvLoadCompletedRolls(fcid, page) {
 window._kvLoadCompletedRolls = _kvLoadCompletedRolls;
 
 window._kvOpenImportBill = function(importId) {
+    var canViewBill = typeof currentUser !== 'undefined' && currentUser && (
+        currentUser.role === 'giam_doc' || 
+        currentUser.role === 'ke_toan' || 
+        currentUser.username === 'ketoan' || 
+        currentUser.username === 'ketoan1' ||
+        currentUser.username === 'leviettrinh' || 
+        currentUser.username === 'trinh.lvt' || 
+        currentUser.username === 'trinh' || 
+        (currentUser.full_name && (currentUser.full_name.indexOf('Lê Việt Trinh') !== -1 || currentUser.full_name.indexOf('Le Viet Trinh') !== -1)) ||
+        currentUser.username === 'lecongthuc' || 
+        currentUser.username === 'thuc.lct' || 
+        currentUser.username === 'thuc' || 
+        (currentUser.full_name && (currentUser.full_name.indexOf('Lê Công Thực') !== -1 || currentUser.full_name.indexOf('Le Cong Thuc') !== -1))
+    );
+    if (!canViewBill) {
+        showToast('Bạn không có quyền xem chi tiết bill nhập vải!', 'error');
+        return;
+    }
     if (typeof _bnhFabDetail === 'function') {
         _bnhFabDetail(importId);
     } else {
