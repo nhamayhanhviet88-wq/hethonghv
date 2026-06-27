@@ -207,22 +207,51 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const nextBizDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
 
         if (approve) {
-            // ✅ APPROVE: Cancel the order, return customer to nurture flow
-            await db.run(
-                `UPDATE customers SET 
-                 cancel_approved = 0, cancel_requested = 0,
-                 cancel_reason = cancel_reason || $1,
-                 order_status = 'da_huy_don_tra_coc',
-                 appointment_date = $2,
-                 is_pinned = false, pinned_at = NULL,
-                 updated_at = NOW() WHERE id = $3`,
-                [`\n✅ Duyệt hủy đơn: ${manager_note}`, nextBizDay, custId]
-            );
-            // Cancel all active order_codes for this customer
-            await db.run("UPDATE order_codes SET status = 'cancelled' WHERE customer_id = $1 AND status = 'active'", [custId]);
-            // Log
-            await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
-                [custId, `✅ Duyệt hủy đơn trả cọc — ${manager_note}`, request.user.id]);
+            const client = await db.getDB().connect();
+            try {
+                await client.query('BEGIN');
+
+                await client.query(
+                    `UPDATE customers SET 
+                     cancel_approved = 0, cancel_requested = 0,
+                     cancel_reason = cancel_reason || $1,
+                     order_status = 'da_huy_don_tra_coc',
+                     appointment_date = $2,
+                     is_pinned = false, pinned_at = NULL,
+                     updated_at = NOW() WHERE id = $3`,
+                    [`\n✅ Duyệt hủy đơn: ${manager_note}`, nextBizDay, custId]
+                );
+
+                // Find active orders before cancelling
+                const activeOrdersRes = await client.query("SELECT order_code FROM order_codes WHERE customer_id = $1 AND status = 'active'", [custId]);
+                const activeOrderCodes = activeOrdersRes.rows.map(r => r.order_code);
+
+                // Cancel all active order_codes for this customer
+                await client.query("UPDATE order_codes SET status = 'cancelled' WHERE customer_id = $1 AND status = 'active'", [custId]);
+
+                // Refund allowed slips for restricted fabric colors if order exists in DHT
+                if (activeOrderCodes.length > 0) {
+                    const { refundSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_slips');
+                    for (const code of activeOrderCodes) {
+                        const dhtOrderRes = await client.query('SELECT id FROM dht_orders WHERE order_code = $1', [code]);
+                        const dhtOrder = dhtOrderRes.rows[0];
+                        if (dhtOrder) {
+                            await refundSlipsForDeletedOrCancelledOrder(client, dhtOrder.id);
+                        }
+                    }
+                }
+
+                // Log
+                await client.query(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
+                    [custId, `✅ Duyệt hủy đơn trả cọc — ${manager_note}`, request.user.id]);
+
+                await client.query('COMMIT');
+            } catch (err) {
+                await client.query('ROLLBACK');
+                return reply.code(400).send({ error: err.message });
+            } finally {
+                client.release();
+            }
             // Telegram
             const tgMsg = `✅ <b>${hdtcCode} : DUYỆT HỦY ĐƠN TRẢ CỌC</b> ✅\nKhách: <code>${customer.customer_name}</code>\n\nNội dung (${reqName}) Hủy Đơn : ${origReason}\n\nSếp Duyệt Hủy Đơn : <b>${manager_note}</b>\n\nDuyệt bởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_don_tra_coc', tgMsg);

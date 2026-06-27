@@ -411,6 +411,11 @@ function _kvRenderTable() {
             stopBadgeHtml = '<div style="margin-top:2px"><span style="background:#fee2e2;color:#ef4444;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #fca5a5;font-weight:800;white-space:nowrap;display:inline-block" title="Dừng nhập màu này">🛑 Dừng nhập</span></div>';
         }
 
+        var slipsBadgeHtml = '';
+        if (r.allowed_slips !== null && r.allowed_slips !== undefined) {
+            slipsBadgeHtml = '<div style="margin-top:2px"><span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #7dd3fc;font-weight:800;white-space:nowrap;display:inline-block" title="Số lượng phiếu được tạo còn lại">🎟️ Còn ' + r.allowed_slips + ' phiếu</span></div>';
+        }
+
         var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.85;background-color:#fee2e2"' : 'style="cursor:pointer"';
         h += '<tr ' + rowStyle + ' onclick="_kvShowDetail(' + r.id + ')">';
         h += '<td style="color:var(--gray-400)">' + (i+1) + '</td>';
@@ -418,6 +423,7 @@ function _kvRenderTable() {
         h += '<div style="display:inline-block;vertical-align:middle">';
         h += '<div><span>' + (r.color_name||'') + '</span><span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></div>';
         h += stopBadgeHtml;
+        h += slipsBadgeHtml;
         h += '</div>';
         h += '</td>';
         h += '<td>' + (r.material_name||'') + '</td>';
@@ -490,6 +496,7 @@ async function _kvShowDetail(fcid) {
         ['XUẤT', '<b style="color:#dc2626">' + _kvFmt(r.xuat) + '</b>'],
         ['CUỐI KỲ', '<b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(r.cuoi_ky) + '</b>'],
         ['GIÁ', r.price ? _kvFmt(r.price) + 'đ' : '—'],
+        ['GIỚI HẠN PHIẾU', r.allowed_slips !== null && r.allowed_slips !== undefined ? '<b style="color:#0369a1">🎟️ Còn ' + r.allowed_slips + ' phiếu</b>' : 'Mở bán vĩnh viễn'],
         ['CẬP NHẬT', lastUpStr]
     ];
     infoRows.forEach(function(row) {
@@ -1226,11 +1233,117 @@ window._kvOpenCuttingDetail = _kvOpenCuttingDetail;
 
 async function _kvToggleActive(id, newState) {
     if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
-    if (!confirm(newState ? 'Bạn có chắc chắn muốn hiển thị màu vải này khi tạo đơn?' : 'Bạn có chắc chắn muốn ẩn màu vải này khỏi danh sách tạo đơn?')) return;
+    if (!newState) {
+        if (!confirm('Bạn có chắc chắn muốn ẩn màu vải này khỏi danh sách tạo đơn?')) return;
+        try {
+            var res = await apiCall('/api/khovai/colors/' + id + '/toggle', 'PUT', { is_active: false });
+            if (res.success) {
+                showToast('Đã ẩn màu vải thành công!', 'success');
+                _kvLoadSummary();
+                try {
+                    var treeData = await apiCall('/api/khovai/tree');
+                    _kv.tree = treeData.tree || [];
+                    _kvRenderSidebar();
+                } catch(e) {}
+            } else {
+                showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
+            }
+        } catch(e) {
+            showToast('Lỗi kết nối: ' + e.message, 'error');
+        }
+        return;
+    }
+    
+    _kvShowActiveSlipsModal(id);
+}
+window._kvToggleActive = _kvToggleActive;
+
+function _kvShowActiveSlipsModal(colorId) {
+    const modalHtml = `
+        <div class="kk-modal-overlay" id="kvActiveSlipsModal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.6); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);">
+            <div class="kk-modal" style="background:#fff; border-radius:16px; width:100%; max-width:440px; box-shadow:0 25px 60px rgba(0,0,0,0.25); overflow:hidden; font-family:Inter,system-ui,sans-serif; transform:scale(1); transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);">
+                <div class="kk-modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #e2e8f0; background:linear-gradient(135deg,#059669,#10b981); color:#fff;">
+                    <div class="kk-modal-title" style="font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px;">🟢 Mở Bán Màu Vải</div>
+                    <button onclick="_kvCloseActiveSlipsModal()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px; font-weight:700;">✕ Đóng</button>
+                </div>
+                <div class="kk-modal-body" style="padding:24px; display:flex; flex-direction:column; gap:16px; font-size:13px; color:#334155;">
+                    <div style="font-weight:600; color:#1e293b; font-size:14px; text-align:center;">Vui lòng chọn hình thức mở bán:</div>
+                    
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:12px 16px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; transition:all 0.2s;" onmouseover="this.style.borderColor='#10b981'" onmouseout="if(!document.getElementById('activeSlipsOptionForever').checked) this.style.borderColor='#e2e8f0'">
+                        <input type="radio" id="activeSlipsOptionForever" name="activeSlipsOption" value="forever" checked style="width:16px; height:16px; accent-color:#10b981;" onchange="_kvToggleSlipsInput(false)">
+                        <div>
+                            <div style="font-weight:700; color:#0f172a;">Mở bán vĩnh viễn</div>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">Tạo phiếu và đơn thoải mái không giới hạn</div>
+                        </div>
+                    </label>
+
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:12px 16px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; transition:all 0.2s;" onmouseover="this.style.borderColor='#10b981'" onmouseout="if(!document.getElementById('activeSlipsOptionLimit').checked) this.style.borderColor='#e2e8f0'">
+                        <input type="radio" id="activeSlipsOptionLimit" name="activeSlipsOption" value="limit" style="width:16px; height:16px; accent-color:#10b981;" onchange="_kvToggleSlipsInput(true)">
+                        <div>
+                            <div style="font-weight:700; color:#0f172a;">Mở giới hạn theo số phiếu</div>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">Đạt đủ số lượng phiếu sẽ tự động ẩn màu vải</div>
+                        </div>
+                    </label>
+
+                    <div id="activeSlipsCountContainer" style="display:none; flex-direction:column; gap:6px; margin-top:4px;">
+                        <span style="color:#475569; font-weight:700; font-size:12px;">Số lượng phiếu giới hạn:</span>
+                        <input type="number" id="activeSlipsCountInput" value="1" min="1" step="1" style="width:100%; padding:10px 14px; border:1.5px solid #d9f9e6; border-radius:8px; font-size:15px; font-weight:700; color:#059669; background:#f0fdf4; outline:none; text-align:center;">
+                    </div>
+                </div>
+                <div class="kk-modal-footer" style="background:#f8fafc; display:flex; gap:10px; padding:16px 24px; border-top:1px solid #f1f5f9;">
+                    <button class="kk-btn kk-btn-secondary" onclick="_kvCloseActiveSlipsModal()" style="flex:1; background:#e2e8f0; color:#475569; border:none; padding:12px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; transition:all 0.2s;">Hủy</button>
+                    <button class="kk-btn kk-btn-primary" onclick="_kvSubmitActiveSlips(${colorId})" style="flex:1; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; padding:12px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 15px rgba(16,185,129,0.3); transition:all 0.2s;">Xác nhận</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('kvActiveSlipsModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'kvActiveSlipsModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+}
+
+function _kvCloseActiveSlipsModal() {
+    const container = document.getElementById('kvActiveSlipsModalContainer');
+    if (container) container.remove();
+}
+
+function _kvToggleSlipsInput(show) {
+    const container = document.getElementById('activeSlipsCountContainer');
+    if (container) {
+        container.style.display = show ? 'flex' : 'none';
+        if (show) {
+            document.getElementById('activeSlipsCountInput').focus();
+        }
+    }
+}
+
+async function _kvSubmitActiveSlips(colorId) {
+    const isLimit = document.getElementById('activeSlipsOptionLimit').checked;
+    let allowedSlips = null;
+    if (isLimit) {
+        const valStr = document.getElementById('activeSlipsCountInput').value;
+        const val = parseInt(valStr);
+        if (isNaN(val) || val <= 0) {
+            showToast('Vui lòng nhập số phiếu giới hạn hợp lệ (lớn hơn 0)!', 'error');
+            return;
+        }
+        allowedSlips = val;
+    }
+
+    _kvCloseActiveSlipsModal();
+
     try {
-        var res = await apiCall('/api/khovai/colors/' + id + '/toggle', 'PUT', { is_active: newState });
+        var res = await apiCall('/api/khovai/colors/' + colorId + '/toggle', 'PUT', { 
+            is_active: true,
+            allowed_slips: allowedSlips
+        });
         if (res.success) {
-            showToast('Đã cập nhật trạng thái thành công!', 'success');
+            showToast('Đã mở bán màu vải thành công!', 'success');
             _kvLoadSummary();
             try {
                 var treeData = await apiCall('/api/khovai/tree');
@@ -1244,7 +1357,11 @@ async function _kvToggleActive(id, newState) {
         showToast('Lỗi kết nối: ' + e.message, 'error');
     }
 }
-window._kvToggleActive = _kvToggleActive;
+
+window._kvShowActiveSlipsModal = _kvShowActiveSlipsModal;
+window._kvCloseActiveSlipsModal = _kvCloseActiveSlipsModal;
+window._kvToggleSlipsInput = _kvToggleSlipsInput;
+window._kvSubmitActiveSlips = _kvSubmitActiveSlips;
 
 async function _kvToggleStopImport(id, newState) {
     if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }

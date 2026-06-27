@@ -181,7 +181,7 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/colors', { preHandler: [authenticate] }, async (request) => {
         const { mid, include_inactive } = request.query;
         let sql = `SELECT fc.id, fc.material_id, fc.color_name, fc.price, fc.original_tree_threshold, fc.notes, fc.location, fc.created_at, fc.updated_at,
-                          fc.stop_import,
+                          fc.stop_import, fc.allowed_slips,
                           (fc.is_active AND m.is_active) AS is_active,
                           m.name AS material_name, w.name AS warehouse_name, w.unit
                    FROM kv_fabric_colors fc
@@ -1052,7 +1052,7 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/summary', { preHandler: [authenticate] }, async (request) => {
         const { wid, mid } = request.query;
         let sql = `
-            SELECT fc.id, fc.color_name, fc.price, fc.is_active,
+            SELECT fc.id, fc.color_name, fc.price, fc.is_active, fc.allowed_slips,
                    COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
                    fc.notes, fc.material_id, fc.updated_at,
                    fc.stop_import AS color_stop_import, m.stop_import AS material_stop_import,
@@ -1277,8 +1277,17 @@ module.exports = async function (fastify) {
         if (!isGdOrTrinh(request.user)) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền ẩn/bán màu vải!' });
         }
-        const { is_active } = request.body || {};
-        await db.run('UPDATE kv_fabric_colors SET is_active = $1, updated_at = NOW() WHERE id = $2', [!!is_active, request.params.id]);
+        const { is_active, allowed_slips } = request.body || {};
+        let parsedSlips = null;
+        if (is_active) {
+            if (allowed_slips !== undefined && allowed_slips !== null) {
+                const val = parseInt(allowed_slips, 10);
+                if (!isNaN(val) && val >= 0) {
+                    parsedSlips = val;
+                }
+            }
+        }
+        await db.run('UPDATE kv_fabric_colors SET is_active = $1, allowed_slips = $2, updated_at = NOW() WHERE id = $3', [!!is_active, parsedSlips, request.params.id]);
         return { success: true };
     });
 

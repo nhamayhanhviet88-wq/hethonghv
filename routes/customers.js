@@ -883,7 +883,29 @@ async function customersRoutes(fastify, options) {
         if (order.user_id !== request.user.id && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ NV tạo đơn hoặc Giám Đốc mới được hủy đơn' });
         }
-        await db.run("UPDATE order_codes SET status = 'cancelled' WHERE id = ?", [orderId]);
+
+        const client = await db.getDB().connect();
+        try {
+            await client.query('BEGIN');
+            
+            await client.query("UPDATE order_codes SET status = 'cancelled' WHERE id = $1", [orderId]);
+
+            // Refund allowed slips for restricted fabric colors if order exists in DHT
+            const dhtOrderRes = await client.query('SELECT id FROM dht_orders WHERE order_code = $1', [order.order_code]);
+            const dhtOrder = dhtOrderRes.rows[0];
+            if (dhtOrder) {
+                const { refundSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_slips');
+                await refundSlipsForDeletedOrCancelledOrder(client, dhtOrder.id);
+            }
+
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            return reply.code(400).send({ error: err.message });
+        } finally {
+            client.release();
+        }
+
         return { success: true, message: 'Đã hủy đơn!' };
     });
 

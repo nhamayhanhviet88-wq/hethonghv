@@ -1791,8 +1791,24 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: err.message });
         }
 
-        const result = await db.get(`
-            INSERT INTO dht_orders (
+        // Deduct allowed slips for restricted fabric colors in a client transaction
+        const client = await db.getDB().connect();
+        try {
+            await client.query('BEGIN');
+            const { validateAndApplySlipsForNewOrder } = require('../utils/kv_allowed_slips');
+            await validateAndApplySlipsForNewOrder(client, b.items);
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            return reply.code(400).send({ error: err.message });
+        } finally {
+            client.release();
+        }
+
+        let result;
+        try {
+            result = await db.get(`
+                INSERT INTO dht_orders (
                 order_code, order_date, category_id,
                 customer_name, customer_phone, source, province, address,
                 cskh_user_id, total_quantity, total_amount, discount_amount,
@@ -2046,6 +2062,15 @@ module.exports = async function(fastify) {
                         [b.customer_name.trim(), null, b.address || null, b.province || null, catName ? [catName] : [], request.user.id]);
                 }
             } catch(custErr) { console.error('[FreeCust] save:', custErr.message); }
+        }
+        } catch (dbErr) {
+            try {
+                const { refundSlipsForItemsList } = require('../utils/kv_allowed_slips');
+                await refundSlipsForItemsList(db, b.items);
+            } catch (refundErr) {
+                console.error('Failed to refund slips after order insert error:', refundErr);
+            }
+            throw dbErr;
         }
 
         return { success: true, order: result };
@@ -3764,11 +3789,26 @@ module.exports = async function(fastify) {
 
         // ★ Smart Update/Replace order items if provided (= full edit via Sửa Đơn)
         if (Array.isArray(b.items)) {
-            // Mark as edited
-            await db.run('UPDATE dht_orders SET is_edited = TRUE WHERE id = $1', [orderId]);
+            const oldItems = await db.all('SELECT id, color_id, material_pairs FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
             
-            const oldItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
-            const oldItemIds = oldItems.map(it => Number(it.id));
+            // Validate and apply allowed slips change in a client transaction
+            const client = await db.getDB().connect();
+            try {
+                await client.query('BEGIN');
+                const { validateAndApplySlipsForUpdateOrder } = require('../utils/kv_allowed_slips');
+                await validateAndApplySlipsForUpdateOrder(client, orderId, b.items);
+                await client.query('COMMIT');
+            } catch (err) {
+                await client.query('ROLLBACK');
+                return reply.code(400).send({ error: err.message });
+            } finally {
+                client.release();
+            }
+
+            try {
+                // Mark as edited
+                await db.run('UPDATE dht_orders SET is_edited = TRUE WHERE id = $1', [orderId]);
+                const oldItemIds = oldItems.map(it => Number(it.id));
 
             // Extract IDs of items sent from frontend
             const sentItemIds = b.items
@@ -3901,6 +3941,15 @@ module.exports = async function(fastify) {
                     ]);
                 }
             }
+            } catch (dbErr) {
+                try {
+                    const { validateAndApplySlipsForUpdateOrder } = require('../utils/kv_allowed_slips');
+                    await validateAndApplySlipsForUpdateOrder(db, orderId, oldItems);
+                } catch (revertErr) {
+                    console.error('Failed to revert slips after order update error:', revertErr);
+                }
+                throw dbErr;
+            }
         }
 
         // ★ Sync address/province back to customers table when edited in DHT
@@ -4017,6 +4066,20 @@ module.exports = async function(fastify) {
         const cuts = await db.all('SELECT is_cut_done, selected_roll_ids, kg_cut FROM cutting_records WHERE dht_order_id = $1', [orderId]);
         const { restoreRollWeightsForCuts } = require('../utils/kv_restore_roll');
         await restoreRollWeightsForCuts(db, cuts);
+
+        // Refund allowed slips for restricted fabric colors in a client transaction
+        const client = await db.getDB().connect();
+        try {
+            await client.query('BEGIN');
+            const { refundSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_slips');
+            await refundSlipsForDeletedOrCancelledOrder(client, orderId);
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            return reply.code(400).send({ error: err.message });
+        } finally {
+            client.release();
+        }
 
         await db.run('DELETE FROM dht_orders WHERE id = $1', [orderId]);
         return { success: true };
