@@ -747,6 +747,13 @@ async function openPtDetailsModal(rollId) {
                     + '<button class="pt-action-btn error" style="margin-top:8px" onclick="ptDetailsAction(\'error\', ' + roll.id + ')">❌ Sản xuất lỗi</button>';
             if (canClose) {
                 actHtml += '<button class="pt-action-btn close" style="margin-top:8px" onclick="ptDetailsCloseRoll(' + roll.id + ')">✅ Chốt cuộn</button>';
+            } else if (rem > 0.001) {
+                actHtml += '<div style="margin-top:12px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;text-align:center">'
+                        + '  <div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:8px">⚠️ Cuộn còn dư ' + rem.toFixed(2) + 'm tồn</div>'
+                        + '  <div style="font-size:10px;color:#64748b;margin-bottom:8px">Bạn muốn chuyển nốt số mét dư này vào đâu để chốt?</div>'
+                        + '  <button class="pt-action-btn waste" style="font-size:10.5px;padding:6px;width:100%" onclick="ptDetailsQuickClose(' + roll.id + ', \'waste\', ' + rem + ')">Chuyển sang Hao Hụt & Chốt</button>'
+                        + '  <button class="pt-action-btn error" style="margin-top:6px;font-size:10.5px;padding:6px;width:100%" onclick="ptDetailsQuickClose(' + roll.id + ', \'error\', ' + rem + ')">Chuyển sang SX Lỗi & Chốt</button>'
+                        + '</div>';
             } else {
                 actHtml += '<div style="font-size:10px;color:#ef4444;background:#fef2f2;border:1px solid #fee2e2;padding:8px;border-radius:6px;font-weight:600;margin-top:8px;text-align:center">⚠️ Phải in và khai báo hết tồn mới được chốt cuộn.</div>';
             }
@@ -1003,6 +1010,39 @@ async function ptDetailsCloseRoll(rollId) {
             _ptLoadAll();
         } else {
             showToast('✅ Đã chốt cây vật liệu!');
+            await openPtDetailsModal(rollId);
+            _ptLoadAll();
+        }
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    }
+}
+
+async function ptDetailsQuickClose(rollId, actionType, remainingMeters) {
+    var label = actionType === 'waste' ? 'Hao Hụt' : 'Sản Xuất Lỗi';
+    if (!confirm('Hệ thống sẽ tự động khai báo ' + remainingMeters.toFixed(2) + 'm vào ' + label + ' và thực hiện chốt cây này. Bạn có chắc chắn muốn tiếp tục?')) return;
+    
+    try {
+        var adjustUrl = actionType === 'waste' ? '/api/pettem/rolls/' + rollId + '/adjust-waste' : '/api/pettem/rolls/' + rollId + '/adjust-error';
+        var adjustRes = await apiCall(adjustUrl, 'POST', {
+            qty: remainingMeters,
+            reason: 'Tự động khai báo tồn dư để chốt cuộn'
+        });
+        
+        if (adjustRes && adjustRes.error) {
+            showToast(adjustRes.error, 'error');
+            return;
+        }
+        
+        var closeRes = await apiCall('/api/pettem/rolls/' + rollId + '/close', 'POST');
+        if (closeRes && closeRes.error) {
+            showToast(closeRes.message || closeRes.error, 'error');
+        } else if (closeRes && closeRes.pending_approval) {
+            showToast(closeRes.message || 'Đã gửi yêu cầu chốt cuộn lên Giám đốc.');
+            await openPtDetailsModal(rollId);
+            _ptLoadAll();
+        } else {
+            showToast('✅ Đã khai báo và chốt cây vật liệu thành công!');
             await openPtDetailsModal(rollId);
             _ptLoadAll();
         }

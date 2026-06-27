@@ -461,8 +461,12 @@ module.exports = async function(fastify) {
         if (roll.confirmed_by) return reply.code(400).send({ error: 'Cuộn vật liệu đã chốt' });
         if (roll.pending_approval) return reply.code(400).send({ error: 'Cuộn vật liệu đang chờ Giám đốc duyệt chốt cuộn, không thể điều chỉnh.' });
         
-        const newWaste = (Number(roll.qty_waste) || 0) + qNum;
+                const newWaste = (Number(roll.qty_waste) || 0) + qNum;
         const rem = (Number(roll.qty_imported) || 0) - newWaste - (Number(roll.qty_error) || 0) - (Number(roll.qty_printed) || 0);
+        if (rem < -0.001) {
+            const currentRem = (Number(roll.qty_imported) || 0) - (Number(roll.qty_waste) || 0) - (Number(roll.qty_error) || 0) - (Number(roll.qty_printed) || 0);
+            return reply.code(400).send({ error: `Số mét khai báo (${qNum}m) vượt quá tồn cuối còn lại của cuộn (${currentRem.toFixed(2)}m).` });
+        }
         
         await db.run(`
             UPDATE pettem_rolls 
@@ -493,6 +497,10 @@ module.exports = async function(fastify) {
         
         const newError = (Number(roll.qty_error) || 0) + qNum;
         const rem = (Number(roll.qty_imported) || 0) - (Number(roll.qty_waste) || 0) - newError - (Number(roll.qty_printed) || 0);
+        if (rem < -0.001) {
+            const currentRem = (Number(roll.qty_imported) || 0) - (Number(roll.qty_waste) || 0) - (Number(roll.qty_error) || 0) - (Number(roll.qty_printed) || 0);
+            return reply.code(400).send({ error: `Số mét khai báo (${qNum}m) vượt quá tồn cuối còn lại của cuộn (${currentRem.toFixed(2)}m).` });
+        }
         
         await db.run(`
             UPDATE pettem_rolls 
