@@ -413,7 +413,7 @@ function _kvRenderTable() {
 
         var slipsBadgeHtml = '';
         if (r.allowed_slips !== null && r.allowed_slips !== undefined) {
-            slipsBadgeHtml = '<div style="margin-top:2px"><span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #7dd3fc;font-weight:800;white-space:nowrap;display:inline-block" title="Số lượng phiếu được tạo còn lại">🎟️ Còn ' + r.allowed_slips + ' phiếu</span></div>';
+            slipsBadgeHtml = '<div style="margin-top:2px"><span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #7dd3fc;font-weight:800;white-space:nowrap;display:inline-block" title="Số lượng đơn hàng được tạo còn lại">🎟️ Còn ' + r.allowed_slips + ' đơn</span></div>';
         }
 
         var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.85;background-color:#fee2e2"' : 'style="cursor:pointer"';
@@ -496,7 +496,7 @@ async function _kvShowDetail(fcid) {
         ['XUẤT', '<b style="color:#dc2626">' + _kvFmt(r.xuat) + '</b>'],
         ['CUỐI KỲ', '<b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(r.cuoi_ky) + '</b>'],
         ['GIÁ', r.price ? _kvFmt(r.price) + 'đ' : '—'],
-        ['GIỚI HẠN PHIẾU', r.allowed_slips !== null && r.allowed_slips !== undefined ? '<b style="color:#0369a1">🎟️ Còn ' + r.allowed_slips + ' phiếu</b>' : 'Mở bán vĩnh viễn'],
+        ['GIỚI HẠN ĐƠN', r.allowed_slips !== null && r.allowed_slips !== undefined ? '<b style="color:#0369a1">🎟️ Còn ' + r.allowed_slips + ' đơn</b>' : 'Mở bán vĩnh viễn'],
         ['CẬP NHẬT', lastUpStr]
     ];
     infoRows.forEach(function(row) {
@@ -1280,13 +1280,13 @@ function _kvShowActiveSlipsModal(colorId) {
                     <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:12px 16px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; transition:all 0.2s;" onmouseover="this.style.borderColor='#10b981'" onmouseout="if(!document.getElementById('activeSlipsOptionLimit').checked) this.style.borderColor='#e2e8f0'">
                         <input type="radio" id="activeSlipsOptionLimit" name="activeSlipsOption" value="limit" style="width:16px; height:16px; accent-color:#10b981;" onchange="_kvToggleSlipsInput(true)">
                         <div>
-                            <div style="font-weight:700; color:#0f172a;">Mở giới hạn theo số phiếu</div>
-                            <div style="font-size:11px; color:#64748b; margin-top:2px;">Đạt đủ số lượng phiếu sẽ tự động ẩn màu vải</div>
+                            <div style="font-weight:700; color:#0f172a;">Mở giới hạn theo số đơn hàng</div>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">Đạt đủ số lượng đơn hàng sẽ tự động ẩn màu vải</div>
                         </div>
                     </label>
 
                     <div id="activeSlipsCountContainer" style="display:none; flex-direction:column; gap:6px; margin-top:4px;">
-                        <span style="color:#475569; font-weight:700; font-size:12px;">Số lượng phiếu giới hạn:</span>
+                        <span style="color:#475569; font-weight:700; font-size:12px;">Số lượng đơn giới hạn:</span>
                         <input type="number" id="activeSlipsCountInput" value="1" min="1" step="1" style="width:100%; padding:10px 14px; border:1.5px solid #d9f9e6; border-radius:8px; font-size:15px; font-weight:700; color:#059669; background:#f0fdf4; outline:none; text-align:center;">
                     </div>
                 </div>
@@ -1329,7 +1329,7 @@ async function _kvSubmitActiveSlips(colorId) {
         const valStr = document.getElementById('activeSlipsCountInput').value;
         const val = parseInt(valStr);
         if (isNaN(val) || val <= 0) {
-            showToast('Vui lòng nhập số phiếu giới hạn hợp lệ (lớn hơn 0)!', 'error');
+            showToast('Vui lòng nhập số đơn giới hạn hợp lệ (lớn hơn 0)!', 'error');
             return;
         }
         allowedSlips = val;

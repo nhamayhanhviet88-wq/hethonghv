@@ -1,5 +1,5 @@
 /**
- * Utility to manage allowed slips constraints for fabric colors (kv_fabric_colors).
+ * Utility to manage allowed orders constraints for fabric colors (kv_fabric_colors).
  * Prevents race conditions using row-level locking (FOR UPDATE) inside database transaction blocks.
  */
 
@@ -55,31 +55,30 @@ function getUniqueColorIdsInItem(item) {
 }
 
 /**
- * Counts how many slips are requested for each color ID from a list of order items.
+ * Extract union of unique color IDs from a list of order items.
  * @param {object[]} items 
- * @returns {Record<number, number>} Map of colorId -> slipCount
+ * @returns {number[]} Unique color IDs
  */
-function getSlipCountsFromItems(items) {
-    const counts = {};
-    if (!Array.isArray(items)) return counts;
+function getUniqueColorsFromItemsList(items) {
+    const colorSet = new Set();
+    if (!Array.isArray(items)) return [];
     for (const item of items) {
         const uniqueColors = getUniqueColorIdsInItem(item);
         for (const colId of uniqueColors) {
-            counts[colId] = (counts[colId] || 0) + 1;
+            colorSet.add(colId);
         }
     }
-    return counts;
+    return Array.from(colorSet).map(Number);
 }
 
 /**
- * Validate and apply slips limit for a new order.
+ * Validate and apply slips (orders) limit for a new order.
  * @param {object} dbOrClient Database pool wrapper or pg client
  * @param {object[]} items New order items
  */
 async function validateAndApplySlipsForNewOrder(dbOrClient, items) {
-    const counts = getSlipCountsFromItems(items);
-    for (const [colIdStr, reqCount] of Object.entries(counts)) {
-        const colId = Number(colIdStr);
+    const uniqueColors = getUniqueColorsFromItemsList(items);
+    for (const colId of uniqueColors) {
         // Lock row to prevent race conditions
         const colorInfo = await executeGet(
             dbOrClient,
@@ -90,12 +89,12 @@ async function validateAndApplySlipsForNewOrder(dbOrClient, items) {
         
         if (colorInfo.allowed_slips !== null && colorInfo.allowed_slips !== undefined) {
             const allowed = Number(colorInfo.allowed_slips);
-            if (allowed < reqCount) {
+            if (allowed < 1) {
                 throw new Error(
-                    `Màu vải "${colorInfo.color_name}" chỉ còn tối đa ${allowed} lượt tạo phiếu, nhưng đơn hàng này yêu cầu ${reqCount} phiếu.`
+                    `Màu vải "${colorInfo.color_name}" đã hết lượt đơn hàng được phép tạo mới.`
                 );
             }
-            const remaining = allowed - reqCount;
+            const remaining = allowed - 1;
             await executeRun(
                 dbOrClient,
                 `UPDATE kv_fabric_colors 
@@ -110,16 +109,13 @@ async function validateAndApplySlipsForNewOrder(dbOrClient, items) {
 }
 
 /**
- * Refund slips directly from a list of items (used if order insertion fails after deduction).
+ * Refund slips (orders) directly from a list of items (used if order insertion fails after deduction).
  * @param {object} dbOrClient Database pool wrapper or pg client
  * @param {object[]} items List of items to refund
  */
 async function refundSlipsForItemsList(dbOrClient, items) {
-    const counts = getSlipCountsFromItems(items);
-    for (const [colIdStr, count] of Object.entries(counts)) {
-        const colId = Number(colIdStr);
-        if (count <= 0) continue;
-        
+    const uniqueColors = getUniqueColorsFromItemsList(items);
+    for (const colId of uniqueColors) {
         const colorInfo = await executeGet(
             dbOrClient,
             `SELECT id, color_name, is_active, allowed_slips FROM kv_fabric_colors WHERE id = $1 FOR UPDATE`, 
@@ -128,7 +124,7 @@ async function refundSlipsForItemsList(dbOrClient, items) {
         if (!colorInfo) continue;
         
         if (colorInfo.allowed_slips !== null && colorInfo.allowed_slips !== undefined) {
-            const refunded = Number(colorInfo.allowed_slips) + count;
+            const refunded = Number(colorInfo.allowed_slips) + 1;
             await executeRun(
                 dbOrClient,
                 `UPDATE kv_fabric_colors 
@@ -164,40 +160,41 @@ async function validateAndApplySlipsForUpdateOrder(dbOrClient, orderId, newItems
         oldItems = res.rows || [];
     }
     
-    const oldCounts = getSlipCountsFromItems(oldItems);
-    const newCounts = getSlipCountsFromItems(newItems);
+    const oldColors = getUniqueColorsFromItemsList(oldItems);
+    const newColors = getUniqueColorsFromItemsList(newItems);
     
-    // 2. Collect union of all color IDs
-    const allColorIds = new Set([
-        ...Object.keys(oldCounts).map(Number),
-        ...Object.keys(newCounts).map(Number)
-    ]);
+    const oldSet = new Set(oldColors);
+    const newSet = new Set(newColors);
     
-    for (const colId of allColorIds) {
-        const oldCnt = oldCounts[colId] || 0;
-        const newCnt = newCounts[colId] || 0;
-        const delta = newCnt - oldCnt;
+    // Union of all colors used
+    const allColors = new Set([...oldColors, ...newColors]);
+    
+    for (const colId of allColors) {
+        const existedBefore = oldSet.has(colId);
+        const existsNow = newSet.has(colId);
         
-        if (delta === 0) continue;
+        if (existedBefore && existsNow) {
+            // No net change for this color in this order
+            continue;
+        }
         
-        // Lock row
-        const colorInfo = await executeGet(
-            dbOrClient,
-            `SELECT id, color_name, is_active, allowed_slips FROM kv_fabric_colors WHERE id = $1 FOR UPDATE`, 
-            [colId]
-        );
-        if (!colorInfo) continue;
-        
-        if (colorInfo.allowed_slips !== null && colorInfo.allowed_slips !== undefined) {
-            const allowed = Number(colorInfo.allowed_slips);
-            if (delta > 0) {
-                // Slips increased, check limit
-                if (allowed < delta) {
+        if (!existedBefore && existsNow) {
+            // New color added, consume 1 slot
+            const colorInfo = await executeGet(
+                dbOrClient,
+                `SELECT id, color_name, is_active, allowed_slips FROM kv_fabric_colors WHERE id = $1 FOR UPDATE`, 
+                [colId]
+            );
+            if (!colorInfo) continue;
+            
+            if (colorInfo.allowed_slips !== null && colorInfo.allowed_slips !== undefined) {
+                const allowed = Number(colorInfo.allowed_slips);
+                if (allowed < 1) {
                     throw new Error(
-                        `Màu vải "${colorInfo.color_name}" chỉ còn tối đa ${allowed} lượt tạo phiếu (Yêu cầu tăng thêm ${delta} phiếu cho đơn hàng này).`
+                        `Màu vải "${colorInfo.color_name}" đã hết lượt đơn hàng được phép tạo mới.`
                     );
                 }
-                const remaining = allowed - delta;
+                const remaining = allowed - 1;
                 await executeRun(
                     dbOrClient,
                     `UPDATE kv_fabric_colors 
@@ -207,9 +204,18 @@ async function validateAndApplySlipsForUpdateOrder(dbOrClient, orderId, newItems
                      WHERE id = $2`, 
                     [remaining, colId]
                 );
-            } else {
-                // Slips decreased, refund slots
-                const refunded = allowed + Math.abs(delta);
+            }
+        } else if (existedBefore && !existsNow) {
+            // Color completely removed, refund 1 slot
+            const colorInfo = await executeGet(
+                dbOrClient,
+                `SELECT id, color_name, is_active, allowed_slips FROM kv_fabric_colors WHERE id = $1 FOR UPDATE`, 
+                [colId]
+            );
+            if (!colorInfo) continue;
+            
+            if (colorInfo.allowed_slips !== null && colorInfo.allowed_slips !== undefined) {
+                const refunded = Number(colorInfo.allowed_slips) + 1;
                 await executeRun(
                     dbOrClient,
                     `UPDATE kv_fabric_colors 
@@ -225,7 +231,7 @@ async function validateAndApplySlipsForUpdateOrder(dbOrClient, orderId, newItems
 }
 
 /**
- * Refund slips for an order when it is deleted, or cancelled.
+ * Refund slips (orders) for an order when it is deleted or cancelled.
  * @param {object} dbOrClient Database pool wrapper or pg client
  * @param {number} orderId ID of the order being cancelled/deleted
  */
