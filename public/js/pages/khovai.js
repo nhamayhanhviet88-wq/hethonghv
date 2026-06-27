@@ -1705,24 +1705,8 @@ async function _kvCreateOrderFromFabric(colorId, materialName, colorName) {
             showToast('Lỗi kết nối: ' + e.message, 'error');
             return;
         }
+    } else {
+        showToast('Màu vải này đang được mở bán bình thường.', 'info');
     }
-
-    window._kvPreselectedFabric = {
-        material_id: r.material_id,
-        material_name: r.material_name,
-        color_id: r.id,
-        color_name: r.color_name
-    };
-    
-    navigate('don-hang-tong');
-    
-    setTimeout(function() {
-        if (typeof _dhtShowCreate === 'function') {
-            _dhtShowCreate();
-            showToast('Đã chọn sẵn vải: ' + r.material_name + ' - ' + r.color_name + '. Hãy chọn sản phẩm & mẫu áo để áp dụng.', 'info', 6000);
-        } else {
-            showToast('Không thể mở chức năng tạo đơn. Vui lòng thử lại!', 'error');
-        }
-    }, 400);
 }
 window._kvCreateOrderFromFabric = _kvCreateOrderFromFabric;
