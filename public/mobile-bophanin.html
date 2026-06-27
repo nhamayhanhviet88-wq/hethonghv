@@ -205,7 +205,7 @@
 <script>
 let cu=null,mr=[];
 let recentlyCompletedIds = [];
-async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
+async function api(u,m='GET',b=null){const o={method:m,headers:{},credentials:'include'};if(b){o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function mQtyColor(r){
     const code = (r.order_code || '').toUpperCase();

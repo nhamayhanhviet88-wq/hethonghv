@@ -38,7 +38,7 @@
         .bd.pos{background:rgba(16,185,129,.2);color:#6ee7b7}.bd.zero{background:rgba(148,163,184,.1);color:#94a3b8}.bd.neg{background:rgba(239,68,68,.2);color:#fca5a5}
         .ch{padding:8px 16px;font-size:10px;color:#a1a1aa;border-top:1px solid rgba(244,63,94,0.15)}.ch span{color:#ffe4e6;font-weight:700}
         
-        .tc{position:fixed;top:60px;left:10px;right:10px;z-index:999;display:flex;flex-direction:column;gap:8px}
+        .tc{position:fixed;top:80px;left:10px;right:10px;z-index:9999;display:flex;flex-direction:column;gap:8px}
         .tt{padding:14px 18px;border-radius:12px;color:#fff;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:si .3s ease}
         .ts{background:linear-gradient(135deg,#e11d48,#f43f5e)}.te{background:linear-gradient(135deg,#ef4444,#dc2626)}
         @keyframes si{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
@@ -432,7 +432,7 @@ let cu=null,mr=[];
 const TL={PET:'PET',TEM:'Tem',DECAL:'Decal'},TC={PET:'#e11d48',TEM:'#7c3aed',DECAL:'#d97706'},TI={PET:'🏷️',TEM:'🎫',DECAL:'📋'};
 let _ptAllowedWaste = { PET: 5, TEM: 5, DECAL: 10 };
 
-async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
+async function api(u,m='GET',b=null){const o={method:m,headers:{},credentials:'include'};if(b){o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
 function fn(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN')}
