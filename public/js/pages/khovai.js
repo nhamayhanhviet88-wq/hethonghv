@@ -454,9 +454,7 @@ function _kvRenderTable() {
                 h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập Vải</button>';
             }
         }
-        if (r.is_active !== false) {
-            h += '<button onclick="_kvCreateOrderFromFabric(' + r.id + ', \'' + (r.material_name||'').replace(/'/g, "\\'") + '\', \'' + (r.color_name||'').replace(/'/g, "\\'") + '\')" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Tạo đơn hàng mới với màu vải này">✨ Thêm Đơn</button>';
-        }
+        h += '<button onclick="_kvCreateOrderFromFabric(' + r.id + ', \'' + (r.material_name||'').replace(/'/g, "\\'") + '\', \'' + (r.color_name||'').replace(/'/g, "\\'") + '\')" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Tạo đơn hàng mới với màu vải này">✨ Thêm Đơn</button>';
         h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
         h += '</td>';
         h += '</tr>';
