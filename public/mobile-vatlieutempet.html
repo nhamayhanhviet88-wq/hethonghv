@@ -660,14 +660,17 @@ async function mOpenDetails(rollId) {
                 <div class="m-stat-box">
                     <div class="lbl">TỔNG NHẬP</div>
                     <div class="val" style="color:#e2e8f0">${fn(roll.qty_imported)}m</div>
+                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;font-weight:700">100%</div>
                 </div>
                 <div class="m-stat-box" style="background:rgba(56,189,248,0.08)">
                     <div class="lbl" style="color:#38bdf8">ĐÃ IN (SX)</div>
                     <div class="val" style="color:#38bdf8">${fn(roll.qty_printed)}m</div>
+                    <div style="font-size:10px;color:#38bdf8;margin-top:2px;font-weight:700">${qtyImported > 0 ? ((Number(roll.qty_printed)/qtyImported)*100).toFixed(1) : 0}%</div>
                 </div>
                 <div class="m-stat-box" style="background:rgba(16,185,129,0.08)">
                     <div class="lbl" style="color:#34d399">TỒN CUỐI</div>
                     <div class="val" style="color:#34d399">${fn(roll.qty_remaining)}m</div>
+                    <div style="font-size:10px;color:#34d399;margin-top:2px;font-weight:700">${qtyImported > 0 ? ((Number(roll.qty_remaining)/qtyImported)*100).toFixed(1) : 0}%</div>
                 </div>
             </div>
             
@@ -677,10 +680,12 @@ async function mOpenDetails(rollId) {
                 <div class="m-waste-box waste">
                     <div class="lbl">⚠️ HAO HỤT</div>
                     <div class="val">${fn(roll.qty_waste)}m</div>
+                    <div style="font-size:11px;color:#fbbf24;margin-top:2px;font-weight:700">${qtyImported > 0 ? ((Number(roll.qty_waste)/qtyImported)*100).toFixed(1) : 0}%</div>
                 </div>
                 <div class="m-waste-box error">
                     <div class="lbl">❌ SX LỖI</div>
                     <div class="val">${fn(roll.qty_error)}m</div>
+                    <div style="font-size:11px;color:#fca5a5;margin-top:2px;font-weight:700">${qtyImported > 0 ? ((Number(roll.qty_error)/qtyImported)*100).toFixed(1) : 0}%</div>
                 </div>
             </div>
         `;
