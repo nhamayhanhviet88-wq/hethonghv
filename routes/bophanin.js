@@ -662,7 +662,7 @@ module.exports = async function(fastify) {
                 it.material_pairs,
                 cc.name AS cutting_category_name
             FROM dht_order_items it
-            LEFT JOIN dht_products p ON TRIM(it.description) = p.name AND p.is_active = true
+            LEFT JOIN dht_products p ON TRIM(COALESCE(it.product_name, it.description)) = p.name AND p.is_active = true
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             WHERE it.dht_order_id IN (${orderIds.map((_, i) => `$${i+1}`).join(',')})
         `, orderIds) : [];
