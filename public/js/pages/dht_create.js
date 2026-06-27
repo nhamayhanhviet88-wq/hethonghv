@@ -1228,7 +1228,7 @@ function _dhtAddItemFree(editIdx) {
         + '</div>'
         + '<div style="border-top:1px solid #e2e8f0;padding-top:10px">'
         + '<div id="_ppf_qtyRows">' + qpHTML + '</div>'
-        + '<button type="button" onclick="_ppAddQtyFree()" style="background:#059669;color:#fff;border:none;padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;margin:4px 0">+ Thêm SL/Giá</button>'
+        + '<button type="button" onclick="_ppAddQtyFree()" style="display:none;background:#059669;color:#fff;border:none;padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;margin:4px 0">+ Thêm SL/Giá</button>'
         + '</div>'
         + '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'
         + '<div><label style="font-size:10px;font-weight:700">VAT</label><select id="_ppf_vat" class="form-control" onchange="_ppCalcFree()" style="width:80px;font-size:12px">' + vatSel + '</select></div>'
@@ -1353,7 +1353,7 @@ async function _dhtAddItem(editIdx) {
         +'<div id="_pp_matColorPairs" style="margin-bottom:8px"></div>'
         +'<div id="_pp_stockLimitWarnings" style="display:none;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:11.5px;color:#b45309;line-height:1.5"></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Chi Tiết May Thêm</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div>'+(isRestricted ? '' : '<button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button>')+'</div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple'+(isRestricted?' disabled':'')+'>'+( extOpts||noOpt)+'</select></div></div>'
-        +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div>'+(isRestricted ? '' : '<button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button>')+'</div>'
+        +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div>'+(isRestricted ? '' : '<button type="button" id="_pp_btn_addQtyRow" style="display:none;background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button>')+'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
         +saveBtn+'</div>';
     document.body.appendChild(ov);
