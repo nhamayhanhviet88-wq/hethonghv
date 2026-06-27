@@ -1643,6 +1643,94 @@ module.exports = async function(fastify) {
             } catch(e) {
                 console.error('[QLX FABRIC RECALC] Error in post toggle hook:', e);
             }
+
+            // Check and auto-stop sales for pending colors if this action was cut_done
+            if (action === 'cut_done') {
+                try {
+                    let affectedColorIds = new Set();
+                    if (rec.order_item_id) {
+                        const item = await db.get('SELECT color_id, material_pairs FROM dht_order_items WHERE id = $1', [rec.order_item_id]);
+                        if (item) {
+                            if (item.color_id) affectedColorIds.add(Number(item.color_id));
+                            if (item.material_pairs) {
+                                let pairs = [];
+                                try {
+                                    pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : item.material_pairs;
+                                } catch(e) {}
+                                if (Array.isArray(pairs)) {
+                                    for (const p of pairs) {
+                                        if (p.color_id) affectedColorIds.add(Number(p.color_id));
+                                    }
+                                }
+                            }
+                        }
+                    } else if (rec.dht_order_id) {
+                        const items = await db.all('SELECT color_id, material_pairs FROM dht_order_items WHERE dht_order_id = $1', [rec.dht_order_id]);
+                        for (const item of items) {
+                            if (item.color_id) affectedColorIds.add(Number(item.color_id));
+                            if (item.material_pairs) {
+                                let pairs = [];
+                                try {
+                                    pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : item.material_pairs;
+                                } catch(e) {}
+                                if (Array.isArray(pairs)) {
+                                    for (const p of pairs) {
+                                        if (p.color_id) affectedColorIds.add(Number(p.color_id));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    for (const colId of affectedColorIds) {
+                        const color = await db.get('SELECT pending_stop_active, is_active FROM kv_fabric_colors WHERE id = $1', [colId]);
+                        if (color && color.pending_stop_active && color.is_active) {
+                            const otherItems = await db.all(`
+                                SELECT oi.id, oi.dht_order_id, oi.quantity, oi.product_name, oi.material_id, oi.color_id, oi.material_pairs,
+                                       o.order_code
+                                FROM dht_order_items oi
+                                JOIN dht_orders o ON o.id = oi.dht_order_id
+                                LEFT JOIN cutting_records cr ON cr.order_item_id = oi.id
+                                LEFT JOIN order_codes oc ON oc.order_code = o.order_code
+                                LEFT JOIN customers cust ON cust.id = o.customer_id
+                                WHERE (cr.id IS NULL OR cr.is_cut_done = false)
+                                  AND (oc.id IS NULL OR oc.status <> 'cancelled')
+                                  AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+                            `);
+
+                            let hasUncut = false;
+                            for (const oi of otherItems) {
+                                let matches = false;
+                                if (Number(oi.color_id) === colId) {
+                                    matches = true;
+                                } else if (oi.material_pairs) {
+                                    let pairs = [];
+                                    try {
+                                        pairs = typeof oi.material_pairs === 'string' ? JSON.parse(oi.material_pairs) : oi.material_pairs;
+                                    } catch (e) {}
+                                    if (Array.isArray(pairs) && pairs.some(p => Number(p.color_id) === colId)) {
+                                        matches = true;
+                                    }
+                                }
+                                if (matches) {
+                                    hasUncut = true;
+                                    break;
+                                }
+                            }
+
+                            if (!hasUncut) {
+                                await db.run(
+                                    'UPDATE kv_fabric_colors SET is_active = false, pending_stop_active = false, allowed_slips = NULL, stop_import = false, allowed_import_slips = NULL, updated_at = NOW() WHERE id = $1',
+                                    [colId]
+                                );
+                                console.log(`[Auto Stop Sales] Automatically stopped sales for color ID ${colId} because all its orders are fully cut.`);
+                            }
+                        }
+                    }
+                } catch(autoStopErr) {
+                    console.error('[AUTO STOP SALES] Error checking and auto-stopping sales:', autoStopErr);
+                }
+            }
         }
 
         await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
