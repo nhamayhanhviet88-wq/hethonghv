@@ -454,18 +454,10 @@ async function _qkvLoadData() {
             const nameB = (b.name || '').trim().toLowerCase();
             const isReturnA = nameA === 'kệ dự định hoàn vải';
             const isReturnB = nameB === 'kệ dự định hoàn vải';
-            const isThienLinhA = nameA === 'kệ 3d thiện linh';
-            const isThienLinhB = nameB === 'kệ 3d thiện linh';
 
             if (isReturnA && !isReturnB) return 1;
             if (!isReturnA && isReturnB) return -1;
-            if (isThienLinhA && !isThienLinhB) {
-                return isReturnB ? -1 : 1;
-            }
-            if (!isThienLinhA && isThienLinhB) {
-                return isReturnA ? 1 : -1;
-            }
-            return a.id - b.id;
+            return nameA.localeCompare(nameB, 'vi');
         });
         _qkv.locations = locs;
         _qkv.summary = sumRes.summary || [];
