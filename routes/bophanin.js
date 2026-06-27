@@ -1231,7 +1231,7 @@ module.exports = async function(fastify) {
 
         const field = await db.get('SELECT name FROM printing_fields WHERE id = $1', [fieldId]);
         const fieldName = field ? field.name : '';
-        const is3DField = fieldName.toLowerCase().includes('3d') || fieldName.toLowerCase().includes('cắt');
+        const is3DField = (fieldName.toLowerCase().includes('3d') || fieldName.toLowerCase().includes('cắt')) && !fieldName.toLowerCase().includes('hv');
         console.log('[DEBUG] Field info:', { fieldName, is3DField });
 
         if (is3DField) {

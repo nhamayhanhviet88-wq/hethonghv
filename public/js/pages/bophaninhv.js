@@ -2013,7 +2013,11 @@ async function _bpiSaveFieldOperators(fieldId) {
     });
     
     try {
-        await apiCall('/api/printing/fields/' + fieldId + '/operators', 'POST', { operators: operators });
+        var res = await apiCall('/api/printing/fields/' + fieldId + '/operators', 'POST', { operators: operators });
+        if (res && res.error) {
+            showToast('Lỗi: ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Đã lưu cấu hình nhân sự');
         _bpiLoadFieldOperators(fieldId);
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
