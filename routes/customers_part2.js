@@ -232,11 +232,13 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 // Refund allowed slips for restricted fabric colors if order exists in DHT
                 if (activeOrderCodes.length > 0) {
                     const { refundSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_slips');
+                    const { refundImportSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_imports');
                     for (const code of activeOrderCodes) {
                         const dhtOrderRes = await client.query('SELECT id FROM dht_orders WHERE order_code = $1', [code]);
                         const dhtOrder = dhtOrderRes.rows[0];
                         if (dhtOrder) {
                             await refundSlipsForDeletedOrCancelledOrder(client, dhtOrder.id);
+                            await refundImportSlipsForDeletedOrCancelledOrder(client, dhtOrder.id);
                         }
                     }
                 }

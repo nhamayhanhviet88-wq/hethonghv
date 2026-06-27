@@ -1797,6 +1797,8 @@ module.exports = async function(fastify) {
             await client.query('BEGIN');
             const { validateAndApplySlipsForNewOrder } = require('../utils/kv_allowed_slips');
             await validateAndApplySlipsForNewOrder(client, b.items);
+            const { validateAndApplyImportSlipsForNewOrder } = require('../utils/kv_allowed_imports');
+            await validateAndApplyImportSlipsForNewOrder(client, b.items);
             await client.query('COMMIT');
         } catch (err) {
             await client.query('ROLLBACK');
@@ -2067,6 +2069,8 @@ module.exports = async function(fastify) {
             try {
                 const { refundSlipsForItemsList } = require('../utils/kv_allowed_slips');
                 await refundSlipsForItemsList(db, b.items);
+                const { refundImportSlipsForItemsList } = require('../utils/kv_allowed_imports');
+                await refundImportSlipsForItemsList(db, b.items);
             } catch (refundErr) {
                 console.error('Failed to refund slips after order insert error:', refundErr);
             }
@@ -3797,6 +3801,8 @@ module.exports = async function(fastify) {
                 await client.query('BEGIN');
                 const { validateAndApplySlipsForUpdateOrder } = require('../utils/kv_allowed_slips');
                 await validateAndApplySlipsForUpdateOrder(client, orderId, b.items);
+                const { validateAndApplyImportSlipsForUpdateOrder } = require('../utils/kv_allowed_imports');
+                await validateAndApplyImportSlipsForUpdateOrder(client, orderId, b.items);
                 await client.query('COMMIT');
             } catch (err) {
                 await client.query('ROLLBACK');
@@ -3945,6 +3951,8 @@ module.exports = async function(fastify) {
                 try {
                     const { validateAndApplySlipsForUpdateOrder } = require('../utils/kv_allowed_slips');
                     await validateAndApplySlipsForUpdateOrder(db, orderId, oldItems);
+                    const { validateAndApplyImportSlipsForUpdateOrder } = require('../utils/kv_allowed_imports');
+                    await validateAndApplyImportSlipsForUpdateOrder(db, orderId, oldItems);
                 } catch (revertErr) {
                     console.error('Failed to revert slips after order update error:', revertErr);
                 }
@@ -4073,6 +4081,8 @@ module.exports = async function(fastify) {
             await client.query('BEGIN');
             const { refundSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_slips');
             await refundSlipsForDeletedOrCancelledOrder(client, orderId);
+            const { refundImportSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_imports');
+            await refundImportSlipsForDeletedOrCancelledOrder(client, orderId);
             await client.query('COMMIT');
         } catch (err) {
             await client.query('ROLLBACK');

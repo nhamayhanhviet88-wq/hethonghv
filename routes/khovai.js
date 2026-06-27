@@ -181,7 +181,7 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/colors', { preHandler: [authenticate] }, async (request) => {
         const { mid, include_inactive } = request.query;
         let sql = `SELECT fc.id, fc.material_id, fc.color_name, fc.price, fc.original_tree_threshold, fc.notes, fc.location, fc.created_at, fc.updated_at,
-                          fc.stop_import, fc.allowed_slips,
+                          fc.stop_import, fc.allowed_slips, fc.allowed_import_slips,
                           (fc.is_active AND m.is_active) AS is_active,
                           m.name AS material_name, w.name AS warehouse_name, w.unit
                    FROM kv_fabric_colors fc
@@ -239,7 +239,7 @@ module.exports = async function (fastify) {
     });
 
     fastify.put('/api/khovai/colors/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        const { color_name, price, original_tree_threshold, notes, location, stop_import } = request.body || {};
+        const { color_name, price, original_tree_threshold, notes, location, stop_import, allowed_import_slips } = request.body || {};
         if (stop_import !== undefined) {
             if (!isGdOrTrinh(request.user)) {
                 return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền dừng/nhập màu vải!' });
@@ -250,7 +250,21 @@ module.exports = async function (fastify) {
         if (price !== undefined) { updates.push(`price = $${idx++}`); params.push(price); }
         if (original_tree_threshold !== undefined) { updates.push(`original_tree_threshold = $${idx++}`); params.push(original_tree_threshold); }
         if (notes !== undefined) { updates.push(`notes = $${idx++}`); params.push(notes); }
-        if (stop_import !== undefined) { updates.push(`stop_import = $${idx++}`); params.push(!!stop_import); }
+        if (stop_import !== undefined) {
+            updates.push(`stop_import = $${idx++}`); params.push(!!stop_import);
+            if (stop_import) {
+                updates.push(`allowed_import_slips = $${idx++}`); params.push(null);
+            } else {
+                let parsedImportSlips = null;
+                if (allowed_import_slips !== undefined && allowed_import_slips !== null) {
+                    const val = parseInt(allowed_import_slips, 10);
+                    if (!isNaN(val) && val >= 0) {
+                        parsedImportSlips = val;
+                    }
+                }
+                updates.push(`allowed_import_slips = $${idx++}`); params.push(parsedImportSlips);
+            }
+        }
         if (location !== undefined) {
             if (location) {
                 const colorRecord = await db.get('SELECT material_id FROM kv_fabric_colors WHERE id = $1', [request.params.id]);
@@ -1052,7 +1066,7 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/summary', { preHandler: [authenticate] }, async (request) => {
         const { wid, mid } = request.query;
         let sql = `
-            SELECT fc.id, fc.color_name, fc.price, fc.is_active, fc.allowed_slips,
+            SELECT fc.id, fc.color_name, fc.price, fc.is_active, fc.allowed_slips, fc.allowed_import_slips,
                    COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
                    fc.notes, fc.material_id, fc.updated_at,
                    fc.stop_import AS color_stop_import, m.stop_import AS material_stop_import,

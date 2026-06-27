@@ -896,6 +896,8 @@ async function customersRoutes(fastify, options) {
             if (dhtOrder) {
                 const { refundSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_slips');
                 await refundSlipsForDeletedOrCancelledOrder(client, dhtOrder.id);
+                const { refundImportSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_imports');
+                await refundImportSlipsForDeletedOrCancelledOrder(client, dhtOrder.id);
             }
 
             await client.query('COMMIT');

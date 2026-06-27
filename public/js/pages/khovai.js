@@ -416,6 +416,11 @@ function _kvRenderTable() {
             slipsBadgeHtml = '<div style="margin-top:2px"><span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #7dd3fc;font-weight:800;white-space:nowrap;display:inline-block" title="Số lượng đơn hàng được tạo còn lại">🎟️ Còn ' + r.allowed_slips + ' đơn</span></div>';
         }
 
+        var importSlipsBadgeHtml = '';
+        if (r.allowed_import_slips !== null && r.allowed_import_slips !== undefined) {
+            importSlipsBadgeHtml = '<div style="margin-top:2px"><span style="background:#fffbeb;color:#d97706;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #fde68a;font-weight:800;white-space:nowrap;display:inline-block" title="Số lượng đơn hàng được nhập còn lại">📥 Còn ' + r.allowed_import_slips + ' đơn</span></div>';
+        }
+
         var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.85;background-color:#fee2e2"' : 'style="cursor:pointer"';
         h += '<tr ' + rowStyle + ' onclick="_kvShowDetail(' + r.id + ')">';
         h += '<td style="color:var(--gray-400)">' + (i+1) + '</td>';
@@ -424,6 +429,7 @@ function _kvRenderTable() {
         h += '<div><span>' + (r.color_name||'') + '</span><span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></div>';
         h += stopBadgeHtml;
         h += slipsBadgeHtml;
+        h += importSlipsBadgeHtml;
         h += '</div>';
         h += '</td>';
         h += '<td>' + (r.material_name||'') + '</td>';
@@ -496,7 +502,8 @@ async function _kvShowDetail(fcid) {
         ['XUẤT', '<b style="color:#dc2626">' + _kvFmt(r.xuat) + '</b>'],
         ['CUỐI KỲ', '<b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(r.cuoi_ky) + '</b>'],
         ['GIÁ', r.price ? _kvFmt(r.price) + 'đ' : '—'],
-        ['GIỚI HẠN ĐƠN', r.allowed_slips !== null && r.allowed_slips !== undefined ? '<b style="color:#0369a1">🎟️ Còn ' + r.allowed_slips + ' đơn</b>' : 'Mở bán vĩnh viễn'],
+        ['GIỚI HẠN ĐƠN', r.allowed_slips !== null && r.allowed_slips !== undefined ? '<b style="color:#0369a1">🎟️ Còn ' + r.allowed_slips + ' đơn</b>' : (r.is_active === false ? '<span style="color:#ef4444;font-weight:700">🔴 Đang ẩn bán</span>' : 'Mở bán vĩnh viễn')],
+        ['GIỚI HẠN NHẬP', r.allowed_import_slips !== null && r.allowed_import_slips !== undefined ? '<b style="color:#d97706">📥 Còn ' + r.allowed_import_slips + ' đơn</b>' : (r.color_stop_import ? '<span style="color:#ef4444;font-weight:700">🛑 Đang dừng nhập</span>' : 'Mở nhập vĩnh viễn')],
         ['CẬP NHẬT', lastUpStr]
     ];
     infoRows.forEach(function(row) {
@@ -1365,12 +1372,111 @@ window._kvSubmitActiveSlips = _kvSubmitActiveSlips;
 
 async function _kvToggleStopImport(id, newState) {
     if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
-    var actionText = newState ? 'dừng nhập' : 'cho phép nhập mới';
-    if (!confirm('Bạn có chắc chắn muốn ' + actionText + ' màu vải này?')) return;
+    if (newState) {
+        if (!confirm('Bạn có chắc chắn muốn dừng nhập màu vải này?')) return;
+        try {
+            var res = await apiCall('/api/khovai/colors/' + id, 'PUT', { stop_import: true });
+            if (res.success) {
+                showToast('Đã dừng nhập màu vải thành công!', 'success');
+                _kvLoadSummary();
+            } else {
+                showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
+            }
+        } catch(e) {
+            showToast('Lỗi kết nối: ' + e.message, 'error');
+        }
+    } else {
+        _kvShowImportSlipsModal(id);
+    }
+}
+window._kvToggleStopImport = _kvToggleStopImport;
+
+function _kvShowImportSlipsModal(colorId) {
+    const modalHtml = `
+        <div class="kk-modal-overlay" id="kvImportSlipsModalContainer" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.6); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);">
+            <div class="kk-modal" style="background:#fff; border-radius:16px; width:100%; max-width:440px; box-shadow:0 25px 60px rgba(0,0,0,0.25); overflow:hidden; font-family:Inter,system-ui,sans-serif; transform:scale(1); transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);">
+                <div class="kk-modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #e2e8f0; background:linear-gradient(135deg,#d97706,#f59e0b); color:#fff;">
+                    <div class="kk-modal-title" style="font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px;">📥 Mở Nhập Màu Vải</div>
+                    <button onclick="_kvCloseImportSlipsModal()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px; font-weight:700;">✕ Đóng</button>
+                </div>
+                <div class="kk-modal-body" style="padding:24px; display:flex; flex-direction:column; gap:16px; font-size:13px; color:#334155;">
+                    <div style="font-weight:600; color:#1e293b; font-size:14px; text-align:center;">Vui lòng chọn hình thức mở nhập:</div>
+                    
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:12px 16px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; transition:all 0.2s;" onmouseover="this.style.borderColor='#f59e0b'" onmouseout="if(!document.getElementById('importSlipsOptionForever').checked) this.style.borderColor='#e2e8f0'">
+                        <input type="radio" id="importSlipsOptionForever" name="importSlipsOption" value="forever" checked style="width:16px; height:16px; accent-color:#f59e0b;" onchange="_kvToggleImportSlipsInput(false)">
+                        <div>
+                            <div style="font-weight:700; color:#0f172a;">Nhập vĩnh viễn</div>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">Tạo phiếu và đơn thoải mái không giới hạn</div>
+                        </div>
+                    </label>
+
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:12px 16px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; transition:all 0.2s;" onmouseover="this.style.borderColor='#f59e0b'" onmouseout="if(!document.getElementById('importSlipsOptionLimit').checked) this.style.borderColor='#e2e8f0'">
+                        <input type="radio" id="importSlipsOptionLimit" name="importSlipsOption" value="limit" style="width:16px; height:16px; accent-color:#f59e0b;" onchange="_kvToggleImportSlipsInput(true)">
+                        <div>
+                            <div style="font-weight:700; color:#0f172a;">Nhập giới hạn theo số đơn hàng</div>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">Đạt đủ số lượng đơn hàng sẽ tự động dừng nhập màu vải</div>
+                        </div>
+                    </label>
+
+                    <div id="importSlipsCountContainer" style="display:none; flex-direction:column; gap:6px; margin-top:4px;">
+                        <span style="color:#475569; font-weight:700; font-size:12px;">Số lượng đơn giới hạn:</span>
+                        <input type="number" id="importSlipsCountInput" value="1" min="1" step="1" style="width:100%; padding:10px 14px; border:1.5px solid #fef3c7; border-radius:8px; font-size:15px; font-weight:700; color:#d97706; background:#fffbeb; outline:none; text-align:center;">
+                    </div>
+                </div>
+                <div class="kk-modal-footer" style="background:#f8fafc; display:flex; gap:10px; padding:16px 24px; border-top:1px solid #f1f5f9;">
+                    <button class="kk-btn kk-btn-secondary" onclick="_kvCloseImportSlipsModal()" style="flex:1; background:#e2e8f0; color:#475569; border:none; padding:12px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; transition:all 0.2s;">Hủy</button>
+                    <button class="kk-btn kk-btn-primary" onclick="_kvSubmitImportSlips(${colorId})" style="flex:1; background:linear-gradient(135deg,#d97706,#f59e0b); color:#fff; border:none; padding:12px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 15px rgba(245,158,11,0.3); transition:all 0.2s;">Xác nhận</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('kvImportSlipsModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'kvImportSlipsModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+}
+
+function _kvCloseImportSlipsModal() {
+    const container = document.getElementById('kvImportSlipsModalContainer');
+    if (container) container.remove();
+}
+
+function _kvToggleImportSlipsInput(show) {
+    const container = document.getElementById('importSlipsCountContainer');
+    if (container) {
+        container.style.display = show ? 'flex' : 'none';
+        if (show) {
+            document.getElementById('importSlipsCountInput').focus();
+        }
+    }
+}
+
+async function _kvSubmitImportSlips(colorId) {
+    const isLimit = document.getElementById('importSlipsOptionLimit').checked;
+    let allowedImportSlips = null;
+    if (isLimit) {
+        const valStr = document.getElementById('importSlipsCountInput').value;
+        const val = parseInt(valStr);
+        if (isNaN(val) || val <= 0) {
+            showToast('Vui lòng nhập số đơn giới hạn hợp lệ (lớn hơn 0)!', 'error');
+            return;
+        }
+        allowedImportSlips = val;
+    }
+
+    _kvCloseImportSlipsModal();
+
     try {
-        var res = await apiCall('/api/khovai/colors/' + id, 'PUT', { stop_import: newState });
+        var res = await apiCall('/api/khovai/colors/' + colorId, 'PUT', { 
+            stop_import: false,
+            allowed_import_slips: allowedImportSlips
+        });
         if (res.success) {
-            showToast('Đã cập nhật trạng thái dừng nhập thành công!', 'success');
+            showToast('Đã mở nhập màu vải thành công!', 'success');
             _kvLoadSummary();
         } else {
             showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
@@ -1379,7 +1485,11 @@ async function _kvToggleStopImport(id, newState) {
         showToast('Lỗi kết nối: ' + e.message, 'error');
     }
 }
-window._kvToggleStopImport = _kvToggleStopImport;
+
+window._kvShowImportSlipsModal = _kvShowImportSlipsModal;
+window._kvCloseImportSlipsModal = _kvCloseImportSlipsModal;
+window._kvToggleImportSlipsInput = _kvToggleImportSlipsInput;
+window._kvSubmitImportSlips = _kvSubmitImportSlips;
 
 async function _kvToggleMatStop(id, newState) {
     if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
