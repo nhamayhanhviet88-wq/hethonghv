@@ -1669,7 +1669,11 @@ async function _ppUpdateStockLimit(pairIdx) {
     var cutCat = prod ? (prod.cutting_category_name || '') : '';
 
     try {
-        var res = await apiCall('/api/dht/check-stock-limit?material_id=' + matId + '&color_id=' + colId + '&cutting_category=' + encodeURIComponent(cutCat));
+        var url = '/api/dht/check-stock-limit?material_id=' + matId + '&color_id=' + colId + '&cutting_category=' + encodeURIComponent(cutCat);
+        if (_dhtCreate.editMode && _dhtCreate.editOrderId) {
+            url += '&exclude_order_id=' + _dhtCreate.editOrderId;
+        }
+        var res = await apiCall(url);
         window._ppStockLimits = window._ppStockLimits || {};
         window._ppStockLimits[pairIdx] = res;
         _ppRenderStockLimitMessage();

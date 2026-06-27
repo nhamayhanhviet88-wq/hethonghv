@@ -67,7 +67,7 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
     return parts.join(' , ');
 }
 
-async function validateFabricStockLimits(items) {
+async function validateFabricStockLimits(items, excludeOrderId = null) {
     if (!items || !Array.isArray(items)) return;
     
     // Group quantities and check limits per unique (material_id, color_id)
@@ -136,7 +136,59 @@ async function validateFabricStockLimits(items) {
         const remainingStock = Number(stockRow ? stockRow.remaining_stock : 0);
         const unit = stockRow ? stockRow.unit : 'kg';
 
-        // Calculate total fabric consumed by all usages of this fabric color
+        // Calculate fabric weight consumed by other active/uncut/non-cancelled orders
+        let otherFabricConsumed = 0;
+        const otherItems = await db.all(`
+            SELECT oi.id, oi.dht_order_id, oi.quantity, oi.product_name, oi.material_id, oi.color_id, oi.material_pairs,
+                   cc.name AS cutting_category_name
+            FROM dht_order_items oi
+            JOIN dht_orders o ON o.id = oi.dht_order_id
+            LEFT JOIN cutting_records cr ON cr.order_item_id = oi.id
+            LEFT JOIN order_codes oc ON oc.order_code = o.order_code
+            LEFT JOIN customers cust ON cust.id = o.customer_id
+            LEFT JOIN dht_products p ON p.name = oi.product_name AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+            WHERE (cr.id IS NULL OR cr.is_cut_done = false)
+              AND (oc.id IS NULL OR oc.status <> 'cancelled')
+              AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+              AND o.id <> $1
+        `, [Number(excludeOrderId) || -1]);
+
+        for (const oi of otherItems) {
+            let hasPair = false;
+            if (Number(oi.color_id) === Number(info.colId)) {
+                hasPair = true;
+            } else if (oi.material_pairs) {
+                let pairs = [];
+                try {
+                    pairs = typeof oi.material_pairs === 'string' ? JSON.parse(oi.material_pairs) : oi.material_pairs;
+                } catch (e) {}
+                if (Array.isArray(pairs) && pairs.some(p => Number(p.color_id) === Number(info.colId))) {
+                    hasPair = true;
+                }
+            }
+
+            if (hasPair) {
+                const oiMatId = Number(oi.material_id);
+                const oiCutCat = (oi.cutting_category_name || '').trim();
+                let oiRatio = 0;
+                if (oiCutCat) {
+                    const rRow = await db.get(`
+                        SELECT target_ratio
+                        FROM kv_material_cutting_targets
+                        WHERE material_id = $1 AND cutting_category = $2
+                    `, [oiMatId, oiCutCat]);
+                    oiRatio = rRow ? Number(rRow.target_ratio) || 0 : 0;
+                }
+                if (oiRatio > 0) {
+                    otherFabricConsumed += Number(oi.quantity) / oiRatio;
+                }
+            }
+        }
+
+        const adjustedRemainingStock = Math.max(0, remainingStock - otherFabricConsumed);
+
+        // Calculate total fabric consumed by all usages of this fabric color in current payload
         let totalFabricRequired = 0;
         let detailsText = [];
         let hasZeroRatio = false;
@@ -173,16 +225,16 @@ async function validateFabricStockLimits(items) {
 
         // Round limit to whole number if there's a single ratio used
         if (isSingleRatio && firstRatio > 0) {
-            sameRatioLimit = Math.floor(remainingStock * firstRatio);
+            sameRatioLimit = Math.floor(adjustedRemainingStock * firstRatio);
             const totalQty = info.usages.reduce((sum, u) => sum + u.qty, 0);
             if (totalQty > sameRatioLimit) {
-                throw new Error(`Vải [${info.matName} - ${info.colorName}] đã dừng nhập. Số lượng tối đa được phép đặt cho toàn đơn hàng là ${sameRatioLimit} sản phẩm. Bạn đã đặt tổng cộng ${totalQty} sản phẩm trên tất cả các phiếu.`);
+                throw new Error(`Vải [${info.matName} - ${info.colorName}] đã dừng nhập. Số lượng tối đa còn có thể sản xuất sau khi trừ các đơn khác là ${sameRatioLimit} sản phẩm. Bạn đã đặt tổng cộng ${totalQty} sản phẩm trên tất cả các phiếu.`);
             }
         } else {
             // General fabric weight check
-            if (totalFabricRequired > remainingStock || hasZeroRatio) {
+            if (totalFabricRequired > adjustedRemainingStock || hasZeroRatio) {
                 const totalQty = info.usages.reduce((sum, u) => sum + u.qty, 0);
-                throw new Error(`Vải [${info.matName} - ${info.colorName}] đã dừng nhập. Tồn kho còn ${remainingStock} ${unit}. Tổng số lượng đặt ${totalQty} sp trên toàn đơn hàng vượt quá tồn kho cho phép. Chi tiết các phiếu: ${detailsText.join(', ')}.`);
+                throw new Error(`Vải [${info.matName} - ${info.colorName}] đã dừng nhập. Tồn kho còn lại (sau khi trừ các đơn khác) là ${adjustedRemainingStock.toFixed(2)} ${unit}. Tổng số lượng đặt ${totalQty} sp trên toàn đơn hàng vượt quá tồn kho cho phép. Chi tiết các phiếu: ${detailsText.join(', ')}.`);
             }
         }
     }
@@ -3470,7 +3522,7 @@ module.exports = async function(fastify) {
 
         if (Array.isArray(b.items)) {
             try {
-                await validateFabricStockLimits(b.items);
+                await validateFabricStockLimits(b.items, orderId);
             } catch (err) {
                 return reply.code(400).send({ error: err.message });
             }
@@ -4278,7 +4330,7 @@ module.exports = async function(fastify) {
 
     // Check stock limit for stopped fabrics
     fastify.get('/api/dht/check-stock-limit', { preHandler: [authenticate] }, async (request, reply) => {
-        const { material_id, color_id, cutting_category } = request.query;
+        const { material_id, color_id, cutting_category, exclude_order_id } = request.query;
         if (!material_id || !color_id) {
             return reply.code(400).send({ error: 'Thiếu material_id hoặc color_id' });
         }
@@ -4304,6 +4356,58 @@ module.exports = async function(fastify) {
         const remainingStock = Number(stockRow ? stockRow.remaining_stock : 0);
         const unit = stockRow ? stockRow.unit : 'kg';
 
+        // Calculate fabric weight consumed by other active/uncut/non-cancelled orders
+        let otherFabricConsumed = 0;
+        const otherItems = await db.all(`
+            SELECT oi.id, oi.dht_order_id, oi.quantity, oi.product_name, oi.material_id, oi.color_id, oi.material_pairs,
+                   cc.name AS cutting_category_name
+            FROM dht_order_items oi
+            JOIN dht_orders o ON o.id = oi.dht_order_id
+            LEFT JOIN cutting_records cr ON cr.order_item_id = oi.id
+            LEFT JOIN order_codes oc ON oc.order_code = o.order_code
+            LEFT JOIN customers cust ON cust.id = o.customer_id
+            LEFT JOIN dht_products p ON p.name = oi.product_name AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+            WHERE (cr.id IS NULL OR cr.is_cut_done = false)
+              AND (oc.id IS NULL OR oc.status <> 'cancelled')
+              AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+              AND o.id <> $1
+        `, [Number(exclude_order_id) || -1]);
+
+        for (const oi of otherItems) {
+            let hasPair = false;
+            if (Number(oi.color_id) === Number(color_id)) {
+                hasPair = true;
+            } else if (oi.material_pairs) {
+                let pairs = [];
+                try {
+                    pairs = typeof oi.material_pairs === 'string' ? JSON.parse(oi.material_pairs) : oi.material_pairs;
+                } catch (e) {}
+                if (Array.isArray(pairs) && pairs.some(p => Number(p.color_id) === Number(color_id))) {
+                    hasPair = true;
+                }
+            }
+
+            if (hasPair) {
+                const oiMatId = Number(oi.material_id);
+                const oiCutCat = (oi.cutting_category_name || '').trim();
+                let oiRatio = 0;
+                if (oiCutCat) {
+                    const rRow = await db.get(`
+                        SELECT target_ratio
+                        FROM kv_material_cutting_targets
+                        WHERE material_id = $1 AND cutting_category = $2
+                    `, [oiMatId, oiCutCat]);
+                    oiRatio = rRow ? Number(rRow.target_ratio) || 0 : 0;
+                }
+                if (oiRatio > 0) {
+                    otherFabricConsumed += Number(oi.quantity) / oiRatio;
+                }
+            }
+        }
+
+        const adjustedRemainingStock = Math.max(0, remainingStock - otherFabricConsumed);
+
         // Cutting ratio
         let targetRatio = 0;
         if (cutting_category) {
@@ -4316,7 +4420,7 @@ module.exports = async function(fastify) {
         }
 
         const isStopped = !!color.stop_import;
-        const limitQty = isStopped ? Math.floor(remainingStock * targetRatio) : null;
+        const limitQty = isStopped ? Math.floor(adjustedRemainingStock * targetRatio) : null;
 
          return {
             material_id: Number(material_id),
@@ -4327,6 +4431,8 @@ module.exports = async function(fastify) {
             color_stop_import: !!color.stop_import,
             is_stopped: isStopped,
             remaining_stock: remainingStock,
+            other_fabric_consumed: otherFabricConsumed,
+            adjusted_remaining_stock: adjustedRemainingStock,
             unit: unit,
             target_ratio: targetRatio,
             limit_qty: limitQty
