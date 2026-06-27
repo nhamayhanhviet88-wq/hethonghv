@@ -1682,38 +1682,94 @@ async function _kvCreateOrderFromFabric(colorId, materialName, colorName) {
     
     if (r.is_active === false || r.allowed_slips !== null) {
         var defaultVal = r.allowed_slips !== null ? String(r.allowed_slips) : '1';
-        var countStr = prompt('Màu vải này đang dừng bán (giới hạn). Bạn muốn cho phép tạo thêm bao nhiêu đơn hàng cho Sale nhập?', defaultVal);
-        if (countStr === null) return; // User cancelled
-        var count = parseInt(countStr, 10);
-        if (isNaN(count) || count <= 0) {
-            showToast('Số lượng đơn hàng không hợp lệ!', 'error');
-            return;
-        }
-
-        try {
-            var res = await apiCall('/api/khovai/colors/' + colorId + '/toggle', 'PUT', {
-                is_active: true,
-                allowed_slips: count
-            });
-            if (res && res.success) {
-                showToast('Đã mở giới hạn ' + count + ' đơn cho màu vải này!', 'success');
-                // Reload summary so it reflects locally
-                _kvLoadSummary();
-                try {
-                    var treeData = await apiCall('/api/khovai/tree');
-                    _kv.tree = treeData.tree || [];
-                    _kvRenderSidebar();
-                } catch(e) {}
-            } else {
-                showToast((res && res.error) || 'Lỗi khi mở bán giới hạn', 'error');
-                return;
-            }
-        } catch(e) {
-            showToast('Lỗi kết nối: ' + e.message, 'error');
-            return;
-        }
+        _kvShowCreateOrderFromFabricModal(colorId, materialName, colorName, defaultVal);
     } else {
         showToast('Màu vải này đang được mở bán bình thường.', 'info');
     }
 }
 window._kvCreateOrderFromFabric = _kvCreateOrderFromFabric;
+
+function _kvShowCreateOrderFromFabricModal(colorId, materialName, colorName, defaultVal) {
+    const modalHtml = `
+        <div class="kk-modal-overlay" id="kvCreateOrderFabricModal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.6); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);">
+            <div class="kk-modal" style="background:#fff; border-radius:16px; width:100%; max-width:440px; box-shadow:0 25px 60px rgba(0,0,0,0.25); overflow:hidden; font-family:Inter,system-ui,sans-serif; transform:scale(1); transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);">
+                <div class="kk-modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #e2e8f0; background:linear-gradient(135deg,#b8860b,#daa520); color:#fff;">
+                    <div class="kk-modal-title" style="font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px;">✨ Cấp Thêm Đơn Hàng</div>
+                    <button onclick="_kvCloseCreateOrderFabricModal()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px; font-weight:700;">✕ Đóng</button>
+                </div>
+                <div class="kk-modal-body" style="padding:24px; display:flex; flex-direction:column; gap:16px; font-size:13px; color:#334155;">
+                    <div style="font-weight:600; color:#1e293b; font-size:14px; text-align:center; line-height: 1.5;">
+                        Màu vải <b style="color:#b8860b;">${materialName} - ${colorName}</b> đang dừng bán (giới hạn).
+                    </div>
+                    <div style="font-size:13px; color:#64748b; text-align:center; margin-top:-8px;">
+                        Bạn muốn cho phép tạo thêm bao nhiêu đơn hàng cho Sale nhập?
+                    </div>
+                    
+                    <div style="display:flex; flex-direction:column; gap:6px; align-items:center; margin-top:8px;">
+                        <input type="number" id="createOrderSlipsCountInput" value="${defaultVal}" min="1" step="1" style="width:120px; padding:10px 14px; border:2px solid #daa520; border-radius:10px; font-size:20px; font-weight:800; color:#b8860b; background:#fffdf5; outline:none; text-align:center; box-shadow:0 2px 8px rgba(218,165,32,0.1);">
+                    </div>
+                </div>
+                <div class="kk-modal-footer" style="background:#f8fafc; display:flex; gap:10px; padding:16px 24px; border-top:1px solid #f1f5f9;">
+                    <button class="kk-btn kk-btn-secondary" onclick="_kvCloseCreateOrderFabricModal()" style="flex:1; background:#e2e8f0; color:#475569; border:none; padding:12px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; transition:all 0.2s;">Hủy</button>
+                    <button class="kk-btn kk-btn-primary" onclick="_kvSubmitCreateOrderFabric(${colorId})" style="flex:1; background:linear-gradient(135deg,#b8860b,#daa520); color:#fff; border:none; padding:12px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 15px rgba(218,165,32,0.3); transition:all 0.2s;">Xác nhận</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const oldContainer = document.getElementById('kvCreateOrderFabricModalContainer');
+    if (oldContainer) oldContainer.remove();
+
+    const div = document.createElement('div');
+    div.id = 'kvCreateOrderFabricModalContainer';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+    
+    setTimeout(() => {
+        const input = document.getElementById('createOrderSlipsCountInput');
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    }, 100);
+}
+window._kvShowCreateOrderFromFabricModal = _kvShowCreateOrderFromFabricModal;
+
+function _kvCloseCreateOrderFabricModal() {
+    const container = document.getElementById('kvCreateOrderFabricModalContainer');
+    if (container) container.remove();
+}
+window._kvCloseCreateOrderFabricModal = _kvCloseCreateOrderFabricModal;
+
+async function _kvSubmitCreateOrderFabric(colorId) {
+    const input = document.getElementById('createOrderSlipsCountInput');
+    if (!input) return;
+    const count = parseInt(input.value, 10);
+    if (isNaN(count) || count <= 0) {
+        showToast('Số lượng đơn hàng không hợp lệ!', 'error');
+        return;
+    }
+
+    _kvCloseCreateOrderFabricModal();
+
+    try {
+        var res = await apiCall('/api/khovai/colors/' + colorId + '/toggle', 'PUT', {
+            is_active: true,
+            allowed_slips: count
+        });
+        if (res && res.success) {
+            showToast('Đã mở giới hạn ' + count + ' đơn cho màu vải này!', 'success');
+            _kvLoadSummary();
+            try {
+                var treeData = await apiCall('/api/khovai/tree');
+                _kv.tree = treeData.tree || [];
+                _kvRenderSidebar();
+            } catch(e) {}
+        } else {
+            showToast((res && res.error) || 'Lỗi khi mở bán giới hạn', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối: ' + e.message, 'error');
+    }
+}
+window._kvSubmitCreateOrderFabric = _kvSubmitCreateOrderFabric;

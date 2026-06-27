@@ -65,7 +65,7 @@ const database = {
 
         // Auto-add RETURNING id for INSERT statements (if not already present)
         // Skip for tables that don't have 'id' column (e.g., app_config uses 'key' as PK)
-        const noIdTables = ['app_config', 'task_schedule_active_teams', 'global_penalty_config', 'material_warehouse_sources'];
+        const noIdTables = ['app_config', 'task_schedule_active_teams', 'global_penalty_config', 'material_warehouse_sources', 'kv_order_consumed_slips'];
         const hasNoId = noIdTables.some(t => new RegExp('INTO\\s+' + t, 'i').test(finalSql));
         if (/^\s*INSERT\s/i.test(finalSql) && !/RETURNING/i.test(finalSql) && !hasNoId) {
             finalSql = finalSql.replace(/;?\s*$/, ' RETURNING id');

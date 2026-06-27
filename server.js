@@ -408,6 +408,12 @@ async function start() {
             created_at      TIMESTAMP DEFAULT NOW()
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_items_order ON dht_order_items(dht_order_id)`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_order_consumed_slips (
+            order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            color_id INTEGER NOT NULL REFERENCES kv_fabric_colors(id) ON DELETE CASCADE,
+            PRIMARY KEY (order_id, color_id)
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_ocs_order ON kv_order_consumed_slips(order_id)`);
     } catch(e) { console.error('[DHT Migration]', e.message); }
 
     // Migration: daily_penalty_ledger — Sổ phạt hàng ngày (single source of truth)

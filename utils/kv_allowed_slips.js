@@ -76,8 +76,15 @@ function getUniqueColorsFromItemsList(items) {
  * @param {object} dbOrClient Database pool wrapper or pg client
  * @param {object[]} items New order items
  */
+/**
+ * Validate and apply slips (orders) limit for a new order.
+ * @param {object} dbOrClient Database pool wrapper or pg client
+ * @param {object[]} items New order items
+ * @returns {Promise<number[]>} Array of color IDs that consumed a slip
+ */
 async function validateAndApplySlipsForNewOrder(dbOrClient, items) {
     const uniqueColors = getUniqueColorsFromItemsList(items);
+    const consumedColorIds = [];
     for (const colId of uniqueColors) {
         // Lock row to prevent race conditions
         const colorInfo = await executeGet(
@@ -95,19 +102,32 @@ async function validateAndApplySlipsForNewOrder(dbOrClient, items) {
                 );
             }
             const remaining = allowed - 1;
-            await executeRun(
-                dbOrClient,
-                `UPDATE kv_fabric_colors 
-                 SET allowed_slips = $1, 
-                     is_active = CASE WHEN $1 <= 0 THEN false ELSE is_active END, 
-                     stop_import = CASE WHEN $1 <= 0 THEN false ELSE stop_import END,
-                     allowed_import_slips = CASE WHEN $1 <= 0 THEN NULL ELSE allowed_import_slips END,
-                     updated_at = NOW() 
-                 WHERE id = $2`, 
-                [remaining, colId]
-            );
+            if (remaining <= 0) {
+                await executeRun(
+                    dbOrClient,
+                    `UPDATE kv_fabric_colors 
+                     SET allowed_slips = NULL, 
+                         is_active = true, 
+                         stop_import = true,
+                         allowed_import_slips = NULL,
+                         updated_at = NOW() 
+                     WHERE id = $1`, 
+                    [colId]
+                );
+            } else {
+                await executeRun(
+                    dbOrClient,
+                    `UPDATE kv_fabric_colors 
+                     SET allowed_slips = $1, 
+                         updated_at = NOW() 
+                     WHERE id = $2`, 
+                    [remaining, colId]
+                );
+            }
+            consumedColorIds.push(colId);
         }
     }
+    return consumedColorIds;
 }
 
 /**
@@ -120,12 +140,26 @@ async function refundSlipsForItemsList(dbOrClient, items) {
     for (const colId of uniqueColors) {
         const colorInfo = await executeGet(
             dbOrClient,
-            `SELECT id, color_name, is_active, allowed_slips FROM kv_fabric_colors WHERE id = $1 FOR UPDATE`, 
+            `SELECT id, color_name, is_active, allowed_slips, stop_import FROM kv_fabric_colors WHERE id = $1 FOR UPDATE`, 
             [colId]
         );
         if (!colorInfo) continue;
         
-        if (colorInfo.allowed_slips !== null && colorInfo.allowed_slips !== undefined) {
+        if (colorInfo.allowed_slips === null) {
+            // Revert transition if it reached 0 and transitioned
+            if (colorInfo.is_active === true && colorInfo.stop_import === true) {
+                await executeRun(
+                    dbOrClient,
+                    `UPDATE kv_fabric_colors 
+                     SET allowed_slips = 1, 
+                         is_active = false, 
+                         stop_import = false,
+                         updated_at = NOW() 
+                     WHERE id = $1`,
+                    [colId]
+                );
+            }
+        } else {
             const refunded = Number(colorInfo.allowed_slips) + 1;
             await executeRun(
                 dbOrClient,
@@ -197,37 +231,85 @@ async function validateAndApplySlipsForUpdateOrder(dbOrClient, orderId, newItems
                     );
                 }
                 const remaining = allowed - 1;
+                if (remaining <= 0) {
+                    await executeRun(
+                        dbOrClient,
+                        `UPDATE kv_fabric_colors 
+                         SET allowed_slips = NULL, 
+                             is_active = true, 
+                             stop_import = true,
+                             allowed_import_slips = NULL,
+                             updated_at = NOW() 
+                         WHERE id = $1`, 
+                        [colId]
+                    );
+                } else {
+                    await executeRun(
+                        dbOrClient,
+                        `UPDATE kv_fabric_colors 
+                         SET allowed_slips = $1, 
+                             updated_at = NOW() 
+                         WHERE id = $2`, 
+                        [remaining, colId]
+                    );
+                }
+                // Record the consumption
                 await executeRun(
                     dbOrClient,
-                    `UPDATE kv_fabric_colors 
-                     SET allowed_slips = $1, 
-                         is_active = CASE WHEN $1 <= 0 THEN false ELSE is_active END, 
-                         stop_import = CASE WHEN $1 <= 0 THEN false ELSE stop_import END,
-                         allowed_import_slips = CASE WHEN $1 <= 0 THEN NULL ELSE allowed_import_slips END,
-                         updated_at = NOW() 
-                     WHERE id = $2`, 
-                    [remaining, colId]
+                    `INSERT INTO kv_order_consumed_slips (order_id, color_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                    [orderId, colId]
                 );
             }
         } else if (existedBefore && !existsNow) {
-            // Color completely removed, refund 1 slot
-            const colorInfo = await executeGet(
+            // Color completely removed, check if it was consumed by this order
+            let wasConsumed = false;
+            const consumedChk = await executeGet(
                 dbOrClient,
-                `SELECT id, color_name, is_active, allowed_slips FROM kv_fabric_colors WHERE id = $1 FOR UPDATE`, 
-                [colId]
+                `SELECT 1 FROM kv_order_consumed_slips WHERE order_id = $1 AND color_id = $2`,
+                [orderId, colId]
             );
-            if (!colorInfo) continue;
+            if (consumedChk) {
+                wasConsumed = true;
+            }
             
-            if (colorInfo.allowed_slips !== null && colorInfo.allowed_slips !== undefined) {
-                const refunded = Number(colorInfo.allowed_slips) + 1;
+            if (wasConsumed) {
+                const colorInfo = await executeGet(
+                    dbOrClient,
+                    `SELECT id, color_name, is_active, allowed_slips, stop_import FROM kv_fabric_colors WHERE id = $1 FOR UPDATE`, 
+                    [colId]
+                );
+                if (!colorInfo) continue;
+                
+                if (colorInfo.allowed_slips === null) {
+                    if (colorInfo.is_active === true && colorInfo.stop_import === true) {
+                        await executeRun(
+                            dbOrClient,
+                            `UPDATE kv_fabric_colors 
+                             SET allowed_slips = 1, 
+                                 is_active = false, 
+                                 stop_import = false,
+                                 updated_at = NOW() 
+                             WHERE id = $1`,
+                            [colId]
+                        );
+                    }
+                } else {
+                    const refunded = Number(colorInfo.allowed_slips) + 1;
+                    await executeRun(
+                        dbOrClient,
+                        `UPDATE kv_fabric_colors 
+                         SET allowed_slips = $1, 
+                             is_active = CASE WHEN $1 > 0 THEN true ELSE is_active END, 
+                             updated_at = NOW() 
+                         WHERE id = $2`, 
+                        [refunded, colId]
+                    );
+                }
+                // Remove consumption record
                 await executeRun(
                     dbOrClient,
-                    `UPDATE kv_fabric_colors 
-                     SET allowed_slips = $1, 
-                         is_active = CASE WHEN $1 > 0 THEN true ELSE is_active END, 
-                         updated_at = NOW() 
-                     WHERE id = $2`, 
-                    [refunded, colId]
+                    `DELETE FROM kv_order_consumed_slips WHERE order_id = $1 AND color_id = $2`,
+                    [orderId, colId]
                 );
             }
         }
@@ -240,21 +322,55 @@ async function validateAndApplySlipsForUpdateOrder(dbOrClient, orderId, newItems
  * @param {number} orderId ID of the order being cancelled/deleted
  */
 async function refundSlipsForDeletedOrCancelledOrder(dbOrClient, orderId) {
-    let oldItems = [];
+    let rows = [];
     if (typeof dbOrClient.all === 'function') {
-        oldItems = await dbOrClient.all(
-            `SELECT id, color_id, material_pairs FROM dht_order_items WHERE dht_order_id = $1`, 
+        rows = await dbOrClient.all(
+            `SELECT color_id FROM kv_order_consumed_slips WHERE order_id = $1`,
             [orderId]
         );
     } else {
         const res = await dbOrClient.query(
-            `SELECT id, color_id, material_pairs FROM dht_order_items WHERE dht_order_id = $1`, 
+            `SELECT color_id FROM kv_order_consumed_slips WHERE order_id = $1`,
             [orderId]
         );
-        oldItems = res.rows || [];
+        rows = res.rows || [];
     }
     
-    await refundSlipsForItemsList(dbOrClient, oldItems);
+    for (const r of rows) {
+        const colId = r.color_id;
+        const colorInfo = await executeGet(
+            dbOrClient,
+            `SELECT id, color_name, is_active, allowed_slips, stop_import FROM kv_fabric_colors WHERE id = $1 FOR UPDATE`, 
+            [colId]
+        );
+        if (!colorInfo) continue;
+        
+        if (colorInfo.allowed_slips === null) {
+            if (colorInfo.is_active === true && colorInfo.stop_import === true) {
+                await executeRun(
+                    dbOrClient,
+                    `UPDATE kv_fabric_colors 
+                     SET allowed_slips = 1, 
+                         is_active = false, 
+                         stop_import = false,
+                         updated_at = NOW() 
+                     WHERE id = $1`,
+                    [colId]
+                );
+            }
+        } else {
+            const refunded = Number(colorInfo.allowed_slips) + 1;
+            await executeRun(
+                dbOrClient,
+                `UPDATE kv_fabric_colors 
+                 SET allowed_slips = $1, 
+                     is_active = CASE WHEN $1 > 0 THEN true ELSE is_active END, 
+                     updated_at = NOW() 
+                 WHERE id = $2`, 
+                [refunded, colId]
+            );
+        }
+    }
 }
 
 module.exports = {

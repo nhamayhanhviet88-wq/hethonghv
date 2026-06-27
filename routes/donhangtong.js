@@ -1792,11 +1792,12 @@ module.exports = async function(fastify) {
         }
 
         // Deduct allowed slips for restricted fabric colors in a client transaction
+        let consumedColorIds = [];
         const client = await db.getDB().connect();
         try {
             await client.query('BEGIN');
             const { validateAndApplySlipsForNewOrder } = require('../utils/kv_allowed_slips');
-            await validateAndApplySlipsForNewOrder(client, b.items);
+            consumedColorIds = await validateAndApplySlipsForNewOrder(client, b.items);
             const { validateAndApplyImportSlipsForNewOrder } = require('../utils/kv_allowed_imports');
             await validateAndApplyImportSlipsForNewOrder(client, b.items);
             await client.query('COMMIT');
@@ -1858,6 +1859,16 @@ module.exports = async function(fastify) {
             isRepairOrder ? b.repair_source_code : null,
             request.user.id
         ]);
+
+        // Record consumed slips for this order
+        if (consumedColorIds && consumedColorIds.length > 0) {
+            for (const colId of consumedColorIds) {
+                await db.run(
+                    'INSERT INTO kv_order_consumed_slips (order_id, color_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                    [result.id, colId]
+                );
+            }
+        }
 
         // Link deposit permanently
         if (b.deposit_payment_id) {
