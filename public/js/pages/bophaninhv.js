@@ -1798,9 +1798,12 @@ async function _bpiRenderFieldsModal() {
             var activeStyle = f.id === _bpSelFieldId 
                 ? 'background:#e0f2fe;color:#0369a1;border-color:#bae6fd;font-weight:700' 
                 : 'background:#f8fafc;color:#334155;border-color:#e2e8f0';
-            html += '<div onclick="_bpiSelectField(' + f.id + ')" style="padding:8px 12px;border:1px solid;border-radius:8px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s;' + activeStyle + '">';
-            html += '<span>🎨 ' + f.name + '</span>';
+            html += '<div id="_bpiFieldRow_' + f.id + '" onclick="_bpiSelectField(' + f.id + ')" style="padding:8px 12px;border:1px solid;border-radius:8px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s;' + activeStyle + '">';
+            html += '<span id="_bpiFieldNameVal_' + f.id + '">🎨 ' + f.name + '</span>';
+            html += '<div id="_bpiFieldActions_' + f.id + '" style="display:flex;gap:4px;align-items:center">';
+            html += '<button onclick="event.stopPropagation();_bpiFieldEdit(' + f.id + ')" style="padding:2px 6px;background:none;border:none;color:#0284c7;cursor:pointer;font-size:10px" title="Sửa">✏️</button>';
             html += '<button onclick="event.stopPropagation();_bpiFieldDel(' + f.id + ')" style="padding:2px 6px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px" title="Xóa">🗑️</button>';
+            html += '</div>';
             html += '</div>';
         });
     } else {
@@ -1834,6 +1837,40 @@ async function _bpiRenderFieldsModal() {
 function _bpiSelectField(id) {
     _bpSelFieldId = id;
     _bpiRenderFieldsModal();
+}
+
+async function _bpiFieldEdit(id) {
+    var f = _bpFields.find(function(x) { return x.id === id; });
+    if (!f) return;
+
+    var rowDiv = document.getElementById('_bpiFieldRow_' + id);
+    if (!rowDiv) return;
+
+    rowDiv.onclick = null; // Disable row click during edit
+
+    var nameSpan = document.getElementById('_bpiFieldNameVal_' + id);
+    var actionsDiv = document.getElementById('_bpiFieldActions_' + id);
+
+    if (nameSpan && actionsDiv) {
+        nameSpan.innerHTML = '<input id="_bpiFieldEditInput_' + id + '" value="' + f.name.replace(/"/g, '&quot;') + '" style="width:120px;padding:2px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700" onclick="event.stopPropagation()">';
+        actionsDiv.innerHTML = '<button onclick="event.stopPropagation();_bpiFieldSave(' + id + ')" style="padding:2px 6px;background:none;border:none;color:#16a34a;cursor:pointer;font-size:10px" title="Lưu">💾</button>' +
+                              '<button onclick="event.stopPropagation();_bpiRenderFieldsModal()" style="padding:2px 6px;background:none;border:none;color:#475569;cursor:pointer;font-size:10px" title="Hủy">❌</button>';
+    }
+}
+
+async function _bpiFieldSave(id) {
+    var inputEl = document.getElementById('_bpiFieldEditInput_' + id);
+    var name = inputEl ? inputEl.value.trim() : '';
+    if (!name) return showToast('Nhập tên lĩnh vực', 'error');
+
+    var f = _bpFields.find(function(x) { return x.id === id; });
+    var displayOrder = f ? (f.display_order || 0) : 0;
+
+    try {
+        await apiCall('/api/printing/fields/' + id, 'PUT', { name: name, display_order: displayOrder });
+        showToast('✅ Đã cập nhật Lĩnh Vực In');
+        _bpiManageFields();
+    } catch(e) { showToast(e.message, 'error'); }
 }
 
 async function _bpiFieldAdd() {
