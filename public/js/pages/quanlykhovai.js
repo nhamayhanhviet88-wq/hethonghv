@@ -1214,28 +1214,6 @@ async function _qkvOnAddLocation(e) {
     }
 }
 
-function _qkvShouldShowPrinting(name, pos) {
-    var n = (name || '').toLowerCase();
-    var p = (pos || '').toLowerCase();
-    return n.includes('in 3d') || n.includes('gia công') || n.includes('đối tác') || n.includes('thiện linh') || n.includes('long biên') || n.includes('hằng') || p.includes('đối tác') || p.includes('gia công') || p.includes('ngoài');
-}
-
-function _qkvOnEditFieldsChange() {
-    var nameEl = document.getElementById('qkvEditName');
-    var posEl = document.getElementById('qkvEditShelfPosition');
-    var wrapper = document.getElementById('qkvEditPrintingLinksWrapper');
-    if (nameEl && posEl && wrapper) {
-        var show = _qkvShouldShowPrinting(nameEl.value, posEl.value);
-        wrapper.style.display = show ? 'block' : 'none';
-        if (!show) {
-            var cSel = document.getElementById('qkvEditPrintingContractorId');
-            var uSel = document.getElementById('qkvEditUserId');
-            if (cSel) cSel.value = '';
-            if (uSel) uSel.value = '';
-        }
-    }
-}
-
 // 9. Edit Location modal
 function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId, shelfPosition, printingContractorId, userId) {
     var statusText = '';
@@ -1275,38 +1253,36 @@ function _qkvEditLocation(id, name, desc, isRestricted, restrictedMaterialId, sh
         `;
     }
 
+    var contractorHtml = '';
+    if (printingContractorId) {
+        var contractor = (_qkv.operators?.contractors || []).find(c => c.id === printingContractorId);
+        var contractorName = contractor ? contractor.name : 'Chưa xác định';
+        contractorHtml = `
+            <div class="form-group" style="margin-bottom:12px;">
+                <label class="form-label" style="font-weight:700;font-size:12px;color:var(--navy);">Liên kết Gia công in (Lĩnh vực 3D/Cắt)</label>
+                <input type="text" class="form-control" value="${escapeHTML(contractorName)}" disabled style="background:#f1f5f9; cursor:not-allowed;" />
+            </div>
+        `;
+    }
+
     openModal(
         '✏️ Sửa Vị Trí / Kệ',
         `
             <div class="form-group" style="margin-bottom:12px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Tên Vị Trí</label>
-                <input type="text" id="qkvEditName" class="form-control" value="${escapeHTML(name)}" oninput="_qkvOnEditFieldsChange()" required />
+                <input type="text" id="qkvEditName" class="form-control" value="${escapeHTML(name)}" required />
             </div>
             <div class="form-group" style="margin-bottom:12px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Vị Trí Kệ</label>
-                <input type="text" id="qkvEditShelfPosition" class="form-control" value="${escapeHTML(shelfPosition || '')}" oninput="_qkvOnEditFieldsChange()" />
+                <input type="text" id="qkvEditShelfPosition" class="form-control" value="${escapeHTML(shelfPosition || '')}" />
             </div>
             <div class="form-group" style="margin-bottom:12px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Mô tả / Ghi chú</label>
                 <input type="text" id="qkvEditDesc" class="form-control" value="${escapeHTML(desc)}" />
             </div>
             
-            <div id="qkvEditPrintingLinksWrapper" style="${_qkvShouldShowPrinting(name, shelfPosition) ? '' : 'display:none;'}">
-                <div class="form-group" style="margin-bottom:12px;">
-                    <label class="form-label" style="font-weight:700;font-size:12px;">Liên kết Gia công in (Lĩnh vực 3D/Cắt)</label>
-                    <select id="qkvEditPrintingContractorId" class="form-control" style="height:38px; padding:4px 12px; line-height:30px;">
-                        <option value="">-- Không liên kết --</option>
-                        ${(_qkv.operators?.contractors || []).map(c => `<option value="${c.id}" ${c.id === printingContractorId ? 'selected' : ''}>${escapeHTML(c.name)}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group" style="margin-bottom:12px;">
-                    <label class="form-label" style="font-weight:700;font-size:12px;">Liên kết Nhân sự in (Lĩnh vực 3D/Cắt)</label>
-                    <select id="qkvEditUserId" class="form-control" style="height:38px; padding:4px 12px; line-height:30px;">
-                        <option value="">-- Không liên kết --</option>
-                        ${(_qkv.operators?.users || []).map(u => `<option value="${u.id}" ${u.id === userId ? 'selected' : ''}>${escapeHTML(u.full_name)}</option>`).join('')}
-                    </select>
-                </div>
-            </div>
+            ${contractorHtml}
+
             <div class="form-group" style="margin-bottom:12px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Giới hạn chất liệu</label>
                 <select id="qkvEditIsRestricted" class="form-control" style="height:38px; padding:4px 12px; line-height:30px;">
@@ -1364,10 +1340,6 @@ async function _qkvSaveLocation(id) {
     var desc = document.getElementById('qkvEditDesc').value.trim();
     var isRestrictedEl = document.getElementById('qkvEditIsRestricted');
     var isRestricted = isRestrictedEl ? (isRestrictedEl.value === 'true') : false;
-    var printingContractorIdEl = document.getElementById('qkvEditPrintingContractorId');
-    var printingContractorId = printingContractorIdEl && printingContractorIdEl.value ? Number(printingContractorIdEl.value) : null;
-    var userIdEl = document.getElementById('qkvEditUserId');
-    var userId = userIdEl && userIdEl.value ? Number(userIdEl.value) : null;
     
     if (!name) {
         showToast('Tên vị trí không được để trống', 'error');
@@ -1379,9 +1351,7 @@ async function _qkvSaveLocation(id) {
             name: name,
             shelf_position: shelfPosition,
             description: desc,
-            is_restricted: isRestricted,
-            printing_contractor_id: printingContractorId,
-            user_id: userId
+            is_restricted: isRestricted
         });
         
         if (res.error) {
