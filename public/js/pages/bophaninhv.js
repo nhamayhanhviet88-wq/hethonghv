@@ -1655,6 +1655,7 @@ async function _bpiManageContractors() {
     try {
         var res = await apiCall('/api/printing/contractors');
         var cons = res.contractors || [];
+        window._bpiContractors = cons;
 
         var html = '<div style="padding:20px">';
         html += '<h3 style="margin:0 0 16px;color:#0f172a">🏭 Quản Lý Gia Công In</h3>';
@@ -1676,10 +1677,11 @@ async function _bpiManageContractors() {
             cons.forEach(function(c, i) {
                 html += '<tr style="border-bottom:1px solid #e2e8f0">';
                 html += '<td style="padding:8px;color:#94a3b8;font-weight:700">' + (i+1) + '</td>';
-                html += '<td style="padding:8px;font-weight:700;color:#1e293b">🏭 ' + c.name + '</td>';
-                html += '<td style="padding:8px;color:#6b7280">' + (c.phone || '—') + '</td>';
-                html += '<td style="padding:8px;color:#6b7280;max-width:120px;overflow:hidden;text-overflow:ellipsis">' + (c.notes || '—') + '</td>';
-                html += '<td style="padding:8px;text-align:center">';
+                html += '<td style="padding:8px;font-weight:700;color:#1e293b" id="_bpiConNameVal_' + c.id + '">🏭 ' + c.name + '</td>';
+                html += '<td style="padding:8px;color:#6b7280" id="_bpiConPhoneVal_' + c.id + '">' + (c.phone || '—') + '</td>';
+                html += '<td style="padding:8px;color:#6b7280;max-width:120px;overflow:hidden;text-overflow:ellipsis" id="_bpiConNotesVal_' + c.id + '">' + (c.notes || '—') + '</td>';
+                html += '<td style="padding:8px;text-align:center" id="_bpiConActions_' + c.id + '">';
+                html += '<button onclick="_bpiConEdit(' + c.id + ')" style="padding:4px 10px;border:1px solid #bae6fd;border-radius:6px;font-size:10px;cursor:pointer;background:#f0f9ff;color:#0284c7;font-weight:600;margin-right:6px">✏️ Sửa</button>';
                 html += '<button onclick="_bpiConDel(' + c.id + ')" style="padding:4px 10px;border:1px solid #fca5a5;border-radius:6px;font-size:10px;cursor:pointer;background:#fef2f2;color:#dc2626;font-weight:600">🗑️ Xóa</button>';
                 html += '</td></tr>';
             });
@@ -1699,6 +1701,44 @@ async function _bpiManageContractors() {
         document.body.appendChild(ov);
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
+
+async function _bpiConEdit(id) {
+    var c = (window._bpiContractors || []).find(function(x) { return x.id === id; });
+    if (!c) return;
+
+    var nameTd = document.getElementById('_bpiConNameVal_' + id);
+    var phoneTd = document.getElementById('_bpiConPhoneVal_' + id);
+    var notesTd = document.getElementById('_bpiConNotesVal_' + id);
+    var actionsTd = document.getElementById('_bpiConActions_' + id);
+
+    if (nameTd && phoneTd && notesTd && actionsTd) {
+        nameTd.innerHTML = '<input id="_bpiConEditName_' + id + '" value="' + c.name.replace(/"/g, '&quot;') + '" style="width:100%;padding:4px 8px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px">';
+        phoneTd.innerHTML = '<input id="_bpiConEditPhone_' + id + '" value="' + (c.phone || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:4px 8px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px">';
+        notesTd.innerHTML = '<input id="_bpiConEditNotes_' + id + '" value="' + (c.notes || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:4px 8px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px">';
+        
+        actionsTd.innerHTML = '<button onclick="_bpiConSave(' + id + ')" style="padding:4px 10px;border:1px solid #86efac;border-radius:6px;font-size:10px;cursor:pointer;background:#f0fdf4;color:#16a34a;font-weight:600;margin-right:6px">💾 Lưu</button>' +
+                             '<button onclick="_bpiManageContractors()" style="padding:4px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;cursor:pointer;background:#f8fafc;color:#475569;font-weight:600">❌ Hủy</button>';
+    }
+}
+
+async function _bpiConSave(id) {
+    var nameInput = document.getElementById('_bpiConEditName_' + id);
+    var phoneInput = document.getElementById('_bpiConEditPhone_' + id);
+    var notesInput = document.getElementById('_bpiConEditNotes_' + id);
+
+    var name = nameInput ? nameInput.value.trim() : '';
+    var phone = phoneInput ? phoneInput.value.trim() : '';
+    var notes = notesInput ? notesInput.value.trim() : '';
+
+    if (!name) return showToast('Nhập tên gia công', 'error');
+
+    try {
+        await apiCall('/api/printing/contractors/' + id, 'PUT', { name: name, phone: phone, notes: notes });
+        showToast('✅ Đã cập nhật Gia Công In');
+        _bpiManageContractors();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
 
 async function _bpiConAdd() {
     var name = (document.getElementById('_bpiConName') || {}).value || '';
