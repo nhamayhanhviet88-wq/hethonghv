@@ -556,10 +556,18 @@ function _tsRenderStepModal(step, d){
                     let statusColor = '';
                     let statusBg = '';
                     
-                    if (item.has_cutter_claimed) {
-                        statusLabel = 'Đã nhận cắt';
+                    if (item.is_cut_done) {
+                        statusLabel = 'Đã cắt xong';
                         statusColor = '#166534';
                         statusBg = '#dcfce7';
+                    } else if (item.cut_done_count > 0) {
+                        statusLabel = `Đang cắt (${item.cut_done_count}/${item.cut_total_count})`;
+                        statusColor = '#854d0e';
+                        statusBg = '#fef9c3';
+                    } else if (item.has_cutter_claimed) {
+                        statusLabel = 'Đang cắt / Đã nhận';
+                        statusColor = '#1e3a8a';
+                        statusBg = '#dbeafe';
                     } else if (item.fabric_arrived && item.has_print_assignment) {
                         statusLabel = 'Chờ thợ nhận';
                         statusColor = '#1e40af';
@@ -587,9 +595,15 @@ function _tsRenderStepModal(step, d){
 
                     let detailMsg = '';
                     let detailColor = '';
-                    if (item.has_cutter_claimed) {
-                        detailMsg = 'Đơn đã được thợ cắt nhận và đang xử lý.';
+                    if (item.is_cut_done) {
+                        detailMsg = 'Đã cắt xong toàn bộ phối.';
                         detailColor = '#166534';
+                    } else if (item.cut_done_count > 0) {
+                        detailMsg = `Đã cắt xong ${item.cut_done_count}/${item.cut_total_count} phối.`;
+                        detailColor = '#854d0e';
+                    } else if (item.has_cutter_claimed) {
+                        detailMsg = 'Đơn đã được thợ cắt nhận và đang xử lý.';
+                        detailColor = '#1e40af';
                     } else if (item.fabric_arrived && item.has_print_assignment) {
                         detailMsg = 'Đã đủ điều kiện. Đang chờ thợ cắt nhận đơn.';
                         detailColor = '#1e40af';
@@ -626,23 +640,41 @@ function _tsRenderStepModal(step, d){
             sortedRecords.forEach((r,i)=>{
                 const title = `📋 ${r.product_name || r.item_description || 'Sản phẩm'}`;
                 body+=`<div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,.04)">`;
-            body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#166534;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_cut_done?'#d1fae5':'#fef3c7'};color:${r.is_cut_done?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_cut_done?'✅ Đã cắt xong':'⏳ Đang cắt'}</span></div>`;
-            body+=`<div style="padding:14px 16px">`;
-            body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-                <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.created_at)}</div></div>
-                <div style="background:${r.is_cut_done?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.is_cut_done?'#16a34a':'#f59e0b'};font-weight:700">✂️ HOÀN THÀNH CẮT</div><div style="font-weight:800;color:${r.is_cut_done?'#166534':'#92400e'}">${r.is_cut_done?fmtShortDT(r.cut_done_at):'⏳ Đang cắt'}</div></div>
-            </div>`;
-            body+=row('🧵 Chất liệu',V(r.material_name),'#7c3aed');
-            body+=row('🎨 Màu',V(r.fabric_color),'#1e293b');
-            body+=row('👤 Nhân Viên Cắt',V(r.cutter_name),'#059669');
-            body+=row('📊 SL Đơn',(r.order_quantity||0)+' sp');
-            if(r.rolls&&r.rolls.length){
-                body+=section('🧶','CÂY VẢI ĐÃ CHỌN ('+r.rolls.length+')');
-                r.rolls.forEach(rl=>{ body+=`<div style="padding:6px 12px;background:#f8fafc;border-radius:8px;margin:4px 0;font-size:12px;font-weight:600">${rl.material_name} - ${rl.color} - ${rl.kg}kg</div>`; });
+                body+=`<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0"><span style="font-weight:800;color:#166534;font-size:13px">${title}</span><span style="padding:3px 10px;border-radius:6px;background:${r.is_cut_done?'#d1fae5':'#fef3c7'};color:${r.is_cut_done?'#065f46':'#92400e'};font-size:11px;font-weight:800">${r.is_cut_done?'✅ Đã cắt xong':'⏳ Đang cắt'}</span></div>`;
+                body+=`<div style="padding:14px 16px">`;
+                body+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                    <div style="background:#eff6ff;border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:#3b82f6;font-weight:700">📅 NGÀY BÀN GIAO</div><div style="font-weight:800;color:#1e40af">${fmtShortDT(r.created_at)}</div></div>
+                    <div style="background:${r.is_cut_done?'#dcfce7':'#fef3c7'};border-radius:8px;padding:8px 14px;flex:1"><div style="font-size:10px;color:${r.is_cut_done?'#16a34a':'#f59e0b'};font-weight:700">✂️ HOÀN THÀNH CẮT</div><div style="font-weight:800;color:${r.is_cut_done?'#166534':'#92400e'}">${r.is_cut_done?fmtShortDT(r.cut_done_at):'⏳ Đang cắt'}</div></div>
+                </div>`;
+                body+=row('🧵 Chất liệu',V(r.material_name),'#7c3aed');
+                body+=row('🎨 Màu',V(r.fabric_color),'#1e293b');
+                body+=row('👤 Nhân Viên Cắt',V(r.cutter_name),'#059669');
+                body+=row('📊 SL Đơn',(r.order_quantity||0)+' sp');
+                if(r.rolls&&r.rolls.length){
+                    body+=section('🧶','CÂY VẢI ĐÃ CHỌN ('+r.rolls.length+')');
+                    r.rolls.forEach(rl=>{ body+=`<div style="padding:6px 12px;background:#f8fafc;border-radius:8px;margin:4px 0;font-size:12px;font-weight:600">${rl.material_name} - ${rl.color} - ${rl.kg}kg</div>`; });
+                }
+                body+=`<div id="_tsCatRemindersContainer_${r.id}" style="display:none;margin-top:12px"></div>`;
+                body+=`</div></div>`;
+            });
+            if (itemId && d.items_status) {
+                const currentItemStatus = d.items_status.find(item => item.item_id === itemId);
+                if (currentItemStatus && !currentItemStatus.is_cut_done) {
+                    body += `<div style="background:#fffbeb;border:1.5px solid #fef3c7;padding:12px 16px;border-radius:12px;color:#b45309;font-size:12px;font-weight:700;line-height:1.5;box-shadow:0 2px 6px rgba(0,0,0,0.02)">`;
+                    body += `  ⏳ Phiếu này mới cắt xong <b>${currentItemStatus.cut_done_count}/${currentItemStatus.cut_total_count} phối</b>.<br>`;
+                    const missing = [];
+                    if (!currentItemStatus.fabric_arrived) missing.push('vải chưa về kho');
+                    if (!currentItemStatus.has_print_assignment) missing.push('chưa phân công in');
+                    if (missing.length > 0) {
+                        body += `  ⚠️ Các phối còn lại chưa thể cắt do: <b>${missing.join(' & ')}</b>.`;
+                    } else {
+                        body += `  👉 Các phối còn lại đã sẵn sàng, đang chờ thợ nhận cắt.`;
+                    }
+                    body += `</div>`;
+                }
             }
-            body+=`<div id="_tsCatRemindersContainer_${r.id}" style="display:none;margin-top:12px"></div>`;
-            body+=`</div></div>`;
-        }); body+=`</div>`; }
+            body+=`</div>`;
+        }
     }
     else if(step==='in'){
         html = hdr('🖨️','BÁO CÁO IN',d.order_code,'#7c3aed,#6d28d9');

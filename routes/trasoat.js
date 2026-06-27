@@ -779,7 +779,7 @@ module.exports = async function(fastify) {
 
             // Get preparation and assignment status for all items in the order
             const items = await db.all(`
-                SELECT id, description, quantity FROM dht_order_items 
+                SELECT id, description, quantity, material_pairs FROM dht_order_items 
                 WHERE dht_order_id = $1 
                   AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
                   AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
@@ -788,9 +788,23 @@ module.exports = async function(fastify) {
                 ORDER BY id
             `, [orderId]);
 
+            const allOrderRecords = await db.all(`
+                SELECT id, order_item_id, phoi_index, is_cut_done 
+                FROM cutting_records 
+                WHERE dht_order_id = $1
+            `, [orderId]);
+
             const itemsStatus = [];
             for (const item of items) {
-                const hasCuttingRecord = records.some(r => r.order_item_id === item.id);
+                const itemRecords = allOrderRecords.filter(r => r.order_item_id === item.id);
+                const hasCuttingRecord = itemRecords.length > 0;
+                const doneCount = itemRecords.filter(r => r.is_cut_done).length;
+
+                let pairs = [];
+                try {
+                    pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []);
+                } catch(e) {}
+                const totalPhoi = pairs.length > 0 ? pairs.length : 1;
 
                 const prep = await db.get(`
                     SELECT fabric_arrived FROM qlx_preparation
@@ -814,7 +828,10 @@ module.exports = async function(fastify) {
                     quantity: item.quantity,
                     fabric_arrived: fabricArrived,
                     has_print_assignment: hasPrintAssignment,
-                    has_cutter_claimed: hasCuttingRecord
+                    has_cutter_claimed: hasCuttingRecord,
+                    cut_done_count: doneCount,
+                    cut_total_count: totalPhoi,
+                    is_cut_done: doneCount >= totalPhoi
                 });
             }
 
@@ -834,7 +851,8 @@ module.exports = async function(fastify) {
                 `, [orderId]);
                 const hasPrintAssignment = !!assignment;
 
-                const hasCuttingRecord = records.length > 0;
+                const hasCuttingRecord = allOrderRecords.length > 0;
+                const doneCount = allOrderRecords.filter(r => r.is_cut_done).length;
 
                 itemsStatus.push({
                     item_id: null,
@@ -842,7 +860,10 @@ module.exports = async function(fastify) {
                     quantity: order.total_quantity || 0,
                     fabric_arrived: fabricArrived,
                     has_print_assignment: hasPrintAssignment,
-                    has_cutter_claimed: hasCuttingRecord
+                    has_cutter_claimed: hasCuttingRecord,
+                    cut_done_count: doneCount,
+                    cut_total_count: 1,
+                    is_cut_done: doneCount >= 1
                 });
             }
 

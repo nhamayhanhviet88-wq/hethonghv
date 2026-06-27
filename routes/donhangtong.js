@@ -3827,15 +3827,41 @@ module.exports = async function(fastify) {
                     ]);
 
                     // Sync updated product name, material name, and color display to related cutting/sewing records
-                    const colorDisplay = (item.material_pairs || []).map(p => p.color_name).join('+') || item.color_name || '';
-                    const matDisplay = (item.material_pairs || []).map(p => p.material_name).join('+') || item.material_name || '';
-                    const prodName = item.product_name || '';
+                    const ordRow = await db.get('SELECT order_code FROM dht_orders WHERE id = $1', [orderId]);
+                    const orderCode = ordRow ? ordRow.order_code : '';
+                    const allItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
+                    const itemIdx = allItems.findIndex(x => x.id === itemId) + 1;
+                    const crs = await db.all('SELECT id, phoi_index FROM cutting_records WHERE order_item_id = $1', [itemId]);
+                    let pairs = [];
+                    try {
+                        pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []);
+                    } catch(e) {}
+                    const totalPhoi = pairs.length;
 
-                    await db.run(`
-                        UPDATE cutting_records
-                        SET product_name = $1, material_name = $2, fabric_color = $3
-                        WHERE order_item_id = $4
-                    `, [prodName, matDisplay, colorDisplay, itemId]);
+                    for (const cr of crs) {
+                        let matName = item.material_name || '';
+                        let fabColor = item.color_name || '';
+                        let pIdx = cr.phoi_index || 0;
+                        if (totalPhoi > 0) {
+                            const pair = pairs[pIdx] || pairs[0];
+                            if (pair) {
+                                matName = pair.material_name || '';
+                                fabColor = pair.color_name || '';
+                            }
+                        }
+                        let cProdName = '';
+                        if (totalPhoi > 1) {
+                            cProdName = orderCode + ' — Phiếu ' + itemIdx + ' — P' + (pIdx + 1) + (item.product_name ? ' — ' + item.product_name : '');
+                        } else {
+                            cProdName = orderCode + (item.product_name ? ' — ' + item.product_name : '');
+                        }
+
+                        await db.run(`
+                            UPDATE cutting_records
+                            SET product_name = $1, material_name = $2, fabric_color = $3
+                            WHERE id = $4
+                        `, [cProdName, matName, fabColor, cr.id]);
+                    }
 
                     await db.run(`
                         UPDATE sewing_records
@@ -4504,13 +4530,13 @@ module.exports = async function(fastify) {
 
                 // Update in cascade tables
                 await db.run('UPDATE dht_order_items SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
-                await db.run('UPDATE cutting_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
-                await db.run('UPDATE printing_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
-                await db.run('UPDATE sewing_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
-                await db.run('UPDATE pressing_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
-                await db.run('UPDATE finishing_records SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
-                await db.run('UPDATE kv_cut_orders SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
-                await db.run('UPDATE don_gui_ao_mau SET product_name = $1 WHERE product_name = $2', [newName, oldProd.name]);
+                await db.run("UPDATE cutting_records SET product_name = REPLACE(product_name, $2, $1) WHERE product_name = $2 OR product_name LIKE '%' || $2 || '%'", [newName, oldProd.name]);
+                await db.run("UPDATE printing_records SET product_name = REPLACE(product_name, $2, $1) WHERE product_name = $2 OR product_name LIKE '%' || $2 || '%'", [newName, oldProd.name]);
+                await db.run("UPDATE sewing_records SET product_name = REPLACE(product_name, $2, $1) WHERE product_name = $2 OR product_name LIKE '%' || $2 || '%'", [newName, oldProd.name]);
+                await db.run("UPDATE pressing_records SET product_name = REPLACE(product_name, $2, $1) WHERE product_name = $2 OR product_name LIKE '%' || $2 || '%'", [newName, oldProd.name]);
+                await db.run("UPDATE finishing_records SET product_name = REPLACE(product_name, $2, $1) WHERE product_name = $2 OR product_name LIKE '%' || $2 || '%'", [newName, oldProd.name]);
+                await db.run("UPDATE kv_cut_orders SET product_name = REPLACE(product_name, $2, $1) WHERE product_name = $2 OR product_name LIKE '%' || $2 || '%'", [newName, oldProd.name]);
+                await db.run("UPDATE don_gui_ao_mau SET product_name = REPLACE(product_name, $2, $1) WHERE product_name = $2 OR product_name LIKE '%' || $2 || '%'", [newName, oldProd.name]);
             }
         }
 
