@@ -1913,7 +1913,7 @@ async function _bpiLoadFieldOperators(fieldId) {
         
         var selectedField = _bpFields.find(function(f) { return f.id === fieldId; });
         var fieldName = selectedField ? selectedField.name : '';
-        var is3DField = fieldName.toLowerCase().includes('3d') || fieldName.toLowerCase().includes('cắt');
+        var is3DField = (fieldName.toLowerCase().includes('3d') || fieldName.toLowerCase().includes('cắt')) && !fieldName.toLowerCase().includes('hv');
         
         var h = '<div style="font-weight:800;font-size:12px;color:#475569;margin-bottom:12px">CẤU HÌNH NHÂN SỰ CHO: <span style="color:#0ea5e9">' + fieldName + '</span></div>';
         
