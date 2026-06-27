@@ -254,6 +254,9 @@ module.exports = async function (fastify) {
             updates.push(`stop_import = $${idx++}`); params.push(!!stop_import);
             if (stop_import) {
                 updates.push(`allowed_import_slips = $${idx++}`); params.push(null);
+                // Rule B: if stopped import (stop_import = true), it cannot be hidden for sales (is_active = true, allowed_slips = null)
+                updates.push(`is_active = $${idx++}`); params.push(true);
+                updates.push(`allowed_slips = $${idx++}`); params.push(null);
             } else {
                 let parsedImportSlips = null;
                 if (allowed_import_slips !== undefined && allowed_import_slips !== null) {
@@ -1292,7 +1295,6 @@ module.exports = async function (fastify) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền ẩn/bán màu vải!' });
         }
         const { is_active, allowed_slips } = request.body || {};
-        let parsedSlips = null;
         if (is_active) {
             if (allowed_slips !== undefined && allowed_slips !== null) {
                 const val = parseInt(allowed_slips, 10);
@@ -1300,8 +1302,14 @@ module.exports = async function (fastify) {
                     parsedSlips = val;
                 }
             }
+            await db.run('UPDATE kv_fabric_colors SET is_active = true, allowed_slips = $1, updated_at = NOW() WHERE id = $2', [parsedSlips, request.params.id]);
+        } else {
+            // Rule A: if hidden for sales (is_active = false), it cannot be stopped import (stop_import = false, allowed_import_slips = null)
+            await db.run(
+                'UPDATE kv_fabric_colors SET is_active = false, allowed_slips = NULL, stop_import = false, allowed_import_slips = NULL, updated_at = NOW() WHERE id = $1',
+                [request.params.id]
+            );
         }
-        await db.run('UPDATE kv_fabric_colors SET is_active = $1, allowed_slips = $2, updated_at = NOW() WHERE id = $3', [!!is_active, parsedSlips, request.params.id]);
         return { success: true };
     });
 

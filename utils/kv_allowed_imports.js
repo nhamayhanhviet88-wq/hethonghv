@@ -100,6 +100,8 @@ async function validateAndApplyImportSlipsForNewOrder(dbOrClient, items) {
                 `UPDATE kv_fabric_colors 
                  SET allowed_import_slips = $1, 
                      stop_import = CASE WHEN $1 <= 0 THEN true ELSE stop_import END, 
+                     is_active = CASE WHEN $1 <= 0 THEN true ELSE is_active END,
+                     allowed_slips = CASE WHEN $1 <= 0 THEN NULL ELSE allowed_slips END,
                      updated_at = NOW() 
                  WHERE id = $2`, 
                 [remaining, colId]
@@ -217,6 +219,8 @@ async function validateAndApplyImportSlipsForUpdateOrder(dbOrClient, orderId, ne
                     `UPDATE kv_fabric_colors 
                      SET allowed_import_slips = $1, 
                          stop_import = CASE WHEN $1 <= 0 THEN true ELSE stop_import END, 
+                         is_active = CASE WHEN $1 <= 0 THEN true ELSE is_active END,
+                         allowed_slips = CASE WHEN $1 <= 0 THEN NULL ELSE allowed_slips END,
                          updated_at = NOW() 
                      WHERE id = $2`, 
                     [remaining, colId]
