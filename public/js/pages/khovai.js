@@ -428,6 +428,8 @@ function _kvRenderTable() {
         h += '<div style="display:inline-block;vertical-align:middle">';
         h += '<div><span>' + (r.color_name||'') + '</span><span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></div>';
         h += stopBadgeHtml;
+        h += slipsBadgeHtml;
+        h += importSlipsBadgeHtml;
         h += '</div>';
         h += '</td>';
         h += '<td>' + (r.material_name||'') + '</td>';
@@ -443,7 +445,7 @@ function _kvRenderTable() {
         if (isDirector) {
             if (r.is_active !== false) {
                 if (r.allowed_slips !== null && r.allowed_slips !== undefined) {
-                    h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#f43f5e;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hủy giới hạn và dừng bán ngay">🔴 Dừng Bán (Còn ' + r.allowed_slips + ' đơn)</button>';
+                    h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#64748b;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hủy giới hạn và dừng bán ngay">🔴 Dừng Bán</button>';
                 } else {
                     h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#10b981;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để dừng bán">🟢 Bán</button>';
                 }
