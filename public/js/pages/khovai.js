@@ -411,6 +411,13 @@ function _kvRenderTable() {
             stopBadgeHtml = '<div style="margin-top:2px"><span style="background:#fee2e2;color:#ef4444;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #fca5a5;font-weight:800;white-space:nowrap;display:inline-block" title="Dừng nhập màu này">🛑 Dừng nhập</span></div>';
         }
 
+        var heldOrdersHtml = '';
+        if (r.held_orders && r.held_orders.length) {
+            r.held_orders.forEach(function(ho) {
+                heldOrdersHtml += '<div style="font-size:11px;color:#b45309;margin-top:2px;font-weight:600;white-space:nowrap">' + ho.display_text + '</div>';
+            });
+        }
+
         var slipsBadgeHtml = '';
         if (r.allowed_slips !== null && r.allowed_slips !== undefined) {
             if (r.color_stop_import) {
@@ -431,6 +438,7 @@ function _kvRenderTable() {
         h += '<td style="font-weight:700;color:#0d9488;text-decoration:underline;white-space:nowrap">';
         h += '<div style="display:inline-block;vertical-align:middle">';
         h += '<div><span>' + (r.color_name||'') + '</span><span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></div>';
+        h += heldOrdersHtml;
         h += stopBadgeHtml;
         h += slipsBadgeHtml;
         h += importSlipsBadgeHtml;

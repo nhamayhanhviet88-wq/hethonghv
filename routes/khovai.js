@@ -1213,6 +1213,43 @@ module.exports = async function (fastify) {
 
         const rows = await db.all(sql, params);
 
+        // Fetch active uncut order items
+        const otherItems = await db.all(`
+            SELECT oi.id, oi.dht_order_id, oi.quantity, oi.product_name, oi.material_id, oi.color_id, oi.material_pairs,
+                   o.order_code,
+                   cc.name AS cutting_category_name
+            FROM dht_order_items oi
+            JOIN dht_orders o ON o.id = oi.dht_order_id
+            LEFT JOIN cutting_records cr ON cr.order_item_id = oi.id
+            LEFT JOIN order_codes oc ON oc.order_code = o.order_code
+            LEFT JOIN customers cust ON cust.id = o.customer_id
+            LEFT JOIN dht_products p ON p.name = oi.product_name AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+            WHERE (cr.id IS NULL OR cr.is_cut_done = false)
+              AND (oc.id IS NULL OR oc.status <> 'cancelled')
+              AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+        `);
+
+        // Fetch target ratios
+        const ratioRows = await db.all(`
+            SELECT material_id, cutting_category, target_ratio
+            FROM kv_material_cutting_targets
+        `);
+        const ratioMap = {};
+        for (const row of ratioRows) {
+            const cat = (row.cutting_category || '').trim();
+            ratioMap[row.material_id + '_' + cat] = Number(row.target_ratio) || 0;
+        }
+
+        // Fetch consumed slips
+        const slipRows = await db.all(`
+            SELECT order_id, color_id FROM kv_order_consumed_slips
+        `);
+        const slipSet = new Set();
+        for (const row of slipRows) {
+            slipSet.add(row.order_id + '_' + row.color_id);
+        }
+
         rows.forEach(r => {
             r.cuoi_ky = Number(r.cuoi_ky); // Roll-based: SUM(roll weights)
             r.label = r.material_name + ' - ' + r.color_name;
@@ -1228,6 +1265,68 @@ module.exports = async function (fastify) {
                 try { r.pending_calls = JSON.parse(r.pending_calls); } catch(e) { r.pending_calls = []; }
             }
             if (!Array.isArray(r.pending_calls)) r.pending_calls = [];
+
+            // Calculate held orders if stopped from importing
+            r.held_orders = [];
+            if (r.color_stop_import || r.material_stop_import) {
+                const orderGroups = {};
+                for (const oi of otherItems) {
+                    let matches = false;
+                    if (Number(oi.color_id) === Number(r.id)) {
+                        matches = true;
+                    } else if (oi.material_pairs) {
+                        let pairs = [];
+                        try {
+                            pairs = typeof oi.material_pairs === 'string' ? JSON.parse(oi.material_pairs) : oi.material_pairs;
+                        } catch (e) {}
+                        if (Array.isArray(pairs) && pairs.some(p => Number(p.color_id) === Number(r.id))) {
+                            matches = true;
+                        }
+                    }
+
+                    if (!matches) continue;
+
+                    // Skip if a slip has been consumed for this order and color
+                    if (slipSet.has(oi.dht_order_id + '_' + r.id)) {
+                        continue;
+                    }
+
+                    const oiMatId = Number(oi.material_id);
+                    const oiCutCat = (oi.cutting_category_name || '').trim();
+                    const ratio = ratioMap[oiMatId + '_' + oiCutCat] || 0;
+
+                    const orderCode = oi.order_code || `Đơn #${oi.dht_order_id}`;
+                    if (!orderGroups[orderCode]) {
+                        orderGroups[orderCode] = { qty: 0, weight: 0, hasRatio: false };
+                    }
+
+                    const itemQty = Number(oi.quantity) || 0;
+                    orderGroups[orderCode].qty += itemQty;
+                    if (ratio > 0) {
+                        orderGroups[orderCode].weight += itemQty / ratio;
+                        orderGroups[orderCode].hasRatio = true;
+                    }
+                }
+
+                for (const code in orderGroups) {
+                    const grp = orderGroups[code];
+                    let displayText = '';
+                    if (grp.hasRatio && grp.weight > 0) {
+                        displayText = `${code} giữ ${parseFloat(grp.weight.toFixed(2))} ${r.unit}`;
+                    } else {
+                        displayText = `${code} giữ ${grp.qty} sp (chưa cấu hình tỉ lệ)`;
+                    }
+                    r.held_orders.push({
+                        order_code: code,
+                        qty: grp.qty,
+                        weight: grp.weight,
+                        has_ratio: grp.hasRatio,
+                        display_text: displayText
+                    });
+                }
+
+                r.held_orders.sort((a, b) => a.order_code.localeCompare(b.order_code));
+            }
         });
 
         return { summary: rows };
