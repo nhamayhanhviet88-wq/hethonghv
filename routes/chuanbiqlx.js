@@ -1919,51 +1919,59 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
             }
 
-            // Kiểm tra kệ vải khi phân công cho In 3D Thiện Linh
-            const allContractors = await db.all(`SELECT id, name FROM printing_contractors`);
-            const conMap = {};
-            allContractors.forEach(c => { conMap[c.id] = c.name; });
+            // Kiểm tra kệ vải động cho bất kỳ nhân sự/gia công nào có liên kết với Kệ trong kho
+            for (const assign of assignments) {
+                const opType = assign.operator_type;
+                const opId = Number(assign.operator_id);
 
-            const thienLinhAssigned = assignments.some(assign => {
-                if (assign.operator_type === 'contractor') {
-                    const conName = (conMap[assign.operator_id] || '').toLowerCase().trim();
-                    return conName.includes('thiện linh') || conName.includes('thien linh');
-                }
-                return false;
-            });
+                const linkedLoc = await db.get(`
+                    SELECT id, name FROM kv_locations 
+                    WHERE (printing_contractor_id = $1 AND $2 = 'contractor')
+                       OR (user_id = $1 AND $2 = 'user')
+                `, [opId, opType]);
 
-            if (thienLinhAssigned) {
-                let reservedRolls;
-                if (itemId) {
-                    reservedRolls = await db.all(`
-                        SELECT r.roll_id, roll.roll_code, roll.location, roll.weight
-                        FROM qlx_fabric_reservations r
-                        JOIN kv_rolls roll ON r.roll_id = roll.id
-                        WHERE r.item_id = $1 
-                          AND r.status IN ('reserved', 'arrived')
-                          AND roll.weight > 0
-                    `, [itemId]);
-                } else {
-                    reservedRolls = await db.all(`
-                        SELECT r.roll_id, roll.roll_code, roll.location, roll.weight
-                        FROM qlx_fabric_reservations r
-                        JOIN kv_rolls roll ON r.roll_id = roll.id
-                        WHERE r.dht_order_id = $1 
-                          AND r.status IN ('reserved', 'arrived')
-                          AND roll.weight > 0
-                    `, [orderId]);
-                }
+                if (linkedLoc) {
+                    let reservedRolls;
+                    if (itemId) {
+                        reservedRolls = await db.all(`
+                            SELECT r.roll_id, roll.roll_code, roll.location, roll.weight
+                            FROM qlx_fabric_reservations r
+                            JOIN kv_rolls roll ON r.roll_id = roll.id
+                            WHERE r.item_id = $1 
+                              AND r.status IN ('reserved', 'arrived')
+                              AND roll.weight > 0
+                        `, [itemId]);
+                    } else {
+                        reservedRolls = await db.all(`
+                            SELECT r.roll_id, roll.roll_code, roll.location, roll.weight
+                            FROM qlx_fabric_reservations r
+                            JOIN kv_rolls roll ON r.roll_id = roll.id
+                            WHERE r.dht_order_id = $1 
+                              AND r.status IN ('reserved', 'arrived')
+                              AND roll.weight > 0
+                        `, [orderId]);
+                    }
 
-                const invalidRolls = reservedRolls.filter(r => {
-                    const loc = (r.location || '').toLowerCase().replace(/^📍\s*/, '').trim();
-                    return loc !== 'kệ 3d thiện linh';
-                });
-
-                if (invalidRolls.length > 0) {
-                    const listRolls = invalidRolls.map(r => `${r.roll_code} (${r.weight}kg - hiện ở: ${r.location || 'Chưa xếp kệ'})`).join(', ');
-                    return reply.code(400).send({ 
-                        error: `Không thể lưu phân công cho In 3D Thiện Linh! Cần chuyển các cây vải đã đánh dấu sau sang "Kệ 3D Thiện Linh" trước: ${listRolls}` 
+                    const targetLocName = linkedLoc.name.toLowerCase().trim();
+                    const invalidRolls = reservedRolls.filter(r => {
+                        const loc = (r.location || '').toLowerCase().replace(/^📍\s*/, '').trim();
+                        return loc !== targetLocName;
                     });
+
+                    if (invalidRolls.length > 0) {
+                        let opName = '';
+                        if (opType === 'contractor') {
+                            const con = await db.get(`SELECT name FROM printing_contractors WHERE id = $1`, [opId]);
+                            opName = con ? con.name : 'Nhà gia công';
+                        } else {
+                            const u = await db.get(`SELECT full_name FROM users WHERE id = $1`, [opId]);
+                            opName = u ? u.full_name : 'Nhân viên';
+                        }
+                        const listRolls = invalidRolls.map(r => `${r.roll_code} (${r.weight}kg - hiện ở: ${r.location || 'Chưa xếp kệ'})`).join(', ');
+                        return reply.code(400).send({ 
+                            error: `Không thể lưu phân công cho ${opName}! Cần chuyển các cây vải đã đánh dấu sang "${linkedLoc.name}" trước: ${listRolls}` 
+                        });
+                    }
                 }
             }
             if (!['yes', 'none'].includes(print_remind_choice)) {

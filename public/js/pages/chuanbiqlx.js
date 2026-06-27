@@ -1890,7 +1890,10 @@ async function _qlxAssign(orderId, type, itemId) {
 async function _qlxDoAssign(orderId, type, itemId) {
     var userId = document.getElementById('_qlxAssignUser') ? document.getElementById('_qlxAssignUser').value : null;
     try {
-        await apiCall('/api/qlx/assign/' + orderId, 'POST', { type: type, user_id: userId || null, item_id: itemId || null });
+        var res = await apiCall('/api/qlx/assign/' + orderId, 'POST', { type: type, user_id: userId || null, item_id: itemId || null });
+        if (res && res.error) {
+            return showToast(res.error, 'error');
+        }
         closeModal(); showToast('✅ Đã phân công'); await _qlxLoadAll();
     } catch(e) { showToast(e.message, 'error'); }
 }
@@ -2336,7 +2339,7 @@ async function _qlxPASave() {
     window._qlxPABusy = true;
     try {
         var d = window._qlxPAData;
-        await apiCall('/api/qlx/print-assignment/' + d.orderId, 'POST', { 
+        var res = await apiCall('/api/qlx/print-assignment/' + d.orderId, 'POST', { 
             assignments: assignments, 
             item_id: d.itemId,
             print_remind_choice: printRemindChoice,
@@ -2344,6 +2347,10 @@ async function _qlxPASave() {
             print_reminders: printReminders,
             press_reminders: pressReminders
         });
+        
+        if (res && res.error) {
+            return showToast(res.error, 'error');
+        }
         
         var ov = document.getElementById('_qlxPAOverlay'); if (ov) ov.remove();
         showToast('✅ Đã lưu Phân Công In');
@@ -2354,7 +2361,10 @@ async function _qlxPASave() {
 async function _qlxReceivePhieu(orderId) {
     if (!confirm('Xác nhận QLX đã nhận Phiếu Sản Xuất cho đơn này?')) return;
     try {
-        await apiCall('/api/qlx/receive-phieu/' + orderId, 'POST');
+        var res = await apiCall('/api/qlx/receive-phieu/' + orderId, 'POST');
+        if (res && res.error) {
+            return showToast(res.error, 'error');
+        }
         showToast('✅ Đã xác nhận nhận Phiếu SX');
         await _qlxLoadAll();
     } catch(e) { showToast(e.message, 'error'); }
@@ -2445,7 +2455,10 @@ async function _qlxClConfirm(orderId) {
         checks.push({ template_id: parseInt(el.getAttribute('data-tid')) });
     });
     try {
-        await apiCall('/api/qlx/checklist/' + orderId + '/confirm', 'POST', { checks: checks });
+        var res = await apiCall('/api/qlx/checklist/' + orderId + '/confirm', 'POST', { checks: checks });
+        if (res && res.error) {
+            return showToast('Lỗi: ' + res.error, 'error');
+        }
         var ov = document.getElementById('_qlxClOverlay'); if (ov) ov.remove();
         showToast('\u2705 \u0110\u00e3 x\u00e1c nh\u1eadn ki\u1ec3m tra \u0111\u01a1n h\u00e0ng'); await _qlxLoadAll();
     } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
@@ -2454,7 +2467,10 @@ async function _qlxClConfirm(orderId) {
 async function _qlxClReset(orderId) {
     if (!confirm('Reset checklist \u0111\u01a1n n\u00e0y?')) return;
     try {
-        await apiCall('/api/qlx/checklist/' + orderId + '/reset', 'POST');
+        var res = await apiCall('/api/qlx/checklist/' + orderId + '/reset', 'POST');
+        if (res && res.error) {
+            return showToast('Lỗi: ' + res.error, 'error');
+        }
         var ov = document.getElementById('_qlxClOverlay'); if (ov) ov.remove();
         showToast('\ud83d\udd04 \u0110\u00e3 reset checklist'); await _qlxLoadAll();
     } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
