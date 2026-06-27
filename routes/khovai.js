@@ -1202,7 +1202,7 @@ module.exports = async function (fastify) {
         let idx = 1;
         if (wid) { sql += ` AND w.id = $${idx++}`; params.push(wid); }
         if (mid) { sql += ` AND m.id = $${idx++}`; params.push(mid); }
-        sql += ' ORDER BY m.display_order, m.name, fc.is_active DESC, fc.color_name';
+        sql += ' ORDER BY m.display_order, m.name, (CASE WHEN fc.stop_import = true OR fc.is_active = false THEN 0 ELSE 1 END) ASC, fc.color_name';
 
         const rows = await db.all(sql, params);
 
