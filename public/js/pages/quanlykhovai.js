@@ -177,6 +177,16 @@ async function renderQuanlykhovaiPage(content) {
             '}',
             '.qkv-card-shelf-header .qkv-card-title { color: #ffffff !important; }',
             '.qkv-card-shelf-header .qkv-card-count { background: rgba(255, 255, 255, 0.2) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.3) !important; }',
+            '.qkv-card-3d-shelf { border-color: #3b82f6 !important; }',
+            '.qkv-card-3d-shelf-header {',
+            '  background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;',
+            '  color: #ffffff !important;',
+            '  font-weight: 900 !important;',
+            '  text-shadow: 0 1px 2px rgba(0,0,0,0.2);',
+            '  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);',
+            '}',
+            '.qkv-card-3d-shelf-header .qkv-card-title { color: #ffffff !important; }',
+            '.qkv-card-3d-shelf-header .qkv-card-count { background: rgba(255, 255, 255, 0.25) !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.4) !important; }',
             '.qkv-card-unassigned { border-style: dashed; border-width: 2px; }',
             '.qkv-card-unassigned .qkv-card-header { background: linear-gradient(135deg, #fff, #f8fafc); }',
             '.qkv-card-unassigned-header { color: #f59e0b; }',
@@ -778,9 +788,13 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
     
     if (!isUnassigned) {
         var isReturnShelf = group.name && (group.name.includes('Dự Định Hoàn Vải') || group.name.includes('Dự định hoàn vải'));
+        var is3DShelf = group.name && (group.name.toLowerCase().includes('3d') || group.name.toLowerCase().includes('in 3d'));
         if (isReturnShelf) {
             headerClass = 'qkv-card-return-shelf-header';
             cardClass = 'qkv-card qkv-card-return-shelf';
+        } else if (is3DShelf) {
+            headerClass = 'qkv-card-3d-shelf-header';
+            cardClass = 'qkv-card qkv-card-3d-shelf';
         } else {
             headerClass = 'qkv-card-shelf-header';
             cardClass = 'qkv-card qkv-card-shelf';
