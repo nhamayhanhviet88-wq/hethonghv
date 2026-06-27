@@ -442,7 +442,11 @@ function _kvRenderTable() {
         h += '<td style="white-space:nowrap" onclick="event.stopPropagation()">';
         if (isDirector) {
             if (r.is_active !== false) {
-                h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#10b981;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để dừng bán">🟢 Bán</button>';
+                if (r.allowed_slips !== null && r.allowed_slips !== undefined) {
+                    h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#f43f5e;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hủy giới hạn và dừng bán ngay">🔴 Dừng Bán (Còn ' + r.allowed_slips + ' đơn)</button>';
+                } else {
+                    h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#10b981;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để dừng bán">🟢 Bán</button>';
+                }
             } else {
                 h += '<button onclick="_kvToggleActive(' + r.id + ', true)" style="background:#64748b;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để mở bán">🔴 Dừng Bán</button>';
             }
@@ -452,8 +456,8 @@ function _kvRenderTable() {
                 h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập Vải</button>';
             }
         }
-        if (r.is_active === false || r.color_stop_import) {
-            h += '<button onclick="_kvCreateOrderFromFabric(' + r.id + ', \'' + (r.material_name||'').replace(/'/g, "\\'") + '\', \'' + (r.color_name||'').replace(/'/g, "\\'") + '\')" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Tạo đơn hàng mới với màu vải này">✨ Thêm Đơn</button>';
+        if (r.is_active === false || r.allowed_slips !== null || r.color_stop_import) {
+            h += '<button onclick="_kvCreateOrderFromFabric(' + r.id + ', \'' + (r.material_name||'').replace(/'/g, "\\'") + '\', \'' + (r.color_name||'').replace(/'/g, "\\'") + '\')" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Cấp thêm số lượng đơn hàng cho màu vải này">✨ Thêm Đơn</button>';
         }
         h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
         h += '</td>';
@@ -1674,8 +1678,9 @@ async function _kvCreateOrderFromFabric(colorId, materialName, colorName) {
     var r = _kv.summary.find(function(x) { return x.id === colorId; });
     if (!r) return;
     
-    if (r.is_active === false) {
-        var countStr = prompt('Màu vải này đang dừng bán. Bạn muốn cho phép tạo thêm bao nhiêu đơn hàng cho Sale nhập?', '1');
+    if (r.is_active === false || r.allowed_slips !== null) {
+        var defaultVal = r.allowed_slips !== null ? String(r.allowed_slips) : '1';
+        var countStr = prompt('Màu vải này đang dừng bán (giới hạn). Bạn muốn cho phép tạo thêm bao nhiêu đơn hàng cho Sale nhập?', defaultVal);
         if (countStr === null) return; // User cancelled
         var count = parseInt(countStr, 10);
         if (isNaN(count) || count <= 0) {
