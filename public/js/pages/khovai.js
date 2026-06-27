@@ -413,7 +413,11 @@ function _kvRenderTable() {
 
         var slipsBadgeHtml = '';
         if (r.allowed_slips !== null && r.allowed_slips !== undefined) {
-            slipsBadgeHtml = '<div style="margin-top:2px"><span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #7dd3fc;font-weight:800;white-space:nowrap;display:inline-block" title="Số lượng đơn hàng được tạo còn lại">🎟️ Còn ' + r.allowed_slips + ' đơn</span></div>';
+            if (r.color_stop_import) {
+                slipsBadgeHtml = '<div style="margin-top:2px"><span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #7dd3fc;font-weight:800;white-space:nowrap;display:inline-block" title="Số lượng đơn hàng được tạo thêm">🎟️ Được tạo ' + r.allowed_slips + ' đơn</span></div>';
+            } else {
+                slipsBadgeHtml = '<div style="margin-top:2px"><span style="background:#e0f2fe;color:#0369a1;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #7dd3fc;font-weight:800;white-space:nowrap;display:inline-block" title="Số lượng đơn hàng được tạo còn lại">🎟️ Còn ' + r.allowed_slips + ' đơn</span></div>';
+            }
         }
 
         var importSlipsBadgeHtml = '';
@@ -507,7 +511,7 @@ async function _kvShowDetail(fcid) {
         ['XUẤT', '<b style="color:#dc2626">' + _kvFmt(r.xuat) + '</b>'],
         ['CUỐI KỲ', '<b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(r.cuoi_ky) + '</b>'],
         ['GIÁ', r.price ? _kvFmt(r.price) + 'đ' : '—'],
-        ['GIỚI HẠN ĐƠN', r.allowed_slips !== null && r.allowed_slips !== undefined ? '<b style="color:#0369a1">🎟️ Còn ' + r.allowed_slips + ' đơn</b>' : (r.is_active === false ? '<span style="color:#ef4444;font-weight:700">🔴 Đang ẩn bán</span>' : 'Mở bán vĩnh viễn')],
+        ['GIỚI HẠN ĐƠN', r.allowed_slips !== null && r.allowed_slips !== undefined ? (r.color_stop_import ? '<b style="color:#0369a1">🎟️ Được tạo ' + r.allowed_slips + ' đơn</b>' : '<b style="color:#0369a1">🎟️ Còn ' + r.allowed_slips + ' đơn</b>') : (r.is_active === false ? '<span style="color:#ef4444;font-weight:700">🔴 Đang ẩn bán</span>' : 'Mở bán vĩnh viễn')],
         ['GIỚI HẠN NHẬP', r.allowed_import_slips !== null && r.allowed_import_slips !== undefined ? '<b style="color:#d97706">📥 Còn ' + r.allowed_import_slips + ' đơn</b>' : (r.color_stop_import ? '<span style="color:#ef4444;font-weight:700">🛑 Đang dừng nhập</span>' : 'Mở nhập vĩnh viễn')],
         ['CẬP NHẬT', lastUpStr]
     ];

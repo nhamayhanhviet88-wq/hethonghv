@@ -152,8 +152,8 @@ async function refundSlipsForItemsList(dbOrClient, items) {
                     dbOrClient,
                     `UPDATE kv_fabric_colors 
                      SET allowed_slips = 1, 
-                         is_active = false, 
-                         stop_import = false,
+                         is_active = true, 
+                         stop_import = true,
                          updated_at = NOW() 
                      WHERE id = $1`,
                     [colId]
@@ -286,8 +286,8 @@ async function validateAndApplySlipsForUpdateOrder(dbOrClient, orderId, newItems
                             dbOrClient,
                             `UPDATE kv_fabric_colors 
                              SET allowed_slips = 1, 
-                                 is_active = false, 
-                                 stop_import = false,
+                                 is_active = true, 
+                                 stop_import = true,
                                  updated_at = NOW() 
                              WHERE id = $1`,
                             [colId]
@@ -351,8 +351,8 @@ async function refundSlipsForDeletedOrCancelledOrder(dbOrClient, orderId) {
                     dbOrClient,
                     `UPDATE kv_fabric_colors 
                      SET allowed_slips = 1, 
-                         is_active = false, 
-                         stop_import = false,
+                         is_active = true, 
+                         stop_import = true,
                          updated_at = NOW() 
                      WHERE id = $1`,
                     [colId]

@@ -1306,7 +1306,7 @@ module.exports = async function (fastify) {
         if (!color) {
             return reply.code(404).send({ error: 'Không tìm thấy màu vải!' });
         }
-        if (color.stop_import || color.allowed_import_slips !== null) {
+        if ((allowed_slips === undefined || allowed_slips === null) && (color.stop_import || color.allowed_import_slips !== null)) {
             return reply.code(400).send({ error: 'Màu vải đang ở trạng thái dừng nhập hoặc giới hạn nhập. Vui lòng mở nhập vĩnh viễn trước khi thay đổi trạng thái bán!' });
         }
 
