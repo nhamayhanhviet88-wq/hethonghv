@@ -470,7 +470,7 @@ function _kvRenderTable() {
                 h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập Vải</button>';
             }
         }
-        if (r.is_active === false || r.allowed_slips !== null || r.color_stop_import) {
+        if (isDirector && (r.is_active === false || r.allowed_slips !== null || r.color_stop_import)) {
             h += '<button onclick="_kvCreateOrderFromFabric(' + r.id + ', \'' + (r.material_name||'').replace(/'/g, "\\'") + '\', \'' + (r.color_name||'').replace(/'/g, "\\'") + '\')" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Cấp thêm số lượng đơn hàng cho màu vải này">✨ Thêm Đơn</button>';
         }
         h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
@@ -1689,6 +1689,18 @@ function _kvCloseRollOriginModal() {
 window._kvCloseRollOriginModal = _kvCloseRollOriginModal;
 
 async function _kvCreateOrderFromFabric(colorId, materialName, colorName) {
+    var isDirector = typeof currentUser !== 'undefined' && currentUser && (
+        currentUser.role === 'giam_doc' || 
+        currentUser.username === 'trinh' || 
+        currentUser.username === 'leviettrinh' || 
+        currentUser.username === 'trinh.lvt' || 
+        (currentUser.full_name && (currentUser.full_name.indexOf('Lê Việt Trinh') !== -1 || currentUser.full_name.indexOf('Le Viet Trinh') !== -1))
+    );
+    if (!isDirector) {
+        showToast('Bạn không có quyền thực hiện thao tác này!', 'error');
+        return;
+    }
+
     var r = _kv.summary.find(function(x) { return x.id === colorId; });
     if (!r) return;
     
