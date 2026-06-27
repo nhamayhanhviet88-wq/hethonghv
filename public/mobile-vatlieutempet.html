@@ -604,13 +604,6 @@ async function mOpenDetails(rollId) {
         } else {
             if (canClose) {
                 actHtml = `<button class="m-action-btn" style="background:#10b981" onclick="mClose(${roll.id})">✅ Chốt cuộn</button>`;
-            } else if (rem > 0.001) {
-                actHtml = `<div style="margin-top:8px;padding:10px;background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.1);border-radius:8px;text-align:center">
-                    <div style="font-size:11px;font-weight:700;color:#fca5a5;margin-bottom:6px">⚠️ Cuộn còn dư ${rem.toFixed(2)}m tồn</div>
-                    <div style="font-size:10px;color:#94a3b8;margin-bottom:8px">Bạn muốn chuyển nốt số mét dư này vào đâu để chốt?</div>
-                    <button class="m-action-btn" style="background:#b45309;padding:6px;font-size:10.5px;width:100%" onclick="mQuickClose(${roll.id}, 'waste', ${rem})">Chuyển sang Hao Hụt & Chốt</button>
-                    <button class="m-action-btn" style="background:#b91c1c;padding:6px;font-size:10.5px;margin-top:6px;width:100%" onclick="mQuickClose(${roll.id}, 'error', ${rem})">Chuyển sang SX Lỗi & Chốt</button>
-                </div>`;
             } else {
                 actHtml = `<div style="font-size:11px;color:#fca5a5;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px;border-radius:8px;font-weight:600;text-align:center">
                     ⚠️ Phải in và khai báo hết tồn mới được chốt cuộn.
@@ -869,39 +862,6 @@ async function mClose(rollId) {
             mLoad();
         } else {
             toast('✅ Đã chốt cây vật liệu!');
-            mOpenDetails(rollId);
-            mLoad();
-        }
-    } catch(e) {
-        toast(e.message || 'Lỗi', 'error');
-    }
-}
-
-async function mQuickClose(rollId, actionType, remainingMeters) {
-    const label = actionType === 'waste' ? 'Hao Hụt' : 'Sản Xuất Lỗi';
-    if (!confirm(`Hệ thống sẽ tự động khai báo ${remainingMeters.toFixed(2)}m vào ${label} và thực hiện chốt cây này. Bạn có chắc chắn muốn tiếp tục?`)) return;
-    
-    try {
-        const adjustUrl = actionType === 'waste' ? '/api/pettem/rolls/' + rollId + '/adjust-waste' : '/api/pettem/rolls/' + rollId + '/adjust-error';
-        const adjustRes = await api(adjustUrl, 'POST', {
-            qty: remainingMeters,
-            reason: 'Tự động khai báo tồn dư để chốt cuộn'
-        });
-        
-        if (adjustRes && adjustRes.error) {
-            toast(adjustRes.error, 'error');
-            return;
-        }
-        
-        const closeRes = await api('/api/pettem/rolls/' + rollId + '/close', 'POST');
-        if (closeRes && closeRes.error) {
-            toast(closeRes.message || closeRes.error, 'error');
-        } else if (closeRes && closeRes.pending_approval) {
-            toast(closeRes.message || 'Đã gửi yêu cầu chốt cuộn lên Giám đốc.');
-            mOpenDetails(rollId);
-            mLoad();
-        } else {
-            toast('✅ Đã khai báo và chốt cây vật liệu thành công!');
             mOpenDetails(rollId);
             mLoad();
         }
