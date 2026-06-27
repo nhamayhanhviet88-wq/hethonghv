@@ -95,7 +95,7 @@ async function validateFabricStockLimits(items, excludeOrderId = null) {
             const key = `${matId}:${colId}`;
             if (!fabricUsage[key]) {
                 const mat = await db.get(`SELECT name, stop_import FROM kv_materials WHERE id = $1`, [matId]);
-                const color = await db.get(`SELECT color_name, stop_import FROM kv_fabric_colors WHERE id = $1`, [colId]);
+                const color = await db.get(`SELECT color_name, stop_import, allowed_slips FROM kv_fabric_colors WHERE id = $1`, [colId]);
                 if (!mat || !color) continue;
                 
                 fabricUsage[key] = {
@@ -103,7 +103,7 @@ async function validateFabricStockLimits(items, excludeOrderId = null) {
                     colId,
                     matName: mat.name,
                     colorName: color.color_name,
-                    isStopped: !!color.stop_import,
+                    isStopped: !!color.stop_import && !(Number(color.allowed_slips) >= 1),
                     usages: [] // list of { qty, cuttingCategory }
                 };
             }
@@ -4529,7 +4529,7 @@ module.exports = async function(fastify) {
             targetRatio = ratioRow ? Number(ratioRow.target_ratio) || 0 : 0;
         }
 
-        const isStopped = !!color.stop_import;
+        const isStopped = !!color.stop_import && !(Number(color.allowed_slips) >= 1);
         const limitQty = isStopped ? Math.floor(adjustedRemainingStock * targetRatio) : null;
 
          return {
