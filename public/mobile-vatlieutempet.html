@@ -19,7 +19,9 @@
         .ms>div{text-align:center;padding:12px 8px;border-radius:12px;color:#fff}
         .ms .mv{font-size:16px;font-weight:900}.ms .ml{font-size:8px;font-weight:700;letter-spacing:.5px;opacity:.85;margin-top:2px}
         .mc{padding:0 12px 80px}
-        .card{background:rgba(255,255,255,.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:16px;margin-bottom:10px;overflow:hidden;transition:transform .1s}
+        
+        /* Card Styles */
+        .card{background:rgba(255,255,255,.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:16px;margin-bottom:10px;overflow:hidden;transition:transform .1s;cursor:pointer}
         .card:active{transform:scale(.98)}
         .ct{padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.06)}
         .ci{font-size:26px}.cn{font-size:13px;font-weight:800;color:#fecdd3;flex:1}.cc{font-size:10px;font-weight:700;padding:3px 10px;border-radius:10px;color:#fff}
@@ -30,6 +32,7 @@
         .bd{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:800}
         .bd.pos{background:rgba(16,185,129,.2);color:#6ee7b7}.bd.zero{background:rgba(148,163,184,.1);color:#94a3b8}.bd.neg{background:rgba(239,68,68,.2);color:#fca5a5}
         .ch{padding:8px 16px;font-size:10px;color:#64748b;border-top:1px solid rgba(255,255,255,.04)}.ch span{color:#fecdd3;font-weight:700}
+        
         .tc{position:fixed;top:60px;left:10px;right:10px;z-index:999;display:flex;flex-direction:column;gap:8px}
         .tt{padding:14px 18px;border-radius:12px;color:#fff;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:si .3s ease}
         .ts{background:linear-gradient(135deg,#e11d48,#f43f5e)}.te{background:linear-gradient(135deg,#ef4444,#dc2626)}
@@ -37,6 +40,286 @@
         .sp{width:28px;height:28px;border:3px solid rgba(255,255,255,.1);border-top-color:#f43f5e;border-radius:50%;animation:sn .6s linear infinite;display:inline-block;margin-bottom:8px}
         @keyframes sn{to{transform:rotate(360deg)}}
         .mb{display:inline-flex;align-items:center;gap:6px;color:#fecdd3;font-size:12px;font-weight:600;text-decoration:none;margin:12px 16px;padding:8px 14px;background:rgba(255,255,255,.05);border-radius:8px}
+
+        /* Detail Modal Styles */
+        .m-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: none;
+            align-items: flex-end;
+        }
+        .m-modal-content {
+            background: #310d20; /* Deep burgundy/rose background */
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            width: 100%;
+            max-height: 92%;
+            overflow-y: auto;
+            color: #e2e8f0;
+            padding: 16px;
+            box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+            border-top: 1px solid rgba(255,255,255,0.12);
+            position: relative;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .m-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 12px;
+        }
+        .m-modal-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #ffe4e6;
+        }
+        .m-modal-close {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fecdd3;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .m-tabs {
+            display: flex;
+            gap: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 12px;
+        }
+        .m-tab {
+            flex: 1;
+            padding: 8px 0;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #94a3b8;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+        }
+        .m-tab.active {
+            color: #f43f5e;
+            border-bottom-color: #f43f5e;
+        }
+        .m-tab-panel {
+            display: none;
+        }
+        .m-tab-panel.active {
+            display: block;
+        }
+
+        /* Detail Info Table Styles */
+        .m-info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            font-size: 12px;
+        }
+        .m-info-table td {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .m-info-table td:first-child {
+            color: #94a3b8;
+            font-weight: 600;
+            width: 120px;
+        }
+        .m-info-table td:last-child {
+            color: #e2e8f0;
+            font-weight: 700;
+            text-align: right;
+            white-space: normal;
+        }
+
+        /* Stats Boxes Styles */
+        .m-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .m-stat-box {
+            background: rgba(255,255,255,0.04);
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .m-stat-box .lbl {
+            font-size: 8px;
+            color: #94a3b8;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .m-stat-box .val {
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        /* Waste/Error Boxes Styles */
+        .m-waste-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .m-waste-box {
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+        .m-waste-box.waste {
+            background: rgba(245, 158, 11, 0.08);
+            border-color: #d97706;
+            color: #fbbf24;
+        }
+        .m-waste-box.error {
+            background: rgba(239, 68, 68, 0.08);
+            border-color: #ef4444;
+            color: #fca5a5;
+        }
+        .m-waste-box .lbl {
+            font-size: 8px;
+            font-weight: 800;
+            margin-bottom: 2px;
+            letter-spacing: 0.5px;
+        }
+        .m-waste-box .val {
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        /* Banner Alert styles */
+        .m-alert-box {
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        .m-alert-box.exceeded {
+            background: rgba(239,68,68,0.15);
+            border: 1px solid rgba(239,68,68,0.3);
+            color: #fca5a5;
+        }
+        .m-alert-box.normal {
+            background: rgba(16,185,129,0.15);
+            border: 1px solid rgba(16,185,129,0.3);
+            color: #6ee7b7;
+        }
+
+        /* Thao Tác Cuộn Styles */
+        .m-action-section {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        .m-action-section .title {
+            font-size: 9px;
+            font-weight: 800;
+            color: #94a3b8;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .m-action-btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .m-action-btn:last-child {
+            margin-bottom: 0;
+        }
+        .m-badge-closed {
+            background: rgba(8, 145, 178, 0.15);
+            color: #22d3ee;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 800;
+            text-align: center;
+            border: 1px solid rgba(8, 145, 178, 0.3);
+            line-height: 1.4;
+        }
+        .m-badge-pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 800;
+            text-align: center;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        /* History table styles for mobile */
+        .m-hist-table {
+            width: 100%;
+            font-size: 10px;
+            border-collapse: collapse;
+        }
+        .m-hist-table th, .m-hist-table td {
+            padding: 6px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .m-hist-table th {
+            background: rgba(255,255,255,0.04);
+            color: #94a3b8;
+            font-weight: 700;
+        }
+        .m-hist-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        /* Order item card for mobile */
+        .m-order-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+        .m-order-card:last-child {
+            margin-bottom: 0;
+        }
     </style>
     <!-- Unified Mobile Style -->
     <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
@@ -55,14 +338,58 @@
     </div>
     <div class="mc" id="mC"><div style="text-align:center;padding:60px 20px;color:#94a3b8"><div class="sp"></div><div>Đang tải...</div></div></div>
     <a href="/vatlieutempet" class="mb">← Về trang Desktop</a>
+
+    <!-- Detail Modal Drawer -->
+    <div id="mDetailsModal" class="m-modal" onclick="if(event.target===this)mCloseDetails()">
+        <div class="m-modal-content">
+            <div class="m-modal-header">
+                <h3 class="m-modal-title" id="mDetailsTitle">Chi Tiết Cây</h3>
+                <button class="m-modal-close" onclick="mCloseDetails()">&times;</button>
+            </div>
+            
+            <div class="m-tabs">
+                <button class="m-tab active" id="mTabBtnInfo" onclick="mSetTab('info')">Thông Tin</button>
+                <button class="m-tab" id="mTabBtnOrders" onclick="mSetTab('orders')">Đơn Đã In (0)</button>
+                <button class="m-tab" id="mTabBtnHistory" onclick="mSetTab('history')">Lịch Sử</button>
+            </div>
+
+            <!-- Tab Panels -->
+            <div id="mTabInfo" class="m-tab-panel active">
+                <div id="mDetailsInfoContent"></div>
+            </div>
+            <div id="mTabOrders" class="m-tab-panel">
+                <div id="mDetailsOrdersContent"></div>
+            </div>
+            <div id="mTabHistory" class="m-tab-panel">
+                <div id="mDetailsHistoryContent"></div>
+            </div>
+        </div>
+    </div>
+
 <script>
 let cu=null,mr=[];
 const TL={PET:'PET',TEM:'Tem',DECAL:'Decal'},TC={PET:'#e11d48',TEM:'#7c3aed',DECAL:'#d97706'},TI={PET:'🏷️',TEM:'🎫',DECAL:'📋'};
+let _ptAllowedWaste = { PET: 5, TEM: 5, DECAL: 10 };
+
 async function api(u,m='GET',b=null){const o={method:m,headers:{'Content-Type':'application/json'},credentials:'include'};if(b)o.body=JSON.stringify(b);const r=await fetch(u,o);if(r.status===401){location.href='/index.html';return}const d=await r.json();if(!r.ok)throw new Error(d.error||'Lỗi');return d}
 function toast(m,t='success'){const c=document.getElementById('mTC'),d=document.createElement('div');d.className='tt '+(t==='error'?'te':'ts');d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function fd(d){if(!d)return'—';try{const p=d.split('T')[0].split('-');return p[2]+'/'+p[1]+'/'+p[0]}catch(e){return d}}
 function fn(n){if(!n&&n!==0)return'0';return Number(n).toLocaleString('vi-VN')}
 function ft(d){if(!d)return'';try{const dt=new Date(d);return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+' '+fd(d)}catch(e){return''}}
+function ftNoYear(d) {
+    if (!d) return '—';
+    try {
+        const dt = new Date(d);
+        const hours = String(dt.getHours()).padStart(2, '0');
+        const minutes = String(dt.getMinutes()).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        return hours + ':' + minutes + ' ' + day + '/' + month;
+    } catch(e) {
+        return d;
+    }
+}
+
 async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){location.href='/index.html';return}cu=a.user;
         if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.vat_lieu_tem_pet || !cu.permissions.vat_lieu_tem_pet.can_view)) {
             sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Vật Liệu PET/TEM!');
@@ -70,32 +397,401 @@ async function mInit(){try{const a=await api('/api/auth/me');if(!a.user){locatio
             return;
         }
     document.getElementById('mU').textContent=cu.full_name||cu.username;
+    
+    // Load allowed waste configs
+    try {
+        const configs = await api('/api/app-configs/batch', 'POST', {
+            keys: ['pettem_allowed_waste_pet', 'pettem_allowed_waste_tem', 'pettem_allowed_waste_decal']
+        });
+        if (configs) {
+            if (configs.pettem_allowed_waste_pet != null) _ptAllowedWaste.PET = Number(configs.pettem_allowed_waste_pet);
+            if (configs.pettem_allowed_waste_tem != null) _ptAllowedWaste.TEM = Number(configs.pettem_allowed_waste_tem);
+            if (configs.pettem_allowed_waste_decal != null) _ptAllowedWaste.DECAL = Number(configs.pettem_allowed_waste_decal);
+        }
+    } catch(cfgErr) {
+        console.error('Lỗi tải cấu hình hao hụt:', cfgErr);
+    }
+    
 document.getElementById('mFB').style.display='';document.getElementById('mSB').style.display='';await mLoad()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">❌</div><div>Lỗi: '+e.message+'</div></div>'}}
+
 async function mLoad(){const tt=document.getElementById('mFT')?.value||'';let q='?_=1';if(tt)q+='&roll_type='+tt;
 try{const r=await api('/api/pettem/rolls'+q);mr=r.rolls||[];mStats();mCards()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
 function mStats(){const t=mr.length;let si=0,sp=0,sr=0;mr.forEach(r=>{si+=Number(r.qty_imported)||0;sp+=Number(r.qty_printed)||0;sr+=Number(r.qty_remaining)||0});
 document.getElementById('sT').textContent=t;document.getElementById('sI').textContent=fn(si);document.getElementById('sP').textContent=fn(sp);document.getElementById('sR').textContent=fn(sr)}
+
 function mCards(){const c=document.getElementById('mC');if(!mr.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🏷️</div><div style="font-size:16px;font-weight:700">Chưa có dữ liệu</div></div>';return}
 c.innerHTML=mr.map(r=>{
 const ic=TI[r.roll_type]||'🏷️',cl=TC[r.roll_type]||'#e11d48',lb=TL[r.roll_type]||r.roll_type;
 const rem=Number(r.qty_remaining)||0;const rc=rem>0?'pos':rem===0?'zero':'neg';
 const rl=rem>0?'🟢 '+fn(rem):rem===0?'⚪ 0':'🔴 '+fn(rem);
 const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
-return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.field_name||'Cây '+lb)+'</div><div class="cc" style="background:'+cl+'">'+lb+'</div></div>'
-+'<div class="cb">'
-+'<div class="cr"><span class="cl">📅 Ngày nhập</span><span class="cv">'+fd(r.import_date)+'</span></div>'
-+'<div class="cr"><span class="cl">📥 SL Nhập</span><span class="cv" style="color:#fecdd3;font-size:18px;font-weight:900">'+fn(r.qty_imported)+'</span></div>'
-+'<div class="cd"></div>'
-+'<div class="cr"><span class="cl">⚠️ Hao hụt</span><span class="cv" style="color:#fbbf24">'+fn(r.qty_waste)+'</span></div>'
-+'<div class="cr"><span class="cl">❌ SL Sai</span><span class="cv" style="color:#fca5a5">'+fn(r.qty_error)+'</span></div>'
-+'<div class="cr"><span class="cl">🖨️ Đã in</span><span class="cv" style="color:#6ee7b7">'+fn(r.qty_printed)+'</span></div>'
-+'<div class="cd"></div>'
-+'<div class="cr"><span class="cl">📊 Tồn cuối</span><span class="bd '+rc+'">'+rl+'</span></div>'
-+(r.confirmed_by_name?'<div class="cr"><span class="cl">👤 Người chốt</span><span class="cv" style="color:#c4b5fd">'+r.confirmed_by_name+'</span></div>':'')
-+(r.notes?'<div class="cr"><span class="cl">📝 Ghi chú</span><span class="cv" style="font-size:11px">'+r.notes+'</span></div>':'')
-+'</div>'
-+(hl?'<div class="ch">'+hl+'</div>':'')
-+'</div>'}).join('')}
+const confirmedCell = r.confirmed_by_name ? '<span style="color:#6ee7b7">'+r.confirmed_by_name+'</span>' : 
+                      r.pending_approval ? '<span style="color:#fbbf24;font-weight:800">⏳ Chờ duyệt chốt</span>' : '—';
+return '<div class="card" onclick="mOpenDetails('+r.id+')"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.field_name||'Cây '+lb)+'</div><div class="cc" style="background:'+cl+'">'+lb+'</div></div>'
++ '<div class="cb">'
++ '<div class="cr"><span class="cl">📅 Ngày nhập</span><span class="cv">'+fd(r.import_date)+'</span></div>'
++ '<div class="cr"><span class="cl">📥 SL Nhập</span><span class="cv" style="color:#fecdd3;font-size:18px;font-weight:900">'+fn(r.qty_imported)+'</span></div>'
++ '<div class="cd"></div>'
++ '<div class="cr"><span class="cl">⚠️ Hao hụt</span><span class="cv" style="color:#fbbf24">'+fn(r.qty_waste)+'</span></div>'
++ '<div class="cr"><span class="cl">❌ SL Sai</span><span class="cv" style="color:#fca5a5">'+fn(r.qty_error)+'</span></div>'
++ '<div class="cr"><span class="cl">🖨️ Đã in</span><span class="cv" style="color:#6ee7b7">'+fn(r.qty_printed)+'</span></div>'
++ '<div class="cd"></div>'
++ '<div class="cr"><span class="cl">📊 Tồn cuối</span><span class="bd '+rc+'">'+rl+'</span></div>'
++ '<div class="cr"><span class="cl">👤 Người chốt</span><span class="cv">'+confirmedCell+'</span></div>'
++ (r.notes?'<div class="cr"><span class="cl">📝 Ghi chú</span><span class="cv" style="font-size:11px">'+r.notes+'</span></div>':'')
++ '</div>'
++ (hl?'<div class="ch">'+hl+'</div>':'')
++ '</div>'}).join('')}
+
+// --- Detail View Logic ---
+let activeRollId = null;
+
+function mSetTab(tab) {
+    document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.m-tab-panel').forEach(p => p.classList.remove('active'));
+    
+    if (tab === 'info') {
+        document.getElementById('mTabBtnInfo').classList.add('active');
+        document.getElementById('mTabInfo').classList.add('active');
+    } else if (tab === 'orders') {
+        document.getElementById('mTabBtnOrders').classList.add('active');
+        document.getElementById('mTabOrders').classList.add('active');
+    } else if (tab === 'history') {
+        document.getElementById('mTabBtnHistory').classList.add('active');
+        document.getElementById('mTabHistory').classList.add('active');
+    }
+}
+
+async function mOpenDetails(rollId) {
+    activeRollId = rollId;
+    mSetTab('info');
+    
+    const modal = document.getElementById('mDetailsModal');
+    modal.style.display = 'flex';
+    
+    document.getElementById('mDetailsTitle').textContent = 'Đang tải...';
+    document.getElementById('mDetailsInfoContent').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8"><div class="sp"></div><div>Đang tải thông tin...</div></div>';
+    document.getElementById('mDetailsOrdersContent').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8"><div class="sp"></div><div>Đang tải thông tin...</div></div>';
+    document.getElementById('mDetailsHistoryContent').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8"><div class="sp"></div><div>Đang tải thông tin...</div></div>';
+    
+    try {
+        const [rollRes, ordersRes, historyRes] = await Promise.all([
+            api('/api/pettem/rolls/' + rollId),
+            api('/api/pettem/rolls/' + rollId + '/orders'),
+            api('/api/pettem/rolls/' + rollId + '/history')
+        ]);
+        
+        const roll = rollRes.roll;
+        if (!roll) {
+            toast('Không tìm thấy cây vật liệu', 'error');
+            mCloseDetails();
+            return;
+        }
+        
+        const orders = ordersRes.orders || [];
+        const history = historyRes.history || [];
+        
+        // Update title
+        const seqStr = roll.seq ? '#' + roll.seq : '';
+        let titleName = '';
+        if (roll.roll_type === 'PET') titleName = 'Cây Pet ' + seqStr;
+        else if (roll.roll_type === 'TEM') titleName = 'Cây Tem ' + seqStr;
+        else if (roll.roll_type === 'DECAL') titleName = 'Cây Decal ' + seqStr;
+        else titleName = 'Cây ' + roll.roll_type + ' #' + (roll.material_tx_id || roll.id);
+        
+        document.getElementById('mDetailsTitle').textContent = '🌲 Chi Tiết ' + titleName;
+        document.getElementById('mTabBtnOrders').textContent = 'Đơn Đã In (' + orders.length + ')';
+        
+        // Actions Html
+        let actHtml = '';
+        const rem = Number(roll.qty_remaining) || 0;
+        const canClose = Math.abs(rem) <= 0.001 && !roll.confirmed_by;
+        
+        if (roll.confirmed_by) {
+            actHtml = `<div class="m-badge-closed">
+                🔒 ĐÃ CHỐT CUỘN<br>
+                <span style="font-size:10px;font-weight:normal;opacity:0.8">Bởi ${roll.confirmed_by_name || 'Hệ thống'}<br>${ft(roll.confirmed_at)}</span>
+            </div>`;
+        } else if (roll.pending_approval) {
+            const isDirector = cu && cu.role === 'giam_doc';
+            if (isDirector) {
+                actHtml = `<div class="m-badge-pending">⏳ ĐANG CHỜ DUYỆT CHỐT</div>
+                <button class="m-action-btn" style="background:#10b981" onclick="mApprove(${roll.id})">✅ Duyệt chốt</button>
+                <button class="m-action-btn" style="background:#ef4444" onclick="mReject(${roll.id})">❌ Từ chối</button>`;
+            } else {
+                actHtml = `<div class="m-badge-closed" style="background:rgba(245, 158, 11, 0.15);color:#fbbf24;border-color:rgba(245, 158, 11, 0.3)">
+                    ⏳ CHỜ DUYỆT CHỐT<br>
+                    <span style="font-size:10px;font-weight:normal;opacity:0.8">Đang chờ Giám đốc duyệt chốt do vượt hao hụt</span>
+                </div>`;
+            }
+        } else {
+            if (canClose) {
+                actHtml = `<button class="m-action-btn" style="background:#10b981" onclick="mClose(${roll.id})">✅ Chốt cuộn</button>`;
+            } else {
+                actHtml = `<div style="font-size:11px;color:#fca5a5;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px;border-radius:8px;font-weight:600;text-align:center">
+                    ⚠️ Phải in và khai báo hết tồn mới được chốt cuộn.
+                </div>`;
+            }
+        }
+        
+        // Allowed waste & exceed banner
+        const allowedPct = _ptAllowedWaste[roll.roll_type] || 5;
+        const qtyImported = Number(roll.qty_imported) || 0;
+        const maxAllowed = qtyImported * (allowedPct / 100);
+        const totalWasteError = (Number(roll.qty_waste) || 0) + (Number(roll.qty_error) || 0);
+        const isExceeded = totalWasteError - maxAllowed > 0.001;
+        
+        let limitHtml = '';
+        if (isExceeded) {
+            limitHtml = `<div class="m-alert-box exceeded">
+                <div>Hạn mức cho phép: <span style="font-weight:800">${allowedPct}%</span> (Tối đa ${maxAllowed.toFixed(2)}m trên ${qtyImported}m nhập)</div>
+                <div style="margin-top:2px">Thực tế hao hụt + lỗi: <span style="font-weight:800">${totalWasteError.toFixed(2)}m</span> (${qtyImported > 0 ? ((totalWasteError/qtyImported)*100).toFixed(1) : 0}%)</div>
+                <div style="margin-top:4px;color:#f87171">🔴 Vượt hạn mức hao hụt</div>
+            </div>`;
+        } else {
+            limitHtml = `<div class="m-alert-box normal">
+                <div>Hạn mức cho phép: <span style="font-weight:800">${allowedPct}%</span> (Tối đa ${maxAllowed.toFixed(2)}m trên ${qtyImported}m nhập)</div>
+                <div style="margin-top:2px">Thực tế hao hụt + lỗi: <span style="font-weight:800">${totalWasteError.toFixed(2)}m</span> (${qtyImported > 0 ? ((totalWasteError/qtyImported)*100).toFixed(1) : 0}%)</div>
+                <div style="margin-top:4px;color:#34d399">🟢 Trong hạn mức hao hụt</div>
+            </div>`;
+        }
+        
+        let txId = roll.material_tx_id || '—';
+        if (txId === '—' && roll.notes) {
+            const txMatch = roll.notes.match(/\(Giao dịch(?:\s*gốc)?\s*#(\d+)\)/i);
+            if (txMatch) txId = txMatch[1];
+        }
+        
+        // Info panel content
+        document.getElementById('mDetailsInfoContent').innerHTML = `
+            <div class="m-action-section">
+                <div class="title">Thao tác cuộn</div>
+                ${actHtml}
+            </div>
+            
+            <table class="m-info-table">
+                <tbody>
+                    <tr><td>Định lượng</td><td>Mét (m)</td></tr>
+                    <tr><td>Người nhập</td><td>${roll.created_by_name || 'Hệ thống'}</td></tr>
+                    <tr><td>Thời gian nhập</td><td>${ft(roll.created_at)}</td></tr>
+                    ${txId !== '—' ? `<tr><td>Giao dịch gốc</td><td><span style="color:#a78bfa;font-weight:800">#${txId}</span></td></tr>` : ''}
+                    <tr><td>Ghi chú ban đầu</td><td>${roll.notes || '—'}</td></tr>
+                </tbody>
+            </table>
+            
+            <div class="m-stats-grid">
+                <div class="m-stat-box">
+                    <div class="lbl">TỔNG NHẬP</div>
+                    <div class="val" style="color:#e2e8f0">${fn(roll.qty_imported)}m</div>
+                </div>
+                <div class="m-stat-box" style="background:rgba(56,189,248,0.08)">
+                    <div class="lbl" style="color:#38bdf8">ĐÃ IN (SX)</div>
+                    <div class="val" style="color:#38bdf8">${fn(roll.qty_printed)}m</div>
+                </div>
+                <div class="m-stat-box" style="background:rgba(16,185,129,0.08)">
+                    <div class="lbl" style="color:#34d399">TỒN CUỐI</div>
+                    <div class="val" style="color:#34d399">${fn(roll.qty_remaining)}m</div>
+                </div>
+            </div>
+            
+            ${limitHtml}
+            
+            <div class="m-waste-grid">
+                <div class="m-waste-box waste">
+                    <div class="lbl">⚠️ HAO HỤT</div>
+                    <div class="val">${fn(roll.qty_waste)}m</div>
+                </div>
+                <div class="m-waste-box error">
+                    <div class="lbl">❌ SX LỖI</div>
+                    <div class="val">${fn(roll.qty_error)}m</div>
+                </div>
+            </div>
+        `;
+        
+        // Orders panel content
+        if (!orders.length) {
+            document.getElementById('mDetailsOrdersContent').innerHTML = `
+                <div style="text-align:center;padding:40px 10px;color:#94a3b8;font-size:12px">
+                    Chưa có đơn hàng nào được in từ cây này.
+                </div>
+            `;
+        } else {
+            document.getElementById('mDetailsOrdersContent').innerHTML = orders.map(o => `
+                <div class="m-order-card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                        <span style="font-weight:800;color:#38bdf8;font-size:12px">#${o.order_code}</span>
+                        <span style="font-size:12px;color:#34d399;font-weight:700">${fn(o.print_meters)}m</span>
+                    </div>
+                    <div style="font-size:10px;color:#94a3b8;display:flex;justify-content:space-between">
+                        <span>SL đơn: <b>${fn(o.order_quantity)}</b></span>
+                        <span>In bởi: <b>${o.printer_name || 'Gia công'}</b></span>
+                    </div>
+                    <div style="font-size:9px;color:#64748b;margin-top:4px;text-align:right">${ft(o.print_done_at)}</div>
+                </div>
+            `).join('');
+        }
+        
+        // History panel content
+        if (!history.length) {
+            document.getElementById('mDetailsHistoryContent').innerHTML = `
+                <div style="text-align:center;padding:40px 10px;color:#94a3b8;font-size:12px">
+                    Chưa có lịch sử điều chỉnh nào.
+                </div>
+            `;
+        } else {
+            const histRows = history.map(h => {
+                const parsed = formatHistoryDetail(h, roll);
+                return `<tr>
+                    <td>${ftNoYear(h.performed_at)}</td>
+                    <td>${getHistoryBadge(h.action)}</td>
+                    <td style="font-weight:700;color:#e2e8f0">${parsed.qtyStr}</td>
+                    <td style="font-size:10px;color:#94a3b8">${parsed.reasonStr}</td>
+                    <td>${h.performer_name || '—'}</td>
+                </tr>`;
+            }).join('');
+            
+            document.getElementById('mDetailsHistoryContent').innerHTML = `
+                <div style="overflow-x:auto">
+                    <table class="m-hist-table">
+                        <thead>
+                            <tr>
+                                <th>Thời Gian</th>
+                                <th>Hoạt động</th>
+                                <th>Số Mét</th>
+                                <th>Lý Do</th>
+                                <th>Người thực hiện</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${histRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+    } catch(e) {
+        toast('Lỗi tải chi tiết: ' + e.message, 'error');
+        mCloseDetails();
+    }
+}
+
+function mCloseDetails() {
+    document.getElementById('mDetailsModal').style.display = 'none';
+    activeRollId = null;
+}
+
+function formatHistoryDetail(h, roll) {
+    let qtyStr = '—';
+    let reasonStr = h.details || '—';
+    
+    if (h.action === 'create') {
+        qtyStr = '+' + fn(roll.qty_imported) + 'm';
+        reasonStr = 'nhập kho ' + (roll.roll_type || '').toLowerCase();
+    } else if (h.action === 'waste') {
+        let qtyMatch = (h.details || '').match(/(?:hao hụt|waste):\s*([+-]?\s*\d+(?:\.\d+)?)/i);
+        if (!qtyMatch) qtyMatch = (h.details || '').match(/([+-]?\s*\d+(?:\.\d+)?)/);
+        if (qtyMatch) {
+            let num = parseFloat(qtyMatch[1].replace(/\s+/g, ''));
+            if (!isNaN(num)) {
+                qtyStr = '-' + fn(Math.abs(num)) + 'm';
+            }
+        }
+        let reasonMatch = (h.details || '').match(/\(Lý do:\s*([^)]+)\)/);
+        if (reasonMatch) {
+            reasonStr = reasonMatch[1];
+        } else {
+            reasonStr = (h.details || '').replace(/Khai báo hao hụt:\s*[+-]?\s*\d+(?:\.\d+)?\w*\s*/i, '').trim();
+        }
+    } else if (h.action === 'error') {
+        let qtyMatch = (h.details || '').match(/(?:sản xuất lỗi|lỗi|error):\s*([+-]?\s*\d+(?:\.\d+)?)/i);
+        if (!qtyMatch) qtyMatch = (h.details || '').match(/([+-]?\s*\d+(?:\.\d+)?)/);
+        if (qtyMatch) {
+            let num = parseFloat(qtyMatch[1].replace(/\s+/g, ''));
+            if (!isNaN(num)) {
+                qtyStr = '-' + fn(Math.abs(num)) + 'm';
+            }
+        }
+        let reasonMatch = (h.details || '').match(/\(Lý do:\s*([^)]+)\)/);
+        if (reasonMatch) {
+            reasonStr = reasonMatch[1];
+        } else {
+            reasonStr = (h.details || '').replace(/Khai báo sản xuất lỗi:\s*[+-]?\s*\d+(?:\.\d+)?\w*\s*/i, '').trim();
+        }
+    }
+    return { qtyStr, reasonStr };
+}
+
+function getHistoryBadge(action) {
+    if (action === 'waste') {
+        return '<span class="m-hist-badge" style="background:rgba(245,158,11,0.15);color:#fbbf24">Hao hụt</span>';
+    } else if (action === 'error') {
+        return '<span class="m-hist-badge" style="background:rgba(239,68,68,0.15);color:#fca5a5">SX Lỗi</span>';
+    } else if (action === 'close') {
+        return '<span class="m-hist-badge" style="background:rgba(16,185,129,0.15);color:#6ee7b7">Chốt cuộn</span>';
+    } else if (action === 'reset') {
+        return '<span class="m-hist-badge" style="background:rgba(148,163,184,0.15);color:#cbd5e1">Reset</span>';
+    } else if (action === 'pending_approval') {
+        return '<span class="m-hist-badge" style="background:rgba(245,158,11,0.15);color:#fbbf24">Chờ duyệt</span>';
+    } else if (action === 'reject') {
+        return '<span class="m-hist-badge" style="background:rgba(239,68,68,0.15);color:#fca5a5">Từ chối</span>';
+    } else {
+        return '<span class="m-hist-badge" style="background:rgba(56,189,248,0.15);color:#7dd3fc">Nhập kho</span>';
+    }
+}
+
+async function mApprove(rollId) {
+    if (!confirm('Bạn có chắc chắn muốn DUYỆT chốt cây vật liệu này?')) return;
+    try {
+        const res = await api('/api/pettem/rolls/' + rollId + '/approve', 'POST');
+        if (res && res.error) {
+            toast(res.error, 'error');
+        } else {
+            toast('✅ Đã duyệt chốt cây vật liệu!');
+            mOpenDetails(rollId);
+            mLoad();
+        }
+    } catch(e) {
+        toast(e.message || 'Lỗi', 'error');
+    }
+}
+
+async function mReject(rollId) {
+    if (!confirm('Bạn có chắc chắn muốn TỪ CHỐI yêu cầu chốt cây vật liệu này?')) return;
+    try {
+        const res = await api('/api/pettem/rolls/' + rollId + '/reject', 'POST');
+        if (res && res.error) {
+            toast(res.error, 'error');
+        } else {
+            toast('✅ Đã từ chối yêu cầu chốt cuộn!');
+            mOpenDetails(rollId);
+            mLoad();
+        }
+    } catch(e) {
+        toast(e.message || 'Lỗi', 'error');
+    }
+}
+
+async function mClose(rollId) {
+    if (!confirm('Bạn có chắc chắn muốn chốt cây vật liệu này? Sau khi chốt sẽ không thể chỉnh sửa hoặc dùng in đơn mới.')) return;
+    try {
+        const res = await api('/api/pettem/rolls/' + rollId + '/close', 'POST');
+        if (res && res.error) {
+            toast(res.error, 'error');
+        } else if (res && res.pending_approval) {
+            toast(res.message || 'Đã gửi yêu cầu chốt cuộn lên Giám đốc.');
+            mOpenDetails(rollId);
+            mLoad();
+        } else {
+            toast('✅ Đã chốt cây vật liệu!');
+            mOpenDetails(rollId);
+            mLoad();
+        }
+    } catch(e) {
+        toast(e.message || 'Lỗi', 'error');
+    }
+}
+
 mInit();
 </script>
     <!-- Unified Mobile Navigation Script -->
