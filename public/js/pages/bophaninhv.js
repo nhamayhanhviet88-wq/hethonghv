@@ -1783,7 +1783,7 @@ async function _bpiRenderFieldsModal() {
     html += '<div style="display:flex;gap:20px;min-height:450px">';
     
     // LEFT PANEL: Fields List
-    html += '<div style="width:250px;border-right:1px solid #e2e8f0;padding-right:16px;display:flex;flex-direction:column">';
+    html += '<div style="width:280px;border-right:1px solid #e2e8f0;padding-right:16px;display:flex;flex-direction:column">';
     html += '<div style="font-weight:800;font-size:12px;color:#475569;margin-bottom:8px">LĨNH VỰC IN</div>';
     
     // Add new field input
@@ -1799,7 +1799,7 @@ async function _bpiRenderFieldsModal() {
                 ? 'background:#e0f2fe;color:#0369a1;border-color:#bae6fd;font-weight:700' 
                 : 'background:#f8fafc;color:#334155;border-color:#e2e8f0';
             html += '<div id="_bpiFieldRow_' + f.id + '" onclick="_bpiSelectField(' + f.id + ')" style="padding:8px 12px;border:1px solid;border-radius:8px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s;' + activeStyle + '">';
-            html += '<span id="_bpiFieldNameVal_' + f.id + '" style="font-weight:600;color:#1e293b;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎨 ' + f.name + '</span>';
+            html += '<span id="_bpiFieldNameVal_' + f.id + '" style="font-weight:600;color:#1e293b;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎨 ' + f.name + '</span>';
             html += '<div id="_bpiFieldActions_' + f.id + '" style="display:flex;gap:4px;align-items:center">';
             html += '<button onclick="event.stopPropagation();_bpiFieldEdit(' + f.id + ')" style="padding:4px 8px;border:1px solid #bae6fd;border-radius:6px;font-size:10px;cursor:pointer;background:#f0f9ff;color:#0284c7;font-weight:600;white-space:nowrap" title="Sửa">✏️ Sửa</button>';
             html += '<button onclick="event.stopPropagation();_bpiFieldDel(' + f.id + ')" style="padding:4px 8px;border:1px solid #fca5a5;border-radius:6px;font-size:10px;cursor:pointer;background:#fef2f2;color:#dc2626;font-weight:600;white-space:nowrap" title="Xóa">🗑️ Xóa</button>';
@@ -1852,7 +1852,7 @@ async function _bpiFieldEdit(id) {
     var actionsDiv = document.getElementById('_bpiFieldActions_' + id);
 
     if (nameSpan && actionsDiv) {
-        nameSpan.innerHTML = '<input id="_bpiFieldEditInput_' + id + '" value="' + f.name.replace(/"/g, '&quot;') + '" style="width:100px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700" onclick="event.stopPropagation()">';
+        nameSpan.innerHTML = '<input id="_bpiFieldEditInput_' + id + '" value="' + f.name.replace(/"/g, '&quot;') + '" style="width:130px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700" onclick="event.stopPropagation()">';
         actionsDiv.innerHTML = '<button onclick="event.stopPropagation();_bpiFieldSave(' + id + ')" style="padding:4px 8px;border:1px solid #86efac;border-radius:6px;font-size:10px;cursor:pointer;background:#f0fdf4;color:#16a34a;font-weight:600;white-space:nowrap;margin-right:2px" title="Lưu">💾 Lưu</button>' +
                               '<button onclick="event.stopPropagation();_bpiRenderFieldsModal()" style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;cursor:pointer;background:#f8fafc;color:#475569;font-weight:600;white-space:nowrap" title="Hủy">❌ Hủy</button>';
     }
