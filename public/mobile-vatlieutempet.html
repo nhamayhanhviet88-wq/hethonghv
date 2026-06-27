@@ -335,6 +335,15 @@
     <div id="mFB" class="mf" style="display:none">
         <select id="mFT" onchange="mLoad()"><option value="">Tất cả loại</option><option value="PET">🏷️ PET</option><option value="TEM">🎫 Tem</option><option value="DECAL">📋 Decal</option></select>
     </div>
+    
+    <!-- Proactive Pending Approval Warning Banner -->
+    <div id="mPendingBanner" style="display:none;margin:10px 12px 0;padding:12px;background:rgba(245,158,11,0.15);border:1.5px dashed #fbbf24;border-radius:12px;align-items:center;justify-content:space-between;color:#fbbf24;font-size:12px;font-weight:700">
+        <div style="display:flex;align-items:center;gap:8px">
+            <span>⏳</span>
+            <span>Có <span id="mPendingCount">0</span> cây đang chờ duyệt chốt!</span>
+        </div>
+        <button onclick="mSetMetricFilter('pending', null)" style="background:#fbbf24;color:#18181b;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">Xem ngay</button>
+    </div>
     <div id="mSB" class="ms" style="display:none">
         <div id="btnFilterAll" onclick="mSetMetricFilter('all', this)" style="background:linear-gradient(135deg,#e11d48,#f43f5e)">
             <div class="mv" id="sT">0</div>
@@ -456,7 +465,8 @@ let activeMetricFilter = 'all';
 async function mLoad(){const tt=document.getElementById('mFT')?.value||'';let q='?_=1';if(tt)q+='&roll_type='+tt;
 try{const r=await api('/api/pettem/rolls'+q);mr=r.rolls||[];mStats();mApplyFilterUI()}catch(e){document.getElementById('mC').innerHTML='<div style="text-align:center;padding:60px;color:#94a3b8">⚠️ '+e.message+'</div>'}}
 
-function mStats(){const t=mr.length;let si=0,sp=0,sr=0,sw=0,se=0;mr.forEach(r=>{si+=Number(r.qty_imported)||0;sp+=Number(r.qty_printed)||0;sr+=Number(r.qty_remaining)||0;sw+=Number(r.qty_waste)||0;se+=Number(r.qty_error)||0});
+function mStats(){const t=mr.length;let si=0,sp=0,sr=0,sw=0,se=0;let pendingCount=0;mr.forEach(r=>{si+=Number(r.qty_imported)||0;sp+=Number(r.qty_printed)||0;sr+=Number(r.qty_remaining)||0;sw+=Number(r.qty_waste)||0;se+=Number(r.qty_error)||0;if(r.pending_approval)pendingCount++});
+const banner=document.getElementById('mPendingBanner');if(pendingCount>0){document.getElementById('mPendingCount').textContent=pendingCount;banner.style.display='flex'}else{banner.style.display='none'}
 const pctP=si>0?((sp/si)*100).toFixed(1)+'%':'0%';
 const pctW=si>0?((sw/si)*100).toFixed(1)+'%':'0%';
 const pctE=si>0?((se/si)*100).toFixed(1)+'%':'0%';
@@ -471,12 +481,13 @@ if(filterType==='printed')text='Đang xem cây: Đã In > 0';
 else if(filterType==='waste')text='Đang xem cây: Có Hao Hụt > 0';
 else if(filterType==='error')text='Đang xem cây: Có SX Lỗi > 0';
 else if(filterType==='remaining')text='Đang xem cây: Có Tồn Cuối > 0';
+else if(filterType==='pending')text='Đang xem cây: Chờ duyệt chốt';
 filterText.textContent=text}mCards()}
 
 function mClearMetricFilter(){mSetMetricFilter('all',null)}
 function mApplyFilterUI(){let activeDiv=null;if(activeMetricFilter==='printed')activeDiv=document.getElementById('btnFilterPrinted');
 else if(activeMetricFilter==='waste')activeDiv=document.getElementById('btnFilterWaste');else if(activeMetricFilter==='error')activeDiv=document.getElementById('btnFilterError');
-else if(activeMetricFilter==='remaining')activeDiv=document.getElementById('btnFilterRemaining');else activeDiv=document.getElementById('btnFilterAll');
+else if(activeMetricFilter==='remaining')activeDiv=document.getElementById('btnFilterRemaining');else if(activeMetricFilter==='all')activeDiv=document.getElementById('btnFilterAll');
 mSetMetricFilter(activeMetricFilter,activeDiv)}
 
 function mCards(){const c=document.getElementById('mC');let filtered=mr;
@@ -484,6 +495,7 @@ if(activeMetricFilter==='printed'){filtered=mr.filter(r=>(Number(r.qty_printed)|
 else if(activeMetricFilter==='waste'){filtered=mr.filter(r=>(Number(r.qty_waste)||0)>0)}
 else if(activeMetricFilter==='error'){filtered=mr.filter(r=>(Number(r.qty_error)||0)>0)}
 else if(activeMetricFilter==='remaining'){filtered=mr.filter(r=>(Number(r.qty_remaining)||0)>0)}
+else if(activeMetricFilter==='pending'){filtered=mr.filter(r=>r.pending_approval)}
 if(!filtered.length){c.innerHTML='<div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🔍</div><div style="font-size:14px;font-weight:700">Không tìm thấy cây vật liệu phù hợp</div></div>';return}
 c.innerHTML=filtered.map(r=>{
 const ic=TI[r.roll_type]||'🏷️',cl=TC[r.roll_type]||'#e11d48',lb=TL[r.roll_type]||r.roll_type;
