@@ -1799,10 +1799,10 @@ async function _bpiRenderFieldsModal() {
                 ? 'background:#e0f2fe;color:#0369a1;border-color:#bae6fd;font-weight:700' 
                 : 'background:#f8fafc;color:#334155;border-color:#e2e8f0';
             html += '<div id="_bpiFieldRow_' + f.id + '" onclick="_bpiSelectField(' + f.id + ')" style="padding:8px 12px;border:1px solid;border-radius:8px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s;' + activeStyle + '">';
-            html += '<span id="_bpiFieldNameVal_' + f.id + '">🎨 ' + f.name + '</span>';
+            html += '<span id="_bpiFieldNameVal_' + f.id + '" style="font-weight:600;color:#1e293b;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎨 ' + f.name + '</span>';
             html += '<div id="_bpiFieldActions_' + f.id + '" style="display:flex;gap:4px;align-items:center">';
-            html += '<button onclick="event.stopPropagation();_bpiFieldEdit(' + f.id + ')" style="padding:2px 6px;background:none;border:none;color:#0284c7;cursor:pointer;font-size:10px" title="Sửa">✏️</button>';
-            html += '<button onclick="event.stopPropagation();_bpiFieldDel(' + f.id + ')" style="padding:2px 6px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px" title="Xóa">🗑️</button>';
+            html += '<button onclick="event.stopPropagation();_bpiFieldEdit(' + f.id + ')" style="padding:4px 8px;border:1px solid #bae6fd;border-radius:6px;font-size:10px;cursor:pointer;background:#f0f9ff;color:#0284c7;font-weight:600;white-space:nowrap" title="Sửa">✏️ Sửa</button>';
+            html += '<button onclick="event.stopPropagation();_bpiFieldDel(' + f.id + ')" style="padding:4px 8px;border:1px solid #fca5a5;border-radius:6px;font-size:10px;cursor:pointer;background:#fef2f2;color:#dc2626;font-weight:600;white-space:nowrap" title="Xóa">🗑️ Xóa</button>';
             html += '</div>';
             html += '</div>';
         });
@@ -1852,9 +1852,9 @@ async function _bpiFieldEdit(id) {
     var actionsDiv = document.getElementById('_bpiFieldActions_' + id);
 
     if (nameSpan && actionsDiv) {
-        nameSpan.innerHTML = '<input id="_bpiFieldEditInput_' + id + '" value="' + f.name.replace(/"/g, '&quot;') + '" style="width:120px;padding:2px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700" onclick="event.stopPropagation()">';
-        actionsDiv.innerHTML = '<button onclick="event.stopPropagation();_bpiFieldSave(' + id + ')" style="padding:2px 6px;background:none;border:none;color:#16a34a;cursor:pointer;font-size:10px" title="Lưu">💾</button>' +
-                              '<button onclick="event.stopPropagation();_bpiRenderFieldsModal()" style="padding:2px 6px;background:none;border:none;color:#475569;cursor:pointer;font-size:10px" title="Hủy">❌</button>';
+        nameSpan.innerHTML = '<input id="_bpiFieldEditInput_' + id + '" value="' + f.name.replace(/"/g, '&quot;') + '" style="width:100px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700" onclick="event.stopPropagation()">';
+        actionsDiv.innerHTML = '<button onclick="event.stopPropagation();_bpiFieldSave(' + id + ')" style="padding:4px 8px;border:1px solid #86efac;border-radius:6px;font-size:10px;cursor:pointer;background:#f0fdf4;color:#16a34a;font-weight:600;white-space:nowrap;margin-right:2px" title="Lưu">💾 Lưu</button>' +
+                              '<button onclick="event.stopPropagation();_bpiRenderFieldsModal()" style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;cursor:pointer;background:#f8fafc;color:#475569;font-weight:600;white-space:nowrap" title="Hủy">❌ Hủy</button>';
     }
 }
 
@@ -1924,7 +1924,27 @@ async function _bpiLoadFieldOperators(fieldId) {
         h += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;background:#f8fafc;padding:4px 8px;border-radius:4px">👤 NHÂN VIÊN PHÒNG IN</div>';
         if (staff.length) {
             h += '<div style="display:flex;flex-direction:column;gap:6px">';
-            staff.forEach(function(s) { /*...*/ });
+            staff.forEach(function(s) {
+                var ch = isAssigned('user', s.id) ? 'checked' : '';
+                var assignedLoc = assigned.find(function(a) { return a.operator_type === 'user' && a.operator_id === s.id; });
+                var assignedLocId = assignedLoc ? assignedLoc.location_id : null;
+
+                h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px;border-radius:4px;transition:background .15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'transparent\'">';
+                h += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin:0">';
+                h += '<input type="checkbox" class="_bpOpCheck" data-type="user" data-id="' + s.id + '" ' + ch + ' onchange="var sel=this.parentElement.parentElement.querySelector(\'select\'); if(sel) sel.style.display=this.checked?\'inline-block\':\'none\';" style="cursor:pointer">';
+                h += '<span>👤 ' + s.full_name + '</span>';
+                h += '</label>';
+                
+                if (is3DField) {
+                    h += '<select class="_bpOpLocSelect" style="font-size:11px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;width:150px;' + (ch ? '' : 'display:none;') + '">';
+                    h += '<option value="">-- Chọn kệ liên kết --</option>';
+                    locations.forEach(function(l) {
+                        h += '<option value="' + l.id + '" ' + (l.id === assignedLocId ? 'selected' : '') + '>' + escapeHTML(l.name) + '</option>';
+                    });
+                    h += '</select>';
+                }
+                h += '</div>';
+            });
             h += '</div>';
         } else {
             h += '<div style="color:#94a3b8;font-size:11px;padding-left:8px">Không có nhân viên trong Phòng In</div>';

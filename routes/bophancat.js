@@ -8,16 +8,91 @@ module.exports = async function(fastify) {
     async function get3DCuttingContractor(dhtOrderId) {
         if (!dhtOrderId) return null;
         const assignment = await db.get(`
-            SELECT qa.assigned_contractor_id
-            FROM qlx_assignments qa
-            JOIN printing_fields pf ON qa.printing_field_id = pf.id
+            SELECT qa.operator_id AS assigned_contractor_id
+            FROM qlx_order_print_assignments qa
+            JOIN printing_fields pf ON qa.field_id = pf.id
             WHERE qa.dht_order_id = $1 
-              AND qa.assignment_type = 'in'
-              AND qa.assigned_contractor_id IS NOT NULL
+              AND qa.operator_type = 'contractor'
+              AND qa.operator_id IS NOT NULL
               AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
             LIMIT 1
         `, [dhtOrderId]);
         return assignment ? assignment.assigned_contractor_id : null;
+    }
+
+    async function syncCuttingToPrinting(dhtOrderId, orderItemId, isDone, userId) {
+        if (!dhtOrderId) return;
+        const fields = await db.all(`
+            SELECT id, name FROM printing_fields 
+            WHERE LOWER(name) LIKE '%3d%' OR LOWER(name) LIKE '%cắt%'
+        `);
+        if (fields.length === 0) return;
+        const fieldNames = fields.map(f => f.name);
+        const now = vnNow();
+
+        if (isDone) {
+            let allDone = false;
+            if (orderItemId) {
+                const cuts = await db.all(`SELECT is_cut_done FROM cutting_records WHERE order_item_id = $1`, [orderItemId]);
+                allDone = cuts.length > 0 && cuts.every(c => c.is_cut_done);
+            } else {
+                const cuts = await db.all(`SELECT is_cut_done FROM cutting_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [dhtOrderId]);
+                allDone = cuts.length > 0 && cuts.every(c => c.is_cut_done);
+            }
+            if (allDone) {
+                if (orderItemId) {
+                    await db.run(`
+                        UPDATE printing_records
+                        SET is_print_done = true,
+                            print_done_at = $1,
+                            print_done_by = $2,
+                            updated_at = $1
+                        WHERE order_item_id = $3
+                          AND print_field = ANY($4)
+                          AND is_print_done = false
+                    `, [now, userId, orderItemId, fieldNames]);
+                } else {
+                    await db.run(`
+                        UPDATE printing_records
+                        SET is_print_done = true,
+                            print_done_at = $1,
+                            print_done_by = $2,
+                            updated_at = $1
+                        WHERE dht_order_id = $3
+                          AND order_item_id IS NULL
+                          AND print_field = ANY($4)
+                          AND is_print_done = false
+                    `, [now, userId, dhtOrderId, fieldNames]);
+                }
+                console.log('[CUT->PRINT] Automatically marked printing records done for order:', dhtOrderId, 'item:', orderItemId);
+            }
+        } else {
+            if (orderItemId) {
+                await db.run(`
+                    UPDATE printing_records
+                    SET is_print_done = false,
+                        print_done_at = NULL,
+                        print_done_by = NULL,
+                        updated_at = $1
+                    WHERE order_item_id = $2
+                      AND print_field = ANY($3)
+                      AND is_print_done = true
+                `, [now, orderItemId, fieldNames]);
+            } else {
+                await db.run(`
+                    UPDATE printing_records
+                    SET is_print_done = false,
+                        print_done_at = NULL,
+                        print_done_by = NULL,
+                        updated_at = $1
+                    WHERE dht_order_id = $2
+                      AND order_item_id IS NULL
+                      AND print_field = ANY($3)
+                      AND is_print_done = true
+                `, [now, dhtOrderId, fieldNames]);
+            }
+            console.log('[CUT->PRINT] Automatically marked printing records undone for order:', dhtOrderId, 'item:', orderItemId);
+        }
     }
 
     async function isContractorLocation(locationName) {
@@ -1527,6 +1602,11 @@ module.exports = async function(fastify) {
 
         if (['cut_done', 'undo_cut_done'].includes(action)) {
             try {
+                await syncCuttingToPrinting(rec.dht_order_id, rec.order_item_id, action === 'cut_done', request.user.id);
+            } catch(syncErr) {
+                console.error('[CUT->PRINT] Toggle action sync failed:', syncErr);
+            }
+            try {
                 const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
                 let snapshot = [];
                 try {
@@ -1872,22 +1952,36 @@ module.exports = async function(fastify) {
 
         let filterLocationIds = [];
         if (orderId) {
-            const assignment = await db.get(`
-                SELECT qa.assigned_contractor_id, qa.assigned_user_id
-                FROM qlx_assignments qa
-                JOIN printing_fields pf ON qa.printing_field_id = pf.id
-                WHERE qa.dht_order_id = $1 
-                  AND qa.assignment_type = 'in'
-                  AND (qa.assigned_contractor_id IS NOT NULL OR qa.assigned_user_id IS NOT NULL)
-                  AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
-                LIMIT 1
-            `, [orderId]);
+            let assignment;
+            if (orderItemId) {
+                assignment = await db.get(`
+                    SELECT qa.operator_type, qa.operator_id
+                    FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
+                    WHERE qa.item_id = $1 
+                      AND (qa.operator_id IS NOT NULL)
+                      AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                    LIMIT 1
+                `, [orderItemId]);
+            }
+            if (!assignment) {
+                assignment = await db.get(`
+                    SELECT qa.operator_type, qa.operator_id
+                    FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
+                    WHERE qa.dht_order_id = $1 
+                      AND qa.item_id IS NULL
+                      AND (qa.operator_id IS NOT NULL)
+                      AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                    LIMIT 1
+                `, [orderId]);
+            }
             if (assignment) {
                 let locs = [];
-                if (assignment.assigned_contractor_id) {
-                    locs = await db.all(`SELECT name FROM kv_locations WHERE printing_contractor_id = $1`, [assignment.assigned_contractor_id]);
-                } else if (assignment.assigned_user_id) {
-                    locs = await db.all(`SELECT name FROM kv_locations WHERE user_id = $1`, [assignment.assigned_user_id]);
+                if (assignment.operator_type === 'contractor') {
+                    locs = await db.all(`SELECT name FROM kv_locations WHERE printing_contractor_id = $1`, [assignment.operator_id]);
+                } else if (assignment.operator_type === 'user') {
+                    locs = await db.all(`SELECT name FROM kv_locations WHERE user_id = $1`, [assignment.operator_id]);
                 }
                 if (locs.length > 0) {
                     filterLocationIds = locs.map(l => l.name.trim().toLowerCase());
@@ -2700,6 +2794,17 @@ module.exports = async function(fastify) {
 
             await db.run(`INSERT INTO cutting_history (cutting_id, action, details, performed_by, performed_at) VALUES ($1,$2,$3,$4,$5)`,
                 [it.record_id, 'multi_cut_done', '✅ Cắt xong nhóm — SL: ' + qty + ', Kg: ' + myKgCut.toFixed(2) + ', TL: ' + myRatio, userId, now]);
+        }
+
+        for (const it of items) {
+            const rec = groupRecords.find(r => r.id === it.record_id);
+            if (rec) {
+                try {
+                    await syncCuttingToPrinting(rec.dht_order_id, rec.order_item_id, true, userId);
+                } catch(syncErr) {
+                    console.error('[CUT->PRINT] Multi sync failed:', syncErr);
+                }
+            }
         }
 
         const groupOrderIds = groupRecords.map(r => r.dht_order_id).filter(Boolean);

@@ -1226,15 +1226,19 @@ module.exports = async function(fastify) {
         if (!(await isPrintManager(req))) return reply.code(403).send({ error: 'Không có quyền' });
         const fieldId = Number(req.params.id);
         const { operators } = req.body || {};
+        console.log('[DEBUG] Received operators save request:', { fieldId, operators });
         if (!Array.isArray(operators)) return reply.code(400).send({ error: 'Operators must be an array' });
 
         const field = await db.get('SELECT name FROM printing_fields WHERE id = $1', [fieldId]);
         const fieldName = field ? field.name : '';
         const is3DField = fieldName.toLowerCase().includes('3d') || fieldName.toLowerCase().includes('cắt');
+        console.log('[DEBUG] Field info:', { fieldName, is3DField });
 
         if (is3DField) {
             for (const op of operators) {
+                console.log('[DEBUG] Checking operator validation:', op);
                 if (!op.location_id) {
+                    console.log('[DEBUG] Validation failed: missing location_id for op:', op);
                     return reply.code(400).send({ error: `Nhân sự/Gia công thuộc Lĩnh vực in 3D/Cắt bắt buộc phải chọn kệ liên kết!` });
                 }
                 const currentLink = await db.get(`
@@ -1246,26 +1250,33 @@ module.exports = async function(fastify) {
                       )
                 `, [op.location_id, op.operator_type === 'contractor' ? op.operator_id : -1, op.operator_type === 'user' ? op.operator_id : -1]);
                 if (currentLink) {
+                    console.log('[DEBUG] Validation failed: location already linked:', currentLink);
                     return reply.code(400).send({ error: `Kệ "${currentLink.name}" đã được liên kết với người khác!` });
                 }
             }
         }
 
         // Fetch old operators before deleting to clean up their linked locations
-        const oldAssigned = await db.all(`
-            SELECT operator_type, operator_id FROM printing_field_operators WHERE field_id = $1
-        `, [fieldId]);
-        for (const op of oldAssigned) {
-            if (op.operator_type === 'contractor') {
-                await db.run(`UPDATE kv_locations SET printing_contractor_id = NULL WHERE printing_contractor_id = $1`, [op.operator_id]);
-            } else if (op.operator_type === 'user') {
-                await db.run(`UPDATE kv_locations SET user_id = NULL WHERE user_id = $1`, [op.operator_id]);
+        if (is3DField) {
+            const oldAssigned = await db.all(`
+                SELECT operator_type, operator_id FROM printing_field_operators WHERE field_id = $1
+            `, [fieldId]);
+            console.log('[DEBUG] Old assigned operators:', oldAssigned);
+            for (const op of oldAssigned) {
+                if (op.operator_type === 'contractor') {
+                    console.log('[DEBUG] Clearing old contractor location link for contractor:', op.operator_id);
+                    await db.run(`UPDATE kv_locations SET printing_contractor_id = NULL WHERE printing_contractor_id = $1`, [op.operator_id]);
+                } else if (op.operator_type === 'user') {
+                    console.log('[DEBUG] Clearing old user location link for user:', op.operator_id);
+                    await db.run(`UPDATE kv_locations SET user_id = NULL WHERE user_id = $1`, [op.operator_id]);
+                }
             }
         }
 
         await db.run(`DELETE FROM printing_field_operators WHERE field_id = $1`, [fieldId]);
         for (const op of operators) {
             if (['user', 'contractor'].includes(op.operator_type) && op.operator_id) {
+                console.log('[DEBUG] Inserting operator:', op);
                 await db.run(`
                     INSERT INTO printing_field_operators (field_id, operator_type, operator_id)
                     VALUES ($1, $2, $3)
@@ -1274,9 +1285,11 @@ module.exports = async function(fastify) {
 
                 if (is3DField && op.location_id) {
                     if (op.operator_type === 'contractor') {
+                        console.log('[DEBUG] Linking contractor to location:', { contractor: op.operator_id, location: op.location_id });
                         await db.run(`UPDATE kv_locations SET printing_contractor_id = NULL WHERE printing_contractor_id = $1`, [Number(op.operator_id)]);
                         await db.run(`UPDATE kv_locations SET printing_contractor_id = $1 WHERE id = $2`, [Number(op.operator_id), Number(op.location_id)]);
                     } else if (op.operator_type === 'user') {
+                        console.log('[DEBUG] Linking user to location:', { user: op.operator_id, location: op.location_id });
                         await db.run(`UPDATE kv_locations SET user_id = NULL WHERE user_id = $1`, [Number(op.operator_id)]);
                         await db.run(`UPDATE kv_locations SET user_id = $1 WHERE id = $2`, [Number(op.operator_id), Number(op.location_id)]);
                     }
