@@ -335,9 +335,9 @@ function _kvRenderTable() {
             var matA = a.material_name || '';
             var matB = b.material_name || '';
             if (matA !== matB) return matA.localeCompare(matB, 'vi');
-            var activeA = a.is_active !== false ? 1 : 0;
-            var activeB = b.is_active !== false ? 1 : 0;
-            if (activeA !== activeB) return activeB - activeA;
+            var stopA = (a.color_stop_import === true || a.is_active === false) ? 0 : 1;
+            var stopB = (b.color_stop_import === true || b.is_active === false) ? 0 : 1;
+            if (stopA !== stopB) return stopA - stopB;
             var colA = a.color_name || '';
             var colB = b.color_name || '';
             return colA.localeCompare(colB, 'vi');
