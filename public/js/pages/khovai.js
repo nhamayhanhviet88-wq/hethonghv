@@ -446,15 +446,18 @@ function _kvRenderTable() {
         h += '<td style="white-space:nowrap" onclick="event.stopPropagation()">';
         if (isDirector) {
             if (r.is_active !== false) {
-                h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#10b981;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để ẩn khỏi tạo đơn">🟢 Bán</button>';
+                h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#10b981;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để dừng bán">🟢 Bán</button>';
             } else {
-                h += '<button onclick="_kvToggleActive(' + r.id + ', true)" style="background:#64748b;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hiển thị ở tạo đơn">🔴 Ẩn</button>';
+                h += '<button onclick="_kvToggleActive(' + r.id + ', true)" style="background:#64748b;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để mở bán">🔴 Dừng Bán</button>';
             }
             if (r.color_stop_import) {
-                h += '<button onclick="_kvToggleStopImport(' + r.id + ', false)" style="background:#f43f5e;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Hủy dừng nhập màu này">🛑 Dừng</button>';
+                h += '<button onclick="_kvToggleStopImport(' + r.id + ', false)" style="background:#f43f5e;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Hủy dừng nhập màu này">🛑 Dừng Nhập Vải</button>';
             } else {
-                h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập</button>';
+                h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập Vải</button>';
             }
+        }
+        if (r.is_active !== false) {
+            h += '<button onclick="_kvCreateOrderFromFabric(' + r.id + ', \'' + (r.material_name||'').replace(/'/g, "\\'") + '\', \'' + (r.color_name||'').replace(/'/g, "\\'") + '\')" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Tạo đơn hàng mới với màu vải này">✨ Tạo Thêm Đơn</button>';
         }
         h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
         h += '</td>';
@@ -1248,11 +1251,11 @@ async function _kvToggleActive(id, newState) {
         }
     }
     if (!newState) {
-        if (!confirm('Bạn có chắc chắn muốn ẩn màu vải này khỏi danh sách tạo đơn?')) return;
+        if (!confirm('Bạn có chắc chắn muốn dừng bán màu vải này?')) return;
         try {
             var res = await apiCall('/api/khovai/colors/' + id + '/toggle', 'PUT', { is_active: false });
             if (res.success) {
-                showToast('Đã ẩn màu vải thành công!', 'success');
+                showToast('Đã dừng bán màu vải thành công!', 'success');
                 _kvLoadSummary();
                 try {
                     var treeData = await apiCall('/api/khovai/tree');
@@ -1394,11 +1397,11 @@ async function _kvToggleStopImport(id, newState) {
         }
     }
     if (newState) {
-        if (!confirm('Bạn có chắc chắn muốn dừng nhập màu vải này?')) return;
+        if (!confirm('Bạn có chắc chắn muốn dừng nhập vải màu này?')) return;
         try {
             var res = await apiCall('/api/khovai/colors/' + id, 'PUT', { stop_import: true });
             if (res.success) {
-                showToast('Đã dừng nhập màu vải thành công!', 'success');
+                showToast('Đã dừng nhập vải thành công!', 'success');
                 _kvLoadSummary();
             } else {
                 showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
@@ -1643,3 +1646,32 @@ function _kvCloseRollOriginModal() {
     if (el) el.remove();
 }
 window._kvCloseRollOriginModal = _kvCloseRollOriginModal;
+
+function _kvCreateOrderFromFabric(colorId, materialName, colorName) {
+    var r = _kv.summary.find(function(x) { return x.id === colorId; });
+    if (!r) return;
+    
+    if (r.is_active === false) {
+        showToast('Màu vải này đang dừng bán, không thể tạo đơn!', 'error');
+        return;
+    }
+
+    window._kvPreselectedFabric = {
+        material_id: r.material_id,
+        material_name: r.material_name,
+        color_id: r.id,
+        color_name: r.color_name
+    };
+    
+    navigate('don-hang-tong');
+    
+    setTimeout(function() {
+        if (typeof _dhtShowCreate === 'function') {
+            _dhtShowCreate();
+            showToast('Đã chọn sẵn vải: ' + r.material_name + ' - ' + r.color_name + '. Hãy chọn sản phẩm & mẫu áo để áp dụng.', 'info', 6000);
+        } else {
+            showToast('Không thể mở chức năng tạo đơn. Vui lòng thử lại!', 'error');
+        }
+    }, 400);
+}
+window._kvCreateOrderFromFabric = _kvCreateOrderFromFabric;

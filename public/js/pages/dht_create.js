@@ -1575,6 +1575,15 @@ function _dhtPatternChange(existing) {
     if (existPairs.length === 0 && existing && existing.material_id) {
         existPairs = [{ material_id: existing.material_id, material_name: existing.material_name, color_id: existing.color_id, color_name: existing.color_name }];
     }
+    if (existPairs.length === 0 && window._kvPreselectedFabric) {
+        existPairs = [{
+            material_id: window._kvPreselectedFabric.material_id,
+            material_name: window._kvPreselectedFabric.material_name,
+            color_id: window._kvPreselectedFabric.color_id,
+            color_name: window._kvPreselectedFabric.color_name
+        }];
+        window._kvPreselectedFabric = null;
+    }
     var h = '';
     for (var i = 0; i < mixCount; i++) {
         var ep = existPairs[i] || {};
