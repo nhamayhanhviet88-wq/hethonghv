@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const fastify = require('fastify')({ logger: false, bodyLimit: 52428800 }); // 50MB
 
-// Trigger reload: 2026-06-28_show_all_order_btn
+// Trigger reload: 2026-06-28_show_cond_order_btn
 // ========== DOITAC DOMAIN DETECTION ==========
 // Detect if request comes from affiliate portal (dongphuchv.net)
 const DOITAC_DOMAINS = ['dongphuchv.net', 'www.dongphuchv.net'];

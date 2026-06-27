@@ -428,8 +428,6 @@ function _kvRenderTable() {
         h += '<div style="display:inline-block;vertical-align:middle">';
         h += '<div><span>' + (r.color_name||'') + '</span><span style="font-size:11px;font-weight:600;color:#64748b">' + rwHtml + '</span></div>';
         h += stopBadgeHtml;
-        h += slipsBadgeHtml;
-        h += importSlipsBadgeHtml;
         h += '</div>';
         h += '</td>';
         h += '<td>' + (r.material_name||'') + '</td>';
@@ -454,7 +452,9 @@ function _kvRenderTable() {
                 h += '<button onclick="_kvToggleStopImport(' + r.id + ', true)" style="background:#0284c7;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bật dừng nhập màu này">📥 Nhập Vải</button>';
             }
         }
-        h += '<button onclick="_kvCreateOrderFromFabric(' + r.id + ', \'' + (r.material_name||'').replace(/'/g, "\\'") + '\', \'' + (r.color_name||'').replace(/'/g, "\\'") + '\')" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Tạo đơn hàng mới với màu vải này">✨ Thêm Đơn</button>';
+        if (r.is_active === false || r.color_stop_import) {
+            h += '<button onclick="_kvCreateOrderFromFabric(' + r.id + ', \'' + (r.material_name||'').replace(/'/g, "\\'") + '\', \'' + (r.color_name||'').replace(/'/g, "\\'") + '\')" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Tạo đơn hàng mới với màu vải này">✨ Thêm Đơn</button>';
+        }
         h += '<button onclick="_kvShowHistory(' + r.id + ')" style="background:#6366f1;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Lịch sử">📋 Lịch sử</button>';
         h += '</td>';
         h += '</tr>';
