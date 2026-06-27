@@ -341,6 +341,8 @@ module.exports = async function(fastify) {
     // Add wash_items and wash_market_image to cutting_records
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS wash_items JSONB DEFAULT '[]'`); } catch(e) {}
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS wash_market_image TEXT`); } catch(e) {}
+    // Add printing_contractor_id to cutting_records
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS printing_contractor_id INTEGER REFERENCES printing_contractors(id) ON DELETE SET NULL`); } catch(e) {}
     // Backfill cutting_category for existing records
     try {
         await db.exec(`
