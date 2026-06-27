@@ -1684,7 +1684,7 @@ async function _kvCreateOrderFromFabric(colorId, materialName, colorName) {
     var r = _kv.summary.find(function(x) { return x.id === colorId; });
     if (!r) return;
     
-    if (r.is_active === false || r.allowed_slips !== null) {
+    if (r.is_active === false || r.allowed_slips !== null || r.color_stop_import) {
         var defaultVal = r.allowed_slips !== null ? String(r.allowed_slips) : '1';
         _kvShowCreateOrderFromFabricModal(colorId, materialName, colorName, defaultVal);
     } else {
