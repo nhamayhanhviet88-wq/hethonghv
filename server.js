@@ -504,6 +504,7 @@ async function start() {
         try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS location TEXT`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS stop_import BOOLEAN DEFAULT FALSE`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS allowed_import_slips INTEGER DEFAULT NULL`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS pending_stop_active BOOLEAN DEFAULT FALSE`); } catch(e) {}
         // Migrations for kv_rolls
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS original_weight NUMERIC NOT NULL DEFAULT 0`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS is_cutting BOOLEAN DEFAULT false`); } catch(e) {}
@@ -1227,6 +1228,62 @@ async function start() {
             
         if (isFabricMutation) {
             await checkStockcheckLock(request, reply);
+        }
+    });
+
+    fastify.addHook('onResponse', async (request, reply) => {
+        if (reply.statusCode < 200 || reply.statusCode >= 300) return;
+        const method = request.method;
+        if (method !== 'POST' && method !== 'PUT' && method !== 'DELETE') return;
+
+        try {
+            // Check if there are any colors pending stop active
+            const pendingColors = await db.all('SELECT id, color_name FROM kv_fabric_colors WHERE pending_stop_active = true');
+            if (pendingColors.length === 0) return;
+
+            // Fetch active uncut order items
+            const otherItems = await db.all(`
+                SELECT oi.id, oi.dht_order_id, oi.quantity, oi.product_name, oi.material_id, oi.color_id, oi.material_pairs,
+                       o.order_code
+                FROM dht_order_items oi
+                JOIN dht_orders o ON o.id = oi.dht_order_id
+                LEFT JOIN cutting_records cr ON cr.order_item_id = oi.id
+                LEFT JOIN order_codes oc ON oc.order_code = o.order_code
+                LEFT JOIN customers cust ON cust.id = o.customer_id
+                WHERE (cr.id IS NULL OR cr.is_cut_done = false)
+                  AND (oc.id IS NULL OR oc.status <> 'cancelled')
+                  AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+            `);
+
+            for (const col of pendingColors) {
+                const colId = col.id;
+                let hasUncut = false;
+                for (const oi of otherItems) {
+                    let matches = false;
+                    if (Number(oi.color_id) === colId) {
+                        matches = true;
+                    } else if (oi.material_pairs) {
+                        let pairs = [];
+                        try {
+                            pairs = typeof oi.material_pairs === 'string' ? JSON.parse(oi.material_pairs) : oi.material_pairs;
+                        } catch (e) {}
+                        if (Array.isArray(pairs) && pairs.some(p => Number(p.color_id) === colId)) {
+                            matches = true;
+                        }
+                    }
+                    if (matches) {
+                        hasUncut = true;
+                        break;
+                    }
+                }
+
+                if (!hasUncut) {
+                    await db.run('UPDATE kv_fabric_colors SET is_active = false, pending_stop_active = false, updated_at = NOW() WHERE id = $1', [colId]);
+                    console.log(`[Auto-Stop Sales] Fabric color ID ${colId} (${col.color_name}) has been automatically disabled for sales because all matching orders are cut done.`);
+                }
+            }
+        } catch (err) {
+            console.error('[Auto-Stop Sales Check Error]', err);
         }
     });
 

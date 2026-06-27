@@ -1076,7 +1076,7 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/summary', { preHandler: [authenticate] }, async (request) => {
         const { wid, mid } = request.query;
         let sql = `
-            SELECT fc.id, fc.color_name, fc.price, fc.is_active, fc.allowed_slips, fc.allowed_import_slips,
+            SELECT fc.id, fc.color_name, fc.price, fc.is_active, fc.allowed_slips, fc.allowed_import_slips, fc.pending_stop_active,
                    COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
                    fc.notes, fc.material_id, fc.updated_at,
                    fc.stop_import AS color_stop_import, m.stop_import AS material_stop_import,
@@ -1400,7 +1400,7 @@ module.exports = async function (fastify) {
         if (!isGdOrTrinh(request.user)) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền ẩn/bán màu vải!' });
         }
-        const { is_active, allowed_slips } = request.body || {};
+        const { is_active, allowed_slips, pending_stop_active } = request.body || {};
         const color = await db.get('SELECT stop_import, allowed_import_slips FROM kv_fabric_colors WHERE id = $1', [request.params.id]);
         if (!color) {
             return reply.code(404).send({ error: 'Không tìm thấy màu vải!' });
@@ -1417,11 +1417,59 @@ module.exports = async function (fastify) {
                     parsedSlips = val;
                 }
             }
-            await db.run('UPDATE kv_fabric_colors SET is_active = true, allowed_slips = $1, updated_at = NOW() WHERE id = $2', [parsedSlips, request.params.id]);
+            await db.run('UPDATE kv_fabric_colors SET is_active = true, pending_stop_active = false, allowed_slips = $1, updated_at = NOW() WHERE id = $2', [parsedSlips, request.params.id]);
         } else {
+            // Check for active uncut orders first
+            const otherItems = await db.all(`
+                SELECT oi.id, oi.dht_order_id, oi.quantity, oi.product_name, oi.material_id, oi.color_id, oi.material_pairs,
+                       o.order_code
+                FROM dht_order_items oi
+                JOIN dht_orders o ON o.id = oi.dht_order_id
+                LEFT JOIN cutting_records cr ON cr.order_item_id = oi.id
+                LEFT JOIN order_codes oc ON oc.order_code = o.order_code
+                LEFT JOIN customers cust ON cust.id = o.customer_id
+                WHERE (cr.id IS NULL OR cr.is_cut_done = false)
+                  AND (oc.id IS NULL OR oc.status <> 'cancelled')
+                  AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+            `);
+
+            const colId = Number(request.params.id);
+            const uncutOrders = [];
+            for (const oi of otherItems) {
+                let matches = false;
+                if (Number(oi.color_id) === colId) {
+                    matches = true;
+                } else if (oi.material_pairs) {
+                    let pairs = [];
+                    try {
+                        pairs = typeof oi.material_pairs === 'string' ? JSON.parse(oi.material_pairs) : oi.material_pairs;
+                    } catch (e) {}
+                    if (Array.isArray(pairs) && pairs.some(p => Number(p.color_id) === colId)) {
+                        matches = true;
+                    }
+                }
+                if (matches) {
+                    uncutOrders.push(oi.order_code + ' — ' + oi.product_name);
+                }
+            }
+
+            if (uncutOrders.length > 0) {
+                if (pending_stop_active) {
+                    // Schedule auto-stop when all cuts are done
+                    await db.run('UPDATE kv_fabric_colors SET pending_stop_active = true, updated_at = NOW() WHERE id = $1', [colId]);
+                    return { success: true, pending: true };
+                } else {
+                    return reply.send({
+                        success: false,
+                        hasUncutOrders: true,
+                        uncutOrders: [...new Set(uncutOrders)]
+                    });
+                }
+            }
+
             // Rule A: if hidden for sales (is_active = false), it cannot be stopped import (stop_import = false, allowed_import_slips = null)
             await db.run(
-                'UPDATE kv_fabric_colors SET is_active = false, allowed_slips = NULL, stop_import = false, allowed_import_slips = NULL, updated_at = NOW() WHERE id = $1',
+                'UPDATE kv_fabric_colors SET is_active = false, pending_stop_active = false, allowed_slips = NULL, stop_import = false, allowed_import_slips = NULL, updated_at = NOW() WHERE id = $1',
                 [request.params.id]
             );
         }

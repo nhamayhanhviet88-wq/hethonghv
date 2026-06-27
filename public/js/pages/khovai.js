@@ -432,6 +432,11 @@ function _kvRenderTable() {
             importSlipsBadgeHtml = '<div style="margin-top:2px"><span style="background:#fffbeb;color:#d97706;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #fde68a;font-weight:800;white-space:nowrap;display:inline-block" title="Số lượng đơn hàng được nhập còn lại">📥 Còn ' + r.allowed_import_slips + ' đơn</span></div>';
         }
 
+        var pendingStopBadgeHtml = '';
+        if (r.pending_stop_active) {
+            pendingStopBadgeHtml = '<div style="margin-top:2px"><span style="background:#fff7ed;color:#ea580c;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #ffedd5;font-weight:800;white-space:nowrap;display:inline-block" title="Sẽ tự động dừng bán khi cắt xong các đơn hàng liên quan">🕒 Chờ dừng bán</span></div>';
+        }
+
         var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.85;background-color:#fee2e2"' : 'style="cursor:pointer"';
         h += '<tr ' + rowStyle + ' onclick="_kvShowDetail(' + r.id + ')">';
         h += '<td style="color:var(--gray-400)">' + (i+1) + '</td>';
@@ -442,6 +447,7 @@ function _kvRenderTable() {
         h += stopBadgeHtml;
         h += slipsBadgeHtml;
         h += importSlipsBadgeHtml;
+        h += pendingStopBadgeHtml;
         h += '</div>';
         h += '</td>';
         h += '<td>' + (r.material_name||'') + '</td>';
@@ -456,7 +462,9 @@ function _kvRenderTable() {
         h += '<td style="white-space:nowrap" onclick="event.stopPropagation()">';
         if (isDirector) {
             if (r.is_active !== false) {
-                if (r.allowed_slips !== null && r.allowed_slips !== undefined && !r.color_stop_import) {
+                if (r.pending_stop_active) {
+                    h += '<button onclick="_kvToggleActive(' + r.id + ', true)" style="background:#ea580c;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hủy hẹn tự động dừng bán">🕒 Hủy Hẹn</button>';
+                } else if (r.allowed_slips !== null && r.allowed_slips !== undefined && !r.color_stop_import) {
                     h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#64748b;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để hủy giới hạn và dừng bán ngay">🔴 Dừng Bán</button>';
                 } else {
                     h += '<button onclick="_kvToggleActive(' + r.id + ', false)" style="background:#10b981;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;margin-right:6px;transition:all 0.2s" title="Bấm để dừng bán">🟢 Bán</button>';
@@ -521,6 +529,7 @@ async function _kvShowDetail(fcid) {
         ['GIÁ', r.price ? _kvFmt(r.price) + 'đ' : '—'],
         ['GIỚI HẠN ĐƠN', r.allowed_slips !== null && r.allowed_slips !== undefined ? (r.color_stop_import ? '<b style="color:#0369a1">🎟️ Được tạo ' + r.allowed_slips + ' đơn</b>' : '<b style="color:#0369a1">🎟️ Còn ' + r.allowed_slips + ' đơn</b>') : (r.is_active === false ? '<span style="color:#ef4444;font-weight:700">🔴 Đang ẩn bán</span>' : 'Mở bán vĩnh viễn')],
         ['GIỚI HẠN NHẬP', r.allowed_import_slips !== null && r.allowed_import_slips !== undefined ? '<b style="color:#d97706">📥 Còn ' + r.allowed_import_slips + ' đơn</b>' : (r.color_stop_import ? '<span style="color:#ef4444;font-weight:700">🛑 Đang dừng nhập</span>' : 'Mở nhập vĩnh viễn')],
+        ['HẸN DỪNG BÁN', r.pending_stop_active ? '<b style="color:#ea580c">🕒 Chờ dừng bán (khi cắt xong đơn)</b>' : 'Không'],
         ['CẬP NHẬT', lastUpStr]
     ];
     infoRows.forEach(function(row) {
@@ -1312,6 +1321,8 @@ async function _kvToggleActive(id, newState) {
                     _kv.tree = treeData.tree || [];
                     _kvRenderSidebar();
                 } catch(e) {}
+            } else if (res.success === false && res.hasUncutOrders) {
+                _kvShowUncutOrdersWarningModal(id, res.uncutOrders);
             } else {
                 showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
             }
@@ -1833,3 +1844,60 @@ async function _kvSubmitCreateOrderFabric(colorId) {
     }
 }
 window._kvSubmitCreateOrderFabric = _kvSubmitCreateOrderFabric;
+
+function _kvShowUncutOrdersWarningModal(id, uncutOrders) {
+    var existing = document.getElementById('kvUncutOrdersModal');
+    if (existing) existing.remove();
+
+    var ordersHtml = uncutOrders.map(o => `<div style="padding:8px 12px; background:#fff5f5; border-left:4px solid #ef4444; border-radius:6px; font-weight:600; font-size:12.5px; margin-bottom:6px; color:#991b1b; display:flex; align-items:center; gap:8px;">❌ ${o}</div>`).join('');
+
+    var modalHtml = `
+        <div class="kk-modal-overlay" id="kvUncutOrdersModal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.65); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);">
+            <div class="kk-modal" style="background:#fff; border-radius:18px; width:100%; max-width:480px; box-shadow:0 25px 60px rgba(0,0,0,0.3); overflow:hidden; font-family:Inter,system-ui,sans-serif; border: 1px solid #fee2e2;">
+                <div class="kk-modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:18px 24px; border-bottom:1px solid #fee2e2; background:linear-gradient(135deg,#dc2626,#ef4444); color:#fff;">
+                    <div class="kk-modal-title" style="font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px;">⚠️ Cảnh Báo: Còn Đơn Chưa Cắt Xong</div>
+                    <button onclick="document.getElementById('kvUncutOrdersModal').remove()" style="background:rgba(255,255,255,0.25); border:none; color:#fff; border-radius:6px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:700; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.25)'">✕ Đóng</button>
+                </div>
+                <div class="kk-modal-body" style="padding:24px; display:flex; flex-direction:column; gap:16px; font-size:13.5px; color:#334155;">
+                    <div style="font-weight:700; color:#991b1b; font-size:14px; display:flex; align-items:center; gap:6px;">Màu vải hiện tại còn các đơn hàng chưa cắt xong:</div>
+                    <div style="max-height:180px; overflow-y:auto; padding-right:4px;">
+                        ${ordersHtml}
+                    </div>
+                    <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:14px; color:#b45309; font-weight:500; font-size:12px; line-height:1.6; display:flex; gap:8px;">
+                        <span style="font-size:16px; line-height:1">🕒</span>
+                        <span>Bạn có thể chọn <b>"Hẹn dừng bán"</b>. Hệ thống sẽ giữ trạng thái bán và <b>tự động dừng bán</b> ngay khi tất cả các đơn hàng trên được bộ phận cắt hoàn thành.</span>
+                    </div>
+                </div>
+                <div class="kk-modal-footer" style="padding:16px 24px; border-top:1px solid #f1f5f9; background:#f8fafc; display:flex; justify-content:flex-end; gap:10px;">
+                    <button onclick="document.getElementById('kvUncutOrdersModal').remove()" style="padding:9px 18px; border:1px solid #cbd5e1; background:#fff; color:#475569; border-radius:8px; font-weight:700; font-size:12.5px; cursor:pointer; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">Hủy</button>
+                    <button onclick="_kvScheduleAutoStop(${id})" style="padding:9px 18px; border:none; background:linear-gradient(135deg,#0d9488,#0f766e); color:#fff; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; box-shadow:0 4px 12px rgba(13,148,136,0.2); transition: all 0.2s;" onmouseover="this.style.opacity='0.95'" onmouseout="this.style.opacity='1'">🕒 Hẹn dừng bán</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+window._kvShowUncutOrdersWarningModal = _kvShowUncutOrdersWarningModal;
+
+async function _kvScheduleAutoStop(id) {
+    if (_kv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
+    try {
+        var res = await apiCall('/api/khovai/colors/' + id + '/toggle', 'PUT', { is_active: false, pending_stop_active: true });
+        if (res.success) {
+            showToast('Đã thiết lập tự động dừng bán sau khi cắt xong thành công!', 'success');
+            var m = document.getElementById('kvUncutOrdersModal');
+            if (m) m.remove();
+            _kvLoadSummary();
+            try {
+                var treeData = await apiCall('/api/khovai/tree');
+                _kv.tree = treeData.tree || [];
+                _kvRenderSidebar();
+            } catch(e) {}
+        } else {
+            showToast(res.error || 'Lỗi khi cập nhật trạng thái', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối: ' + e.message, 'error');
+    }
+}
+window._kvScheduleAutoStop = _kvScheduleAutoStop;
