@@ -1306,6 +1306,7 @@ function _dhtSavePhieuFree(idx) {
 async function _dhtAddItem(editIdx) {
     window._ppStockLimits = {};
     var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
+    window._ppCurrentPhieuIdx = idx;
     var existing = _dhtCreate.phieuItems[idx] || {};
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
     var isRestricted = isOldItem && window._dhtEditRestricted;
@@ -1384,6 +1385,25 @@ async function _dhtAddItem(editIdx) {
     }
 }
 
+function _ppGetRemainingLimitForPair(matId, colId, databaseLimit, currentPhieuIdx) {
+    if (databaseLimit === null || databaseLimit === undefined) return null;
+    var consumedQty = 0;
+    var items = _dhtCreate.phieuItems || [];
+    for (var idx = 0; idx < items.length; idx++) {
+        if (idx === currentPhieuIdx) continue;
+        var item = items[idx];
+        if (!item || !item.material_pairs) continue;
+        var matches = item.material_pairs.some(function(pair) {
+            return String(pair.material_id) === String(matId) && String(pair.color_id) === String(colId);
+        });
+        if (matches) {
+            consumedQty += Number(item.quantity) || 0;
+        }
+    }
+    var remaining = databaseLimit - consumedQty;
+    return remaining < 0 ? 0 : remaining;
+}
+
 // Live calc inside popup
 function _ppCalc() {
     var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
@@ -1395,7 +1415,8 @@ function _ppCalc() {
     for (var pi = 0; pi < matInputs.length; pi++) {
         var info = limits[pi];
         if (info && info.is_stopped && info.limit_qty !== null) {
-            var flooredLimit = Math.floor(info.limit_qty);
+            var remainingLimit = _ppGetRemainingLimitForPair(info.material_id, info.color_id, info.limit_qty, window._ppCurrentPhieuIdx);
+            var flooredLimit = Math.floor(remainingLimit);
             if (maxLimit === null || flooredLimit < maxLimit) {
                 maxLimit = flooredLimit;
             }
@@ -1423,7 +1444,7 @@ function _ppCalc() {
                 var allowed = maxLimit - otherQty;
                 if (allowed < 0) allowed = 0;
                 activeQtyInput.value = allowed;
-                showToast('⚠️ Vải đã dừng nhập. Số lượng tối đa được phép đặt là ' + maxLimit + ' sản phẩm!', 'warning');
+                showToast('⚠️ Vải đã dừng nhập. Số lượng tối đa còn lại được phép đặt là ' + maxLimit + ' sản phẩm!', 'warning');
             } else {
                 var lastInput = qs[qs.length - 1];
                 if (lastInput) {
@@ -1677,11 +1698,20 @@ function _ppRenderStockLimitMessage() {
 
         if (info.is_stopped) {
             var ratioText = info.target_ratio ? (info.target_ratio + ' sp/' + info.unit) : 'chưa cấu hình tỉ lệ cắt';
-            var limitText = info.limit_qty !== null ? (Math.floor(info.limit_qty) + ' sp') : '0 sp (không thể đặt)';
-            warnings.push('⚠️ <b>' + info.material_name + ' - ' + info.color_name + '</b> đã dừng nhập!<br/>'
+            var remainingLimit = _ppGetRemainingLimitForPair(info.material_id, info.color_id, info.limit_qty, window._ppCurrentPhieuIdx);
+            var limitText = remainingLimit !== null ? (Math.floor(remainingLimit) + ' sp') : '0 sp (không thể đặt)';
+            var consumedQty = info.limit_qty - remainingLimit;
+            
+            var warningHtml = '⚠️ <b>' + info.material_name + ' - ' + info.color_name + '</b> đã dừng nhập!<br/>'
                 + '• Tồn kho còn: <b>' + info.remaining_stock + ' ' + info.unit + '</b><br/>'
-                + '• Tỉ lệ cắt: <b>' + ratioText + '</b><br/>'
-                + '• Số lượng tối đa có thể sản xuất: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>');
+                + '• Tỉ lệ cắt: <b>' + ratioText + '</b><br/>';
+            if (consumedQty > 0) {
+                warningHtml += '• Đã đặt ở phiếu khác: <b>' + consumedQty + ' sp</b><br/>';
+                warningHtml += '• Số lượng tối đa có thể đặt thêm: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>';
+            } else {
+                warningHtml += '• Số lượng tối đa có thể sản xuất: <span style="color:#dc2626;font-size:12.5px;font-weight:800">' + limitText + '</span>';
+            }
+            warnings.push(warningHtml);
         }
     }
     
@@ -1749,9 +1779,10 @@ function _dhtSavePhieu(idx) {
         var info = limits[i];
         if (info && info.is_stopped) {
             if (String(info.material_id) === String(pairs[i].material_id) && String(info.color_id) === String(pairs[i].color_id)) {
-                var flooredLimit = Math.floor(info.limit_qty);
+                var remainingLimit = _ppGetRemainingLimitForPair(info.material_id, info.color_id, info.limit_qty, idx);
+                var flooredLimit = Math.floor(remainingLimit);
                 if (info.limit_qty !== null && totalQty > flooredLimit) {
-                    showToast('⚠️ Vải [' + info.material_name + ' - ' + info.color_name + '] đã dừng nhập.<br/>Số lượng tối đa được phép đặt là ' + flooredLimit + ' sản phẩm. Bạn đã nhập ' + totalQty + ' sản phẩm.', 'error');
+                    showToast('⚠️ Vải [' + info.material_name + ' - ' + info.color_name + '] đã dừng nhập.<br/>Số lượng tối đa còn lại được phép đặt là ' + flooredLimit + ' sản phẩm. Bạn đã nhập ' + totalQty + ' sản phẩm.', 'error');
                     return;
                 }
             }

@@ -69,10 +69,14 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
 
 async function validateFabricStockLimits(items) {
     if (!items || !Array.isArray(items)) return;
+    
+    // Group quantities and check limits per unique (material_id, color_id)
+    const fabricUsage = {}; // key: material_id:color_id -> { matId, colId, matName, colorName, totalFabricConsumed: 0, usages: [] }
+    
     for (const item of items) {
         if (!item.material_pairs || !Array.isArray(item.material_pairs)) continue;
-        const totalQty = Number(item.quantity) || 0;
-        if (totalQty <= 0) continue;
+        const qty = Number(item.quantity) || 0;
+        if (qty <= 0) continue;
 
         // Get product's cutting category
         const prodDb = await db.get(`
@@ -88,40 +92,97 @@ async function validateFabricStockLimits(items) {
             const colId = Number(pair.color_id);
             if (!matId || !colId) continue;
 
-            const mat = await db.get(`SELECT name, stop_import FROM kv_materials WHERE id = $1`, [matId]);
-            const color = await db.get(`SELECT color_name, stop_import FROM kv_fabric_colors WHERE id = $1`, [colId]);
-            if (!mat || !color) continue;
+            const key = `${matId}:${colId}`;
+            if (!fabricUsage[key]) {
+                const mat = await db.get(`SELECT name, stop_import FROM kv_materials WHERE id = $1`, [matId]);
+                const color = await db.get(`SELECT color_name, stop_import FROM kv_fabric_colors WHERE id = $1`, [colId]);
+                if (!mat || !color) continue;
+                
+                fabricUsage[key] = {
+                    matId,
+                    colId,
+                    matName: mat.name,
+                    colorName: color.color_name,
+                    isStopped: !!color.stop_import,
+                    usages: [] // list of { qty, cuttingCategory }
+                };
+            }
+            
+            if (fabricUsage[key].isStopped) {
+                fabricUsage[key].usages.push({
+                    qty,
+                    cuttingCategory
+                });
+            }
+        }
+    }
 
-            if (color.stop_import) {
-                // Stock check
-                const stockRow = await db.get(`
-                    SELECT COALESCE(SUM(r.weight), 0) AS remaining_stock,
-                           COALESCE(w.unit, 'kg') AS unit
-                    FROM kv_rolls r
-                    JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
-                    JOIN kv_materials m ON m.id = fc.material_id
-                    JOIN kv_warehouses w ON w.id = m.warehouse_id
-                    WHERE r.fabric_color_id = $1 AND r.is_returned = false
-                    GROUP BY w.unit
-                `, [colId]);
-                const remainingStock = Number(stockRow ? stockRow.remaining_stock : 0);
-                const unit = stockRow ? stockRow.unit : 'kg';
+    // Now validate each stopped fabric color
+    for (const key in fabricUsage) {
+        const info = fabricUsage[key];
+        if (!info.isStopped || info.usages.length === 0) continue;
 
-                // Cutting ratio
-                let targetRatio = 0;
-                if (cuttingCategory) {
-                    const ratioRow = await db.get(`
-                        SELECT target_ratio
-                        FROM kv_material_cutting_targets
-                        WHERE material_id = $1 AND cutting_category = $2
-                    `, [matId, cuttingCategory.trim()]);
-                    targetRatio = ratioRow ? Number(ratioRow.target_ratio) || 0 : 0;
-                }
+        // Fetch remaining stock in database
+        const stockRow = await db.get(`
+            SELECT COALESCE(SUM(r.weight), 0) AS remaining_stock,
+                   COALESCE(w.unit, 'kg') AS unit
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+            JOIN kv_warehouses w ON w.id = m.warehouse_id
+            WHERE r.fabric_color_id = $1 AND r.is_returned = false
+            GROUP BY w.unit
+        `, [info.colId]);
+        const remainingStock = Number(stockRow ? stockRow.remaining_stock : 0);
+        const unit = stockRow ? stockRow.unit : 'kg';
 
-                const limitQty = remainingStock * targetRatio;
-                if (totalQty > limitQty) {
-                    throw new Error(`Vải [${mat.name} - ${color.color_name}] đã dừng nhập. Tồn kho còn ${remainingStock} ${unit}, tỉ lệ cắt là ${targetRatio} sp/${unit}. Số lượng tối đa được phép đặt là ${limitQty.toFixed(1)} sản phẩm. Bạn đã nhập ${totalQty} sản phẩm.`);
-                }
+        // Calculate total fabric consumed by all usages of this fabric color
+        let totalFabricRequired = 0;
+        let detailsText = [];
+        let hasZeroRatio = false;
+        let sameRatioLimit = null;
+        let isSingleRatio = true;
+        let firstRatio = null;
+
+        for (const usage of info.usages) {
+            let targetRatio = 0;
+            if (usage.cuttingCategory) {
+                const ratioRow = await db.get(`
+                    SELECT target_ratio
+                    FROM kv_material_cutting_targets
+                    WHERE material_id = $1 AND cutting_category = $2
+                `, [info.matId, usage.cuttingCategory.trim()]);
+                targetRatio = ratioRow ? Number(ratioRow.target_ratio) || 0 : 0;
+            }
+
+            if (firstRatio === null) {
+                firstRatio = targetRatio;
+            } else if (firstRatio !== targetRatio) {
+                isSingleRatio = false;
+            }
+
+            if (targetRatio <= 0) {
+                hasZeroRatio = true;
+                totalFabricRequired = Infinity;
+            } else {
+                totalFabricRequired += usage.qty / targetRatio;
+            }
+            
+            detailsText.push(`${usage.qty} sp (${usage.cuttingCategory || 'chưa phân loại'}, tỉ lệ ${targetRatio})`);
+        }
+
+        // Round limit to whole number if there's a single ratio used
+        if (isSingleRatio && firstRatio > 0) {
+            sameRatioLimit = Math.floor(remainingStock * firstRatio);
+            const totalQty = info.usages.reduce((sum, u) => sum + u.qty, 0);
+            if (totalQty > sameRatioLimit) {
+                throw new Error(`Vải [${info.matName} - ${info.colorName}] đã dừng nhập. Số lượng tối đa được phép đặt cho toàn đơn hàng là ${sameRatioLimit} sản phẩm. Bạn đã đặt tổng cộng ${totalQty} sản phẩm trên tất cả các phiếu.`);
+            }
+        } else {
+            // General fabric weight check
+            if (totalFabricRequired > remainingStock || hasZeroRatio) {
+                const totalQty = info.usages.reduce((sum, u) => sum + u.qty, 0);
+                throw new Error(`Vải [${info.matName} - ${info.colorName}] đã dừng nhập. Tồn kho còn ${remainingStock} ${unit}. Tổng số lượng đặt ${totalQty} sp trên toàn đơn hàng vượt quá tồn kho cho phép. Chi tiết các phiếu: ${detailsText.join(', ')}.`);
             }
         }
     }
