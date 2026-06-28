@@ -201,7 +201,108 @@ async function releaseReservationsForRoll(rollId, performedBy = 1) {
     }
 }
 
+async function releaseReservationsForOrderOrItem(orderId, itemId, userId) {
+    if (!orderId) return;
+    const now = vnNow();
+
+    try {
+        let query = `
+            SELECT * FROM qlx_fabric_reservations 
+            WHERE dht_order_id = $1 AND status IN ('reserved', 'arrived')
+        `;
+        const params = [orderId];
+        if (itemId) {
+            query += ` AND item_id = $2`;
+            params.push(itemId);
+        }
+        const activeRes = await db.all(query, params);
+        if (activeRes.length === 0) return;
+
+        for (const res of activeRes) {
+            const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
+            // Release reservation
+            await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = $2 WHERE id = $3', ['released', now, res.id]);
+
+            if (res.roll_id) {
+                const roll = await db.get('SELECT id, roll_code, location, original_location, return_tx_id FROM kv_rolls WHERE id = $1', [res.roll_id]);
+                if (roll) {
+                    const otherActiveRes = await db.get(`
+                        SELECT 1 FROM qlx_fabric_reservations
+                        WHERE roll_id = $1 AND status IN ('reserved', 'arrived', 'fulfilled') AND id != $2
+                        LIMIT 1
+                    `, [roll.id, res.id]);
+                    if (!otherActiveRes) {
+                        if (roll.location === '📍 Kệ Dự Định Hoàn Vải' || roll.original_location === '📍 Kệ Dự Định Hoàn Vải') {
+                            await db.run(`
+                                UPDATE kv_rolls 
+                                SET return_requested = true, 
+                                    return_requested_by = $1, 
+                                    return_requested_at = $2 
+                                WHERE id = $3
+                            `, [userId, now, roll.id]);
+                        }
+                        if (roll.return_tx_id) {
+                            const txId = roll.return_tx_id;
+                            const tx = await db.get('SELECT notes FROM fabric_transactions WHERE id = $1', [txId]);
+                            let cleanNotes = tx ? (tx.notes || '') : '';
+                            if (cleanNotes.startsWith('[ĐÃ HỦY] ')) {
+                                cleanNotes = cleanNotes.substring('[ĐÃ HỦY] '.length);
+                            } else {
+                                cleanNotes = cleanNotes.replace(/QLX chọn cắt\s+\S+/g, '').trim();
+                            }
+                            await db.run(`UPDATE fabric_transactions SET is_canceled = false, notes = $1, updated_at = $2 WHERE id = $3`, [cleanNotes, now, txId]);
+                            await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'uncancel', $2, $3, $4)`, 
+                                [txId, `Hoàn tác hủy do QLX hủy giữ/đánh dấu cắt cây vải ${roll.roll_code || roll.id}`, userId, now]);
+                        }
+                    }
+                }
+            }
+
+            // Check if there are other active reservations for this item_id & phoi_index
+            const otherActive = await db.get(`
+                SELECT 1 FROM qlx_fabric_reservations
+                WHERE item_id = $1 AND phoi_index = $2 AND status IN ('reserved', 'arrived', 'fulfilled')
+                LIMIT 1
+            `, [res.item_id, pi]);
+            if (!otherActive) {
+                // Delete incomplete cutting record if it exists
+                const cuttingRec = await db.get(`
+                    SELECT id FROM cutting_records
+                    WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = false
+                    LIMIT 1
+                `, [res.item_id, pi]);
+                if (cuttingRec) {
+                    await db.run('DELETE FROM cutting_records WHERE id = $1', [cuttingRec.id]);
+                    await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                        VALUES ($1, 'fabric_release_reset_claim', $2, $3, $4)`,
+                        [res.dht_order_id, `Hủy nhận cắt phối ${pi + 1} do hết vải/hủy giữ vải (Tự động chuyển in 3D cắt)`, userId, now]);
+                }
+            }
+
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                VALUES ($1, 'fabric_release', $2, $3, $4)`,
+                [res.dht_order_id, `Giải phóng tự động (Do chuyển in 3D cắt): ${res.roll_code || 'Gọi vải'} (${res.kg_reserved || res.call_amount}${res.unit})`, userId, now]);
+
+            // ===== CASCADE RELEASE for new_call =====
+            if (res.reservation_type === 'new_call') {
+                const linkedRows = await db.all(
+                    'SELECT id, dht_order_id, item_id, phoi_index FROM qlx_fabric_reservations WHERE linked_call_id=$1 AND status!=$2',
+                    [res.id, 'released']);
+                for (const lk of linkedRows) {
+                    await db.run('UPDATE qlx_fabric_reservations SET status=$1, updated_at=$2 WHERE id=$3', ['released', now, lk.id]);
+                }
+            }
+        }
+
+        // Recalculate status for this order
+        await recalculateOrderFabricStatus(orderId);
+    } catch (err) {
+        console.error(`[QLX FABRIC HELPER] Error releasing reservations for order/item:`, err);
+    }
+}
+
 module.exports = {
     recalculateOrderFabricStatus,
-    releaseReservationsForRoll
+    releaseReservationsForRoll,
+    releaseReservationsForOrderOrItem
 };

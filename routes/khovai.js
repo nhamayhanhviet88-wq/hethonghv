@@ -1552,6 +1552,44 @@ module.exports = async function (fastify) {
             LEFT JOIN kv_materials m ON m.id = l.restricted_material_id
             JOIN kv_warehouses w ON w.id = l.warehouse_id
             WHERE w.is_active = true
+              AND (
+                  (l.printing_contractor_id IS NULL AND l.user_id IS NULL)
+                  OR EXISTS (
+                      SELECT 1 FROM qlx_order_print_assignments pa
+                      JOIN dht_orders o ON o.id = pa.dht_order_id
+                      LEFT JOIN order_codes oc ON oc.order_code = o.order_code
+                      LEFT JOIN customers cust ON cust.id = o.customer_id
+                      WHERE (oc.id IS NULL OR oc.status <> 'cancelled')
+                        AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+                        AND pa.field_id = 4
+                        AND (
+                            (pa.operator_type = 'contractor' AND pa.operator_id = l.printing_contractor_id)
+                            OR (pa.operator_type = 'user' AND pa.operator_id = l.user_id)
+                        )
+                        AND (
+                            CASE 
+                                WHEN pa.item_id IS NOT NULL THEN NOT EXISTS (
+                                    SELECT 1 FROM cutting_records cr 
+                                    WHERE cr.order_item_id = pa.item_id AND cr.is_cut_done = true
+                                )
+                                ELSE EXISTS (
+                                    SELECT 1 FROM dht_order_items oi
+                                    WHERE oi.dht_order_id = pa.dht_order_id
+                                      AND NOT EXISTS (
+                                          SELECT 1 FROM cutting_records cr2
+                                          WHERE cr2.order_item_id = oi.id AND cr2.is_cut_done = true
+                                      )
+                                )
+                            END
+                        )
+                  )
+                  OR EXISTS (
+                      SELECT 1 FROM kv_rolls r
+                      WHERE LOWER(TRIM(r.location)) = LOWER(TRIM(l.name))
+                        AND r.weight > 0
+                        AND r.is_returned = false
+                  )
+              )
             ORDER BY l.name
         `);
         return { locations: rows };
