@@ -901,7 +901,18 @@ module.exports = async function(fastify) {
                        SELECT COUNT(*)::int 
                        FROM dht_order_items doi2 
                        WHERE doi2.dht_order_id = res.dht_order_id AND doi2.id <= res.item_id
-                   ) AS item_index
+                   ) AS item_index,
+                   (
+                       SELECT loc.name 
+                       FROM qlx_order_print_assignments assign
+                       JOIN kv_locations loc ON (loc.printing_contractor_id = assign.operator_id AND assign.operator_type = 'contractor')
+                                             OR (loc.user_id = assign.operator_id AND assign.operator_type = 'user')
+                       WHERE assign.item_id = res.item_id
+                          OR (assign.dht_order_id = res.dht_order_id AND assign.item_id IS NULL AND NOT EXISTS (
+                              SELECT 1 FROM qlx_order_print_assignments WHERE item_id = res.item_id
+                          ))
+                       LIMIT 1
+                   ) AS target_shelf
             FROM qlx_fabric_reservations res
             LEFT JOIN dht_orders o ON o.id = res.dht_order_id
             LEFT JOIN dht_order_items it ON it.id = res.item_id
@@ -939,7 +950,8 @@ module.exports = async function(fastify) {
                 item_description: c.item_description,
                 call_trees: ct, call_amount: ca, call_note: c.call_note,
                 called_by_name: c.called_by_name,
-                item_index: Number(c.item_index) || 1
+                item_index: Number(c.item_index) || 1,
+                target_shelf: c.target_shelf || null
             });
         }
 
@@ -1191,6 +1203,53 @@ module.exports = async function(fastify) {
                 let itemTotalWeight = 0;
                 const unitPrice = Number(fi.unit_price) || 0;
                 const treesWithCost = [];
+
+                // Resolve target shelf once per fabric item
+                const resIds = fi.reservation_ids || [];
+                const calledOrders = [];
+                const autoReserveTargets = [];
+                let itemTargetLocation = null;
+
+                if (resIds.length > 0) {
+                    const resRows = await client.query(
+                        `SELECT r.id, r.dht_order_id, r.item_id, r.phoi_index, r.material_name, r.color_name, r.unit,
+                                o.order_code
+                         FROM qlx_fabric_reservations r
+                         LEFT JOIN dht_orders o ON o.id = r.dht_order_id
+                         WHERE r.id = ANY($1)`, [resIds]
+                    );
+                    for (const rr of resRows.rows) {
+                        if (rr.order_code && !calledOrders.includes(rr.order_code)) calledOrders.push(rr.order_code);
+                        autoReserveTargets.push(rr);
+                    }
+
+                    // Query print assignment target shelf for any of the reservations
+                    for (const target of autoReserveTargets) {
+                        const assignRes = await client.query(
+                            `SELECT operator_type, operator_id 
+                             FROM qlx_order_print_assignments 
+                             WHERE (item_id = $1)
+                                OR (dht_order_id = $2 AND item_id IS NULL AND NOT EXISTS (
+                                    SELECT 1 FROM qlx_order_print_assignments WHERE item_id = $1
+                                ))`,
+                            [target.item_id, target.dht_order_id]
+                        );
+                        for (const assign of assignRes.rows) {
+                            const locRes = await client.query(
+                                `SELECT name FROM kv_locations 
+                                 WHERE (printing_contractor_id = $1 AND $2 = 'contractor')
+                                    OR (user_id = $1 AND $2 = 'user')`,
+                                [assign.operator_id, assign.operator_type]
+                            );
+                            if (locRes.rows.length > 0 && locRes.rows[0].name) {
+                                itemTargetLocation = locRes.rows[0].name;
+                                break;
+                            }
+                        }
+                        if (itemTargetLocation) break;
+                    }
+                }
+
                 for (const tree of fi.trees) {
                     const w = Number(tree.weight);
                     const treeCost = Math.round(w * unitPrice);
@@ -1199,30 +1258,12 @@ module.exports = async function(fastify) {
                     if (fi.fabric_color_id) {
                         const rollCode = 'KV' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 10);
                         const rollResult = await client.query(
-                            `INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, source, note, created_by, image_path)
-                             VALUES ($1, $2, $3, $3, 'nhap_vai', $4, $5, $6) RETURNING id`,
-                            [fi.fabric_color_id, rollCode, w, `Nhập vải từ bill ${fabricCode}`, req.user.id, tree.image_path || null]
+                            `INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, location, source, note, created_by, image_path)
+                             VALUES ($1, $2, $3, $3, $4, 'nhap_vai', $5, $6, $7) RETURNING id`,
+                            [fi.fabric_color_id, rollCode, w, itemTargetLocation, `Nhập vải từ bill ${fabricCode}`, req.user.id, tree.image_path || null]
                         );
                         const newRollId = rollResult.rows[0].id;
                         rollIds.push(newRollId);
-
-                        // Collect order codes from linked reservations for tagging
-                        const resIds = fi.reservation_ids || [];
-                        const calledOrders = [];
-                        const autoReserveTargets = [];
-                        if (resIds.length > 0) {
-                            const resRows = await client.query(
-                                `SELECT r.id, r.dht_order_id, r.item_id, r.phoi_index, r.material_name, r.color_name, r.unit,
-                                        o.order_code
-                                 FROM qlx_fabric_reservations r
-                                 LEFT JOIN dht_orders o ON o.id = r.dht_order_id
-                                 WHERE r.id = ANY($1)`, [resIds]
-                            );
-                            for (const rr of resRows.rows) {
-                                if (rr.order_code && !calledOrders.includes(rr.order_code)) calledOrders.push(rr.order_code);
-                                autoReserveTargets.push(rr);
-                            }
-                        }
 
                         // Tag roll with source info
                         if (calledOrders.length > 0) {

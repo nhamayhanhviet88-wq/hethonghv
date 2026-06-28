@@ -87,10 +87,14 @@ function _bnhFabRenderBody() {
             // Show QLX detail per order
             if (it.reservations && it.reservations.length) {
                 it.reservations.forEach(function(r) {
+                    var shelfBadge = r.target_shelf 
+                        ? ' <span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">📍 ' + r.target_shelf + '</span>'
+                        : '';
                     h += '<div style="background:#fff7ed;border:1.5px solid #ffedd5;padding:6px 12px;border-radius:8px;margin:4px 4px 4px 12px;font-size:13px;color:#c2410c;font-weight:800;display:inline-block;box-shadow:0 1px 3px rgba(0,0,0,0.05)">'
                         + '📦 ' + (r.order_code||'') + ' — Phiếu ' + (r.item_index||1) + ' — P' + ((r.phoi_index||0)+1) + ': ' 
                         + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_trees||0) + ' cây</span>, ' 
                         + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_amount||0) + ' ' + (it.unit || 'kg') + '</span>'
+                        + shelfBadge
                         + '</div>';
                 });
                 h += '<div style="margin-top:4px"><span style="font-size:10px;color:#6b7280;font-weight:700">📏 QLX cần: ' + it.needed_trees + ' cây (từ ' + it.reservations.length + ' đơn)</span></div>';
@@ -298,10 +302,14 @@ function _bnhFabAddItem() {
             html += '<div onclick="_bnhFabPickGroup('+gi+')" style="padding:10px 14px;border:1px solid #e9d5ff;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#ede9fe\'" onmouseout="this.style.background=\'#fff\'">'
                 + '<div style="font-size:12px;font-weight:700;color:#1e293b">🧵 '+g.material_name+' - '+g.color_name+'</div>';
             (g.reservations||[]).forEach(function(r) {
+                var shelfBadge = r.target_shelf 
+                    ? ' <span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">📍 ' + r.target_shelf + '</span>'
+                    : '';
                 html += '<div style="background:#fff7ed;border:1.5px solid #ffedd5;padding:6px 12px;border-radius:8px;margin:4px 4px 4px 12px;font-size:13px;color:#c2410c;font-weight:800;display:inline-block;box-shadow:0 1px 3px rgba(0,0,0,0.05)">'
                     + '📦 ' + (r.order_code||'') + ' — Phiếu ' + (r.item_index||1) + ' — P' + ((r.phoi_index||0)+1) + ': ' 
                     + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_trees||0) + ' cây</span>, ' 
                     + '<span style="font-size:15px;color:#dc2626;font-weight:900">' + (r.call_amount||0) + ' ' + (g.unit || 'kg') + '</span>'
+                    + shelfBadge
                     + '</div>';
             });
             html += '<div style="margin-top:4px"><span style="font-size:10px;color:#7c3aed;font-weight:700">📏 Cần: '+g.needed_trees+' cây | Đã nhập: '+g.imported_trees+' | Còn: '+g.remaining_trees+' cây</span></div>'

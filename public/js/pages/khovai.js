@@ -1117,7 +1117,7 @@ window._kvOpenImportBill = function(importId) {
         _bnhFabDetail(importId);
     } else {
         var s = document.createElement('script');
-        s.src = '/js/pages/fab-import-v4.js?v=20260626_2';
+        s.src = '/js/pages/fab-import-v4.js?v=20260628_1';
         s.onload = function() { _bnhFabDetail(importId); };
         document.head.appendChild(s);
     }

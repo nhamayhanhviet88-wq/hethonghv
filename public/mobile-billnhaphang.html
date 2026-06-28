@@ -572,7 +572,7 @@
     // Fabric Picker Functions
     async function mLoadPickerGroups() {
         try {
-            const res = await api('/api/import/tree?record_type=fabric');
+            const res = await api('/api/import/fabric-pending-calls');
             pickerGroups = res.groups || [];
         } catch(e) {
             console.error('Lỗi tải yêu cầu gọi vải:', e);
@@ -611,8 +611,21 @@
             
             if (query && mat.indexOf(query) === -1 && col.indexOf(query) === -1) return;
 
+            let targetShelf = null;
+            if (g.reservations && g.reservations.length) {
+                for (const r of g.reservations) {
+                    if (r.target_shelf) {
+                        targetShelf = r.target_shelf;
+                        break;
+                    }
+                }
+            }
+            const shelfBadge = targetShelf 
+                ? ` <span style="background:#2563eb;color:#fff;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px">📍 ${targetShelf}</span>`
+                : '';
+
             h += `<div onclick="pickGroup(${gi})" style="padding:12px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:rgba(255,255,255,0.02);margin-bottom:8px;cursor:pointer;">`;
-            h += `<div style="font-size:12px;font-weight:800;color:#c7d2fe;">🧵 ${g.material_name} - ${g.color_name}</div>`;
+            h += `<div style="font-size:12px;font-weight:800;color:#c7d2fe;">🧵 ${g.material_name} - ${g.color_name}${shelfBadge}</div>`;
             h += `<div style="font-size:10px;color:#94a3b8;margin-top:4px;">Cần: ${g.needed_trees} cây | Còn thiếu: ${g.remaining_trees} cây</div>`;
             h += `</div>`;
         });
@@ -634,7 +647,8 @@
             remaining_trees: g.remaining_trees,
             fabric_color_id: g.fabric_color_id || null,
             unit_price: 0,
-            trees: [{ weight: '', image_path: null }]
+            trees: [{ weight: '', image_path: null }],
+            reservations: g.reservations
         });
 
         closePick();
@@ -651,10 +665,22 @@
         }
 
         container.innerHTML = mFormState.items.map((it, idx) => {
+            let targetShelf = null;
+            if (it.reservations && it.reservations.length) {
+                for (const r of it.reservations) {
+                    if (r.target_shelf) {
+                        targetShelf = r.target_shelf;
+                        break;
+                    }
+                }
+            }
+            const shelfBadge = targetShelf 
+                ? ` <span style="background:#2563eb;color:#fff;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px">📍 ${targetShelf}</span>`
+                : '';
             return `
             <div class="form-item-box" style="margin-bottom: 12px; border-color: rgba(255,255,255,0.1)">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px; margin-bottom: 10px;">
-                    <span style="font-size:12px; font-weight:800; color:#c7d2fe;">🧵 ${it.material_name} - ${it.color_name}</span>
+                    <span style="font-size:12px; font-weight:800; color:#c7d2fe;">🧵 ${it.material_name} - ${it.color_name}${shelfBadge}</span>
                     <button onclick="removeFormItem(${idx})" style="background:none; border:none; color:#ef4444; font-size:11px; font-weight:700; cursor:pointer;">Xóa loại</button>
                 </div>
                 <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px;">
