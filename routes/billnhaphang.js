@@ -1199,6 +1199,44 @@ module.exports = async function(fastify) {
             const fabricMaterialNames = [];
 
             for (const fi of b.fabric_items) {
+                // Auto-create material/color on the fly if fabric_color_id is missing/null
+                if (!fi.fabric_color_id) {
+                    const matNameClean = (fi.material_name || '').trim();
+                    const colNameClean = (fi.color_name || '').trim();
+                    if (matNameClean && colNameClean) {
+                        let matRes = await client.query(
+                            `SELECT id FROM kv_materials WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
+                            [matNameClean]
+                        );
+                        let matId;
+                        if (matRes.rows.length > 0) {
+                            matId = matRes.rows[0].id;
+                        } else {
+                            const whRes = await client.query(`SELECT id FROM kv_warehouses WHERE is_active = true ORDER BY display_order, id LIMIT 1`);
+                            const defaultWhId = whRes.rows.length > 0 ? whRes.rows[0].id : 1;
+                            const newMatRes = await client.query(
+                                `INSERT INTO kv_materials (warehouse_id, name, is_active, created_by) VALUES ($1, $2, true, $3) RETURNING id`,
+                                [defaultWhId, matNameClean, req.user.id]
+                            );
+                            matId = newMatRes.rows[0].id;
+                        }
+
+                        let colRes = await client.query(
+                            `SELECT id FROM kv_fabric_colors WHERE material_id = $1 AND LOWER(TRIM(color_name)) = LOWER(TRIM($2)) LIMIT 1`,
+                            [matId, colNameClean]
+                        );
+                        if (colRes.rows.length > 0) {
+                            fi.fabric_color_id = colRes.rows[0].id;
+                        } else {
+                            const newColRes = await client.query(
+                                `INSERT INTO kv_fabric_colors (material_id, color_name, is_active, created_by) VALUES ($1, $2, true, $3) RETURNING id`,
+                                [matId, colNameClean, req.user.id]
+                            );
+                            fi.fabric_color_id = newColRes.rows[0].id;
+                        }
+                    }
+                }
+
                 const rollIds = [];
                 let itemTotalWeight = 0;
                 const unitPrice = Number(fi.unit_price) || 0;
