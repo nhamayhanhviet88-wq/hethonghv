@@ -993,23 +993,16 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                     if (typeof calledOrders === 'string') try { calledOrders = JSON.parse(calledOrders); } catch(e) { calledOrders = []; }
                     var activeResOrders = (rl.reservations || []).map(function(rv) { return rv.order_code; });
                     calledOrders = calledOrders.filter(function(ord) { return activeResOrders.indexOf(ord) >= 0; });
-                    var tagHtml = '';
-                    if (calledOrders.indexOf(orderCode) >= 0) {
-                        tagHtml = '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🏷️ Gọi cho đơn này</span>';
-                    } else if (calledOrders.length > 0) {
-                        tagHtml = '<span style="background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔖 ' + calledOrders[0] + '</span>';
-                    }
-
-                    var borderColor = calledOrders.indexOf(orderCode) >= 0 ? '#86efac' : '#e2e8f0';
-                    var bgColor = calledOrders.indexOf(orderCode) >= 0 ? '#f0fdf4' : '#f8fafc';
-                    // Cutting lock check
+                               // Cutting lock check
                     var isLocked = !!rl.locked_by_cutting_id;
+                    var isDisabled = !!rl.is_contractor_disabled;
                     if (isLocked) { borderColor = '#fca5a5'; bgColor = '#fef2f2'; }
+                    else if (isDisabled) { borderColor = '#cbd5e1'; bgColor = '#f1f5f9'; }
                     var imgHtml = '';
                     if (rl.image_path) {
                         imgHtml = '<img src="' + rl.image_path + '" style="width:32px; height:32px; border-radius:6px; object-fit:cover; border:1px solid #cbd5e1; cursor:pointer;" onclick="_qlxOpenImagePreview(\'' + rl.image_path.replace(/'/g, "\\'") + '\')" title="Bấm để xem ảnh cây vải" /> ';
                     }
-                    html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:10px;margin-bottom:6px;' + (isLocked ? 'opacity:0.6;' : '') + '">';
+                    html += '<div style="background:' + bgColor + ';border:1.5px solid ' + borderColor + ';border-radius:8px;padding:10px;margin-bottom:6px;' + ((isLocked || isDisabled) ? 'opacity:0.6;' : '') + '">';
                     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
                     html += '<span style="font-size:10px;font-weight:800;color:#6b7280;min-width:18px">' + (idx+1) + '.</span>';
                     if (imgHtml) html += imgHtml;
@@ -1038,6 +1031,9 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                     if (isLocked) {
                         html += '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔒 Đang cắt: ' + (rl.cutting_order_name || 'Đang xử lý') + (rl.cutting_by_name ? ' (' + rl.cutting_by_name + ')' : '') + (rl.cutting_order_qty ? ' : ' + rl.cutting_order_qty + ' Sản Phẩm' : '') + '</span>';
                     }
+                    if (isDisabled) {
+                        html += '<span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap;border:1px solid rgba(0,0,0,0.1)">⚠️ ' + (rl.contractor_disabled_reason || 'Không khả dụng') + '</span>';
+                    }
                     if (tagHtml) html += tagHtml;
                     html += '<span style="margin-left:auto;font-size:10px;color:' + (avail > 0 ? '#059669' : '#dc2626') + ';font-weight:700">✅ Còn: ' + avail + unitLabel + '</span>';
                     html += '</div>';
@@ -1058,7 +1054,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                                              Number(rl.lock_order_id) === Number(orderId) &&
                                              Number(rl.lock_item_id) === Number(itemId) &&
                                              Number(rl.lock_phoi_index) === Number(pairIndex);
-                    if (avail > 0 && !alreadyMarked && !isLockedSameCoord) {
+                    if (avail > 0 && !alreadyMarked && !isLockedSameCoord && !isDisabled) {
                         html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
                         html += '<span style="font-size:10px;color:#475569;font-weight:700">Sử dụng:<span style="color:#dc2626"> *</span></span>';
                         html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="Tối đa ' + avail + '" required style="width:90px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';

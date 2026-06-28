@@ -2647,11 +2647,51 @@ module.exports = async function(fastify) {
                 ORDER BY r.weight DESC
             `, [fc.fabric_color_id]);
 
+            // Get all locations that are linked to contractors or users
+            const contractorLocs = await db.all(`
+                SELECT name, printing_contractor_id, user_id FROM kv_locations
+                WHERE printing_contractor_id IS NOT NULL OR user_id IS NOT NULL
+            `);
+
+            // Fetch the print assignments for this order/item to check mapping
+            const printAssigns = await db.all(`
+                SELECT operator_type, operator_id 
+                FROM qlx_order_print_assignments 
+                WHERE (item_id = $1)
+                   OR (dht_order_id = $2 AND item_id IS NULL AND NOT EXISTS (
+                       SELECT 1 FROM qlx_order_print_assignments WHERE item_id = $1
+                   ))
+            `, [itemId, orderId]);
+
             // Add reservation details for each roll
             for (const roll of rolls) {
                 roll.reserved_total = Number(roll.reserved_total);
                 roll.available = Number(roll.weight) - roll.reserved_total;
                 roll.roll_loc_name = resolveRollLocationName(roll);
+
+                // Check contractor shelf logic
+                const locClean = (roll.roll_loc_name || '').toLowerCase().trim();
+                const matchedLoc = contractorLocs.find(l => (l.name || '').trim().toLowerCase() === locClean);
+                if (matchedLoc) {
+                    // Check if this order/item has an assignment for this contractor/user
+                    const isAssigned = printAssigns.some(assign => 
+                        (matchedLoc.printing_contractor_id && assign.operator_type === 'contractor' && Number(assign.operator_id) === Number(matchedLoc.printing_contractor_id)) ||
+                        (matchedLoc.user_id && assign.operator_type === 'user' && Number(assign.operator_id) === Number(matchedLoc.user_id))
+                    );
+                    if (!isAssigned) {
+                        roll.is_contractor_disabled = true;
+                        let contractorName = '';
+                        if (matchedLoc.printing_contractor_id) {
+                            const c = await db.get(`SELECT name FROM printing_contractors WHERE id = $1`, [matchedLoc.printing_contractor_id]);
+                            contractorName = c ? c.name : '';
+                        } else if (matchedLoc.user_id) {
+                            const u = await db.get(`SELECT full_name FROM users WHERE id = $1`, [matchedLoc.user_id]);
+                            contractorName = u ? u.full_name : '';
+                        }
+                        roll.contractor_disabled_reason = contractorName ? `Chỉ dùng cho đơn phân công tại ${contractorName}` : 'Chỉ dùng cho đơn phân công tại kệ này';
+                    }
+                }
+
                 roll.reservations = await db.all(`
                     SELECT res.id, res.kg_reserved, res.dht_order_id,
                            o.order_code, res.phoi_index, res.item_id,
