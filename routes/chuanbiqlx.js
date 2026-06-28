@@ -2501,8 +2501,21 @@ module.exports = async function(fastify) {
         const phoi = pairs[pi] || null;
         if (!phoi || !phoi.material_name) return { order, item: { id: item.id, description: item.description, item_index: itemIndex }, phoi: null, rolls: [], warehouse: null, existing: [] };
 
-        // Fuzzy match: find kv_fabric_colors matching material + color
-        const matches = await db.all(`
+        const removeAccents = (str) => {
+            if (!str) return '';
+            return str
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/đ/g, 'd')
+                .replace(/Đ/g, 'D');
+        };
+
+        const cleanStr = (str) => removeAccents(str).toLowerCase().trim();
+
+        const searchMaterial = cleanStr(phoi.material_name);
+        const searchColor = cleanStr(phoi.color_name);
+
+        const allActive = await db.all(`
             SELECT fc.id AS fabric_color_id, fc.color_name, fc.material_id,
                    m.name AS material_name, m.warehouse_id,
                    w.name AS warehouse_name, w.unit
@@ -2510,26 +2523,19 @@ module.exports = async function(fastify) {
             JOIN kv_materials m ON m.id = fc.material_id
             JOIN kv_warehouses w ON w.id = m.warehouse_id
             WHERE fc.is_active = true AND m.is_active = true AND w.is_active = true
-              AND UPPER(m.name) = UPPER($1)
-              AND UPPER(fc.color_name) = UPPER($2)
-            LIMIT 5
-        `, [phoi.material_name.trim(), phoi.color_name.trim()]);
+        `);
 
+        // 1. Exact match (accent-insensitive, case-insensitive)
+        let matches = allActive.filter(x => cleanStr(x.material_name) === searchMaterial && cleanStr(x.color_name) === searchColor);
+
+        // 2. Fallback to fuzzy match (accent-insensitive, case-insensitive substring search)
         if (!matches.length) {
-            // Try ILIKE fuzzy
-            const fuzzy = await db.all(`
-                SELECT fc.id AS fabric_color_id, fc.color_name, fc.material_id,
-                       m.name AS material_name, m.warehouse_id,
-                       w.name AS warehouse_name, w.unit
-                FROM kv_fabric_colors fc
-                JOIN kv_materials m ON m.id = fc.material_id
-                JOIN kv_warehouses w ON w.id = m.warehouse_id
-                WHERE fc.is_active = true AND m.is_active = true AND w.is_active = true
-                  AND m.name ILIKE $1
-                  AND fc.color_name ILIKE $2
-                LIMIT 5
-            `, ['%' + phoi.material_name.trim() + '%', '%' + phoi.color_name.trim() + '%']);
-            if (fuzzy.length) matches.push(...fuzzy);
+            matches = allActive.filter(x => {
+                const dbMat = cleanStr(x.material_name);
+                const dbCol = cleanStr(x.color_name);
+                return (dbMat.includes(searchMaterial) || searchMaterial.includes(dbMat)) &&
+                       (dbCol.includes(searchColor) || searchColor.includes(dbCol));
+            });
         }
 
         let rolls = [];
