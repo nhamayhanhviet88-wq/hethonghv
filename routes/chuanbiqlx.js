@@ -1047,26 +1047,65 @@ module.exports = async function(fastify) {
         }
 
         // Fetch per-phoi fabric reservation statuses
-        let phoiFabRows = [];
+        let reservations = [];
         if (orderIds.length > 0) {
-            phoiFabRows = await db.all(`
-                SELECT r.dht_order_id, r.item_id, r.phoi_index,
-                       COUNT(*)::int AS total,
-                       COUNT(*) FILTER (WHERE r.status = 'arrived')::int AS arrived,
-                       COUNT(*) FILTER (WHERE r.status = 'reserved')::int AS pending
+            reservations = await db.all(`
+                SELECT r.dht_order_id, r.item_id, r.phoi_index, r.status, r.roll_id,
+                       roll.location AS roll_location
                 FROM qlx_fabric_reservations r
                 LEFT JOIN kv_rolls roll ON r.roll_id = roll.id
                 WHERE r.dht_order_id = ANY($1) 
                   AND r.status NOT IN ('released', 'fulfilled')
                   AND (r.roll_id IS NULL OR roll.weight > 0)
-                GROUP BY r.dht_order_id, r.item_id, r.phoi_index
             `, [orderIds]);
         }
+
+        let printAssigns = [];
+        if (orderIds.length > 0) {
+            printAssigns = await db.all(`
+                SELECT dht_order_id, item_id, field_id, operator_type, operator_id
+                FROM qlx_order_print_assignments
+                WHERE dht_order_id = ANY($1)
+            `, [orderIds]);
+        }
+
+        const linkedShelves = await db.all(`
+            SELECT id, name, printing_contractor_id, user_id FROM kv_locations
+            WHERE printing_contractor_id IS NOT NULL OR user_id IS NOT NULL
+        `);
+
         const phoiFabStatus = {};
-        for (const r of phoiFabRows) {
-            phoiFabStatus[`${r.dht_order_id}_${r.item_id}_${r.phoi_index}`] = {
-                total: r.total, arrived: r.arrived, pending: r.pending
-            };
+        for (const r of reservations) {
+            const key = `${r.dht_order_id}_${r.item_id}_${r.phoi_index}`;
+            if (!phoiFabStatus[key]) {
+                phoiFabStatus[key] = { total: 0, arrived: 0, pending: 0 };
+            }
+            phoiFabStatus[key].total++;
+
+            let status = r.status;
+            if (status === 'arrived' && r.roll_id && r.roll_location) {
+                const assign = printAssigns.find(a => a.item_id === r.item_id) || 
+                               printAssigns.find(a => a.dht_order_id === r.dht_order_id && a.item_id === null);
+                if (assign) {
+                    const linkedLoc = linkedShelves.find(l => 
+                        (assign.operator_type === 'contractor' && l.printing_contractor_id === assign.operator_id) ||
+                        (assign.operator_type === 'user' && l.user_id === assign.operator_id)
+                    );
+                    if (linkedLoc) {
+                        const rollLoc = (r.roll_location || '').toLowerCase().replace(/^📍\s*/, '').trim();
+                        const targetLoc = linkedLoc.name.toLowerCase().trim();
+                        if (rollLoc !== targetLoc) {
+                            status = 'reserved'; // Treat as pending/reserved
+                        }
+                    }
+                }
+            }
+
+            if (status === 'arrived') {
+                phoiFabStatus[key].arrived++;
+            } else {
+                phoiFabStatus[key].pending++;
+            }
         }
 
         // Match cutting records with items to override status if cut/cutting
@@ -2000,18 +2039,8 @@ module.exports = async function(fastify) {
                     });
 
                     if (invalidRolls.length > 0) {
-                        let opName = '';
-                        if (opType === 'contractor') {
-                            const con = await db.get(`SELECT name FROM printing_contractors WHERE id = $1`, [opId]);
-                            opName = con ? con.name : 'Nhà gia công';
-                        } else {
-                            const u = await db.get(`SELECT full_name FROM users WHERE id = $1`, [opId]);
-                            opName = u ? u.full_name : 'Nhân viên';
-                        }
-                        const listRolls = invalidRolls.map(r => `${r.roll_code} (${r.weight}kg - hiện ở: ${r.location || 'Chưa xếp kệ'})`).join(', ');
-                        return reply.code(400).send({ 
-                            error: `Không thể lưu phân công cho ${opName}! Cần chuyển các cây vải đã đánh dấu sang "${linkedLoc.name}" trước: ${listRolls}` 
-                        });
+                        // Vẫn cho lưu phân công, không chặn nữa. Trạng thái vải sẽ tự động chuyển thành 📞 (chờ chuyển kệ).
+                        console.log(`[QLX PRINT ASSIGNMENT] Allowed saving assignment despite rolls not being on target shelf: ${targetLocName}`);
                     }
                 }
             }
@@ -2373,6 +2402,10 @@ module.exports = async function(fastify) {
                     VALUES ($1, 'assign_in_new', $2, $3, $4)
                 `, [orderId, historyDetails, request.user.id, now]);
             }
+
+            // Recalculate order fabric status since print assignment changed
+            const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+            await recalculateOrderFabricStatus(orderId);
         }
 
         return { success: true };
@@ -2810,6 +2843,28 @@ module.exports = async function(fastify) {
         }
         const isPhoiProdDone = isPhoiCutDone && isPrintDone;
 
+        let target_shelf = null;
+        const printAssigns = await db.all(`
+            SELECT operator_type, operator_id 
+            FROM qlx_order_print_assignments 
+            WHERE (item_id = $1)
+               OR (dht_order_id = $2 AND item_id IS NULL AND NOT EXISTS (
+                   SELECT 1 FROM qlx_order_print_assignments WHERE item_id = $1
+               ))
+        `, [itemId, orderId]);
+
+        for (const assign of printAssigns) {
+            const loc = await db.get(`
+                SELECT id, name FROM kv_locations 
+                WHERE (printing_contractor_id = $1 AND $2 = 'contractor')
+                   OR (user_id = $1 AND $2 = 'user')
+            `, [assign.operator_id, assign.operator_type]);
+            if (loc) {
+                target_shelf = loc.name;
+                break;
+            }
+        }
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
             item: { id: item.id, description: item.description, quantity: item.quantity, item_index: item.item_index },
@@ -2828,7 +2883,8 @@ module.exports = async function(fastify) {
             cut_schedule: cutSchedule,
             primary_index: primaryIndex,
             is_production_done: isPhoiProdDone,
-            is_cut_done: isPhoiCutDone
+            is_cut_done: isPhoiCutDone,
+            target_shelf
         };
     });
 

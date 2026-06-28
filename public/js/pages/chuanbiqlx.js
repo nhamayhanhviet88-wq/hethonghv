@@ -782,6 +782,13 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         }
         html += '</div>';
 
+        if (data.target_shelf) {
+            html += '<div style="background:#e0f2fe; border-left:4px solid #0284c7; padding:10px 16px; font-size:12px; color:#0369a1; font-weight:700; margin:12px 20px 0 20px; border-radius:6px; display:flex; align-items:center; gap:8px;">';
+            html += '<span>🎯</span>';
+            html += '<span>Kệ đích (In/Cắt gia công): <b>' + data.target_shelf + '</b></span>';
+            html += '</div>';
+        }
+
         if (!ph || !ph.material_name) {
             html += '<div style="padding:30px;text-align:center;color:#94a3b8">⚠️ Phối này chưa có thông tin chất liệu/màu</div>';
         } else if (!wh) {

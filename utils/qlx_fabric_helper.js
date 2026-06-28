@@ -22,13 +22,24 @@ async function recalculateOrderFabricStatus(orderId) {
         // Fetch active reservations
         // Filter out reservations where the roll weight is 0 or less, since those rolls are exhausted
         const reservations = await db.all(`
-            SELECT r.item_id, r.phoi_index, r.status, r.roll_id
+            SELECT r.item_id, r.phoi_index, r.status, r.roll_id, roll.location AS roll_location
             FROM qlx_fabric_reservations r
             LEFT JOIN kv_rolls roll ON r.roll_id = roll.id
             WHERE r.dht_order_id = $1 
               AND r.status NOT IN ('released', 'fulfilled') 
               AND (r.roll_id IS NULL OR roll.weight > 0)
         `, [orderId]);
+
+        const printAssigns = await db.all(`
+            SELECT item_id, field_id, operator_type, operator_id
+            FROM qlx_order_print_assignments
+            WHERE dht_order_id = $1
+        `, [orderId]);
+
+        const linkedShelves = await db.all(`
+            SELECT id, name, printing_contractor_id, user_id FROM kv_locations
+            WHERE printing_contractor_id IS NOT NULL OR user_id IS NOT NULL
+        `);
 
         const phoiFabStatus = {};
         for (const r of reservations) {
@@ -37,9 +48,29 @@ async function recalculateOrderFabricStatus(orderId) {
                 phoiFabStatus[key] = { total: 0, arrived: 0, pending: 0 };
             }
             phoiFabStatus[key].total++;
-            if (r.status === 'arrived') {
+
+            let status = r.status;
+            if (status === 'arrived' && r.roll_id && r.roll_location) {
+                const assign = printAssigns.find(a => a.item_id === r.item_id) || 
+                               printAssigns.find(a => a.item_id === null);
+                if (assign) {
+                    const linkedLoc = linkedShelves.find(l => 
+                        (assign.operator_type === 'contractor' && l.printing_contractor_id === assign.operator_id) ||
+                        (assign.operator_type === 'user' && l.user_id === assign.operator_id)
+                    );
+                    if (linkedLoc) {
+                        const rollLoc = (r.roll_location || '').toLowerCase().replace(/^📍\s*/, '').trim();
+                        const targetLoc = linkedLoc.name.toLowerCase().trim();
+                        if (rollLoc !== targetLoc) {
+                            status = 'reserved'; // Treat as pending/reserved
+                        }
+                    }
+                }
+            }
+
+            if (status === 'arrived') {
                 phoiFabStatus[key].arrived++;
-            } else if (r.status === 'reserved') {
+            } else {
                 phoiFabStatus[key].pending++;
             }
         }
