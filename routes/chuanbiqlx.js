@@ -1951,6 +1951,19 @@ module.exports = async function(fastify) {
             for (const assign of assignments) {
                 const opType = assign.operator_type;
                 const opId = Number(assign.operator_id);
+                const fieldId = Number(assign.field_id);
+
+                // Auto-bypass validation check if assigning under field 'IN 3D - IN CẮT' (ID 4) to contractor 1 or 2
+                let is3DInCatField = (fieldId === 4);
+                if (!is3DInCatField && fieldId) {
+                    const field = await db.get(`SELECT name FROM printing_fields WHERE id = $1`, [fieldId]);
+                    if (field && field.name && field.name.toUpperCase().includes('IN 3D - IN CẮT')) {
+                        is3DInCatField = true;
+                    }
+                }
+                if (is3DInCatField && opType === 'contractor' && (opId === 1 || opId === 2)) {
+                    continue; // Skip linked shelf check
+                }
 
                 const linkedLoc = await db.get(`
                     SELECT id, name FROM kv_locations 
