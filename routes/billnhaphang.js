@@ -1082,6 +1082,16 @@ module.exports = async function(fastify) {
     // ========== FABRIC IMPORT: Submit (Atomic Transaction) ==========
     fastify.post('/api/import/fabric-submit', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isAccountant(req))) return reply.code(403).send({ error: 'Chỉ Kế Toán / GĐ' });
+
+        function stripAccents(str) {
+            if (!str) return '';
+            return str.normalize("NFD")
+                      .replace(/[\u0300-\u036f]/g, "")
+                      .replace(/đ/g, "d")
+                      .replace(/Đ/g, "D")
+                      .toLowerCase()
+                      .trim();
+        }
         
         // Block submit if there are active return requests (requested by warehouse but not resolved)
         const pendingRequestedReturns = await db.all(
@@ -1204,13 +1214,15 @@ module.exports = async function(fastify) {
                     const matNameClean = (fi.material_name || '').trim();
                     const colNameClean = (fi.color_name || '').trim();
                     if (matNameClean && colNameClean) {
-                        let matRes = await client.query(
-                            `SELECT id FROM kv_materials WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
-                            [matNameClean]
-                        );
+                        // Get all active materials and check accent-insensitive match
+                        const allMats = await client.query(`SELECT id, name FROM kv_materials`);
+                        const matchedMat = allMats.rows.find(m => stripAccents(m.name) === stripAccents(matNameClean));
+
                         let matId;
-                        if (matRes.rows.length > 0) {
-                            matId = matRes.rows[0].id;
+                        if (matchedMat) {
+                            matId = matchedMat.id;
+                            // Update material name in request to keep correct accents
+                            fi.material_name = matchedMat.name;
                         } else {
                             const whRes = await client.query(`SELECT id FROM kv_warehouses WHERE is_active = true ORDER BY display_order, id LIMIT 1`);
                             const defaultWhId = whRes.rows.length > 0 ? whRes.rows[0].id : 1;
@@ -1221,12 +1233,14 @@ module.exports = async function(fastify) {
                             matId = newMatRes.rows[0].id;
                         }
 
-                        let colRes = await client.query(
-                            `SELECT id FROM kv_fabric_colors WHERE material_id = $1 AND LOWER(TRIM(color_name)) = LOWER(TRIM($2)) LIMIT 1`,
-                            [matId, colNameClean]
-                        );
-                        if (colRes.rows.length > 0) {
-                            fi.fabric_color_id = colRes.rows[0].id;
+                        // Get all colors for this material and check accent-insensitive match
+                        const allCols = await client.query(`SELECT id, color_name FROM kv_fabric_colors WHERE material_id = $1`, [matId]);
+                        const matchedCol = allCols.rows.find(c => stripAccents(c.color_name) === stripAccents(colNameClean));
+
+                        if (matchedCol) {
+                            fi.fabric_color_id = matchedCol.id;
+                            // Update color name in request to keep correct accents
+                            fi.color_name = matchedCol.color_name;
                         } else {
                             const newColRes = await client.query(
                                 `INSERT INTO kv_fabric_colors (material_id, color_name, is_active, created_by) VALUES ($1, $2, true, $3) RETURNING id`,
