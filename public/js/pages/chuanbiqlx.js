@@ -913,6 +913,15 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                 html += '</div></div>';
             }
 
+            // Filter rolls by target shelf if active
+            if (data.target_shelf) {
+                var targetNameLower = data.target_shelf.toLowerCase().trim();
+                rolls = rolls.filter(function(r) {
+                    var loc = (r.roll_loc_name || '').toLowerCase().replace(/^📍\s*/, '').trim();
+                    return loc === targetNameLower;
+                });
+            }
+
             // === Stock section (always visible when warehouse has data) ===
             html += '<div id="_qlxSecStock">';
             html += '<div style="padding:0 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📦 LẤY VẢI TỪ KHO (' + wh.warehouse_name + ') <span style="font-weight:600;color:#6b7280;font-size:11px">— ' + rolls.length + ' Cây Vải</span></div>';
@@ -1060,7 +1069,11 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                     html += '</div>';
                 });
             } else {
-                html += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:11px">Kho chưa có cây vải nào</div>';
+                if (data.target_shelf) {
+                    html += '<div style="text-align:center;padding:16px;color:#b45309;background:#fffbeb;border:1px dashed #f59e0b;border-radius:8px;font-size:11px;font-weight:600;margin-top:6px">⚠️ Kệ ' + data.target_shelf + ' chưa có cây vải nào. Vui lòng vào sơ đồ kho chuyển vải sang kệ này trước!</div>';
+                } else {
+                    html += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:11px">Kho chưa có cây vải nào</div>';
+                }
             }
             html += '</div></div>';
 
