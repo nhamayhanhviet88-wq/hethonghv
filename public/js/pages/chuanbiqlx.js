@@ -826,7 +826,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                             needTransfer = true;
                         }
                     }
-                    var isFromStockMismatch = needTransfer && ex.reservation_type === 'from_stock';
+                    var isFromStockMismatch = needTransfer && ex.reservation_type === 'from_stock' && !ex.is_from_call;
                     var bgColor = isFromStockMismatch ? '#fef2f2' : (needTransfer ? '#fffaf0' : (isArrived ? '#f0fdf4' : '#fffbeb'));
                     var borderColor = isFromStockMismatch ? '#fca5a5' : (needTransfer ? '#fdba74' : (isArrived ? '#86efac' : '#fbbf24'));
                     var statusBadge = isFromStockMismatch

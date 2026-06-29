@@ -27,16 +27,21 @@ module.exports = async function(fastify) {
         const now = vnNow();
 
         try {
-            // 1. Fetch active from_stock reservations
+            // 1. Fetch active from_stock reservations (exclude called fabric flows)
             const reservations = await db.all(`
                 SELECT r.id, r.dht_order_id, r.item_id, r.phoi_index, r.status, r.roll_id,
                        roll.location AS roll_location, roll.roll_code
                 FROM qlx_fabric_reservations r
                 JOIN kv_rolls roll ON r.roll_id = roll.id
+                JOIN dht_orders o ON r.dht_order_id = o.id
                 WHERE r.dht_order_id = ANY($1) 
                   AND r.reservation_type = 'from_stock'
                   AND r.status NOT IN ('released', 'fulfilled')
                   AND roll.weight > 0
+                  AND NOT (
+                      roll.called_for_orders IS NOT NULL 
+                      AND jsonb_exists(roll.called_for_orders, o.order_code)
+                  )
             `, [orderIds]);
 
             if (reservations.length === 0) return;
@@ -1152,9 +1157,11 @@ module.exports = async function(fastify) {
         if (orderIds.length > 0) {
             reservations = await db.all(`
                 SELECT r.dht_order_id, r.item_id, r.phoi_index, r.status, r.roll_id, r.reservation_type,
-                       roll.location AS roll_location
+                       roll.location AS roll_location,
+                       COALESCE(roll.called_for_orders IS NOT NULL AND jsonb_exists(roll.called_for_orders, o.order_code), false) AS is_from_call
                 FROM qlx_fabric_reservations r
                 LEFT JOIN kv_rolls roll ON r.roll_id = roll.id
+                LEFT JOIN dht_orders o ON r.dht_order_id = o.id
                 WHERE r.dht_order_id = ANY($1) 
                   AND r.status NOT IN ('released', 'fulfilled')
                   AND (r.roll_id IS NULL OR roll.weight > 0)
@@ -1193,7 +1200,7 @@ module.exports = async function(fastify) {
                         const rollLoc = (r.roll_location || '').toLowerCase().replace(/^📍\s*/, '').trim();
                         const targetLoc = linkedLoc.name.toLowerCase().trim();
                         if (rollLoc !== targetLoc) {
-                            if (r.reservation_type === 'from_stock') {
+                            if (r.reservation_type === 'from_stock' && !r.is_from_call) {
                                 isMismatchedFromStock = true;
                             } else {
                                 status = 'reserved'; // Treat as pending/reserved
@@ -2817,6 +2824,7 @@ module.exports = async function(fastify) {
                    r.original_weight, r.weight, r.image_path AS roll_image_path,
                    u_create.full_name AS created_by_name,
                    u_arrive.full_name AS arrived_by_name,
+                   COALESCE(r.called_for_orders IS NOT NULL AND jsonb_exists(r.called_for_orders, o.order_code), false) AS is_from_call,
                    CASE 
                      WHEN parent_o.order_code IS NOT NULL THEN 
                        parent_o.order_code || ' - P' || 
@@ -2836,6 +2844,7 @@ module.exports = async function(fastify) {
                    (SELECT COUNT(*)::int FROM qlx_fabric_reservations lk WHERE lk.linked_call_id = res.id AND lk.status != 'released') AS linked_count
             FROM qlx_fabric_reservations res
             LEFT JOIN kv_rolls r ON r.id = res.roll_id
+            LEFT JOIN dht_orders o ON o.id = res.dht_order_id
             LEFT JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             LEFT JOIN kv_materials m ON m.id = fc.material_id
             LEFT JOIN users u_create ON u_create.id = res.created_by
