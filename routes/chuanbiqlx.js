@@ -187,9 +187,10 @@ module.exports = async function(fastify) {
 
             // 2. Fetch print assignments
             const printAssigns = await db.all(`
-                SELECT dht_order_id, item_id, field_id, operator_type, operator_id
-                FROM qlx_order_print_assignments
-                WHERE dht_order_id = ANY($1)
+                SELECT qa.dht_order_id, qa.item_id, qa.field_id, qa.operator_type, qa.operator_id, pf.name AS field_name
+                FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE qa.dht_order_id = ANY($1)
             `, [orderIds]);
 
             // 3. Fetch linked shelves
@@ -203,14 +204,17 @@ module.exports = async function(fastify) {
                 const assign = printAssigns.find(a => a.item_id === r.item_id) || 
                                printAssigns.find(a => a.dht_order_id === r.dht_order_id && a.item_id === null);
                 if (assign) {
-                    const linkedLoc = linkedShelves.find(l => 
-                        (assign.operator_type === 'contractor' && l.printing_contractor_id === assign.operator_id) ||
-                        (assign.operator_type === 'user' && l.user_id === assign.operator_id)
-                    );
-                    if (linkedLoc) {
-                        const rollLoc = (r.roll_location || '').toLowerCase().replace(/^📍\s*/, '').trim();
-                        const targetLoc = linkedLoc.name.toLowerCase().trim();
-                        if (rollLoc !== targetLoc) {
+                    const nameUpper = (assign.field_name || '').toUpperCase();
+                    const isContractorCut = (nameUpper.includes('CẮT') || nameUpper.includes('3D')) && !nameUpper.includes('HV CẮT');
+                    if (isContractorCut) {
+                        const linkedLoc = linkedShelves.find(l => 
+                            (assign.operator_type === 'contractor' && l.printing_contractor_id === assign.operator_id) ||
+                            (assign.operator_type === 'user' && l.user_id === assign.operator_id)
+                        );
+                        if (linkedLoc) {
+                            const rollLoc = (r.roll_location || '').toLowerCase().replace(/^📍\s*/, '').trim();
+                            const targetLoc = linkedLoc.name.toLowerCase().trim();
+                            if (rollLoc !== targetLoc) {
                             console.log(`[Auto-Release] Releasing mismatched from_stock reservation id ${r.id} for order ${r.dht_order_id} (roll ${r.roll_code} at ${r.roll_location} vs target ${linkedLoc.name})`);
                             
                             await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = $2 WHERE id = $3', ['released', now, r.id]);
@@ -1311,9 +1315,10 @@ module.exports = async function(fastify) {
         let printAssigns = [];
         if (orderIds.length > 0) {
             printAssigns = await db.all(`
-                SELECT dht_order_id, item_id, field_id, operator_type, operator_id
-                FROM qlx_order_print_assignments
-                WHERE dht_order_id = ANY($1)
+                SELECT qa.dht_order_id, qa.item_id, qa.field_id, qa.operator_type, qa.operator_id, pf.name AS field_name
+                FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE qa.dht_order_id = ANY($1)
             `, [orderIds]);
         }
 
@@ -1332,18 +1337,22 @@ module.exports = async function(fastify) {
                 const assign = printAssigns.find(a => a.item_id === r.item_id) || 
                                printAssigns.find(a => a.dht_order_id === r.dht_order_id && a.item_id === null);
                 if (assign) {
-                    const linkedLoc = linkedShelves.find(l => 
-                        (assign.operator_type === 'contractor' && l.printing_contractor_id === assign.operator_id) ||
-                        (assign.operator_type === 'user' && l.user_id === assign.operator_id)
-                    );
-                    if (linkedLoc) {
-                        const rollLoc = (r.roll_location || '').toLowerCase().replace(/^📍\s*/, '').trim();
-                        const targetLoc = linkedLoc.name.toLowerCase().trim();
-                        if (rollLoc !== targetLoc) {
-                            if (r.reservation_type === 'from_stock' && !r.is_from_call) {
-                                isMismatchedFromStock = true;
-                            } else {
-                                status = 'reserved'; // Treat as pending/reserved
+                    const nameUpper = (assign.field_name || '').toUpperCase();
+                    const isContractorCut = (nameUpper.includes('CẮT') || nameUpper.includes('3D')) && !nameUpper.includes('HV CẮT');
+                    if (isContractorCut) {
+                        const linkedLoc = linkedShelves.find(l => 
+                            (assign.operator_type === 'contractor' && l.printing_contractor_id === assign.operator_id) ||
+                            (assign.operator_type === 'user' && l.user_id === assign.operator_id)
+                        );
+                        if (linkedLoc) {
+                            const rollLoc = (r.roll_location || '').toLowerCase().replace(/^📍\s*/, '').trim();
+                            const targetLoc = linkedLoc.name.toLowerCase().trim();
+                            if (rollLoc !== targetLoc) {
+                                if (r.reservation_type === 'from_stock' && !r.is_from_call) {
+                                    isMismatchedFromStock = true;
+                                } else {
+                                    status = 'reserved'; // Treat as pending/reserved
+                                }
                             }
                         }
                     }
@@ -2253,6 +2262,13 @@ module.exports = async function(fastify) {
                 const opType = assign.operator_type;
                 const opId = Number(assign.operator_id);
                 const fieldId = Number(assign.field_id);
+
+                // Fetch field name to check if it's a contractor-cut field
+                const field = await db.get('SELECT name FROM printing_fields WHERE id = $1', [fieldId]);
+                const fieldName = field ? field.name : '';
+                const nameUpper = fieldName.toUpperCase();
+                const isContractorCut = (nameUpper.includes('CẮT') || nameUpper.includes('3D')) && !nameUpper.includes('HV CẮT');
+                if (!isContractorCut) continue;
 
                 const linkedLoc = await db.get(`
                     SELECT id, name FROM kv_locations 
