@@ -2789,7 +2789,10 @@ module.exports = async function(fastify) {
             SELECT DISTINCT pc.id, pc.name, loc.name AS location_name
             FROM printing_contractors pc
             JOIN kv_locations loc ON loc.printing_contractor_id = pc.id
+            JOIN printing_field_operators fo ON fo.operator_type = 'contractor' AND fo.operator_id = pc.id
+            JOIN printing_fields f ON fo.field_id = f.id
             WHERE pc.is_active = true
+              AND LOWER(TRIM(f.name)) = 'in 3d - in cắt'
             ORDER BY pc.name
         `);
         return { contractors: rows };
