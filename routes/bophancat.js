@@ -3164,7 +3164,18 @@ module.exports = async function(fastify) {
             const wasCut = finalWeight < (Number(s.weight) || 0);
             const isLeftover = finalWeight > 0;
             const needsPhoto = wasCut && isLeftover;
-            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = '', needs_photo = $2 WHERE id = $3`, [finalWeight, needsPhoto, s.roll_id]);
+            const rollDb = await db.get('SELECT location, original_location FROM kv_rolls WHERE id = $1', [s.roll_id]);
+            let nextLocation = '';
+            if (rollDb) {
+                const currentLoc = rollDb.location || rollDb.original_location || '';
+                const isContractorLoc = await isContractorLocation(currentLoc);
+                if (isContractorLoc) {
+                    nextLocation = currentLoc;
+                } else {
+                    nextLocation = wasCut ? '' : (rollDb.location || '');
+                }
+            }
+            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = $2, needs_photo = $3 WHERE id = $4`, [finalWeight, nextLocation, needsPhoto, s.roll_id]);
             if (groupOrderIds.length > 0) {
                 await db.run(`
                     UPDATE qlx_fabric_reservations 
