@@ -2212,6 +2212,17 @@ module.exports = async function(fastify) {
         if (filterLocationIds.length > 0) {
             locationFilter = ` AND LOWER(TRIM(r.location)) = ANY($6) `;
             queryParams.push(filterLocationIds);
+        } else {
+            // Exclude contractor locations for company cuts
+            const contractorLocs = await db.all(`
+                SELECT name FROM kv_locations 
+                WHERE printing_contractor_id IS NOT NULL OR user_id IS NOT NULL
+            `);
+            if (contractorLocs.length > 0) {
+                const excludeNames = contractorLocs.map(l => l.name.trim().toLowerCase());
+                locationFilter = ` AND NOT (LOWER(TRIM(r.location)) = ANY($6)) `;
+                queryParams.push(excludeNames);
+            }
         }
 
         const rolls = await db.all(`
@@ -2834,6 +2845,17 @@ module.exports = async function(fastify) {
             } else {
                 locationFilter = ` AND 1 = 0 `;
             }
+        } else {
+            // Exclude contractor locations for company
+            const contractorLocs = await db.all(`
+                SELECT name FROM kv_locations 
+                WHERE printing_contractor_id IS NOT NULL OR user_id IS NOT NULL
+            `);
+            if (contractorLocs.length > 0) {
+                const names = contractorLocs.map(l => l.name.trim().toLowerCase());
+                locationFilter = ` AND NOT (LOWER(TRIM(r.location)) = ANY($1)) `;
+                params.push(names);
+            }
         }
 
         const query = `
@@ -2962,8 +2984,14 @@ module.exports = async function(fastify) {
                 }
             }
 
-            if (printing_contractor_id && Number(assignedContractorId) !== Number(printing_contractor_id)) {
-                continue; // Skip if printing_contractor_id does not match
+            if (printing_contractor_id) {
+                if (Number(assignedContractorId) !== Number(printing_contractor_id)) {
+                    continue; // Skip if printing_contractor_id does not match
+                }
+            } else {
+                if (assignedContractorId !== null) {
+                    continue; // Skip if assigned to a contractor (company cut only allows company orders)
+                }
             }
             let pairs = [];
             try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}

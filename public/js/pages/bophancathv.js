@@ -2417,7 +2417,7 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
         h += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:11px">Chưa có dữ liệu cây</div>';
     }
     h += '</div>';
-    h += '<button onclick="_bpcShowAddRoll(' + recordId + ', \'' + (r.material_name || '').replace(/'/g, "\\'") + '\', \'' + (r.fabric_color || '').replace(/'/g, "\\'") + '\')" style="margin-top:8px;padding:6px 12px;background:#f1f5f9;color:#475569;border:1.5px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">➕ Thêm cây vải khác</button>';
+    h += '<button onclick="_bpcShowAddRoll(' + recordId + ', \'' + (r.material_name || '').replace(/'/g, "\\'") + '\', \'' + (r.fabric_color || '').replace(/'/g, "\\'") + '\', ' + (r.dht_order_id || 'null') + ', ' + (r.order_item_id || 'null') + ', ' + (r.phoi_index || 0) + ', ' + (r.printing_contractor_id || 'null') + ')" style="margin-top:8px;padding:6px 12px;background:#f1f5f9;color:#475569;border:1.5px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">➕ Thêm cây vải khác</button>';
     h += '<div id="_bpcAddRollArea" style="margin-top:10px;display:none;background:#f8fafc;padding:10px;border-radius:8px;border:1px dashed #cbd5e1">';
     h += '<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:6px">CHỌN CÂY VẢI THÊM:</div>';
     h += '<select id="_bpcAddRollSelect" style="width:100%;padding:8px;border-radius:6px;border:1.5px solid #cbd5e1;font-size:12px;font-weight:700;margin-bottom:8px">';
@@ -3012,7 +3012,7 @@ async function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
         h += '<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
     h += '</div>';
-    h += '<button onclick="_bpcShowAddRollGroup(\'' + groupId + '\', \'' + (ref.material_name || '').replace(/'/g, "\\'") + '\', \'' + (ref.fabric_color || '').replace(/'/g, "\\'") + '\')" style="margin-top:8px;padding:6px 12px;background:#faf5ff;color:#7c3aed;border:1.5px solid #e9d5ff;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">➕ Thêm cây vải khác</button>';
+    h += '<button onclick="_bpcShowAddRollGroup(\'' + groupId + '\', \'' + (ref.material_name || '').replace(/'/g, "\\'") + '\', \'' + (ref.fabric_color || '').replace(/'/g, "\\'") + '\', ' + (ref.dht_order_id || 'null') + ', ' + (ref.order_item_id || 'null') + ', ' + (ref.phoi_index || 0) + ', ' + (ref.printing_contractor_id || 'null') + ')" style="margin-top:8px;padding:6px 12px;background:#faf5ff;color:#7c3aed;border:1.5px solid #e9d5ff;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">➕ Thêm cây vải khác</button>';
     h += '<div id="_bpcAddRollAreaGroup" style="margin-top:10px;display:none;background:#fcfaff;padding:10px;border-radius:8px;border:1px dashed #d8b4fe">';
     h += '<div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:6px">CHỌN CÂY VẢI THÊM VÀO NHÓM:</div>';
     h += '<select id="_bpcAddRollSelectGroup" style="width:100%;padding:8px;border-radius:6px;border:1.5px solid #e9d5ff;font-size:12px;font-weight:700;margin-bottom:8px">';
@@ -3264,7 +3264,7 @@ async function _bpcRemoveRoll(recordId, rollId) {
     }
 }
 
-async function _bpcShowAddRoll(recordId, materialName, colorName) {
+async function _bpcShowAddRoll(recordId, materialName, colorName, orderId, orderItemId, phoiIndex, printingContractorId) {
     const area = document.getElementById('_bpcAddRollArea');
     if (!area) return;
     area.style.display = 'block';
@@ -3272,7 +3272,13 @@ async function _bpcShowAddRoll(recordId, materialName, colorName) {
     if (!select) return;
     select.innerHTML = '<option value="">— Đang tải danh sách cây vải... —</option>';
     try {
-        const res = await apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(materialName) + '&color_name=' + encodeURIComponent(colorName));
+        var url = '/api/cutting/available-rolls?material_name=' + encodeURIComponent(materialName) + '&color_name=' + encodeURIComponent(colorName);
+        if (printingContractorId) {
+            url += '&printing_contractor_id=' + printingContractorId;
+        } else if (orderId) {
+            url += '&order_id=' + orderId + '&order_item_id=' + (orderItemId || '') + '&phoi_index=' + (phoiIndex || 0);
+        }
+        const res = await apiCall(url);
         const rolls = res.rolls || [];
         const activeRolls = rolls.filter(r => !r.locked);
         if (!activeRolls.length) {
@@ -3344,7 +3350,7 @@ async function _bpcRemoveRollGroup(groupId, rollId) {
     }
 }
 
-async function _bpcShowAddRollGroup(groupId, materialName, colorName) {
+async function _bpcShowAddRollGroup(groupId, materialName, colorName, orderId, orderItemId, phoiIndex, printingContractorId) {
     const area = document.getElementById('_bpcAddRollAreaGroup');
     if (!area) return;
     area.style.display = 'block';
@@ -3352,7 +3358,13 @@ async function _bpcShowAddRollGroup(groupId, materialName, colorName) {
     if (!select) return;
     select.innerHTML = '<option value="">— Đang tải danh sách cây vải... —</option>';
     try {
-        const res = await apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(materialName) + '&color_name=' + encodeURIComponent(colorName));
+        var url = '/api/cutting/available-rolls?material_name=' + encodeURIComponent(materialName) + '&color_name=' + encodeURIComponent(colorName);
+        if (printingContractorId) {
+            url += '&printing_contractor_id=' + printingContractorId;
+        } else if (orderId) {
+            url += '&order_id=' + orderId + '&order_item_id=' + (orderItemId || '') + '&phoi_index=' + (phoiIndex || 0);
+        }
+        const res = await apiCall(url);
         const rolls = res.rolls || [];
         const activeRolls = rolls.filter(r => !r.locked);
         if (!activeRolls.length) {
