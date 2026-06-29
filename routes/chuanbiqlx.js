@@ -76,8 +76,21 @@ module.exports = async function(fastify) {
                     ? order.order_code + ' — Phiếu ' + itemIdx + ' — P' + (pi + 1) + (it.description ? ' — ' + it.description : '')
                     : order.order_code + (it.description ? ' — ' + it.description : '');
 
+                // Determine if fabric has arrived for this specific phoi index
+                const phoiRes = await db.all(`
+                    SELECT status FROM qlx_fabric_reservations
+                    WHERE item_id = $1 AND phoi_index = $2 AND status NOT IN ('released', 'fulfilled')
+                `, [it.id, pi]);
+                let isFabricArrived = false;
+                if (phoiRes.length > 0) {
+                    isFabricArrived = phoiRes.every(r => r.status === 'arrived');
+                } else {
+                    const prep = await db.get(`SELECT fabric_arrived FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+                    isFabricArrived = prep ? !!prep.fabric_arrived : false;
+                }
+
                 const existing = await db.get(`
-                    SELECT id, is_cut_done FROM cutting_records 
+                    SELECT id, is_cut_done, cutting_at FROM cutting_records 
                     WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3
                 `, [orderId, it.id, pi]);
 
@@ -87,17 +100,17 @@ module.exports = async function(fastify) {
                             UPDATE cutting_records 
                             SET printing_contractor_id = $1, 
                                 cutter_id = NULL, 
-                                is_cutting = true, 
-                                cutting_at = $2, 
+                                is_cutting = $2, 
+                                cutting_at = $3, 
                                 cutting_by = NULL,
-                                product_name = $3,
-                                material_name = $4,
-                                fabric_color = $5,
-                                order_quantity = $6,
-                                cutting_category = $7,
-                                updated_at = $2
-                            WHERE id = $8
-                        `, [contractorId, now, productName, matName, colName, it.quantity || 0, cuttingCategory, existing.id]);
+                                product_name = $4,
+                                material_name = $5,
+                                fabric_color = $6,
+                                order_quantity = $7,
+                                cutting_category = $8,
+                                updated_at = $9
+                            WHERE id = $10
+                        `, [contractorId, isFabricArrived, isFabricArrived ? (existing.cutting_at || now) : null, productName, matName, colName, it.quantity || 0, cuttingCategory, now, existing.id]);
                     }
                 } else {
                     await db.run(`
@@ -106,8 +119,8 @@ module.exports = async function(fastify) {
                             cutter_id, is_cutting, cutting_at, is_cut_done,
                             product_name, material_name, fabric_color,
                             order_quantity, cutting_category, created_by, created_at, updated_at
-                        ) VALUES ($1, $2, $3, $4, NULL, true, $5, false, $6, $7, $8, $9, $10, NULL, $5, $5)
-                    `, [orderId, it.id, pi, contractorId, now, productName, matName, colName, it.quantity || 0, cuttingCategory]);
+                        ) VALUES ($1, $2, $3, $4, NULL, $5, $6, false, $7, $8, $9, $10, $11, NULL, $12, $12)
+                    `, [orderId, it.id, pi, contractorId, isFabricArrived, isFabricArrived ? now : null, productName, matName, colName, it.quantity || 0, cuttingCategory, now]);
                 }
             }
         }
@@ -1507,16 +1520,43 @@ module.exports = async function(fastify) {
                 [now, request.user.id, orderId]);
             await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'fabric_arrived', 'Vải đã về', $2, $3)`,
                 [orderId, request.user.id, now]);
+
+            // Automatically set contractor cutting records of this order to is_cutting = true
+            const contractorRecs = await db.all(`
+                SELECT id FROM cutting_records 
+                WHERE dht_order_id = $1 AND printing_contractor_id IS NOT NULL AND is_cutting = false AND is_cut_done = false
+            `, [orderId]);
+            for (const r of contractorRecs) {
+                await db.run(`UPDATE cutting_records SET is_cutting = true, cutting_at = $1 WHERE id = $2`, [now, r.id]);
+            }
         } else if (action === 'reset_call') {
             await db.run(`UPDATE qlx_preparation SET fabric_called = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
                 [now, orderId]);
             await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'fabric_reset', 'Đã reset trạng thái vải', $2, $3)`,
                 [orderId, request.user.id, now]);
+
+            // Automatically reset contractor cutting records of this order to is_cutting = false
+            const contractorRecs = await db.all(`
+                SELECT id FROM cutting_records 
+                WHERE dht_order_id = $1 AND printing_contractor_id IS NOT NULL AND is_cutting = true AND is_cut_done = false
+            `, [orderId]);
+            for (const r of contractorRecs) {
+                await db.run(`UPDATE cutting_records SET is_cutting = false, cutting_at = NULL WHERE id = $2`, [r.id]);
+            }
         } else if (action === 'reset_arrive') {
             await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
                 [now, orderId]);
             await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'fabric_arrive_reset', 'Đã reset vải về', $2, $3)`,
                 [orderId, request.user.id, now]);
+
+            // Automatically reset contractor cutting records of this order to is_cutting = false
+            const contractorRecs = await db.all(`
+                SELECT id FROM cutting_records 
+                WHERE dht_order_id = $1 AND printing_contractor_id IS NOT NULL AND is_cutting = true AND is_cut_done = false
+            `, [orderId]);
+            for (const r of contractorRecs) {
+                await db.run(`UPDATE cutting_records SET is_cutting = false, cutting_at = NULL WHERE id = $2`, [r.id]);
+            }
         }
 
         return { success: true };
@@ -2640,6 +2680,119 @@ module.exports = async function(fastify) {
                     INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
                     VALUES ($1, 'assign_in_new', $2, $3, $4)
                 `, [orderId, historyDetails, request.user.id, now]);
+            }
+
+            // Automatically release any stock reservations with target shelf mismatch
+            const order = await db.get('SELECT order_code FROM dht_orders WHERE id = $1', [orderId]);
+            const orderCode = order ? order.order_code : '';
+            
+            let activeReservations = [];
+            if (itemId) {
+                activeReservations = await db.all(`
+                    SELECT r.id, r.roll_id, r.item_id, r.phoi_index, r.reservation_type, r.status,
+                           roll.location AS roll_loc, roll.weight, roll.original_weight, roll.called_for_orders
+                    FROM qlx_fabric_reservations r
+                    JOIN kv_rolls roll ON r.roll_id = roll.id
+                    WHERE r.item_id = $1 AND r.status IN ('reserved', 'arrived')
+                `, [itemId]);
+            } else {
+                activeReservations = await db.all(`
+                    SELECT r.id, r.roll_id, r.item_id, r.phoi_index, r.reservation_type, r.status,
+                           roll.location AS roll_loc, roll.weight, roll.original_weight, roll.called_for_orders
+                    FROM qlx_fabric_reservations r
+                    JOIN kv_rolls roll ON r.roll_id = roll.id
+                    WHERE r.dht_order_id = $1 AND r.status IN ('reserved', 'arrived')
+                `, [orderId]);
+            }
+
+            for (const res of activeReservations) {
+                if (res.reservation_type !== 'from_stock') continue;
+
+                // Check if from call
+                let isFromCall = false;
+                if (res.called_for_orders) {
+                    try {
+                        const parsed = typeof res.called_for_orders === 'string' ? JSON.parse(res.called_for_orders) : res.called_for_orders;
+                        if (Array.isArray(parsed)) {
+                            isFromCall = parsed.includes(orderCode);
+                        } else if (parsed && typeof parsed === 'object') {
+                            isFromCall = Object.keys(parsed).includes(orderCode);
+                        }
+                    } catch(e) {}
+                }
+                if (isFromCall) continue;
+
+                // Resolve target shelf for this reservation's item
+                let resTargetShelf = null;
+                const resPrintAssigns = await db.all(`
+                    SELECT operator_type, operator_id 
+                    FROM qlx_order_print_assignments 
+                    WHERE (item_id = $1)
+                       OR (dht_order_id = $2 AND item_id IS NULL AND NOT EXISTS (
+                           SELECT 1 FROM qlx_order_print_assignments WHERE item_id = $1
+                       ))
+                `, [res.item_id, orderId]);
+
+                for (const assign of resPrintAssigns) {
+                    const loc = await db.get(`
+                        SELECT name FROM kv_locations 
+                        WHERE (printing_contractor_id = $1 AND $2 = 'contractor')
+                           OR (user_id = $1 AND $2 = 'user')
+                        LIMIT 1
+                    `, [assign.operator_id, assign.operator_type]);
+                    if (loc) {
+                        resTargetShelf = loc.name;
+                        break;
+                    }
+                }
+
+                if (resTargetShelf) {
+                    const rollLocName = resolveRollLocationName({
+                        weight: res.weight,
+                        original_weight: res.original_weight,
+                        roll_loc: res.roll_loc
+                    });
+                    const rollLocClean = rollLocName.toLowerCase().replace(/^📍\s*/, '').trim();
+                    const targetLocClean = resTargetShelf.toLowerCase().trim();
+                    if (rollLocClean !== targetLocClean) {
+                        // Release reservation
+                        await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = $2 WHERE id = $3', ['released', now, res.id]);
+                        
+                        // Handle roll return requested if needed
+                        if (res.roll_id) {
+                            const roll = await db.get('SELECT id, roll_code, location, original_location, return_tx_id FROM kv_rolls WHERE id = $1', [res.roll_id]);
+                            if (roll) {
+                                const otherActiveRes = await db.get(`
+                                    SELECT 1 FROM qlx_fabric_reservations
+                                    WHERE roll_id = $1 AND status IN ('reserved', 'arrived', 'fulfilled') AND id != $2
+                                    LIMIT 1
+                                `, [roll.id, res.id]);
+                                if (!otherActiveRes) {
+                                    if (roll.location === '📍 Kệ Dự Định Hoàn Vải' || roll.original_location === '📍 Kệ Dự Định Hoàn Vải') {
+                                        await db.run(`
+                                            UPDATE kv_rolls 
+                                            SET return_requested = true, 
+                                                return_requested_by = $1, 
+                                                return_requested_at = $2 
+                                            WHERE id = $3
+                                        `, [request.user.id, now, roll.id]);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Log to history
+                        const itemIdx = (await db.get(`SELECT COUNT(*)::int FROM dht_order_items WHERE dht_order_id = $1 AND id <= $2`, [orderId, res.item_id]))?.count || 1;
+                        const pIdx = res.phoi_index !== null && res.phoi_index !== undefined ? res.phoi_index : 0;
+                        const details = `[Phiếu ${itemIdx} - P${pIdx + 1}] Hệ thống tự động hủy giữ vải do đổi phân công in (kệ cũ: ${rollLocName}, kệ mới: ${resTargetShelf})`;
+                        await db.run(`
+                            INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                            VALUES ($1, $2, 'fabric_release_auto', $3, $4, $5)
+                        `, [orderId, res.item_id, details, request.user.id, now]);
+
+                        console.log(`[QLX AUTO RELEASE] Released mismatched stock reservation id ${res.id} for order ${orderCode} (roll ${res.roll_id} on ${rollLocName}, target shelf ${resTargetShelf})`);
+                    }
+                }
             }
 
             // Recalculate order fabric status since print assignment changed

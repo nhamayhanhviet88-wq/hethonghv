@@ -679,6 +679,7 @@ function _bpcRenderTable() {
 }
 
 function _bpcGetScheduleBadge(cutExpectedAt, isCutDone) {
+    return '';
     if (!cutExpectedAt) return '';
     var schDate = cutExpectedAt.split('T')[0];
     var todayVNStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });

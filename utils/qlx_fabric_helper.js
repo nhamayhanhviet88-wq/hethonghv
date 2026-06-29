@@ -75,6 +75,42 @@ async function recalculateOrderFabricStatus(orderId) {
             }
         }
 
+        // Update contractor cutting records is_cutting status based on fabric arrival
+        for (const cr of cuttingRows) {
+            if (cr.printing_contractor_id === null || cr.is_cut_done) continue;
+            const it = oItems.find(item => item.id === cr.order_item_id);
+            if (!it) continue;
+
+            let pairs = [];
+            try {
+                pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []);
+            } catch(e) {}
+            if (!Array.isArray(pairs)) pairs = [];
+
+            let isArrived = false;
+            if (pairs.length === 0) {
+                const key = `${it.id}_0`;
+                const pfs = phoiFabStatus[key];
+                isArrived = (pfs && pfs.pending === 0 && pfs.arrived > 0) || (it.material_arrived);
+            } else {
+                const pIdx = cr.phoi_index !== null && cr.phoi_index !== undefined ? cr.phoi_index : 0;
+                const key = `${it.id}_${pIdx}`;
+                const pfs = phoiFabStatus[key];
+                isArrived = (pfs && pfs.pending === 0 && pfs.arrived > 0);
+            }
+
+            const targetIsCutting = isArrived;
+            if (cr.is_cutting !== targetIsCutting) {
+                const now = vnNow();
+                await db.run(
+                    `UPDATE cutting_records SET is_cutting = $1, cutting_at = $2 WHERE order_item_id = $3 AND phoi_index = $4`,
+                    [targetIsCutting, targetIsCutting ? now : null, cr.order_item_id, cr.phoi_index]
+                );
+                cr.is_cutting = targetIsCutting; // Update in-memory copy
+                console.log(`[QLX FABRIC RECALC] Updated contractor cutting record: item ${cr.order_item_id}, phoi ${cr.phoi_index}, is_cutting = ${targetIsCutting}`);
+            }
+        }
+
         let totalPhois = 0;
         let arrivedPhois = 0;
         let calledPhois = 0;

@@ -950,6 +950,11 @@ module.exports = async function(fastify) {
                              AND res_loc.phoi_index = cr.phoi_index
                              AND res_loc.status NOT IN ('released', 'fulfilled')
                        ),
+                       (
+                           SELECT loc.name FROM kv_locations loc
+                           WHERE loc.printing_contractor_id = cr.printing_contractor_id
+                           LIMIT 1
+                       ),
                        NULLIF(fc.location, ''),
                        NULLIF(m.location, '')
                    ) AS warehouse_location,
@@ -1070,6 +1075,11 @@ module.exports = async function(fastify) {
                            WHERE res_loc.item_id = cr.order_item_id
                              AND res_loc.phoi_index = cr.phoi_index
                              AND res_loc.status NOT IN ('released', 'fulfilled')
+                       ),
+                       (
+                           SELECT loc.name FROM kv_locations loc
+                           WHERE loc.printing_contractor_id = cr.printing_contractor_id
+                           LIMIT 1
                        ),
                        NULLIF(fc.location, ''),
                        NULLIF(m.location, '')
@@ -2311,6 +2321,7 @@ module.exports = async function(fastify) {
                     WHERE qa.item_id = $1 
                       AND (qa.operator_id IS NOT NULL)
                       AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                    ORDER BY (CASE WHEN qa.operator_type = 'contractor' THEN 0 ELSE 1 END) ASC, qa.id ASC
                     LIMIT 1
                 `, [orderItemId]);
             }
@@ -2323,6 +2334,7 @@ module.exports = async function(fastify) {
                       AND qa.item_id IS NULL
                       AND (qa.operator_id IS NOT NULL)
                       AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                    ORDER BY (CASE WHEN qa.operator_type = 'contractor' THEN 0 ELSE 1 END) ASC, qa.id ASC
                     LIMIT 1
                 `, [orderId]);
             }
