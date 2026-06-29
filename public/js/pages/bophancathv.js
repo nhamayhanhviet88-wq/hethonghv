@@ -208,6 +208,16 @@ function renderBophancatPage(content) {
 +'.bpc-sb-sub.incomplete{background:#fef3c7;color:#92400e;border-left-color:#fde68a}'
 +'.bpc-sb-sub.incomplete.active{background:linear-gradient(135deg,#d97706,#fbbf24);color:#fff;border-left-color:#78350f;box-shadow:0 2px 5px rgba(217,119,6,0.25)}'
 +'.bpc-sb-sub.incomplete.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 6px;border-radius:8px;font-size:9px}'
++'.bpc-sb-sub.ratio-fail{background:#dc2626;color:#fff;border-left-color:#991b1b;font-weight:700}'
++'.bpc-sb-sub.ratio-fail:hover{background:#be123c;color:#fff}'
++'.bpc-sb-sub.ratio-fail.active{background:linear-gradient(135deg,#991b1b,#dc2626);color:#fff;border-left-color:#fbbf24;box-shadow:0 2px 5px rgba(220,38,38,0.25)}'
++'.bpc-sb-sub.ratio-fail span:last-child{background:#fff !important;color:#dc2626 !important;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:800}'
++'.bpc-sb-sub.ratio-fail.active span:last-child{background:#fff !important;color:#991b1b !important;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:800}'
++'.bpc-sb-sub.ratio-fail-month{background:#fee2e2;color:#991b1b;border-left-color:#fca5a5;font-weight:600}'
++'.bpc-sb-sub.ratio-fail-month:hover{background:#fecaca}'
++'.bpc-sb-sub.ratio-fail-month.active{background:linear-gradient(135deg,#ef4444,#f87171);color:#fff;border-left-color:#991b1b;box-shadow:0 2px 5px rgba(239,68,68,0.25)}'
++'.bpc-sb-sub.ratio-fail-month span:last-child{background:#fca5a5 !important;color:#991b1b !important;padding:2px 6px;border-radius:8px;font-size:9px;font-weight:800}'
++'.bpc-sb-sub.ratio-fail-month.active span:last-child{background:rgba(255,255,255,0.2) !important;color:#fff !important;padding:2px 6px;border-radius:8px;font-size:9px;font-weight:800}'
 +'.bpc-icon-btn{width:26px;height:26px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;margin:0 1px}'
 +'.bpc-icon-btn:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.12)}'
 +'.bpc-icon-btn.on-cut{background:#dcfce7;border-color:#22c55e}'
@@ -361,11 +371,23 @@ function _bpcRenderSidebar() {
                 });
 
                 // Sai Tỉ Lệ Cắt của năm
-                var rfYearAct = f.view === 'records' && f.year == yr.year && !f.cutter_id && f.status === 'ratio_fail';
-                h += '<div class="bpc-sb-sub ratio-fail' + (rfYearAct ? ' active' : '') + '" style="padding-left:23px;color:#dc2626;font-weight:700" onclick="event.stopPropagation(); _bpcFilterCutterStatus(' + yr.year + ', null, \'ratio_fail\')">';
-                h += '  <span>❌ Sai Tỉ Lệ Cắt</span>';
-                h += '  <span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:800">' + (yr.ratio_fail_count || 0) + '</span>';
+                var rfKey = 'rf' + yr.year;
+                var rfOpen = !!_bpcOpen[rfKey];
+                var rfYearAct = f.view === 'records' && f.year == yr.year && !f.cutter_id && f.status === 'ratio_fail' && !f.month;
+                h += '<div class="bpc-sb-sub ratio-fail' + (rfYearAct ? ' active' : '') + '" style="padding-left:23px;font-weight:700" onclick="event.stopPropagation(); _bpcFilterCutterStatus(' + yr.year + ', null, \'ratio_fail\')">';
+                h += '  <span><span class="bpc-sb-toggle-btn" onclick="event.stopPropagation(); _bpcToggle(\'' + rfKey + '\')">' + (rfOpen ? '▼' : '▶') + '</span> ❌ Sai Tỉ Lệ Cắt</span>';
+                h += '  <span>' + (yr.ratio_fail_count || 0) + '</span>';
                 h += '</div>';
+
+                if (rfOpen && yr.ratio_fail_months) {
+                    yr.ratio_fail_months.forEach(function(m) {
+                        var mAct = f.view === 'records' && f.year == yr.year && !f.cutter_id && f.month == m.month && f.status === 'ratio_fail';
+                        h += '<div class="bpc-sb-sub ratio-fail-month' + (mAct ? ' active' : '') + '" style="padding-left:37px;font-size:10px" onclick="event.stopPropagation(); _bpcFilterRatioMonth(' + yr.year + ', ' + m.month + ')">';
+                        h += '  <span>📅 T' + String(m.month).padStart(2, '0') + '</span>';
+                        h += '  <span>' + m.count + '</span>';
+                        h += '</div>';
+                    });
+                }
             }
         });
     }
@@ -411,6 +433,14 @@ function _bpcFilterCutterStatus(year, cutterId, status) {
 function _bpcFilterCutterMonth(year, cutterId, month) {
     _bpcClearSearchUI();
     _bpc.filter = { view: 'records', year: year, month: month, cutter_id: cutterId, status: 'done' };
+    _bpc.page = 1;
+    _bpcRenderSidebar();
+    _bpcLoadRecords();
+}
+
+function _bpcFilterRatioMonth(year, month) {
+    _bpcClearSearchUI();
+    _bpc.filter = { view: 'records', year: year, month: month, cutter_id: null, status: 'ratio_fail' };
     _bpc.page = 1;
     _bpcRenderSidebar();
     _bpcLoadRecords();

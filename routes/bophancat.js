@@ -690,7 +690,7 @@ module.exports = async function(fastify) {
         // Build tree: year → cutter/contractor → { incomplete_count, months: [{month, count}] }
         const yearMap = {};
         for (const r of rows) {
-            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, ratio_fail_count: 0, cutters: {} };
+            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, ratio_fail_count: 0, cutters: {}, ratio_fail_months: {} };
             const cutKey = r.printing_contractor_id ? `c_${r.printing_contractor_id}` : (r.cutter_id || 0);
             if (!yearMap[r.year].cutters[cutKey]) {
                 yearMap[r.year].cutters[cutKey] = {
@@ -708,6 +708,14 @@ module.exports = async function(fastify) {
             cutter.ratio_fail_count += rfCount;
             yearMap[r.year].ratio_fail_count += rfCount;
 
+            // Populate ratio_fail_months
+            if (r.is_cut_done && r.done_month && rfCount > 0) {
+                if (!yearMap[r.year].ratio_fail_months[r.done_month]) {
+                    yearMap[r.year].ratio_fail_months[r.done_month] = { month: r.done_month, count: 0 };
+                }
+                yearMap[r.year].ratio_fail_months[r.done_month].count += rfCount;
+            }
+
             if (r.is_cut_done && r.done_month) {
                 if (!cutter.months[r.done_month]) cutter.months[r.done_month] = { month: r.done_month, count: 0 };
                 cutter.months[r.done_month].count += r.cnt;
@@ -721,7 +729,8 @@ module.exports = async function(fastify) {
             year: y.year, count: y.count, ratio_fail_count: y.ratio_fail_count,
             cutters: Object.values(y.cutters).map(c => ({
                 ...c, months: Object.values(c.months).sort((a, b) => b.month - a.month)
-            }))
+            })),
+            ratio_fail_months: Object.values(y.ratio_fail_months || {}).sort((a, b) => b.month - a.month)
         })).sort((a, b) => b.year - a.year);
 
         // ── Unassigned count — coordination (phối) level ──
