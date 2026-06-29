@@ -802,6 +802,14 @@
                 </div>
             </div>
             <div>
+            </div>
+            <div id="qkvMobileMoveToUnassignedContainer" style="display:none; margin-bottom:12px;">
+                <label style="display:inline-flex; align-items:center; gap:8px; font-weight:700; font-size:12px; cursor:pointer; color:#cbd5e1;">
+                    <input type="checkbox" id="qkvMobileMoveToUnassigned" style="width:16px; height:16px; cursor:pointer;" onchange="var sel = document.getElementById('moveSelect'); if(sel) { sel.disabled = this.checked; if(this.checked) sel.value = ''; }" />
+                    <span>📦 Cho vào Cây Nguyên Cần Xử Lý Kho để hoàn trả NCC</span>
+                </label>
+            </div>
+            <div>
                 <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:6px; display:block;">Kệ / Vị trí mới</label>
                 <select id="moveSelect" style="width:100%; padding:12px; border:1px solid rgba(255,255,255,0.15); border-radius:12px; font-size:14px; font-family:inherit; background:rgba(15, 23, 42, 0.9); color:white; outline:none;"></select>
             </div>
@@ -1338,25 +1346,61 @@
                             ${(isUnassigned || (!isUnassigned && item.roll_weights && item.roll_weights.length > 0)) ? `
                             <div class="${!isUnassigned ? 'roll-list-collapsible' : 'roll-list-unassigned'}" style="background:rgba(255,255,255,0.02); border-radius:8px; padding:8px; margin:8px 0 0 0; border:1px solid rgba(255,255,255,0.05); display:${isUnassigned ? 'flex' : (isExpanded ? 'flex' : 'none')}; flex-direction:column; gap:6px; width:100%; box-sizing:border-box;">
                                 ${item.roll_weights.map(r => {
-                                    var photoHtml = '';
-                                    var moveHtml = '';
-                                    var returnHtml = '';
-                                    if (r.is_called) {
-                                        photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
-                                        moveHtml = `<span style="font-size:11px; color:#f59e0b; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
-                                    } else {
-                                        var photoItems = [];
-                                        if (r.img) {
-                                            photoItems.push(`<img id="roll-img-${r.id}" src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid ${r.needs_photo ? '#ef4444' : '#5eead4'}; cursor:pointer; ${r.needs_photo ? 'box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);' : ''}" onclick="openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`);
-                                        }
-                                        if (r.needs_photo) {
-                                            photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#ef4444; border:none; padding:4px 8px; border-radius:6px; color:white; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:3px;" onclick="triggerRollCamera(${r.id})">📷 Chụp lại</button>`);
-                                        } else if (!r.img) {
-                                            photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`);
-                                        }
-                                        photoHtml = `<div style="display:flex; align-items:center; gap:6px;">${photoItems.join('')}</div>`;
-                                        moveHtml = ``;
-                                    }
+                                    var isNguyen = Number(r.w) >= Number(r.ow || r.w);
+                                     var typeBadge = isNguyen 
+                                         ? '<span style="background:#065f46; color:#a7f3d0; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-left:4px; border:1px solid #047857; display:inline-flex; align-items:center; gap:2px; vertical-align:middle;">🌲 Nguyên</span>' 
+                                         : '<span style="background:#7c2d12; color:#ffedd5; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-left:4px; border:1px solid #9a3412; display:inline-flex; align-items:center; gap:2px; vertical-align:middle;">✂️ Lẻ</span>';
+                                     var photoHtml = '';
+                                     var moveHtml = '';
+                                     var returnHtml = '';
+                                     
+                                     var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : '';
+                                     var matchedLoc = locations.find(l => normLoc(l.name) === normLoc(rollLoc));
+                                     var isPartnerShelf = matchedLoc && (matchedLoc.printing_contractor_id !== null && matchedLoc.printing_contractor_id !== undefined);
+                                     var bypassRollPhoto = matchedLoc && (matchedLoc.is_3d_cut_partner === 1 || matchedLoc.is_3d_cut_partner === true);
+
+                                     if (r.is_called) {
+                                         photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
+                                         moveHtml = `<span style="font-size:11px; color:#f59e0b; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
+                                     } else {
+                                         var photoItems = [];
+                                         if (r.img) {
+                                             photoItems.push(`<img id="roll-img-${r.id}" src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid ${r.needs_photo && !bypassRollPhoto ? '#ef4444' : '#5eead4'}; cursor:pointer; ${r.needs_photo && !bypassRollPhoto ? 'box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);' : ''}" onclick="openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`);
+                                         }
+                                         if (r.needs_photo && !bypassRollPhoto) {
+                                             photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#ef4444; border:none; padding:4px 8px; border-radius:6px; color:white; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:3px;" onclick="triggerRollCamera(${r.id})">📷 Chụp lại</button>`);
+                                         } else if (!r.img && !bypassRollPhoto) {
+                                             photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`);
+                                         }
+                                         photoHtml = `<div style="display:flex; align-items:center; gap:6px;">${photoItems.join('')}</div>`;
+                                         
+                                         if (isPartnerShelf) {
+                                             var activeResList = r.active_reservations || [];
+                                             var activeCutList = r.active_cuts || (r.active_cut ? [r.active_cut] : []);
+                                             var isBusy = activeResList.length > 0 || activeCutList.length > 0;
+                                             
+                                             if (isBusy) {
+                                                 var codes = [];
+                                                 activeResList.forEach(function(res) {
+                                                     var t = res.order_code;
+                                                     if (res.item_index && res.phoi_index !== undefined) t += ' - P' + res.item_index + '.' + (res.phoi_index + 1);
+                                                     codes.push(t);
+                                                 });
+                                                 activeCutList.forEach(function(ac) {
+                                                     if (!ac) return;
+                                                     var t = ac.order_code;
+                                                     if (ac.item_index && ac.phoi_index !== undefined) t += ' - P' + ac.item_index + '.' + (ac.phoi_index + 1);
+                                                     if (!codes.includes(t)) codes.push(t);
+                                                 });
+                                                 moveHtml = `<span style="font-size:10px; color:#94a3b8; font-weight:700; font-style:italic;" title="Cây vải đang bận phục vụ cho đơn hàng: ${escapeHTML(codes.join(', '))}">🔒 Đang giữ</span>`;
+                                             } else {
+                                                 moveHtml = `<button class="btn-camera" style="background:#0284c7; border:none; padding:4px 8px; border-radius:6px; color:white; font-size:11px; font-weight:700; cursor:pointer;" onclick="event.stopPropagation(); openSingleMoveModal(${r.id}, \`${item.material_name.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`, \`${item.color_name.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`, ${item.id}, ${item.material_id}, ${r.w}, \`${(r.code || '').replace(/`/g, '\\`').replace(/'/g, "\\'")}\`, true)">↩️ Thu Hồi</button>`;
+                                             }
+                                         } else {
+                                             moveHtml = ``;
+                                         }
+                                     }
+
 
                                     if (isUnassigned === 'processed_nguyen') {
                                          var canRequestReturn = true;
@@ -1448,6 +1492,7 @@
                                                                 ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
                                                             </span>
                                                         `}
+                                                         ${typeBadge}
                                                         ${locText}
                                                     </span>
                                                 </div>
@@ -1539,7 +1584,7 @@
         }
 
         // ================== MOVE ITEM POSITION DIALOG ==================
-        function populateMoveSelect(materialId) {
+        function populateMoveSelect(materialId, isRecall) {
             var select = document.getElementById('moveSelect');
             var activeMatLocs = [];
             var activeMatItem = (summary || []).find(item => item.material_id === materialId);
@@ -1548,6 +1593,15 @@
             }
 
             var availableLocs = (locations || []).filter(function(loc) {
+                var nameClean = loc.name.toLowerCase().replace(/^📍\s*/, '').trim();
+                if (nameClean === 'kệ dự định hoàn vải') {
+                    return false;
+                }
+                if (isRecall) {
+                    if (loc.printing_contractor_id !== null && loc.printing_contractor_id !== undefined) {
+                        return false;
+                    }
+                }
                 if (loc.is_restricted) {
                     var assignedMatIds = (summary || [])
                         .filter(function(item) {
@@ -1597,6 +1651,24 @@
             
             activeMoveItem = { colorId, materialId, matName, colorName, currentLoc, rolls };
             
+            var modalTitle = document.querySelector('#moveModal h3');
+            if (modalTitle) {
+                modalTitle.textContent = '🚚 Di chuyển vị trí vải';
+            }
+            
+            var cbContainer = document.getElementById('qkvMobileMoveToUnassignedContainer');
+            if (cbContainer) {
+                cbContainer.style.display = 'none';
+            }
+            var cbInput = document.getElementById('qkvMobileMoveToUnassigned');
+            if (cbInput) {
+                cbInput.checked = false;
+            }
+            var sel = document.getElementById('moveSelect');
+            if (sel) {
+                sel.disabled = false;
+            }
+            
             var info = `
                 <div>🧵 Chất liệu: <strong>${matName}</strong></div>
                 <div>🎨 Màu vải: <strong style="color:#5eead4;">${colorName}</strong></div>
@@ -1618,14 +1690,32 @@
                 document.getElementById('btnExecuteMove').setAttribute('disabled', 'disabled');
             }
 
-            populateMoveSelect(materialId);
+            populateMoveSelect(materialId, false);
             document.getElementById('moveModal').style.display = 'flex';
             updateBodyScroll();
         }
 
-        function openSingleMoveModal(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode) {
+        function openSingleMoveModal(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode, isRecall) {
             var rolls = [{ id: rollId, w: rollWeight, code: rollCode, loc: '' }];
             activeMoveItem = { colorId, materialId, matName, colorName, currentLoc: 'Chưa phân vị trí', rolls };
+            
+            var modalTitle = document.querySelector('#moveModal h3');
+            if (modalTitle) {
+                modalTitle.textContent = isRecall ? '↩️ Thu hồi cây vải về kệ công ty' : '🚚 Di chuyển vị trí vải';
+            }
+            
+            var cbContainer = document.getElementById('qkvMobileMoveToUnassignedContainer');
+            if (cbContainer) {
+                cbContainer.style.display = isRecall ? 'block' : 'none';
+            }
+            var cbInput = document.getElementById('qkvMobileMoveToUnassigned');
+            if (cbInput) {
+                cbInput.checked = false;
+            }
+            var sel = document.getElementById('moveSelect');
+            if (sel) {
+                sel.disabled = false;
+            }
             
             var info = `
                 <div>🧵 Chất liệu: <strong>${matName}</strong></div>
@@ -1643,7 +1733,7 @@
             `;
             document.getElementById('btnExecuteMove').removeAttribute('disabled');
             
-            populateMoveSelect(materialId);
+            populateMoveSelect(materialId, isRecall);
             document.getElementById('moveModal').style.display = 'flex';
             updateBodyScroll();
         }
@@ -1656,10 +1746,17 @@
 
         async function executeMove() {
             if (!activeMoveItem) return;
-            var newLoc = document.getElementById('moveSelect').value;
-            if (!newLoc) {
-                showToast('Vui lòng chọn kệ để xếp vải!', 'error');
-                return;
+            
+            var cbInput = document.getElementById('qkvMobileMoveToUnassigned');
+            var isToUnassigned = cbInput && cbInput.checked;
+            
+            var newLoc = '';
+            if (!isToUnassigned) {
+                newLoc = document.getElementById('moveSelect').value;
+                if (!newLoc) {
+                    showToast('Vui lòng chọn kệ để xếp vải!', 'error');
+                    return;
+                }
             }
 
             try {
@@ -1669,7 +1766,7 @@
                     return;
                 }
                 var rollIds = Array.from(checkboxes).map(cb => Number(cb.value));
-                var targetLoc = newLoc || null;
+                var targetLoc = isToUnassigned ? null : (newLoc || null);
                 
                 await api(`/api/khovai/rolls/batch`, 'PUT', {
                     roll_ids: rollIds,
@@ -1880,6 +1977,12 @@
                                 var photoHtml = '';
                                 var actionHtml = '';
                                 
+                                var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : '';
+                                var matchedLoc = (locations || []).find(l => normLoc(l.name) === normLoc(rollLoc));
+                                var bypassRollPhoto = matchedLoc && (matchedLoc.is_3d_cut_partner === 1 || matchedLoc.is_3d_cut_partner === true);
+                                var isNguyen = Number(r.w) >= Number(r.ow || r.w);
+                                var typeBadge = isNguyen ? '<span style="background:#065f46; color:#a7f3d0; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-left:4px; border:1px solid #047857; display:inline-flex; align-items:center; gap:2px; vertical-align:middle;">🌲 Nguyên</span>' : '<span style="background:#7c2d12; color:#ffedd5; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; margin-left:4px; border:1px solid #9a3412; display:inline-flex; align-items:center; gap:2px; vertical-align:middle;">✂️ Lẻ</span>';
+
                                 if (!isAllowed) {
                                     var assignedShelves = [];
                                     if (typeof locations !== 'undefined') {
@@ -1912,18 +2015,18 @@
                                 } else {
                                      var photoItems = [];
                                      if (r.img) {
-                                         photoItems.push(`<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid ${r.needs_photo ? '#ef4444' : '#5eead4'}; cursor:pointer; ${r.needs_photo ? 'box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);' : ''}" onclick="openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`);
+                                         photoItems.push(`<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid ${r.needs_photo && !bypassRollPhoto ? '#ef4444' : '#5eead4'}; cursor:pointer; ${r.needs_photo && !bypassRollPhoto ? 'box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);' : ''}" onclick="openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`);
                                      }
-                                     if (r.needs_photo) {
+                                     if (r.needs_photo && !bypassRollPhoto) {
                                          photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#ef4444; border:none; padding:4px 8px; border-radius:6px; color:white; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:3px;" onclick="triggerRollCamera(${r.id})">📷 Chụp lại</button>`);
-                                     } else if (!r.img) {
+                                     } else if (!r.img && !bypassRollPhoto) {
                                          if (groupType === 'processed_le' || groupType === 'processed_nguyen') {
                                              photoItems.push(`<button id="camera-btn-${r.id}" class="btn-camera" style="background:#0f766e; border:none; padding:6px 10px; border-radius:6px; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;" onclick="triggerRollCamera(${r.id})">📷 Chụp</button>`);
                                          }
                                      }
                                      photoHtml = `<div style="display:flex; align-items:center; gap:6px;">${photoItems.join('')}</div>`;
                                      
-                                     if (r.needs_photo) {
+                                     if (r.needs_photo && !bypassRollPhoto) {
                                          actionHtml = ``;
                                      } else {
                                          actionHtml = `<button class="btn-move" style="padding:6px 10px; margin:0; background:#0d9488; border:none; border-radius:6px; color:white; font-size:14px; font-weight:700; cursor:pointer;" onclick="confirmImportRoll(${r.id}, ${r.w}, '${escapeJS(r.code || '')}', '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}')">🚚</button>`;
@@ -1933,7 +2036,10 @@
                                 return `
                                     <div class="roll-row-unassigned" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
                                         <div style="flex:1; min-width:0;">
-                                            <div style="font-size:12px; font-weight:700; color:white;">Cây ${r.w}kg</div>
+                                            <div style="font-size:12px; font-weight:700; color:white; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                                                <span>Cây ${r.w}kg</span>
+                                                ${typeBadge}
+                                            </div>
                                         </div>
                                         <div style="display:flex; align-items:center; gap:8px;">
                                             ${photoHtml}

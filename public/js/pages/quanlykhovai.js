@@ -913,6 +913,10 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                         <!-- Rolls list for this color (collapsible!) -->
                         <div class="roll-list-container" style="${colorBodyStyle} background:#f8fafc; border-radius:6px; padding:6px; margin-top:8px; border:1px solid #e2e8f0; flex-direction:column; gap:4px; width:100%; box-sizing:border-box;">
                             ${item.roll_weights && item.roll_weights.length > 0 ? item.roll_weights.map(r => {
+                                var isNguyen = Number(r.w) >= Number(r.ow || r.w);
+                                var typeBadge = isNguyen 
+                                    ? '<span style="background:#e6f4ea; color:#137333; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; margin-left:4px; border:1px solid #34a853; display:inline-flex; align-items:center; gap:2px; vertical-align:middle;">🌲 Nguyên</span>' 
+                                    : '<span style="background:#fef7e0; color:#b06000; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; margin-left:4px; border:1px solid #fbbc04; display:inline-flex; align-items:center; gap:2px; vertical-align:middle;">✂️ Lẻ</span>';
                                 var photoHtml = '';
                                 var moveHtml = '';
                                 var returnHtml = '';
@@ -1058,6 +1062,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                                             ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
                                                         </span>
                                                     `}
+                                                     ${typeBadge}
                                                     ${locText}
                                                 </span>
                                                 ${tagsHtml}
