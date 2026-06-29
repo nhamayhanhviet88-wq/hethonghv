@@ -29,6 +29,25 @@ function _bpcFormatOrderQty(qty, productName, cuttingCategory) {
     }
 }
 
+function _bpcFormatLocation(loc) {
+    if (!loc) return '';
+    return loc.split(',').map(function(item) {
+        var trimmed = item.trim();
+        if (!trimmed) return '';
+        return '<span style="background:#e0f2fe;color:#0369a1;font-weight:700;padding:1px 4px;border-radius:3px;font-size:9px;display:inline-block;margin-top:2px" title="Vị trí kho vải">📍 ' + trimmed + '</span>';
+    }).filter(Boolean).join('<br>');
+}
+
+function _bpcFormatProductName(name) {
+    if (!name) return '—';
+    var parts = name.split(/\s+[—\-]\s+/);
+    if (parts.length > 1) {
+        parts.pop();
+        return parts.join(' — ');
+    }
+    return name;
+}
+
 function _bpcSortRollsForCutting(rolls, orderCode) {
     if (!rolls || !rolls.length) return rolls || [];
     var codes = Array.isArray(orderCode) ? orderCode : [orderCode];
@@ -891,15 +910,18 @@ function _bpcMapRecordRow(r, i) {
     
     var ratioFailBadge = '';
     if (r.is_cut_done && ratioColor === '#dc2626') {
-        ratioFailBadge = '<span style="background:#dc2626;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Sai Tỉ Lệ Cắt</span>';
+        ratioFailBadge = '<span style="background:#dc2626;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-top:3px;display:inline-block;vertical-align:middle;text-transform:uppercase">Sai Tỉ Lệ Cắt</span>';
     }
+
+    var displayName = _bpcFormatProductName(r.product_name || r.order_code || '—');
+    var fullTooltip = r.product_name ? 'title="' + r.product_name + '"' : 'title="Xem chi tiết"';
 
     var schBadge = _bpcGetScheduleBadge(r.cut_expected_at, r.is_cut_done);
     var nameHtml = '';
     if (r.is_uncut) {
-        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px">' + ccBadge + sharedBadge + compBadge + priBadge + schBadge + (r.product_name || r.order_code || '—') + '</td>';
+        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px" ' + (r.product_name ? 'title="' + r.product_name + '"' : '') + '>' + ccBadge + sharedBadge + compBadge + priBadge + schBadge + displayName + '</td>';
     } else {
-        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" title="Xem chi tiết">' + ccBadge + sharedBadge + compBadge + priBadge + schBadge + '<span style="border-bottom:1px dashed #94a3b8">' + (r.product_name||r.order_code||'—') + '</span>' + ratioFailBadge + '</td>';
+        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" ' + fullTooltip + '>' + ccBadge + sharedBadge + compBadge + priBadge + schBadge + '<span style="border-bottom:1px dashed #94a3b8">' + displayName + '</span>' + (ratioFailBadge ? '<br>' + ratioFailBadge : '') + '</td>';
     }
     
     var sharedCol = '—';
@@ -927,7 +949,7 @@ function _bpcMapRecordRow(r, i) {
             +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
             +'<td style="font-size:10px">'
             +(r.fabric_color||'—')
-            +(r.warehouse_location ? '<br><span style="background:#e0f2fe;color:#0369a1;font-weight:700;padding:1px 4px;border-radius:3px;font-size:9px;display:inline-block;margin-top:2px" title="Vị trí kho vải">📍 ' + r.warehouse_location + '</span>' : '')
+            +(r.warehouse_location ? '<br>' + _bpcFormatLocation(r.warehouse_location) : '')
             +'</td>'
             +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
             +'<td style="text-align:center;font-weight:700;color:'+cutColor+'">'+_bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category)+'</td>'
@@ -954,7 +976,7 @@ function _bpcMapRecordRow(r, i) {
         +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
         +'<td style="font-size:10px">'
         +(r.fabric_color||'—')
-        +(r.warehouse_location ? '<br><span style="background:#e0f2fe;color:#0369a1;font-weight:700;padding:1px 4px;border-radius:3px;font-size:9px;display:inline-block;margin-top:2px" title="Vị trí kho vải">📍 ' + r.warehouse_location + '</span>' : '')
+        +(r.warehouse_location ? '<br>' + _bpcFormatLocation(r.warehouse_location) : '')
         +'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+cutColor+'">'+(r.is_cut_done ? _bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category) : '—')+'</td>'
