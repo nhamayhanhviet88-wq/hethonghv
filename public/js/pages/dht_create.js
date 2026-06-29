@@ -1167,7 +1167,7 @@ if (!_dhtCreate.phieuItems) _dhtCreate.phieuItems = [];
 
 // Searchable dropdown helper: input + filtered list, no free text
 function _ppSearchField(id, label, items, curVal) {
-    var isReadOnly = (id === '_pp_sale' || id === '_pp_product');
+    var isReadOnly = (id === '_pp_sale');
     var roAttr = isReadOnly ? ' readonly' : '';
     var placeholder = isReadOnly ? 'Chọn...' : 'Gõ để tìm...';
     var h = '<div style="position:relative"><label style="font-size:11px;font-weight:700">'+label+'</label>'
@@ -1189,7 +1189,88 @@ function _ppShowList(id){
 }
 function _ppFilterList(id){var inp=document.getElementById(id);if(!inp)return;var q=inp.value.toLowerCase();document.querySelectorAll('#'+id+'_list ._ppOpt').forEach(function(el){el.style.display=el.dataset.txt.toLowerCase().indexOf(q)>=0?'':'none';});}
 function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_sale')_dhtSaleChange();if(id==='_pp_product')_dhtProductChange();if(id==='_pp_material')_dhtMatChange();if(id==='_pp_pattern')_dhtPatternChange();}
-document.addEventListener('click',function(e){if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id$="_list"]')){document.querySelectorAll('[id$="_list"]').forEach(function(l){if(l.id.startsWith('_pp'))l.style.display='none';});}});
+
+function _ppRevertSF(inputId, hiddenId, listId) {
+    var inp = document.getElementById(inputId);
+    var hid = document.getElementById(hiddenId);
+    var list = document.getElementById(listId);
+    if (!inp || !hid || !list) return;
+    
+    var valText = inp.value.trim().toLowerCase();
+    var opts = Array.from(list.querySelectorAll('div, ._ppOpt, ._ppPairOpt'));
+    
+    var matchedOpt = opts.find(function(el) {
+        var txt = (el.getAttribute('data-txt') || el.innerText || '').trim().toLowerCase();
+        return txt === valText;
+    });
+    
+    if (matchedOpt) {
+        inp.value = matchedOpt.getAttribute('data-txt') || matchedOpt.innerText;
+        var newVal = matchedOpt.getAttribute('data-val');
+        var oldVal = hid.value;
+        hid.value = newVal;
+        if (newVal !== oldVal) {
+            if (inputId === '_pp_sale') _dhtSaleChange();
+            if (inputId === '_pp_product') _dhtProductChange();
+            if (inputId === '_pp_material') _dhtMatChange();
+            if (inputId === '_pp_pattern') _dhtPatternChange();
+            if (inputId.startsWith('_ppMat')) {
+                var pairIdx = Number(inputId.replace('_ppMat', ''));
+                var cInp = document.getElementById('_ppColor'+pairIdx);
+                var cVal = document.getElementById('_ppColorVal'+pairIdx);
+                if(cInp){cInp.value='';cInp.disabled=false;cInp.style.background='';cInp.placeholder='Chọn màu...';}
+                if(cVal)cVal.value='';
+                _ppPairMatLoad(pairIdx);
+            }
+            if (inputId.startsWith('_ppColor')) {
+                var pairIdx = Number(inputId.replace('_ppColor', ''));
+                _ppUpdateStockLimit(pairIdx);
+            }
+        }
+    } else {
+        var currentVal = hid.value;
+        var foundOpt = opts.find(function(el) {
+            return el.getAttribute('data-val') === currentVal;
+        });
+        if (foundOpt) {
+            inp.value = foundOpt.getAttribute('data-txt') || foundOpt.innerText;
+        } else {
+            inp.value = '';
+            hid.value = '';
+        }
+    }
+}
+
+function _ppRevertAllSearchFields() {
+    _ppRevertSF('_pp_sale', '_pp_sale_val', '_pp_sale_list');
+    _ppRevertSF('_pp_product', '_pp_product_val', '_pp_product_list');
+    _ppRevertSF('_pp_pattern', '_pp_pattern_val', '_pp_pattern_list');
+
+    var inputs = document.querySelectorAll('input[id^="_ppMat"], input[id^="_ppColor"]');
+    inputs.forEach(function(inp) {
+        var id = inp.id;
+        if (id.endsWith('_val') || id.startsWith('_ppMatVal') || id.startsWith('_ppColorVal')) return;
+        if (id.startsWith('_ppMat')) {
+            var idx = id.replace('_ppMat', '');
+            _ppRevertSF('_ppMat' + idx, '_ppMatVal' + idx, '_ppMatList' + idx);
+        } else if (id.startsWith('_ppColor')) {
+            var idx = id.replace('_ppColor', '');
+            _ppRevertSF('_ppColor' + idx, '_ppColorVal' + idx, '_ppColorList' + idx);
+        }
+    });
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.classList.contains('_ppSF') && 
+        !e.target.closest('[id$="_list"]') && 
+        !e.target.closest('[id^="_ppMatList"]') && 
+        !e.target.closest('[id^="_ppColorList"]')) {
+        document.querySelectorAll('[id$="_list"], [id^="_ppMatList"], [id^="_ppColorList"]').forEach(function(l) {
+            l.style.display = 'none';
+        });
+        _ppRevertAllSearchFields();
+    }
+});
 
 // ========== ★ PET/TEM SIMPLIFIED PHIẾU ==========
 function _dhtAddItemFree(editIdx) {
@@ -1606,13 +1687,13 @@ function _dhtPatternChange(existing) {
             return '<div class="_ppPairOpt" data-val="'+m.material_id+'" data-txt="'+m.material_name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickPairMat('+i+',this)">'+m.material_name+'</div>';
         }).join('');
         h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Chất Liệu '+(i+1)+' *</label>'
-            + '<input id="_ppMat'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer" placeholder="Chọn chất liệu..." value="'+(ep.material_name||'')+'" readonly onfocus="_ppShowPairList(\'_ppMatList'+i+'\')" oninput="_ppFilterPairList(\'_ppMat'+i+'\',\'_ppMatList'+i+'\')">'
+            + '<input id="_ppMat'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer" placeholder="Chọn chất liệu..." value="'+(ep.material_name||'')+'" onfocus="_ppShowPairList(\'_ppMatList'+i+'\')" oninput="_ppFilterPairList(\'_ppMat'+i+'\',\'_ppMatList'+i+'\')">'
             + '<input type="hidden" id="_ppMatVal'+i+'" value="'+(ep.material_id||'')+'">'
             + '<div id="_ppMatList'+i+'" style="display:none;position:absolute;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">'
             + matListHtml + '</div></div>';
         // Color searchable input (populated after material selection)
         h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu '+(i+1)+' *</label>'
-            + '<input id="_ppColor'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;background:#f1f5f9" placeholder="← Chọn Chất Liệu" value="'+(ep.color_name||'')+'" disabled readonly onfocus="_ppShowPairList(\'_ppColorList'+i+'\')" oninput="_ppFilterPairList(\'_ppColor'+i+'\',\'_ppColorList'+i+'\')">'
+            + '<input id="_ppColor'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;background:#f1f5f9" placeholder="← Chọn Chất Liệu" value="'+(ep.color_name||'')+'" disabled onfocus="_ppShowPairList(\'_ppColorList'+i+'\')" oninput="_ppFilterPairList(\'_ppColor'+i+'\',\'_ppColorList'+i+'\')">'
             + '<input type="hidden" id="_ppColorVal'+i+'" value="'+(ep.color_id||'')+'">'
             + '<div id="_ppColorList'+i+'" style="display:none;position:absolute;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div>';
         h += '</div></div>';
@@ -1767,12 +1848,7 @@ function _ppRenderStockLimitMessage() {
         container.style.display = 'none';
     }
 }
-// Close pair dropdowns when clicking outside
-document.addEventListener('click',function(e){
-    if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id^="_ppMatList"]')&&!e.target.closest('[id^="_ppColorList"]')){
-        document.querySelectorAll('[id^="_ppMatList"],[id^="_ppColorList"]').forEach(function(l){l.style.display='none';});
-    }
-});
+
 
 function _dhtAddQtyRowPP() {
     var c = document.getElementById('_pp_qtyRows'); if (!c) return;
