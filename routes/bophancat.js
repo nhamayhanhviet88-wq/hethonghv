@@ -630,7 +630,15 @@ module.exports = async function(fastify) {
                 CASE WHEN cr.is_cut_done THEN
                     EXTRACT(MONTH FROM COALESCE(cr.cut_done_at, cr.cut_date, cr.created_at))::int
                 ELSE NULL END AS done_month,
-                COUNT(*)::int AS cnt
+                COUNT(*)::int AS cnt,
+                COUNT(*) FILTER (
+                    WHERE cr.is_cut_done = true AND EXISTS (
+                        SELECT 1 FROM kv_materials m
+                        JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
+                        WHERE m.name = cr.material_name AND m.is_active = true
+                          AND t.target_ratio > 0 AND COALESCE(cr.cut_ratio, 0) < t.target_ratio
+                    )
+                )::int AS ratio_fail_cnt
             FROM cutting_records cr
             LEFT JOIN users u ON cr.cutter_id = u.id
             LEFT JOIN printing_contractors pc ON cr.printing_contractor_id = pc.id
@@ -655,7 +663,8 @@ module.exports = async function(fastify) {
                              THEN jsonb_array_length(i.material_pairs) 
                              ELSE 1 END 
                         - (SELECT COUNT(*)::int FROM cutting_records cr WHERE cr.order_item_id = i.id AND (cr.cutter_id IS NOT NULL OR cr.printing_contractor_id IS NOT NULL))
-                    )::int AS cnt
+                    )::int AS cnt,
+                    0::int AS ratio_fail_cnt
                 FROM dht_orders o
                 JOIN dht_order_items i ON i.dht_order_id = o.id
                 JOIN qlx_order_print_assignments pa ON (pa.item_id = i.id OR (pa.item_id IS NULL AND pa.dht_order_id = o.id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = i.id)))
@@ -681,19 +690,24 @@ module.exports = async function(fastify) {
         // Build tree: year → cutter/contractor → { incomplete_count, months: [{month, count}] }
         const yearMap = {};
         for (const r of rows) {
-            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, cutters: {} };
+            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, ratio_fail_count: 0, cutters: {} };
             const cutKey = r.printing_contractor_id ? `c_${r.printing_contractor_id}` : (r.cutter_id || 0);
             if (!yearMap[r.year].cutters[cutKey]) {
                 yearMap[r.year].cutters[cutKey] = {
                     id: cutKey,
                     name: r.printing_contractor_id ? `${r.contractor_name} Cắt` : (r.cutter_name || 'Chưa phân công'),
-                    total: 0, incomplete_count: 0, months: {},
+                    total: 0, incomplete_count: 0, ratio_fail_count: 0, months: {},
                     is_contractor: !!r.printing_contractor_id
                 };
             }
             const cutter = yearMap[r.year].cutters[cutKey];
             cutter.total += r.cnt;
             yearMap[r.year].count += r.cnt;
+
+            const rfCount = Number(r.ratio_fail_cnt) || 0;
+            cutter.ratio_fail_count += rfCount;
+            yearMap[r.year].ratio_fail_count += rfCount;
+
             if (r.is_cut_done && r.done_month) {
                 if (!cutter.months[r.done_month]) cutter.months[r.done_month] = { month: r.done_month, count: 0 };
                 cutter.months[r.done_month].count += r.cnt;
@@ -704,7 +718,7 @@ module.exports = async function(fastify) {
 
         // Convert to arrays
         const yearTree = Object.values(yearMap).map(y => ({
-            year: y.year, count: y.count,
+            year: y.year, count: y.count, ratio_fail_count: y.ratio_fail_count,
             cutters: Object.values(y.cutters).map(c => ({
                 ...c, months: Object.values(c.months).sort((a, b) => b.month - a.month)
             }))
@@ -896,6 +910,14 @@ module.exports = async function(fastify) {
         else if (status === 'done') { where += ` AND cr.is_cut_done = true`; }
         else if (status === 'approved') { where += ` AND cr.salary_approved = true`; }
         else if (status === 'incomplete') { where += ` AND cr.is_cut_done = false`; }
+        else if (status === 'ratio_fail') {
+            where += ` AND cr.is_cut_done = true AND EXISTS (
+                SELECT 1 FROM kv_materials m
+                JOIN kv_material_cutting_targets t ON t.material_id = m.id AND t.cutting_category = cr.cutting_category
+                WHERE m.name = cr.material_name AND m.is_active = true
+                  AND t.target_ratio > 0 AND COALESCE(cr.cut_ratio, 0) < t.target_ratio
+            )`;
+        }
         if (search) {
             where += ` AND (cr.product_name ILIKE $${idx} OR cr.material_name ILIKE $${idx} OR o.order_code ILIKE $${idx} OR o.customer_name ILIKE $${idx} OR u_cutter.full_name ILIKE $${idx} OR u_cskh.full_name ILIKE $${idx})`;
             params.push(`%${search}%`);

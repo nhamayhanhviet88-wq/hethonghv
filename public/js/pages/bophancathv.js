@@ -359,6 +359,13 @@ function _bpcRenderSidebar() {
                         }
                     }
                 });
+
+                // Sai Tỉ Lệ Cắt của năm
+                var rfYearAct = f.view === 'records' && f.year == yr.year && !f.cutter_id && f.status === 'ratio_fail';
+                h += '<div class="bpc-sb-sub ratio-fail' + (rfYearAct ? ' active' : '') + '" style="padding-left:23px;color:#dc2626;font-weight:700" onclick="event.stopPropagation(); _bpcFilterCutterStatus(' + yr.year + ', null, \'ratio_fail\')">';
+                h += '  <span>❌ Sai Tỉ Lệ Cắt</span>';
+                h += '  <span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:800">' + (yr.ratio_fail_count || 0) + '</span>';
+                h += '</div>';
             }
         });
     }
@@ -415,12 +422,15 @@ async function _bpcLoadRecords() {
     if (f.year) qs += '&year=' + f.year;
     if (f.month) qs += '&month=' + f.month;
     if (f.cutter_id) qs += '&cutter_id=' + f.cutter_id;
+    if (f.status) qs += '&status=' + f.status;
     
     // Determine default client-side subFilter based on sidebar filter status
     if (f.status === 'incomplete') {
         _bpc.subFilter = 'incomplete';
     } else if (f.status === 'done') {
         _bpc.subFilter = 'done';
+    } else if (f.status === 'ratio_fail') {
+        _bpc.subFilter = 'ratio_fail';
     } else {
         _bpc.subFilter = 'all';
     }
