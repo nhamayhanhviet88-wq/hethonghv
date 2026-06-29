@@ -615,7 +615,7 @@ async function _bpcLoadRecords() {
         if (wrap) {
             wrap.innerHTML = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcTable"><thead><tr style="background:var(--gray-800)">'
                 +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
-                +'<th>Cắt Xong</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
+                +'<th>Cắt Xong</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu & Màu Vải</th>'
                 +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ Cắt</th><th>Lý Do Sai TL</th>'
                 +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cắt Chung</th><th>Cập Nhật</th>'
                 +'</tr></thead><tbody id="bpcTbody"></tbody></table>';
@@ -964,9 +964,9 @@ function _bpcMapRecordRow(r, i) {
             +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
             +nameHtml
             +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
-            +'<td style="font-size:10px;color:#475569">'+_bpcFormatMaterialName(r.material_name)+'</td>'
             +'<td style="font-size:10px">'
-            +(r.fabric_color||'—')
+            +_bpcFormatMaterialName(r.material_name)
+            +'<br>' + (r.fabric_color||'—')
             +(r.warehouse_location ? '<br>' + _bpcFormatLocation(r.warehouse_location) : '')
             +'</td>'
             +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
@@ -991,9 +991,9 @@ function _bpcMapRecordRow(r, i) {
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
         +nameHtml
         +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
-        +'<td style="font-size:10px;color:#475569">'+_bpcFormatMaterialName(r.material_name)+'</td>'
         +'<td style="font-size:10px">'
-        +(r.fabric_color||'—')
+        +_bpcFormatMaterialName(r.material_name)
+        +'<br>' + (r.fabric_color||'—')
         +(r.warehouse_location ? '<br>' + _bpcFormatLocation(r.warehouse_location) : '')
         +'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
@@ -1014,7 +1014,7 @@ function _bpcBuildRecordsTableHtml(records) {
     }
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcRecordsTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
-        +'<th>Cắt Xong</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
+        +'<th>Cắt Xong</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu & Màu Vải</th>'
         +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ Cắt</th><th>Lý Do Sai TL</th>'
         +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cắt Chung</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody>';
@@ -1462,7 +1462,7 @@ async function _bpcLoadUnassigned() {
 function _bpcBuildUnassignedTableHtml(all) {
     var th = '<table class="table" style="font-size:11px;white-space:nowrap" id="bpcUnassignedTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>✂️</th><th>✅</th><th>🫧</th><th>⚠️</th>'
-        +'<th>Cắt Xong</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu</th><th>Màu Vải</th>'
+        +'<th>Cắt Xong</th><th>NV Cắt</th><th>Tên SP</th><th>CSKH</th><th>Chất Liệu & Màu Vải</th>'
         +'<th>SL Đơn</th><th>SL Cắt</th><th>Kg Cắt</th><th>Tỉ Lệ Cắt</th><th>Lý Do Sai TL</th>'
         +'<th>Kg Đầu</th><th>Kg Cuối</th><th>Cắt Chung</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody>';
@@ -1563,8 +1563,10 @@ function _bpcBuildUnassignedTableHtml(all) {
                 +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
                 +'<td style="font-weight:600;color:#1e293b;font-size:11px">' + finalSpName + '</td>'
                 +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
-                +'<td style="font-size:10px;color:#475569">'+_bpcFormatMaterialName(r.material_name)+'</td>'
-                +'<td style="font-size:10px">'+(r.color_name||'—')+'</td>'
+                +'<td style="font-size:10px">'
+                +_bpcFormatMaterialName(r.material_name)
+                +'<br>' + (r.color_name||'—')
+                +'</td>'
                 +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
                 +'<td style="text-align:center;font-weight:700;color:#7c3aed">—</td>'
                 +'<td style="text-align:center;font-weight:700;color:#dc2626">—</td>'
