@@ -1995,8 +1995,8 @@ async function _bpcOpenDetail(recordId) {
         h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
         h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
         h += '<div style="background:#fef3c7;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#b45309">' + _bpcFmtKg(r.kg_start) + '</div></div>';
-        h += '<div style="background:#fee2e2;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">⚖️ KG CUỐI</div><div style="font-size:18px;font-weight:900;color:#dc2626">' + _bpcFmtKg(r.kg_end) + '</div></div>';
         h += '<div style="background:#dcfce7;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#166534">✂️ KG CẮT</div><div style="font-size:18px;font-weight:900;color:#059669">' + _bpcFmtKg(r.kg_cut) + '</div></div>';
+        h += '<div style="background:#fee2e2;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">⚖️ KG CUỐI</div><div style="font-size:18px;font-weight:900;color:#dc2626">' + _bpcFmtKg(r.kg_end) + '</div></div>';
         h += '<div style="background:#dbeafe;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#1e40af">📦 SL CẮT</div><div style="font-size:18px;font-weight:900;color:#2563eb">' + (r.cut_quantity||'—') + '</div></div>';
         h += '</div></div>';
         // Ratio
