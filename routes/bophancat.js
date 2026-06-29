@@ -621,7 +621,12 @@ module.exports = async function(fastify) {
                     pc.name AS contractor_name,
                     false AS is_cut_done,
                     NULL::int AS done_month,
-                    COUNT(i.id)::int AS cnt
+                    SUM(
+                        CASE WHEN COALESCE(jsonb_array_length(i.material_pairs), 0) > 0 
+                             THEN jsonb_array_length(i.material_pairs) 
+                             ELSE 1 END 
+                        - (SELECT COUNT(*)::int FROM cutting_records cr WHERE cr.order_item_id = i.id AND (cr.cutter_id IS NOT NULL OR cr.printing_contractor_id IS NOT NULL))
+                    )::int AS cnt
                 FROM dht_orders o
                 JOIN dht_order_items i ON i.dht_order_id = o.id
                 JOIN qlx_order_print_assignments pa ON (pa.item_id = i.id OR (pa.item_id IS NULL AND pa.dht_order_id = o.id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = i.id)))
@@ -629,9 +634,11 @@ module.exports = async function(fastify) {
                 JOIN printing_contractors pc ON pa.operator_id = pc.id AND pa.operator_type = 'contractor'
                 WHERE (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
                   AND COALESCE(o.shipping_status, '') != 'shipped'
-                  AND NOT EXISTS (
-                      SELECT 1 FROM cutting_records cr 
-                      WHERE cr.order_item_id = i.id AND cr.printing_contractor_id = pc.id
+                  AND (
+                      CASE WHEN COALESCE(jsonb_array_length(i.material_pairs), 0) > 0 
+                           THEN jsonb_array_length(i.material_pairs) 
+                           ELSE 1 END
+                      > (SELECT COUNT(*)::int FROM cutting_records cr WHERE cr.order_item_id = i.id AND (cr.cutter_id IS NOT NULL OR cr.printing_contractor_id IS NOT NULL))
                   )
                 GROUP BY year, pc.id, pc.name
             `;
