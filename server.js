@@ -473,7 +473,7 @@ async function start() {
         await db.exec(`CREATE TABLE IF NOT EXISTS kv_rolls (
             id                SERIAL PRIMARY KEY,
             fabric_color_id   INTEGER NOT NULL REFERENCES kv_fabric_colors(id),
-            roll_code         VARCHAR(12) UNIQUE,
+            roll_code         VARCHAR(50) UNIQUE,
             weight            NUMERIC NOT NULL DEFAULT 0,
             original_weight   NUMERIC NOT NULL DEFAULT 0,
             source            TEXT DEFAULT 'nhap_moi',
@@ -508,7 +508,8 @@ async function start() {
         // Migrations for kv_rolls
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS original_weight NUMERIC NOT NULL DEFAULT 0`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS is_cutting BOOLEAN DEFAULT false`); } catch(e) {}
-        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS roll_code VARCHAR(12) UNIQUE`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS roll_code VARCHAR(50) UNIQUE`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ALTER COLUMN roll_code TYPE VARCHAR(50)`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS bill_id TEXT`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS receipt_image TEXT`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS source_import_id INTEGER`); } catch(e) {}
@@ -566,12 +567,13 @@ async function start() {
             id              SERIAL PRIMARY KEY,
             cut_order_id    INTEGER NOT NULL REFERENCES kv_cut_orders(id) ON DELETE CASCADE,
             roll_id         INTEGER NOT NULL REFERENCES kv_rolls(id),
-            roll_code       VARCHAR(12),
+            roll_code       VARCHAR(50),
             kg_before       NUMERIC DEFAULT 0,
             kg_used         NUMERIC DEFAULT 0,
             kg_remaining    NUMERIC DEFAULT 0,
             created_at      TIMESTAMP DEFAULT NOW()
         )`);
+        try { await db.exec(`ALTER TABLE kv_cut_order_rolls ALTER COLUMN roll_code TYPE VARCHAR(50)`); } catch(e) {}
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_cor_roll ON kv_cut_order_rolls(roll_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_cor_co ON kv_cut_order_rolls(cut_order_id)`);
         await db.exec(`CREATE TABLE IF NOT EXISTS kv_transactions (
