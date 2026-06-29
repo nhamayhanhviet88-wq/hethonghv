@@ -1586,6 +1586,10 @@ function _qkvUpdateLocationDropdown(forcedTargetShelf, isRecall) {
     }
 
     var availableLocs = (_qkv.locations || []).filter(function(loc) {
+        var nameClean = loc.name.toLowerCase().replace(/^📍\s*/, '').trim();
+        if (nameClean === 'kệ dự định hoàn vải') {
+            return false;
+        }
         if (isRecall) {
             // Filter out partner shelves (must be company internal shelf)
             if (loc.printing_contractor_id !== null && loc.printing_contractor_id !== undefined) {
@@ -1640,13 +1644,14 @@ function _qkvUpdateLocationDropdown(forcedTargetShelf, isRecall) {
 // 14. Save new location mapping to material/color/roll
 async function _qkvSaveItemLocation(colorId, materialId, forcedTargetShelf) {
     if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
+    var moveToUnassigned = document.getElementById('qkvMoveToUnassigned')?.checked || false;
     var newLoc = document.getElementById('qkvMoveSelect').value;
     if (forcedTargetShelf) {
         if (!confirm('Xác nhận di chuyển cây vải này sang kệ phân công: ' + forcedTargetShelf + '?')) {
             return;
         }
     }
-    if (!newLoc) {
+    if (!newLoc && !moveToUnassigned) {
         showToast('Vui lòng chọn kệ để xếp vải!', 'error');
         return;
     }
@@ -1658,10 +1663,11 @@ async function _qkvSaveItemLocation(colorId, materialId, forcedTargetShelf) {
             return;
         }
         var rollIds = Array.from(checkboxes).map(cb => Number(cb.value));
-        var targetLoc = newLoc || null;
+        var targetLoc = moveToUnassigned ? null : (newLoc || null);
         var res = await apiCall(`/api/khovai/rolls/batch`, 'PUT', {
             roll_ids: rollIds,
-            location: targetLoc
+            location: targetLoc,
+            reset_original_weight: moveToUnassigned ? true : false
         });
         
         if (res.error) {
@@ -2103,6 +2109,18 @@ async function _qkvExecuteImportSingleRoll(rollId, rollWeight, shelfName) {
 function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode, forcedTargetShelf, isRecall) {
     _qkv.activeMoveMaterialId = materialId;
 
+    var checkboxHtml = '';
+    if (isRecall) {
+        checkboxHtml = `
+            <div class="form-group" style="margin-bottom:16px;">
+                <label style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:12px; cursor:pointer; color:#b45309;">
+                    <input type="checkbox" id="qkvMoveToUnassigned" style="width:14px; height:14px; cursor:pointer;" onchange="var sel = document.getElementById('qkvMoveSelect'); if(sel) { sel.disabled = this.checked; if(this.checked) sel.value = ''; }" />
+                    📦 Cho vào Cây Nguyên Cần Xử Lý Kho để hoàn trả NCC
+                </label>
+            </div>
+        `;
+    }
+
     openModal(
         forcedTargetShelf ? '⚠️ Di chuyển cây vải theo phân công' : (isRecall ? '↩️ Thu hồi cây vải về kệ công ty' : '🚚 Di chuyển vị trí cây vải'),
         `
@@ -2116,6 +2134,8 @@ function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, mat
             <div class="form-group" style="margin-bottom:16px; display:none;">
                 <input type="checkbox" name="qkvMoveRollCheckbox" value="${rollId}" checked style="width:14px; height:14px;" onclick="return false;" />
             </div>
+
+            ${checkboxHtml}
 
             <div class="form-group" style="margin-bottom:16px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Xếp vào kệ</label>
@@ -2141,6 +2161,10 @@ function _qkvOnSplitRoll(rollId, matName, colorName, colorId, materialId, rollWe
     _qkv.activeMoveMaterialId = materialId;
 
     var availableLocs = (_qkv.locations || []).filter(function(loc) {
+        var nameClean = loc.name.toLowerCase().replace(/^📍\s*/, '').trim();
+        if (nameClean === 'kệ dự định hoàn vải') {
+            return false;
+        }
         if (loc.printing_contractor_id !== null && loc.printing_contractor_id !== undefined) {
             return false;
         }
@@ -2880,7 +2904,7 @@ function _qkvOpenImportBill(importId) {
         _bnhFabDetail(importId);
     } else {
         var s = document.createElement('script');
-        s.src = '/js/pages/fab-import-v4.js?v=20260630_1';
+        s.src = '/js/pages/fab-import-v4.js?v=20260630_vdecimal';
         s.onload = function() { _bnhFabDetail(importId); };
         document.head.appendChild(s);
     }

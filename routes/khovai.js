@@ -455,7 +455,7 @@ module.exports = async function (fastify) {
     });
 
     fastify.put('/api/khovai/rolls/batch', { preHandler: [authenticate] }, async (request, reply) => {
-        const { roll_ids, location } = request.body || {};
+        const { roll_ids, location, reset_original_weight } = request.body || {};
         if (!Array.isArray(roll_ids) || roll_ids.length === 0) {
             return reply.code(400).send({ error: 'Danh sách cuộn vải trống hoặc không hợp lệ' });
         }
@@ -505,7 +505,7 @@ module.exports = async function (fastify) {
                      FROM kv_rolls r
                      JOIN kv_fabric_colors c ON r.fabric_color_id = c.id
                      WHERE r.id = $1`,
-                    [rollId]
+                     [rollId]
                 );
                 if (rollMat) {
                     const locRecord = await db.get(
@@ -529,7 +529,11 @@ module.exports = async function (fastify) {
             }
 
             const targetLoc = location === null ? null : (typeof location === 'string' ? location.trim() : null);
-            await db.run('UPDATE kv_rolls SET location = $1, updated_at = NOW() WHERE id = $2', [targetLoc, rollId]);
+            if (reset_original_weight) {
+                await db.run('UPDATE kv_rolls SET location = $1, original_weight = weight, updated_at = NOW() WHERE id = $2', [targetLoc, rollId]);
+            } else {
+                await db.run('UPDATE kv_rolls SET location = $1, updated_at = NOW() WHERE id = $2', [targetLoc, rollId]);
+            }
 
             // Auto-assign material restriction to location if not yet set
             if (location) {

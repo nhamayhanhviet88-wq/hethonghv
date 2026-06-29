@@ -112,7 +112,7 @@ function _bnhFabRenderBody() {
                 var tc = Math.round((Number(tr.weight)||0) * up);
                 h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'
                     + '<span style="font-size:10px;color:#9ca3af;width:45px">Cây '+(ti+1)+':</span>'
-                    + '<input type="number" step="0.1" min="0.1" value="'+(tr.weight||'')+'" placeholder="0" onchange="_bnhFabTreeW('+idx+','+ti+',this.value)" style="width:90px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'
+                    + '<input type="text" inputmode="decimal" value="'+String(tr.weight||'').replace('.', ',')+'" placeholder="0" onchange="_bnhFabTreeW('+idx+','+ti+',this.value)" style="width:90px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'
                     + '<span style="font-size:10px;color:#6b7280">'+(it.unit||'kg')+'</span>'
                     + (up > 0 ? '<span style="font-size:10px;color:#059669;font-weight:600">→ '+tc.toLocaleString('vi-VN')+'đ</span>' : '');
                 
@@ -145,7 +145,7 @@ function _bnhFabRenderBody() {
             var totalW = trees.reduce(function(s,t){return s+(Number(t.weight)||0);},0);
             var totalC = trees.reduce(function(s,t){return s+Math.round((Number(t.weight)||0)*up);},0);
             totalFabCost += totalC;
-            h += '<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:6px">📊 '+trees.length+' cây | '+totalW+' '+(it.unit||'kg')+(up>0?' | '+totalC.toLocaleString('vi-VN')+'đ':'')+'</div>';
+            h += '<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:6px">📊 '+trees.length+' cây | '+_bnhFM(totalW)+' '+(it.unit||'kg')+(up>0?' | '+totalC.toLocaleString('vi-VN')+'đ':'')+'</div>';
             // Fulfillment status
             var totalImp = (it.imported_trees||0) + trees.length;
             if (it.needed_trees > 0) {
@@ -361,6 +361,9 @@ function _bnhFabAddTree(idx) { var it = _bnhFab.items[idx]; if(!it) return; var 
 function _bnhFabDelTree(idx,ti) { var it = _bnhFab.items[idx]; if(it&&it.trees.length>1){it.trees.splice(ti,1);_bnhFabRenderBody();} }
 function _bnhFabTreeW(idx, ti, val) {
     var it = _bnhFab.items[idx]; if (!it || !it.trees[ti]) return;
+    if (typeof val === 'string') {
+        val = val.replace(',', '.');
+    }
     it.trees[ti].weight = Number(val) || 0;
     _bnhFabRenderBody();
 }
