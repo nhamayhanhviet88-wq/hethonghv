@@ -3020,6 +3020,7 @@ async function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
     document.removeEventListener('paste', _bpcGDonePasteHandler);
     document.addEventListener('paste', _bpcGDonePasteHandler);
     _bpcGDoneRecalc();
+    window._bpcBusy = false;
 }
 function _bpcCloseGDone() {
     window._bpcBusy = false;

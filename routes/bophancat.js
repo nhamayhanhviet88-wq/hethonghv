@@ -3069,7 +3069,7 @@ module.exports = async function(fastify) {
         const userId = request.user.id;
 
         const groupRecords = await db.all(
-            `SELECT id, dht_order_id, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name, cutter_id, cutting_category FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
+            `SELECT id, dht_order_id, order_item_id, phoi_index, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name, material_name, fabric_color, cutter_id, cutting_category, printing_contractor_id FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
             [group_id]
         );
         if (groupRecords.length < 2) return reply.code(400).send({ error: 'Nhóm không hợp lệ hoặc chỉ có 1 đơn' });
