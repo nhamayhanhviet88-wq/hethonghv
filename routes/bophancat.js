@@ -882,6 +882,36 @@ module.exports = async function(fastify) {
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
                    cr.multi_cut_group_id, cr.unit_price, cr.salary, cr.wash_items, cr.wash_market_image,
+                   (
+                       CASE 
+                           WHEN EXISTS (
+                               SELECT 1 FROM qlx_fabric_reservations res
+                               WHERE res.item_id = cr.order_item_id
+                                 AND res.phoi_index = cr.phoi_index
+                           ) THEN (
+                               EXISTS (
+                                   SELECT 1 FROM qlx_fabric_reservations res
+                                   WHERE res.item_id = cr.order_item_id
+                                     AND res.phoi_index = cr.phoi_index
+                                     AND res.status NOT IN ('released', 'fulfilled')
+                               )
+                               AND NOT EXISTS (
+                                   SELECT 1 FROM qlx_fabric_reservations res
+                                   WHERE res.item_id = cr.order_item_id
+                                     AND res.phoi_index = cr.phoi_index
+                                     AND res.status NOT IN ('released', 'fulfilled')
+                                     AND res.status != 'arrived'
+                               )
+                           )
+                           ELSE COALESCE(
+                               (
+                                   SELECT p.fabric_arrived FROM qlx_preparation p
+                                   WHERE p.dht_order_id = cr.dht_order_id AND p.item_id IS NULL
+                               ),
+                               false
+                           )
+                       END
+                   )::boolean AS fabric_arrived,
                    COALESCE(NULLIF(fc.location, ''), NULLIF(m.location, '')) AS warehouse_location,
                    (
                        SELECT sub.cut_quantity 
@@ -962,6 +992,36 @@ module.exports = async function(fastify) {
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
                    cr.multi_cut_group_id, cr.unit_price, cr.salary, cr.wash_items, cr.wash_market_image,
+                   (
+                       CASE 
+                           WHEN EXISTS (
+                               SELECT 1 FROM qlx_fabric_reservations res
+                               WHERE res.item_id = cr.order_item_id
+                                 AND res.phoi_index = cr.phoi_index
+                           ) THEN (
+                               EXISTS (
+                                   SELECT 1 FROM qlx_fabric_reservations res
+                                   WHERE res.item_id = cr.order_item_id
+                                     AND res.phoi_index = cr.phoi_index
+                                     AND res.status NOT IN ('released', 'fulfilled')
+                               )
+                               AND NOT EXISTS (
+                                   SELECT 1 FROM qlx_fabric_reservations res
+                                   WHERE res.item_id = cr.order_item_id
+                                     AND res.phoi_index = cr.phoi_index
+                                     AND res.status NOT IN ('released', 'fulfilled')
+                                     AND res.status != 'arrived'
+                               )
+                           )
+                           ELSE COALESCE(
+                               (
+                                   SELECT p.fabric_arrived FROM qlx_preparation p
+                                   WHERE p.dht_order_id = cr.dht_order_id AND p.item_id IS NULL
+                               ),
+                               false
+                           )
+                       END
+                   )::boolean AS fabric_arrived,
                    COALESCE(NULLIF(fc.location, ''), NULLIF(m.location, '')) AS warehouse_location,
                    (
                        SELECT sub.cut_quantity 
@@ -1111,6 +1171,29 @@ module.exports = async function(fastify) {
                 if (rec.cutter_id !== request.user.id && request.user.role !== 'giam_doc') {
                     return reply.code(403).send({ error: 'Bạn không thể thao tác trên đơn hàng của thợ cắt khác!' });
                 }
+            }
+        }
+
+        if (['start_cutting', 'cut_done'].includes(action)) {
+            const reservations = await db.all(`
+                SELECT status FROM qlx_fabric_reservations
+                WHERE item_id = $1 AND phoi_index = $2
+            `, [rec.order_item_id, rec.phoi_index]);
+            
+            let fabricArrived = false;
+            if (reservations.length > 0) {
+                const activeRes = reservations.filter(r => !['released', 'fulfilled'].includes(r.status));
+                fabricArrived = activeRes.length > 0 && activeRes.every(r => r.status === 'arrived');
+            } else {
+                const prep = await db.get(`
+                    SELECT fabric_arrived FROM qlx_preparation
+                    WHERE dht_order_id = $1 AND item_id IS NULL
+                `, [rec.dht_order_id]);
+                fabricArrived = prep ? !!prep.fabric_arrived : false;
+            }
+            
+            if (!fabricArrived) {
+                return reply.code(400).send({ error: 'Vải phối này chưa về đủ — không thể thao tác cắt!' });
             }
         }
 
@@ -2220,7 +2303,7 @@ module.exports = async function(fastify) {
             `);
             if (contractorLocs.length > 0) {
                 const excludeNames = contractorLocs.map(l => l.name.trim().toLowerCase());
-                locationFilter = ` AND NOT (LOWER(TRIM(r.location)) = ANY($6)) `;
+                locationFilter = ` AND (r.location IS NULL OR TRIM(r.location) = '' OR NOT (LOWER(TRIM(r.location)) = ANY($6))) `;
                 queryParams.push(excludeNames);
             }
         }
@@ -2853,7 +2936,7 @@ module.exports = async function(fastify) {
             `);
             if (contractorLocs.length > 0) {
                 const names = contractorLocs.map(l => l.name.trim().toLowerCase());
-                locationFilter = ` AND NOT (LOWER(TRIM(r.location)) = ANY($1)) `;
+                locationFilter = ` AND (r.location IS NULL OR TRIM(r.location) = '' OR NOT (LOWER(TRIM(r.location)) = ANY($1))) `;
                 params.push(names);
             }
         }

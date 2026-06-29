@@ -808,6 +808,11 @@ function _bpcMapRecordRow(r, i) {
         }
     }
 
+    if (!r.is_cut_done && !r.fabric_arrived) {
+        canInteract = false;
+        disableReason = 'Vải phối này chưa về đủ — không thể thao tác cắt!';
+    }
+
     var cutBtnHtml = '';
     if (r.is_uncut) {
         var ready = r.fabric_arrived && r.has_pc_in;

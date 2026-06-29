@@ -1002,7 +1002,9 @@ function mRenderMine(items = null, showSectionBadge = false){
         
         // Cut/Done button visibility
         let actionHtml='';
-        if(!r.is_cutting){
+        if (!r.is_cut_done && !r.fabric_arrived) {
+            actionHtml = '<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:not-allowed;font-family:Inter,sans-serif;background:#334155;color:#94a3b8;margin:8px 0" disabled>🔒 VẢI CHƯA VỀ ĐỦ</button>';
+        } else if(!r.is_cutting){
             const btnText = r.cut_warning ? '✂️ BẮT ĐẦU CẮT BÙ' : '✂️ BẮT ĐẦU CẮT';
             const btnBg = r.cut_warning ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'linear-gradient(135deg,#dc2626,#ef4444)';
             const btnShadow = r.cut_warning ? '0 4px 15px rgba(233,110,26,0.4)' : '0 4px 15px rgba(239,68,68,0.4)';
