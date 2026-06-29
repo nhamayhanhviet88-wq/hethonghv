@@ -1153,7 +1153,11 @@ async function _bpcToggleAction(id, action) {
 
     window._bpcBusy = true;
     try {
-        await apiCall('/api/cutting/toggle/' + id, 'POST', { action: action });
+        var res = await apiCall('/api/cutting/toggle/' + id, 'POST', { action: action });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Cập nhật');
         await _bpcLoadAll();
     } catch(e) {
@@ -1385,7 +1389,8 @@ async function _bpcSubmitError(recordId) {
             await fetch('/api/customer-errors/' + result.id + '/video', { method: 'POST', body: fdv });
         }
 
-        await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
+        var toggleRes = await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'report_error', error_order_id: result.id });
+        if (toggleRes && toggleRes.error) { throw new Error(toggleRes.error); }
 
         showToast('✅ Đã báo đơn lỗi thành công!');
         _bpcCloseErrorModal();
@@ -1634,6 +1639,11 @@ async function _bpcDoClaimOrder(orderId, itemId, phoiIndex, orderCode) {
     try {
         var body = { dht_order_id: orderId, order_item_id: itemId, phoi_index: phoiIndex };
         var res = await apiCall('/api/cutting/claim', 'POST', body);
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN NHẬN ĐƠN'; }
+            return;
+        }
         _bpcCloseModal();
         showToast('✅ Đã nhận phối đơn ' + orderCode);
         await _bpcLoadAll();
@@ -1646,7 +1656,11 @@ async function _bpcDoClaimOrder(orderId, itemId, phoiIndex, orderCode) {
 async function _bpcUnclaimOrder(orderId, itemId, phoiIndex, orderCode) {
     if (!confirm('Trả lại phối đơn ' + orderCode + '? Record cắt sẽ bị xóa.')) return;
     try {
-        await apiCall('/api/cutting/unclaim', 'POST', { dht_order_id: orderId, order_item_id: itemId, phoi_index: phoiIndex });
+        var res = await apiCall('/api/cutting/unclaim', 'POST', { dht_order_id: orderId, order_item_id: itemId, phoi_index: phoiIndex });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Đã trả phối đơn ' + orderCode);
         await _bpcLoadAll();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
@@ -1887,7 +1901,12 @@ async function _bpcDoCut(recordId) {
             });
         }
         
-        await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'start_cutting', selected_roll_ids: rollIds });
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'start_cutting', selected_roll_ids: rollIds });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN CẮT'; _bpcUpdateConfirmState(); }
+            return;
+        }
         _bpcCloseCutModal();
         showToast('✅ Đã bắt đầu cắt — ' + rollIds.length + ' cây');
         await _bpcLoadAll();
@@ -2633,11 +2652,16 @@ async function _bpcSubmitWash(recordId) {
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
 
     try {
-        await apiCall('/api/cutting/toggle/' + recordId, 'POST', {
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', {
             action: 'report_wash',
             wash_items: washItems,
             wash_market_image: window._bpcWashData.imgData
         });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = '🫧 XÁC NHẬN BÁO GIẶT'; }
+            return;
+        }
         _bpcCloseWashModal();
         showToast('✅ Báo giặt vải thành công!');
         await _bpcLoadAll();
@@ -2654,7 +2678,11 @@ async function _bpcUndoWash(recordId) {
     if (window._bpcSubmitBusy) return;
     window._bpcSubmitBusy = true;
     try {
-        await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'undo_wash' });
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'undo_wash' });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         _bpcCloseWashModal();
         showToast('✅ Đã hủy báo giặt vải!');
         await _bpcLoadAll();
@@ -2819,7 +2847,12 @@ async function _bpcSubmitDone(recordId) {
     var btn = document.getElementById('_bpcDoneSubmitBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
     try {
-        await apiCall('/api/cutting/toggle/' + recordId, 'POST', body);
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', body);
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = '🏁 XÁC NHẬN CẮT XONG'; }
+            return;
+        }
         _bpcCloseDoneModal();
         showToast('✅ Cắt xong!');
         await _bpcLoadAll();
@@ -3190,7 +3223,13 @@ async function _bpcSubmitGDone() {
 
     var btn = document.getElementById('_bpcGDoneOk'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
     try {
-        await apiCall('/api/cutting/multi-cut/done', 'POST', body);
+        var res = await apiCall('/api/cutting/multi-cut/done', 'POST', body);
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = '🏁 XÁC NHẬN CẮT XONG NHÓM'; }
+            window._bpcBusy = false;
+            return;
+        }
         _bpcCloseGDone(); showToast('✅ Cắt xong nhóm ' + items.length + ' đơn!'); await _bpcLoadAll();
     } catch(e) {
         showToast(e.message || 'Lỗi', 'error');
@@ -3205,6 +3244,10 @@ async function _bpcRemoveRoll(recordId, rollId) {
     if (!confirm('Bạn có chắc chắn không cắt cây vải này?')) return;
     try {
         const res = await apiCall('/api/cutting/records/' + recordId + '/remove-roll', 'POST', { roll_id: rollId });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Đã chọn không cắt cây vải!');
         if (window._bpcDoneData && window._bpcDoneData.recordId === recordId) {
             window._bpcDoneData.rolls = res.selected_roll_ids;
@@ -3253,6 +3296,10 @@ async function _bpcDoAddRoll(recordId) {
     if (!rollId) { showToast('Vui lòng chọn một cây vải', 'error'); return; }
     try {
         const res = await apiCall('/api/cutting/records/' + recordId + '/add-roll', 'POST', { roll_id: rollId });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Đã thêm cây vải!');
         if (window._bpcDoneData && window._bpcDoneData.recordId === recordId) {
             window._bpcDoneData.rolls = res.selected_roll_ids;
@@ -3275,6 +3322,10 @@ async function _bpcRemoveRollGroup(groupId, rollId) {
     if (!refRecord) return;
     try {
         const res = await apiCall('/api/cutting/records/' + refRecord.id + '/remove-roll', 'POST', { roll_id: rollId });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Đã chọn không cắt cây vải khỏi nhóm!');
         if (window._bpcGDone && window._bpcGDone.groupId === groupId) {
             window._bpcGDone.rolls = res.selected_roll_ids;
@@ -3327,6 +3378,10 @@ async function _bpcDoAddRollGroup(groupId) {
     if (!refRecord) return;
     try {
         const res = await apiCall('/api/cutting/records/' + refRecord.id + '/add-roll', 'POST', { roll_id: rollId });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
         showToast('✅ Đã thêm cây vải vào nhóm!');
         if (window._bpcGDone && window._bpcGDone.groupId === groupId) {
             window._bpcGDone.rolls = res.selected_roll_ids;
@@ -3797,7 +3852,13 @@ async function _mcNext() {
                 });
             }
 
-            await apiCall('/api/cutting/multi-cut', 'POST', { selected_roll_ids: _mcData.selRolls, selected_order_item_ids: _mcData.selOrders, material_name: _mcData.selMat, fabric_color: _mcData.selColor });
+            var res = await apiCall('/api/cutting/multi-cut', 'POST', { selected_roll_ids: _mcData.selRolls, selected_order_item_ids: _mcData.selOrders, material_name: _mcData.selMat, fabric_color: _mcData.selColor });
+            if (res && res.error) {
+                showToast('⚠️ ' + res.error, 'error');
+                if (btn) { btn.disabled = false; btn.textContent = '✂️ XÁC NHẬN CẮT'; _mcUpdateMultiCutConfirmState(); }
+                window._bpcBusy = false;
+                return;
+            }
             _mcClose();
             showToast('✅ Đã bắt đầu cắt chung ' + _mcData.selOrders.length + ' đơn!');
             await _bpcLoadAll();

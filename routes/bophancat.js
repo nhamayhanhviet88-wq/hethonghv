@@ -1394,7 +1394,18 @@ module.exports = async function(fastify) {
                         
                         const rollDb = await db.get('SELECT return_tx_id, roll_code, location, original_location FROM kv_rolls WHERE id = $1', [s.roll_id]);
                         let nextLocation = wasCut ? 'Chưa Phân Vị Trí Cây Lẻ' : (rollDb ? rollDb.location : '');
-                        if (rollDb && (await isContractorLocation(rollDb.location || rollDb.original_location))) {
+                        
+                        let contractorShelf = '';
+                        if (rec.printing_contractor_id) {
+                            const contractorLoc = await db.get('SELECT name FROM kv_locations WHERE printing_contractor_id = $1 LIMIT 1', [rec.printing_contractor_id]);
+                            if (contractorLoc && contractorLoc.name) {
+                                contractorShelf = contractorLoc.name;
+                            }
+                        }
+
+                        if (contractorShelf) {
+                            nextLocation = contractorShelf;
+                        } else if (rollDb && (await isContractorLocation(rollDb.location || rollDb.original_location))) {
                             nextLocation = rollDb.location || rollDb.original_location;
                         }
                         let nextOriginalLocation = rollDb ? rollDb.original_location : null;
@@ -1514,9 +1525,20 @@ module.exports = async function(fastify) {
                     
                     const rollDb = await db.get('SELECT return_tx_id, roll_code, location, original_location FROM kv_rolls WHERE id = $1', [s.roll_id]);
                     let nextLocation = wasCut ? 'Chưa Phân Vị Trí Cây Lẻ' : (rollDb ? rollDb.location : '');
-                        if (rollDb && (await isContractorLocation(rollDb.location || rollDb.original_location))) {
-                            nextLocation = rollDb.location || rollDb.original_location;
+                    
+                    let contractorShelf = '';
+                    if (rec.printing_contractor_id) {
+                        const contractorLoc = await db.get('SELECT name FROM kv_locations WHERE printing_contractor_id = $1 LIMIT 1', [rec.printing_contractor_id]);
+                        if (contractorLoc && contractorLoc.name) {
+                            contractorShelf = contractorLoc.name;
                         }
+                    }
+
+                    if (contractorShelf) {
+                        nextLocation = contractorShelf;
+                    } else if (rollDb && (await isContractorLocation(rollDb.location || rollDb.original_location))) {
+                        nextLocation = rollDb.location || rollDb.original_location;
+                    }
                     let nextOriginalLocation = rollDb ? rollDb.original_location : null;
                     let nextReturnTxId = null;
                     let nextReturnRequested = false;
@@ -3168,11 +3190,25 @@ module.exports = async function(fastify) {
             let nextLocation = '';
             if (rollDb) {
                 const currentLoc = rollDb.location || rollDb.original_location || '';
-                const isContractorLoc = await isContractorLocation(currentLoc);
-                if (isContractorLoc) {
-                    nextLocation = currentLoc;
+                
+                let contractorShelf = '';
+                const contractorId = groupRecords[0] ? groupRecords[0].printing_contractor_id : null;
+                if (contractorId) {
+                    const contractorLoc = await db.get('SELECT name FROM kv_locations WHERE printing_contractor_id = $1 LIMIT 1', [contractorId]);
+                    if (contractorLoc && contractorLoc.name) {
+                        contractorShelf = contractorLoc.name;
+                    }
+                }
+
+                if (contractorShelf) {
+                    nextLocation = contractorShelf;
                 } else {
-                    nextLocation = wasCut ? '' : (rollDb.location || '');
+                    const isContractorLoc = await isContractorLocation(currentLoc);
+                    if (isContractorLoc) {
+                        nextLocation = currentLoc;
+                    } else {
+                        nextLocation = wasCut ? '' : (rollDb.location || '');
+                    }
                 }
             }
             await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = $2, needs_photo = $3 WHERE id = $4`, [finalWeight, nextLocation, needsPhoto, s.roll_id]);
@@ -3228,7 +3264,7 @@ module.exports = async function(fastify) {
         const items = await db.all(`
             SELECT oi.id AS order_item_id, oi.description, oi.quantity, oi.material_pairs,
                    o.id AS dht_order_id, o.order_code, o.shipping_status,
-                   COALESCE(p.fabric_arrived, false) AS fabric_arrived,
+                   COALESCE(p.fabric_arrived, false) AS order_fabric_arrived,
                    EXISTS(SELECT 1 FROM qlx_assignments qa
                           WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
                           AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
@@ -3250,7 +3286,29 @@ module.exports = async function(fastify) {
             const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 AND cutter_id IS NOT NULL AND is_cut_done = false LIMIT 1`, [it.order_item_id]);
             if (existing) return reply.code(409).send({ error: 'Phiếu "' + (it.description || it.order_code) + '" đã được nhận bởi người khác' });
             if (it.shipping_status === 'shipped') return reply.code(400).send({ error: 'Phiếu thuộc đơn hàng "' + it.order_code + '" đã được gửi đi rồi' });
-            if (!it.fabric_arrived) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa có vải về' });
+
+            // Validate specific coordination part fabric arrival
+            let fabricArrived = false;
+            let pairs = [];
+            try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+            if (pairs.length > 0) {
+                const matFilter = (reqMaterial || '').trim().toLowerCase();
+                const colFilter = (reqColor || '').trim().toLowerCase();
+                const pairIdx = pairs.findIndex(p =>
+                    (p.material_name || '').trim().toLowerCase() === matFilter &&
+                    (p.color_name || '').trim().toLowerCase() === colFilter
+                );
+                const currentPairIdx = pairIdx >= 0 ? pairIdx : 0;
+                const phoiRes = await db.all(`
+                    SELECT status FROM qlx_fabric_reservations
+                    WHERE item_id = $1 AND phoi_index = $2 AND status NOT IN ('released', 'fulfilled')
+                `, [it.order_item_id, currentPairIdx]);
+                fabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived');
+            } else {
+                fabricArrived = it.order_fabric_arrived;
+            }
+
+            if (!fabricArrived) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa có vải về' });
             if (!it.has_print) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa Phân Công In' });
 
             // Print-and-cut checks
