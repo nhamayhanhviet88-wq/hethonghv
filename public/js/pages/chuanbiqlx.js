@@ -826,13 +826,16 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                             needTransfer = true;
                         }
                     }
-                    var bgColor = needTransfer ? '#fffaf0' : (isArrived ? '#f0fdf4' : '#fffbeb');
-                    var borderColor = needTransfer ? '#fdba74' : (isArrived ? '#86efac' : '#fbbf24');
-                    var statusBadge = needTransfer
-                        ? '<span style="background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⚠️ Yêu Cầu Di Chuyển Cây sang ' + data.target_shelf + '</span>'
-                        : (isArrived
-                            ? '<span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">✅ ĐÃ VỀ</span>'
-                            : '<span style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⏳ ĐANG CHỜ</span>');
+                    var isFromStockMismatch = needTransfer && ex.reservation_type === 'from_stock';
+                    var bgColor = isFromStockMismatch ? '#fef2f2' : (needTransfer ? '#fffaf0' : (isArrived ? '#f0fdf4' : '#fffbeb'));
+                    var borderColor = isFromStockMismatch ? '#fca5a5' : (needTransfer ? '#fdba74' : (isArrived ? '#86efac' : '#fbbf24'));
+                    var statusBadge = isFromStockMismatch
+                        ? '<span style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⚠️ SAI KỆ - YÊU CẦU HỦY & CHỌN LẠI VẢI</span>'
+                        : (needTransfer
+                            ? '<span style="background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⚠️ Yêu Cầu Di Chuyển Cây sang ' + data.target_shelf + '</span>'
+                            : (isArrived
+                                ? '<span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">✅ ĐÃ VỀ</span>'
+                                : '<span style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⏳ ĐANG CHỜ</span>'));
                     var lbl = ex.reservation_type === 'from_stock'
                         ? '📦 ' + (ex.material_name||ph.material_name||'') + ' - ' + (ex.color_name||ph.color_name||'') + ': ' + ex.kg_reserved + unitLabel
                         : (ex.reservation_type === 'linked_call'

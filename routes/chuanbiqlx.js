@@ -1050,7 +1050,7 @@ module.exports = async function(fastify) {
         let reservations = [];
         if (orderIds.length > 0) {
             reservations = await db.all(`
-                SELECT r.dht_order_id, r.item_id, r.phoi_index, r.status, r.roll_id,
+                SELECT r.dht_order_id, r.item_id, r.phoi_index, r.status, r.roll_id, r.reservation_type,
                        roll.location AS roll_location
                 FROM qlx_fabric_reservations r
                 LEFT JOIN kv_rolls roll ON r.roll_id = roll.id
@@ -1077,12 +1077,9 @@ module.exports = async function(fastify) {
         const phoiFabStatus = {};
         for (const r of reservations) {
             const key = `${r.dht_order_id}_${r.item_id}_${r.phoi_index}`;
-            if (!phoiFabStatus[key]) {
-                phoiFabStatus[key] = { total: 0, arrived: 0, pending: 0 };
-            }
-            phoiFabStatus[key].total++;
 
             let status = r.status;
+            let isMismatchedFromStock = false;
             if (status === 'arrived' && r.roll_id) {
                 const assign = printAssigns.find(a => a.item_id === r.item_id) || 
                                printAssigns.find(a => a.dht_order_id === r.dht_order_id && a.item_id === null);
@@ -1095,11 +1092,25 @@ module.exports = async function(fastify) {
                         const rollLoc = (r.roll_location || '').toLowerCase().replace(/^📍\s*/, '').trim();
                         const targetLoc = linkedLoc.name.toLowerCase().trim();
                         if (rollLoc !== targetLoc) {
-                            status = 'reserved'; // Treat as pending/reserved
+                            if (r.reservation_type === 'from_stock') {
+                                isMismatchedFromStock = true;
+                            } else {
+                                status = 'reserved'; // Treat as pending/reserved
+                            }
                         }
                     }
                 }
             }
+
+            if (isMismatchedFromStock) {
+                // Completely ignore this reservation so it doesn't count towards fabric status
+                continue;
+            }
+
+            if (!phoiFabStatus[key]) {
+                phoiFabStatus[key] = { total: 0, arrived: 0, pending: 0 };
+            }
+            phoiFabStatus[key].total++;
 
             if (status === 'arrived') {
                 phoiFabStatus[key].arrived++;
