@@ -1960,49 +1960,11 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Bắt buộc chọn ít nhất một Lĩnh Vực In!' });
             }
 
-            // Auto-release fabric reservations if assigning under field 'IN 3D - IN CẮT' (ID 4) to contractor 1 or 2
-            let shouldRelease = false;
-            for (const assign of assignments) {
-                const fieldId = Number(assign.field_id);
-                const opType = assign.operator_type;
-                const opId = Number(assign.operator_id);
-
-                let is3DInCatField = (fieldId === 4);
-                if (!is3DInCatField && fieldId) {
-                    const field = await db.get(`SELECT name FROM printing_fields WHERE id = $1`, [fieldId]);
-                    if (field && field.name && field.name.toUpperCase().includes('IN 3D - IN CẮT')) {
-                        is3DInCatField = true;
-                    }
-                }
-
-                if (is3DInCatField && opType === 'contractor' && (opId === 1 || opId === 2)) {
-                    shouldRelease = true;
-                    break;
-                }
-            }
-
-            if (shouldRelease) {
-                const { releaseReservationsForOrderOrItem } = require('../utils/qlx_fabric_helper');
-                await releaseReservationsForOrderOrItem(orderId, itemId, request.user.id);
-            }
-
             // Kiểm tra kệ vải động cho bất kỳ nhân sự/gia công nào có liên kết với Kệ trong kho
             for (const assign of assignments) {
                 const opType = assign.operator_type;
                 const opId = Number(assign.operator_id);
                 const fieldId = Number(assign.field_id);
-
-                // Auto-bypass validation check if assigning under field 'IN 3D - IN CẮT' (ID 4) to contractor 1 or 2
-                let is3DInCatField = (fieldId === 4);
-                if (!is3DInCatField && fieldId) {
-                    const field = await db.get(`SELECT name FROM printing_fields WHERE id = $1`, [fieldId]);
-                    if (field && field.name && field.name.toUpperCase().includes('IN 3D - IN CẮT')) {
-                        is3DInCatField = true;
-                    }
-                }
-                if (is3DInCatField && opType === 'contractor' && (opId === 1 || opId === 2)) {
-                    continue; // Skip linked shelf check
-                }
 
                 const linkedLoc = await db.get(`
                     SELECT id, name FROM kv_locations 
@@ -2185,6 +2147,33 @@ module.exports = async function(fastify) {
                         }
                     }
                 }
+            }
+
+            // Check if any assignment is print-and-cut
+            let isPrintAndCut = false;
+            for (const assign of uniqueAssignments) {
+                const fieldId = Number(assign.field_id);
+                if (fieldId === 4 || fieldId === 7) {
+                    isPrintAndCut = true;
+                    break;
+                }
+                const field = await db.get(`SELECT name FROM printing_fields WHERE id = $1`, [fieldId]);
+                if (field && field.name) {
+                    const nameUpper = field.name.toUpperCase();
+                    if ((nameUpper.includes('CẮT') || nameUpper.includes('3D')) && !nameUpper.includes('HV CẮT')) {
+                        isPrintAndCut = true;
+                        break;
+                    }
+                }
+            }
+
+            if (isPrintAndCut) {
+                if (itemId) {
+                    await db.run('DELETE FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false', [itemId]);
+                } else {
+                    await db.run('DELETE FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = false', [orderId]);
+                }
+                console.log(`[QLX PRINT ASSIGNMENT] Deleted incomplete cutting records for orderId=${orderId} itemId=${itemId || 'null'} due to print-and-cut assignment`);
             }
 
             // Sync to legacy qlx_assignments (type = 'in')

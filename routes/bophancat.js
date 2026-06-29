@@ -677,6 +677,12 @@ module.exports = async function(fastify) {
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
               AND COALESCE(o.shipping_status, '') != 'shipped'
+              AND NOT EXISTS (
+                  SELECT 1 FROM qlx_order_print_assignments pa
+                  JOIN printing_fields pf ON pa.field_id = pf.id
+                  WHERE (pa.item_id = i.id OR (pa.item_id IS NULL AND pa.dht_order_id = o.id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = i.id)))
+                    AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+              )
         `);
 
         const unassignedItemIds = unassignedItems.map(it => it.id);
@@ -2232,6 +2238,12 @@ module.exports = async function(fastify) {
             WHERE EXISTS (
                 SELECT 1 FROM dht_order_items oi
                 WHERE oi.dht_order_id = o.id
+                AND NOT EXISTS (
+                    SELECT 1 FROM qlx_order_print_assignments pa
+                    JOIN printing_fields pf ON pa.field_id = pf.id
+                    WHERE (pa.item_id = oi.id OR (pa.item_id IS NULL AND pa.dht_order_id = o.id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = oi.id)))
+                      AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+                )
                 AND (
                     (
                         COALESCE(jsonb_array_length(oi.material_pairs), 0) = 0
@@ -2288,6 +2300,12 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 LEFT JOIN qlx_item_schedules sch ON sch.order_item_id = doi.id
                 WHERE doi.dht_order_id = ANY($1)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM qlx_order_print_assignments pa
+                      JOIN printing_fields pf ON pa.field_id = pf.id
+                      WHERE (pa.item_id = doi.id OR (pa.item_id IS NULL AND pa.dht_order_id = doi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = doi.id)))
+                        AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+                  )
                 ORDER BY doi.dht_order_id, doi.id
             `, [orderIds]);
 
@@ -2457,6 +2475,18 @@ module.exports = async function(fastify) {
         `, [dht_order_id]);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
         if (order.shipping_status === 'shipped') return reply.code(400).send({ error: 'Đơn hàng đã gửi đi rồi — không thể nhận đơn cắt!' });
+
+        // Check if assigned to print-and-cut
+        const isPrintAndCut = await db.get(`
+            SELECT 1 FROM qlx_order_print_assignments pa
+            JOIN printing_fields pf ON pa.field_id = pf.id
+            WHERE (pa.item_id = $1 OR (pa.item_id IS NULL AND pa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = $1)))
+              AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+            LIMIT 1
+        `, [order_item_id, dht_order_id]);
+        if (isPrintAndCut) {
+            return reply.code(400).send({ error: 'Đơn hàng này được phân công in 3D cắt — xưởng không cần cắt!' });
+        }
 
         // Check coordinator-level fabric arrival
         const reservations = await db.all(`
