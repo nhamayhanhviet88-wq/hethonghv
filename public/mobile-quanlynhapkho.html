@@ -1877,6 +1877,9 @@
                 banner.style.display = 'none';
             }
 
+            // Reset collapse state for original rolls to collapsed by default
+            window.qkvMobileNguyenExpanded = false;
+
             document.getElementById('importSearch').value = '';
             document.getElementById('importModal').style.display = 'flex';
             
@@ -1905,6 +1908,11 @@
                 document.body.style.overflow = '';
             }
         }
+
+        window.toggleNguyenExpanded = function() {
+            window.qkvMobileNguyenExpanded = !window.qkvMobileNguyenExpanded;
+            renderImportList();
+        };
 
         function renderImportList() {
             const list = document.getElementById('importList');
@@ -2118,17 +2126,22 @@
             // 2. Render Processed Nguyên items (Cần Xử Lý Kho)
             if (processedNguyenItems.length > 0) {
                 var totalPNguyenRolls = processedNguyenItems.reduce((sum, item) => sum + (item.roll_weights ? item.roll_weights.length : 0), 0);
+                var isExpanded = !!window.qkvMobileNguyenExpanded;
                 html += `
-                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#fbbf24; background:rgba(217,119,6,0.15); padding:6px 12px; border-radius:6px; margin:14px 0 6px 0; border:1px solid rgba(217,119,6,0.3); display:flex; align-items:center; justify-content:space-between;">
-                        <span>🛠️ Cây Nguyên Cần Xử Lý Kho</span>
+                    <div onclick="window.toggleNguyenExpanded()" style="cursor:pointer; font-size:11px; font-weight:800; text-transform:uppercase; color:#fbbf24; background:rgba(217,119,6,0.15); padding:10px 12px; border-radius:6px; margin:14px 0 6px 0; border:1px solid rgba(217,119,6,0.3); display:flex; align-items:center; justify-content:space-between; user-select:none; -webkit-tap-highlight-color:transparent;">
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            🛠️ Cây Nguyên Cần Xử Lý Kho <span style="font-size:8px; opacity:0.8; margin-left:4px;">${isExpanded ? '▼' : '▶'}</span>
+                        </span>
                         <span style="font-size:10px; background:#d97706; color:white; padding:3px 8px; border-radius:12px; font-weight:800;">Tổng ${totalPNguyenRolls} cây</span>
                     </div>
                 `;
-                var pnguyenIdx = 0;
-                processedNguyenItems.forEach(item => {
-                    pnguyenIdx++;
-                    html += buildImportItemHtml(item, isMaterialAllowed(item), pnguyenIdx, 'processed_nguyen');
-                });
+                if (isExpanded) {
+                    var pnguyenIdx = 0;
+                    processedNguyenItems.forEach(item => {
+                        pnguyenIdx++;
+                        html += buildImportItemHtml(item, isMaterialAllowed(item), pnguyenIdx, 'processed_nguyen');
+                    });
+                }
             }
 
             list.innerHTML = html;
