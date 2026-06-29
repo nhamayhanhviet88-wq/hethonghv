@@ -465,6 +465,7 @@ module.exports = async function (fastify) {
             if (!oldRoll) continue;
 
             // Check if this is a recall (moving from partner shelf to non-partner shelf or null)
+            let bypassPhoto = false;
             const currentLocName = oldRoll.location;
             if (currentLocName) {
                 const currentLoc = await db.get('SELECT printing_contractor_id, name FROM kv_locations WHERE LOWER(name) = LOWER($1)', [currentLocName.trim()]);
@@ -477,6 +478,20 @@ module.exports = async function (fastify) {
                 }
                 
                 if (isCurrentPartner && !isTargetPartner) {
+                    // Check if current partner belongs to 'IN 3D - IN CẮT'
+                    const is3DCutPartner = await db.get(`
+                        SELECT 1 FROM printing_field_operators pfo
+                        JOIN printing_fields pf ON pf.id = pfo.field_id
+                        WHERE pfo.operator_type = 'contractor'
+                          AND pfo.operator_id = $1
+                          AND LOWER(pf.name) = 'in 3d - in cắt'
+                        LIMIT 1
+                    `, [currentLoc.printing_contractor_id]);
+                    
+                    if (is3DCutPartner) {
+                        bypassPhoto = true;
+                    }
+
                     // Check if roll has active reservations or cuts
                     const activeRes = await db.get(`
                         SELECT 1 FROM qlx_fabric_reservations
@@ -497,7 +512,7 @@ module.exports = async function (fastify) {
             }
 
             if (location) {
-                if (oldRoll.needs_photo) {
+                if (oldRoll.needs_photo && !bypassPhoto) {
                     return reply.code(400).send({ error: `Cây vải ${oldRoll.roll_code || oldRoll.id} đã bị cắt thay đổi khối lượng. Bạn bắt buộc phải chụp lại ảnh thực tế mới của cây vải này trước khi xếp lên kệ!` });
                 }
                 const rollMat = await db.get(
