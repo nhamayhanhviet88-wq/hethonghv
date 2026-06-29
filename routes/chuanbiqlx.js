@@ -21,6 +21,106 @@ module.exports = async function(fastify) {
         }
     }
 
+    async function releaseMismatchedFromStockReservations(orderIds, userId) {
+        if (!orderIds || orderIds.length === 0) return;
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        try {
+            // 1. Fetch active from_stock reservations
+            const reservations = await db.all(`
+                SELECT r.id, r.dht_order_id, r.item_id, r.phoi_index, r.status, r.roll_id,
+                       roll.location AS roll_location, roll.roll_code
+                FROM qlx_fabric_reservations r
+                JOIN kv_rolls roll ON r.roll_id = roll.id
+                WHERE r.dht_order_id = ANY($1) 
+                  AND r.reservation_type = 'from_stock'
+                  AND r.status NOT IN ('released', 'fulfilled')
+                  AND roll.weight > 0
+            `, [orderIds]);
+
+            if (reservations.length === 0) return;
+
+            // 2. Fetch print assignments
+            const printAssigns = await db.all(`
+                SELECT dht_order_id, item_id, field_id, operator_type, operator_id
+                FROM qlx_order_print_assignments
+                WHERE dht_order_id = ANY($1)
+            `, [orderIds]);
+
+            // 3. Fetch linked shelves
+            const linkedShelves = await db.all(`
+                SELECT id, name, printing_contractor_id, user_id FROM kv_locations
+                WHERE printing_contractor_id IS NOT NULL OR user_id IS NOT NULL
+            `);
+
+            for (const r of reservations) {
+                // Find target shelf
+                const assign = printAssigns.find(a => a.item_id === r.item_id) || 
+                               printAssigns.find(a => a.dht_order_id === r.dht_order_id && a.item_id === null);
+                if (assign) {
+                    const linkedLoc = linkedShelves.find(l => 
+                        (assign.operator_type === 'contractor' && l.printing_contractor_id === assign.operator_id) ||
+                        (assign.operator_type === 'user' && l.user_id === assign.operator_id)
+                    );
+                    if (linkedLoc) {
+                        const rollLoc = (r.roll_location || '').toLowerCase().replace(/^📍\s*/, '').trim();
+                        const targetLoc = linkedLoc.name.toLowerCase().trim();
+                        if (rollLoc !== targetLoc) {
+                            console.log(`[Auto-Release] Releasing mismatched from_stock reservation id ${r.id} for order ${r.dht_order_id} (roll ${r.roll_code} at ${r.roll_location} vs target ${linkedLoc.name})`);
+                            
+                            await db.run('UPDATE qlx_fabric_reservations SET status = $1, updated_at = $2 WHERE id = $3', ['released', now, r.id]);
+
+                            // Roll location cleanup
+                            const roll = await db.get('SELECT id, roll_code, location, original_location, return_tx_id FROM kv_rolls WHERE id = $1', [r.roll_id]);
+                            if (roll) {
+                                const otherActiveRes = await db.get(`
+                                    SELECT 1 FROM qlx_fabric_reservations
+                                    WHERE roll_id = $1 AND status IN ('reserved', 'arrived', 'fulfilled') AND id != $2
+                                    LIMIT 1
+                                `, [roll.id, r.id]);
+                                if (!otherActiveRes) {
+                                    if (roll.location === '📍 Kệ Dự Định Hoàn Vải' || roll.original_location === '📍 Kệ Dự Định Hoàn Vải') {
+                                        await db.run(`
+                                            UPDATE kv_rolls 
+                                            SET return_requested = true, 
+                                                return_requested_by = $1, 
+                                                return_requested_at = $2 
+                                            WHERE id = $3
+                                        `, [userId || null, now, roll.id]);
+                                    }
+                                    if (roll.return_tx_id) {
+                                        const txId = roll.return_tx_id;
+                                        const tx = await db.get('SELECT notes FROM fabric_transactions WHERE id = $1', [txId]);
+                                        let cleanNotes = tx ? (tx.notes || '') : '';
+                                        if (cleanNotes.startsWith('[ĐÃ HỦY] ')) {
+                                            cleanNotes = cleanNotes.substring('[ĐÃ HỦY] '.length);
+                                        } else {
+                                            cleanNotes = cleanNotes.replace(/QLX chọn cắt\s+\S+/g, '').trim();
+                                        }
+                                        await db.run(`UPDATE fabric_transactions SET is_canceled = false, notes = $1, updated_at = $2 WHERE id = $3`, [cleanNotes, now, txId]);
+                                        await db.run(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'uncancel', $2, $3, $4)`, 
+                                            [txId, `Hoàn tác hủy do hệ thống tự động hủy giữ/đánh dấu cắt cây vải ${roll.roll_code || roll.id}`, userId || null, now]);
+                                    }
+                                }
+                            }
+
+                            // Write to QLX History
+                            const rollCodeDesc = r.roll_code ? `cây vải ${r.roll_code}` : `cây vải ID ${r.roll_id}`;
+                            const logDetails = `Hệ thống tự động hủy đánh dấu ${rollCodeDesc} do lệch kệ đích của nhà in (${linkedLoc.name}).`;
+                            await db.run(`
+                                INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                                VALUES ($1, $2, 'fabric_released', $3, $4, $5)
+                            `, [r.dht_order_id, r.item_id, logDetails, userId || null, now]);
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('[releaseMismatchedFromStockReservations] Error:', e);
+        }
+    }
+
     // ========== AUTO-MIGRATE ==========
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS qlx_preparation (
@@ -952,6 +1052,7 @@ module.exports = async function(fastify) {
 
         // Fetch items for each order (for phối breakdown)
         const orderIds = orders.map(o => o.id);
+        await releaseMismatchedFromStockReservations(orderIds, request.user.id);
         let items = [];
         if (orderIds.length > 0) {
             items = await db.all(`
@@ -2555,6 +2656,7 @@ module.exports = async function(fastify) {
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const { orderId, itemId, phoiIndex } = request.params;
+        await releaseMismatchedFromStockReservations([Number(orderId)], request.user.id);
         const pi = parseInt(phoiIndex) || 0;
 
         // Get order + item
@@ -3400,6 +3502,7 @@ module.exports = async function(fastify) {
     // GET all reservations for an order
     fastify.get('/api/qlx/fabric-reservations/:orderId', { preHandler: [authenticate] }, async (request) => {
         const orderId = Number(request.params.orderId);
+        await releaseMismatchedFromStockReservations([orderId], request.user.id);
         const rows = await db.all(`
             SELECT res.*, r.weight AS roll_weight, u.full_name AS created_by_name,
                    it.description AS product_name
