@@ -177,9 +177,19 @@ module.exports = async function(fastify) {
     });
 
     // ========== CREATE ==========
-    fastify.post('/api/fabrictx/records', { preHandler: [authenticate] }, async (req) => {
+    fastify.post('/api/fabrictx/records', { preHandler: [authenticate] }, async (req, reply) => {
         const b = req.body || {}, now = vnNow();
         if (!b.tx_type || !TX_TYPES.includes(b.tx_type)) return { error: 'Loại nghiệp vụ không hợp lệ' };
+        if (b.tx_type === 'HOAN') {
+            const canReturn = req.user && (
+                req.user.role === 'giam_doc' || 
+                req.user.username === 'trinh' || 
+                (req.user.full_name && req.user.full_name.includes('Lê Việt Trinh'))
+            );
+            if (!canReturn) {
+                return { error: 'Bạn không có quyền thực hiện hoàn trả cây vải.' };
+            }
+        }
         const fin = calcFin(b.total_quantity, b.price);
         
         const isPostponed = !!b.is_postponed;

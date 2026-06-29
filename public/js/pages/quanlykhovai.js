@@ -981,10 +981,10 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 }
 
                                 if (isUnassigned === 'processed_nguyen') {
-                                    var canRequestReturn = true;
+                                    var canRequestReturn = false;
                                     if (typeof currentUser !== 'undefined' && currentUser) {
-                                        if (currentUser.id === 8 || currentUser.username === 'quanlyxuong' || currentUser.full_name === 'Lê Công Thực') {
-                                            canRequestReturn = false;
+                                        if (currentUser.role === 'giam_doc' || currentUser.username === 'trinh' || (currentUser.full_name && currentUser.full_name.includes('Lê Việt Trinh'))) {
+                                            canRequestReturn = true;
                                         }
                                     }
                                     if (canRequestReturn) {
@@ -2473,15 +2473,23 @@ function openImagePreviewModal(imgUrl, rollId = null) {
             var sourceText = foundRoll.source_name || foundItem.supplier || '—';
             
             var returnBtnHTML = '';
-            if (foundRoll.return_tx_id || foundRoll.return_requested) {
-                returnBtnHTML = `<span style="color:#ef4444; font-weight:bold; font-size:12px; background:rgba(239,68,68,0.1); padding:4px 8px; border-radius:6px;">🔄 Đang xử lý hoàn</span>`;
-            } else {
-                returnBtnHTML = `
-                    <button class="btn btn-sm btn-danger" style="background:#ef4444; border:none; padding:6px 12px; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" 
-                            onclick="event.stopPropagation(); performDirectRollReturn(${rollId})">
-                        🔄 Hoàn cây vải
-                    </button>
-                `;
+            var canDoReturn = false;
+            if (typeof currentUser !== 'undefined' && currentUser) {
+                if (currentUser.role === 'giam_doc' || currentUser.username === 'trinh' || (currentUser.full_name && currentUser.full_name.includes('Lê Việt Trinh'))) {
+                    canDoReturn = true;
+                }
+            }
+            if (canDoReturn) {
+                if (foundRoll.return_tx_id || foundRoll.return_requested) {
+                    returnBtnHTML = `<span style="color:#ef4444; font-weight:bold; font-size:12px; background:rgba(239,68,68,0.1); padding:4px 8px; border-radius:6px;">🔄 Đang xử lý hoàn</span>`;
+                } else {
+                    returnBtnHTML = `
+                        <button class="btn btn-sm btn-danger" style="background:#ef4444; border:none; padding:6px 12px; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" 
+                                onclick="event.stopPropagation(); performDirectRollReturn(${rollId})">
+                            🔄 Hoàn cây vải
+                        </button>
+                    `;
+                }
             }
             
             infoContainer.innerHTML = `
@@ -2929,6 +2937,15 @@ window._qkvCanViewBill = _qkvCanViewBill;
 
 async function performDirectRollReturn(rollId) {
     if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
+    var canReturn = typeof currentUser !== 'undefined' && currentUser && (
+        currentUser.role === 'giam_doc' || 
+        currentUser.username === 'trinh' || 
+        (currentUser.full_name && currentUser.full_name.includes('Lê Việt Trinh'))
+    );
+    if (!canReturn) {
+        showToast('Bạn không có quyền hoàn cây vải.', 'error');
+        return;
+    }
     if (!confirm("Bạn có chắc chắn muốn hoàn cây vải này về nhà cung cấp?")) return;
     
     var foundRoll = null;
@@ -3023,7 +3040,12 @@ window.performDirectRollReturn = performDirectRollReturn;
 
 async function requestRollReturn(rollId, weight, materialName, colorName) {
     if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
-    if (typeof currentUser !== 'undefined' && currentUser && (currentUser.id === 8 || currentUser.username === 'quanlyxuong' || currentUser.full_name === 'Lê Công Thực')) {
+    var canReturn = typeof currentUser !== 'undefined' && currentUser && (
+        currentUser.role === 'giam_doc' || 
+        currentUser.username === 'trinh' || 
+        (currentUser.full_name && currentUser.full_name.includes('Lê Việt Trinh'))
+    );
+    if (!canReturn) {
         showToast('Bạn không có quyền yêu cầu hoàn vải cho cây nguyên.', 'error');
         return;
     }
@@ -3048,7 +3070,12 @@ window.requestRollReturn = requestRollReturn;
 
 async function cancelRollReturnRequest(rollId) {
     if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
-    if (typeof currentUser !== 'undefined' && currentUser && (currentUser.id === 8 || currentUser.username === 'quanlyxuong' || currentUser.full_name === 'Lê Công Thực')) {
+    var canReturn = typeof currentUser !== 'undefined' && currentUser && (
+        currentUser.role === 'giam_doc' || 
+        currentUser.username === 'trinh' || 
+        (currentUser.full_name && currentUser.full_name.includes('Lê Việt Trinh'))
+    );
+    if (!canReturn) {
         showToast('Bạn không có quyền hủy yêu cầu hoàn vải cho cây nguyên.', 'error');
         return;
     }

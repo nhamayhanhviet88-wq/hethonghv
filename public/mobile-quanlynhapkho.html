@@ -1399,10 +1399,10 @@
 
 
                                     if (isUnassigned === 'processed_nguyen') {
-                                         var canRequestReturn = true;
+                                         var canRequestReturn = false;
                                          if (typeof cu !== 'undefined' && cu) {
-                                             if (cu.id === 8 || cu.username === 'quanlyxuong' || cu.full_name === 'Lê Công Thực') {
-                                                 canRequestReturn = false;
+                                             if (cu.role === 'giam_doc' || cu.username === 'trinh' || (cu.full_name && cu.full_name.includes('Lê Việt Trinh'))) {
+                                                 canRequestReturn = true;
                                              }
                                          }
                                          if (canRequestReturn) {
@@ -2352,10 +2352,18 @@
                                     <div><strong>Cân nặng:</strong> <span style="color:#34d399; font-weight:bold;">${weightText}</span></div>
                                     <div><strong>Vị trí:</strong> <span style="color:#94a3b8;">📍 ${escapeHTML(locText)}</span></div>
                                 </div>
-                                <button style="background:#ef4444; border:none; padding:8px 12px; border-radius:8px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:4px;" 
-                                        onclick="event.stopPropagation(); performDirectRollReturn(${rollId})">
-                                    🔄 Hoàn cây
-                                </button>
+                                ${(function() {
+                                    var canDoReturn = false;
+                                    if (typeof cu !== 'undefined' && cu) {
+                                        if (cu.role === 'giam_doc' || cu.username === 'trinh' || (cu.full_name && cu.full_name.includes('Lê Việt Trinh'))) {
+                                            canDoReturn = true;
+                                        }
+                                    }
+                                    if (canDoReturn) {
+                                        return `<button style="background:#ef4444; border:none; padding:8px 12px; border-radius:8px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:4px;" onclick="event.stopPropagation(); performDirectRollReturn(${rollId})">🔄 Hoàn cây</button>`;
+                                    }
+                                    return '';
+                                })()}
                             </div>
                         `;
                         infoContainer.style.display = 'flex';
@@ -2439,6 +2447,15 @@
         }
 
         async function performDirectRollReturn(rollId) {
+            var canReturn = typeof cu !== 'undefined' && cu && (
+                cu.role === 'giam_doc' || 
+                cu.username === 'trinh' || 
+                (cu.full_name && cu.full_name.includes('Lê Việt Trinh'))
+            );
+            if (!canReturn) {
+                alert('Bạn không có quyền hoàn cây vải.');
+                return;
+            }
             if (!confirm("Bạn có chắc chắn muốn hoàn cây vải này về nhà cung cấp?")) return;
             
             var foundRoll = null;
@@ -2516,7 +2533,12 @@
         }
 
         async function requestRollReturn(rollId, weight, materialName, colorName) {
-            if (typeof cu !== 'undefined' && cu && (cu.id === 8 || cu.username === 'quanlyxuong' || cu.full_name === 'Lê Công Thực')) {
+            var canReturn = typeof cu !== 'undefined' && cu && (
+                cu.role === 'giam_doc' || 
+                cu.username === 'trinh' || 
+                (cu.full_name && cu.full_name.includes('Lê Việt Trinh'))
+            );
+            if (!canReturn) {
                 alert('Bạn không có quyền yêu cầu hoàn vải cho cây nguyên.');
                 return;
             }
@@ -2539,7 +2561,12 @@
         }
 
         async function cancelRollReturnRequest(rollId) {
-            if (typeof cu !== 'undefined' && cu && (cu.id === 8 || cu.username === 'quanlyxuong' || cu.full_name === 'Lê Công Thực')) {
+            var canReturn = typeof cu !== 'undefined' && cu && (
+                cu.role === 'giam_doc' || 
+                cu.username === 'trinh' || 
+                (cu.full_name && cu.full_name.includes('Lê Việt Trinh'))
+            );
+            if (!canReturn) {
                 alert('Bạn không có quyền hủy yêu cầu hoàn vải cho cây nguyên.');
                 return;
             }
