@@ -1043,7 +1043,7 @@
             
             try {
                 const [locRes, sumRes] = await Promise.all([
-                    api(`/api/khovai/locations`),
+                    api(`/api/khovai/locations?all=true`),
                     api(`/api/khovai/summary`)
                 ]);
                 

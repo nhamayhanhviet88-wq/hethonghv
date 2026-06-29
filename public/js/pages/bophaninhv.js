@@ -1900,7 +1900,7 @@ async function _bpiLoadFieldOperators(fieldId) {
     try {
         var [res, locsRes] = await Promise.all([
             apiCall('/api/printing/fields/' + fieldId + '/operators'),
-            apiCall('/api/khovai/locations')
+            apiCall('/api/khovai/locations?all=true')
         ]);
         var staff = res.staff || [];
         var contractors = res.contractors || [];

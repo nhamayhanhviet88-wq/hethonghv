@@ -451,7 +451,7 @@ async function _qkvLoadData() {
     try {
         var widParam = _qkv.selectedWid === 'all' ? '' : `?wid=${_qkv.selectedWid}`;
         var [locRes, sumRes, matRes, opRes] = await Promise.all([
-            apiCall(`/api/khovai/locations`),
+            apiCall(`/api/khovai/locations?all=true`),
             apiCall(`/api/khovai/summary`),
             apiCall(`/api/khovai/materials${widParam}`),
             apiCall(`/api/khovai/operators`)

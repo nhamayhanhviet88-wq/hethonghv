@@ -1546,12 +1546,10 @@ module.exports = async function (fastify) {
     // ========== LOCATIONS (Khu vực / Vị trí) ==========
 
     fastify.get('/api/khovai/locations', { preHandler: [authenticate] }, async (request) => {
-        const rows = await db.all(`
-            SELECT l.*, m.name AS restricted_material_name
-            FROM kv_locations l
-            LEFT JOIN kv_materials m ON m.id = l.restricted_material_id
-            JOIN kv_warehouses w ON w.id = l.warehouse_id
-            WHERE w.is_active = true
+        const { all } = request.query;
+        let filterSql = '';
+        if (all !== 'true') {
+            filterSql = `
               AND (
                   (l.printing_contractor_id IS NULL AND l.user_id IS NULL)
                   OR EXISTS (
@@ -1590,6 +1588,16 @@ module.exports = async function (fastify) {
                         AND r.is_returned = false
                   )
               )
+            `;
+        }
+
+        const rows = await db.all(`
+            SELECT l.*, m.name AS restricted_material_name
+            FROM kv_locations l
+            LEFT JOIN kv_materials m ON m.id = l.restricted_material_id
+            JOIN kv_warehouses w ON w.id = l.warehouse_id
+            WHERE w.is_active = true
+              ${filterSql}
             ORDER BY l.name
         `);
         return { locations: rows };
