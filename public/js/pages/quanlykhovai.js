@@ -945,11 +945,33 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                         photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
                                     }
 
+                                    const activeResList = r.active_reservations || [];
+                                    const activeCutList = r.active_cuts || (r.active_cut ? [r.active_cut] : []);
+                                    const isBusy = activeResList.length > 0 || activeCutList.length > 0;
+
                                     if (isPartnerShelf) {
-                                        moveHtml = `
-                                            <button class="btn btn-xs btn-outline-info" style="padding:2px 6px; font-size:10px; font-weight:700; color:#0284c7; border-color:#0284c7; background:#f0f9ff; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _qkvOnRecallRoll(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}')">↩️ Thu Hồi</button>
-                                            <button class="btn btn-xs btn-outline-success" style="padding:2px 6px; font-size:10px; font-weight:700; color:#16a34a; border-color:#16a34a; background:#f0fdf4; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" onclick="event.stopPropagation(); _qkvOnSplitRoll(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}')">✂️ Tách Cây</button>
-                                        `;
+                                        if (isBusy) {
+                                            let busyDetails = '';
+                                            const codes = [];
+                                            activeResList.forEach(res => {
+                                                let t = res.order_code;
+                                                if (res.item_index && res.phoi_index !== undefined) t += ` - P${res.item_index}.${res.phoi_index + 1}`;
+                                                codes.push(t);
+                                            });
+                                            activeCutList.forEach(ac => {
+                                                if (!ac) return;
+                                                let t = ac.order_code;
+                                                if (ac.item_index && ac.phoi_index !== undefined) t += ` - P${ac.item_index}.${ac.phoi_index + 1}`;
+                                                if (!codes.includes(t)) codes.push(t);
+                                            });
+                                            busyDetails = codes.join(', ');
+                                            moveHtml = `<span style="font-size:10px; color:#475569; font-weight:700; font-style:italic; background:#f1f5f9; border:1px solid #cbd5e1; padding:2px 6px; border-radius:4px;" title="Cây vải đang bận phục vụ cho đơn hàng: ${escapeHTML(busyDetails)}">🔒 Giữ cho ${escapeHTML(busyDetails)}</span>`;
+                                        } else {
+                                            moveHtml = `
+                                                <button class="btn btn-xs btn-outline-info" style="padding:2px 6px; font-size:10px; font-weight:700; color:#0284c7; border-color:#0284c7; background:#f0f9ff; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _qkvOnRecallRoll(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}')">↩️ Thu Hồi</button>
+                                                <button class="btn btn-xs btn-outline-success" style="padding:2px 6px; font-size:10px; font-weight:700; color:#16a34a; border-color:#16a34a; background:#f0fdf4; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" onclick="event.stopPropagation(); _qkvOnSplitRoll(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}')">✂️ Tách Cây</button>
+                                            `;
+                                        }
                                     } else if (targetShelfName && isLocMismatch) {
                                         moveHtml = `<button class="btn btn-xs btn-outline-warning" style="padding:2px 6px; font-size:10px; font-weight:700; color:#ea580c; border-color:#ea580c; background:#fff7ed; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}', '${escapeJS(targetShelfName)}')">🚚 Chuyển Kệ</button>`;
                                     }
@@ -1493,12 +1515,39 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
                 <label class="form-label" style="font-weight:700;font-size:12px;">Di chuyển cây vải được chọn dưới đây:</label>
                 ${rolls.length > 0 ? `
                 <div id="qkvMoveRollsContainer" style="max-height:150px; overflow-y:auto; border:1px solid var(--gray-300); border-radius:6px; padding:8px; background:#fff; display:flex; flex-direction:column; gap:6px;">
-                    ${rolls.map(r => `
-                        <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; font-weight:500;">
-                            <input type="checkbox" name="qkvMoveRollCheckbox" value="${r.id}" checked />
-                            <span>Cây <strong>${r.w}kg</strong> (${r.code || 'không mã'})${r.loc ? ' - Kệ: ' + escapeHTML(r.loc) : ''}</span>
-                        </label>
-                    `).join('')}
+                    ${rolls.map(r => {
+                        const activeResList = r.active_reservations || [];
+                        const activeCutList = r.active_cuts || (r.active_cut ? [r.active_cut] : []);
+                        const isBusy = activeResList.length > 0 || activeCutList.length > 0;
+                        const disabledAttr = isBusy ? 'disabled' : '';
+                        const checkedAttr = isBusy ? '' : 'checked';
+                        const cursorStyle = isBusy ? 'cursor:not-allowed; opacity:0.6;' : 'cursor:pointer;';
+                        
+                        let busyDetails = '';
+                        if (isBusy) {
+                            const codes = [];
+                            activeResList.forEach(res => {
+                                let t = res.order_code;
+                                if (res.item_index && res.phoi_index !== undefined) t += ` - P${res.item_index}.${res.phoi_index + 1}`;
+                                codes.push(t);
+                            });
+                            activeCutList.forEach(ac => {
+                                if (!ac) return;
+                                let t = ac.order_code;
+                                if (ac.item_index && ac.phoi_index !== undefined) t += ` - P${ac.item_index}.${ac.phoi_index + 1}`;
+                                if (!codes.includes(t)) codes.push(t);
+                            });
+                            busyDetails = codes.join(', ');
+                        }
+                        const busyLabel = isBusy ? ` <span style="color:#ef4444; font-weight:700;">(Đang bận giữ: ${escapeHTML(busyDetails)})</span>` : '';
+                        
+                        return `
+                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:500; ${cursorStyle}">
+                                <input type="checkbox" name="qkvMoveRollCheckbox" value="${r.id}" ${checkedAttr} ${disabledAttr} />
+                                <span>Cây <strong>${r.w}kg</strong> (${r.code || 'không mã'})${r.loc ? ' - Kệ: ' + escapeHTML(r.loc) : ''}${busyLabel}</span>
+                            </label>
+                        `;
+                    }).join('')}
                 </div>
                 ` : `
                 <div style="color:var(--gray-500);font-size:13px;font-style:italic;">Màu này hiện chưa có cây vải nào để di chuyển vị trí.</div>

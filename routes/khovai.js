@@ -464,6 +464,38 @@ module.exports = async function (fastify) {
             const oldRoll = await db.get('SELECT * FROM kv_rolls WHERE id = $1', [rollId]);
             if (!oldRoll) continue;
 
+            // Check if this is a recall (moving from partner shelf to non-partner shelf or null)
+            const currentLocName = oldRoll.location;
+            if (currentLocName) {
+                const currentLoc = await db.get('SELECT printing_contractor_id, name FROM kv_locations WHERE LOWER(name) = LOWER($1)', [currentLocName.trim()]);
+                const isCurrentPartner = currentLoc && currentLoc.printing_contractor_id !== null;
+                
+                let isTargetPartner = false;
+                if (location) {
+                    const targetLoc = await db.get('SELECT printing_contractor_id, name FROM kv_locations WHERE LOWER(name) = LOWER($1)', [location.trim()]);
+                    isTargetPartner = targetLoc && targetLoc.printing_contractor_id !== null;
+                }
+                
+                if (isCurrentPartner && !isTargetPartner) {
+                    // Check if roll has active reservations or cuts
+                    const activeRes = await db.get(`
+                        SELECT 1 FROM qlx_fabric_reservations
+                        WHERE roll_id = $1 AND status IN ('reserved', 'arrived')
+                        LIMIT 1
+                    `, [rollId]);
+                    const activeCut = await db.get(`
+                        SELECT 1 FROM kv_rolls
+                        WHERE id = $1 AND locked_by_cutting_id IS NOT NULL AND EXISTS (
+                            SELECT 1 FROM cutting_records WHERE id = locked_by_cutting_id AND is_cut_done = false
+                        )
+                    `, [rollId]);
+
+                    if (activeRes || activeCut) {
+                        return reply.code(400).send({ error: `Không thể thu hồi cây vải ${oldRoll.roll_code || oldRoll.id} về kho công ty vì cây đang được đánh dấu hoặc đang chờ cắt cho đơn hàng!` });
+                    }
+                }
+            }
+
             if (location) {
                 if (oldRoll.needs_photo) {
                     return reply.code(400).send({ error: `Cây vải ${oldRoll.roll_code || oldRoll.id} đã bị cắt thay đổi khối lượng. Bạn bắt buộc phải chụp lại ảnh thực tế mới của cây vải này trước khi xếp lên kệ!` });
@@ -540,6 +572,39 @@ module.exports = async function (fastify) {
         if (return_tx_id !== undefined) { updates.push(`return_tx_id = $${idx++}`); params.push(return_tx_id ? Number(return_tx_id) : null); }
         if (location !== undefined) {
             const cleanLoc = location === null ? null : (typeof location === 'string' ? location.trim() : null);
+
+            // Check if this is a recall (moving from partner shelf to non-partner shelf or null)
+            const currentLocName = oldRoll.location;
+            if (currentLocName) {
+                const currentLoc = await db.get('SELECT printing_contractor_id, name FROM kv_locations WHERE LOWER(name) = LOWER($1)', [currentLocName.trim()]);
+                const isCurrentPartner = currentLoc && currentLoc.printing_contractor_id !== null;
+                
+                let isTargetPartner = false;
+                if (cleanLoc) {
+                    const targetLoc = await db.get('SELECT printing_contractor_id, name FROM kv_locations WHERE LOWER(name) = LOWER($1)', [cleanLoc.trim()]);
+                    isTargetPartner = targetLoc && targetLoc.printing_contractor_id !== null;
+                }
+                
+                if (isCurrentPartner && !isTargetPartner) {
+                    // Check if roll has active reservations or cuts
+                    const activeRes = await db.get(`
+                        SELECT 1 FROM qlx_fabric_reservations
+                        WHERE roll_id = $1 AND status IN ('reserved', 'arrived')
+                        LIMIT 1
+                    `, [oldRoll.id]);
+                    const activeCut = await db.get(`
+                        SELECT 1 FROM kv_rolls
+                        WHERE id = $1 AND locked_by_cutting_id IS NOT NULL AND EXISTS (
+                            SELECT 1 FROM cutting_records WHERE id = locked_by_cutting_id AND is_cut_done = false
+                        )
+                    `, [oldRoll.id]);
+
+                    if (activeRes || activeCut) {
+                        return { error: `Không thể thu hồi cây vải ${oldRoll.roll_code || oldRoll.id} về kho công ty vì cây đang được đánh dấu hoặc đang chờ cắt cho đơn hàng!` };
+                    }
+                }
+            }
+
             if (cleanLoc === '📍 Kệ Dự Định Hoàn Vải') {
                 if (oldRoll.location !== '📍 Kệ Dự Định Hoàn Vải') {
                     updates.push(`original_location = $${idx++}`);
@@ -665,6 +730,23 @@ module.exports = async function (fastify) {
         const originalRoll = await db.get('SELECT * FROM kv_rolls WHERE id = $1', [rollId]);
         if (!originalRoll) {
             return reply.code(404).send({ error: 'Cây vải không tồn tại' });
+        }
+
+        // Check if roll has active reservations or cuts
+        const hasActiveRes = await db.get(`
+            SELECT 1 FROM qlx_fabric_reservations
+            WHERE roll_id = $1 AND status IN ('reserved', 'arrived')
+            LIMIT 1
+        `, [rollId]);
+        const hasActiveCut = await db.get(`
+            SELECT 1 FROM kv_rolls
+            WHERE id = $1 AND locked_by_cutting_id IS NOT NULL AND EXISTS (
+                SELECT 1 FROM cutting_records WHERE id = locked_by_cutting_id AND is_cut_done = false
+            )
+        `, [rollId]);
+
+        if (hasActiveRes || hasActiveCut) {
+            return reply.code(400).send({ error: 'Không thể tách cây vải này vì cây đang được đánh dấu hoặc đang chờ cắt cho đơn hàng!' });
         }
 
         const currentW = Number(originalRoll.weight);
