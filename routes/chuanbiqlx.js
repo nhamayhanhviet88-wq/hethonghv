@@ -1260,7 +1260,7 @@ module.exports = async function(fastify) {
         let cuttingRows = [];
         if (orderIds.length > 0) {
             cuttingRows = await db.all(`
-                SELECT dht_order_id, order_item_id, phoi_index, material_name, fabric_color, is_cutting, is_cut_done
+                SELECT dht_order_id, order_item_id, phoi_index, material_name, fabric_color, is_cutting, is_cut_done, printing_contractor_id
                 FROM cutting_records
                 WHERE dht_order_id = ANY($1)
             `, [orderIds]);
@@ -1268,7 +1268,8 @@ module.exports = async function(fastify) {
 
         const orderHasCuts = {};
         for (const c of cuttingRows) {
-            if (c.is_cutting || c.is_cut_done) {
+            const isInternalCutting = c.is_cutting && !c.printing_contractor_id;
+            if (isInternalCutting || c.is_cut_done) {
                 orderHasCuts[c.dht_order_id] = true;
             }
         }
@@ -1378,7 +1379,8 @@ module.exports = async function(fastify) {
                     return cMat === pMat && cColor === pColor;
                 });
 
-                if (match && (match.is_cutting || match.is_cut_done)) {
+                const isMatchCutOrCutting = match && (match.is_cut_done || (match.is_cutting && !match.printing_contractor_id));
+                if (isMatchCutOrCutting) {
                     const key = `${item.dht_order_id}_${item.id}_${pIdx}`;
                     phoiFabStatus[key] = {
                         total: 1,
@@ -1414,7 +1416,7 @@ module.exports = async function(fastify) {
                         if (pairs.length === 0) {
                             totalPhois++;
                             const itemCuts = cuttingRows.filter(c => c.order_item_id === it.id);
-                            const isCutOrCutting = itemCuts.some(c => c.is_cutting || c.is_cut_done);
+                            const isCutOrCutting = itemCuts.some(c => c.is_cut_done || (c.is_cutting && !c.printing_contractor_id));
                             if (isCutOrCutting) {
                                 arrivedPhois++;
                                 calledPhois++;
@@ -1445,7 +1447,8 @@ module.exports = async function(fastify) {
                                     return cMat === pMat && cColor === pColor;
                                 });
 
-                                if (match && (match.is_cutting || match.is_cut_done)) {
+                                const isMatchCutOrCutting = match && (match.is_cut_done || (match.is_cutting && !match.printing_contractor_id));
+                                if (isMatchCutOrCutting) {
                                     arrivedPhois++;
                                     calledPhois++;
                                 } else {

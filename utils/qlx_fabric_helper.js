@@ -15,7 +15,7 @@ async function recalculateOrderFabricStatus(orderId) {
 
         // Fetch cutting records
         const cuttingRows = await db.all(
-            'SELECT order_item_id, material_name, fabric_color, is_cutting, is_cut_done FROM cutting_records WHERE dht_order_id = $1',
+            'SELECT order_item_id, material_name, fabric_color, is_cutting, is_cut_done, printing_contractor_id FROM cutting_records WHERE dht_order_id = $1',
             [orderId]
         );
 
@@ -89,7 +89,7 @@ async function recalculateOrderFabricStatus(orderId) {
             if (pairs.length === 0) {
                 totalPhois++;
                 const itemCuts = cuttingRows.filter(c => c.order_item_id === it.id);
-                const isCutOrCutting = itemCuts.some(c => c.is_cutting || c.is_cut_done);
+                const isCutOrCutting = itemCuts.some(c => c.is_cut_done || (c.is_cutting && !c.printing_contractor_id));
                 if (isCutOrCutting) {
                     arrivedPhois++;
                     calledPhois++;
@@ -119,7 +119,8 @@ async function recalculateOrderFabricStatus(orderId) {
                         return cMat === pMat && cColor === pColor;
                     });
 
-                    if (match && (match.is_cutting || match.is_cut_done)) {
+                    const isMatchCutOrCutting = match && (match.is_cut_done || (match.is_cutting && !match.printing_contractor_id));
+                    if (isMatchCutOrCutting) {
                         arrivedPhois++;
                         calledPhois++;
                     } else {
