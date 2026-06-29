@@ -475,7 +475,8 @@ async function _bpcLoadRecords() {
                         item_index: ur.item_index,
                         phoi_in_item: ur.phoi_in_item,
                         item_desc: ur.item_desc,
-                        cutting_category: ur.cutting_category_name
+                        cutting_category: ur.cutting_category_name,
+                        phoi_pair_index: ur.phoi_pair_index
                     };
                 });
                 records = records.concat(unassignedRecords);
@@ -767,9 +768,9 @@ function _bpcMapRecordRow(r, i) {
         var ready = r.fabric_arrived && r.has_pc_in;
         if (ready) {
             if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
-                cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
+                cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
             } else {
-                cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
             }
         } else {
             var missing = [];
@@ -1462,23 +1463,27 @@ function _bpcRenderUnassigned() {
 
 async function _bpcClaimOrder(orderId, itemId, phoiIndex, orderCode) {
     if (window._bpcBusy) return;
+    if (arguments.length === 3 || typeof phoiIndex === 'string') {
+        orderCode = phoiIndex;
+        phoiIndex = null;
+    }
     // Find specific row for this phối from unassigned data
     var rows = _bpc.unassignedOrders.filter(function(r) { 
-        return r.id === orderId && (r.item_id || 0) === (itemId || 0) && r.phoi_pair_index === phoiIndex; 
+        return r.id === orderId && (r.item_id || 0) === (itemId || 0) && (phoiIndex === null || phoiIndex === undefined || r.phoi_pair_index === phoiIndex); 
     });
     if (rows.length === 0) {
         try {
             var unassignedRes = await apiCall('/api/cutting/unassigned');
             _bpc.unassignedOrders = unassignedRes.orders || [];
             rows = _bpc.unassignedOrders.filter(function(r) { 
-                return r.id === orderId && (r.item_id || 0) === (itemId || 0) && r.phoi_pair_index === phoiIndex; 
+                return r.id === orderId && (r.item_id || 0) === (itemId || 0) && (phoiIndex === null || phoiIndex === undefined || r.phoi_pair_index === phoiIndex); 
             });
         } catch (eUnassigned) {
             console.error('[BPC] failed to fetch unassigned on the fly:', eUnassigned);
         }
     }
     var o = rows[0] || {};
-    var title = o.order_code ? ((o.total_phoi > 1) ? o.order_code + ' — Phiếu ' + o.item_index + ' — P' + (phoiIndex + 1) : o.order_code) : orderCode;
+    var title = o.order_code ? ((o.total_phoi > 1 && phoiIndex !== null && phoiIndex !== undefined) ? o.order_code + ' — Phiếu ' + o.item_index + ' — P' + (phoiIndex + 1) : o.order_code) : orderCode;
     var priMap = { 'GẤP': ['🔴 GẤP','background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff'], 'GỬI': ['🟡 GỬI','background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff'] };
     var pri = priMap[o.shipping_priority] || ['🟣 CHUẨN','background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff'];
 
@@ -1504,7 +1509,7 @@ async function _bpcClaimOrder(orderId, itemId, phoiIndex, orderCode) {
     h += '</div>';
     h += '<div class="bpc-modal-actions">';
     h += '<button class="bpc-modal-btn cancel" onclick="_bpcCloseModal()">Hủy</button>';
-    h += '<button class="bpc-modal-btn confirm" id="_bpcConfirmBtn" onclick="_bpcDoClaimOrder(' + orderId + ',' + (itemId || 'null') + ',' + phoiIndex + ',\'' + orderCode + '\')">✂️ XÁC NHẬN NHẬN ĐƠN</button>';
+    h += '<button class="bpc-modal-btn confirm" id="_bpcConfirmBtn" onclick="_bpcDoClaimOrder(' + orderId + ',' + (itemId || 'null') + ',' + (phoiIndex !== undefined && phoiIndex !== null ? phoiIndex : 'null') + ',\'' + orderCode + '\')">✂️ XÁC NHẬN NHẬN ĐƠN</button>';
     h += '</div></div></div>';
 
     document.body.insertAdjacentHTML('beforeend', h);
