@@ -165,34 +165,22 @@ module.exports = async function(fastify) {
             ORDER BY r.return_requested_at DESC
         `);
 
-        if (pendingRequestedReturns.length > 0) {
-            return reply.code(409).send({
-                error: 'Không thể bắt đầu kiểm kê do còn yêu cầu hoàn vải chưa xử lý!',
-                pending_returns: pendingRequestedReturns
-            });
-        }
-
         // Check if there are active cutting records blocking
         const activeCuts = await db.all(`
             SELECT DISTINCT cr.id AS cut_id, cr.dht_order_id,
                             o.order_code, r.roll_code, r.location,
-                            r.weight,
+                            r.weight, cr.product_name,
                             CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
-                            CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name
+                            CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
+                            u.full_name AS operator_name
             FROM kv_rolls r
             JOIN cutting_records cr ON cr.id = r.locked_by_cutting_id
             LEFT JOIN dht_orders o ON o.id = cr.dht_order_id
             LEFT JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
             LEFT JOIN kv_materials m ON m.id = fc.material_id
+            LEFT JOIN users u ON u.id = cr.created_by
             WHERE cr.is_cut_done = false
         `);
-
-        if (activeCuts.length > 0) {
-            return reply.code(409).send({
-                error: 'Không thể bắt đầu kiểm kê vì còn đơn hàng đang cắt dở ở xưởng!',
-                active_cuts: activeCuts
-            });
-        }
 
         // Check if there are unassigned retail rolls (Cây Lẻ Cần Xử Lý Kho)
         const unassignedFreeLe = await db.all(`
@@ -227,9 +215,11 @@ module.exports = async function(fastify) {
             ORDER BY m.name, fc.color_name, r.id
         `);
 
-        if (unassignedFreeLe.length > 0) {
+        if (pendingRequestedReturns.length > 0 || activeCuts.length > 0 || unassignedFreeLe.length > 0) {
             return reply.code(409).send({
-                error: 'Không thể bắt đầu kiểm kê do còn cây lẻ cần xử lý kho chưa xếp lên kệ!',
+                error: 'Không thể bắt đầu kiểm kê do còn tồn tại các vấn đề chưa xử lý!',
+                pending_returns: pendingRequestedReturns,
+                active_cuts: activeCuts,
                 unassigned_free_le: unassignedFreeLe
             });
         }

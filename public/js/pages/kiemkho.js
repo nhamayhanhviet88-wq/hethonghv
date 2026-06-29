@@ -569,12 +569,8 @@ async function _kkStartSession() {
         // Attempt starting audit
         const res = await apiCall('/api/stockcheck/start-session', 'POST');
         if (res && res.error) {
-            if (res.pending_returns) {
-                _kkShowBlockedReturnsModal(res.pending_returns);
-            } else if (res.active_cuts) {
-                _kkShowBlockedCutsModal(res.active_cuts);
-            } else if (res.unassigned_free_le) {
-                _kkShowBlockedUnassignedLeModal(res.unassigned_free_le);
+            if (res.pending_returns || res.active_cuts || res.unassigned_free_le) {
+                _kkShowUnifiedBlockedModal(res);
             } else {
                 showToast(res.error, 'error');
             }
@@ -591,12 +587,8 @@ async function _kkStartSession() {
     } catch (e) {
         // Handle blocked cuts, returns or unassigned retail rolls (409 Conflict)
         if (e.status === 409 && e.data) {
-            if (e.data.pending_returns) {
-                _kkShowBlockedReturnsModal(e.data.pending_returns);
-            } else if (e.data.active_cuts) {
-                _kkShowBlockedCutsModal(e.data.active_cuts);
-            } else if (e.data.unassigned_free_le) {
-                _kkShowBlockedUnassignedLeModal(e.data.unassigned_free_le);
+            if (e.data.pending_returns || e.data.active_cuts || e.data.unassigned_free_le) {
+                _kkShowUnifiedBlockedModal(e.data);
             } else {
                 showToast(e.message || 'Không thể bắt đầu kiểm kê.', 'error');
             }
@@ -606,212 +598,335 @@ async function _kkStartSession() {
     }
 }
 
-// ========== SHOW MODAL FOR BLOCKED CUTTING RECORDS ==========
-function _kkShowBlockedCutsModal(cuts) {
-    let rowsHtml = '';
-    cuts.forEach((c, idx) => {
-        rowsHtml += `
-            <tr>
-                <td class="text-center font-weight-bold">${idx + 1}</td>
-                <td><span class="badge badge-danger" style="font-size:11px;">${c.order_code || '—'}</span></td>
-                <td class="font-weight-bold">${c.material_name || '—'}</td>
-                <td><span class="badge badge-secondary" style="font-size:11px; background-color:#f1f5f9; color:#334155; border: 1px solid #e2e8f0;">${c.color_name || '—'}</span></td>
-                <td class="font-weight-bold text-teal">${c.weight ? c.weight + ' kg' : '—'}</td>
-                <td><span class="badge badge-secondary" style="font-size:11px;">Kệ: ${c.location || 'Chưa xếp'}</span></td>
-            </tr>
-        `;
-    });
-
-    const modalHtml = `
-        <div class="kk-modal-overlay" id="kkBlockedCutsModal">
-            <div class="kk-modal" style="max-width:680px;">
-                <div class="kk-modal-header" style="background:#fef2f2; border-bottom:1px solid #fee2e2;">
-                    <div class="kk-modal-title" style="color:#b91c1c; display:flex; align-items:center; gap:8px;">
-                        <span>🚫 KHÔNG THỂ BẮT ĐẦU KIỂM KHO</span>
-                    </div>
-                    <button class="close" onclick="_kkCloseModal('kkBlockedCutsModal')" style="font-size:24px; border:none; background:none;">&times;</button>
-                </div>
-                <div class="kk-modal-body">
-                    <p style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.5;">
-                        Hiện tại xưởng cắt đang <strong>sử dụng dở dang</strong> các cây vải sau. Vui lòng liên hệ bộ phận cắt hoàn thành cắt hoặc hoàn vải trước khi bắt đầu đợt kiểm kê mới:
-                    </p>
-                    <div style="max-height:250px; overflow-y:auto; border:1px solid #f1f5f9; border-radius:8px;">
-                        <table class="table" style="font-size:11px; margin:0;">
-                            <thead>
-                                <tr style="background:#fafafa;">
-                                    <th style="width:40px;" class="text-center">STT</th>
-                                    <th>Mã Đơn Hàng</th>
-                                    <th>Chất Liệu</th>
-                                    <th>Màu Sắc</th>
-                                    <th>Cân Nặng</th>
-                                    <th>Kệ / Vị Trí</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${rowsHtml}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="kk-modal-footer">
-                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkBlockedCutsModal')">Đóng</button>
-                </div>
-            </div>
-        </div>
-    `;
+// ========== SHOW UNIFIED BLOCKED MODAL ==========
+function _kkShowUnifiedBlockedModal(data) {
+    const pendingReturns = data.pending_returns || [];
+    const activeCuts = data.active_cuts || [];
+    const unassignedFreeLe = data.unassigned_free_le || [];
     
-    // Append to body
-    const div = document.createElement('div');
-    div.id = 'kkBlockedCutsModalContainer';
-    div.innerHTML = modalHtml;
-    document.body.appendChild(div);
-}
+    // Choose default active tab (the first tab that has errors)
+    let activeTab = 'cuts';
+    if (activeCuts.length > 0) {
+        activeTab = 'cuts';
+    } else if (unassignedFreeLe.length > 0) {
+        activeTab = 'unassigned';
+    } else if (pendingReturns.length > 0) {
+        activeTab = 'returns';
+    }
 
-// ========== SHOW MODAL FOR BLOCKED RETURNS ==========
-function _kkShowBlockedReturnsModal(pendingReturns) {
-    let pendingRowsHtml = '';
-
-    if (pendingReturns && pendingReturns.length > 0) {
-        pendingReturns.forEach((r, idx) => {
-            const dateStr = r.return_requested_at ? new Date(r.return_requested_at).toLocaleDateString('vi-VN') : '—';
-            pendingRowsHtml += `
+    // Generate active cuts rows
+    let cutsRowsHtml = '';
+    if (activeCuts.length > 0) {
+        activeCuts.forEach((c, idx) => {
+            cutsRowsHtml += `
                 <tr>
-                    <td class="text-center font-weight-bold">${idx + 1}</td>
-                    <td class="font-weight-bold">${r.material_name || '—'}</td>
-                    <td><span class="badge badge-secondary" style="font-size:11px; background-color:#f1f5f9; color:#334155; border: 1px solid #e2e8f0;">${r.color_name || '—'}</span></td>
-                    <td class="font-weight-bold text-teal">${r.weight ? r.weight + ' kg' : '—'}</td>
-                    <td><span class="badge badge-info" style="font-size:11px;">${r.requester_name || '—'}</span></td>
-                    <td><span class="text-muted" style="font-size:11px;">${dateStr}</span></td>
+                    <td class="text-center font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${idx + 1}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-danger" style="font-size:11px;">${c.order_code || '—'}</span></td>
+                    <td class="font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${c.material_name || '—'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-secondary" style="font-size:11px; background-color:#f1f5f9; color:#334155; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius:4px;">${c.color_name || '—'}</span></td>
+                    <td class="font-weight-bold text-teal" style="padding: 8px; border-bottom: 1px solid #f1f5f9; color:#0d9488;">${c.weight ? c.weight + ' kg' : '—'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-secondary" style="font-size:11px;">Kệ: ${c.location || 'Chưa xếp'}</span></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9; font-weight:600; color:#475569;">${c.operator_name || '—'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9; color:#64748b; font-size:10px;" title="${c.product_name || ''}">${c.product_name ? c.product_name.split(' — ').slice(-1)[0] : '—'}</td>
                 </tr>
             `;
         });
     }
 
-    let bodyHtml = '';
-    if (pendingRowsHtml) {
-        bodyHtml += `
-            <div style="font-weight: 800; color: #b91c1c; font-size: 13px; margin-top: 10px; margin-bottom: 6px;">⚠️ YÊU CẦU LẬP BILL HOÀN VẢI TRƯỚC (CHƯA XỬ LÝ)</div>
-            <div style="max-height:220px; overflow-y:auto; border:1px solid #f1f5f9; border-radius:8px; margin-bottom: 16px;">
-                <table class="table" style="font-size:11px; margin:0;">
-                    <thead>
-                        <tr style="background:#fafafa;">
-                            <th style="width:40px;" class="text-center">STT</th>
-                            <th>Chất Liệu</th>
-                            <th>Màu Sắc</th>
-                            <th>Cân Nặng</th>
-                            <th>Người Gửi</th>
-                            <th>Ngày Gửi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${pendingRowsHtml}
-                    </tbody>
-                </table>
-            </div>
-        `;
+    // Generate unassigned retail rolls rows
+    let unassignedRowsHtml = '';
+    if (unassignedFreeLe.length > 0) {
+        unassignedFreeLe.forEach((r, idx) => {
+            unassignedRowsHtml += `
+                <tr>
+                    <td class="text-center font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${idx + 1}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-warning" style="font-size:11px; background-color:#fffbeb; color:#b45309; border: 1px solid #fde68a; padding: 2px 6px; border-radius: 4px;">${r.roll_code || '—'}</span></td>
+                    <td class="font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${r.material_name || '—'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-secondary" style="font-size:11px; background-color:#f1f5f9; color:#334155; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px;">${r.color_name || '—'}</span></td>
+                    <td class="font-weight-bold text-teal" style="padding: 8px; border-bottom: 1px solid #f1f5f9; color:#0d9488;">${r.weight ? r.weight + ' kg' : '—'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-info" style="font-size:11px; background-color:#ecfeff; color:#0891b2; border: 1px solid #cffafe; padding: 2px 6px; border-radius: 4px;">${r.warehouse_name || '—'}</span></td>
+                </tr>
+            `;
+        });
+    }
+
+    // Generate pending returns rows
+    let returnsRowsHtml = '';
+    if (pendingReturns.length > 0) {
+        pendingReturns.forEach((r, idx) => {
+            const dateStr = r.return_requested_at ? new Date(r.return_requested_at).toLocaleDateString('vi-VN') : '—';
+            returnsRowsHtml += `
+                <tr>
+                    <td class="text-center font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${idx + 1}</td>
+                    <td class="font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${r.material_name || '—'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-secondary" style="font-size:11px; background-color:#f1f5f9; color:#334155; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px;">${r.color_name || '—'}</span></td>
+                    <td class="font-weight-bold text-teal" style="padding: 8px; border-bottom: 1px solid #f1f5f9; color:#0d9488;">${r.weight ? r.weight + ' kg' : '—'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-info" style="font-size:11px;">${r.requester_name || '—'}</span></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f1f5f9; color:#64748b;">${dateStr}</td>
+                </tr>
+            `;
+        });
     }
 
     const isMobile = window.location.pathname.startsWith('/m/');
-    const redirectUrl = isMobile ? '/m/nhapxuathoanvai' : '/nhapxuathoanvai';
+    const redirectReturnsUrl = isMobile ? '/m/nhapxuathoanvai' : '/nhapxuathoanvai';
+    const redirectLeUrl = isMobile ? '/m/quanlykhovai' : '/quanlykhovai';
+
+    // Format data for JS function copy call
+    window._kkCurrentBlockData = data;
 
     const modalHtml = `
-        <div class="kk-modal-overlay" id="kkBlockedReturnsModal">
-            <div class="kk-modal" style="max-width:680px; width:95%;">
-                <div class="kk-modal-header" style="background:#fef2f2; border-bottom:1px solid #fee2e2;">
-                    <div class="kk-modal-title" style="color:#b91c1c; display:flex; align-items:center; gap:8px;">
+        <div class="kk-modal-overlay" id="kkUnifiedBlockedModal" style="z-index: 10000; display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);">
+            <div class="kk-modal" style="max-width: 850px; width: 95%; background: #fff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column;">
+                <div class="kk-modal-header" style="background: #fef2f2; border-bottom: 1px solid #fee2e2; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="kk-modal-title" style="color: #b91c1c; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
                         <span>🚫 KHÔNG THỂ BẮT ĐẦU KIỂM KHO</span>
                     </div>
-                    <button class="close" onclick="_kkCloseModal('kkBlockedReturnsModal')" style="font-size:24px; border:none; background:none;">&times;</button>
+                    <button class="close" onclick="_kkCloseModal('kkUnifiedBlockedModal')" style="font-size: 24px; border: none; background: none; cursor: pointer; color: #94a3b8; line-height: 1;">&times;</button>
                 </div>
-                <div class="kk-modal-body">
-                    <p style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.5;">
-                        Hệ thống phát hiện có <strong>yêu cầu lập bill hoàn vải chưa xử lý</strong> từ bộ phận kho. Kế toán bắt buộc phải xử lý hết trước khi tiếp tục thực hiện kiểm kho.
+                
+                <div class="kk-modal-body" style="padding: 20px; overflow-y: auto; max-height: calc(85vh - 120px);">
+                    <p style="font-size: 13px; color: #475569; margin-bottom: 16px; line-height: 1.5;">
+                        Hệ thống phát hiện còn tồn tại một số công việc chưa hoàn thành hoặc cây lẻ chưa được xếp vị trí kệ. Vui lòng xử lý dứt điểm các mục dưới đây trước khi bắt đầu đợt kiểm kê mới:
                     </p>
-                    ${bodyHtml}
+
+                    <!-- Tabs Header -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; flex-wrap: wrap;">
+                        <button id="kkTabBtnCuts" class="kk-tab-btn ${activeTab === 'cuts' ? 'active' : ''}" onclick="_kkSwitchBlockedTab('cuts')" style="padding: 8px 14px; border: none; background: ${activeTab === 'cuts' ? '#0d9488' : '#f1f5f9'}; color: ${activeTab === 'cuts' ? '#fff' : '#64748b'}; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; outline: none; transition: all 0.2s;">
+                            ✂️ Cắt Dở Xưởng
+                            ${activeCuts.length > 0 ? `<span style="background: #ef4444; color: #fff; border-radius: 50%; font-size: 10px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold;">${activeCuts.length}</span>` : `<span style="color: #10b981;">✅</span>`}
+                        </button>
+                        
+                        <button id="kkTabBtnUnassigned" class="kk-tab-btn ${activeTab === 'unassigned' ? 'active' : ''}" onclick="_kkSwitchBlockedTab('unassigned')" style="padding: 8px 14px; border: none; background: ${activeTab === 'unassigned' ? '#0d9488' : '#f1f5f9'}; color: ${activeTab === 'unassigned' ? '#fff' : '#64748b'}; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; outline: none; transition: all 0.2s;">
+                            🛠️ Cây Lẻ Chưa Xếp Kệ
+                            ${unassignedFreeLe.length > 0 ? `<span style="background: #ef4444; color: #fff; border-radius: 50%; font-size: 10px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold;">${unassignedFreeLe.length}</span>` : `<span style="color: #10b981;">✅</span>`}
+                        </button>
+
+                        <button id="kkTabBtnReturns" class="kk-tab-btn ${activeTab === 'returns' ? 'active' : ''}" onclick="_kkSwitchBlockedTab('returns')" style="padding: 8px 14px; border: none; background: ${activeTab === 'returns' ? '#0d9488' : '#f1f5f9'}; color: ${activeTab === 'returns' ? '#fff' : '#64748b'}; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; outline: none; transition: all 0.2s;">
+                            🔄 Chờ Hoàn NCC
+                            ${pendingReturns.length > 0 ? `<span style="background: #ef4444; color: #fff; border-radius: 50%; font-size: 10px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold;">${pendingReturns.length}</span>` : `<span style="color: #10b981;">✅</span>`}
+                        </button>
+                    </div>
+
+                    <!-- Tab Contents -->
+                    
+                    <!-- Tab 1: Active Cuts -->
+                    <div id="kkTabContentCuts" style="display: ${activeTab === 'cuts' ? 'block' : 'none'};">
+                        ${activeCuts.length === 0 ? `
+                            <div style="text-align: center; padding: 30px; color: #10b981; font-weight: 700; background: #f0fdf4; border-radius: 8px; border: 1px dashed #bbf7d0;">
+                                ✅ SẴN SÀNG: Không có đơn hàng nào đang cắt dở dang ở xưởng.
+                            </div>
+                        ` : `
+                            <div style="font-weight: 700; color: #b91c1c; font-size: 12px; margin-bottom: 8px;">⚠️ YÊU CẦU BẤM HOÀN THÀNH CẮT HOẶC HOÀN VẢI</div>
+                            <div style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                <table class="table" style="font-size: 11px; margin: 0; width: 100%; border-collapse: collapse; text-align: left;">
+                                    <thead>
+                                        <tr style="background: #fafafa; border-bottom: 1px solid #e2e8f0;">
+                                            <th style="width: 40px; padding: 8px; border-bottom: 1px solid #e2e8f0;" class="text-center">STT</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Mã Đơn</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Chất Liệu</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Màu Sắc</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Cân Nặng</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Kệ/Vị Trí</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Người Cắt</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Sản Phẩm</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${cutsRowsHtml}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Tab 2: Unassigned Retail Rolls -->
+                    <div id="kkTabContentUnassigned" style="display: ${activeTab === 'unassigned' ? 'block' : 'none'};">
+                        ${unassignedFreeLe.length === 0 ? `
+                            <div style="text-align: center; padding: 30px; color: #10b981; font-weight: 700; background: #f0fdf4; border-radius: 8px; border: 1px dashed #bbf7d0;">
+                                ✅ SẴN SÀNG: Tất cả cây lẻ đã được xếp vị trí kệ đầy đủ.
+                            </div>
+                        ` : `
+                            <div style="font-weight: 700; color: #b45309; font-size: 12px; margin-bottom: 8px;">⚠️ YÊU CẦU XẾP KỆ VỊ TRÍ CHO CÂY LẺ TRONG KHO</div>
+                            <div style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                <table class="table" style="font-size: 11px; margin: 0; width: 100%; border-collapse: collapse; text-align: left;">
+                                    <thead>
+                                        <tr style="background: #fafafa; border-bottom: 1px solid #e2e8f0;">
+                                            <th style="width: 40px; padding: 8px; border-bottom: 1px solid #e2e8f0;" class="text-center">STT</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Mã Cây</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Chất Liệu</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Màu Sắc</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Cân Nặng</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Kho Vải</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${unassignedRowsHtml}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="margin-top: 12px;">
+                                <a href="${redirectLeUrl}" class="kk-btn kk-btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#f59e0b,#d97706); border: none; color: #fff; font-weight: 700; padding: 8px 16px; border-radius: 6px; font-size: 12px;">
+                                    🚚 Đi đến Quản Lý Nhập Kho Vải (mục Cây Lẻ Cần Xử Lý)
+                                </a>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Tab 3: Pending Returns -->
+                    <div id="kkTabContentReturns" style="display: ${activeTab === 'returns' ? 'block' : 'none'};">
+                        ${pendingReturns.length === 0 ? `
+                            <div style="text-align: center; padding: 30px; color: #10b981; font-weight: 700; background: #f0fdf4; border-radius: 8px; border: 1px dashed #bbf7d0;">
+                                ✅ SẴN SÀNG: Không có yêu cầu hoàn vải nào chưa xử lý.
+                            </div>
+                        ` : `
+                            <div style="font-weight: 700; color: #b91c1c; font-size: 12px; margin-bottom: 8px;">⚠️ YÊU CẦU LẬP BILL HOÀN VẢI CHO ĐƠN TRẢ NHÀ CUNG CẤP</div>
+                            <div style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                <table class="table" style="font-size: 11px; margin: 0; width: 100%; border-collapse: collapse; text-align: left;">
+                                    <thead>
+                                        <tr style="background: #fafafa; border-bottom: 1px solid #e2e8f0;">
+                                            <th style="width: 40px; padding: 8px; border-bottom: 1px solid #e2e8f0;" class="text-center">STT</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Chất Liệu</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Màu Sắc</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Cân Nặng</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Người Gửi</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Ngày Gửi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${returnsRowsHtml}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="margin-top: 12px;">
+                                <a href="${redirectReturnsUrl}" class="kk-btn kk-btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#e53e3e,#c53030); border: none; color: #fff; font-weight: 700; padding: 8px 16px; border-radius: 6px; font-size: 12px;">
+                                    🔄 Đi đến Nhập Xuất Hoàn Vải
+                                </a>
+                            </div>
+                        `}
+                    </div>
                 </div>
-                <div class="kk-modal-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                    <a href="${redirectUrl}" class="kk-btn kk-btn-primary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#e53e3e,#c53030); border:none; color:#fff; font-weight:700;">
-                        🔄 Đi đến Nhập Xuất Hoàn Vải
-                    </a>
-                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkBlockedReturnsModal')">Đóng</button>
+                
+                <div class="kk-modal-footer" style="padding: 16px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <button class="kk-btn" onclick="_kkTriggerCopyBlockedReport()" style="display: inline-flex; align-items: center; gap: 6px; background: #1e293b; color: #fff; border: none; font-weight: 700; padding: 8px 16px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                        📋 Sao Chép Báo Cáo Zalo / Telegram
+                    </button>
+                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkUnifiedBlockedModal')" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-size: 12px; cursor: pointer;">Đóng</button>
                 </div>
             </div>
         </div>
     `;
-    
-    // Append to body
-    const div = document.createElement('div');
-    div.id = 'kkBlockedReturnsModalContainer';
-    div.innerHTML = modalHtml;
-    document.body.appendChild(div);
-}
-
-// ========== SHOW MODAL FOR BLOCKED UNASSIGNED LE ROLLS ==========
-function _kkShowBlockedUnassignedLeModal(rolls) {
-    let rowsHtml = '';
-    rolls.forEach((r, idx) => {
-        rowsHtml += `
-            <tr>
-                <td class="text-center font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${idx + 1}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-warning" style="font-size:11px; background-color:#fffbeb; color:#b45309; border: 1px solid #fde68a; padding: 3px 6px; border-radius: 4px;">${r.roll_code || '—'}</span></td>
-                <td class="font-weight-bold" style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${r.material_name || '—'}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-secondary" style="font-size:11px; background-color:#f1f5f9; color:#334155; border: 1px solid #e2e8f0; padding: 3px 6px; border-radius: 4px;">${r.color_name || '—'}</span></td>
-                <td class="font-weight-bold text-teal" style="padding: 8px; border-bottom: 1px solid #f1f5f9; color:#0d9488;">${r.weight ? r.weight + ' kg' : '—'}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;"><span class="badge badge-info" style="font-size:11px; background-color:#ecfeff; color:#0891b2; border: 1px solid #cffafe; padding: 3px 6px; border-radius: 4px;">${r.warehouse_name || '—'}</span></td>
-            </tr>
-        `;
-    });
-
-    const isMobile = window.location.pathname.startsWith('/m/');
-    const redirectUrl = isMobile ? '/m/quanlykhovai' : '/quanlykhovai';
-
-    const modalHtml = `
-        <div class="kk-modal-overlay" id="kkBlockedUnassignedLeModal">
-            <div class="kk-modal" style="max-width:680px; width:95%; background:#fff; border-radius:12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); overflow:hidden;">
-                <div class="kk-modal-header" style="background:#fffbeb; border-bottom:1px solid #fef3c7; padding: 16px 20px; display:flex; justify-content:space-between; align-items:center;">
-                    <div class="kk-modal-title" style="color:#b45309; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
-                        <span>⚠️ KHÔNG THỂ BẮT ĐẦU KIỂM KHO</span>
-                    </div>
-                    <button class="close" onclick="_kkCloseModal('kkBlockedUnassignedLeModal')" style="font-size:24px; border:none; background:none; cursor:pointer; color:#94a3b8;">&times;</button>
-                </div>
-                <div class="kk-modal-body" style="padding: 20px;">
-                    <p style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.5;">
-                        Hệ thống phát hiện có <strong>cây lẻ chưa được xếp lên kệ</strong> (trong mục 🛠️ Cây Lẻ Cần Xử Lý Kho). Bạn bắt buộc phải xếp hết các cây lẻ này lên vị trí kệ trước khi bắt đầu đợt kiểm kê mới:
-                    </p>
-                    <div style="max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom: 16px;">
-                        <table class="table" style="font-size:11px; margin:0; width:100%; border-collapse:collapse; text-align:left;">
-                            <thead>
-                                <tr style="background:#f8fafc;">
-                                    <th style="width:40px; padding:8px; border-bottom: 1px solid #e2e8f0;" class="text-center">STT</th>
-                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Mã Cây Vải</th>
-                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Chất Liệu</th>
-                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Màu Sắc</th>
-                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Cân Nặng</th>
-                                    <th style="padding:8px; border-bottom: 1px solid #e2e8f0;">Kho Vải</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${rowsHtml}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="kk-modal-footer" style="padding: 16px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                    <a href="${redirectUrl}" class="kk-btn kk-btn-primary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#f59e0b,#d97706); border:none; color:#fff; font-weight:700; padding:8px 16px; border-radius:6px; font-size:12px; cursor:pointer;">
-                        🚚 Đi đến Quản Lý Nhập Kho Vải
-                    </a>
-                    <button class="kk-btn kk-btn-secondary" onclick="_kkCloseModal('kkBlockedUnassignedLeModal')" style="padding:8px 16px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; color:#475569; font-size:12px; cursor:pointer;">Đóng</button>
-                </div>
-            </div>
-        </div>
-    `;
 
     // Append to body
     const div = document.createElement('div');
-    div.id = 'kkBlockedUnassignedLeModalContainer';
+    div.id = 'kkUnifiedBlockedModalContainer';
     div.innerHTML = modalHtml;
     document.body.appendChild(div);
     _kkUpdateBodyScroll();
+}
+
+// ========== SWITCH TAB IN UNIFIED BLOCKED MODAL ==========
+function _kkSwitchBlockedTab(tabName) {
+    const tabs = ['cuts', 'unassigned', 'returns'];
+    const tabBtns = {
+        cuts: document.getElementById('kkTabBtnCuts'),
+        unassigned: document.getElementById('kkTabBtnUnassigned'),
+        returns: document.getElementById('kkTabBtnReturns')
+    };
+    const tabContents = {
+        cuts: document.getElementById('kkTabContentCuts'),
+        unassigned: document.getElementById('kkTabContentUnassigned'),
+        returns: document.getElementById('kkTabContentReturns')
+    };
+
+    tabs.forEach(t => {
+        if (t === tabName) {
+            if (tabBtns[t]) {
+                tabBtns[t].style.backgroundColor = '#0d9488';
+                tabBtns[t].style.color = '#fff';
+            }
+            if (tabContents[t]) tabContents[t].style.display = 'block';
+        } else {
+            if (tabBtns[t]) {
+                tabBtns[t].style.backgroundColor = '#f1f5f9';
+                tabBtns[t].style.color = '#64748b';
+            }
+            if (tabContents[t]) tabContents[t].style.display = 'none';
+        }
+    });
+}
+window._kkSwitchBlockedTab = _kkSwitchBlockedTab;
+
+// ========== COPY BLOCKED REPORT FLOW ==========
+function _kkTriggerCopyBlockedReport() {
+    const data = window._kkCurrentBlockData;
+    if (!data) return;
+
+    const pendingReturns = data.pending_returns || [];
+    const activeCuts = data.active_cuts || [];
+    const unassignedFreeLe = data.unassigned_free_le || [];
+
+    let text = `⚠️ [CẢNH BÁO] CHƯA THỂ KHÓA KHO KIỂM KÊ\n`;
+    text += `Phát hiện các vấn đề cần xử lý gấp trước khi tiến hành kiểm kho:\n\n`;
+
+    text += `1. YÊU CẦU LẬP BILL HOÀN VẢI CHƯA XỬ LÝ (${pendingReturns.length} cây):\n`;
+    if (pendingReturns.length > 0) {
+        pendingReturns.forEach((r, idx) => {
+            const dateStr = r.return_requested_at ? new Date(r.return_requested_at).toLocaleDateString('vi-VN') : '—';
+            text += `   - Cây ${r.roll_code || '—'}: ${r.weight || '—'} kg (${r.material_name || '—'} - ${r.color_name || '—'}) - Người gửi: ${r.requester_name || '—'} (${dateStr})\n`;
+        });
+    } else {
+        text += `   ✅ Sẵn sàng\n`;
+    }
+
+    text += `\n2. ĐƠN HÀNG ĐANG CẮT DỞ DANG (${activeCuts.length} cây):\n`;
+    if (activeCuts.length > 0) {
+        activeCuts.forEach((c, idx) => {
+            text += `   - Đơn ${c.order_code || '—'}: Cây ${c.weight || '—'} kg (${c.material_name || '—'} - ${c.color_name || '—'}) - Người cắt: ${c.operator_name || 'Hệ thống'} - Kệ: ${c.location || 'Chưa xếp'}\n`;
+        });
+    } else {
+        text += `   ✅ Sẵn sàng\n`;
+    }
+
+    text += `\n3. CÂY LẺ CHƯA XẾP VỊ TRÍ KỆ (${unassignedFreeLe.length} cây):\n`;
+    if (unassignedFreeLe.length > 0) {
+        unassignedFreeLe.forEach((r, idx) => {
+            text += `   - Cây ${r.roll_code || '—'}: ${r.weight || '—'} kg (${r.material_name || '—'} - ${r.color_name || '—'}) - Kho: ${r.warehouse_name || '—'}\n`;
+        });
+    } else {
+        text += `   ✅ Sẵn sàng\n`;
+    }
+
+    text += `\nĐề nghị các bộ phận liên quan hoàn thành công việc hoặc xếp cây lên kệ để thủ kho khóa kho bắt đầu kiểm kê!`;
+
+    // Fallback copy logic
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('📋 Đã sao chép báo cáo vào bộ nhớ tạm!', 'success');
+        }).catch(() => {
+            _kkFallbackCopyText(text);
+        });
+    } else {
+        _kkFallbackCopyText(text);
+    }
+}
+window._kkTriggerCopyBlockedReport = _kkTriggerCopyBlockedReport;
+
+function _kkFallbackCopyText(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";  // avoid scrolling to bottom
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        showToast('📋 Đã sao chép báo cáo vào bộ nhớ tạm!', 'success');
+    } catch (err) {
+        console.error('Fallback copy failed', err);
+        showToast('Không thể sao chép tự động, vui lòng chọn và sao chép thủ công.', 'error');
+    }
+    document.body.removeChild(textArea);
 }
 
 function _kkUpdateBodyScroll() {
@@ -825,6 +940,7 @@ function _kkUpdateBodyScroll() {
                        document.getElementById('kkBlockedCutsModal') ||
                        document.getElementById('kkBlockedReturnsModal') ||
                        document.getElementById('kkBlockedUnassignedLeModal') ||
+                       document.getElementById('kkUnifiedBlockedModal') ||
                        document.getElementById('kkFinishConfirmModal') ||
                        document.getElementById('kkMaterialSelectModal');
     if (hasOpenModal) {
