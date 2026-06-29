@@ -912,7 +912,18 @@ module.exports = async function(fastify) {
                            )
                        END
                    )::boolean AS fabric_arrived,
-                   COALESCE(NULLIF(fc.location, ''), NULLIF(m.location, '')) AS warehouse_location,
+                   COALESCE(
+                       (
+                           SELECT string_agg(DISTINCT COALESCE(NULLIF(r_loc.location, ''), 'Chưa vị trí'), ', ')
+                           FROM qlx_fabric_reservations res_loc
+                           JOIN kv_rolls r_loc ON r_loc.id = res_loc.roll_id
+                           WHERE res_loc.item_id = cr.order_item_id
+                             AND res_loc.phoi_index = cr.phoi_index
+                             AND res_loc.status NOT IN ('released', 'fulfilled')
+                       ),
+                       NULLIF(fc.location, ''),
+                       NULLIF(m.location, '')
+                   ) AS warehouse_location,
                    (
                        SELECT sub.cut_quantity 
                        FROM cutting_records sub 
@@ -1022,7 +1033,18 @@ module.exports = async function(fastify) {
                            )
                        END
                    )::boolean AS fabric_arrived,
-                   COALESCE(NULLIF(fc.location, ''), NULLIF(m.location, '')) AS warehouse_location,
+                   COALESCE(
+                       (
+                           SELECT string_agg(DISTINCT COALESCE(NULLIF(r_loc.location, ''), 'Chưa vị trí'), ', ')
+                           FROM qlx_fabric_reservations res_loc
+                           JOIN kv_rolls r_loc ON r_loc.id = res_loc.roll_id
+                           WHERE res_loc.item_id = cr.order_item_id
+                             AND res_loc.phoi_index = cr.phoi_index
+                             AND res_loc.status NOT IN ('released', 'fulfilled')
+                       ),
+                       NULLIF(fc.location, ''),
+                       NULLIF(m.location, '')
+                   ) AS warehouse_location,
                    (
                        SELECT sub.cut_quantity 
                        FROM cutting_records sub 
