@@ -964,8 +964,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                                 if (ac.item_index && ac.phoi_index !== undefined) t += ` - P${ac.item_index}.${ac.phoi_index + 1}`;
                                                 if (!codes.includes(t)) codes.push(t);
                                             });
-                                            busyDetails = codes.join(', ');
-                                            moveHtml = `<span style="font-size:10px; color:#475569; font-weight:700; font-style:italic; background:#f1f5f9; border:1px solid #cbd5e1; padding:2px 6px; border-radius:4px;" title="Cây vải đang bận phục vụ cho đơn hàng: ${escapeHTML(busyDetails)}">🔒 Giữ cho ${escapeHTML(busyDetails)}</span>`;
+                                            moveHtml = `<span style="font-size:10px; color:#475569; font-weight:700; font-style:italic; background:#f1f5f9; border:1px solid #cbd5e1; padding:2px 6px; border-radius:4px; white-space:nowrap;" title="Cây vải đang bận phục vụ cho đơn hàng: ${escapeHTML(busyDetails)}">🔒 Đang giữ cắt</span>`;
                                         } else {
                                             moveHtml = `
                                                 <button class="btn btn-xs btn-outline-info" style="padding:2px 6px; font-size:10px; font-weight:700; color:#0284c7; border-color:#0284c7; background:#f0f9ff; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _qkvOnRecallRoll(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}')">↩️ Thu Hồi</button>
