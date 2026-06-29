@@ -5,18 +5,33 @@ const { vnNow, vnFormat } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
-    async function get3DCuttingContractor(dhtOrderId) {
+    async function get3DCuttingContractor(dhtOrderId, orderItemId) {
         if (!dhtOrderId) return null;
-        const assignment = await db.get(`
-            SELECT qa.operator_id AS assigned_contractor_id
-            FROM qlx_order_print_assignments qa
-            JOIN printing_fields pf ON qa.field_id = pf.id
-            WHERE qa.dht_order_id = $1 
-              AND qa.operator_type = 'contractor'
-              AND qa.operator_id IS NOT NULL
-              AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
-            LIMIT 1
-        `, [dhtOrderId]);
+        let assignment = null;
+        if (orderItemId) {
+            assignment = await db.get(`
+                SELECT qa.operator_id AS assigned_contractor_id
+                FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE qa.item_id = $1 
+                  AND qa.operator_type = 'contractor'
+                  AND qa.operator_id IS NOT NULL
+                  AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                LIMIT 1
+            `, [orderItemId]);
+        }
+        if (!assignment) {
+            assignment = await db.get(`
+                SELECT qa.operator_id AS assigned_contractor_id
+                FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE qa.dht_order_id = $1 AND qa.item_id IS NULL
+                  AND qa.operator_type = 'contractor'
+                  AND qa.operator_id IS NOT NULL
+                  AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                LIMIT 1
+            `, [dhtOrderId]);
+        }
         return assignment ? assignment.assigned_contractor_id : null;
     }
 
@@ -216,13 +231,16 @@ module.exports = async function(fastify) {
                 });
             }
         });
-        if (rollIds.length === 0) return;
         try {
-            const rollsDb = await db.all(`SELECT id, source_import_id FROM kv_rolls WHERE id = ANY($1)`, [rollIds]);
             const importIdMap = {};
-            rollsDb.forEach(rl => {
-                importIdMap[rl.id] = rl.source_import_id;
-            });
+            const locationMap = {};
+            if (rollIds.length > 0) {
+                const rollsDb = await db.all(`SELECT id, source_import_id, location FROM kv_rolls WHERE id = ANY($1)`, [rollIds]);
+                rollsDb.forEach(rl => {
+                    importIdMap[rl.id] = rl.source_import_id;
+                    locationMap[rl.id] = rl.location;
+                });
+            }
             records.forEach(r => {
                 if (!r.selected_roll_ids) return;
                 let rolls = [];
@@ -231,14 +249,25 @@ module.exports = async function(fastify) {
                 } catch(e) {}
                 if (Array.isArray(rolls)) {
                     let changed = false;
+                    const rollLocations = [];
                     rolls.forEach(rl => {
-                        if (rl && rl.roll_id && importIdMap[rl.roll_id] !== undefined) {
-                            rl.source_import_id = importIdMap[rl.roll_id];
-                            changed = true;
+                        if (rl && rl.roll_id) {
+                            if (importIdMap[rl.roll_id] !== undefined) {
+                                rl.source_import_id = importIdMap[rl.roll_id];
+                                changed = true;
+                            }
+                            const currentLoc = locationMap[rl.roll_id];
+                            const loc = (currentLoc && currentLoc.trim() !== '') ? currentLoc : rl.roll_loc_name;
+                            if (loc && loc.trim() !== '' && !rollLocations.includes(loc.trim())) {
+                                rollLocations.push(loc.trim());
+                            }
                         }
                     });
                     if (changed) {
                         r.selected_roll_ids = rolls;
+                    }
+                    if (r.is_cut_done && rollLocations.length > 0) {
+                        r.warehouse_location = rollLocations.join(', ');
                     }
                 }
             });
@@ -1126,7 +1155,7 @@ module.exports = async function(fastify) {
         const b = request.body || {};
         const now = vnNow();
 
-        const contractorId = await get3DCuttingContractor(b.dht_order_id);
+        const contractorId = await get3DCuttingContractor(b.dht_order_id, b.order_item_id);
         const result = await db.get(`
             INSERT INTO cutting_records (
                 dht_order_id, order_item_id, phoi_index, cut_date, cutter_id,
@@ -1263,7 +1292,7 @@ module.exports = async function(fastify) {
                 image_path: r.image_path,
                 source_import_id: r.source_import_id
             }));
-            const startContractorId = await get3DCuttingContractor(rec.dht_order_id);
+            const startContractorId = await get3DCuttingContractor(rec.dht_order_id, rec.order_item_id);
             await db.run(
                 `UPDATE cutting_records SET is_cutting = true, cutting_at = $1, cutting_by = $2, kg_start = $3, selected_roll_ids = $4, printing_contractor_id = $5, updated_at = $1 WHERE id = $6`,
                 [now, request.user.id, kgStart, JSON.stringify(rollSnapshot), startContractorId || rec.printing_contractor_id || null, id]
@@ -2860,7 +2889,7 @@ module.exports = async function(fastify) {
         let createdId;
         let isCompensation = false;
 
-        const claimContractorId = await get3DCuttingContractor(dht_order_id);
+        const claimContractorId = await get3DCuttingContractor(dht_order_id, order_item_id);
         if (claimContractorId) {
             const hasShelf = await db.get(
                 `SELECT 1 FROM kv_locations WHERE printing_contractor_id = $1 LIMIT 1`,
@@ -3477,7 +3506,7 @@ module.exports = async function(fastify) {
         // Auto-claim: create/update cutting_records for each item
         const createdIds = [];
         for (const it of items) {
-            const claimContractorId = await get3DCuttingContractor(it.dht_order_id);
+            const claimContractorId = await get3DCuttingContractor(it.dht_order_id, it.order_item_id);
             if (claimContractorId) {
                 const hasShelf = await db.get(
                     `SELECT 1 FROM kv_locations WHERE printing_contractor_id = $1 LIMIT 1`,
