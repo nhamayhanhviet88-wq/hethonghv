@@ -527,6 +527,36 @@ function _bnhUpdateBodyScroll() {
 window._bnhUpdateBodyScroll = _bnhUpdateBodyScroll;
 
 // ========== Fabric Detail Modal ==========
+function _bnhFormatFullDateTime(importDate, createdAt) {
+    var dObj = null;
+    var hasTime = false;
+    if (createdAt) {
+        dObj = new Date(createdAt);
+        hasTime = true;
+    } else if (importDate) {
+        var p = importDate.split('T')[0].split('-');
+        dObj = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    }
+    if (!dObj || isNaN(dObj.getTime())) return '—';
+
+    var utc = dObj.getTime() + (dObj.getTimezoneOffset() * 60000);
+    var vnTime = new Date(utc + (3600000 * 7));
+
+    var dd = String(vnTime.getDate()).padStart(2, '0');
+    var mm = String(vnTime.getMonth() + 1).padStart(2, '0');
+    var yyyy = vnTime.getFullYear();
+    var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    var dayOfWeekStr = days[vnTime.getDay()];
+
+    if (hasTime) {
+        var hh = String(vnTime.getHours()).padStart(2, '0');
+        var mi = String(vnTime.getMinutes()).padStart(2, '0');
+        return hh + ':' + mi + ' - ' + dayOfWeekStr + ' ' + dd + '/' + mm + '/' + yyyy;
+    } else {
+        return dayOfWeekStr + ' - ' + dd + '/' + mm + '/' + yyyy;
+    }
+}
+
 async function _bnhFabDetail(id) {
     try {
         var res = await apiCall('/api/import/fabric-detail/' + id);
@@ -539,7 +569,7 @@ async function _bnhFabDetail(id) {
 
     var h = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">'
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">MÃ NHẬP VẢI</div><div style="font-size:14px;font-weight:900;color:#7c3aed;letter-spacing:1px">' + (r.fabric_import_code||'—') + '</div></div>'
-        + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGÀY NHẬP</div><div style="font-size:12px;font-weight:600;color:#1e293b">' + _bnhFD(r.import_date) + '</div></div>'
+        + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NGÀY NHẬP</div><div style="font-size:12px;font-weight:600;color:#1e293b">' + _bnhFormatFullDateTime(r.import_date, r.created_at) + '</div></div>'
         + '<div style="background:#f1f5f9;padding:8px 12px;border-radius:8px"><div style="font-size:9px;color:#6b7280;font-weight:700">NHÂN VIÊN</div><div style="font-size:12px;font-weight:600;color:#1e293b">' + (r.importer_name||'—') + '</div></div></div>';
 
     var sourceColor = typeof _bnhGetSourceColor === 'function' ? _bnhGetSourceColor(r.source_name) : '#4f46e5';
