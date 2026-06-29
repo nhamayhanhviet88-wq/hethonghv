@@ -763,14 +763,57 @@ function _bpcMapRecordRow(r, i) {
         priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
     }
     
+    var isContractor = !!r.printing_contractor_id;
+    var hasShelf = !!r.contractor_has_shelf;
+    var isMyRecord = window._currentUser && r.cutter_id === window._currentUser.id;
+    var isGiamDoc = window._currentUser && window._currentUser.role === 'giam_doc';
+    var isManager = window._currentUser && (isGiamDoc || window._currentUser.role === 'quan_ly_cap_cao' || (window._currentUser.department_name && window._currentUser.department_name.toLowerCase().includes('quản lý xưởng')));
+    
+    var canInteract = false;
+    var disableReason = '';
+    
+    if (r.is_uncut) {
+        if (isContractor) {
+            if (!isManager) {
+                disableReason = 'Bạn không có quyền thao tác trên đơn của nhà in 3D';
+            } else if (!hasShelf) {
+                disableReason = 'Đơn vị in chưa được liên kết kệ kho vải. Vui lòng liên kết kệ trước!';
+            } else {
+                canInteract = true;
+            }
+        } else {
+            canInteract = true;
+        }
+    } else {
+        if (isContractor) {
+            if (!isManager) {
+                disableReason = 'Bạn không có quyền thao tác trên đơn của nhà in 3D';
+            } else if (!hasShelf) {
+                disableReason = 'Đơn vị in chưa được liên kết kệ kho vải. Vui lòng liên kết kệ trước!';
+            } else {
+                canInteract = true;
+            }
+        } else {
+            if (isMyRecord || isGiamDoc) {
+                canInteract = true;
+            } else {
+                disableReason = 'Chỉ thợ cắt của đơn này mới có quyền thao tác';
+            }
+        }
+    }
+
     var cutBtnHtml = '';
     if (r.is_uncut) {
         var ready = r.fabric_arrived && r.has_pc_in;
         if (ready) {
-            if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
-                cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
+            if (canInteract) {
+                if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
+                    cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
+                } else {
+                    cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                }
             } else {
-                cutBtnHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                cutBtnHtml = '<button class="bpc-claim-btn disabled" disabled title="' + disableReason + '">🔒 Nhận đơn</button>';
             }
         } else {
             var missing = [];
@@ -782,33 +825,56 @@ function _bpcMapRecordRow(r, i) {
         if (r.is_cut_done) {
             cutBtnHtml = '<button class="bpc-icon-btn on-cut" disabled title="Đã hoàn thành cắt" style="opacity:0.8;cursor:default">✅</button>';
         } else if (showCutBtn) {
-            cutBtnHtml = '<button class="bpc-icon-btn'+cutCls+'" onclick="_bpcOpenCutModal('+r.id+')" title="Bắt đầu cắt">'+cutIcon+'</button>';
+            if (canInteract) {
+                cutBtnHtml = '<button class="bpc-icon-btn'+cutCls+'" onclick="_bpcOpenCutModal('+r.id+')" title="Bắt đầu cắt">'+cutIcon+'</button>';
+            } else {
+                cutBtnHtml = '<button class="bpc-icon-btn" disabled title="' + disableReason + '" style="opacity:0.4;cursor:default">' + cutIcon + '</button>';
+            }
         } else {
             cutBtnHtml = '<button class="bpc-icon-btn on-cut" disabled title="Đang cắt" style="opacity:0.4;cursor:default">✂️</button>';
         }
     }
     
-    var isGiamDoc = window._currentUser && window._currentUser.role === 'giam_doc';
     var doneBtnHtml = '';
     var washBtnHtml = '';
     var errBtnHtml = '';
     
     if (!r.is_uncut) {
-        doneBtnHtml = showDoneBtn
-            ? (r.is_cut_done
-                ? (isGiamDoc
+        if (showDoneBtn) {
+            if (r.is_cut_done) {
+                doneBtnHtml = isGiamDoc
                     ? '<button class="bpc-icon-btn on-done" onclick="_bpcToggleAction('+r.id+',\'undo_cut_done\')" title="Hoàn tác cắt xong (chỉ dành cho Giám đốc)">'+doneIcon+'</button>'
-                    : '<button class="bpc-icon-btn on-done" disabled title="Đã hoàn thành (chỉ Giám đốc mới được hoàn tác)" style="opacity:0.6;cursor:default">'+doneIcon+'</button>')
-                : '<button class="bpc-icon-btn" onclick="_bpcOpenDoneModal('+r.id+')" title="Cắt xong" style="background:#eff6ff;border-color:#3b82f6">'+doneIcon+'</button>')
-            : '<span style="width:26px;display:inline-block"></span>';
+                    : '<button class="bpc-icon-btn on-done" disabled title="Đã hoàn thành (chỉ Giám đốc mới được hoàn tác)" style="opacity:0.6;cursor:default">'+doneIcon+'</button>';
+            } else {
+                if (canInteract) {
+                    doneBtnHtml = '<button class="bpc-icon-btn" onclick="_bpcOpenDoneModal('+r.id+')" title="Cắt xong" style="background:#eff6ff;border-color:#3b82f6">'+doneIcon+'</button>';
+                } else {
+                    doneBtnHtml = '<button class="bpc-icon-btn" disabled title="' + disableReason + '" style="opacity:0.4;cursor:default">'+doneIcon+'</button>';
+                }
+            }
+        } else {
+            doneBtnHtml = '<span style="width:26px;display:inline-block"></span>';
+        }
             
-        washBtnHtml = r.wash_reported
-            ? '<button class="bpc-icon-btn ' + washCls + '" disabled title="Đã báo giặt vải" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + washIcon + '</button>'
-            : '<button class="bpc-icon-btn' + washCls + '" onclick="_bpcOpenWashModal(' + r.id + ')" title="Giặt vải">' + washIcon + '</button>';
+        if (r.wash_reported) {
+            washBtnHtml = '<button class="bpc-icon-btn ' + washCls + '" disabled title="Đã báo giặt vải" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + washIcon + '</button>';
+        } else {
+            if (canInteract) {
+                washBtnHtml = '<button class="bpc-icon-btn' + washCls + '" onclick="_bpcOpenWashModal(' + r.id + ')" title="Giặt vải">' + washIcon + '</button>';
+            } else {
+                washBtnHtml = '<button class="bpc-icon-btn" disabled title="' + disableReason + '" style="opacity:0.4;cursor:default">' + washIcon + '</button>';
+            }
+        }
             
-        errBtnHtml = r.error_reported
-            ? '<button class="bpc-icon-btn ' + errCls + '" disabled title="Đã báo lỗi" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + errIcon + '</button>'
-            : '<button class="bpc-icon-btn' + errCls + '" onclick="_bpcReportError(' + r.id + ')" title="Báo lỗi">' + errIcon + '</button>';
+        if (r.error_reported) {
+            errBtnHtml = '<button class="bpc-icon-btn ' + errCls + '" disabled title="Đã báo lỗi" style="cursor:default;opacity:0.8;transform:none;box-shadow:none">' + errIcon + '</button>';
+        } else {
+            if (canInteract) {
+                errBtnHtml = '<button class="bpc-icon-btn' + errCls + '" onclick="_bpcReportError(' + r.id + ')" title="Báo lỗi">' + errIcon + '</button>';
+            } else {
+                errBtnHtml = '<button class="bpc-icon-btn" disabled title="' + disableReason + '" style="opacity:0.4;cursor:default">' + errIcon + '</button>';
+            }
+        }
     }
     
     var ratioFailBadge = '';

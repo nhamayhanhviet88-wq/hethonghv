@@ -903,6 +903,12 @@ module.exports = async function(fastify) {
                        )
                    )::boolean AS has_compensation_ticket,
                    COALESCE(u_cutter.full_name, pc_cutter.name || ' Cắt') AS cutter_name,
+                   (
+                       SELECT EXISTS (
+                           SELECT 1 FROM kv_locations loc
+                           WHERE loc.printing_contractor_id = cr.printing_contractor_id
+                       )
+                   )::boolean AS contractor_has_shelf,
                    u_done.full_name AS cut_done_by_name,
                    u_salary.full_name AS salary_approved_by_name,
                    u_wash.full_name AS wash_reported_by_name,
@@ -978,6 +984,12 @@ module.exports = async function(fastify) {
                    )::boolean AS has_compensation_ticket,
                    (cr.ratio_image IS NOT NULL AND cr.ratio_image != '') AS has_ratio_image,
                     COALESCE(pc_cutter.name, u_cutter.full_name) AS cutter_name,
+                   (
+                       SELECT EXISTS (
+                           SELECT 1 FROM kv_locations loc
+                           WHERE loc.printing_contractor_id = cr.printing_contractor_id
+                       )
+                   )::boolean AS contractor_has_shelf,
                     u_done.full_name AS cut_done_by_name,
                    u_salary.full_name AS salary_approved_by_name,
                    u_wash.full_name AS wash_reported_by_name,
@@ -1080,6 +1092,27 @@ module.exports = async function(fastify) {
 
         const rec = await db.get('SELECT * FROM cutting_records WHERE id = $1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        const isManager = await isCutManager(request);
+
+        if (rec.printing_contractor_id) {
+            if (!isManager) {
+                return reply.code(403).send({ error: 'Bạn không có quyền thao tác trên đơn của nhà in 3D!' });
+            }
+            const hasShelf = await db.get(
+                `SELECT 1 FROM kv_locations WHERE printing_contractor_id = $1 LIMIT 1`,
+                [rec.printing_contractor_id]
+            );
+            if (!hasShelf) {
+                return reply.code(400).send({ error: 'Đơn vị in chưa được liên kết kệ kho vải. Vui lòng liên kết kệ trước!' });
+            }
+        } else if (rec.cutter_id) {
+            if (!['approve_salary', 'undo_approve_salary', 'cancel_compensation'].includes(action)) {
+                if (rec.cutter_id !== request.user.id && request.user.role !== 'giam_doc') {
+                    return reply.code(403).send({ error: 'Bạn không thể thao tác trên đơn hàng của thợ cắt khác!' });
+                }
+            }
+        }
 
         let detail = '';
 
@@ -2270,6 +2303,11 @@ module.exports = async function(fastify) {
     fastify.get('/api/cutting/unassigned', { preHandler: [authenticate] }, async (request, reply) => {
         // Orders that have at least 1 unclaimed item (phiếu) or unassigned coordinate part
         const contractorId = request.query.contractor_id ? Number(request.query.contractor_id) : null;
+        let contractorHasShelf = false;
+        if (contractorId) {
+            const shelf = await db.get(`SELECT 1 FROM kv_locations WHERE printing_contractor_id = $1 LIMIT 1`, [contractorId]);
+            contractorHasShelf = !!shelf;
+        }
         const isManager = await isCutManager(request) || ['quan_ly', 'truong_phong'].includes(request.user.role);
         if (contractorId && !isManager) {
             return reply.code(403).send({ error: 'Bạn không có quyền xem đơn hàng của đơn vị in 3D!' });
@@ -2509,7 +2547,9 @@ module.exports = async function(fastify) {
                                 has_pc_in: it.has_pc_in,
                                 fabric_arrived: isPhoiFabricArrived,
                                 fabric_status: fabric_status,
-                                cut_expected_at: it.cut_expected_at
+                                cut_expected_at: it.cut_expected_at,
+                                printing_contractor_id: contractorId || null,
+                                contractor_has_shelf: contractorHasShelf
                             });
                         }
                     }
@@ -2545,7 +2585,9 @@ module.exports = async function(fastify) {
                             has_pc_in: it.has_pc_in,
                             fabric_arrived: isPhoiFabricArrived,
                             fabric_status: fabric_status,
-                            cut_expected_at: it.cut_expected_at
+                            cut_expected_at: it.cut_expected_at,
+                            printing_contractor_id: contractorId || null,
+                            contractor_has_shelf: contractorHasShelf
                         });
                     }
                 }
@@ -2668,6 +2710,15 @@ module.exports = async function(fastify) {
         let isCompensation = false;
 
         const claimContractorId = await get3DCuttingContractor(dht_order_id);
+        if (claimContractorId) {
+            const hasShelf = await db.get(
+                `SELECT 1 FROM kv_locations WHERE printing_contractor_id = $1 LIMIT 1`,
+                [claimContractorId]
+            );
+            if (!hasShelf) {
+                return reply.code(400).send({ error: 'Đơn vị in chưa được liên kết kệ kho vải. Vui lòng liên kết kệ trước khi nhận cắt!' });
+            }
+        }
         const cutterIdToSet = claimContractorId ? null : userId;
 
         if (unassignedRec) {
