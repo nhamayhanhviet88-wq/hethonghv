@@ -17,6 +17,7 @@ module.exports = async function(fastify) {
                   AND qa.operator_type = 'contractor'
                   AND qa.operator_id IS NOT NULL
                   AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                  AND LOWER(pf.name) NOT LIKE '%hv cắt%'
                 LIMIT 1
             `, [orderItemId]);
         }
@@ -29,6 +30,7 @@ module.exports = async function(fastify) {
                   AND qa.operator_type = 'contractor'
                   AND qa.operator_id IS NOT NULL
                   AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                  AND LOWER(pf.name) NOT LIKE '%hv cắt%'
                 LIMIT 1
             `, [dhtOrderId]);
         }
@@ -39,7 +41,8 @@ module.exports = async function(fastify) {
         if (!dhtOrderId) return;
         const fields = await db.all(`
             SELECT id, name FROM printing_fields 
-            WHERE LOWER(name) LIKE '%3d%' OR LOWER(name) LIKE '%cắt%'
+            WHERE (LOWER(name) LIKE '%3d%' OR LOWER(name) LIKE '%cắt%')
+              AND LOWER(name) NOT LIKE '%hv cắt%'
         `);
         if (fields.length === 0) return;
         const fieldNames = fields.map(f => f.name);
@@ -2352,6 +2355,7 @@ module.exports = async function(fastify) {
                     WHERE qa.item_id = $1 
                       AND (qa.operator_id IS NOT NULL)
                       AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                      AND LOWER(pf.name) NOT LIKE '%hv cắt%'
                     ORDER BY (CASE WHEN qa.operator_type = 'contractor' THEN 0 ELSE 1 END) ASC, qa.id ASC
                     LIMIT 1
                 `, [orderItemId]);
@@ -2365,6 +2369,7 @@ module.exports = async function(fastify) {
                       AND qa.item_id IS NULL
                       AND (qa.operator_id IS NOT NULL)
                       AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                      AND LOWER(pf.name) NOT LIKE '%hv cắt%'
                     ORDER BY (CASE WHEN qa.operator_type = 'contractor' THEN 0 ELSE 1 END) ASC, qa.id ASC
                     LIMIT 1
                 `, [orderId]);
@@ -3144,6 +3149,7 @@ module.exports = async function(fastify) {
                 WHERE qa.operator_type = 'contractor'
                   AND qa.operator_id IS NOT NULL
                   AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                  AND LOWER(pf.name) NOT LIKE '%hv cắt%'
                   AND qa.dht_order_id = ANY($1)
             `, [orderIds]);
         }
