@@ -1381,14 +1381,17 @@ module.exports = async function (fastify) {
                                     'target_shelf', (
                                          SELECT loc.name 
                                          FROM qlx_order_print_assignments pa
+                                         JOIN printing_fields pf ON pa.field_id = pf.id
                                          JOIN kv_locations loc ON (
                                              (loc.printing_contractor_id = pa.operator_id AND pa.operator_type = 'contractor')
                                              OR (loc.user_id = pa.operator_id AND pa.operator_type = 'user')
                                          )
-                                         WHERE pa.item_id = res.item_id
+                                         WHERE (pa.item_id = res.item_id
                                             OR (pa.dht_order_id = res.dht_order_id AND pa.item_id IS NULL AND NOT EXISTS (
                                                 SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = res.item_id
-                                            ))
+                                            )))
+                                           AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                                           AND LOWER(pf.name) NOT LIKE '%hv cắt%'
                                          LIMIT 1
                                      )
                                 ))

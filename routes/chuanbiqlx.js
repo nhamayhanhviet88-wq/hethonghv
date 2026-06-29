@@ -3280,15 +3280,20 @@ module.exports = async function(fastify) {
 
         let target_shelf = null;
         const printAssigns = await db.all(`
-            SELECT operator_type, operator_id 
-            FROM qlx_order_print_assignments 
-            WHERE (item_id = $1)
-               OR (dht_order_id = $2 AND item_id IS NULL AND NOT EXISTS (
+            SELECT qa.operator_type, qa.operator_id, pf.name AS field_name
+            FROM qlx_order_print_assignments qa
+            JOIN printing_fields pf ON qa.field_id = pf.id
+            WHERE (qa.item_id = $1)
+               OR (qa.dht_order_id = $2 AND qa.item_id IS NULL AND NOT EXISTS (
                    SELECT 1 FROM qlx_order_print_assignments WHERE item_id = $1
                ))
         `, [itemId, orderId]);
 
         for (const assign of printAssigns) {
+            const nameUpper = (assign.field_name || '').toUpperCase();
+            const isContractorCut = (nameUpper.includes('CẮT') || nameUpper.includes('3D')) && !nameUpper.includes('HV CẮT');
+            if (!isContractorCut) continue;
+
             const loc = await db.get(`
                 SELECT id, name FROM kv_locations 
                 WHERE (printing_contractor_id = $1 AND $2 = 'contractor')

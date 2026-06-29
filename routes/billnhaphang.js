@@ -903,16 +903,19 @@ module.exports = async function(fastify) {
                        WHERE doi2.dht_order_id = res.dht_order_id AND doi2.id <= res.item_id
                    ) AS item_index,
                    (
-                       SELECT loc.name 
-                       FROM qlx_order_print_assignments assign
-                       JOIN kv_locations loc ON (loc.printing_contractor_id = assign.operator_id AND assign.operator_type = 'contractor')
-                                             OR (loc.user_id = assign.operator_id AND assign.operator_type = 'user')
-                       WHERE assign.item_id = res.item_id
-                          OR (assign.dht_order_id = res.dht_order_id AND assign.item_id IS NULL AND NOT EXISTS (
-                              SELECT 1 FROM qlx_order_print_assignments WHERE item_id = res.item_id
-                          ))
-                       LIMIT 1
-                   ) AS target_shelf
+                        SELECT loc.name 
+                        FROM qlx_order_print_assignments assign
+                        JOIN printing_fields pf ON assign.field_id = pf.id
+                        JOIN kv_locations loc ON (loc.printing_contractor_id = assign.operator_id AND assign.operator_type = 'contractor')
+                                              OR (loc.user_id = assign.operator_id AND assign.operator_type = 'user')
+                        WHERE (assign.item_id = res.item_id
+                           OR (assign.dht_order_id = res.dht_order_id AND assign.item_id IS NULL AND NOT EXISTS (
+                               SELECT 1 FROM qlx_order_print_assignments WHERE item_id = res.item_id
+                           )))
+                           AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                           AND LOWER(pf.name) NOT LIKE '%hv cắt%'
+                        LIMIT 1
+                    ) AS target_shelf
             FROM qlx_fabric_reservations res
             LEFT JOIN dht_orders o ON o.id = res.dht_order_id
             LEFT JOIN dht_order_items it ON it.id = res.item_id
