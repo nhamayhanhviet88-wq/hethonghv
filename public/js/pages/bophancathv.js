@@ -1441,12 +1441,41 @@ function _bpcBuildUnassignedTableHtml(all) {
             if (r.cut_warning) {
                 spName += '<div style="color:#ea580c;font-size:10px;margin-top:2px;font-weight:bold">⚠️ ' + r.cut_warning + '</div>';
             }
+            var isContractor = !!r.printing_contractor_id;
+            var hasShelf = !!r.contractor_has_shelf;
+            var isGiamDoc = window._currentUser && window._currentUser.role === 'giam_doc';
+            var isManager = window._currentUser && (isGiamDoc || window._currentUser.role === 'quan_ly_cap_cao' || (window._currentUser.department_name && window._currentUser.department_name.toLowerCase().includes('quản lý xưởng')));
+            var isFactoryManager = isManager && !isGiamDoc;
+
+            var canInteract = false;
+            var disableReason = '';
+
+            if (isContractor) {
+                if (!isManager) {
+                    disableReason = 'Bạn không có quyền thao tác trên đơn của nhà in 3D';
+                } else if (!hasShelf) {
+                    disableReason = 'Đơn vị in chưa được liên kết kệ kho vải. Vui lòng liên kết kệ trước!';
+                } else {
+                    canInteract = true;
+                }
+            } else {
+                if (isFactoryManager) {
+                    disableReason = 'Quản lý xưởng không được nhận cắt đơn của thợ!';
+                } else {
+                    canInteract = true;
+                }
+            }
+
             var claimHtml;
             if (ready) {
-                if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
-                    claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
+                if (canInteract) {
+                    if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
+                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt bù" style="background:linear-gradient(135deg,#f97316,#ea580c);border-color:#ea580c">✂️ NHẬN CẮT BÙ</button>';
+                    } else {
+                        claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                    }
                 } else {
-                    claimHtml = '<button class="bpc-claim-btn ready" onclick="_bpcClaimOrder('+r.id+','+(r.item_id||'null')+', '+r.phoi_pair_index+',\''+r.order_code+'\')" title="Nhận đơn cắt">✂️ NHẬN ĐƠN</button>';
+                    claimHtml = '<button class="bpc-claim-btn disabled" disabled title="' + disableReason + '">🔒 Nhận đơn</button>';
                 }
             } else {
                 var missing = [];
@@ -1456,7 +1485,11 @@ function _bpcBuildUnassignedTableHtml(all) {
                     else missing.push('Vải');
                 }
                 if (!r.has_pc_in) missing.push('PC In');
-                claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
+                if (!canInteract) {
+                    claimHtml = '<button class="bpc-claim-btn disabled" disabled title="' + disableReason + '">🔒 Nhận đơn</button>';
+                } else {
+                    claimHtml = '<button class="bpc-claim-btn disabled" disabled title="Thiếu: '+missing.join(', ')+'">🔒 Thiếu '+missing.join('+')+'</button>';
+                }
             }
             if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
                 if (r.cutting_record_id) {
