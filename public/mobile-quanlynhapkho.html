@@ -1128,24 +1128,20 @@
                     
                     rollsList.forEach(function(r) {
                         var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : null;
-                        var isNguyen = Number(r.w) >= Number(r.ow);
+                        var isNguyen = Number(r.w) >= Number(r.ow || r.w);
                         
                         var targetBucket = '';
+                        var isCleanLoc = rollLoc && rollLoc !== 'Chưa Phân Vị Trí Cây Nguyên' && rollLoc !== 'Chưa xếp kệ' && rollLoc !== 'Chưa xếp vị trí' && rollLoc !== 'Chưa Phân Vị Trí Cây Lẻ';
                         var matchedLoc = locations.find(l => normLoc(l.name) === normLoc(rollLoc));
+                        
                         if (isNguyen) {
-                            if (rollLoc && matchedLoc) {
+                            if (isCleanLoc && matchedLoc) {
                                 targetBucket = matchedLoc.name;
-                            } else if (rollLoc === '') {
-                                targetBucket = 'unassignedNguyen';
                             } else {
-                                if (key && isPredefined) {
-                                    targetBucket = matchedPredefined.name;
-                                } else {
-                                    targetBucket = 'unassignedNguyen';
-                                }
+                                targetBucket = 'unassignedNguyen';
                             }
                         } else {
-                            if (rollLoc && matchedLoc) {
+                            if (isCleanLoc && matchedLoc) {
                                 targetBucket = matchedLoc.name;
                             } else {
                                 targetBucket = 'unassignedLe';
