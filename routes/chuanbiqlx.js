@@ -21,6 +21,132 @@ module.exports = async function(fastify) {
         }
     }
 
+    async function syncPrintAndCutCuttingRecords(db, orderId, itemId, contractorId, now) {
+        let items = [];
+        if (itemId) {
+            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1`, [itemId]);
+        } else {
+            items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
+        }
+
+        const order = await db.get('SELECT order_code, category_id FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return;
+
+        const category = await db.get('SELECT name FROM dht_categories WHERE id = $1', [order.category_id]);
+        const catName = category ? (category.name || '').toUpperCase() : '';
+        if (catName.includes('PET') || catName.includes('TEM') || order.order_code.toUpperCase().includes('PET') || order.order_code.toUpperCase().includes('TEM')) {
+            return;
+        }
+
+        const allOrderItems = await db.all('SELECT id, description, material_pairs FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id', [orderId]);
+        let totalPhoi = 0;
+        const phoiListMap = {};
+        let itemIdx = 0;
+        for (const it of allOrderItems) {
+            itemIdx++;
+            let pairs = [];
+            try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+            phoiListMap[it.id] = { itemIdx, pairs };
+            if (pairs.length > 0) {
+                totalPhoi += pairs.length;
+            } else {
+                totalPhoi += 1;
+            }
+        }
+
+        for (const it of items) {
+            const { itemIdx, pairs } = phoiListMap[it.id] || { itemIdx: 1, pairs: [] };
+            
+            const prod = await db.get(`
+                SELECT cc.name AS cutting_category 
+                FROM dht_products p
+                JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
+                WHERE p.name = TRIM($1) AND p.is_active = true
+                LIMIT 1
+            `, [it.description || '']);
+            const cuttingCategory = prod ? prod.cutting_category : null;
+
+            const phoiCount = pairs.length > 0 ? pairs.length : 1;
+            for (let pi = 0; pi < phoiCount; pi++) {
+                const phoi = pairs[pi] || {};
+                const matName = phoi.material_name || null;
+                const colName = phoi.color_name || null;
+
+                const productName = totalPhoi > 1
+                    ? order.order_code + ' — Phiếu ' + itemIdx + ' — P' + (pi + 1) + (it.description ? ' — ' + it.description : '')
+                    : order.order_code + (it.description ? ' — ' + it.description : '');
+
+                const existing = await db.get(`
+                    SELECT id, is_cut_done FROM cutting_records 
+                    WHERE dht_order_id = $1 AND order_item_id = $2 AND phoi_index = $3
+                `, [orderId, it.id, pi]);
+
+                if (existing) {
+                    if (!existing.is_cut_done) {
+                        await db.run(`
+                            UPDATE cutting_records 
+                            SET printing_contractor_id = $1, 
+                                cutter_id = NULL, 
+                                is_cutting = true, 
+                                cutting_at = $2, 
+                                cutting_by = NULL,
+                                product_name = $3,
+                                material_name = $4,
+                                fabric_color = $5,
+                                order_quantity = $6,
+                                cutting_category = $7,
+                                updated_at = $2
+                            WHERE id = $8
+                        `, [contractorId, now, productName, matName, colName, it.quantity || 0, cuttingCategory, existing.id]);
+                    }
+                } else {
+                    await db.run(`
+                        INSERT INTO cutting_records (
+                            dht_order_id, order_item_id, phoi_index, printing_contractor_id,
+                            cutter_id, is_cutting, cutting_at, is_cut_done,
+                            product_name, material_name, fabric_color,
+                            order_quantity, cutting_category, created_by, created_at, updated_at
+                        ) VALUES ($1, $2, $3, $4, NULL, true, $5, false, $6, $7, $8, $9, $10, NULL, $5, $5)
+                    `, [orderId, it.id, pi, contractorId, now, productName, matName, colName, it.quantity || 0, cuttingCategory]);
+                }
+            }
+        }
+    }
+
+    async function syncPrintAndCutRemoval(db, orderId, itemId) {
+        let query = `SELECT id FROM cutting_records WHERE dht_order_id = $1 AND printing_contractor_id IS NOT NULL AND is_cut_done = false`;
+        const params = [orderId];
+        if (itemId) {
+            query += ` AND order_item_id = $2`;
+            params.push(itemId);
+        }
+        const records = await db.all(query, params);
+        if (records.length === 0) return;
+
+        const recordIds = records.map(r => r.id);
+        
+        await db.run(`
+            UPDATE kv_rolls 
+            SET locked_by_cutting_id = NULL 
+            WHERE locked_by_cutting_id = ANY($1)
+        `, [recordIds]);
+
+        let updateQuery = `
+            UPDATE cutting_records 
+            SET printing_contractor_id = NULL,
+                cutter_id = NULL,
+                is_cutting = false,
+                cutting_at = NULL,
+                cutting_by = NULL,
+                selected_roll_ids = '[]',
+                kg_start = 0,
+                updated_at = NOW()
+            WHERE id = ANY($1)
+        `;
+        await db.run(updateQuery, [recordIds]);
+    }
+
+
     async function releaseMismatchedFromStockReservations(orderIds, userId) {
         if (!orderIds || orderIds.length === 0) return;
         const { vnNow } = require('../utils/timezone');
@@ -2270,29 +2396,31 @@ module.exports = async function(fastify) {
 
             // Check if any assignment is print-and-cut
             let isPrintAndCut = false;
+            let printAndCutContractorId = null;
             for (const assign of uniqueAssignments) {
                 const fieldId = Number(assign.field_id);
-                if (fieldId === 4 || fieldId === 7) {
-                    isPrintAndCut = true;
-                    break;
+                let checkPac = (fieldId === 4 || fieldId === 7);
+                if (!checkPac) {
+                    const field = await db.get(`SELECT name FROM printing_fields WHERE id = $1`, [fieldId]);
+                    if (field && field.name) {
+                        const nameUpper = field.name.toUpperCase();
+                        if ((nameUpper.includes('CẮT') || nameUpper.includes('3D')) && !nameUpper.includes('HV CẮT')) {
+                            checkPac = true;
+                        }
+                    }
                 }
-                const field = await db.get(`SELECT name FROM printing_fields WHERE id = $1`, [fieldId]);
-                if (field && field.name) {
-                    const nameUpper = field.name.toUpperCase();
-                    if ((nameUpper.includes('CẮT') || nameUpper.includes('3D')) && !nameUpper.includes('HV CẮT')) {
-                        isPrintAndCut = true;
-                        break;
+                if (checkPac) {
+                    isPrintAndCut = true;
+                    if (assign.operator_type === 'contractor') {
+                        printAndCutContractorId = Number(assign.operator_id);
                     }
                 }
             }
 
-            if (isPrintAndCut) {
-                if (itemId) {
-                    await db.run('DELETE FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false', [itemId]);
-                } else {
-                    await db.run('DELETE FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = false', [orderId]);
-                }
-                console.log(`[QLX PRINT ASSIGNMENT] Deleted incomplete cutting records for orderId=${orderId} itemId=${itemId || 'null'} due to print-and-cut assignment`);
+            if (isPrintAndCut && printAndCutContractorId) {
+                await syncPrintAndCutCuttingRecords(db, orderId, itemId, printAndCutContractorId, now);
+            } else {
+                await syncPrintAndCutRemoval(db, orderId, itemId);
             }
 
             // Sync to legacy qlx_assignments (type = 'in')

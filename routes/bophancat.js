@@ -589,12 +589,14 @@ module.exports = async function(fastify) {
             params.push(request.user.id);
         }
 
-        // ── Cutting records grouped: year → cutter → done/incomplete ──
-        const rows = await db.all(`
+        // ── Cutting records grouped: year → cutter/contractor → done/incomplete ──
+        let sql = `
             SELECT
                 EXTRACT(YEAR FROM COALESCE(cr.cut_date, cr.created_at))::int AS year,
                 cr.cutter_id,
                 u.full_name AS cutter_name,
+                cr.printing_contractor_id,
+                pc.name AS contractor_name,
                 cr.is_cut_done,
                 CASE WHEN cr.is_cut_done THEN
                     EXTRACT(MONTH FROM COALESCE(cr.cut_done_at, cr.cut_date, cr.created_at))::int
@@ -602,22 +604,55 @@ module.exports = async function(fastify) {
                 COUNT(*)::int AS cnt
             FROM cutting_records cr
             LEFT JOIN users u ON cr.cutter_id = u.id
+            LEFT JOIN printing_contractors pc ON cr.printing_contractor_id = pc.id
             WHERE 1=1 ${where}
-            GROUP BY year, cr.cutter_id, u.full_name, cr.is_cut_done, done_month
-            ORDER BY year DESC, u.full_name, done_month DESC
-        `, params);
+            GROUP BY year, cr.cutter_id, u.full_name, cr.printing_contractor_id, pc.name, cr.is_cut_done, done_month
+        `;
+
+        if (isManager || ['quan_ly', 'truong_phong'].includes(request.user.role)) {
+            sql = `
+                ${sql}
+                UNION ALL
+                SELECT 
+                    EXTRACT(YEAR FROM o.order_date)::int AS year,
+                    NULL::int AS cutter_id,
+                    NULL::text AS cutter_name,
+                    pc.id AS printing_contractor_id,
+                    pc.name AS contractor_name,
+                    false AS is_cut_done,
+                    NULL::int AS done_month,
+                    COUNT(i.id)::int AS cnt
+                FROM dht_orders o
+                JOIN dht_order_items i ON i.dht_order_id = o.id
+                JOIN qlx_order_print_assignments pa ON (pa.item_id = i.id OR (pa.item_id IS NULL AND pa.dht_order_id = o.id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = i.id)))
+                JOIN printing_fields pf ON pa.field_id = pf.id
+                JOIN printing_contractors pc ON pa.operator_id = pc.id AND pa.operator_type = 'contractor'
+                WHERE (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+                  AND COALESCE(o.shipping_status, '') != 'shipped'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM cutting_records cr 
+                      WHERE cr.order_item_id = i.id AND cr.printing_contractor_id = pc.id
+                  )
+                GROUP BY year, pc.id, pc.name
+            `;
+        }
+
+        sql = `SELECT * FROM (${sql}) AS sub_tree ORDER BY year DESC, COALESCE(cutter_name, contractor_name || ' Cắt'), done_month DESC`;
+        const rows = await db.all(sql, params);
 
         const total = rows.reduce((s, r) => s + r.cnt, 0);
 
-        // Build tree: year → cutter → { incomplete_count, months: [{month, count}] }
+        // Build tree: year → cutter/contractor → { incomplete_count, months: [{month, count}] }
         const yearMap = {};
         for (const r of rows) {
             if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, cutters: {} };
-            const cutKey = r.cutter_id || 0;
+            const cutKey = r.printing_contractor_id ? `c_${r.printing_contractor_id}` : (r.cutter_id || 0);
             if (!yearMap[r.year].cutters[cutKey]) {
                 yearMap[r.year].cutters[cutKey] = {
-                    id: r.cutter_id, name: r.cutter_name || 'Chưa phân công',
-                    total: 0, incomplete_count: 0, months: {}
+                    id: cutKey,
+                    name: r.printing_contractor_id ? `${r.contractor_name} Cắt` : (r.cutter_name || 'Chưa phân công'),
+                    total: 0, incomplete_count: 0, months: {},
+                    is_contractor: !!r.printing_contractor_id
                 };
             }
             const cutter = yearMap[r.year].cutters[cutKey];
@@ -808,7 +843,19 @@ module.exports = async function(fastify) {
 
         if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(cr.cut_date, cr.created_at)) = $${idx++}`; params.push(Number(year)); }
         if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(cr.cut_date, cr.created_at)) = $${idx++}`; params.push(Number(month)); }
-        if (cutter_id) { where += ` AND cr.cutter_id = $${idx++}`; params.push(Number(cutter_id)); }
+        if (cutter_id) {
+            if (String(cutter_id).startsWith('c_')) {
+                if (!isManager && !['quan_ly', 'truong_phong'].includes(request.user.role)) {
+                    return reply.code(403).send({ error: 'Bạn không có quyền xem đơn hàng của đơn vị in 3D!' });
+                }
+                const conId = Number(String(cutter_id).substring(2));
+                where += ` AND cr.printing_contractor_id = $${idx++}`;
+                params.push(conId);
+            } else {
+                where += ` AND cr.cutter_id = $${idx++}`;
+                params.push(Number(cutter_id));
+            }
+        }
         if (status === 'cutting') { where += ` AND cr.is_cutting = true AND cr.is_cut_done = false`; }
         else if (status === 'done') { where += ` AND cr.is_cut_done = true`; }
         else if (status === 'approved') { where += ` AND cr.salary_approved = true`; }
@@ -823,7 +870,7 @@ module.exports = async function(fastify) {
             SELECT cr.id, cr.dht_order_id, cr.order_item_id, cr.phoi_index, cr.is_cutting, cr.cutting_at, cr.cutting_by,
                    cr.is_cut_done, cr.cut_done_at, cr.cut_done_by, cr.salary_approved, cr.salary_approved_at,
                    cr.salary_approved_by, cr.wash_reported, cr.wash_reported_at, cr.wash_reported_by,
-                   cr.error_reported, cr.error_order_id, cr.cut_date, cr.cutter_id, cr.product_name,
+                   cr.error_reported, cr.error_order_id, cr.cut_date, cr.cutter_id, cr.printing_contractor_id, cr.product_name,
                    cr.material_name, cr.fabric_color, cr.order_quantity, cr.cut_quantity, cr.kg_cut,
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
@@ -848,7 +895,7 @@ module.exports = async function(fastify) {
                              AND sub.cut_warning LIKE '%Cắt bù%'
                        )
                    )::boolean AS has_compensation_ticket,
-                   u_cutter.full_name AS cutter_name,
+                   COALESCE(u_cutter.full_name, pc_cutter.name || ' Cắt') AS cutter_name,
                    u_done.full_name AS cut_done_by_name,
                    u_salary.full_name AS salary_approved_by_name,
                    u_wash.full_name AS wash_reported_by_name,
@@ -897,7 +944,7 @@ module.exports = async function(fastify) {
             SELECT cr.id, cr.dht_order_id, cr.order_item_id, cr.phoi_index, cr.is_cutting, cr.cutting_at, cr.cutting_by,
                    cr.is_cut_done, cr.cut_done_at, cr.cut_done_by, cr.salary_approved, cr.salary_approved_at,
                    cr.salary_approved_by, cr.wash_reported, cr.wash_reported_at, cr.wash_reported_by,
-                   cr.error_reported, cr.error_order_id, cr.cut_date, cr.cutter_id, cr.product_name,
+                   cr.error_reported, cr.error_order_id, cr.cut_date, cr.cutter_id, cr.printing_contractor_id, cr.product_name,
                    cr.material_name, cr.fabric_color, cr.order_quantity, cr.cut_quantity, cr.kg_cut,
                    cr.cut_ratio, cr.ratio_reason, cr.kg_start, cr.kg_end, cr.cut_warning, cr.cut_shared,
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
@@ -2215,6 +2262,36 @@ module.exports = async function(fastify) {
     // ========== UNASSIGNED: Đơn chưa cắt (pool) ==========
     fastify.get('/api/cutting/unassigned', { preHandler: [authenticate] }, async (request, reply) => {
         // Orders that have at least 1 unclaimed item (phiếu) or unassigned coordinate part
+        const contractorId = request.query.contractor_id ? Number(request.query.contractor_id) : null;
+        const isManager = await isCutManager(request) || ['quan_ly', 'truong_phong'].includes(request.user.role);
+        if (contractorId && !isManager) {
+            return reply.code(403).send({ error: 'Bạn không có quyền xem đơn hàng của đơn vị in 3D!' });
+        }
+        let wherePrintCut = '';
+        let params = [];
+        if (contractorId) {
+            wherePrintCut = `
+                AND EXISTS (
+                    SELECT 1 FROM qlx_order_print_assignments pa
+                    JOIN printing_fields pf ON pa.field_id = pf.id
+                    WHERE (pa.item_id = oi.id OR (pa.item_id IS NULL AND pa.dht_order_id = o.id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = oi.id)))
+                      AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+                      AND pa.operator_type = 'contractor'
+                      AND pa.operator_id = $1
+                )
+            `;
+            params.push(contractorId);
+        } else {
+            wherePrintCut = `
+                AND NOT EXISTS (
+                    SELECT 1 FROM qlx_order_print_assignments pa
+                    JOIN printing_fields pf ON pa.field_id = pf.id
+                    WHERE (pa.item_id = oi.id OR (pa.item_id IS NULL AND pa.dht_order_id = o.id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = oi.id)))
+                      AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+                )
+            `;
+        }
+
         const orders = await db.all(`
             SELECT o.id, o.order_code, o.customer_name, o.customer_phone,
                    o.total_quantity, o.order_date, o.expected_ship_date, o.shipping_priority,
@@ -2238,18 +2315,13 @@ module.exports = async function(fastify) {
             WHERE EXISTS (
                 SELECT 1 FROM dht_order_items oi
                 WHERE oi.dht_order_id = o.id
-                AND NOT EXISTS (
-                    SELECT 1 FROM qlx_order_print_assignments pa
-                    JOIN printing_fields pf ON pa.field_id = pf.id
-                    WHERE (pa.item_id = oi.id OR (pa.item_id IS NULL AND pa.dht_order_id = o.id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = oi.id)))
-                      AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
-                )
+                ${wherePrintCut}
                 AND (
                     (
                         COALESCE(jsonb_array_length(oi.material_pairs), 0) = 0
                         AND NOT EXISTS (
                             SELECT 1 FROM cutting_records cr 
-                            WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NOT NULL
+                            WHERE cr.order_item_id = oi.id AND (cr.cutter_id IS NOT NULL OR cr.printing_contractor_id IS NOT NULL)
                         )
                     )
                     OR
@@ -2257,7 +2329,7 @@ module.exports = async function(fastify) {
                         COALESCE(jsonb_array_length(oi.material_pairs), 0) > 0
                         AND (
                             SELECT COUNT(*)::int FROM cutting_records cr 
-                            WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NOT NULL
+                            WHERE cr.order_item_id = oi.id AND (cr.cutter_id IS NOT NULL OR cr.printing_contractor_id IS NOT NULL)
                         ) < jsonb_array_length(oi.material_pairs)
                     )
                 )
@@ -2275,11 +2347,36 @@ module.exports = async function(fastify) {
                      WHEN o.shipping_priority = 'GỬI' THEN 2
                      ELSE 3 END,
                 o.expected_ship_date ASC NULLS LAST, o.order_date DESC
-        `);
+        `, params);
 
         const orderIds = orders.map(o => o.id);
         let items = [], allItemCounts = {}, orderItemIdsMap = {}, cuttingRecords = [], reservations = [];
         if (orderIds.length > 0) {
+            let itemsWhere = 'doi.dht_order_id = ANY($1)';
+            let itemsParams = [orderIds];
+            if (contractorId) {
+                itemsWhere += `
+                    AND EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments pa
+                        JOIN printing_fields pf ON pa.field_id = pf.id
+                        WHERE (pa.item_id = doi.id OR (pa.item_id IS NULL AND pa.dht_order_id = doi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = doi.id)))
+                          AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+                          AND pa.operator_type = 'contractor'
+                          AND pa.operator_id = $2
+                    )
+                `;
+                itemsParams.push(contractorId);
+            } else {
+                itemsWhere += `
+                    AND NOT EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments pa
+                        JOIN printing_fields pf ON pa.field_id = pf.id
+                        WHERE (pa.item_id = doi.id OR (pa.item_id IS NULL AND pa.dht_order_id = doi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = doi.id)))
+                          AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+                    )
+                `;
+            }
+
             items = await db.all(`
                 SELECT 
                     doi.dht_order_id, 
@@ -2299,18 +2396,12 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 LEFT JOIN qlx_item_schedules sch ON sch.order_item_id = doi.id
-                WHERE doi.dht_order_id = ANY($1)
-                  AND NOT EXISTS (
-                      SELECT 1 FROM qlx_order_print_assignments pa
-                      JOIN printing_fields pf ON pa.field_id = pf.id
-                      WHERE (pa.item_id = doi.id OR (pa.item_id IS NULL AND pa.dht_order_id = doi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = doi.id)))
-                        AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
-                  )
+                WHERE ${itemsWhere}
                 ORDER BY doi.dht_order_id, doi.id
-            `, [orderIds]);
+            `, itemsParams);
 
             cuttingRecords = await db.all(`
-                SELECT id, order_item_id, phoi_index, material_name, fabric_color, cutter_id, is_cut_done, cut_warning, order_quantity
+                SELECT id, order_item_id, phoi_index, material_name, fabric_color, cutter_id, printing_contractor_id, is_cut_done, cut_warning, order_quantity
                 FROM cutting_records 
                 WHERE dht_order_id = ANY($1)
             `, [orderIds]);
@@ -2374,8 +2465,8 @@ module.exports = async function(fastify) {
                 const originalCutterId = (itemRecords.find(r => r.is_cut_done === true) || {}).cutter_id || null;
 
                 if (pairs.length > 0) {
-                    const unclaimedRecs = itemRecords.filter(r => r.cutter_id === null && !r.is_cut_done);
-                    const claimedPhois = itemRecords.filter(r => r.cutter_id !== null).map(r => r.phoi_index);
+                    const unclaimedRecs = itemRecords.filter(r => r.cutter_id === null && r.printing_contractor_id === null && !r.is_cut_done);
+                    const claimedPhois = itemRecords.filter(r => r.cutter_id !== null || r.printing_contractor_id !== null).map(r => r.phoi_index);
 
                     for (let pi = 0; pi < pairs.length; pi++) {
                         const phoi = pairs[pi];
@@ -2416,8 +2507,8 @@ module.exports = async function(fastify) {
                         }
                     }
                 } else {
-                    const hasClaimed = itemRecords.some(r => r.cutter_id !== null && r.phoi_index === 0);
-                    const unclaimedRec = itemRecords.find(r => r.cutter_id === null && !r.is_cut_done && r.phoi_index === 0);
+                    const hasClaimed = itemRecords.some(r => (r.cutter_id !== null || r.printing_contractor_id !== null) && r.phoi_index === 0);
+                    const unclaimedRec = itemRecords.find(r => r.cutter_id === null && r.printing_contractor_id === null && !r.is_cut_done && r.phoi_index === 0);
 
                     if (!hasClaimed || unclaimedRec) {
                         const cut_warning = unclaimedRec ? unclaimedRec.cut_warning : null;
@@ -2484,7 +2575,8 @@ module.exports = async function(fastify) {
               AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
             LIMIT 1
         `, [order_item_id, dht_order_id]);
-        if (isPrintAndCut) {
+        const isManager = await isCutManager(request) || ['quan_ly', 'truong_phong'].includes(request.user.role);
+        if (isPrintAndCut && !isManager) {
             return reply.code(400).send({ error: 'Đơn hàng này được phân công in 3D cắt — xưởng không cần cắt!' });
         }
 
@@ -2515,7 +2607,12 @@ module.exports = async function(fastify) {
         // Check if already claimed by another user
         const existing = await db.get(`
             SELECT id FROM cutting_records 
-            WHERE order_item_id = $1 AND phoi_index = $2 AND cutter_id IS NOT NULL AND cutter_id != $3 AND is_cut_done = false 
+            WHERE order_item_id = $1 AND phoi_index = $2 
+              AND (
+                  (cutter_id IS NOT NULL AND cutter_id != $3)
+                  OR (printing_contractor_id IS NOT NULL)
+              )
+              AND is_cut_done = false 
             LIMIT 1
         `, [order_item_id, phoi_index, userId]);
         if (existing) return reply.code(409).send({ error: 'Phối này đã được nhận bởi người khác' });
@@ -2563,13 +2660,15 @@ module.exports = async function(fastify) {
         let createdId;
         let isCompensation = false;
 
+        const claimContractorId = await get3DCuttingContractor(dht_order_id);
+        const cutterIdToSet = claimContractorId ? null : userId;
+
         if (unassignedRec) {
-            const claimContractorId = await get3DCuttingContractor(dht_order_id);
             await db.run(`
                 UPDATE cutting_records 
-                SET cutter_id = $1, created_by = $1, created_at = $2, printing_contractor_id = $3
-                WHERE id = $4
-            `, [userId, now, claimContractorId || null, unassignedRec.id]);
+                SET cutter_id = $1, created_by = $2, created_at = $3, printing_contractor_id = $4
+                WHERE id = $5
+            `, [cutterIdToSet, userId, now, claimContractorId || null, unassignedRec.id]);
             createdId = unassignedRec.id;
             isCompensation = true;
         } else {
@@ -2579,29 +2678,27 @@ module.exports = async function(fastify) {
                 const productName = totalPhoi > 1
                     ? order.order_code + ' — Phiếu ' + itemIdx + ' — P' + (phoi_index + 1) + (it.description ? ' — ' + it.description : '')
                     : order.order_code + (it.description ? ' — ' + it.description : '');
-                const claimContractorId = await get3DCuttingContractor(dht_order_id);
                 const result = await db.get(`
                     INSERT INTO cutting_records (
                         dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
                         product_name, material_name, fabric_color,
                         order_quantity, cutting_category, created_by, created_at, printing_contractor_id
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4, $11, $12)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                     RETURNING id
-                `, [dht_order_id, it.id, phoi_index, userId, now, productName, phoi.material_name || null, phoi.color_name || null, it.quantity || 0, cuttingCategory, now, claimContractorId || null]);
+                `, [dht_order_id, it.id, phoi_index, cutterIdToSet, now, productName, phoi.material_name || null, phoi.color_name || null, it.quantity || 0, cuttingCategory, userId, now, claimContractorId || null]);
                 if (result) createdId = result.id;
             } else {
                 const productName = totalPhoi > 1
                     ? order.order_code + ' — Phiếu ' + itemIdx + ' — P1' + (it.description ? ' — ' + it.description : '')
                     : order.order_code + (it.description ? ' — ' + it.description : '');
-                const claimContractorId = await get3DCuttingContractor(dht_order_id);
                 const result = await db.get(`
                     INSERT INTO cutting_records (
                         dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
                         product_name, material_name, fabric_color,
                         order_quantity, cutting_category, created_by, created_at, printing_contractor_id
-                    ) VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL, $7, $8, $4, $9, $10)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL, $7, $8, $9, $10, $11)
                     RETURNING id
-                `, [dht_order_id, it.id, 0, userId, now, productName, it.quantity || 0, cuttingCategory, now, claimContractorId || null]);
+                `, [dht_order_id, it.id, 0, cutterIdToSet, now, productName, it.quantity || 0, cuttingCategory, userId, now, claimContractorId || null]);
                 if (result) createdId = result.id;
             }
         }

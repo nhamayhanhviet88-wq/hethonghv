@@ -314,18 +314,18 @@ function _bpcRenderSidebar() {
                     var cKey = 'c'+yr.year+'_'+c.id;
                     var cOpen = !!_bpcOpen[cKey];
                     var cAct = f.view==='records' && f.year==yr.year && f.cutter_id==c.id && !f.status;
-                    h += '<div class="bpc-sb-cutter'+(cAct?' active':'')+'" onclick="event.stopPropagation(); _bpcFilter('+yr.year+',null,'+c.id+')"><span><span class="bpc-sb-toggle-btn" onclick="event.stopPropagation(); _bpcToggle(\''+cKey+'\')">'+(cOpen?'▼':'▶')+'</span> 👤 '+(c.name||'Chưa PC')+'</span><span style="font-weight:800">'+c.total+'</span></div>';
+                    h += '<div class="bpc-sb-cutter'+(cAct?' active':'')+'" onclick="event.stopPropagation(); _bpcFilter('+yr.year+',null,\''+c.id+'\')"><span><span class="bpc-sb-toggle-btn" onclick="event.stopPropagation(); _bpcToggle(\''+cKey+'\')">'+(cOpen?'▼':'▶')+'</span> 👤 '+(c.name||'Chưa PC')+'</span><span style="font-weight:800">'+c.total+'</span></div>';
                     if (cOpen) {
                         // Đơn Chưa Cắt Xong
                         if (c.incomplete_count > 0) {
                             var incAct = f.view==='records' && f.year==yr.year && f.cutter_id==c.id && f.status==='incomplete';
-                            h += '<div class="bpc-sb-sub incomplete'+(incAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterStatus('+yr.year+','+c.id+',\'incomplete\')"><span>⏳ Chưa Cắt Xong</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:800">'+c.incomplete_count+'</span></div>';
+                            h += '<div class="bpc-sb-sub incomplete'+(incAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterStatus('+yr.year+',\''+c.id+'\',\'incomplete\')"><span>⏳ Chưa Cắt Xong</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:800">'+c.incomplete_count+'</span></div>';
                         }
                         // Tháng đã hoàn thành
                         if (c.months) {
                             c.months.forEach(function(m) {
                                 var mAct = f.view==='records' && f.year==yr.year && f.cutter_id==c.id && f.month==m.month && f.status==='done';
-                                h += '<div class="bpc-sb-sub'+(mAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterMonth('+yr.year+','+c.id+','+m.month+')"><span>📅 T'+String(m.month).padStart(2,'0')+'</span><span>'+m.count+'</span></div>';
+                                h += '<div class="bpc-sb-sub'+(mAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterMonth('+yr.year+',\''+c.id+'\','+m.month+')"><span>📅 T'+String(m.month).padStart(2,'0')+'</span><span>'+m.count+'</span></div>';
                             });
                         }
                     }
@@ -400,11 +400,15 @@ async function _bpcLoadRecords() {
         var res = await apiCall('/api/cutting/records' + qs);
         var records = res.records || [];
 
-        // Load unassigned orders unless filtering by a specific cutter
-        var shouldLoadUnassigned = !f.cutter_id;
+        // Load unassigned orders unless filtering by a specific cutter (except contractor branches starting with 'c_')
+        var shouldLoadUnassigned = !f.cutter_id || String(f.cutter_id).startsWith('c_');
         if (shouldLoadUnassigned) {
             try {
-                var unassignedRes = await apiCall('/api/cutting/unassigned');
+                var unassignedUrl = '/api/cutting/unassigned';
+                if (f.cutter_id && String(f.cutter_id).startsWith('c_')) {
+                    unassignedUrl += '?contractor_id=' + String(f.cutter_id).substring(2);
+                }
+                var unassignedRes = await apiCall(unassignedUrl);
                 var unassignedOrders = unassignedRes.orders || [];
                 _bpc.unassignedOrders = unassignedOrders;
                 
@@ -462,6 +466,7 @@ async function _bpcLoadRecords() {
                         cut_shared: null,
                         cutter_name: null,
                         cutter_id: null,
+                        printing_contractor_id: null,
                         is_cutting: false,
                         is_cut_done: false,
                         fabric_arrived: ur.fabric_arrived,
@@ -511,7 +516,7 @@ async function _bpcLoadRecords() {
             var allUncut = true;
             var allDone = true;
             groups[key].items.forEach(function(item) {
-                var isUncut = item.is_uncut || (item.cutter_id === null && !item.is_cutting && !item.is_cut_done);
+                var isUncut = item.is_uncut || (item.cutter_id === null && item.printing_contractor_id === null && !item.is_cutting && !item.is_cut_done);
                 if (!isUncut) {
                     allUncut = false;
                 }
