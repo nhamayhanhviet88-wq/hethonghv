@@ -3348,7 +3348,7 @@ async function _bpcDoAddRollGroup(groupId) {
 var _mcData = { step: 1, materials: [], rolls: [], candidates: [], selMat: '', selColor: '', selRolls: [], selOrders: [] };
 
 async function _bpcOpenMultiCut() {
-    _mcData = { step: 1, materials: [], rolls: [], candidates: [], selMat: '', selColor: '', selRolls: [], selOrders: [] };
+    _mcData = { step: 1, materials: [], rolls: [], candidates: [], selMat: '', selColor: '', selRolls: [], selOrders: [], contractors: [], selContractorId: '' };
     var h = '<div class="bpc-modal-overlay" id="_mcModal" onclick="if(event.target===this)_mcClose()">';
     h += '<div class="bpc-modal" style="width:580px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">';
     h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#ea580c,#f97316)"><div class="m-icon">✂️</div><div><div class="m-title">CẮT NHIỀU ĐƠN</div><div class="m-sub">Gộp các đơn cùng chất liệu & màu</div></div></div>';
@@ -3358,8 +3358,18 @@ async function _bpcOpenMultiCut() {
     document.body.insertAdjacentHTML('beforeend', h);
     requestAnimationFrame(function() { document.getElementById('_mcModal').classList.add('show'); });
     try {
-        var res = await apiCall('/api/cutting/available-materials');
-        _mcData.materials = res.materials || [];
+        var isGiamDoc = (window.currentUser || window._currentUser) && (window.currentUser || window._currentUser).role === 'giam_doc';
+        var isManager = (window.currentUser || window._currentUser) && (isGiamDoc || (window.currentUser || window._currentUser).role === 'quan_ly_cap_cao' || ((window.currentUser || window._currentUser).department_name && (window.currentUser || window._currentUser).department_name.toLowerCase().includes('quản lý xưởng')));
+        var isFactoryManager = isManager && !isGiamDoc;
+
+        if (isFactoryManager) {
+            var cRes = await apiCall('/api/cutting/contractors-with-shelves');
+            _mcData.contractors = cRes.contractors || [];
+            _mcData.materials = [];
+        } else {
+            var res = await apiCall('/api/cutting/available-materials');
+            _mcData.materials = res.materials || [];
+        }
         document.getElementById('_mcActions').style.display = 'flex';
         _mcRenderStep();
     } catch(e) { document.getElementById('_mcBody').innerHTML = '<div style="text-align:center;padding:30px;color:#ef4444">❌ ' + (e.message||'Lỗi') + '</div>'; }
@@ -3374,21 +3384,37 @@ function _mcRenderStep() {
     if (backBtn) backBtn.style.display = _mcData.step > 1 ? '' : 'none';
 
     if (_mcData.step === 1) {
-        // Step 1: Select material + color
-        var mats = _mcData.materials;
-        var matNames = []; var matMap = {};
-        mats.forEach(function(m) { if (!matMap[m.material_name]) { matMap[m.material_name] = []; matNames.push(m.material_name); } matMap[m.material_name].push(m); });
+        var isGiamDoc = (window.currentUser || window._currentUser) && (window.currentUser || window._currentUser).role === 'giam_doc';
+        var isManager = (window.currentUser || window._currentUser) && (isGiamDoc || (window.currentUser || window._currentUser).role === 'quan_ly_cap_cao' || ((window.currentUser || window._currentUser).department_name && (window.currentUser || window._currentUser).department_name.toLowerCase().includes('quản lý xưởng')));
+        var isFactoryManager = isManager && !isGiamDoc;
+
         var h = '<div style="font-size:11px;font-weight:800;color:#ea580c;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">BƯỚC 1/4: CHỌN CHẤT LIỆU & MÀU</div>';
-        h += '<div style="margin-bottom:12px"><label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">🧵 CHẤT LIỆU <span style="color:#dc2626">*</span></label>';
-        h += '<select id="_mcMatSel" onchange="_mcMatChanged()" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;font-family:Inter,sans-serif;color:#000;background:#fff"><option value="" style="color:#000;background:#fff">— Chọn chất liệu —</option>';
-        matNames.forEach(function(n) { h += '<option value="' + n + '" style="color:#000;background:#fff"' + (_mcData.selMat === n ? ' selected' : '') + '>' + n + '</option>'; });
-        h += '</select></div>';
-        h += '<div style="margin-bottom:12px"><label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">🎨 MÀU SẮC <span style="color:#dc2626">*</span></label>';
-        h += '<select id="_mcColorSel" onchange="_mcColorChanged()" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;font-family:Inter,sans-serif;color:#000;background:#fff"><option value="" style="color:#000;background:#fff">— Chọn màu —</option>';
-        if (_mcData.selMat && matMap[_mcData.selMat]) {
-            matMap[_mcData.selMat].forEach(function(m) { h += '<option value="' + m.color_name + '" style="color:#000;background:#fff"' + (_mcData.selColor === m.color_name ? ' selected' : '') + '>' + m.color_name + ' (' + m.roll_count + ' cây tổng ' + _bpcFmtKg(m.total_weight) + 'kg)</option>'; });
+        
+        if (isFactoryManager) {
+            h += '<div style="margin-bottom:12px"><label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">🏢 CHỌN KỆ IN 3D / NHÀ IN <span style="color:#dc2626">*</span></label>';
+            h += '<select id="_mcContractorSel" onchange="_mcContractorChanged()" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;font-family:Inter,sans-serif;color:#000;background:#fff"><option value="" style="color:#000;background:#fff">— Chọn Kệ In 3D —</option>';
+            _mcData.contractors.forEach(function(c) {
+                var sel = _mcData.selContractorId == c.id ? ' selected' : '';
+                h += '<option value="' + c.id + '" style="color:#000;background:#fff"' + sel + '>' + c.name + ' (' + c.location_name + ')</option>';
+            });
+            h += '</select></div>';
         }
-        h += '</select></div>';
+
+        if (!isFactoryManager || _mcData.selContractorId) {
+            var mats = _mcData.materials;
+            var matNames = []; var matMap = {};
+            mats.forEach(function(m) { if (!matMap[m.material_name]) { matMap[m.material_name] = []; matNames.push(m.material_name); } matMap[m.material_name].push(m); });
+            h += '<div style="margin-bottom:12px"><label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">🧵 CHẤT LIỆU <span style="color:#dc2626">*</span></label>';
+            h += '<select id="_mcMatSel" onchange="_mcMatChanged()" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;font-family:Inter,sans-serif;color:#000;background:#fff"><option value="" style="color:#000;background:#fff">— Chọn chất liệu —</option>';
+            matNames.forEach(function(n) { h += '<option value="' + n + '" style="color:#000;background:#fff"' + (_mcData.selMat === n ? ' selected' : '') + '>' + n + '</option>'; });
+            h += '</select></div>';
+            h += '<div style="margin-bottom:12px"><label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">🎨 MÀU SẮC <span style="color:#dc2626">*</span></label>';
+            h += '<select id="_mcColorSel" onchange="_mcColorChanged()" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;font-family:Inter,sans-serif;color:#000;background:#fff"><option value="" style="color:#000;background:#fff">— Chọn màu —</option>';
+            if (_mcData.selMat && matMap[_mcData.selMat]) {
+                matMap[_mcData.selMat].forEach(function(m) { h += '<option value="' + m.color_name + '" style="color:#000;background:#fff"' + (_mcData.selColor === m.color_name ? ' selected' : '') + '>' + m.color_name + ' (' + m.roll_count + ' cây tổng ' + _bpcFmtKg(m.total_weight) + 'kg)</option>'; });
+            }
+            h += '</select></div>';
+        }
         body.innerHTML = h;
         if (nextBtn) nextBtn.textContent = 'Tiếp theo ▶';
     } else if (_mcData.step === 2) {
@@ -3620,6 +3646,36 @@ function _mcUpdateMultiCutConfirmState() {
     }
 }
 
+async function _mcContractorChanged() {
+    var sel = document.getElementById('_mcContractorSel');
+    _mcData.selContractorId = sel ? sel.value : '';
+    _mcData.selMat = '';
+    _mcData.selColor = '';
+    _mcData.materials = [];
+    _mcRenderStep();
+    if (_mcData.selContractorId) {
+        var nextBtn = document.getElementById('_mcNextBtn');
+        try {
+            if (nextBtn) nextBtn.disabled = true;
+            var container = document.createElement('div');
+            container.id = '_mcMatLoading';
+            container.innerHTML = '<div style="text-align:center;padding:10px;color:#94a3b8">⏳ Đang tải vải trên kệ...</div>';
+            document.getElementById('_mcBody').appendChild(container);
+            
+            var res = await apiCall('/api/cutting/available-materials?printing_contractor_id=' + _mcData.selContractorId);
+            _mcData.materials = res.materials || [];
+            
+            var loader = document.getElementById('_mcMatLoading');
+            if (loader) loader.remove();
+            if (nextBtn) nextBtn.disabled = false;
+            _mcRenderStep();
+        } catch(e) {
+            showToast('Lỗi tải chất liệu: ' + (e.message || 'Lỗi'), 'error');
+            if (nextBtn) nextBtn.disabled = false;
+        }
+    }
+}
+
 function _mcMatChanged() { var sel = document.getElementById('_mcMatSel'); _mcData.selMat = sel ? sel.value : ''; _mcData.selColor = ''; _mcRenderStep(); }
 function _mcColorChanged() { var sel = document.getElementById('_mcColorSel'); _mcData.selColor = sel ? sel.value : ''; }
 
@@ -3643,9 +3699,15 @@ async function _mcNext() {
         if (!_mcData.selMat || !_mcData.selColor) { showToast('Chọn chất liệu và màu', 'error'); return; }
         // Load rolls + candidates
         try {
-            var r1 = await apiCall('/api/cutting/available-rolls?material_name=' + encodeURIComponent(_mcData.selMat) + '&color_name=' + encodeURIComponent(_mcData.selColor));
+            var urlRolls = '/api/cutting/available-rolls?material_name=' + encodeURIComponent(_mcData.selMat) + '&color_name=' + encodeURIComponent(_mcData.selColor);
+            var urlCands = '/api/cutting/multi-cut/candidates?material_name=' + encodeURIComponent(_mcData.selMat) + '&fabric_color=' + encodeURIComponent(_mcData.selColor);
+            if (_mcData.selContractorId) {
+                urlRolls += '&printing_contractor_id=' + _mcData.selContractorId;
+                urlCands += '&printing_contractor_id=' + _mcData.selContractorId;
+            }
+            var r1 = await apiCall(urlRolls);
             var rolls = r1.rolls || [];
-            var r2 = await apiCall('/api/cutting/multi-cut/candidates?material_name=' + encodeURIComponent(_mcData.selMat) + '&fabric_color=' + encodeURIComponent(_mcData.selColor));
+            var r2 = await apiCall(urlCands);
             var candidates = r2.candidates || [];
             var candidateCodes = candidates.map(function(c) { return c.order_code; });
             _bpcSortRollsForCutting(rolls, candidateCodes);

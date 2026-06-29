@@ -2130,7 +2130,7 @@ module.exports = async function(fastify) {
 
     // ========== AVAILABLE ROLLS: Cây vải khả dụng theo chất liệu + màu ==========
     fastify.get('/api/cutting/available-rolls', { preHandler: [authenticate] }, async (request, reply) => {
-        const { material_name, color_name, order_id, order_item_id, phoi_index } = request.query;
+        const { material_name, color_name, order_id, order_item_id, phoi_index, printing_contractor_id } = request.query;
         if (!material_name || !color_name) return { rolls: [], message: 'Thiếu chất liệu hoặc màu' };
 
         const orderId = order_id ? Number(order_id) : null;
@@ -2138,7 +2138,14 @@ module.exports = async function(fastify) {
         const phoiIdx = phoi_index !== undefined && phoi_index !== null ? Number(phoi_index) : 0;
 
         let filterLocationIds = [];
-        if (orderId) {
+        if (printing_contractor_id) {
+            const locs = await db.all(`SELECT name FROM kv_locations WHERE printing_contractor_id = $1`, [printing_contractor_id]);
+            if (locs.length > 0) {
+                filterLocationIds = locs.map(l => l.name.trim().toLowerCase());
+            } else {
+                filterLocationIds = ['__none__'];
+            }
+        } else if (orderId) {
             let assignment;
             if (orderItemId) {
                 assignment = await db.get(`
@@ -2776,26 +2783,54 @@ module.exports = async function(fastify) {
         return { success: true, created: 1, ids: [createdId] };
     });
 
+    // ========== CONTRACTORS WITH SHELVES: Danh sách nhà in có liên kết kệ ==========
+    fastify.get('/api/cutting/contractors-with-shelves', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all(`
+            SELECT DISTINCT pc.id, pc.name, loc.name AS location_name
+            FROM printing_contractors pc
+            JOIN kv_locations loc ON loc.printing_contractor_id = pc.id
+            WHERE pc.is_active = true
+            ORDER BY pc.name
+        `);
+        return { contractors: rows };
+    });
+
     // ========== AVAILABLE MATERIALS: Chất liệu + màu từ sổ kho ==========
     fastify.get('/api/cutting/available-materials', { preHandler: [authenticate] }, async (request, reply) => {
-        const rows = await db.all(`
+        const { printing_contractor_id } = request.query;
+        let locationFilter = '';
+        let params = [];
+        if (printing_contractor_id) {
+            const locs = await db.all(`SELECT name FROM kv_locations WHERE printing_contractor_id = $1`, [printing_contractor_id]);
+            const names = locs.map(l => l.name.trim().toLowerCase());
+            if (names.length > 0) {
+                locationFilter = ` AND LOWER(TRIM(r.location)) = ANY($1) `;
+                params.push(names);
+            } else {
+                locationFilter = ` AND 1 = 0 `;
+            }
+        }
+
+        const query = `
             SELECT m.name AS material_name, fc.color_name,
-                   COUNT(CASE WHEN r.weight > 0 AND r.locked_by_cutting_id IS NULL THEN 1 END)::int AS roll_count,
-                   COALESCE(SUM(CASE WHEN r.weight > 0 AND r.locked_by_cutting_id IS NULL THEN r.weight ELSE 0 END), 0)::numeric AS total_weight
+                   COUNT(CASE WHEN r.weight > 0 AND r.locked_by_cutting_id IS NULL ${locationFilter} THEN 1 END)::int AS roll_count,
+                   COALESCE(SUM(CASE WHEN r.weight > 0 AND r.locked_by_cutting_id IS NULL ${locationFilter} THEN r.weight ELSE 0 END), 0)::numeric AS total_weight
             FROM kv_materials m
             JOIN kv_fabric_colors fc ON fc.material_id = m.id
             LEFT JOIN kv_rolls r ON r.fabric_color_id = fc.id AND r.is_returned = false
             WHERE m.is_active = true AND fc.is_active = true
             GROUP BY m.name, fc.color_name
-            HAVING COUNT(CASE WHEN r.weight > 0 AND r.locked_by_cutting_id IS NULL THEN 1 END) > 0
+            HAVING COUNT(CASE WHEN r.weight > 0 AND r.locked_by_cutting_id IS NULL ${locationFilter} THEN 1 END) > 0
             ORDER BY m.name, fc.color_name
-        `);
+        `;
+
+        const rows = await db.all(query, params);
         return { materials: rows };
     });
 
     // ========== MULTI-CUT CANDIDATES: Đơn CHƯA NHẬN có thể gộp ==========
     fastify.get('/api/cutting/multi-cut/candidates', { preHandler: [authenticate] }, async (request, reply) => {
-        const { material_name, fabric_color } = request.query;
+        const { material_name, fabric_color, printing_contractor_id } = request.query;
         if (!material_name || !fabric_color) return { candidates: [] };
 
         // Find unclaimed order_items whose material_pairs match the selected material+color
@@ -2840,6 +2875,7 @@ module.exports = async function(fastify) {
         let claimedRecs = [];
         let reservations = [];
         let assignments = [];
+        let assignments3D = [];
         if (orderIds.length > 0) {
             const allOrderItems = await db.all(`
                 SELECT id, dht_order_id, description, material_pairs
@@ -2876,9 +2912,34 @@ module.exports = async function(fastify) {
                   AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
                   AND dht_order_id = ANY($1)
             `, [orderIds]);
+
+            assignments3D = await db.all(`
+                SELECT qa.dht_order_id, qa.item_id, qa.operator_id AS assigned_contractor_id
+                FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE qa.operator_type = 'contractor'
+                  AND qa.operator_id IS NOT NULL
+                  AND (LOWER(pf.name) LIKE '%3d%' OR LOWER(pf.name) LIKE '%cắt%')
+                  AND qa.dht_order_id = ANY($1)
+            `, [orderIds]);
         }
 
         for (const it of allItems) {
+            let assignedContractorId = null;
+            const itemAssign = assignments3D.find(a => a.item_id === it.order_item_id);
+            if (itemAssign) {
+                assignedContractorId = itemAssign.assigned_contractor_id;
+            } else {
+                const orderAssign = assignments3D.find(a => a.item_id === null && a.dht_order_id === it.dht_order_id);
+                const hasSpecificItemAssign = assignments3D.some(a => a.item_id === it.order_item_id);
+                if (orderAssign && !hasSpecificItemAssign) {
+                    assignedContractorId = orderAssign.assigned_contractor_id;
+                }
+            }
+
+            if (printing_contractor_id && Number(assignedContractorId) !== Number(printing_contractor_id)) {
+                continue; // Skip if printing_contractor_id does not match
+            }
             let pairs = [];
             try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
             // Check if any pair matches the selected material+color
@@ -3167,6 +3228,9 @@ module.exports = async function(fastify) {
         if (items.length !== selected_order_item_ids.length)
             return reply.code(400).send({ error: 'Một số phiếu không tồn tại' });
 
+        const isGiamDoc = request.user.role === 'giam_doc';
+        const isFactoryManager = !isGiamDoc && (await isCutManager(request));
+
         for (const it of items) {
             // Check not already claimed by someone else
             const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 AND cutter_id IS NOT NULL AND is_cut_done = false LIMIT 1`, [it.order_item_id]);
@@ -3174,6 +3238,23 @@ module.exports = async function(fastify) {
             if (it.shipping_status === 'shipped') return reply.code(400).send({ error: 'Phiếu thuộc đơn hàng "' + it.order_code + '" đã được gửi đi rồi' });
             if (!it.fabric_arrived) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa có vải về' });
             if (!it.has_print) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa Phân Công In' });
+
+            // Print-and-cut checks
+            const isPrintAndCut = await db.get(`
+                SELECT 1 FROM qlx_order_print_assignments pa
+                JOIN printing_fields pf ON pa.field_id = pf.id
+                WHERE (pa.item_id = $1 OR (pa.item_id IS NULL AND pa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = $1)))
+                  AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
+                LIMIT 1
+            `, [it.order_item_id, it.dht_order_id]);
+
+            const isManager = await isCutManager(request) || ['quan_ly', 'truong_phong'].includes(request.user.role);
+            if (isPrintAndCut && !isManager) {
+                return reply.code(400).send({ error: 'Đơn hàng "' + it.order_code + '" được phân công in 3D cắt — xưởng không cần cắt!' });
+            }
+            if (!isPrintAndCut && isFactoryManager) {
+                return reply.code(403).send({ error: 'Quản lý xưởng không được nhận cắt đơn của thợ!' });
+            }
         }
 
         // Lookup cutting_category from product config (use first item's description)
@@ -3191,6 +3272,18 @@ module.exports = async function(fastify) {
         // Auto-claim: create/update cutting_records for each item
         const createdIds = [];
         for (const it of items) {
+            const claimContractorId = await get3DCuttingContractor(it.dht_order_id);
+            if (claimContractorId) {
+                const hasShelf = await db.get(
+                    `SELECT 1 FROM kv_locations WHERE printing_contractor_id = $1 LIMIT 1`,
+                    [claimContractorId]
+                );
+                if (!hasShelf) {
+                    return reply.code(400).send({ error: 'Đơn vị in của đơn "' + it.order_code + '" chưa được liên kết kệ kho vải. Vui lòng liên kết kệ trước!' });
+                }
+            }
+            const cutterIdToSet = claimContractorId ? null : userId;
+
             // Check if there is an existing unassigned ticket for this item
             const unassignedRecs = await db.all(`
                 SELECT id FROM cutting_records 
@@ -3201,9 +3294,9 @@ module.exports = async function(fastify) {
                 for (const ur of unassignedRecs) {
                     await db.run(`
                         UPDATE cutting_records 
-                        SET cutter_id = $1, created_by = $1, created_at = $2
-                        WHERE id = $3
-                    `, [userId, now, ur.id]);
+                        SET cutter_id = $1, created_by = $2, created_at = $3, printing_contractor_id = $4
+                        WHERE id = $5
+                    `, [cutterIdToSet, userId, now, claimContractorId || null, ur.id]);
                     createdIds.push(ur.id);
                 }
                 continue;
@@ -3241,12 +3334,12 @@ module.exports = async function(fastify) {
                         INSERT INTO cutting_records (
                             dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
                             product_name, material_name, fabric_color,
-                            order_quantity, cutting_category, created_by, created_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4, $11)
+                            order_quantity, cutting_category, created_by, created_at, printing_contractor_id
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                         RETURNING id
-                    `, [it.dht_order_id, it.order_item_id, pi, userId, now, productName,
+                    `, [it.dht_order_id, it.order_item_id, pi, cutterIdToSet, now, productName,
                         phoi.material_name || null, phoi.color_name || null,
-                        it.quantity || 0, cuttingCategory, now]);
+                        it.quantity || 0, cuttingCategory, userId, now, claimContractorId || null]);
                     if (result) createdIds.push(result.id);
                 }
             } else {
@@ -3254,11 +3347,11 @@ module.exports = async function(fastify) {
                 const result = await db.get(`
                     INSERT INTO cutting_records (
                         dht_order_id, order_item_id, phoi_index, cutter_id, cut_date,
-                        product_name, order_quantity, cutting_category, created_by, created_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $4, $9)
+                        product_name, order_quantity, cutting_category, created_by, created_at, printing_contractor_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     RETURNING id
-                `, [it.dht_order_id, it.order_item_id, 0, userId, now, productName,
-                    it.quantity || 0, cuttingCategory, now]);
+                `, [it.dht_order_id, it.order_item_id, 0, cutterIdToSet, now, productName,
+                    it.quantity || 0, cuttingCategory, userId, now, claimContractorId || null]);
                 if (result) createdIds.push(result.id);
             }
         }
