@@ -916,16 +916,39 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                 var photoHtml = '';
                                 var moveHtml = '';
                                 var returnHtml = '';
+                                var targetShelfName = null;
+                                if (r.active_reservations && r.active_reservations.length > 0) {
+                                    var firstRes = r.active_reservations.find(res => res.target_shelf);
+                                    if (firstRes) {
+                                        targetShelfName = firstRes.target_shelf;
+                                    }
+                                }
+                                var isLocMismatch = false;
+                                if (targetShelfName) {
+                                    var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : '';
+                                    var cleanRollLoc = rollLoc.toLowerCase().replace(/^📍\s*/, '').trim();
+                                    var cleanTargetLoc = targetShelfName.toLowerCase().replace(/^📍\s*/, '').trim();
+                                    if (cleanRollLoc !== cleanTargetLoc) {
+                                        isLocMismatch = true;
+                                    }
+                                }
+
                                 if (r.is_called) {
                                     photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
                                     moveHtml = `<span style="font-size:11px; color:#d97706; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
                                 } else if (r.img) {
                                     photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`;
-                                    // Hidden on main screen per request: only allow move via QR scanning
-                                    moveHtml = ``;
+                                    if (targetShelfName && isLocMismatch) {
+                                        moveHtml = `<button class="btn btn-xs btn-outline-warning" style="padding:2px 6px; font-size:10px; font-weight:700; color:#ea580c; border-color:#ea580c; background:#fff7ed; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}', '${escapeJS(targetShelfName)}')">🚚 Chuyển Kệ</button>`;
+                                    } else {
+                                        moveHtml = ``;
+                                    }
                                 } else {
                                     if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
                                         photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
+                                    }
+                                    if (targetShelfName && isLocMismatch) {
+                                        moveHtml = `<button class="btn btn-xs btn-outline-warning" style="padding:2px 6px; font-size:10px; font-weight:700; color:#ea580c; border-color:#ea580c; background:#fff7ed; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}', '${escapeJS(targetShelfName)}')">🚚 Chuyển Kệ</button>`;
                                     }
                                 }
 
@@ -1495,9 +1518,15 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
     _qkvUpdateLocationDropdown();
 }
 
-function _qkvUpdateLocationDropdown() {
+function _qkvUpdateLocationDropdown(forcedTargetShelf) {
     var select = document.getElementById('qkvMoveSelect');
     if (!select) return;
+    
+    if (forcedTargetShelf) {
+        select.innerHTML = `<option value="${escapeHTML(forcedTargetShelf)}">${escapeHTML(forcedTargetShelf)} (Kệ yêu cầu chuyển)</option>`;
+        select.value = forcedTargetShelf;
+        return;
+    }
     
     var activeMat = (_qkv.materials || []).find(m => Number(m.id) === Number(_qkv.activeMoveMaterialId));
     var activeMatLocs = [];
@@ -2009,16 +2038,17 @@ async function _qkvExecuteImportSingleRoll(rollId, rollWeight, shelfName) {
 }
 
 // ================== SINGLE ROLL MOVE & CAMERA HANDLERS ==================
-function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode) {
+function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode, forcedTargetShelf) {
     _qkv.activeMoveMaterialId = materialId;
 
     openModal(
-        '🚚 Di chuyển vị trí cây vải',
+        forcedTargetShelf ? '⚠️ Di chuyển cây vải theo phân công' : '🚚 Di chuyển vị trí cây vải',
         `
             <div style="font-size:13px;line-height:1.6;margin-bottom:16px;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
                 <div>🧵 Chất liệu: <strong>${escapeHTML(matName)}</strong></div>
                 <div>🎨 Màu vải: <strong style="color:#0f766e;">${escapeHTML(colorName)}</strong></div>
                 <div>📍 Cây vải cần chuyển: <strong>Cây ${rollWeight}kg (${rollCode})</strong></div>
+                ${forcedTargetShelf ? `<div style="margin-top:8px;color:#b45309;font-weight:700;">⚠️ Yêu cầu bắt buộc di chuyển sang kệ phân công: ${escapeHTML(forcedTargetShelf)}</div>` : ''}
             </div>
             
             <div class="form-group" style="margin-bottom:16px; display:none;">
@@ -2027,7 +2057,7 @@ function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, mat
 
             <div class="form-group" style="margin-bottom:16px;">
                 <label class="form-label" style="font-weight:700;font-size:12px;">Xếp vào kệ</label>
-                <select id="qkvMoveSelect" class="form-control" style="width:100%;height:38px;padding:4px 12px;line-height:30px;">
+                <select id="qkvMoveSelect" class="form-control" style="width:100%;height:38px;padding:4px 12px;line-height:30px;" ${forcedTargetShelf ? 'disabled' : ''}>
                     <!-- Filled by js -->
                 </select>
             </div>
@@ -2038,7 +2068,7 @@ function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, mat
         `
     );
     
-    _qkvUpdateLocationDropdown();
+    _qkvUpdateLocationDropdown(forcedTargetShelf);
 }
 
 var activeUploadRollId = null;

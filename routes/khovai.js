@@ -1160,7 +1160,20 @@ module.exports = async function (fastify) {
                                     'status', res.status,
                                     'res_id', res.id,
                                     'phoi_index', COALESCE(res.phoi_index, 0),
-                                    'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id), 1)
+                                    'item_index', COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id), 1),
+                                    'target_shelf', (
+                                         SELECT loc.name 
+                                         FROM qlx_order_print_assignments pa
+                                         JOIN kv_locations loc ON (
+                                             (loc.printing_contractor_id = pa.operator_id AND pa.operator_type = 'contractor')
+                                             OR (loc.user_id = pa.operator_id AND pa.operator_type = 'user')
+                                         )
+                                         WHERE pa.item_id = res.item_id
+                                            OR (pa.dht_order_id = res.dht_order_id AND pa.item_id IS NULL AND NOT EXISTS (
+                                                SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = res.item_id
+                                            ))
+                                         LIMIT 1
+                                     )
                                 ))
                                 FROM qlx_fabric_reservations res
                                 LEFT JOIN dht_orders o ON o.id = res.dht_order_id
