@@ -2497,7 +2497,7 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
             h += _bpcRenderRollReservations(rl, r.order_code);
             h += '<div id="_bpcDoneRollInput_' + idx + '" style="display:none;margin-top:8px;padding-left:28px">';
             h += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn lại:</span>';
-            h += '<input id="_bpcDoneRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" placeholder="0" oninput="_bpcDoneRecalc()" style="width:70px;padding:4px 8px;border:1.5px solid #3b82f6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
+            h += '<input id="_bpcDoneRollKg_' + idx + '" type="text" inputmode="decimal" placeholder="0" oninput="this.value = this.value.replace(/[^0-9.,]/g, \'\'); _bpcDoneRecalc()" style="width:70px;padding:4px 8px;border:1.5px solid #3b82f6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
             h += '<span style="font-size:10px;color:#64748b">kg (tối đa ' + w + ')</span></div></div>';
             h += '</div>';
         });
@@ -2829,7 +2829,7 @@ function _bpcDoneRecalc() {
     cbs.forEach(function(cb) {
         var idx = cb.dataset.idx;
         var kg = document.getElementById('_bpcDoneRollKg_' + idx);
-        kgRemain += kg ? (parseFloat(kg.value) || 0) : 0;
+        kgRemain += kg ? (parseFloat(kg.value.replace(/,/g, '.')) || 0) : 0;
     });
     var kgCut = d.kgStart - kgRemain;
     var el = document.getElementById('_bpcDoneKgCut');
@@ -2896,7 +2896,7 @@ async function _bpcSubmitDone(recordId) {
         if (cb.checked) {
             var idx = cb.dataset.idx;
             var kg = document.getElementById('_bpcDoneRollKg_' + idx);
-            var val = kg ? parseFloat(kg.value) : 0;
+            var val = kg ? parseFloat(kg.value.replace(/,/g, '.')) : 0;
             var maxW = parseFloat(cb.dataset.weight) || 0;
             if (!val || val <= 0) { hasError = true; if (kg) { kg.style.border = '2px solid #dc2626'; kg.focus(); } }
             if (val > maxW) { hasError = true; if (kg) { kg.style.border = '2px solid #dc2626'; kg.focus(); } showToast('⚠️ Kg còn lại không thể > ' + maxW, 'error'); }
@@ -3096,7 +3096,7 @@ async function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
         h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRollGroup(\'' + groupId + '\', ' + rl.roll_id + ')" style="border:1.5px solid #dc2626;background:rgba(220,38,38,0.06);color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;line-height:1.2;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
         h += _bpcRenderRollReservations(rl, groupOrderCodes);
         h += '<div id="_bpcGRollInp_' + idx + '" style="display:none;margin-top:8px;padding-left:28px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn:</span>';
-        h += '<input id="_bpcGRollKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + w + '" oninput="_bpcGDoneValidKg(this,' + w + ')" style="width:70px;padding:4px 8px;border:1.5px solid #8b5cf6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
+        h += '<input id="_bpcGRollKg_' + idx + '" type="text" inputmode="decimal" placeholder="0" oninput="this.value = this.value.replace(/[^0-9.,]/g, \'\'); _bpcGDoneValidKg(this,' + w + ')" style="width:70px;padding:4px 8px;border:1.5px solid #8b5cf6;border-radius:6px;font-size:12px;font-weight:700;text-align:center">';
         h += '<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
     h += '</div>';
@@ -3203,14 +3203,14 @@ function _bpcGDoneValidQty(el, max) {
     _bpcGDoneRecalc();
 }
 function _bpcGDoneValidKg(el, max) {
-    var v = parseFloat(el.value) || 0;
+    var v = parseFloat(el.value.replace(/,/g, '.')) || 0;
     if (v > max) { el.style.border = '2px solid #ef4444'; el.style.color = '#ef4444'; }
     else { el.style.border = '1.5px solid #8b5cf6'; el.style.color = '#7c3aed'; }
     _bpcGDoneRecalc();
 }
 function _bpcGDoneRecalc() {
     var d = window._bpcGDone; if (!d) return;
-    var kgR = 0; document.querySelectorAll('._bpcGRollCb:checked').forEach(function(cb) { var k = document.getElementById('_bpcGRollKg_' + cb.dataset.idx); kgR += k ? (parseFloat(k.value) || 0) : 0; });
+    var kgR = 0; document.querySelectorAll('._bpcGRollCb:checked').forEach(function(cb) { var k = document.getElementById('_bpcGRollKg_' + cb.dataset.idx); kgR += k ? (parseFloat(k.value.replace(/,/g, '.')) || 0) : 0; });
     var totalKgCut = d.kgStart - kgR;
     var el = document.getElementById('_bpcGKgCut'); if (el) el.textContent = _bpcFmtKg(totalKgCut);
     var totalQty = 0; var qtys = [];
@@ -3277,7 +3277,7 @@ async function _bpcSubmitGDone() {
     if (!hasChecked && !d._allCut) { showToast('Chọn cây còn lại hoặc ấn "Cắt hết"', 'error'); window._bpcBusy = false; return; }
     var rollRemains = []; var err = false;
     document.querySelectorAll('._bpcGRollCb').forEach(function(cb) {
-        if (cb.checked) { var k = document.getElementById('_bpcGRollKg_' + cb.dataset.idx); var v = k ? parseFloat(k.value) : 0; var mx = parseFloat(cb.dataset.weight) || 0;
+        if (cb.checked) { var k = document.getElementById('_bpcGRollKg_' + cb.dataset.idx); var v = k ? parseFloat(k.value.replace(/,/g, '.')) : 0; var mx = parseFloat(cb.dataset.weight) || 0;
         if (!v || v <= 0) { err = true; if (k) k.style.border = '2px solid #ef4444'; }
         if (v > mx) { err = true; showToast('Kg > ' + mx, 'error'); }
         rollRemains.push({ roll_id: Number(cb.dataset.rollid), remaining_weight: v }); }

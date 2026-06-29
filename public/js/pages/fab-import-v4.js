@@ -109,10 +109,10 @@ function _bnhFabRenderBody() {
             // Trees
             var trees = it.trees || [];
             trees.forEach(function (tr, ti) {
-                var tc = Math.round((Number(tr.weight)||0) * up);
+                var tc = Math.round((parseFloat(String(tr.weight || '0').replace(',', '.')) || 0) * up);
                 h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'
                     + '<span style="font-size:10px;color:#9ca3af;width:45px">Cây '+(ti+1)+':</span>'
-                    + '<input type="text" inputmode="decimal" value="'+String(tr.weight||'').replace('.', ',')+'" placeholder="0" onchange="_bnhFabTreeW('+idx+','+ti+',this.value)" style="width:90px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'
+                    + '<input type="text" inputmode="decimal" value="'+String(tr.weight||'').replace('.', ',')+'" placeholder="0" oninput="this.value = this.value.replace(/[^0-9.,]/g, \'\'); _bnhFabTreeW('+idx+','+ti+',this.value)" style="width:90px;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">'
                     + '<span style="font-size:10px;color:#6b7280">'+(it.unit||'kg')+'</span>'
                     + (up > 0 ? '<span style="font-size:10px;color:#059669;font-weight:600">→ '+tc.toLocaleString('vi-VN')+'đ</span>' : '');
                 
@@ -142,11 +142,10 @@ function _bnhFabRenderBody() {
             } else {
                 h += '<button onclick="_bnhFabAddTree('+idx+')" style="margin-top:4px;padding:3px 10px;border-radius:5px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:10px;font-weight:600;cursor:pointer">+ Them cay</button>';
             }
-            var totalW = trees.reduce(function(s,t){return s+(Number(t.weight)||0);},0);
-            var totalC = trees.reduce(function(s,t){return s+Math.round((Number(t.weight)||0)*up);},0);
+            var totalW = trees.reduce(function(s,t){return s+(parseFloat(String(t.weight||'0').replace(',', '.'))||0);},0);
+            var totalC = trees.reduce(function(s,t){return s+Math.round((parseFloat(String(t.weight||'0').replace(',', '.'))||0)*up);},0);
             totalFabCost += totalC;
-            h += '<div style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:6px">📊 '+trees.length+' cây | '+_bnhFM(totalW)+' '+(it.unit||'kg')+(up>0?' | '+totalC.toLocaleString('vi-VN')+'đ':'')+'</div>';
-            // Fulfillment status
+            h += '<div id="_fabItemSum_'+idx+'" style="font-size:10px;font-weight:700;color:#7c3aed;margin-top:6px">📊 '+trees.length+' cây | '+_bnhFM(totalW)+' '+(it.unit||'kg')+(up>0?' | '+totalC.toLocaleString('vi-VN')+'đ':'')+'</div>';
             var totalImp = (it.imported_trees||0) + trees.length;
             if (it.needed_trees > 0) {
                 if (totalImp >= it.needed_trees) h += '<div style="font-size:9px;color:#059669;font-weight:700;margin-top:2px">✅ ĐỦ ('+totalImp+'/'+it.needed_trees+' cây) — lần sau sẽ ẨN</div>';
@@ -181,8 +180,8 @@ function _bnhFabRenderBody() {
         var grandTotal = totalFabCost + extraTotal + vatTotal;
         h += '<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px;margin-top:8px">'
             + '<div style="font-size:10px;font-weight:800;color:#059669;margin-bottom:4px">📊 TỔNG KẾT BILL</div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>🧵 Tiền vải:</span><b>'+totalFabCost.toLocaleString('vi-VN')+'đ</b></div>';
-        if (extraTotal > 0) h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>📋 Chi phí khác:</span><b>'+extraTotal.toLocaleString('vi-VN')+'đ</b></div>';
+            + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>🧵 Tiền vải:</span><b id="_fabTotalFabCostVal">'+totalFabCost.toLocaleString('vi-VN')+'đ</b></div>';
+        if (extraTotal > 0) h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>📋 Chi phí khác:</span><b id="_fabTotalExtraCostVal">'+extraTotal.toLocaleString('vi-VN')+'đ</b></div>';
         h += '<div id="_fabVatRow" style="display:' + (vatTotal > 0 ? 'flex' : 'none') + ';justify-content:space-between;font-size:11px;margin-bottom:2px"><span>📊 Tiền VAT:</span><b id="_fabVatVal">'+vatTotal.toLocaleString('vi-VN')+'đ</b></div>';
         h += '<div style="border-top:1px solid #86efac;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:13px;font-weight:900;color:#059669"><span>💰 TỔNG THÀNH TIỀN:</span><span id="_fabGrandTotalVal">'+grandTotal.toLocaleString('vi-VN')+'đ</span></div>';
 
@@ -361,11 +360,8 @@ function _bnhFabAddTree(idx) { var it = _bnhFab.items[idx]; if(!it) return; var 
 function _bnhFabDelTree(idx,ti) { var it = _bnhFab.items[idx]; if(it&&it.trees.length>1){it.trees.splice(ti,1);_bnhFabRenderBody();} }
 function _bnhFabTreeW(idx, ti, val) {
     var it = _bnhFab.items[idx]; if (!it || !it.trees[ti]) return;
-    if (typeof val === 'string') {
-        val = val.replace(',', '.');
-    }
-    it.trees[ti].weight = Number(val) || 0;
-    _bnhFabRenderBody();
+    it.trees[ti].weight = val; // Store raw string to preserve typed commas/dots
+    _bnhFabUpdateSummary();
 }
 
 function _bnhFabUpdateSummary() {
@@ -374,13 +370,33 @@ function _bnhFabUpdateSummary() {
     f.vat = vatVal;
 
     // Calculate total fabric cost
-    var totalFabCost = f.items.reduce(function(sum, it) {
-        var itCost = (it.trees || []).reduce(function(s, t) { return s + (Number(t.weight) || 0); }, 0) * (Number(it.unit_price) || 0);
-        return sum + itCost;
-    }, 0);
+    var totalFabCost = 0;
+    f.items.forEach(function(it, idx) {
+        var up = Number(it.unit_price) || 0;
+        var totalW = (it.trees || []).reduce(function(s, t) {
+            var w = parseFloat(String(t.weight || '0').replace(',', '.')) || 0;
+            return s + w;
+        }, 0);
+        var totalC = Math.round(totalW * up);
+        totalFabCost += totalC;
+
+        // Update item summary text in the DOM directly
+        var itemSumEl = document.getElementById('_fabItemSum_' + idx);
+        if (itemSumEl) {
+            itemSumEl.textContent = '📊 ' + it.trees.length + ' cây | ' + _bnhFM(totalW) + ' ' + (it.unit || 'kg') + (up > 0 ? ' | ' + totalC.toLocaleString('vi-VN') + 'đ' : '');
+        }
+    });
 
     var extraTotal = f.extraCosts.reduce(function(s, ec) { return s + (Number(ec.amount) || 0); }, 0);
     var grandTotal = totalFabCost + extraTotal + vatVal;
+
+    // Update fabric cost in summary box
+    var tfcEl = document.getElementById('_fabTotalFabCostVal');
+    if (tfcEl) tfcEl.textContent = totalFabCost.toLocaleString('vi-VN') + 'đ';
+
+    // Update extra costs in summary box
+    var tecEl = document.getElementById('_fabTotalExtraCostVal');
+    if (tecEl) tecEl.textContent = extraTotal.toLocaleString('vi-VN') + 'đ';
 
     // Update VAT row
     var vatRow = document.getElementById('_fabVatRow');
@@ -420,7 +436,8 @@ async function _bnhFabSubmit() {
         if (!it.trees || !it.trees.length) { showToast(it.material_name+': thêm ít nhất 1 cây', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
         if (!it.unit_price || Number(it.unit_price) <= 0) { showToast(it.material_name+': nhập đơn giá', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
         for (var t = 0; t < it.trees.length; t++) {
-            if (!it.trees[t].weight || Number(it.trees[t].weight) <= 0) { showToast(it.material_name+': Cây '+(t+1)+' phải > 0', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
+            var w = parseFloat(String(it.trees[t].weight || '0').replace(',', '.')) || 0;
+            if (w <= 0) { showToast(it.material_name+': Cây '+(t+1)+' phải > 0', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
             if (f.requireRollPhoto && !it.trees[t].image_path) { showToast(it.material_name+': Cây '+(t+1)+' bắt buộc phải chụp ảnh định danh', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
         }
     }
@@ -439,7 +456,7 @@ async function _bnhFabSubmit() {
             fabric_items: f.items.map(function(it){
                 return { reservation_ids: it.reservation_ids||[], material_name: it.material_name, color_name: it.color_name,
                     unit: it.unit||'kg', unit_price: Number(it.unit_price)||0, fabric_color_id: it.fabric_color_id,
-                    trees: it.trees.map(function(t){return {weight:Number(t.weight)||0, image_path: t.image_path || null};}) };
+                    trees: it.trees.map(function(t){return {weight: parseFloat(String(t.weight||'0').replace(',', '.'))||0, image_path: t.image_path || null};}) };
             }),
             extra_costs: f.extraCosts,
             ship_cost: shipCost,
