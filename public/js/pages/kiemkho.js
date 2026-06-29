@@ -248,8 +248,8 @@ async function _kkLoadShelves() {
             const isUnassignedB = nameB.includes('chưa xếp kệ');
             const isReturnA = nameA === 'kệ dự định hoàn vải';
             const isReturnB = nameB === 'kệ dự định hoàn vải';
-            const isThienLinhA = nameA === 'kệ 3d thiện linh';
-            const isThienLinhB = nameB === 'kệ 3d thiện linh';
+            const isPartnerA = !!a.printing_contractor_id || nameA.includes('thiện linh') || nameA.includes('phượng tc');
+            const isPartnerB = !!b.printing_contractor_id || nameB.includes('thiện linh') || nameB.includes('phượng tc');
 
             if (isUnassignedA && !isUnassignedB) return 1;
             if (!isUnassignedA && isUnassignedB) return -1;
@@ -260,10 +260,10 @@ async function _kkLoadShelves() {
             if (isReturnA && !isReturnB) return 1;
             if (!isReturnA && isReturnB) return -1;
 
-            if (isThienLinhA && !isThienLinhB) {
+            if (isPartnerA && !isPartnerB) {
                 return isReturnB ? -1 : 1;
             }
-            if (!isThienLinhA && isThienLinhB) {
+            if (!isPartnerA && isPartnerB) {
                 return isReturnA ? 1 : -1;
             }
             return 0;
@@ -964,8 +964,9 @@ async function _kkRenderAudit(content) {
     }
     const isGiamDoc = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
     const cleanActiveLoc = (_kk.activeLocation || '').replace(/^📍\s*/, '').trim().toLowerCase();
-    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanActiveLoc);
     const activeShelf = _kk.shelves ? _kk.shelves.find(s => s.name === _kk.activeLocation) : null;
+    const isPartnerShelf = !!(activeShelf && activeShelf.printing_contractor_id);
+    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActiveLoc) || isPartnerShelf;
     const activeMatsList = activeShelf ? activeShelf.materials_list : '';
     
     // Progress calculation
@@ -1123,13 +1124,16 @@ async function _kkRenderAudit(content) {
                     // Difference display
                     let diffLabel = '—';
                     const isReturnRoll = r.location && r.location.toLowerCase().includes('dự định hoàn vải');
+                    const isPartnerShelf = !!r.is_partner_shelf;
                     const isUnassignedNguyen = r.is_unassigned && (Number(r.system_weight) >= Number(r.original_weight));
-                    const isSpecialShelf = isReturnRoll || isUnassignedNguyen;
+                    const isSpecialShelf = isReturnRoll || isPartnerShelf || isUnassignedNguyen;
 
                     if (isSurplus) {
                         diffLabel = `<span class="kk-diff-badge ok" style="background:#f3e8ff; color:#6b21a8; border:1px solid #c084fc;">💜 Cây thừa</span>`;
                     } else if (isReturnRoll) {
                         diffLabel = `<span class="kk-diff-badge ok" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;">🔄 Chờ hoàn NCC</span>`;
+                    } else if (isPartnerShelf) {
+                        diffLabel = `<span class="kk-diff-badge ok" style="background:#f3e8ff; color:#6b21a8; border:1px solid #c084fc;">🏭 Kệ đối tác</span>`;
                     } else if (hasChecked) {
                         if (r.actual_weight === 0) {
                             diffLabel = `<span class="kk-diff-badge missing">❌ Báo mất</span>`;
@@ -1153,13 +1157,13 @@ async function _kkRenderAudit(content) {
                     } else if (isSpecialShelf) {
                         if (hasChecked) {
                             actionHtml = `
-                                <button class="kk-action-btn" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true, ${isReturnRoll})" title="Hủy xác nhận có cây hoàn/cây nguyên chưa xếp kệ">
+                                <button class="kk-action-btn" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true, ${isReturnRoll}, ${isPartnerShelf})" title="Hủy xác nhận có cây hoàn/cây nguyên chưa xếp kệ">
                                     ✅ Có cây này (Hủy?)
                                 </button>
                             `;
                         } else {
                             actionHtml = `
-                                <button class="kk-action-btn" style="background: rgba(217, 119, 6, 0.15); border: 1px solid #d97706; color: #ea580c; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false, ${isReturnRoll})" title="Xác nhận có cây hoàn/cây nguyên chưa xếp kệ trong kho">
+                                <button class="kk-action-btn" style="background: rgba(217, 119, 6, 0.15); border: 1px solid #d97706; color: #ea580c; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false, ${isReturnRoll}, ${isPartnerShelf})" title="Xác nhận có cây hoàn/cây nguyên chưa xếp kệ trong kho">
                                     🔍 Kiểm xem có cây này không
                                 </button>
                             `;
@@ -1555,8 +1559,8 @@ async function _kkMarkPresent(rollId, systemWeight, rollImg) {
     }
 }
 
-async function _kkToggleReturnRollCheck(rollId, rollCode, isCurrentlyChecked, isReturnRoll = false) {
-    const rollTypeLabel = isReturnRoll ? 'cây hoàn' : 'cây nguyên';
+async function _kkToggleReturnRollCheck(rollId, rollCode, isCurrentlyChecked, isReturnRoll = false, isPartnerShelf = false) {
+    const rollTypeLabel = isReturnRoll ? 'cây hoàn' : (isPartnerShelf ? 'cây đối tác' : 'cây nguyên');
     const confirmMsg = isCurrentlyChecked 
         ? `Xác nhận hủy kiểm tra ${rollTypeLabel} này (mã ${rollCode})?`
         : `Xác nhận có ${rollTypeLabel} này (mã ${rollCode}) trong kho?`;
@@ -1581,8 +1585,8 @@ async function _kkToggleReturnRollCheck(rollId, rollCode, isCurrentlyChecked, is
 // 2. Mark Missing (Báo mất)
 async function _kkMarkMissing(rollId, rollCode) {
     const r = _kk.rolls.find(item => item.roll_id === rollId);
-    if (r && r.location && r.location.toLowerCase().includes('dự định hoàn vải')) {
-        showToast('⚠️ Cây vải đang trong quá trình hoàn trả NCC, không được thay đổi số liệu.', 'warning');
+    if (r && ((r.location && r.location.toLowerCase().includes('dự định hoàn vải')) || r.is_partner_shelf)) {
+        showToast('⚠️ Cây vải thuộc kệ đối tác hoặc hoàn trả NCC, không được thay đổi số liệu.', 'warning');
         return;
     }
     const colorName = r ? r.color_name : '—';
@@ -1656,8 +1660,8 @@ async function _kkSubmitMissing(rollId, rollCode) {
 // 3. Weight Input Modal (Nhập thực tế)
 function _kkInputWeightPrompt(rollId, systemWeight, rollImg) {
     const r = _kk.rolls.find(item => item.roll_id === rollId);
-    if (r && r.location && r.location.toLowerCase().includes('dự định hoàn vải')) {
-        showToast('⚠️ Cây vải đang trong quá trình hoàn trả NCC, không được thay đổi số liệu.', 'warning');
+    if (r && ((r.location && r.location.toLowerCase().includes('dự định hoàn vải')) || r.is_partner_shelf)) {
+        showToast('⚠️ Cây vải thuộc kệ đối tác hoặc hoàn trả NCC, không được thay đổi số liệu.', 'warning');
         return;
     }
     const colorName = r ? r.color_name : '—';
@@ -2056,7 +2060,9 @@ function _kkShowMismatchModal(errorText) {
 // ========== ADD SURPLUS MODAL (CÂY THỪA) ==========
 function _kkOpenAddSurplusModal() {
     const cleanActiveLoc = (_kk.activeLocation || '').replace(/^📍\s*/, '').trim().toLowerCase();
-    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanActiveLoc);
+    const activeShelf = _kk.shelves ? _kk.shelves.find(s => s.name === _kk.activeLocation) : null;
+    const isPartnerShelf = !!(activeShelf && activeShelf.printing_contractor_id);
+    const isSurplusBlocked = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanActiveLoc) || isPartnerShelf;
     if (isSurplusBlocked) {
         showToast('Không cho phép khai báo cây thừa tại kệ này.', 'error');
         return;
@@ -2068,7 +2074,8 @@ function _kkOpenAddSurplusModal() {
     let shelfOptions = '';
     (_kk.shelves || []).forEach(s => {
         const cleanName = s.name.replace(/^📍\s*/, '').trim().toLowerCase();
-        const isBlockedShelf = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ', 'kệ 3d thiện linh'].includes(cleanName);
+        const isPartner = !!s.printing_contractor_id;
+        const isBlockedShelf = ['kệ dự định hoàn vải', 'chưa xếp kệ - cây nguyên', 'chưa xếp kệ - cây lẻ'].includes(cleanName) || isPartner;
         if (isBlockedShelf) return;
         shelfOptions += `<option value="${s.name}" ${s.name === _kk.activeLocation ? 'selected' : ''}>${s.name}</option>`;
     });

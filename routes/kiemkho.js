@@ -331,7 +331,7 @@ module.exports = async function(fastify) {
         }
 
         let sqlReal = `
-            SELECT l.id, l.name, l.description, l.warehouse_id, l.shelf_position, l.is_restricted,
+            SELECT l.id, l.name, l.description, l.warehouse_id, l.shelf_position, l.is_restricted, l.printing_contractor_id,
                    (SELECT string_agg(m.id::text, ',') FROM kv_materials m WHERE LOWER(REGEXP_REPLACE(m.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND m.is_active = true) AS allowed_material_ids,
                    (SELECT string_agg(DISTINCT m.name, ', ') FROM kv_materials m WHERE LOWER(REGEXP_REPLACE(m.location, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(l.name, '^📍\\s*', '')) AND m.is_active = true) AS allowed_materials,
                    COALESCE((SELECT COUNT(*)::int FROM kv_rolls r
@@ -606,16 +606,21 @@ module.exports = async function(fastify) {
                    sc.id AS sc_id, sc.actual_weight, sc.difference, sc.is_checked, sc.checked_at, sc.notes AS sc_notes,
                    u_ck.full_name AS checked_by_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
-                   r.locked_by_cutting_id,
-                   (
-                       r.location IS NULL 
-                       OR TRIM(r.location) = '' 
-                       OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (
-                           SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) 
-                           FROM kv_locations 
-                           WHERE warehouse_id = m.warehouse_id
-                       )
-                   ) AS is_unassigned,
+                    r.locked_by_cutting_id,
+                    (
+                        r.location IS NULL 
+                        OR TRIM(r.location) = '' 
+                        OR LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) NOT IN (
+                            SELECT LOWER(REGEXP_REPLACE(name, '^📍\\s*', '')) 
+                            FROM kv_locations 
+                            WHERE warehouse_id = m.warehouse_id
+                        )
+                    ) AS is_unassigned,
+                    EXISTS (
+                        SELECT 1 FROM kv_locations loc 
+                        WHERE LOWER(REGEXP_REPLACE(loc.name, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) 
+                          AND loc.printing_contractor_id IS NOT NULL
+                    ) AS is_partner_shelf,
                    (
                        SELECT o.order_code || ' - P' || 
                               COALESCE((SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = res.dht_order_id AND it2.id <= res.item_id), 1) || '.' || 
@@ -651,7 +656,12 @@ module.exports = async function(fastify) {
                            FROM kv_locations 
                            WHERE warehouse_id = m.warehouse_id
                        )
-                   ) AS is_unassigned
+                   ) AS is_unassigned,
+                   EXISTS (
+                       SELECT 1 FROM kv_locations loc 
+                       WHERE LOWER(REGEXP_REPLACE(loc.name, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) 
+                         AND loc.printing_contractor_id IS NOT NULL
+                   ) AS is_partner_shelf
             FROM kv_rolls r 
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id 
             JOIN kv_materials m ON m.id = fc.material_id
@@ -662,7 +672,8 @@ module.exports = async function(fastify) {
         const cleanLoc = (roll.location || '').toLowerCase();
         const isReturnRoll = cleanLoc.includes('dự định hoàn vải');
         const isUnassignedNguyen = roll.is_unassigned && (Number(roll.weight) >= Number(roll.original_weight));
-        if (isReturnRoll || isUnassignedNguyen) {
+        const isPartnerShelf = roll.is_partner_shelf;
+        if (isReturnRoll || isUnassignedNguyen || isPartnerShelf) {
             if (action !== 'toggle_check') {
                 return reply.code(400).send({ error: 'Cây vải này chỉ được xác nhận có/không, không được nhập cân lệch.' });
             }
@@ -850,7 +861,12 @@ module.exports = async function(fastify) {
                    CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
                    fc.id AS color_id,
                    CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
-                   w.name AS warehouse_name, w.unit
+                   w.name AS warehouse_name, w.unit,
+                   EXISTS (
+                       SELECT 1 FROM kv_locations loc 
+                       WHERE LOWER(REGEXP_REPLACE(loc.name, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) 
+                         AND loc.printing_contractor_id IS NOT NULL
+                   ) AS is_partner_shelf
             FROM stockcheck_records sc
             JOIN kv_rolls r ON r.id = sc.roll_id
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
@@ -914,8 +930,12 @@ module.exports = async function(fastify) {
 
             const uStats = by_unit[unit];
 
-            if (rec.notes && rec.notes.includes('Kệ dự định hoàn vải')) {
-                // Ignore return confirm rolls
+            const cleanLoc = (rec.location || '').toLowerCase();
+            const isReturnRoll = cleanLoc.includes('dự định hoàn vải') || (rec.notes && rec.notes.includes('Kệ dự định hoàn vải'));
+            const isPartnerShelf = rec.is_partner_shelf;
+
+            if (isReturnRoll || isPartnerShelf) {
+                // Ignore return confirm rolls and partner shelves
             } else if (rec.source === 'kiem_kho_du' && new Date(rec.roll_created_at) >= new Date(session.started_at)) {
                 surplusRolls++;
                 surplusWeight += newW;
@@ -1024,7 +1044,12 @@ module.exports = async function(fastify) {
                    CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
                    fc.id AS color_id,
                    CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
-                   w.name AS warehouse_name, w.unit
+                   w.name AS warehouse_name, w.unit,
+                   EXISTS (
+                       SELECT 1 FROM kv_locations loc 
+                       WHERE LOWER(REGEXP_REPLACE(loc.name, '^📍\\s*', '')) = LOWER(REGEXP_REPLACE(r.location, '^📍\\s*', '')) 
+                         AND loc.printing_contractor_id IS NOT NULL
+                   ) AS is_partner_shelf
             FROM stockcheck_records sc
             JOIN kv_rolls r ON r.id = sc.roll_id
             JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
@@ -1049,8 +1074,14 @@ module.exports = async function(fastify) {
 
                 let type = 'match';
 
-                if (rec.notes && rec.notes.includes('Kệ dự định hoàn vải')) {
+                const cleanLoc = (rec.location || '').toLowerCase();
+                const isReturnRoll = cleanLoc.includes('dự định hoàn vải') || (rec.notes && rec.notes.includes('Kệ dự định hoàn vải'));
+                const isPartnerShelf = rec.is_partner_shelf;
+
+                if (isReturnRoll) {
                     type = 'return_confirm';
+                } else if (isPartnerShelf) {
+                    type = 'partner_confirm';
                 } else if (rec.source === 'kiem_kho_du' && new Date(rec.roll_created_at) >= new Date(session.started_at)) {
                     // Added as surplus during audit
                     surplusRolls++;
