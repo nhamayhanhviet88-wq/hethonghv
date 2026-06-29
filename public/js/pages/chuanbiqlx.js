@@ -993,7 +993,18 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                     if (typeof calledOrders === 'string') try { calledOrders = JSON.parse(calledOrders); } catch(e) { calledOrders = []; }
                     var activeResOrders = (rl.reservations || []).map(function(rv) { return rv.order_code; });
                     calledOrders = calledOrders.filter(function(ord) { return activeResOrders.indexOf(ord) >= 0; });
-                               // Cutting lock check
+
+                    var tagHtml = '';
+                    if (calledOrders.indexOf(orderCode) >= 0) {
+                        tagHtml = '<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🏷️ Gọi cho đơn này</span>';
+                    } else if (calledOrders.length > 0) {
+                        tagHtml = '<span style="background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">🔖 ' + calledOrders[0] + '</span>';
+                    }
+
+                    var borderColor = calledOrders.indexOf(orderCode) >= 0 ? '#86efac' : '#e2e8f0';
+                    var bgColor = calledOrders.indexOf(orderCode) >= 0 ? '#f0fdf4' : '#f8fafc';
+
+                    // Cutting lock check
                     var isLocked = !!rl.locked_by_cutting_id;
                     var isDisabled = !!rl.is_contractor_disabled;
                     if (isLocked) { borderColor = '#fca5a5'; bgColor = '#fef2f2'; }
