@@ -818,11 +818,21 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                 html += '<div style="padding:12px 20px 0"><div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">📋 TRẠNG THÁI VẢI: <span style="font-weight:600;color:#6b7280;font-size:11px">(' + existing.length + ' Cây Vải)</span></div>';
                 existing.forEach(function(ex, exIdx) {
                     var isArrived = ex.status === 'arrived';
-                    var bgColor = isArrived ? '#f0fdf4' : '#fffbeb';
-                    var borderColor = isArrived ? '#86efac' : '#fbbf24';
-                    var statusBadge = isArrived
-                        ? '<span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">✅ ĐÃ VỀ</span>'
-                        : '<span style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⏳ ĐANG CHỜ</span>';
+                    var needTransfer = false;
+                    if (isArrived && ex.roll_id && data.target_shelf) {
+                        var rollLoc = (ex.roll_loc_name || '').toLowerCase().replace(/^📍\s*/, '').trim();
+                        var targetLoc = data.target_shelf.toLowerCase().trim();
+                        if (rollLoc !== targetLoc) {
+                            needTransfer = true;
+                        }
+                    }
+                    var bgColor = needTransfer ? '#fffaf0' : (isArrived ? '#f0fdf4' : '#fffbeb');
+                    var borderColor = needTransfer ? '#fdba74' : (isArrived ? '#86efac' : '#fbbf24');
+                    var statusBadge = needTransfer
+                        ? '<span style="background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⚠️ Yêu Cầu Di Chuyển Cây sang ' + data.target_shelf + '</span>'
+                        : (isArrived
+                            ? '<span style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">✅ ĐÃ VỀ</span>'
+                            : '<span style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;white-space:nowrap">⏳ ĐANG CHỜ</span>');
                     var lbl = ex.reservation_type === 'from_stock'
                         ? '📦 ' + (ex.material_name||ph.material_name||'') + ' - ' + (ex.color_name||ph.color_name||'') + ': ' + ex.kg_reserved + unitLabel
                         : (ex.reservation_type === 'linked_call'
