@@ -1167,8 +1167,11 @@ if (!_dhtCreate.phieuItems) _dhtCreate.phieuItems = [];
 
 // Searchable dropdown helper: input + filtered list, no free text
 function _ppSearchField(id, label, items, curVal) {
+    var isReadOnly = (id === '_pp_sale' || id === '_pp_product');
+    var roAttr = isReadOnly ? ' readonly' : '';
+    var placeholder = isReadOnly ? 'Chọn...' : 'Gõ để tìm...';
     var h = '<div style="position:relative"><label style="font-size:11px;font-weight:700">'+label+'</label>'
-        +'<input id="'+id+'" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="Gõ để tìm..." value="'+(curVal||'')+'" onfocus="_ppShowList(\''+id+'\')" oninput="_ppFilterList(\''+id+'\')">'
+        +'<input id="'+id+'" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="'+placeholder+'" value="'+(curVal||'')+'" onfocus="_ppShowList(\''+id+'\')" oninput="_ppFilterList(\''+id+'\')"' + roAttr + '>'
         +'<input type="hidden" id="'+id+'_val" value="'+(curVal||'')+'">'
         +'<div id="'+id+'_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">';
     items.forEach(function(it) {
@@ -1177,7 +1180,13 @@ function _ppSearchField(id, label, items, curVal) {
     });
     return h + '</div></div>';
 }
-function _ppShowList(id){var l=document.getElementById(id+'_list');if(l){l.style.display='block';_ppFilterList(id);}}
+function _ppShowList(id){
+    var l=document.getElementById(id+'_list');
+    if(l){
+        l.style.display='block';
+        document.querySelectorAll('#'+id+'_list ._ppOpt').forEach(function(el){ el.style.display=''; });
+    }
+}
 function _ppFilterList(id){var inp=document.getElementById(id);if(!inp)return;var q=inp.value.toLowerCase();document.querySelectorAll('#'+id+'_list ._ppOpt').forEach(function(el){el.style.display=el.dataset.txt.toLowerCase().indexOf(q)>=0?'':'none';});}
 function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_sale')_dhtSaleChange();if(id==='_pp_product')_dhtProductChange();if(id==='_pp_material')_dhtMatChange();if(id==='_pp_pattern')_dhtPatternChange();}
 document.addEventListener('click',function(e){if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id$="_list"]')){document.querySelectorAll('[id$="_list"]').forEach(function(l){if(l.id.startsWith('_pp'))l.style.display='none';});}});
@@ -1479,7 +1488,7 @@ function _dhtSaleChange() {
     pInp.value='';if(pVal)pVal.value='';
     if(!saleId){pInp.disabled=true;pInp.placeholder='← Chọn Bán/Quà trước';pInp.style.background='#f1f5f9';pInp.style.cursor='not-allowed';pList.innerHTML='';return;}
     // Enable and populate with filtered products
-    pInp.disabled=false;pInp.placeholder='Gõ để tìm...';pInp.style.background='';pInp.style.cursor='pointer';
+    pInp.disabled=false;pInp.placeholder='Chọn sản phẩm...';pInp.style.background='';pInp.style.cursor='pointer';
     var allProducts=(_dhtCreate.phieuOpts||{}).products||[];
     var filtered=allProducts.filter(function(p){return String(p.sale_type_id)===String(saleId);});
     pList.innerHTML=filtered.map(function(p){
@@ -1597,13 +1606,13 @@ function _dhtPatternChange(existing) {
             return '<div class="_ppPairOpt" data-val="'+m.material_id+'" data-txt="'+m.material_name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickPairMat('+i+',this)">'+m.material_name+'</div>';
         }).join('');
         h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Chất Liệu '+(i+1)+' *</label>'
-            + '<input id="_ppMat'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer" placeholder="Gõ để tìm..." value="'+(ep.material_name||'')+'" onfocus="_ppShowPairList(\'_ppMatList'+i+'\')" oninput="_ppFilterPairList(\'_ppMat'+i+'\',\'_ppMatList'+i+'\')">'
+            + '<input id="_ppMat'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer" placeholder="Chọn chất liệu..." value="'+(ep.material_name||'')+'" readonly onfocus="_ppShowPairList(\'_ppMatList'+i+'\')" oninput="_ppFilterPairList(\'_ppMat'+i+'\',\'_ppMatList'+i+'\')">'
             + '<input type="hidden" id="_ppMatVal'+i+'" value="'+(ep.material_id||'')+'">'
             + '<div id="_ppMatList'+i+'" style="display:none;position:absolute;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">'
             + matListHtml + '</div></div>';
         // Color searchable input (populated after material selection)
         h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu '+(i+1)+' *</label>'
-            + '<input id="_ppColor'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;background:#f1f5f9" placeholder="← Chọn Chất Liệu" value="'+(ep.color_name||'')+'" disabled onfocus="_ppShowPairList(\'_ppColorList'+i+'\')" oninput="_ppFilterPairList(\'_ppColor'+i+'\',\'_ppColorList'+i+'\')">'
+            + '<input id="_ppColor'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;background:#f1f5f9" placeholder="← Chọn Chất Liệu" value="'+(ep.color_name||'')+'" disabled readonly onfocus="_ppShowPairList(\'_ppColorList'+i+'\')" oninput="_ppFilterPairList(\'_ppColor'+i+'\',\'_ppColorList'+i+'\')">'
             + '<input type="hidden" id="_ppColorVal'+i+'" value="'+(ep.color_id||'')+'">'
             + '<div id="_ppColorList'+i+'" style="display:none;position:absolute;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div>';
         h += '</div></div>';
@@ -1618,7 +1627,13 @@ function _dhtPatternChange(existing) {
 }
 
 // Helper: show pair dropdown list
-function _ppShowPairList(listId) { var l=document.getElementById(listId); if(l) l.style.display='block'; }
+function _ppShowPairList(listId) {
+    var l=document.getElementById(listId);
+    if(l) {
+        l.style.display='block';
+        document.querySelectorAll('#'+listId+' ._ppPairOpt').forEach(function(el){ el.style.display=''; });
+    }
+}
 // Helper: filter pair dropdown list
 function _ppFilterPairList(inputId, listId) {
     var inp=document.getElementById(inputId); if(!inp) return;
@@ -1633,7 +1648,7 @@ function _ppPickPairMat(pairIdx, el) {
     // Reset color
     var cInp = document.getElementById('_ppColor'+pairIdx);
     var cVal = document.getElementById('_ppColorVal'+pairIdx);
-    if(cInp){cInp.value='';cInp.disabled=false;cInp.style.background='';cInp.placeholder='Gõ để tìm màu...';}
+    if(cInp){cInp.value='';cInp.disabled=false;cInp.style.background='';cInp.placeholder='Chọn màu...';}
     if(cVal)cVal.value='';
     _ppPairMatLoad(pairIdx);
 }
@@ -1656,7 +1671,7 @@ async function _ppPairMatLoad(pairIdx, preselectColorId) {
     cList.innerHTML = colors.map(function(c){
         return '<div class="_ppPairOpt" data-val="'+c.id+'" data-txt="'+c.name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickPairColor('+pairIdx+',this)">'+c.name+'</div>';
     }).join('');
-    if(cInp){cInp.disabled=false;cInp.style.background='';cInp.placeholder='Gõ để tìm màu...';}
+    if(cInp){cInp.disabled=false;cInp.style.background='';cInp.placeholder='Chọn màu...';}
     if(preselectColorId){
         var found=colors.find(function(c){return String(c.id)===String(preselectColorId);});
         if(found){
