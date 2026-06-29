@@ -1311,8 +1311,8 @@ module.exports = async function(fastify) {
                         const rollCode = 'KV' + crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 10);
                         const rollResult = await client.query(
                             `INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, location, source, note, created_by, image_path)
-                             VALUES ($1, $2, $3, $3, $4, 'nhap_vai', $5, $6, $7) RETURNING id`,
-                            [fi.fabric_color_id, rollCode, w, itemTargetLocation, `Nhập vải từ bill ${fabricCode}`, req.user.id, tree.image_path || null]
+                             VALUES ($1, $2, $3, $3, NULL, 'nhap_vai', $4, $5, $6) RETURNING id`,
+                            [fi.fabric_color_id, rollCode, w, `Nhập vải từ bill ${fabricCode}`, req.user.id, tree.image_path || null]
                         );
                         const newRollId = rollResult.rows[0].id;
                         rollIds.push(newRollId);

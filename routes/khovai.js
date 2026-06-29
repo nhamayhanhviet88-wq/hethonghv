@@ -652,6 +652,141 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // POST /api/khovai/rolls/:id/split — Split X kg from a roll to create a new roll at a target location
+    fastify.post('/api/khovai/rolls/:id/split', { preHandler: [authenticate] }, async (request, reply) => {
+        const rollId = Number(request.params.id);
+        const { split_weight, target_location } = request.body || {};
+        const user = request.user;
+
+        if (!split_weight || Number(split_weight) <= 0) {
+            return reply.code(400).send({ error: 'Trọng lượng tách phải > 0' });
+        }
+
+        const originalRoll = await db.get('SELECT * FROM kv_rolls WHERE id = $1', [rollId]);
+        if (!originalRoll) {
+            return reply.code(404).send({ error: 'Cây vải không tồn tại' });
+        }
+
+        const currentW = Number(originalRoll.weight);
+        const splitW = Number(split_weight);
+
+        if (splitW >= currentW) {
+            return reply.code(400).send({ error: `Trọng lượng tách phải nhỏ hơn trọng lượng hiện tại của cây (${currentW} kg)` });
+        }
+
+        const newWeight = currentW - splitW;
+        const cleanLoc = target_location === null ? null : (typeof target_location === 'string' ? target_location.trim() : null);
+
+        // Validate target location constraints (restricted material)
+        if (cleanLoc) {
+            const locRecord = await db.get(
+                `SELECT id, is_restricted, restricted_material_id
+                 FROM kv_locations
+                 WHERE LOWER(name) = LOWER($1)`,
+                [cleanLoc]
+            );
+            if (locRecord && locRecord.is_restricted) {
+                const rollMat = await db.get(
+                    `SELECT c.material_id
+                     FROM kv_rolls r
+                     JOIN kv_fabric_colors c ON r.fabric_color_id = c.id
+                     WHERE r.id = $1`,
+                    [rollId]
+                );
+                if (rollMat) {
+                    const isAssigned = await db.get(
+                        `SELECT COUNT(*)::int AS count
+                         FROM kv_materials
+                         WHERE LOWER(location) = LOWER($1) AND id = $2`,
+                        [cleanLoc, rollMat.material_id]
+                    );
+                    if (!isAssigned || isAssigned.count === 0) {
+                        return reply.code(400).send({ error: 'Kệ này giới hạn chất liệu khác, không thể xếp cuộn vải này vào!' });
+                    }
+
+                    // Auto assign material to restricted shelf if not set
+                    if (!locRecord.restricted_material_id) {
+                        await db.run('UPDATE kv_locations SET restricted_material_id = $1 WHERE id = $2', [rollMat.material_id, locRecord.id]);
+                    }
+                }
+            }
+        }
+
+        // Generate split roll code
+        const shortRand = crypto.randomBytes(2).toString('hex').toUpperCase();
+        const newCode = `${originalRoll.roll_code}-T${shortRand}`;
+
+        // 1. Update original roll weight
+        await db.run(
+            `UPDATE kv_rolls SET weight = $1, updated_at = NOW() WHERE id = $2`,
+            [newWeight, rollId]
+        );
+
+        // 2. Log XUAT transaction for original roll
+        await db.run(
+            `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
+             VALUES ($1, 'XUAT', $2, $3, $4)`,
+            [originalRoll.fabric_color_id, splitW, `Tách chiết ${splitW}kg sang cây mới ${newCode} để thu hồi`, user.id]
+        );
+
+        // 3. Create new roll
+        const newRoll = await db.get(
+            `INSERT INTO kv_rolls (fabric_color_id, roll_code, weight, original_weight, source, note, created_by, location, source_import_id)
+             VALUES ($1, $2, $3, $3, 'cat_du', $4, $5, $6, $7) RETURNING *`,
+            [originalRoll.fabric_color_id, newCode, splitW, `Tách chiết từ cây ${originalRoll.roll_code}`, user.id, cleanLoc, originalRoll.source_import_id]
+        );
+
+        // 4. Log NHAP transaction for new roll
+        await db.run(
+            `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
+             VALUES ($1, 'NHAP', $2, $3, $4)`,
+            [originalRoll.fabric_color_id, splitW, `Tách chiết thu hồi ${splitW}kg từ cây gốc ${originalRoll.roll_code}`, user.id]
+        );
+
+        // 5. Self-Healing reservations
+        let remainingCapacity = newWeight;
+        const activeRes = await db.all(`
+            SELECT id, kg_reserved, dht_order_id
+            FROM qlx_fabric_reservations
+            WHERE roll_id = $1 AND status IN ('reserved', 'arrived')
+            ORDER BY id ASC
+        `, [rollId]);
+
+        const affectedOrderIds = new Set();
+        for (const res of activeRes) {
+            affectedOrderIds.add(res.dht_order_id);
+            const kg = Number(res.kg_reserved);
+            if (remainingCapacity <= 0) {
+                await db.run("UPDATE qlx_fabric_reservations SET status = 'released', updated_at = NOW() WHERE id = $1", [res.id]);
+                await db.run(`
+                    INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'fabric_release', $2, $3, NOW())
+                `, [res.dht_order_id, `Tự động hủy giữ phần vải vượt quá trọng lượng còn lại của cây do tách/cắt thu hồi`, user.id]);
+            } else if (kg > remainingCapacity) {
+                await db.run("UPDATE qlx_fabric_reservations SET kg_reserved = $1, updated_at = NOW() WHERE id = $2", [remainingCapacity, res.id]);
+                await db.run(`
+                    INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'fabric_reserve_update', $2, $3, NOW())
+                `, [res.dht_order_id, `Tự động giảm khối lượng giữ vải từ ${kg}kg xuống ${remainingCapacity}kg do tách/cắt thu hồi`, user.id]);
+                remainingCapacity = 0;
+            } else {
+                remainingCapacity -= kg;
+            }
+        }
+
+        // 6. Recalculate preparation statuses
+        try {
+            const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+            for (const orderId of affectedOrderIds) {
+                await recalculateOrderFabricStatus(orderId);
+            }
+        } catch (e) {
+            console.error('[QLX FABRIC RECALC SPLIT] Error:', e);
+        }
+
+        return { success: true, original_weight: newWeight, new_roll: newRoll };
+    });
+
     // POST /api/khovai/rolls/:id/upload-image — Upload roll image (base64)
     fastify.post('/api/khovai/rolls/:id/upload-image', { preHandler: [authenticate] }, async (request, reply) => {
         const rollId = Number(request.params.id);

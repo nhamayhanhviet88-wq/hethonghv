@@ -923,31 +923,34 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                         targetShelfName = firstRes.target_shelf;
                                     }
                                 }
+                                var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : '';
                                 var isLocMismatch = false;
                                 if (targetShelfName) {
-                                    var rollLoc = (r.loc !== null && r.loc !== undefined) ? r.loc.trim() : '';
                                     var cleanRollLoc = rollLoc.toLowerCase().replace(/^📍\s*/, '').trim();
                                     var cleanTargetLoc = targetShelfName.toLowerCase().replace(/^📍\s*/, '').trim();
                                     if (cleanRollLoc !== cleanTargetLoc) {
                                         isLocMismatch = true;
                                     }
                                 }
+                                var matchedLoc = _qkv.locations.find(l => _qkvNormalizeLocName(l.name) === _qkvNormalizeLocName(rollLoc));
+                                var isPartnerShelf = matchedLoc && (matchedLoc.printing_contractor_id !== null && matchedLoc.printing_contractor_id !== undefined);
 
                                 if (r.is_called) {
                                     photoHtml = `<span style="font-size:16px; margin-right:4px;">📞</span>`;
                                     moveHtml = `<span style="font-size:11px; color:#d97706; font-weight:600; font-style:italic;">Gọi vải chờ về</span>`;
-                                } else if (r.img) {
-                                    photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`;
-                                    if (targetShelfName && isLocMismatch) {
-                                        moveHtml = `<button class="btn btn-xs btn-outline-warning" style="padding:2px 6px; font-size:10px; font-weight:700; color:#ea580c; border-color:#ea580c; background:#fff7ed; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}', '${escapeJS(targetShelfName)}')">🚚 Chuyển Kệ</button>`;
-                                    } else {
-                                        moveHtml = ``;
-                                    }
                                 } else {
-                                    if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
+                                    if (r.img) {
+                                        photoHtml = `<img src="${escapeHTML(r.img)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; border:1px solid #0f766e; cursor:pointer;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img)}', ${r.id})" />`;
+                                    } else if (isUnassigned === 'processed_nguyen' || isUnassigned === 'processed_le') {
                                         photoHtml = `<button id="camera-btn-${r.id}" class="btn btn-xs btn-outline-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); triggerRollCamera(${r.id})">📷 Chụp</button>`;
                                     }
-                                    if (targetShelfName && isLocMismatch) {
+
+                                    if (isPartnerShelf) {
+                                        moveHtml = `
+                                            <button class="btn btn-xs btn-outline-info" style="padding:2px 6px; font-size:10px; font-weight:700; color:#0284c7; border-color:#0284c7; background:#f0f9ff; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _qkvOnRecallRoll(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}')">↩️ Thu Hồi</button>
+                                            <button class="btn btn-xs btn-outline-success" style="padding:2px 6px; font-size:10px; font-weight:700; color:#16a34a; border-color:#16a34a; background:#f0fdf4; display:inline-flex; align-items:center; gap:2px; margin-left:4px;" onclick="event.stopPropagation(); _qkvOnSplitRoll(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}')">✂️ Tách Cây</button>
+                                        `;
+                                    } else if (targetShelfName && isLocMismatch) {
                                         moveHtml = `<button class="btn btn-xs btn-outline-warning" style="padding:2px 6px; font-size:10px; font-weight:700; color:#ea580c; border-color:#ea580c; background:#fff7ed; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _qkvOnChangeSingleRollLocation(${r.id}, '${escapeJS(item.material_name)}', '${escapeJS(item.color_name)}', ${item.id}, ${item.material_id}, ${r.w}, '${escapeJS(r.code)}', '${escapeJS(targetShelfName)}')">🚚 Chuyển Kệ</button>`;
                                     }
                                 }
@@ -1518,7 +1521,7 @@ function _qkvOnChangeItemLocation(id, materialId, matName, colorName, currentLoc
     _qkvUpdateLocationDropdown();
 }
 
-function _qkvUpdateLocationDropdown(forcedTargetShelf) {
+function _qkvUpdateLocationDropdown(forcedTargetShelf, isRecall) {
     var select = document.getElementById('qkvMoveSelect');
     if (!select) return;
     
@@ -1535,6 +1538,12 @@ function _qkvUpdateLocationDropdown(forcedTargetShelf) {
     }
 
     var availableLocs = (_qkv.locations || []).filter(function(loc) {
+        if (isRecall) {
+            // Filter out partner shelves (must be company internal shelf)
+            if (loc.printing_contractor_id !== null && loc.printing_contractor_id !== undefined) {
+                return false;
+            }
+        }
         if (loc.is_restricted) {
             // Find all materials assigned to this location name (case-insensitive, trimmed comparison)
             var assignedMatIds = (_qkv.materials || [])
@@ -1581,9 +1590,14 @@ function _qkvUpdateLocationDropdown(forcedTargetShelf) {
 }
 
 // 14. Save new location mapping to material/color/roll
-async function _qkvSaveItemLocation(colorId, materialId) {
+async function _qkvSaveItemLocation(colorId, materialId, forcedTargetShelf) {
     if (_qkv.isLocked) { showToast('Kho vải đang khóa để kiểm kho!', 'error'); return; }
     var newLoc = document.getElementById('qkvMoveSelect').value;
+    if (forcedTargetShelf) {
+        if (!confirm('Xác nhận di chuyển cây vải này sang kệ phân công: ' + forcedTargetShelf + '?')) {
+            return;
+        }
+    }
     if (!newLoc) {
         showToast('Vui lòng chọn kệ để xếp vải!', 'error');
         return;
@@ -2038,11 +2052,11 @@ async function _qkvExecuteImportSingleRoll(rollId, rollWeight, shelfName) {
 }
 
 // ================== SINGLE ROLL MOVE & CAMERA HANDLERS ==================
-function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode, forcedTargetShelf) {
+function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode, forcedTargetShelf, isRecall) {
     _qkv.activeMoveMaterialId = materialId;
 
     openModal(
-        forcedTargetShelf ? '⚠️ Di chuyển cây vải theo phân công' : '🚚 Di chuyển vị trí cây vải',
+        forcedTargetShelf ? '⚠️ Di chuyển cây vải theo phân công' : (isRecall ? '↩️ Thu hồi cây vải về kệ công ty' : '🚚 Di chuyển vị trí cây vải'),
         `
             <div style="font-size:13px;line-height:1.6;margin-bottom:16px;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
                 <div>🧵 Chất liệu: <strong>${escapeHTML(matName)}</strong></div>
@@ -2064,11 +2078,127 @@ function _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, mat
         `,
         `
             <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="_qkvSaveItemLocation(${colorId}, ${materialId})">Lưu vị trí mới</button>
+            <button class="btn btn-primary" onclick="_qkvSaveItemLocation(${colorId}, ${materialId}, ${forcedTargetShelf ? `'${escapeJS(forcedTargetShelf)}'` : 'null'})">Lưu vị trí mới</button>
         `
     );
     
-    _qkvUpdateLocationDropdown(forcedTargetShelf);
+    _qkvUpdateLocationDropdown(forcedTargetShelf, isRecall);
+}
+
+function _qkvOnRecallRoll(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode) {
+    _qkvOnChangeSingleRollLocation(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode, null, true);
+}
+
+function _qkvOnSplitRoll(rollId, matName, colorName, colorId, materialId, rollWeight, rollCode) {
+    _qkv.activeMoveMaterialId = materialId;
+
+    var availableLocs = (_qkv.locations || []).filter(function(loc) {
+        if (loc.printing_contractor_id !== null && loc.printing_contractor_id !== undefined) {
+            return false;
+        }
+        if (loc.is_restricted) {
+            var assignedMatIds = (_qkv.materials || [])
+                .filter(function(m) {
+                    return m.location && m.location.trim().toLowerCase() === loc.name.trim().toLowerCase();
+                })
+                .map(function(m) { return Number(m.id); });
+            
+            if (!assignedMatIds.includes(Number(materialId)) && 
+                (!loc.restricted_material_id || Number(loc.restricted_material_id) !== Number(materialId))) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    var optionsHtml = '<option value="">-- Chưa xếp kệ --</option>';
+    availableLocs.forEach(function(loc) {
+        var descText = loc.description ? ` (${loc.description})` : '';
+        optionsHtml += `<option value="${escapeHTML(loc.name)}">${escapeHTML(loc.name)}${escapeHTML(descText)}</option>`;
+    });
+
+    var traceCodePreview = rollCode + '-T...';
+
+    openModal(
+        '✂️ Tách cây vải để thu hồi',
+        `
+            <div style="font-size:13px;line-height:1.6;margin-bottom:16px;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
+                <div>🧵 Chất liệu: <strong>${escapeHTML(matName)}</strong></div>
+                <div>🎨 Màu vải: <strong style="color:#0f766e;">${escapeHTML(colorName)}</strong></div>
+                <div>📍 Cây vải gốc: <strong>Cây ${rollWeight}kg (${rollCode})</strong></div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label" style="font-weight:700;font-size:12px;">Số kg muốn tách/thu hồi (kg)</label>
+                <input type="number" id="qkvSplitWeightInput" class="form-control" placeholder="Ví dụ: 12" min="0.1" max="${rollWeight - 0.1}" step="0.1" style="width:100%;height:38px;padding:4px 12px;" />
+                <small class="text-muted" style="display:block;margin-top:4px;">Phải nhỏ hơn cân nặng hiện tại (${rollWeight} kg).</small>
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label" style="font-weight:700;font-size:12px;">Thu hồi về kệ nào?</label>
+                <select id="qkvSplitTargetSelect" class="form-control" style="width:100%;height:38px;padding:4px 12px;line-height:30px;">
+                    ${optionsHtml}
+                </select>
+            </div>
+
+            <div style="font-size:12px;background:#f0fdf4;color:#166534;padding:8px 12px;border-radius:6px;border:1px solid #bbf7d0;">
+                💡 Phần còn lại sẽ tiếp tục được giữ ở kệ đối tác in hiện tại. Cây vải tách mới sẽ mang mã dạng: <strong>${traceCodePreview}</strong>.
+            </div>
+        `,
+        `
+            <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+            <button class="btn btn-success" id="qkvSplitConfirmBtn" onclick="_qkvSubmitSplitRoll(${rollId}, ${rollWeight})">Xác nhận tách & thu hồi</button>
+        `
+    );
+}
+
+async function _qkvSubmitSplitRoll(rollId, currentWeight) {
+    var splitWeightInput = document.getElementById('qkvSplitWeightInput');
+    var targetSelect = document.getElementById('qkvSplitTargetSelect');
+    if (!splitWeightInput || !targetSelect) return;
+
+    var splitW = parseFloat(splitWeightInput.value);
+    var targetLoc = targetSelect.value;
+
+    if (isNaN(splitW) || splitW <= 0) {
+        showToast('Vui lòng nhập số kg tách hợp lệ!', 'error');
+        return;
+    }
+    if (splitW >= currentWeight) {
+        showToast(`Số kg tách phải nhỏ hơn cân nặng hiện tại của cây (${currentWeight} kg)!`, 'error');
+        return;
+    }
+
+    var confirmBtn = document.getElementById('qkvSplitConfirmBtn');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '⏳ Đang tách...';
+    }
+
+    try {
+        var res = await apiCall(`/api/khovai/rolls/${rollId}/split`, 'POST', {
+            split_weight: splitW,
+            target_location: targetLoc || null
+        });
+
+        if (res.error) {
+            showToast('Lỗi tách cây: ' + res.error, 'error');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = 'Xác nhận tách & thu hồi';
+            }
+        } else {
+            showToast('Đã tách cây vải và thu hồi thành công!', 'success');
+            closeModal();
+            _qkvLoadData();
+        }
+    } catch (e) {
+        showToast('Lỗi kết nối máy chủ!', 'error');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Xác nhận tách & thu hồi';
+        }
+    }
 }
 
 var activeUploadRollId = null;
