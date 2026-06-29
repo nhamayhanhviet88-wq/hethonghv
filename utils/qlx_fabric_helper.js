@@ -50,7 +50,7 @@ async function recalculateOrderFabricStatus(orderId) {
             phoiFabStatus[key].total++;
 
             let status = r.status;
-            if (status === 'arrived' && r.roll_id && r.roll_location) {
+            if (status === 'arrived' && r.roll_id) {
                 const assign = printAssigns.find(a => a.item_id === r.item_id) || 
                                printAssigns.find(a => a.item_id === null);
                 if (assign) {

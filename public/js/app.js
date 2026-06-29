@@ -2285,6 +2285,7 @@ var _PAGE_INIT_REGISTRY = {
     'donquanhe': '_dqhInit',
     'loithuonggap': '_ltgInit',
     'xuatvaicat': 'renderXuatvaicatPage',
+    'chuanbiqlx': 'renderQuanlyxuongqlxPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {

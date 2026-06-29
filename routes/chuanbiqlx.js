@@ -1083,7 +1083,7 @@ module.exports = async function(fastify) {
             phoiFabStatus[key].total++;
 
             let status = r.status;
-            if (status === 'arrived' && r.roll_id && r.roll_location) {
+            if (status === 'arrived' && r.roll_id) {
                 const assign = printAssigns.find(a => a.item_id === r.item_id) || 
                                printAssigns.find(a => a.dht_order_id === r.dht_order_id && a.item_id === null);
                 if (assign) {
