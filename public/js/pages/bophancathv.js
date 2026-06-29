@@ -48,6 +48,16 @@ function _bpcFormatProductName(name) {
     return name;
 }
 
+function _bpcFormatMaterialName(mat) {
+    if (!mat) return '—';
+    if (mat.indexOf('+') >= 0) {
+        return mat.split('+').map(function(item) {
+            return item.trim();
+        }).filter(Boolean).join('<br>+ ');
+    }
+    return mat;
+}
+
 function _bpcSortRollsForCutting(rolls, orderCode) {
     if (!rolls || !rolls.length) return rolls || [];
     var codes = Array.isArray(orderCode) ? orderCode : [orderCode];
@@ -763,7 +773,6 @@ function _bpcMapRecordRow(r, i) {
     }
     var updateStr = '';
     if (r.last_update_at) { updateStr = _bpcFmtDate(r.last_update_at); if (r.last_update_by) updateStr += '<br><span style="color:#dc2626;font-size:9px">'+r.last_update_by+'</span>'; }
-    var ccBadge = '';
     var sharedBadge = '';
     if (r.multi_cut_group_id) {
         var label = 'CẮT CHUNG';
@@ -771,7 +780,7 @@ function _bpcMapRecordRow(r, i) {
             var m = r.cut_shared.match(/Cắt chung (\d+) đơn/i);
             if (m) label = 'CẮT CHUNG ' + m[1] + ' ĐƠN';
         }
-        sharedBadge = '<span style="background:#ea580c;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-right:4px;display:inline-block;vertical-align:middle;text-transform:uppercase">' + label + '</span>';
+        sharedBadge = '<span style="background:#7c3aed;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-top:3px;display:inline-block;vertical-align:middle;text-transform:uppercase">' + label + '</span>';
     }
     var compBadge = r.cut_warning ? '<span style="background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;margin-right:4px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Bù</span>' : '';
     var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
@@ -916,12 +925,21 @@ function _bpcMapRecordRow(r, i) {
     var displayName = _bpcFormatProductName(r.product_name || r.order_code || '—');
     var fullTooltip = r.product_name ? 'title="' + r.product_name + '"' : 'title="Xem chi tiết"';
 
+    var underBadges = [];
+    if (sharedBadge) {
+        underBadges.push(sharedBadge);
+    }
+    if (ratioFailBadge) {
+        underBadges.push(ratioFailBadge);
+    }
+    var underHtml = underBadges.length > 0 ? '<br>' + underBadges.join('<br>') : '';
+
     var schBadge = _bpcGetScheduleBadge(r.cut_expected_at, r.is_cut_done);
     var nameHtml = '';
     if (r.is_uncut) {
-        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px" ' + (r.product_name ? 'title="' + r.product_name + '"' : '') + '>' + ccBadge + sharedBadge + compBadge + priBadge + schBadge + displayName + '</td>';
+        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px" ' + (r.product_name ? 'title="' + r.product_name + '"' : '') + '>' + compBadge + priBadge + schBadge + displayName + underHtml + '</td>';
     } else {
-        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" ' + fullTooltip + '>' + ccBadge + sharedBadge + compBadge + priBadge + schBadge + '<span style="border-bottom:1px dashed #94a3b8">' + displayName + '</span>' + (ratioFailBadge ? '<br>' + ratioFailBadge : '') + '</td>';
+        nameHtml = '<td style="font-weight:600;color:#1e293b;font-size:11px;cursor:pointer" onclick="_bpcOpenDetail('+r.id+')" ' + fullTooltip + '>' + compBadge + priBadge + schBadge + '<span style="border-bottom:1px dashed #94a3b8">' + displayName + '</span>' + underHtml + '</td>';
     }
     
     var sharedCol = '—';
@@ -946,7 +964,7 @@ function _bpcMapRecordRow(r, i) {
             +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
             +nameHtml
             +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
-            +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
+            +'<td style="font-size:10px;color:#475569">'+_bpcFormatMaterialName(r.material_name)+'</td>'
             +'<td style="font-size:10px">'
             +(r.fabric_color||'—')
             +(r.warehouse_location ? '<br>' + _bpcFormatLocation(r.warehouse_location) : '')
@@ -973,7 +991,7 @@ function _bpcMapRecordRow(r, i) {
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
         +nameHtml
         +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
-        +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
+        +'<td style="font-size:10px;color:#475569">'+_bpcFormatMaterialName(r.material_name)+'</td>'
         +'<td style="font-size:10px">'
         +(r.fabric_color||'—')
         +(r.warehouse_location ? '<br>' + _bpcFormatLocation(r.warehouse_location) : '')
@@ -1545,7 +1563,7 @@ function _bpcBuildUnassignedTableHtml(all) {
                 +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
                 +'<td style="font-weight:600;color:#1e293b;font-size:11px">' + finalSpName + '</td>'
                 +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
-                +'<td style="font-size:10px;color:#475569">'+(r.material_name||'—')+'</td>'
+                +'<td style="font-size:10px;color:#475569">'+_bpcFormatMaterialName(r.material_name)+'</td>'
                 +'<td style="font-size:10px">'+(r.color_name||'—')+'</td>'
                 +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
                 +'<td style="text-align:center;font-weight:700;color:#7c3aed">—</td>'
