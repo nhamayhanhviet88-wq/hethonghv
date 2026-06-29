@@ -768,6 +768,7 @@ function _bpcMapRecordRow(r, i) {
     var isMyRecord = window._currentUser && r.cutter_id === window._currentUser.id;
     var isGiamDoc = window._currentUser && window._currentUser.role === 'giam_doc';
     var isManager = window._currentUser && (isGiamDoc || window._currentUser.role === 'quan_ly_cap_cao' || (window._currentUser.department_name && window._currentUser.department_name.toLowerCase().includes('quản lý xưởng')));
+    var isFactoryManager = isManager && !isGiamDoc;
     
     var canInteract = false;
     var disableReason = '';
@@ -782,7 +783,11 @@ function _bpcMapRecordRow(r, i) {
                 canInteract = true;
             }
         } else {
-            canInteract = true;
+            if (isFactoryManager) {
+                disableReason = 'Quản lý xưởng không được nhận cắt đơn của thợ!';
+            } else {
+                canInteract = true;
+            }
         }
     } else {
         if (isContractor) {

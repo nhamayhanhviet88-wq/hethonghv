@@ -2629,6 +2629,12 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Đơn hàng này được phân công in 3D cắt — xưởng không cần cắt!' });
         }
 
+        const isGiamDoc = request.user.role === 'giam_doc';
+        const isFactoryManager = !isGiamDoc && (await isCutManager(request));
+        if (!isPrintAndCut && isFactoryManager) {
+            return reply.code(403).send({ error: 'Quản lý xưởng không được nhận cắt đơn của thợ!' });
+        }
+
         // Check coordinator-level fabric arrival
         const reservations = await db.all(`
             SELECT status FROM qlx_fabric_reservations
