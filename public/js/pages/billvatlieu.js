@@ -130,11 +130,12 @@ async function _bvlLoadAll() {
         var treeQs = '?record_type=general';
         if (_bvl.filter.warehouse_id) treeQs += '&warehouse_id=' + _bvl.filter.warehouse_id;
 
-        var [tR, sR, dR, setupRes] = await Promise.all([
+        var [tR, sR, dR, setupRes, basePricesRes] = await Promise.all([
             apiCall('/api/import/tree' + treeQs),
             apiCall('/api/import/sources?source_type=material'),
             apiCall('/api/import/check-duyet-perm'),
-            apiCall('/api/material-setup/data').catch(function () { return { warehouses: [], materials: [], warehouse_sources: [] }; })
+            apiCall('/api/material-setup/data').catch(function () { return { warehouses: [], materials: [], warehouse_sources: [] }; }),
+            apiCall('/api/gianhapgoc/prices', 'GET').catch(function () { return { prices: [] }; })
         ]);
         
         _bvl.tree = tR;
@@ -145,6 +146,7 @@ async function _bvlLoadAll() {
         _bvl.materials = setupRes.materials || [];
         _bvl.warehouse_sources = setupRes.warehouse_sources || [];
         _bvl.units = setupRes.units || [];
+        _bvl.basePrices = (basePricesRes && basePricesRes.prices) || [];
 
         _bvlRenderSb();
         _bvlRenderWhFilter();
@@ -767,7 +769,7 @@ function _bvlOpenMat() {
 
     // 3. Nguồn NCC
     h += '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Nguồn NCC *</label>'
-        + '<select id="_bvlSrc" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none" disabled>'
+        + '<select id="_bvlSrc" onchange="_bvlUpdatePriceSuggestions()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none" disabled>'
         + '<option value="">— Chọn Kho trước —</option>'
         + '</select></div>'
 
@@ -794,7 +796,9 @@ function _bvlOpenMat() {
         + '<div><label style="font-size:10px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Thành Tiền</label>'
         + '<input id="_bvlCost" type="number" placeholder="Thành tiền" style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;background:#f1f5f9;color:#6b7280" disabled></div>'
         + '<div><button type="button" onclick="_bvlAddMatRow()" style="width:100%;padding:8px 0;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Thêm</button></div>'
-        + '</div></div>'
+        + '</div>'
+        + '<div id="_bvlPriceSuggest" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center"></div>'
+        + '</div>'
 
     // CHI PHÍ KHÁC
     + '<div style="border: 1.5px solid #fef08a; border-radius: 12px; padding: 14px; background: #fefce8; margin-bottom: 12px">'
@@ -907,6 +911,7 @@ function _bvlMatWhChange(whId) {
         srcSelect.innerHTML = '<option value="">— Chọn Kho trước —</option>';
         matSelect.disabled = true;
         matSelect.innerHTML = '<option value="">— Chọn Kho trước —</option>';
+        _bvlUpdatePriceSuggestions();
         return;
     }
 
@@ -949,6 +954,7 @@ function _bvlMatWhChange(whId) {
         matSelect.innerHTML = matHtml;
         matSelect.disabled = false;
     }
+    _bvlUpdatePriceSuggestions();
 }
 
 function _bvlMatItemSelectChanged() {
@@ -958,10 +964,12 @@ function _bvlMatItemSelectChanged() {
     var itemId = Number(select.value);
     if (!itemId) {
         unitInput.value = '';
+        _bvlUpdatePriceSuggestions();
         return;
     }
     var matItem = _bvl.materials.find(function (m) { return m.id === itemId; });
     unitInput.value = matItem ? (matItem.unit || '—') : '';
+    _bvlUpdatePriceSuggestions();
 }
 
 function _bvlAddMatRow() {
@@ -1024,6 +1032,7 @@ function _bvlAddMatRow() {
     var unitInput = document.getElementById('_bvlMatUnit');
     if (unitInput) unitInput.value = '';
 
+    _bvlUpdatePriceSuggestions();
     _bvlRenderAddedMats();
 }
 
@@ -1747,3 +1756,119 @@ function _bvlToggleShipFields() {
     }
 }
 window._bvlToggleShipFields = _bvlToggleShipFields;
+
+function _bvlUpdatePriceSuggestions() {
+    if (!document.getElementById('bvlSuggestStyles')) {
+        var style = document.createElement('style');
+        style.id = 'bvlSuggestStyles';
+        style.innerHTML = `
+            @keyframes bvlSuggestBlink {
+                0% {
+                    opacity: 1;
+                    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 0.7;
+                    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+                    transform: scale(1.02);
+                }
+                100% {
+                    opacity: 1;
+                    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+                    transform: scale(1);
+                }
+            }
+            .bvl-suggest-blink {
+                animation: bvlSuggestBlink 1.4s infinite ease-in-out;
+            }
+            @keyframes bvlOtherSuggestBlink {
+                0% {
+                    opacity: 1;
+                    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 0.7;
+                    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+                    transform: scale(1.02);
+                }
+                100% {
+                    opacity: 1;
+                    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+                    transform: scale(1);
+                }
+            }
+            .bvl-other-suggest-blink {
+                animation: bvlOtherSuggestBlink 1.4s infinite ease-in-out;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    var itemId = Number(document.getElementById('_bvlMatItemSelect')?.value);
+    var sourceId = Number(document.getElementById('_bvlSrc')?.value);
+    var container = document.getElementById('_bvlPriceSuggest');
+    if (!container) return;
+
+    if (!itemId) {
+        container.innerHTML = '';
+        return;
+    }
+
+    var basePriceHtml = '';
+
+    // 1. Selected supplier base price
+    if (sourceId) {
+        var srcName = '';
+        var srcObj = (_bvl.sources || []).find(function(s) { return Number(s.id) === sourceId; });
+        if (srcObj) srcName = srcObj.name;
+
+        var matchedBase = (_bvl.basePrices || []).find(function(bp) {
+            return bp.item_type === 'material' && 
+                   Number(bp.material_item_id) === itemId && 
+                   Number(bp.source_id) === sourceId;
+        });
+
+        if (matchedBase) {
+            var bpVal = Number(matchedBase.price);
+            basePriceHtml += '<button onclick="event.preventDefault();var p = document.getElementById(\'_bvlPrice\'); if(p) { p.value=' + bpVal + '; _bvlCalcRowTotal(); }" '
+                + 'class="bvl-suggest-blink" '
+                + 'style="padding:4px 14px;border-radius:20px;border:2.5px solid #10b981;background:#ecfdf5;color:#047857;font-size:11px;font-weight:900;letter-spacing:0.5px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;outline:none;font-family:inherit;box-shadow: 0 1px 3px rgba(0,0,0,0.05)" '
+                + 'onmouseover="this.style.background=\'#d1fae5\';this.style.transform=\'scale(1.05)\'" onmouseout="this.style.background=\'#ecfdf5\';this.style.transform=\'none\'" title="Click để tự động điền giá gốc này">'
+                + '💡 ' + srcName + ' Giá gốc: ' + bpVal.toLocaleString('vi-VN') + 'đ'
+                + '</button>';
+        } else {
+            basePriceHtml += '<span '
+                + 'style="padding:4px 14px;border-radius:20px;border:2.5px solid #cbd5e1;background:#f8fafc;color:#64748b;font-size:11px;font-weight:900;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:3px;font-family:inherit;box-shadow: 0 1px 3px rgba(0,0,0,0.05)" '
+                + 'title="Nhà cung cấp này chưa có Giá Nhập Gốc được duyệt">'
+                + '💡 ' + srcName + ': chưa có'
+                + '</span>';
+        }
+    }
+
+    // 2. Other suppliers base prices for comparison (in red)
+    var otherBases = (_bvl.basePrices || []).filter(function(bp) {
+        return bp.item_type === 'material' && 
+               Number(bp.material_item_id) === itemId && 
+               (sourceId ? Number(bp.source_id) !== sourceId : true);
+    });
+
+    otherBases.forEach(function(ob) {
+        var obSrcName = ob.source_name || '';
+        if (!obSrcName) {
+            var obSrcObj = (_bvl.sources || []).find(function(s) { return Number(s.id) === Number(ob.source_id); });
+            if (obSrcObj) obSrcName = obSrcObj.name;
+        }
+        var obVal = Number(ob.price);
+        basePriceHtml += '<button onclick="event.preventDefault();var p = document.getElementById(\'_bvlPrice\'); if(p) { p.value=' + obVal + '; _bvlCalcRowTotal(); }" '
+            + 'class="bvl-other-suggest-blink" '
+            + 'style="padding:4px 14px;border-radius:20px;border:2.5px solid #ef4444;background:#fef2f2;color:#b91c1c;font-size:11px;font-weight:900;letter-spacing:0.5px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;outline:none;font-family:inherit;box-shadow: 0 1px 3px rgba(0,0,0,0.05)" '
+            + 'onmouseover="this.style.background=\'#fee2e2\';this.style.transform=\'scale(1.05)\'" onmouseout="this.style.background=\'#fef2f2\';this.style.transform=\'none\'" title="Click để chọn giá gốc của nhà cung cấp này">'
+            + '💡 ' + obSrcName + ' Giá gốc: ' + obVal.toLocaleString('vi-VN') + 'đ'
+            + '</button>';
+    });
+
+    container.innerHTML = basePriceHtml;
+}
+window._bvlUpdatePriceSuggestions = _bvlUpdatePriceSuggestions;
