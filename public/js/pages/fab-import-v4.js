@@ -743,7 +743,7 @@ async function _bnhFabDetail(id) {
     // Show modal
     var ov = document.createElement('div');
     ov.id = '_fabDetailOv';
-    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
     
     var closeDetail = function() {
         ov.remove();
