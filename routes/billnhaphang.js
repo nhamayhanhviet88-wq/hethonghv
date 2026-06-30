@@ -2175,6 +2175,89 @@ module.exports = async function(fastify) {
         return { pending: pendingList };
     });
 
+    fastify.post('/api/gianhapgoc/initialize-from-history', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isDuyetUser(req))) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc QLCC mới có quyền khởi tạo giá gốc' });
+        }
+
+        try {
+            const fabricRows = await db.all(`
+                SELECT DISTINCT ON (fi->>'fabric_color_id', ir.source_id)
+                    (fi->>'fabric_color_id')::int AS fabric_color_id,
+                    ir.source_id,
+                    (fi->>'unit_price')::numeric AS unit_price
+                FROM import_records ir
+                CROSS JOIN LATERAL jsonb_array_elements(ir.fabric_items) fi
+                WHERE ir.record_type = 'fabric' 
+                  AND ir.fabric_items IS NOT NULL 
+                  AND ir.fabric_items::text != '[]'
+                  AND (fi->>'fabric_color_id') IS NOT NULL
+                  AND ir.source_id IS NOT NULL
+                ORDER BY fi->>'fabric_color_id', ir.source_id, ir.import_date DESC, ir.id DESC
+            `);
+
+            const materialRows = await db.all(`
+                SELECT DISTINCT ON (fi->>'material_item_id', ir.source_id)
+                    (fi->>'material_item_id')::int AS material_item_id,
+                    ir.source_id,
+                    (fi->>'price')::numeric AS unit_price
+                FROM import_records ir
+                CROSS JOIN LATERAL jsonb_array_elements(ir.fabric_items) fi
+                WHERE ir.record_type = 'general' 
+                  AND ir.fabric_items IS NOT NULL 
+                  AND ir.fabric_items::text != '[]'
+                  AND (fi->>'material_item_id') IS NOT NULL
+                  AND ir.source_id IS NOT NULL
+                ORDER BY fi->>'material_item_id', ir.source_id, ir.import_date DESC, ir.id DESC
+            `);
+
+            let count = 0;
+            const pool = db.getDB();
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                
+                for (const row of fabricRows) {
+                    if (row.fabric_color_id && row.source_id) {
+                        await client.query(`
+                            INSERT INTO approved_import_prices (item_type, fabric_color_id, source_id, price, created_by, updated_at)
+                            VALUES ('fabric', $1, $2, $3, $4, NOW())
+                            ON CONFLICT (fabric_color_id, source_id) WHERE item_type = 'fabric'
+                            DO UPDATE SET price = EXCLUDED.price, updated_at = NOW()`,
+                            [row.fabric_color_id, row.source_id, Number(row.unit_price) || 0, req.user.id]
+                        );
+                        count++;
+                    }
+                }
+
+                for (const row of materialRows) {
+                    if (row.material_item_id && row.source_id) {
+                        await client.query(`
+                            INSERT INTO approved_import_prices (item_type, material_item_id, source_id, price, created_by, updated_at)
+                            VALUES ('material', $1, $2, $3, $4, NOW())
+                            ON CONFLICT (material_item_id, source_id) WHERE item_type = 'material'
+                            DO UPDATE SET price = EXCLUDED.price, updated_at = NOW()`,
+                            [row.material_item_id, row.source_id, Number(row.unit_price) || 0, req.user.id]
+                        );
+                        count++;
+                    }
+                }
+
+                await client.query('COMMIT');
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e;
+            } finally {
+                client.release();
+            }
+
+            return { success: true, count };
+        } catch (e) {
+            console.error('[GNG] Init error:', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     fastify.post('/api/gianhapgoc/set-price', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isDuyetUser(req))) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc QLCC mới có quyền thay đổi giá gốc' });

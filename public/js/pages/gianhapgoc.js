@@ -733,11 +733,17 @@ function _gngRenderDetailApproved(target) {
     });
 
     if (filtered.length === 0) {
+        const showInitBtn = _gng.isDuyetUser && _gng.prices.length === 0;
         target.innerHTML = `
             <div class="gng-empty">
                 <div class="gng-empty-icon">📂</div>
                 <h3>Không tìm thấy giá nhập gốc</h3>
                 <p>Nhà cung cấp chưa có giá gốc lưu trữ hoặc không khớp bộ lọc.</p>
+                ${showInitBtn ? `
+                    <button class="gng-btn-primary" style="margin-top: 15px; padding: 10px 20px; font-weight:700;" onclick="_gngInitializeFromHistory()">
+                        ⚡ Khởi tạo nhanh Giá Gốc từ Lịch Sử Nhập Hàng
+                    </button>
+                ` : ''}
             </div>
         `;
         return;
@@ -1183,3 +1189,23 @@ function escapeJS(str) {
     if (!str) return '';
     return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
 }
+
+async function _gngInitializeFromHistory() {
+    if (!confirm('Bạn có muốn tự động lấy Đơn giá nhập gần đây nhất của từng vật tư trong Lịch sử để làm Giá Gốc không?')) {
+        return;
+    }
+    
+    try {
+        const res = await apiCall('/api/gianhapgoc/initialize-from-history', 'POST');
+        if (res.error) {
+            alert('Lỗi: ' + res.error);
+        } else {
+            alert(`Thành công! Đã khởi tạo ${res.count} đơn giá gốc từ lịch sử nhập hàng.`);
+            await _gngLoadData();
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Có lỗi xảy ra khi khởi tạo.');
+    }
+}
+

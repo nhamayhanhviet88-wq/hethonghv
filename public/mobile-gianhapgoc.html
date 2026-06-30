@@ -690,7 +690,18 @@
             });
 
             if (filtered.length === 0) {
-                container.innerHTML = `<div class="m-empty"><div class="m-empty-icon">📂</div><div class="m-empty-text">Chưa có bảng giá gốc phù hợp</div></div>`;
+                const showInitBtn = isDuyetUser && prices.length === 0;
+                container.innerHTML = `
+                    <div class="m-empty">
+                        <div class="m-empty-icon">📂</div>
+                        <div class="m-empty-text">Chưa có bảng giá gốc phù hợp</div>
+                        ${showInitBtn ? `
+                            <button class="m-btn-primary" style="margin-top: 15px; width: 100%; padding: 12px; font-weight:700; border-radius: 8px;" onclick="initializeFromHistory()">
+                                ⚡ Khởi tạo nhanh Giá Gốc từ Lịch Sử
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
                 return;
             }
 
@@ -1059,6 +1070,25 @@
         function escapeJS(str) {
             if (!str) return '';
             return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        }
+
+        async function initializeFromHistory() {
+            if (!confirm('Bạn có muốn tự động lấy Đơn giá nhập gần đây nhất của từng vật tư trong Lịch sử để làm Giá Gốc không?')) {
+                return;
+            }
+            
+            try {
+                const res = await apiCall('/api/gianhapgoc/initialize-from-history', 'POST');
+                if (res.error) {
+                    alert('Lỗi: ' + res.error);
+                } else {
+                    alert(`Thành công! Đã khởi tạo ${res.count} đơn giá gốc từ lịch sử.`);
+                    await loadData();
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Có lỗi xảy ra khi khởi tạo.');
+            }
         }
     </script>
     <!-- Unified Mobile Navigation Script -->
