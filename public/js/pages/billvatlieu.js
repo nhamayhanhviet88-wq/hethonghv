@@ -350,12 +350,23 @@ function _bvlRender() {
             }
             var srcDebt = srcDebtMap[r.source_id || 0] || 0;
             var duyetHtml = '', payHtml = '';
+            var u = window._currentUser || window.currentUser || {};
+            var isAcc = u.role === 'giam_doc' || 
+                        u.role === 'ke_toan' || 
+                        u.username === 'ketoan' || 
+                        u.username === 'ketoan1' ||
+                        (u.full_name && (u.full_name.toLowerCase().includes('kế toán') || u.full_name.toLowerCase().includes('ke toan'))) ||
+                        (u.department_name && (u.department_name.toLowerCase().includes('kế toán') || u.department_name.toLowerCase().includes('ke toan')));
+
             if (!r.is_checked && _bvl.isDuyet) {
                 duyetHtml = '<button class="bvl-ib" onclick="event.stopPropagation();_bvlTog(' + r.id + ',\'check\')" title="Duyệt kiểm tra">⬜</button>';
             } else if (r.is_checked) {
                 duyetHtml = '<span style="font-size:11px" title="Đã duyệt: ' + (r.checked_by_name || '') + '">✅</span>';
             } else {
                 duyetHtml = '<span style="font-size:11px;color:#94a3b8" title="Chờ duyệt">⏳</span>';
+            }
+            if (isAcc && !r.is_checked && r.is_disapproved) {
+                duyetHtml += '<button class="bvl-ib" style="margin-left:4px;background:#fef3c7;border-color:#f59e0b;color:#d97706" onclick="event.stopPropagation();_bvlOpenMatEdit(' + r.id + ')" title="Sửa phiếu nhập vật liệu">✏️</button>';
             }
             if (Number(r.debt) > 0) {
                 payHtml = '<button class="bvl-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bvlPayModal(' + r.id + ',' + r.debt + ',' + srcDebt + ')" title="Thanh toán">💳</button>';
@@ -732,37 +743,94 @@ function _bvlRemoveExtraCostRow(index) {
 }
 
 function _bvlOpenMat() {
+    _bvl.isEdit = false;
+    _bvl.editId = null;
     _bvl.uploadImg = null;
     _bvl.uploadShipImg = null;
     _bvl.addedMaterials = [];
     _bvl.addedExtraCosts = [];
+    
+    _bvlOpenMatDialogHTML(null);
+}
+
+async function _bvlOpenMatEdit(id) {
+    try {
+        var res = await apiCall('/api/import/fabric-detail/' + id); // Endpoint returns full bill details
+        var r = res.record;
+        if (!r) return;
+
+        _bvl.isEdit = true;
+        _bvl.editId = id;
+        _bvl.addedMaterials = [];
+        _bvl.addedExtraCosts = [];
+
+        var items = [];
+        try {
+            items = typeof r.fabric_items === 'string' ? JSON.parse(r.fabric_items) : (r.fabric_items || []);
+        } catch(e) {}
+
+        _bvl.addedMaterials = items.map(function(item) {
+            return {
+                id: item.material_item_id,
+                name: item.material_item_name,
+                qty: item.quantity,
+                price: item.price,
+                cost: item.price * item.quantity,
+                unit: item.unit || ''
+            };
+        });
+
+        var extraCosts = [];
+        try {
+            extraCosts = typeof r.extra_costs === 'string' ? JSON.parse(r.extra_costs) : (r.extra_costs || []);
+        } catch(e) {}
+        _bvl.addedExtraCosts = extraCosts;
+
+        _bvl.uploadImg = r.bill_image_url ? { url: r.bill_image_url, path: r.bill_image_path } : null;
+        _bvl.uploadShipImg = r.ship_image_url ? { url: r.ship_image_url, path: r.ship_image_path } : null;
+
+        _bvlOpenMatDialogHTML(r);
+    } catch(e) {
+        showToast(e.message || 'Lỗi tải chi tiết bill', 'error');
+    }
+}
+window._bvlOpenMatEdit = _bvlOpenMatEdit;
+
+function _bvlOpenMatDialogHTML(r) {
     var now = new Date();
+    if (r && r.import_date) {
+        now = new Date(r.import_date);
+    }
     var yyyy = now.getFullYear();
     var mm = String(now.getMonth() + 1).padStart(2, '0');
     var dd = String(now.getDate()).padStart(2, '0');
-    var todayStr = yyyy + '-' + mm + '-' + dd;
+    var dateStr = yyyy + '-' + mm + '-' + dd;
 
     var ov = document.createElement('div');
     ov.id = '_bvlMatOv';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
 
+    var titleText = _bvl.isEdit ? '✏️ Sửa Phiếu Nhập Vật Liệu' : '📦 Nhập Vật Liệu Mới';
+    var saveBtnText = _bvl.isEdit ? '💾 CẬP NHẬT PHIẾU NHẬP' : '💾 LƯU PHIẾU NHẬP';
+
     var h = '<div style="background:#fff;border-radius:16px;width:100%;max-width:550px;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
         + '<div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:16px 16px 0 0;color:#fff;display:flex;justify-content:space-between;align-items:center">'
-        + '<div style="font-size:16px;font-weight:800">📦 Nhập Vật Liệu Mới</div>'
+        + '<div style="font-size:16px;font-weight:800">' + titleText + '</div>'
         + '<button onclick="document.getElementById(\'_bvlMatOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button></div>'
         + '<div style="padding:20px;max-height:80vh;overflow-y:auto;">'
         
         // 1. Ngày Nhập (locked/disabled and placed above Kho)
         + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ngày Nhập</label>'
-        + '<input id="_bvlDate" type="date" value="' + todayStr + '" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:#f1f5f9;color:#6b7280" disabled></div>'
+        + '<input id="_bvlDate" type="date" value="' + dateStr + '" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:#f1f5f9;color:#6b7280" disabled></div>'
 
         // 2. Kho Vật Liệu
         + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Kho Vật Liệu *</label>'
         + '<select id="_bvlMatWh" onchange="_bvlMatWhChange(this.value)" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;font-weight:600;color:#1e293b">'
         + '<option value="">— Chọn Kho Vật Liệu —</option>';
     _bvl.warehouses.forEach(function (w) {
-        if (w.is_active) {
-            h += '<option value="' + w.id + '">' + w.name + '</option>';
+        if (w.is_active || (r && Number(r.warehouse_id) === Number(w.id))) {
+            var sel = (r && Number(r.warehouse_id) === Number(w.id)) ? ' selected' : '';
+            h += '<option value="' + w.id + '"' + sel + '>' + w.name + '</option>';
         }
     });
     h += '</select></div>'
@@ -811,7 +879,7 @@ function _bvlOpenMat() {
 
     // VAT Amount
     + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Tiền VAT</label>'
-    + '<input id="_bvlVatAmount" type="number" placeholder="Tự điền số tiền VAT..." oninput="_bvlCalculateTotal()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;font-weight:700;color:#1e293b"></div>'
+    + '<input id="_bvlVatAmount" type="number" placeholder="Tự điền số tiền VAT..." value="' + (r && r.vat_amount ? r.vat_amount : '') + '" oninput="_bvlCalculateTotal()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;font-weight:700;color:#1e293b"></div>'
 
     // 5. Total bill cost
     + '<style>'
@@ -831,37 +899,58 @@ function _bvlOpenMat() {
     + '</div>'
 
     // 7. Ảnh Bill
-    + '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ảnh Bill (Ctrl+V) *</label>'
-    + '<div id="_bvlPasteArea" style="border:2px dashed #0d9488;border-radius:10px;padding:25px;text-align:center;color:#9ca3af;cursor:pointer;font-size:12px" tabindex="0">📋 Click vào đây rồi Ctrl+V để dán ảnh hóa đơn</div></div>'
+    var pasteHtml = (r && r.bill_image_url) 
+        ? '<img src="' + r.bill_image_url + '" style="max-height:120px;border-radius:8px"><div style="font-size:10px;color:#0d9488;margin-top:4px;font-weight:600">✅ Đã tải lên hóa đơn</div>'
+        : '📋 Click vào đây rồi Ctrl+V để dán ảnh hóa đơn';
+    var pasteBorder = (r && r.bill_image_url) ? '2px solid #0d9488' : '2px dashed #0d9488';
+    
+    h += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ảnh Bill (Ctrl+V) *</label>'
+    + '<div id="_bvlPasteArea" style="border:' + pasteBorder + ';border-radius:10px;padding:25px;text-align:center;color:#9ca3af;cursor:pointer;font-size:12px" tabindex="0">' + pasteHtml + '</div></div>'
 
     // 6. Ghi chú (Moved below Bill Image)
-    + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ghi Chú</label>'
-    + '<textarea id="_bvlNotes" placeholder="Ghi chú chi phí..." rows="2" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;resize:none"></textarea></div>'
+    h += '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ghi Chú</label>'
+    + '<textarea id="_bvlNotes" placeholder="Ghi chú chi phí..." rows="2" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;resize:none">' + (r && r.cost_notes ? r.cost_notes : '') + '</textarea></div>'
 
     // Phí Ship
-    + '<div style="border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px; background: #eff6ff; margin-bottom: 12px">'
+    var shipDisplay = (r && Number(r.ship_cost) > 0) ? 'block' : 'none';
+    var shipPasteHtml = (r && r.ship_image_url)
+        ? '<img src="' + r.ship_image_url + '" style="max-height:100px;border-radius:8px"><div style="font-size:10px;color:#3b82f6;margin-top:4px;font-weight:600">✅ Đã tải lên ảnh ship</div>'
+        : '📋 Click vào đây rồi Ctrl+V để dán ảnh hóa đơn ship';
+    var shipPasteBorder = (r && r.ship_image_url) ? '2px solid #3b82f6' : '2px dashed #3b82f6';
+
+    h += '<div style="border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px; background: #eff6ff; margin-bottom: 12px">'
     + '<div style="font-size: 12px; font-weight: 800; color: #1e3a8a; margin-bottom: 8px">🚚 CÔNG TY MẤT PHÍ SHIP</div>'
     + '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">'
     + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Số tiền ship (Bỏ trống = không)</label>'
-    + '<input id="_bvlShipCost" type="number" placeholder="Số tiền..." oninput="_bvlToggleShipFields()" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:700; color:#1e293b"></div>'
+    + '<input id="_bvlShipCost" type="number" placeholder="Số tiền..." value="' + (r && r.ship_cost ? r.ship_cost : '') + '" oninput="_bvlToggleShipFields()" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:700; color:#1e293b"></div>'
     + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Bên trả ship *</label>'
     + '<select id="_bvlShipPayer" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:600; color:#1e293b">'
     + '<option value="">— Chọn bên trả ship —</option>'
-    + '<option value="congty">🏢 Công Ty Mất Ship</option>'
-    + '<option value="cophanmay">🧵 Cổ Phần May Mất Ship</option>'
+    + '<option value="congty"' + (r && r.ship_payer === 'congty' ? ' selected' : '') + '>🏢 Công Ty Mất Ship</option>'
+    + '<option value="cophanmay"' + (r && r.ship_payer === 'cophanmay' ? ' selected' : '') + '>🧵 Cổ Phần May Mất Ship</option>'
     + '</select></div>'
-    + '<div id="_bvlShipImgGroup" style="display:none; margin-top:12px; grid-column: span 2">'
+    + '<div id="_bvlShipImgGroup" style="display:' + shipDisplay + '; margin-top:12px; grid-column: span 2">'
     + '<label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Ảnh Hóa Đơn Ship (Ctrl+V) *</label>'
-    + '<div id="_bvlShipPasteArea" style="border:2px dashed #3b82f6;border-radius:10px;padding:20px;text-align:center;color:#9ca3af;cursor:pointer;font-size:11px;background:#fff" tabindex="0">📋 Click vào đây rồi Ctrl+V để dán ảnh hóa đơn ship</div>'
+    + '<div id="_bvlShipPasteArea" style="border:' + shipPasteBorder + ';border-radius:10px;padding:20px;text-align:center;color:#9ca3af;cursor:pointer;font-size:11px;background:#fff" tabindex="0">' + shipPasteHtml + '</div>'
+    + '</div>'
     + '</div>'
     + '</div>'
     + '</div>'
 
-    + '<button id="_bvlSubmitBtn" onclick="_bvlSubmitMat()" style="width:100%;padding:12px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s">💾 LƯU PHIẾU NHẬP</button>'
+    + '<button id="_bvlSubmitBtn" onclick="_bvlSubmitMat()" style="width:100%;padding:12px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s">' + saveBtnText + '</button>'
     + '</div></div>';
 
     ov.innerHTML = h;
     document.body.appendChild(ov);
+
+    if (r) {
+        _bvlMatWhChange(r.warehouse_id);
+        var srcSelect = document.getElementById('_bvlSrc');
+        if (srcSelect) srcSelect.value = r.source_id || '';
+    }
+
+    _bvlRenderAddedMats();
+    _bvlRenderExtraCosts();
 
     var area = document.getElementById('_bvlPasteArea');
     area.addEventListener('paste', function (e) {
@@ -873,6 +962,7 @@ function _bvlOpenMat() {
                     _bvl.uploadImg = { url: data.url, path: data.path };
                     area.innerHTML = '<img src="' + data.url + '" style="max-height:120px;border-radius:8px"><div style="font-size:10px;color:#0d9488;margin-top:4px;font-weight:600">✅ Đã tải lên hóa đơn</div>';
                     area.style.borderColor = '#0d9488';
+                    area.style.borderStyle = 'solid';
                 });
                 break;
             }
@@ -891,6 +981,7 @@ function _bvlOpenMat() {
                         _bvl.uploadShipImg = { url: data.url, path: data.path };
                         shipArea.innerHTML = '<img src="' + data.url + '" style="max-height:100px;border-radius:8px"><div style="font-size:10px;color:#3b82f6;margin-top:4px;font-weight:600">✅ Đã tải lên ảnh ship</div>';
                         shipArea.style.borderColor = '#3b82f6';
+                        shipArea.style.borderStyle = 'solid';
                     });
                     break;
                 }
@@ -899,7 +990,6 @@ function _bvlOpenMat() {
         });
     }
 }
-
 function _bvlMatWhChange(whId) {
     var srcSelect = document.getElementById('_bvlSrc');
     var matSelect = document.getElementById('_bvlMatItemSelect');
@@ -1096,7 +1186,7 @@ async function _bvlSubmitMat() {
         _bvl.submitting = false;
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '💾 LƯU PHIẾU NHẬP';
+            btn.textContent = _bvl.isEdit ? '💾 CẬP NHẬT PHIẾU NHẬP' : '💾 LƯU PHIẾU NHẬP';
         }
     };
 
@@ -1158,13 +1248,15 @@ async function _bvlSubmitMat() {
     };
 
     try {
-        var res = await apiCall('/api/import/records', 'POST', body);
+        var url = _bvl.isEdit ? ('/api/import/records/' + _bvl.editId) : '/api/import/records';
+        var method = _bvl.isEdit ? 'PUT' : 'POST';
+        var res = await apiCall(url, method, body);
         if (res.error) {
             showToast(res.error, 'error');
             resetBtn();
             return;
         }
-        showToast('✅ Đã tạo phiếu nhập vật liệu thành công');
+        showToast(_bvl.isEdit ? '✅ Đã cập nhật phiếu nhập vật liệu thành công' : '✅ Đã tạo phiếu nhập vật liệu thành công');
         var ov = document.getElementById('_bvlMatOv');
         if (ov) ov.remove();
         await _bvlLoadAll();
