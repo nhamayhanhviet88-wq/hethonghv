@@ -4116,4 +4116,28 @@ module.exports = async function(fastify) {
         
         return { success: true };
     });
+
+    // ========== POST APPROVE RATIO BATCH (Director Only) ==========
+    fastify.post('/api/cutting/approve-ratio-batch', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền duyệt tỉ lệ cắt!' });
+        }
+        const { ids } = request.body || {};
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return reply.code(400).send({ error: 'Danh sách ID không hợp lệ!' });
+        }
+        const { vnNow } = require('./utils/timezone');
+        
+        const placeholders = ids.map((_, idx) => `$${idx + 3}`).join(', ');
+        const query = `
+            UPDATE cutting_records 
+            SET ratio_approved = true, 
+                ratio_approved_at = $1, 
+                ratio_approved_by = $2 
+            WHERE id IN (${placeholders})
+        `;
+        
+        await db.run(query, [vnNow(), request.user.id, ...ids.map(Number)]);
+        return { success: true };
+    });
 };

@@ -59,6 +59,33 @@
         .m-stat-val { font-size: 16px; font-weight: 800; color: #4f46e5; }
         .m-stat-lbl { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 2px; }
 
+        /* Warehouse Tab Selector */
+        .m-tabs-wrapper {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .m-tab-btn {
+            white-space: nowrap;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #64748b;
+            background: #e2e8f0;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .m-tab-btn.active {
+            background: #4f46e5;
+            color: white;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+        }
+
         /* Mobile Controls */
         .m-controls {
             display: flex;
@@ -188,7 +215,7 @@
             padding: 20px 20px 30px 20px;
             box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
             animation: mSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            max-height: 80vh;
+            max-height: 85vh;
             overflow-y: auto;
         }
         @keyframes mSlideUp {
@@ -205,6 +232,7 @@
             background: white;
             padding-bottom: 8px;
             border-bottom: 1px solid #e2e8f0;
+            z-index: 10;
         }
         .m-modal-header h3 { font-size: 16px; font-weight: 800; color: #0f172a; }
         .m-modal-close {
@@ -213,52 +241,48 @@
             align-items: center; justify-content: center; color: #64748b;
         }
 
-        /* Color stats in modal */
-        .m-color-card {
+        /* Collapsible months on mobile */
+        .m-month-item {
             background: #f8fafc;
-            border-radius: 12px;
             border: 1px solid #e2e8f0;
-            padding: 12px;
-            margin-bottom: 12px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            overflow: hidden;
         }
-        .m-color-title {
+        .m-month-header {
+            padding: 12px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .m-month-title {
             font-size: 13.5px;
             font-weight: 800;
-            color: #0f172a;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .m-color-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #94a3b8;
-            border: 1px solid #64748b;
-        }
-        .m-color-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 6px;
-        }
-        .m-color-cell {
-            background: white;
-            padding: 8px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid #e2e8f0;
-        }
-        .m-color-cell-lbl {
-            font-size: 8.5px;
-            font-weight: 700;
-            color: #64748b;
-        }
-        .m-color-cell-val {
-            font-size: 11px;
-            font-weight: 800;
             color: #1e293b;
-            margin-top: 2px;
+        }
+        .m-month-subtitle {
+            font-size: 10.5px;
+            color: #64748b;
+            font-weight: 600;
+            margin-top: 1px;
+        }
+        .m-month-arrow {
+            font-size: 11px;
+            color: #94a3b8;
+            transition: transform 0.2s;
+            margin-left: 8px;
+        }
+        .m-month-item.expanded .m-month-arrow {
+            transform: rotate(90deg);
+        }
+        .m-month-body {
+            display: none;
+            padding: 12px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+        .m-month-item.expanded .m-month-body {
+            display: block;
         }
 
         /* Ticket rows */
@@ -266,7 +290,6 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            margin-top: 14px;
         }
         .m-ticket-row {
             background: white;
@@ -285,14 +308,15 @@
             display: flex;
             flex-direction: column;
             gap: 2px;
+            max-width: 70%;
         }
         .m-ticket-code {
-            font-size: 12.5px;
+            font-size: 12px;
             font-weight: 800;
             color: #1e293b;
         }
         .m-ticket-sub {
-            font-size: 10.5px;
+            font-size: 10px;
             color: #64748b;
         }
         .m-ticket-val {
@@ -361,6 +385,14 @@
             </div>
         </div>
 
+        <!-- Warehouse Tabs -->
+        <div class="m-tabs-wrapper">
+            <button class="m-tab-btn active" onclick="selectWarehouseGroup('ALL')" id="tab-ALL">Tất cả</button>
+            <button class="m-tab-btn" onclick="selectWarehouseGroup('KG')" id="tab-KG">Kho Vải KG</button>
+            <button class="m-tab-btn" onclick="selectWarehouseGroup('MET')" id="tab-MET">Kho Vải Mét</button>
+            <button class="m-tab-btn" onclick="selectWarehouseGroup('SAN')" id="tab-SAN">Kho Vải Sẵn</button>
+        </div>
+
         <!-- Controls -->
         <div class="m-controls">
             <input type="text" class="m-search-input" id="mSearchInput" placeholder="🔍 Tìm kiếm loại vải...">
@@ -393,9 +425,11 @@
             stats: [],
             filter: { search: '' },
             selectedRangeId: '',
+            selectedGroup: 'ALL',
             isGD: false,
             currentUser: null,
-            activeMat: null
+            activeMat: null,
+            expandedMonths: new Set()
         };
 
         // Utility to display toast message
@@ -428,6 +462,22 @@
                 throw new Error('Chưa đăng nhập');
             }
             return res.json();
+        }
+
+        function getWarehouseGroup(mat) {
+            const whName = (mat.warehouse_name || '').toUpperCase();
+            const unit = (mat.unit || '').toLowerCase();
+            
+            if (whName.includes('KG') || unit === 'kg') {
+                return 'KG';
+            }
+            if (whName.includes('MÉT') || whName.includes('MET') || unit === 'mét' || unit === 'met' || unit === 'm') {
+                return 'MET';
+            }
+            if (whName.includes('SẴN') || whName.includes('SAN') || unit === 'cái' || unit === 'cai') {
+                return 'SAN';
+            }
+            return 'OTHER';
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -511,8 +561,23 @@
             document.getElementById('mStatPending').textContent = pending;
         }
 
-        function getMaterialRatios(matName) {
-            const mStats = _mobileTlcg.stats.filter(s => s.material_name.trim().toLowerCase() === matName.trim().toLowerCase());
+        function selectWarehouseGroup(group) {
+            _mobileTlcg.selectedGroup = group;
+            
+            // Toggle active classes on tab buttons
+            ['ALL', 'KG', 'MET', 'SAN'].forEach(g => {
+                const btn = document.getElementById(`tab-${g}`);
+                if (btn) {
+                    if (g === group) btn.classList.add('active');
+                    else btn.classList.remove('active');
+                }
+            });
+
+            renderList();
+        }
+
+        function getMaterialRatios(mat) {
+            const mStats = _mobileTlcg.stats.filter(s => s.material_name.trim().toLowerCase() === mat.name.trim().toLowerCase());
             const segments = { 'Người Lớn': { qty: 0, kg: 0 }, 'Trẻ Em': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
             mStats.forEach(s => {
                 if (segments[s.size_segment]) {
@@ -539,7 +604,17 @@
 
             const q = (_mobileTlcg.filter.search || '').trim().toLowerCase();
             const filtered = _mobileTlcg.materials.filter(m => {
-                return !q || (m.name || '').toLowerCase().indexOf(q) >= 0 || (m.warehouse_name || '').toLowerCase().indexOf(q) >= 0;
+                // Filter by search query
+                const matchQuery = !q || (m.name || '').toLowerCase().indexOf(q) >= 0 || (m.warehouse_name || '').toLowerCase().indexOf(q) >= 0;
+                if (!matchQuery) return false;
+
+                // Filter by tab group
+                if (_mobileTlcg.selectedGroup !== 'ALL') {
+                    const grp = getWarehouseGroup(m);
+                    if (grp !== _mobileTlcg.selectedGroup) return false;
+                }
+
+                return true;
             });
 
             if (filtered.length === 0) {
@@ -553,7 +628,7 @@
             }
 
             listContainer.innerHTML = filtered.map(m => {
-                const s = getMaterialRatios(m.name);
+                const s = getMaterialRatios(m);
                 return `
                     <div class="m-fabric-card" onclick="openDetailsSheet(${m.id})">
                         <div class="m-fabric-header">
@@ -585,6 +660,7 @@
             const mat = _mobileTlcg.materials.find(m => m.id === matId);
             if (!mat) return;
             _mobileTlcg.activeMat = mat;
+            _mobileTlcg.expandedMonths.clear();
 
             const html = `
                 <div class="m-modal-backdrop" id="mDetailsSheet" onclick="closeModalSheet(event)">
@@ -611,6 +687,7 @@
             if (e && e.target !== document.getElementById('mDetailsSheet')) return;
             document.getElementById('mModalWrapper').innerHTML = '';
             _mobileTlcg.activeMat = null;
+            _mobileTlcg.expandedMonths.clear();
         }
 
         async function loadSheetContent(mat) {
@@ -623,92 +700,141 @@
                 const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
                 const tickets = res.tickets || [];
 
-                // Colors
-                const matColors = _mobileTlcg.colors.filter(c => c.material_id === mat.id);
+                // Group tickets by Month
+                const grouped = {};
+                tickets.forEach(t => {
+                    const parts = (t.cut_date || '').split('-');
+                    if (parts.length < 2) return;
+                    const key = `${parts[0]}-${parts[1]}`;
+                    const display = `Tháng ${parts[1]}/${parts[0]}`;
+                    
+                    if (!grouped[key]) {
+                        grouped[key] = {
+                            key,
+                            display,
+                            tickets: [],
+                            totalQty: 0,
+                            totalKg: 0,
+                            approvedQty: 0,
+                            approvedKg: 0,
+                            pendingIds: [],
+                            pendingCount: 0,
+                            approvedCount: 0
+                        };
+                    }
+                    
+                    grouped[key].tickets.push(t);
+                    const qty = Number(t.cut_quantity) || 0;
+                    const kg = Number(t.kg_cut) || 0;
+                    
+                    grouped[key].totalQty += qty;
+                    grouped[key].totalKg += kg;
+                    
+                    if (t.ratio_approved) {
+                        grouped[key].approvedQty += qty;
+                        grouped[key].approvedKg += kg;
+                        grouped[key].approvedCount++;
+                    } else {
+                        grouped[key].pendingIds.push(t.id);
+                        grouped[key].pendingCount++;
+                    }
+                });
+
+                const monthKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+                // Auto-expand latest month
+                if (monthKeys.length > 0 && _mobileTlcg.expandedMonths.size === 0) {
+                    _mobileTlcg.expandedMonths.add(monthKeys[0]);
+                }
 
                 let html = '';
 
-                // 1. Color breakdown
-                html += `<div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase;">📊 Tỉ lệ theo màu sắc</div>`;
-                if (matColors.length === 0) {
-                    html += `<div style="text-align:center; padding:12px; font-size:12px; color:#64748b;">Chưa cấu hình màu trong kho</div>`;
+                // Overall Stats Summary
+                const s = getMaterialRatios(mat);
+                html += `
+                    <div style="background: #f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px; margin-bottom:16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+                        <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+                            <div style="font-size:8.5px; font-weight:700; color:#64748b;">Người Lớn</div>
+                            <div style="font-size:12px; font-weight:800; color:#4f46e5; margin-top:2px;">${s.adult}</div>
+                        </div>
+                        <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+                            <div style="font-size:8.5px; font-weight:700; color:#64748b;">Trẻ Em</div>
+                            <div style="font-size:12px; font-weight:800; color:#4f46e5; margin-top:2px;">${s.child}</div>
+                        </div>
+                        <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+                            <div style="font-size:8.5px; font-weight:700; color:#64748b;">Oversize</div>
+                            <div style="font-size:12px; font-weight:800; color:#4f46e5; margin-top:2px;">${s.oversize}</div>
+                        </div>
+                    </div>
+                `;
+
+                // Month items
+                if (monthKeys.length === 0) {
+                    html += `<div style="text-align:center; padding:20px; font-size:13px; color:#64748b;">Không có phiếu cắt nào</div>`;
                 } else {
-                    matColors.forEach(c => {
-                        const cStats = _mobileTlcg.stats.filter(s => 
-                            s.material_name.trim().toLowerCase() === mat.name.trim().toLowerCase() &&
-                            s.fabric_color.trim().toLowerCase() === c.color_name.trim().toLowerCase()
-                        );
+                    monthKeys.forEach(key => {
+                        const group = grouped[key];
+                        const isExpanded = _mobileTlcg.expandedMonths.has(key);
                         
-                        const segs = { 'Người Lớn': { qty: 0, kg: 0 }, 'Trẻ Em': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
-                        cStats.forEach(s => {
-                            if (segs[s.size_segment]) {
-                                segs[s.size_segment].qty += Number(s.total_qty);
-                                segs[s.size_segment].kg += Number(s.total_kg);
-                            }
-                        });
-
-                        const format = (seg) => {
-                            const d = segs[seg];
-                            return d.kg > 0 ? `${(d.qty / d.kg).toFixed(2)} sp` : '---';
-                        };
+                        const totalRatio = group.totalKg > 0 ? (group.totalQty / group.totalKg).toFixed(2) : '---';
+                        const approvedRatio = group.approvedKg > 0 ? (group.approvedQty / group.approvedKg).toFixed(2) : '---';
 
                         html += `
-                            <div class="m-color-card">
-                                <div class="m-color-title">
-                                    <span class="m-color-dot" style="background: ${c.color_name === 'Trắng' ? '#fff' : (c.color_name === 'Đen' ? '#000' : '#4f46e5')};"></span>
-                                    ${c.color_name}
+                            <div class="m-month-item ${isExpanded ? 'expanded' : ''}" id="m-accordion-${key}">
+                                <div class="m-month-header" onclick="toggleMonthAccordion('${key}')">
+                                    <div style="flex: 1;">
+                                        <div class="m-month-title">
+                                            📁 ${group.display}
+                                            <span style="font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:8px; background:${group.pendingCount > 0 ? '#fef3c7; color:#d97706;' : '#dcfce7; color:#15803d;'}">
+                                                ${group.pendingCount > 0 ? `${group.pendingCount} đơn chờ` : 'Xong'}
+                                            </span>
+                                        </div>
+                                        <div class="m-month-subtitle">
+                                            Duyệt: ${approvedRatio} (${group.approvedQty} áo / ${group.approvedKg.toFixed(1)} ${mat.unit || 'kg'})
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; align-items:center;" onclick="event.stopPropagation()">
+                                        ${_mobileTlcg.isGD && group.pendingCount > 0 ? `
+                                            <button class="m-btn-approve" style="padding: 4px 8px; font-size:10px;" onclick="approveBatch([${group.pendingIds.join(',')}])">
+                                                Duyệt hết
+                                            </button>
+                                        ` : ''}
+                                        <span class="m-month-arrow" onclick="toggleMonthAccordion('${key}')">▶</span>
+                                    </div>
                                 </div>
-                                <div class="m-color-grid">
-                                    <div class="m-color-cell">
-                                        <div class="m-color-cell-lbl">Lớn</div>
-                                        <div class="m-color-cell-val">${format('Người Lớn')}</div>
-                                    </div>
-                                    <div class="m-color-cell">
-                                        <div class="m-color-cell-lbl">Trẻ</div>
-                                        <div class="m-color-cell-val">${format('Trẻ Em')}</div>
-                                    </div>
-                                    <div class="m-color-cell">
-                                        <div class="m-color-cell-lbl">Over</div>
-                                        <div class="m-color-cell-val">${format('Oversize')}</div>
+                                
+                                <div class="m-month-body">
+                                    <div class="m-ticket-list">
+                                        ${group.tickets.map(t => {
+                                            const isPending = !t.ratio_approved;
+                                            return `
+                                                <div class="m-ticket-row ${isPending ? 'pending' : ''}">
+                                                    <div class="m-ticket-info">
+                                                        <span class="m-ticket-code">${t.order_code || '---'} (${t.fabric_color})</span>
+                                                        <span class="m-ticket-sub">${t.cut_quantity} áo / ${t.kg_cut} ${mat.unit || 'kg'} • ${t.size_segment || 'Chưa chia'}</span>
+                                                    </div>
+                                                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                                                        <span class="m-ticket-val">${Number(t.cut_ratio).toFixed(2)}</span>
+                                                        ${_mobileTlcg.isGD ? `
+                                                            ${isPending ? `
+                                                                <button class="m-btn-approve" onclick="approveTicket(${t.id})">Duyệt</button>
+                                                            ` : `
+                                                                <button class="m-btn-unapprove" onclick="unapproveTicket(${t.id})">Hủy</button>
+                                                            `}
+                                                        ` : `
+                                                            <span style="font-size:9.5px; font-weight:700; color:${t.ratio_approved ? '#10b981' : '#f59e0b'};">
+                                                                ${t.ratio_approved ? 'Đã duyệt' : 'Chờ'}
+                                                            </span>
+                                                        `}
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
                                     </div>
                                 </div>
                             </div>
                         `;
                     });
-                }
-
-                // 2. Ticket approvals
-                html += `<div style="font-size: 12px; font-weight: 700; color: #475569; margin: 16px 0 8px 0; text-transform: uppercase;">📝 Phiếu cắt thực tế</div>`;
-                if (tickets.length === 0) {
-                    html += `<div style="text-align:center; padding:16px; font-size:12px; color:#64748b; background:#f8fafc; border-radius:8px;">Không có phiếu cắt nào</div>`;
-                } else {
-                    html += `<div class="m-ticket-list">`;
-                    tickets.forEach(t => {
-                        const isPending = !t.ratio_approved;
-                        html += `
-                            <div class="m-ticket-row ${isPending ? 'pending' : ''}">
-                                <div class="m-ticket-info">
-                                    <span class="m-ticket-code">${t.order_code || '---'} (${t.fabric_color})</span>
-                                    <span class="m-ticket-sub">${t.cut_quantity} áo / ${t.kg_cut} kg • ${t.size_segment || 'Chưa phân loại'}</span>
-                                </div>
-                                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
-                                    <span class="m-ticket-val">${Number(t.cut_ratio).toFixed(2)}</span>
-                                    ${_mobileTlcg.isGD ? `
-                                        ${isPending ? `
-                                            <button class="m-btn-approve" onclick="approveTicket(${t.id})">Duyệt</button>
-                                        ` : `
-                                            <button class="m-btn-unapprove" onclick="unapproveTicket(${t.id})">Hủy duyệt</button>
-                                        `}
-                                    ` : `
-                                        <span style="font-size:10px; font-weight:700; color:${t.ratio_approved ? '#10b981' : '#f59e0b'};">
-                                            ${t.ratio_approved ? 'Đã duyệt' : 'Chờ duyệt'}
-                                        </span>
-                                    `}
-                                </div>
-                            </div>
-                        `;
-                    });
-                    html += `</div>`;
                 }
 
                 loadingDiv.style.display = 'none';
@@ -718,7 +844,20 @@
             } catch (err) {
                 console.error(err);
                 const loadingDiv = document.getElementById('mSheetLoading');
-                if (loadingDiv) loadingDiv.innerText = '❌ Lỗi tải dữ liệu chi tiết!';
+                if (loadingDiv) loadingDiv.innerText = '❌ Lỗi tải chi tiết!';
+            }
+        }
+
+        function toggleMonthAccordion(key) {
+            const item = document.getElementById(`m-accordion-${key}`);
+            if (!item) return;
+            
+            if (_mobileTlcg.expandedMonths.has(key)) {
+                _mobileTlcg.expandedMonths.delete(key);
+                item.classList.remove('expanded');
+            } else {
+                _mobileTlcg.expandedMonths.add(key);
+                item.classList.add('expanded');
             }
         }
 
@@ -747,6 +886,23 @@
                     await loadData(false);
                 } else {
                     toast(res.error || 'Hủy duyệt thất bại', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                toast(err.message, 'error');
+            }
+        }
+
+        async function approveBatch(ids) {
+            if (!ids || ids.length === 0) return;
+            try {
+                const res = await apiCall('/api/cutting/approve-ratio-batch', 'POST', { ids });
+                if (res.success) {
+                    toast(`Đã duyệt thành công ${ids.length} đơn cắt!`);
+                    await loadSheetContent(_mobileTlcg.activeMat);
+                    await loadData(false);
+                } else {
+                    toast(res.error || 'Duyệt hàng loạt thất bại', 'error');
                 }
             } catch (err) {
                 console.error(err);

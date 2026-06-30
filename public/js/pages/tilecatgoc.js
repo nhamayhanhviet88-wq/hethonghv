@@ -6,11 +6,13 @@ var _tlcg = {
     stats: [],
     products: [],
     selectedRangeId: '',
+    selectedGroup: 'ALL', // 'ALL', 'KG', 'MET', 'SAN'
     filter: {
         search: ''
     },
     isGD: false,
-    activeMaterial: null
+    activeMaterial: null,
+    expandedMonths: new Set()
 };
 
 async function renderTilecatgocPage(content) {
@@ -124,7 +126,7 @@ async function renderTilecatgocPage(content) {
                 font-weight: 600;
             }
             
-            /* Toolbar */
+            /* Toolbar & Tabs */
             .tlcg-toolbar {
                 background: white;
                 border-radius: 16px;
@@ -132,6 +134,11 @@ async function renderTilecatgocPage(content) {
                 border: 1px solid #e2e8f0;
                 box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
                 margin-bottom: 24px;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            .tlcg-toolbar-top {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
@@ -185,6 +192,49 @@ async function renderTilecatgocPage(content) {
                 outline: none;
                 background-color: white;
                 cursor: pointer;
+            }
+            
+            /* Warehouse tab pills */
+            .tlcg-tabs {
+                display: flex;
+                gap: 8px;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 12px;
+                flex-wrap: wrap;
+            }
+            .tlcg-tab {
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 700;
+                color: #64748b;
+                background: #f1f5f9;
+                border: none;
+                cursor: pointer;
+                transition: all 0.15s;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .tlcg-tab:hover {
+                background: #e2e8f0;
+                color: #1e293b;
+            }
+            .tlcg-tab.active {
+                background: #4f46e5;
+                color: white;
+                box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+            }
+            .tlcg-tab-badge {
+                background: rgba(255,255,255,0.25);
+                color: inherit;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-size: 10.5px;
+            }
+            .tlcg-tab:not(.active) .tlcg-tab-badge {
+                background: #cbd5e1;
+                color: #475569;
             }
             
             /* Material Grid */
@@ -276,8 +326,8 @@ async function renderTilecatgocPage(content) {
             .tlcg-drawer {
                 position: fixed;
                 top: 0;
-                right: -600px;
-                width: 600px;
+                right: -650px;
+                width: 650px;
                 height: 100%;
                 background: white;
                 box-shadow: -10px 0 25px -5px rgba(0,0,0,0.1), -10px 0 10px -5px rgba(0,0,0,0.04);
@@ -334,44 +384,68 @@ async function renderTilecatgocPage(content) {
                 background: #f8fafc;
             }
             
-            /* Color stats card */
-            .tlcg-color-card {
+            /* Accordion month grouping */
+            .tlcg-accordion-item {
                 background: white;
                 border-radius: 12px;
                 border: 1px solid #e2e8f0;
-                padding: 16px;
-                margin-bottom: 16px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+                margin-bottom: 12px;
+                overflow: hidden;
             }
-            .tlcg-color-header {
+            .tlcg-accordion-header {
+                padding: 14px 18px;
+                background: white;
+                cursor: pointer;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 12px;
-                padding-bottom: 8px;
-                border-bottom: 1px solid #f1f5f9;
+                user-select: none;
+                transition: background 0.15s;
             }
-            .tlcg-color-name {
+            .tlcg-accordion-header:hover {
+                background: #f8fafc;
+            }
+            .tlcg-accordion-title {
                 font-size: 14px;
                 font-weight: 800;
-                color: #0f172a;
+                color: #1e293b;
                 display: flex;
                 align-items: center;
                 gap: 8px;
             }
-            .tlcg-color-dot {
-                width: 10px;
-                height: 10px;
-                border-radius: 50%;
-                background: #cbd5e1;
-                border: 1px solid #94a3b8;
+            .tlcg-accordion-stats {
+                font-size: 12px;
+                color: #64748b;
+                font-weight: 600;
+                margin-top: 2px;
+            }
+            .tlcg-accordion-right {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            .tlcg-accordion-arrow {
+                font-size: 12px;
+                color: #94a3b8;
+                transition: transform 0.2s;
+            }
+            .tlcg-accordion-item.expanded .tlcg-accordion-arrow {
+                transform: rotate(90deg);
+            }
+            .tlcg-accordion-body {
+                border-top: 1px solid #f1f5f9;
+                padding: 16px;
+                display: none;
+                background: white;
+            }
+            .tlcg-accordion-item.expanded .tlcg-accordion-body {
+                display: block;
             }
             
             /* Ticket table inside drawer */
             .tlcg-ticket-table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 10px;
                 font-size: 12px;
             }
             .tlcg-ticket-table th {
@@ -523,6 +597,22 @@ async function renderTilecatgocPage(content) {
     await _tlcgLoadData();
 }
 
+function _tlcgGetWarehouseGroup(mat) {
+    const whName = (mat.warehouse_name || '').toUpperCase();
+    const unit = (mat.unit || '').toLowerCase();
+    
+    if (whName.includes('KG') || unit === 'kg') {
+        return 'KG';
+    }
+    if (whName.includes('MÉT') || whName.includes('MET') || unit === 'mét' || unit === 'met' || unit === 'm') {
+        return 'MET';
+    }
+    if (whName.includes('SẴN') || whName.includes('SAN') || unit === 'cái' || unit === 'cai') {
+        return 'SAN';
+    }
+    return 'OTHER';
+}
+
 async function _tlcgLoadData() {
     try {
         const query = _tlcg.selectedRangeId ? `?range_id=${_tlcg.selectedRangeId}` : '';
@@ -531,11 +621,6 @@ async function _tlcgLoadData() {
         _tlcg.colors = res.colors || [];
         _tlcg.ranges = res.ranges || [];
         _tlcg.stats = res.stats || [];
-        
-        // Auto select first range if none selected
-        if (!_tlcg.selectedRangeId && _tlcg.ranges.length > 0) {
-            // Wait, default should be "All" or a selected range, let's keep selectedRangeId empty to mean "All"
-        }
 
         _tlcgRenderPage();
     } catch (err) {
@@ -547,7 +632,16 @@ async function _tlcgLoadData() {
 function _tlcgRenderPage() {
     if (!_tlcg.content) return;
 
-    // Calculate stats
+    // Calculate count for each group
+    const counts = { ALL: 0, KG: 0, MET: 0, SAN: 0 };
+    _tlcg.materials.forEach(m => {
+        counts.ALL++;
+        const grp = _tlcgGetWarehouseGroup(m);
+        if (counts[grp] !== undefined) {
+            counts[grp]++;
+        }
+    });
+
     const totalMaterials = _tlcg.materials.length;
     // Count how many materials have at least one approved ratio in current range
     const activeMaterialsSet = new Set();
@@ -564,7 +658,7 @@ function _tlcgRenderPage() {
             <div class="tlcg-header">
                 <div class="tlcg-title-area">
                     <h2>📏 Tỉ Lệ Cắt Gốc Thực Tế</h2>
-                    <p>Số liệu sản phẩm cắt được trên mỗi kg vải (sp/kg) từ các đơn cắt thành công</p>
+                    <p>Số liệu sản phẩm cắt được trên mỗi kg/mét/cái từ các đơn cắt thành công</p>
                 </div>
                 <div class="tlcg-header-actions">
                     <button class="tlcg-btn" onclick="_tlcgOpenProductSegmentModal()">
@@ -594,21 +688,38 @@ function _tlcgRenderPage() {
             </div>
 
             <div class="tlcg-toolbar">
-                <div class="tlcg-search-box">
-                    <span class="tlcg-search-icon">🔍</span>
-                    <input type="text" class="tlcg-search-input" id="tlcgSearch" placeholder="Tìm kiếm loại vải..." value="${_tlcg.filter.search}" oninput="_tlcgHandleSearch(this.value)">
+                <div class="tlcg-tabs">
+                    <button class="tlcg-tab ${_tlcg.selectedGroup === 'ALL' ? 'active' : ''}" onclick="_tlcgSelectGroup('ALL')">
+                        Tất cả <span class="tlcg-tab-badge">${counts.ALL}</span>
+                    </button>
+                    <button class="tlcg-tab ${_tlcg.selectedGroup === 'KG' ? 'active' : ''}" onclick="_tlcgSelectGroup('KG')">
+                        Kho Vải KG <span class="tlcg-tab-badge">${counts.KG}</span>
+                    </button>
+                    <button class="tlcg-tab ${_tlcg.selectedGroup === 'MET' ? 'active' : ''}" onclick="_tlcgSelectGroup('MET')">
+                        Kho Vải Mét <span class="tlcg-tab-badge">${counts.MET}</span>
+                    </button>
+                    <button class="tlcg-tab ${_tlcg.selectedGroup === 'SAN' ? 'active' : ''}" onclick="_tlcgSelectGroup('SAN')">
+                        Kho Vải Sẵn (cái) <span class="tlcg-tab-badge">${counts.SAN}</span>
+                    </button>
                 </div>
                 
-                <div class="tlcg-range-select-wrapper">
-                    <span class="tlcg-range-label">Khung Số Lượng:</span>
-                    <select class="tlcg-range-select" onchange="_tlcgChangeRange(this.value)">
-                        <option value="">-- Tất cả số lượng --</option>
-                        ${_tlcg.ranges.map(r => {
-                            const label = r.max_qty >= 999999 ? `Từ ${r.min_qty} sp trở lên` : `${r.min_qty} - ${r.max_qty} sp`;
-                            const selected = String(_tlcg.selectedRangeId) === String(r.id) ? 'selected' : '';
-                            return `<option value="${r.id}" ${selected}>${label}</option>`;
-                        }).join('')}
-                    </select>
+                <div class="tlcg-toolbar-top">
+                    <div class="tlcg-search-box">
+                        <span class="tlcg-search-icon">🔍</span>
+                        <input type="text" class="tlcg-search-input" id="tlcgSearch" placeholder="Tìm kiếm loại vải..." value="${_tlcg.filter.search}" oninput="_tlcgHandleSearch(this.value)">
+                    </div>
+                    
+                    <div class="tlcg-range-select-wrapper">
+                        <span class="tlcg-range-label">Khung Số Lượng:</span>
+                        <select class="tlcg-range-select" onchange="_tlcgChangeRange(this.value)">
+                            <option value="">-- Tất cả số lượng --</option>
+                            ${_tlcg.ranges.map(r => {
+                                const label = r.max_qty >= 999999 ? `Từ ${r.min_qty} sp trở lên` : `${r.min_qty} - ${r.max_qty} sp`;
+                                const selected = String(_tlcg.selectedRangeId) === String(r.id) ? 'selected' : '';
+                                return `<option value="${r.id}" ${selected}>${label}</option>`;
+                            }).join('')}
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -619,6 +730,22 @@ function _tlcgRenderPage() {
     `;
 
     _tlcg.content.innerHTML = html;
+}
+
+function _tlcgSelectGroup(group) {
+    _tlcg.selectedGroup = group;
+    // Re-render tab classes
+    const tabs = document.querySelectorAll('.tlcg-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+    
+    // Find active tab
+    const grpIdx = ['ALL', 'KG', 'MET', 'SAN'].indexOf(group);
+    if (tabs[grpIdx]) tabs[grpIdx].classList.add('active');
+
+    const grid = document.getElementById('tlcgGrid');
+    if (grid) {
+        grid.innerHTML = _tlcgRenderGrid();
+    }
 }
 
 function _tlcgGetMaterialStats(matName) {
@@ -633,25 +760,35 @@ function _tlcgGetMaterialStats(matName) {
         }
     });
 
-    const formatRatio = (seg) => {
+    const formatRatio = (seg, mat) => {
         const data = segments[seg];
         if (data.kg > 0) {
-            return `${(data.qty / data.kg).toFixed(2)} sp/kg`;
+            return `${(data.qty / data.kg).toFixed(2)} sp/${mat.unit || 'kg'}`;
         }
         return '---';
     };
 
-    return {
-        adult: formatRatio('Người Lớn'),
-        child: formatRatio('Trẻ Em'),
-        oversize: formatRatio('Oversize')
-    };
+    return (mat) => ({
+        adult: formatRatio('Người Lớn', mat),
+        child: formatRatio('Trẻ Em', mat),
+        oversize: formatRatio('Oversize', mat)
+    });
 }
 
 function _tlcgRenderGrid() {
     const q = (_tlcg.filter.search || '').trim().toLowerCase();
     const filtered = _tlcg.materials.filter(m => {
-        return !q || (m.name || '').toLowerCase().indexOf(q) >= 0 || (m.warehouse_name || '').toLowerCase().indexOf(q) >= 0;
+        // Filter by search query
+        const matchQuery = !q || (m.name || '').toLowerCase().indexOf(q) >= 0 || (m.warehouse_name || '').toLowerCase().indexOf(q) >= 0;
+        if (!matchQuery) return false;
+
+        // Filter by selected warehouse group
+        if (_tlcg.selectedGroup !== 'ALL') {
+            const grp = _tlcgGetWarehouseGroup(m);
+            if (grp !== _tlcg.selectedGroup) return false;
+        }
+
+        return true;
     });
 
     if (filtered.length === 0) {
@@ -659,7 +796,8 @@ function _tlcgRenderGrid() {
     }
 
     return filtered.map(m => {
-        const s = _tlcgGetMaterialStats(m.name);
+        const statsBuilder = _tlcgGetMaterialStats(m.name);
+        const s = statsBuilder(m);
         return `
             <div class="tlcg-mat-card" onclick="_tlcgOpenMaterialDrawer(${m.id})">
                 <span class="tlcg-mat-badge">${m.unit || 'kg'}</span>
@@ -694,12 +832,13 @@ async function _tlcgChangeRange(val) {
     await _tlcgLoadData();
 }
 
-// ========== DRAWER FUNCTIONS (Color breakdown & approvals) ==========
+// ========== DRAWER FUNCTIONS (Monthly grouping & approvals) ==========
 
 async function _tlcgOpenMaterialDrawer(matId) {
     const mat = _tlcg.materials.find(m => m.id === matId);
     if (!mat) return;
     _tlcg.activeMaterial = mat;
+    _tlcg.expandedMonths.clear();
 
     // Inject drawer overlay and drawer if not present
     if (!document.getElementById('tlcgDrawerOverlay')) {
@@ -725,7 +864,7 @@ async function _tlcgOpenMaterialDrawer(matId) {
         <div class="tlcg-drawer-header">
             <div class="tlcg-drawer-title">
                 <h3>${mat.name}</h3>
-                <p>Chi tiết tỉ lệ cắt thực tế theo màu vải và phân khúc</p>
+                <p>Chi tiết tỉ lệ cắt thực tế gom nhóm theo Tháng/Năm</p>
             </div>
             <button class="tlcg-drawer-close" onclick="_tlcgCloseDrawer()">×</button>
         </div>
@@ -750,6 +889,7 @@ function _tlcgCloseDrawer() {
     if (overlay) overlay.classList.remove('active');
     if (drawer) drawer.classList.remove('active');
     _tlcg.activeMaterial = null;
+    _tlcg.expandedMonths.clear();
 }
 
 async function _tlcgLoadDrawerContent(mat) {
@@ -762,118 +902,164 @@ async function _tlcgLoadDrawerContent(mat) {
         const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
         const tickets = res.tickets || [];
 
-        // Colors of this material
-        const matColors = _tlcg.colors.filter(c => c.material_id === mat.id);
+        // Group tickets by Month
+        const grouped = {};
+        tickets.forEach(t => {
+            const parts = (t.cut_date || '').split('-');
+            if (parts.length < 2) return;
+            const key = `${parts[0]}-${parts[1]}`; // 'YYYY-MM'
+            const display = `Tháng ${parts[1]}/${parts[0]}`;
+            
+            if (!grouped[key]) {
+                grouped[key] = {
+                    key,
+                    display,
+                    tickets: [],
+                    totalQty: 0,
+                    totalKg: 0,
+                    approvedQty: 0,
+                    approvedKg: 0,
+                    pendingIds: [],
+                    pendingCount: 0,
+                    approvedCount: 0
+                };
+            }
+            
+            grouped[key].tickets.push(t);
+            const qty = Number(t.cut_quantity) || 0;
+            const kg = Number(t.kg_cut) || 0;
+            
+            grouped[key].totalQty += qty;
+            grouped[key].totalKg += kg;
+            
+            if (t.ratio_approved) {
+                grouped[key].approvedQty += qty;
+                grouped[key].approvedKg += kg;
+                grouped[key].approvedCount++;
+            } else {
+                grouped[key].pendingIds.push(t.id);
+                grouped[key].pendingCount++;
+            }
+        });
+
+        const monthKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a)); // Sort months descending
+
+        // Auto-expand the first/latest month
+        if (monthKeys.length > 0 && _tlcg.expandedMonths.size === 0) {
+            _tlcg.expandedMonths.add(monthKeys[0]);
+        }
 
         let html = '';
 
-        // 1. Render stats breakdown per color
-        html += `<h4 style="margin: 0 0 12px 0; color: #334155; font-size: 14px; font-weight: 700;">📊 Tỉ lệ cắt thực tế theo màu sắc</h4>`;
-        
-        if (matColors.length === 0) {
-            html += `<div class="tlcg-color-card" style="text-align: center; color: #64748b; font-size: 13px;">Loại vải này chưa được cấu hình màu sắc trong kho</div>`;
-        } else {
-            matColors.forEach(c => {
-                // Calculate stats for this specific color
-                const cStats = _tlcg.stats.filter(s => 
-                    s.material_name.trim().toLowerCase() === mat.name.trim().toLowerCase() &&
-                    s.fabric_color.trim().toLowerCase() === c.color_name.trim().toLowerCase()
-                );
-                
-                const segs = { 'Người Lớn': { qty: 0, kg: 0 }, 'Trẻ Em': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
-                cStats.forEach(s => {
-                    if (segs[s.size_segment]) {
-                        segs[s.size_segment].qty += Number(s.total_qty);
-                        segs[s.size_segment].kg += Number(s.total_kg);
-                    }
-                });
+        // 1. Overall stats panel in drawer
+        const statsBuilder = _tlcgGetMaterialStats(mat.name);
+        const sOverall = statsBuilder(mat);
+        html += `
+            <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.01);">
+                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Người Lớn</div>
+                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.adult}</div>
+                </div>
+                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Trẻ Em</div>
+                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.child}</div>
+                </div>
+                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Oversize</div>
+                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.oversize}</div>
+                </div>
+            </div>
+        `;
 
-                const getRatio = (seg) => {
-                    const d = segs[seg];
-                    return d.kg > 0 ? `${(d.qty / d.kg).toFixed(2)} sp/kg` : '---';
-                };
+        // 2. Month Accordions
+        html += `<h4 style="margin: 0 0 12px 0; color: #334155; font-size: 14.5px; font-weight: 800;">📅 Danh sách phiếu cắt theo tháng</h4>`;
+        
+        if (monthKeys.length === 0) {
+            html += `<div style="text-align: center; padding: 30px; background: white; border-radius: 12px; border: 1px solid #e2e8f0; color: #64748b; font-size: 13.5px;">Không phát sinh đơn cắt lẻ nào thỏa mãn điều kiện lọc</div>`;
+        } else {
+            monthKeys.forEach(key => {
+                const group = grouped[key];
+                const isExpanded = _tlcg.expandedMonths.has(key);
+                
+                // Calculations for ratios
+                const totalRatio = group.totalKg > 0 ? (group.totalQty / group.totalKg).toFixed(2) : '---';
+                const approvedRatio = group.approvedKg > 0 ? (group.approvedQty / group.approvedKg).toFixed(2) : '---';
 
                 html += `
-                    <div class="tlcg-color-card">
-                        <div class="tlcg-color-header">
-                            <span class="tlcg-color-name">
-                                <span class="tlcg-color-dot" style="background: ${c.color_name === 'Trắng' ? '#fff' : (c.color_name === 'Đen' ? '#000' : '#4f46e5')};"></span>
-                                ${c.color_name}
-                            </span>
+                    <div class="tlcg-accordion-item ${isExpanded ? 'expanded' : ''}" id="accordion-${key}">
+                        <div class="tlcg-accordion-header" onclick="_tlcgToggleAccordion('${key}')">
+                            <div>
+                                <div class="tlcg-accordion-title">
+                                    📁 ${group.display}
+                                    <span style="font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 10px; background: ${group.pendingCount > 0 ? '#fef3c7; color:#d97706;' : '#dcfce7; color:#15803d;'}">
+                                        ${group.pendingCount > 0 ? `${group.pendingCount} chờ duyệt` : 'Đã duyệt hết'}
+                                    </span>
+                                </div>
+                                <div class="tlcg-accordion-stats">
+                                    Đã duyệt: ${approvedRatio} ${approvedRatio !== '---' ? 'sp/' + (mat.unit || 'kg') : ''} (${group.approvedQty} sp / ${group.approvedKg.toFixed(1)} ${mat.unit || 'kg'})
+                                    ${group.pendingCount > 0 ? `| Toàn bộ: ${totalRatio} sp` : ''}
+                                </div>
+                            </div>
+                            
+                            <div class="tlcg-accordion-right" onclick="event.stopPropagation()">
+                                ${_tlcg.isGD && group.pendingCount > 0 ? `
+                                    <button class="btn btn-sm btn-success" style="font-size: 11px; padding: 4px 10px; font-weight: 700; border-radius: 6px;" onclick="_tlcgApproveBatch([${group.pendingIds.join(',')}])">
+                                        ✔️ Duyệt tất cả (${group.pendingCount})
+                                    </button>
+                                ` : ''}
+                                <span class="tlcg-accordion-arrow" onclick="_tlcgToggleAccordion('${key}')">▶</span>
+                            </div>
                         </div>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                            <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 11px; color: #64748b; font-weight: 600;">Người Lớn</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-top: 4px;">${getRatio('Người Lớn')}</div>
-                            </div>
-                            <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 11px; color: #64748b; font-weight: 600;">Trẻ Em</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-top: 4px;">${getRatio('Trẻ Em')}</div>
-                            </div>
-                            <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 11px; color: #64748b; font-weight: 600;">Oversize</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-top: 4px;">${getRatio('Oversize')}</div>
-                            </div>
+                        
+                        <div class="tlcg-accordion-body">
+                            <table class="tlcg-ticket-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mã Đơn / SP</th>
+                                        <th>Màu sắc</th>
+                                        <th>Phân khúc</th>
+                                        <th style="text-align: center;">SL / Trọng lượng</th>
+                                        <th style="text-align: center;">Tỉ lệ</th>
+                                        <th style="text-align: center; width: 100px;">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${group.tickets.map(t => {
+                                        const isPending = !t.ratio_approved;
+                                        const rowClass = isPending ? 'pending-row' : '';
+                                        const segmentLabel = t.size_segment || '<span style="color:#ef4444;font-style:italic;">Chưa phân loại</span>';
+                                        return `
+                                            <tr class="${rowClass}">
+                                                <td>
+                                                    <div style="font-weight: 800; color: #1e293b;">${t.order_code || '---'}</div>
+                                                    <div style="font-size: 10.5px; color: #64748b; max-width: 165px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${t.product_name}</div>
+                                                </td>
+                                                <td style="font-weight: 600;">${t.fabric_color}</td>
+                                                <td style="font-weight: 600;">${segmentLabel}</td>
+                                                <td style="text-align: center; font-weight: 600;">${t.cut_quantity} áo / ${t.kg_cut} ${mat.unit || 'kg'}</td>
+                                                <td style="text-align: center; font-weight: 800; color: #4f46e5;">${Number(t.cut_ratio).toFixed(2)}</td>
+                                                <td style="text-align: center;">
+                                                    ${_tlcg.isGD ? `
+                                                        ${isPending ? `
+                                                            <button class="btn btn-sm btn-success" style="font-size: 11px; padding: 3px 8px; font-weight: 700;" onclick="_tlcgApproveTicket(${t.id})">Duyệt</button>
+                                                        ` : `
+                                                            <button class="btn btn-sm btn-outline-danger" style="font-size: 10px; padding: 2px 6px; font-weight: 700;" onclick="_tlcgUnapproveTicket(${t.id})">Hủy</button>
+                                                        `}
+                                                    ` : `
+                                                        <span class="badge ${t.ratio_approved ? 'badge-success' : 'badge-warning'}" style="font-size:10px;">
+                                                            ${t.ratio_approved ? 'Đã duyệt' : 'Chờ'}
+                                                        </span>
+                                                    `}
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 `;
             });
-        }
-
-        // 2. Render ticket list for approval
-        html += `<h4 style="margin: 24px 0 12px 0; color: #334155; font-size: 14px; font-weight: 700;">📝 Danh sách đơn cắt cần duyệt tỉ lệ</h4>`;
-        
-        if (tickets.length === 0) {
-            html += `<div style="text-align: center; padding: 30px; background: white; border-radius: 12px; border: 1px solid #e2e8f0; color: #64748b; font-size: 13px;">Không phát sinh đơn cắt lẻ nào thỏa mãn điều kiện lọc</div>`;
-        } else {
-            html += `
-                <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.01);">
-                    <table class="tlcg-ticket-table">
-                        <thead>
-                            <tr>
-                                <th>Mã Đơn / SP</th>
-                                <th>Màu sắc</th>
-                                <th>Phân khúc</th>
-                                <th style="text-align: center;">SL cắt / Kg</th>
-                                <th style="text-align: center;">Tỉ lệ</th>
-                                <th style="text-align: center; width: 100px;">Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${tickets.map(t => {
-                                const isPending = !t.ratio_approved;
-                                const rowClass = isPending ? 'pending-row' : '';
-                                const segmentLabel = t.size_segment || '<span style="color:#ef4444;font-style:italic;">Chưa phân loại</span>';
-                                return `
-                                    <tr class="${rowClass}">
-                                        <td>
-                                            <div style="font-weight: 800; color: #1e293b;">${t.order_code || '---'}</div>
-                                            <div style="font-size: 10.5px; color: #64748b; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${t.product_name}</div>
-                                        </td>
-                                        <td style="font-weight: 600;">${t.fabric_color}</td>
-                                        <td>${segmentLabel}</td>
-                                        <td style="text-align: center; font-weight: 600;">${t.cut_quantity} áo / ${t.kg_cut} kg</td>
-                                        <td style="text-align: center; font-weight: 800; color: #4f46e5;">${Number(t.cut_ratio).toFixed(2)}</td>
-                                        <td style="text-align: center;">
-                                            ${_tlcg.isGD ? `
-                                                ${isPending ? `
-                                                    <button class="btn btn-sm btn-success" style="font-size: 11px; padding: 3px 8px; font-weight: 700;" onclick="_tlcgApproveTicket(${t.id})">Duyệt</button>
-                                                ` : `
-                                                    <button class="btn btn-sm btn-outline-danger" style="font-size: 10px; padding: 2px 6px; font-weight: 700;" onclick="_tlcgUnapproveTicket(${t.id})">Hủy duyệt</button>
-                                                `}
-                                            ` : `
-                                                <span class="badge ${t.ratio_approved ? 'badge-success' : 'badge-warning'}" style="font-size:10px;">
-                                                    ${t.ratio_approved ? 'Đã duyệt' : 'Chờ duyệt'}
-                                                </span>
-                                            `}
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
         }
 
         loadingDiv.style.display = 'none';
@@ -887,12 +1073,24 @@ async function _tlcgLoadDrawerContent(mat) {
     }
 }
 
+function _tlcgToggleAccordion(monthKey) {
+    const item = document.getElementById(`accordion-${monthKey}`);
+    if (!item) return;
+    
+    if (_tlcg.expandedMonths.has(monthKey)) {
+        _tlcg.expandedMonths.delete(monthKey);
+        item.classList.remove('expanded');
+    } else {
+        _tlcg.expandedMonths.add(monthKey);
+        item.classList.add('expanded');
+    }
+}
+
 async function _tlcgApproveTicket(id) {
     try {
         const res = await apiCall(`/api/cutting/approve-ratio/${id}`, 'POST');
         if (res.success) {
             if (typeof showToast === 'function') showToast('Đã duyệt tỉ lệ đơn cắt thành công!', 'success');
-            // Refresh drawer and page
             await _tlcgLoadDrawerContent(_tlcg.activeMaterial);
             await _tlcgLoadData();
         } else {
@@ -909,7 +1107,6 @@ async function _tlcgUnapproveTicket(id) {
         const res = await apiCall(`/api/cutting/unapprove-ratio/${id}`, 'POST');
         if (res.success) {
             if (typeof showToast === 'function') showToast('Đã hủy duyệt tỉ lệ đơn cắt!', 'success');
-            // Refresh drawer and page
             await _tlcgLoadDrawerContent(_tlcg.activeMaterial);
             await _tlcgLoadData();
         } else {
@@ -921,10 +1118,26 @@ async function _tlcgUnapproveTicket(id) {
     }
 }
 
+async function _tlcgApproveBatch(ids) {
+    if (!ids || ids.length === 0) return;
+    try {
+        const res = await apiCall('/api/cutting/approve-ratio-batch', 'POST', { ids });
+        if (res.success) {
+            if (typeof showToast === 'function') showToast(`Đã duyệt thành công ${ids.length} đơn cắt!`, 'success');
+            await _tlcgLoadDrawerContent(_tlcg.activeMaterial);
+            await _tlcgLoadData();
+        } else {
+            if (typeof showToast === 'function') showToast(res.error || 'Duyệt hàng loạt thất bại', 'error');
+        }
+    } catch (err) {
+        console.error('[Approve batch error]', err);
+        if (typeof showToast === 'function') showToast(err.message, 'error');
+    }
+}
+
 // ========== PRODUCT SEGMENT MODAL ==========
 
 async function _tlcgOpenProductSegmentModal() {
-    // Inject overlay if not present
     if (!document.getElementById('tlcgModalOverlay')) {
         const overlay = document.createElement('div');
         overlay.id = 'tlcgModalOverlay';
@@ -933,7 +1146,6 @@ async function _tlcgOpenProductSegmentModal() {
     }
     const overlay = document.getElementById('tlcgModalOverlay');
     
-    // Load products
     overlay.innerHTML = `
         <div class="tlcg-modal">
             <div class="tlcg-modal-header">
@@ -1031,7 +1243,6 @@ async function _tlcgSaveProductSegments() {
 // ========== QUANTITY RANGES MODAL ==========
 
 async function _tlcgOpenRangeModal() {
-    // Inject overlay if not present
     if (!document.getElementById('tlcgModalOverlay')) {
         const overlay = document.createElement('div');
         overlay.id = 'tlcgModalOverlay';
@@ -1047,7 +1258,7 @@ async function _tlcgOpenRangeModal() {
                 <button class="tlcg-drawer-close" onclick="_tlcgCloseModal()">×</button>
             </div>
             <div class="tlcg-modal-body">
-                <p style="font-size: 12px; color: #64748b; margin: 0 0 16px 0;">Định nghĩa các khung số lượng (số lượng áo trong 1 ticket cắt) để hệ thống phân loại thống kê tỉ lệ. Nhập số cực đại lớn (ví dụ: 999999) cho khung "Từ ... trở lên".</p>
+                <p style="font-size: 12px; color: #64748b; margin: 0 0 16px 0;">Định nghĩa các khung số lượng để hệ thống phân loại thống kê tỉ lệ. Nhập số cực đại lớn (ví dụ: 999999) cho khung "Từ ... trở lên".</p>
                 <div id="tlcgRangeList">
                     <!-- Loaded dynamically -->
                 </div>
@@ -1099,7 +1310,7 @@ async function _tlcgSaveRanges() {
         const minVal = parseInt(r.querySelector('.r-min').value);
         let maxVal = parseInt(r.querySelector('.r-max').value);
         if (isNaN(maxVal) || !maxVal) {
-            maxVal = 999999; // Default upper bound
+            maxVal = 999999;
         }
 
         if (isNaN(minVal) || minVal < 0 || maxVal < minVal) {
@@ -1110,7 +1321,6 @@ async function _tlcgSaveRanges() {
         ranges.push({ min_qty: minVal, max_qty: maxVal });
     }
 
-    // Sort by min_qty
     ranges.sort((a, b) => a.min_qty - b.min_qty);
 
     try {
