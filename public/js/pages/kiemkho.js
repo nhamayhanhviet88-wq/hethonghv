@@ -3096,16 +3096,21 @@ function _kkRenderReportTabItems(items, type) {
                 }
 
                 let locationName = item.location;
+                let isUnassigned = false;
                 if (!locationName || locationName === '—' || locationName.trim() === '') {
-                    locationName = 'Chưa xếp kệ';
+                    const sysW = Number(item.system_weight !== undefined ? item.system_weight : (item.old_weight || 0));
+                    const origW = Number(item.original_weight || 0);
+                    const isLe = origW > 0 && sysW < origW;
+                    locationName = isLe ? 'Cây Lẻ Chưa Xếp Kệ' : 'Cây Nguyên Cần Xử Lý Kho';
+                    isUnassigned = true;
                 }
 
-                if (locationName !== 'Chưa xếp kệ' && !locationName.includes('📍')) {
+                if (!isUnassigned && !locationName.includes('📍') && !locationName.toLowerCase().includes('chưa xếp kệ') && !locationName.toLowerCase().includes('cần xử lý kho')) {
                     locationName = '📍 ' + locationName;
                 }
 
                 let shelfBadge = '';
-                if (locationName.toLowerCase().includes('chưa xếp kệ')) {
+                if (isUnassigned || locationName.toLowerCase().includes('chưa xếp kệ') || locationName.toLowerCase().includes('cần xử lý kho')) {
                     shelfBadge = `<span style="background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 20px; font-weight: 600; font-size: 10px; border: 1px solid #e2e8f0; white-space: nowrap;">${locationName}</span>`;
                 } else if (locationName.toLowerCase().includes('in 3d phượng tc') || locationName.toLowerCase().includes('in 3d thiện linh')) {
                     shelfBadge = `<span style="background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bfdbfe; white-space: nowrap;">${locationName}</span>`;
@@ -3502,13 +3507,19 @@ async function _kkExportReportToExcel() {
         });
 
         // Sheet 3: Missing Rolls List
+        // Sheet 3: Missing Rolls List
         const missingRows = [
             ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Kệ", "Cân Hệ Thống (kg)", "Cân Thực Tế (kg)", "Hao Hụt (kg)", "Ghi Chú"]
         ];
         const missingItems = items.filter(i => i.type === 'missing');
         missingItems.forEach((i, idx) => {
             let loc = i.location;
-            if (!loc || loc === '—' || loc.trim() === '') loc = 'Chưa xếp kệ';
+            if (!loc || loc === '—' || loc.trim() === '') {
+                const sysW = Number(i.system_weight !== undefined ? i.system_weight : (i.old_weight || 0));
+                const origW = Number(i.original_weight || 0);
+                const isLe = origW > 0 && sysW < origW;
+                loc = isLe ? 'Cây Lẻ Chưa Xếp Kệ' : 'Cây Nguyên Cần Xử Lý Kho';
+            }
             missingRows.push([
                 idx + 1,
                 i.roll_code,
@@ -3530,7 +3541,12 @@ async function _kkExportReportToExcel() {
         surplusItems.forEach((i, idx) => {
             const isLe = i.notes && i.notes.includes("Cây lẻ");
             let loc = i.location;
-            if (!loc || loc === '—' || loc.trim() === '') loc = 'Chưa xếp kệ';
+            if (!loc || loc === '—' || loc.trim() === '') {
+                const sysW = Number(i.system_weight !== undefined ? i.system_weight : (i.old_weight || 0));
+                const origW = Number(i.original_weight || 0);
+                const isLeRoll = isLe || (origW > 0 && sysW < origW);
+                loc = isLeRoll ? 'Cây Lẻ Chưa Xếp Kệ' : 'Cây Nguyên Cần Xử Lý Kho';
+            }
             surplusRows.push([
                 idx + 1,
                 i.roll_code,
@@ -3550,7 +3566,12 @@ async function _kkExportReportToExcel() {
         const diffItems = items.filter(i => i.type === 'difference');
         diffItems.forEach((i, idx) => {
             let loc = i.location;
-            if (!loc || loc === '—' || loc.trim() === '') loc = 'Chưa xếp kệ';
+            if (!loc || loc === '—' || loc.trim() === '') {
+                const sysW = Number(i.system_weight !== undefined ? i.system_weight : (i.old_weight || 0));
+                const origW = Number(i.original_weight || 0);
+                const isLe = origW > 0 && sysW < origW;
+                loc = isLe ? 'Cây Lẻ Chưa Xếp Kệ' : 'Cây Nguyên Cần Xử Lý Kho';
+            }
             diffRows.push([
                 idx + 1,
                 i.roll_code,

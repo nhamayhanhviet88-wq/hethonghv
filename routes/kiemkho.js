@@ -1332,7 +1332,7 @@ module.exports = async function(fastify) {
         if (!session) return reply.code(404).send({ error: 'Phiên kiểm kê không tồn tại.' });
 
         const items = await db.all(`
-            SELECT i.*, u.full_name AS checked_by_name, r.location AS current_location
+            SELECT i.*, u.full_name AS checked_by_name, r.location AS current_location, r.original_weight
             FROM stockcheck_session_items i
             LEFT JOIN users u ON i.checked_by = u.id
             LEFT JOIN kv_rolls r ON i.roll_id = r.id
@@ -1341,6 +1341,7 @@ module.exports = async function(fastify) {
         `, [id]);
 
         items.forEach(item => {
+            item.original_weight = Number(item.original_weight || 0);
             item.location = item.location || item.current_location || '—';
         });
 
