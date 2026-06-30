@@ -3121,13 +3121,42 @@ function _kkRenderReportTabItems(items, type) {
                 if (locationName.toLowerCase().includes('chờ cắt') || locationName.toLowerCase().includes('đang cắt')) {
                     shelfBadge = `<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #fde68a; white-space: nowrap;">${locationName}</span>`;
                 } else if (isUnassigned || locationName.toLowerCase().includes('chưa xếp kệ') || locationName.toLowerCase().includes('cần xử lý kho')) {
-                    shelfBadge = `<span style="background: #f1f5f9; color: #0f172a; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #94a3b8; white-space: nowrap;">${locationName}</span>`;
+                    if (locationName.toLowerCase().includes('cần xử lý kho')) {
+                        // Purple/lavender theme for Cây Nguyên Cần Xử Lý Kho
+                        shelfBadge = `<span style="background: #f3e8ff; color: #6b21a8; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #d8b4fe; white-space: nowrap;">${locationName}</span>`;
+                    } else {
+                        // Pink/rose theme for Cây Lẻ Chưa Xếp Kệ
+                        shelfBadge = `<span style="background: #fce7f3; color: #be185d; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #fbcfe8; white-space: nowrap;">${locationName}</span>`;
+                    }
                 } else if (locationName.toLowerCase().includes('in 3d phượng tc') || locationName.toLowerCase().includes('in 3d thiện linh')) {
                     shelfBadge = `<span style="background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bfdbfe; white-space: nowrap;">${locationName}</span>`;
                 } else if (locationName.toLowerCase().includes('dự định hoàn vải')) {
                     shelfBadge = `<span style="background: #fff5f5; color: #ef4444; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #fecaca; white-space: nowrap;">${locationName}</span>`;
                 } else {
-                    shelfBadge = `<span style="background: #f0fdf4; color: #16a34a; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bbf7d0; white-space: nowrap;">${locationName}</span>`;
+                    // Dynamic coloring for different shelves (Kệ A, Kệ B, Kệ C, Kệ D, etc.)
+                    const lowerLoc = locationName.toLowerCase();
+                    if (lowerLoc.includes('kệ a') || lowerLoc.includes('ke a')) {
+                        // Emerald Green
+                        shelfBadge = `<span style="background: #f0fdf4; color: #15803d; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bbf7d0; white-space: nowrap;">${locationName}</span>`;
+                    } else if (lowerLoc.includes('kệ b') || lowerLoc.includes('ke b')) {
+                        // Royal Blue
+                        shelfBadge = `<span style="background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bfdbfe; white-space: nowrap;">${locationName}</span>`;
+                    } else if (lowerLoc.includes('kệ c') || lowerLoc.includes('ke c')) {
+                        // Purple
+                        shelfBadge = `<span style="background: #faf5ff; color: #7e22ce; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #e9d5ff; white-space: nowrap;">${locationName}</span>`;
+                    } else if (lowerLoc.includes('kệ d') || lowerLoc.includes('ke d')) {
+                        // Amber
+                        shelfBadge = `<span style="background: #fffbeb; color: #b45309; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #fde68a; white-space: nowrap;">${locationName}</span>`;
+                    } else if (lowerLoc.includes('kệ e') || lowerLoc.includes('ke e')) {
+                        // Rose
+                        shelfBadge = `<span style="background: #fff1f2; color: #be123c; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #ffe4e6; white-space: nowrap;">${locationName}</span>`;
+                    } else if (lowerLoc.includes('kệ f') || lowerLoc.includes('ke f')) {
+                        // Cyan
+                        shelfBadge = `<span style="background: #ecfeff; color: #0e7490; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #cffafe; white-space: nowrap;">${locationName}</span>`;
+                    } else {
+                        // Fallback Green
+                        shelfBadge = `<span style="background: #f0fdf4; color: #16a34a; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bbf7d0; white-space: nowrap;">${locationName}</span>`;
+                    }
                 }
 
                 rowsHtml += `
