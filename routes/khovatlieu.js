@@ -54,7 +54,7 @@ module.exports = async function(fastify) {
                 END IF;
 
                 -- Only sync if it is a general material import and approved or doesn't require price approval
-                IF NEW.record_type = 'general' AND (NEW.requires_price_approval = false OR NEW.is_checked = true) THEN
+                IF NEW.record_type = 'general' AND (NEW.requires_price_approval = false OR NEW.price_approved_at IS NOT NULL) THEN
                     IF NEW.fabric_items IS NOT NULL AND jsonb_typeof(NEW.fabric_items) = 'array' THEN
                         FOR item IN SELECT * FROM jsonb_to_recordset(NEW.fabric_items) AS x(material_item_id INT, quantity NUMERIC, price NUMERIC, cost NUMERIC) LOOP
                             IF item.material_item_id IS NOT NULL THEN

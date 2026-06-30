@@ -306,7 +306,7 @@
     
     function mStats(){
         const t=mr.length;let sm=0,sp=0,sd=0,strees=0,sqU={};mr.forEach(r=>{
-            const isPending = r.requires_price_approval && !r.is_checked;
+            const isPending = r.requires_price_approval && !r.price_approved_at;
             sm+=Number(r.total_amount)||0;
             sp+=Number(r.paid)||0;
             sd+=isPending ? 0 : (Number(r.debt)||0);
@@ -325,7 +325,7 @@
             const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
             const info=mTreeInfo(r);
             let badgeHtml = '';
-            if (r.requires_price_approval && !r.is_checked) {
+            if (r.requires_price_approval && !r.price_approved_at) {
                 if (r.is_disapproved) {
                     badgeHtml = '<div style="margin: 6px 0;"><span style="background:#fef2f2;color:#ef4444;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #fecaca;display:inline-block;">❌ Từ chối duyệt (Sửa giá)</span></div>';
                 } else {
@@ -409,7 +409,7 @@
             
             let h = '';
             
-            if (r.requires_price_approval && !r.is_checked) {
+            if (r.requires_price_approval && !r.price_approved_at) {
                 if (r.is_disapproved) {
                     h += `<div style="background:#fef2f2; border:1px solid #fecaca; color:#ef4444; padding:8px 12px; border-radius:8px; font-size:12px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px;">❌ Từ chối duyệt (Kế toán cần kiểm tra/sửa lại giá)</div>`;
                 } else {
@@ -499,15 +499,8 @@
             }
 
             // Action
-            if (r.requires_price_approval && !r.is_checked) {
-                if (typeof isDuyetUser !== 'undefined' && isDuyetUser) {
-                    h += `<div style="margin-top:16px; display:flex; gap:10px;">
-                        <button class="ab" style="flex:1;" onclick="closeDetail(); mTog(${r.id},'check')">✅ Phê Duyệt</button>
-                        <button class="ab" style="flex:1; background-color:#ef4444;" onclick="closeDetail(); mTog(${r.id},'disapprove')">❌ Không Duyệt</button>
-                    </div>`;
-                } else {
-                    h += `<div style="margin-top:16px; text-align:center; padding:10px; background:rgba(239,68,68,0.1); color:#ef4444; font-weight:700; font-size:12px; border-radius:8px;">⏳ Đang chờ quản lý duyệt giá</div>`;
-                }
+            if (r.requires_price_approval && !r.price_approved_at) {
+                h += `<div style="margin-top:16px; text-align:center; padding:10px; background:rgba(239,68,68,0.1); color:#ef4444; font-weight:700; font-size:12px; border-radius:8px;">⏳ Đang chờ quản lý duyệt giá gốc</div>`;
             } else {
                 const cA = r.is_checked ? 'uncheck' : 'check';
                 h += `<div style="margin-top:16px"><button class="ab${r.is_checked ? ' on' : ''}" onclick="closeDetail(); mTog(${r.id},'${cA}')">✅ ${r.is_checked ? 'ĐÃ DUYỆT' : 'DUYỆT KIỂM TRA'}</button></div>`;

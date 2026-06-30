@@ -1991,17 +1991,17 @@ async function _gngConfirmChoice(id, choice) {
     const code = rec.fabric_import_code || rec.id;
 
     if (choice === 'approve_once') {
-        confirmTitle = 'Duyệt Riêng Hóa Đơn';
-        confirmMsg = `Bạn có chắc chắn muốn DUYỆT RIÊNG bill #${code}?\n\n- Chỉ duyệt hóa đơn này hoạt động.\n- Bảng giá gốc cũ vẫn được giữ nguyên.`;
-        payload = { action: 'check', update_base_price: false };
+        confirmTitle = 'Duyệt Riêng Đơn Giá';
+        confirmMsg = `Bạn có chắc chắn muốn DUYỆT RIÊNG đơn giá của bill #${code}?\n\n- Chỉ duyệt đơn giá của hóa đơn này để hoạt động (cho phép xuất kho/giao đơn).\n- Bảng giá gốc cũ vẫn được giữ nguyên.`;
+        payload = { action: 'check', price_only: true, update_base_price: false };
     } else if (choice === 'approve_update') {
         confirmTitle = 'Duyệt & Cập Nhật Giá Gốc';
-        confirmMsg = `Bạn có chắc chắn muốn DUYỆT & CẬP NHẬT GIÁ GỐC mới từ bill #${code}?\n\n- Duyệt hóa đơn này hoạt động.\n- Giá trên bill này sẽ được lưu làm giá gốc mới cho các lần nhập sau.`;
-        payload = { action: 'check', update_base_price: true };
+        confirmMsg = `Bạn có chắc chắn muốn DUYỆT & CẬP NHẬT GIÁ GỐC mới từ bill #${code}?\n\n- Duyệt đơn giá của hóa đơn này để hoạt động (cho phép xuất kho/giao đơn).\n- Giá trên bill này sẽ được lưu làm giá gốc mới cho các lần nhập sau.`;
+        payload = { action: 'check', price_only: true, update_base_price: true };
     } else if (choice === 'disapprove') {
-        confirmTitle = 'Từ Chối Hóa Đơn';
-        confirmMsg = `Bạn có chắc chắn muốn TỪ CHỐI bill #${code}?\n\n- Hóa đơn sẽ không được duyệt.\n- Yêu cầu kế toán sửa lại thông tin/đơn giá bill này.`;
-        payload = { action: 'disapprove' };
+        confirmTitle = 'Từ Chối Đơn Giá';
+        confirmMsg = `Bạn có chắc chắn muốn TỪ CHỐI đơn giá của bill #${code}?\n\n- Từ chối đơn giá nhập của hóa đơn này.\n- Yêu cầu kế toán sửa lại thông tin/đơn giá bill này.`;
+        payload = { action: 'disapprove', price_only: true };
     }
 
     _gngShowConfirmPopup(confirmTitle, confirmMsg, choice, async () => {
@@ -2011,9 +2011,9 @@ async function _gngConfirmChoice(id, choice) {
             const res = await apiCall('/api/import/toggle/' + id, 'POST', payload);
             if (res.success) {
                 let toastMsg = '';
-                if (choice === 'approve_once') toastMsg = `Đã duyệt riêng hóa đơn #${code}`;
-                if (choice === 'approve_update') toastMsg = `Đã duyệt và cập nhật giá gốc mới cho hóa đơn #${code}`;
-                if (choice === 'disapprove') toastMsg = `Đã từ chối hóa đơn #${code}`;
+                if (choice === 'approve_once') toastMsg = `Đã duyệt riêng đơn giá của hóa đơn #${code}`;
+                if (choice === 'approve_update') toastMsg = `Đã duyệt đơn giá và cập nhật giá gốc mới cho hóa đơn #${code}`;
+                if (choice === 'disapprove') toastMsg = `Đã từ chối đơn giá của hóa đơn #${code}`;
                 
                 if (typeof showToast === 'function') showToast(toastMsg, 'success');
                 await _gngLoadData();
@@ -2044,7 +2044,7 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
     sorted.forEach(h => {
         let statusText = 'Khớp giá';
         let badgeClass = 'gng-badge-stable';
-        if (!h.is_checked && h.requires_price_approval) {
+        if (!h.price_approved_at && h.requires_price_approval) {
             if (h.is_disapproved) {
                 statusText = '❌ Từ chối duyệt';
                 badgeClass = 'gng-badge-alert';

@@ -310,7 +310,7 @@ function _bvlRender() {
     var tot = all.length;
     var sumCost = 0, sumTotal = 0, sumPaid = 0, sumDebt = 0, sumQty = 0;
     all.forEach(function (r) {
-        var isPending = r.requires_price_approval && !r.is_checked;
+        var isPending = r.requires_price_approval && !r.price_approved_at;
         sumCost += Number(r.cost) || 0;
         sumTotal += Number(r.total_amount) || 0;
         sumPaid += Number(r.paid) || 0;
@@ -328,7 +328,7 @@ function _bvlRender() {
         for (var ri = all.length - 1; ri >= 0; ri--) {
             var sid = all[ri].source_id || 0;
             if (!srcCumDebt[sid]) srcCumDebt[sid] = 0;
-            var isPending = all[ri].requires_price_approval && !all[ri].is_checked;
+            var isPending = all[ri].requires_price_approval && !all[ri].price_approved_at;
             srcCumDebt[sid] += isPending ? 0 : (Number(all[ri].debt) || 0);
             runDebt[ri] = srcCumDebt[sid];
         }
@@ -336,7 +336,7 @@ function _bvlRender() {
         all.forEach(function (r) {
             var sid = r.source_id || 0;
             if (!srcDebtMap[sid]) srcDebtMap[sid] = 0;
-            var isPending = r.requires_price_approval && !r.is_checked;
+            var isPending = r.requires_price_approval && !r.price_approved_at;
             srcDebtMap[sid] += isPending ? 0 : (Number(r.debt) || 0);
         });
 
@@ -372,7 +372,7 @@ function _bvlRender() {
             if (Number(r.ship_cost) > 0 && r.ship_payer === 'congty') {
                 badgeHtml = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">CTy Mất Ship</span>';
             }
-            if (r.requires_price_approval && !r.is_checked) {
+            if (r.requires_price_approval && !r.price_approved_at) {
                 if (r.is_disapproved) {
                     badgeHtml += '<span style="background:#fef2f2;color:#ef4444;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fecaca;display:inline-block;vertical-align:middle;line-height:1.2;cursor:pointer" title="Manager từ chối duyệt giá, yêu cầu sửa lại giá!">❌ Từ chối duyệt</span>';
                 } else {
@@ -483,7 +483,7 @@ function _bvlRender() {
                 + '<td style="text-align:right;color:#f59e0b;font-weight:600;vertical-align:middle">' + _bvlFM(r.refund) + '</td>'
                 + '<td style="text-align:right;font-weight:800;color:#1e293b;vertical-align:middle">' + _bvlFM(r.total_amount) + '</td>'
                 + paidCellHtml
-                + '<td style="text-align:center;vertical-align:middle">' + (r.requires_price_approval && !r.is_checked ? '<span class="bvl-blink" style="background:#ef4444;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #dc2626;display:inline-block">⚠️ Chờ duyệt giá</span>' : _bvlDebt(runDebt[i])) + '</td>'
+                + '<td style="text-align:center;vertical-align:middle">' + (r.requires_price_approval && !r.price_approved_at ? '<span class="bvl-blink" style="background:#ef4444;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #dc2626;display:inline-block">⚠️ Chờ duyệt giá</span>' : _bvlDebt(runDebt[i])) + '</td>'
                 + '<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">' + (r.cost_notes || '—') + '</td>'
                 + '<td style="font-size:9px;color:#6b7280;vertical-align:middle">' + upd + '</td></tr>';
         }).join('');
