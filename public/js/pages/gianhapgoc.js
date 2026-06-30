@@ -1684,12 +1684,29 @@ function _gngViewImage(src) {
 }
 
 function _gngOpenImportBill(importId) {
-    if (typeof _bnhFabDetail === 'function') {
+    var runDetail = function() {
         _bnhFabDetail(importId);
+        // Force z-index to 100000 to bypass any cached version of fab-import-v4.js in the browser
+        setTimeout(function() {
+            var detailOv = document.getElementById('_fabDetailOv');
+            if (detailOv) {
+                detailOv.style.zIndex = '100000';
+            }
+        }, 50);
+        setTimeout(function() {
+            var detailOv = document.getElementById('_fabDetailOv');
+            if (detailOv) {
+                detailOv.style.zIndex = '100000';
+            }
+        }, 200);
+    };
+
+    if (typeof _bnhFabDetail === 'function') {
+        runDetail();
     } else {
         var s = document.createElement('script');
         s.src = '/js/pages/fab-import-v4.js?v=20260630_vdecimal_v3';
-        s.onload = function() { _bnhFabDetail(importId); };
+        s.onload = runDetail;
         document.head.appendChild(s);
     }
 }
