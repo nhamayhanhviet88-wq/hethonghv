@@ -1039,6 +1039,7 @@ function _gngSelectSupplier(id) {
         _gng.filter.materialName = null;
     } else if (id === 'all') {
         _gng.filter.materialName = null;
+        _gng.filter.tab = 'approved';
     } else {
         // Auto select first material for this supplier
         const materialsSet = new Set();
@@ -1059,10 +1060,7 @@ function _gngSelectSupplier(id) {
             _gng.filter.materialName = null;
         }
 
-        if (_gng.filter.tab === 'pending') {
-            const hasPending = _gng.pending.some(rec => rec.source_id == id);
-            if (!hasPending) _gng.filter.tab = 'approved';
-        }
+        _gng.filter.tab = 'approved';
     }
 
     _gngSaveState();
@@ -1073,6 +1071,7 @@ function _gngSelectSupplier(id) {
 function _gngSelectMaterial(supplierId, materialName) {
     _gng.filter.supplierId = supplierId;
     _gng.filter.materialName = materialName;
+    _gng.filter.tab = 'approved';
     _gngSaveState();
     _gngRenderSidebar();
     _gngRenderDetailPanel();
