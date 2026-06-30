@@ -3061,6 +3061,7 @@ function _kkRenderReportTabItems(items, type) {
                 <td style="color: #0f766e; font-weight: 800; font-size: 12px;">
                     ${g.material_name} - ${g.color_name}
                 </td>
+                <td></td>
                 <td class="text-center" style="color: #0f766e;">${sumSys}</td>
                 <td class="text-center" style="color: #10b981;">${sumAct}</td>
                 <td class="text-right">${sumDiffText}</td>
@@ -3084,7 +3085,7 @@ function _kkRenderReportTabItems(items, type) {
                 } else if (type === 'diff') {
                     const d = Number(item.difference);
                     diffText = `<span style="color:${d > 0 ? '#ef4444' : '#3b82f6'}; font-weight:600;">
-                        ${d > 0 ? '-' + d.toLocaleString('vi-VN') : '+' + Math.abs(d).toLocaleString('vi-VN')} ${item.unit}
+                         ${d > 0 ? '-' + d.toLocaleString('vi-VN') : '+' + Math.abs(d).toLocaleString('vi-VN')} ${item.unit}
                     </span>`;
                 } else {
                     if (item.type === 'return_confirm') {
@@ -3092,6 +3093,22 @@ function _kkRenderReportTabItems(items, type) {
                     } else {
                         diffText = `<span class="text-success font-weight-bold">Khớp</span>`;
                     }
+                }
+
+                let locationName = item.location || '—';
+                if (locationName !== '—' && !locationName.includes('📍') && !locationName.toLowerCase().includes('chưa xếp kệ')) {
+                    locationName = '📍 ' + locationName;
+                }
+
+                let shelfBadge = '';
+                if (locationName.toLowerCase().includes('chưa xếp kệ') || locationName === '—') {
+                    shelfBadge = `<span style="background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 20px; font-weight: 600; font-size: 10px; border: 1px solid #e2e8f0; white-space: nowrap;">${locationName}</span>`;
+                } else if (locationName.toLowerCase().includes('in 3d phượng tc') || locationName.toLowerCase().includes('in 3d thiện linh')) {
+                    shelfBadge = `<span style="background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bfdbfe; white-space: nowrap;">${locationName}</span>`;
+                } else if (locationName.toLowerCase().includes('dự định hoàn vải')) {
+                    shelfBadge = `<span style="background: #fff5f5; color: #ef4444; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #fecaca; white-space: nowrap;">${locationName}</span>`;
+                } else {
+                    shelfBadge = `<span style="background: #f0fdf4; color: #16a34a; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bbf7d0; white-space: nowrap;">${locationName}</span>`;
                 }
 
                 rowsHtml += `
@@ -3102,6 +3119,7 @@ function _kkRenderReportTabItems(items, type) {
                                 └─ <span style="font-family: monospace; color: #0d9488;">${item.roll_code}</span>
                             </div>
                         </td>
+                        <td class="text-center">${shelfBadge}</td>
                         <td class="text-center">${Number(item.system_weight).toLocaleString('vi-VN')} ${item.unit}</td>
                         <td class="text-center">${Number(item.actual_weight).toLocaleString('vi-VN')} ${item.unit}</td>
                         <td class="text-right">${diffText}</td>
@@ -3117,6 +3135,7 @@ function _kkRenderReportTabItems(items, type) {
                 <tr style="background:#fafafa; color:#475569;">
                     <th style="width:40px;" class="text-center">STT</th>
                     <th>${labelCap} & Mã Hàng</th>
+                    <th class="text-center">Kệ</th>
                     <th class="text-center">Tồn Ban Đầu</th>
                     <th class="text-center">Kiểm Thực Tế</th>
                     <th class="text-right">Chênh Lệch</th>
@@ -3480,7 +3499,7 @@ async function _kkExportReportToExcel() {
 
         // Sheet 3: Missing Rolls List
         const missingRows = [
-            ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Cân Hệ Thống (kg)", "Cân Thực Tế (kg)", "Hao Hụt (kg)", "Ghi Chú"]
+            ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Kệ", "Cân Hệ Thống (kg)", "Cân Thực Tế (kg)", "Hao Hụt (kg)", "Ghi Chú"]
         ];
         const missingItems = items.filter(i => i.type === 'missing');
         missingItems.forEach((i, idx) => {
@@ -3489,6 +3508,7 @@ async function _kkExportReportToExcel() {
                 i.roll_code,
                 i.material_name,
                 i.color_name,
+                i.location || '—',
                 Number(i.system_weight),
                 0,
                 -Number(i.system_weight),
@@ -3498,7 +3518,7 @@ async function _kkExportReportToExcel() {
 
         // Sheet 4: Surplus Rolls List
         const surplusRows = [
-            ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Cân Thực Tế (kg)", "Phân Loại", "Ghi Chú"]
+            ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Kệ", "Cân Thực Tế (kg)", "Phân Loại", "Ghi Chú"]
         ];
         const surplusItems = items.filter(i => i.type === 'surplus');
         surplusItems.forEach((i, idx) => {
@@ -3508,6 +3528,7 @@ async function _kkExportReportToExcel() {
                 i.roll_code,
                 i.material_name,
                 i.color_name,
+                i.location || '—',
                 Number(i.actual_weight),
                 isLe ? "Cây Lẻ" : "Cây Nguyên",
                 i.notes || ''
@@ -3516,7 +3537,7 @@ async function _kkExportReportToExcel() {
 
         // Sheet 5: Checked Difference Rolls (excluding 100% missing)
         const diffRows = [
-            ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Cân Hệ Thống (kg)", "Cân Thực Tế (kg)", "Lệch (kg)", "Ghi Chú"]
+            ["STT", "Mã Cây Vải", "Chất Liệu", "Màu Sắc", "Kệ", "Cân Hệ Thống (kg)", "Cân Thực Tế (kg)", "Lệch (kg)", "Ghi Chú"]
         ];
         const diffItems = items.filter(i => i.type === 'difference');
         diffItems.forEach((i, idx) => {
@@ -3525,6 +3546,7 @@ async function _kkExportReportToExcel() {
                 i.roll_code,
                 i.material_name,
                 i.color_name,
+                i.location || '—',
                 Number(i.system_weight),
                 Number(i.actual_weight),
                 -Number(i.difference),

@@ -66,6 +66,11 @@ module.exports = async function(fastify) {
             checked_by INTEGER REFERENCES users(id)
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_sc_sess_id ON stockcheck_session_items(session_id)`);
+        try {
+            await db.exec(`ALTER TABLE stockcheck_session_items ADD COLUMN location TEXT`);
+        } catch(err) {
+            // Ignore if column already exists
+        }
     } catch(e) { console.error('[KK] sessions schema:', e.message); }
 
     // ========== HELPERS ==========
@@ -1154,9 +1159,9 @@ module.exports = async function(fastify) {
 
                 // Insert snapshot to permanent items table
                 await db.run(`
-                    INSERT INTO stockcheck_session_items (session_id, roll_id, roll_code, material_name, color_name, warehouse_name, unit, system_weight, actual_weight, difference, type, notes, checked_at, checked_by)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-                `, [sessionId, rec.roll_id, rec.roll_code, rec.material_name, rec.color_name, rec.warehouse_name, rec.unit, oldW, newW, diff, type, rec.notes || null, rec.checked_at, rec.checked_by]);
+                    INSERT INTO stockcheck_session_items (session_id, roll_id, roll_code, material_name, color_name, warehouse_name, unit, system_weight, actual_weight, difference, type, notes, checked_at, checked_by, location)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                `, [sessionId, rec.roll_id, rec.roll_code, rec.material_name, rec.color_name, rec.warehouse_name, rec.unit, oldW, newW, diff, type, rec.notes || null, rec.checked_at, rec.checked_by, rec.location]);
             }
 
             // Strict 100% validation check against actual kv_rolls in database
@@ -1327,12 +1332,17 @@ module.exports = async function(fastify) {
         if (!session) return reply.code(404).send({ error: 'Phiên kiểm kê không tồn tại.' });
 
         const items = await db.all(`
-            SELECT i.*, u.full_name AS checked_by_name
+            SELECT i.*, u.full_name AS checked_by_name, r.location AS current_location
             FROM stockcheck_session_items i
             LEFT JOIN users u ON i.checked_by = u.id
+            LEFT JOIN kv_rolls r ON i.roll_id = r.id
             WHERE i.session_id = $1
             ORDER BY i.material_name, i.color_name, i.roll_code
         `, [id]);
+
+        items.forEach(item => {
+            item.location = item.location || item.current_location || '—';
+        });
 
         return { session, items };
     });
