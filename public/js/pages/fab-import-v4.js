@@ -174,7 +174,7 @@ function _bnhFabRenderBody() {
         + '<div><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">NGÀY NHẬP</label><div style="padding:8px 12px;background:#f1f5f9;border-radius:8px;font-size:12px;font-weight:600">' + f.dateStr + '</div></div>'
         + '<div><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">NHÂN VIÊN</label><div style="padding:8px 12px;background:#f1f5f9;border-radius:8px;font-size:12px;font-weight:600">' + f.userName + deptBadge + '</div></div></div>';
     h += '<div style="margin-bottom:16px"><label style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px;display:block">NGUỒN NCC *</label>'
-        + '<select id="_fabSrc" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none"><option value="">— Chọn nguồn —</option>';
+        + '<select id="_fabSrc" onchange="_bnhFabRenderBody()" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none"><option value="">— Chọn nguồn —</option>';
     (f.availSources || []).forEach(function (s) { h += '<option value="' + s.id + '"' + (f.selectedSrc == s.id ? ' selected' : '') + '>' + s.name + '</option>'; });
     h += '</select></div>';
     // Fabric items
@@ -210,6 +210,10 @@ function _bnhFabRenderBody() {
             // Unit price
             var basePriceHtml = '';
             if (_bnhFab.selectedSrc) {
+                var srcName = '';
+                var srcObj = (_bnhFab.availSources || []).find(function(s) { return Number(s.id) === Number(_bnhFab.selectedSrc); });
+                if (srcObj) srcName = srcObj.name;
+
                 var matchedBase = (_bnhFab.basePrices || []).find(function(bp) {
                     return bp.item_type === 'fabric' && 
                            Number(bp.fabric_color_id) === Number(it.fabric_color_id) && 
@@ -221,8 +225,14 @@ function _bnhFabRenderBody() {
                         + 'class="fab-suggest-blink" '
                         + 'style="margin-left:12px;padding:4px 14px;border-radius:20px;border:2.5px solid #10b981;background:#ecfdf5;color:#047857;font-size:11px;font-weight:900;letter-spacing:0.5px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;outline:none;font-family:inherit;box-shadow: 0 1px 3px rgba(0,0,0,0.05)" '
                         + 'onmouseover="this.style.background=\'#d1fae5\';this.style.transform=\'scale(1.05)\'" onmouseout="this.style.background=\'#ecfdf5\';this.style.transform=\'none\'" title="Click để tự động điền giá gốc này">'
-                        + '💡 Giá gốc: ' + bpVal.toLocaleString('vi-VN') + 'đ'
+                        + '💡 ' + srcName + ' Giá gốc: ' + bpVal.toLocaleString('vi-VN') + 'đ'
                         + '</button>';
+                } else {
+                    basePriceHtml = '<span '
+                        + 'style="margin-left:12px;padding:4px 14px;border-radius:20px;border:2.5px solid #cbd5e1;background:#f8fafc;color:#64748b;font-size:11px;font-weight:900;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:3px;font-family:inherit;box-shadow: 0 1px 3px rgba(0,0,0,0.05)" '
+                        + 'title="Nhà cung cấp này chưa có Giá Nhập Gốc được duyệt">'
+                        + '💡 ' + srcName + ': chưa có'
+                        + '</span>';
                 }
             }
 
