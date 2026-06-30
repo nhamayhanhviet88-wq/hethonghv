@@ -160,6 +160,26 @@ function _bnhFabRenderBody() {
             .fab-suggest-blink {
                 animation: fabSuggestBlink 1.4s infinite ease-in-out;
             }
+            @keyframes fabOtherSuggestBlink {
+                0% {
+                    opacity: 1;
+                    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 0.7;
+                    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+                    transform: scale(1.02);
+                }
+                100% {
+                    opacity: 1;
+                    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+                    transform: scale(1);
+                }
+            }
+            .fab-other-suggest-blink {
+                animation: fabOtherSuggestBlink 1.4s infinite ease-in-out;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -234,6 +254,28 @@ function _bnhFabRenderBody() {
                         + '💡 ' + srcName + ': chưa có'
                         + '</span>';
                 }
+
+                // Render other suppliers' prices for comparison (in red)
+                var otherBases = (_bnhFab.basePrices || []).filter(function(bp) {
+                    return bp.item_type === 'fabric' && 
+                           Number(bp.fabric_color_id) === Number(it.fabric_color_id) && 
+                           Number(bp.source_id) !== Number(_bnhFab.selectedSrc);
+                });
+
+                otherBases.forEach(function(ob) {
+                    var obSrcName = ob.source_name || '';
+                    if (!obSrcName) {
+                        var obSrcObj = (_bnhFab.availSources || []).find(function(s) { return Number(s.id) === Number(ob.source_id); });
+                        if (obSrcObj) obSrcName = obSrcObj.name;
+                    }
+                    var obVal = Number(ob.price);
+                    basePriceHtml += '<button onclick="event.preventDefault();_bnhFab.items['+idx+'].unit_price=' + obVal + ';_bnhFabRenderBody();" '
+                        + 'class="fab-other-suggest-blink" '
+                        + 'style="margin-left:12px;padding:4px 14px;border-radius:20px;border:2.5px solid #ef4444;background:#fef2f2;color:#b91c1c;font-size:11px;font-weight:900;letter-spacing:0.5px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;outline:none;font-family:inherit;box-shadow: 0 1px 3px rgba(0,0,0,0.05)" '
+                        + 'onmouseover="this.style.background=\'#fee2e2\';this.style.transform=\'scale(1.05)\'" onmouseout="this.style.background=\'#fef2f2\';this.style.transform=\'none\'" title="Click để chọn giá gốc của nhà cung cấp này">'
+                        + '💡 ' + obSrcName + ' Giá gốc: ' + obVal.toLocaleString('vi-VN') + 'đ'
+                        + '</button>';
+                });
             }
 
             h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:6px 8px;background:#f0fdf4;border-radius:6px">'
