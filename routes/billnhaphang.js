@@ -2051,7 +2051,8 @@ module.exports = async function(fastify) {
                 END AS item_name,
                 kfm.name AS fabric_material_name,
                 kfc.color_name AS fabric_color_name,
-                wh.name AS warehouse_name
+                wh.name AS warehouse_name,
+                kfm.target_cut_ratio AS fabric_cut_ratio
             FROM approved_import_prices ap
             LEFT JOIN import_sources s ON ap.source_id = s.id
             LEFT JOIN kv_fabric_colors kfc ON ap.fabric_color_id = kfc.id

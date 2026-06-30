@@ -963,6 +963,7 @@ function _gngRenderDetailApproved(target) {
     }
 
     const isSingleMaterialMode = (_gng.filter.supplierId !== 'all' && _gng.filter.materialName);
+    const isFabricSupplier = _gngIsFabricSupplier(_gng.filter.supplierId);
 
     if (isSingleMaterialMode) {
         let rowsHtml = '';
@@ -970,6 +971,9 @@ function _gngRenderDetailApproved(target) {
             const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
             const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
             const isFabric = p.item_type === 'fabric';
+
+            const cutRatioText = p.fabric_cut_ratio ? (Number(p.fabric_cut_ratio) + ' sp/kg') : '---';
+            const finishedPriceText = (p.fabric_cut_ratio > 0) ? (Math.round(Number(p.price) / Number(p.fabric_cut_ratio))).toLocaleString('vi-VN') + ' đ' : '---';
 
             rowsHtml += `
                 <tr>
@@ -985,6 +989,10 @@ function _gngRenderDetailApproved(target) {
                         ${isFabric ? `🎨 ${p.fabric_color_name || 'Màu sắc'}` : `🏢 ${p.warehouse_name || '---'}`}
                     </td>
                     <td style="text-align: right; font-weight: 700; color: #059669;">${formattedPrice}</td>
+                    ${isFabricSupplier ? `
+                        <td style="text-align: center; font-weight: 600; color: #4f46e5;">${cutRatioText}</td>
+                        <td style="text-align: right; font-weight: 700; color: #b45309;">${finishedPriceText}</td>
+                    ` : ''}
                     <td>${formattedDate}</td>
                     <td>
                         <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); _gngShowItemHistory('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
@@ -1009,6 +1017,10 @@ function _gngRenderDetailApproved(target) {
                             <th>Chất Liệu / Vật Liệu</th>
                             <th>Màu Sắc / Kho</th>
                             <th style="text-align: right;">Đơn Giá Gốc</th>
+                            ${isFabricSupplier ? `
+                                <th style="text-align: center;">Tỉ Lệ Cắt</th>
+                                <th style="text-align: right;">Giá Thành Phẩm</th>
+                            ` : ''}
                             <th>Cập Nhật Cuối</th>
                             <th>Hành Động</th>
                         </tr>
@@ -1075,6 +1087,21 @@ function _gngRenderDetailApproved(target) {
 
         // Render Group Header
         const showExpanded = (q.length > 0);
+        const cutRatioText = g.items[0]?.fabric_cut_ratio ? (Number(g.items[0].fabric_cut_ratio) + ' sp/kg') : '---';
+        
+        let ratioPriceRangeText = '---';
+        if (g.items[0]?.fabric_cut_ratio > 0) {
+            const ratioVal = Number(g.items[0].fabric_cut_ratio);
+            const pricesList2 = g.items.map(it => Number(it.price) || 0);
+            const minRatioPrice = Math.round(Math.min(...pricesList2) / ratioVal);
+            const maxRatioPrice = Math.round(Math.max(...pricesList2) / ratioVal);
+            if (minRatioPrice === maxRatioPrice) {
+                ratioPriceRangeText = minRatioPrice.toLocaleString('vi-VN') + ' đ';
+            } else {
+                ratioPriceRangeText = `${minRatioPrice.toLocaleString('vi-VN')} đ - ${maxRatioPrice.toLocaleString('vi-VN')} đ`;
+            }
+        }
+
         rowsHtml += `
             <tr class="gng-group-header" onclick="_gngToggleGroup('${g.key}')">
                 <td>
@@ -1089,6 +1116,10 @@ function _gngRenderDetailApproved(target) {
                 <td style="color: #64748b; font-style: italic; font-size:12px;">(Nhấp để xem chi tiết)</td>
                 ${_gng.filter.supplierId === 'all' ? `<td>${_gngGetSupplierBadgeHtml(g.source_name)}</td>` : ''}
                 <td style="text-align: right; font-weight: 700; color: #4f46e5;">${priceRangeText}</td>
+                ${isFabricSupplier ? `
+                    <td style="text-align: center; font-weight: 600; color: #4f46e5;">${cutRatioText}</td>
+                    <td style="text-align: right; font-weight: 700; color: #b45309;">${ratioPriceRangeText}</td>
+                ` : ''}
                 <td>${latestDateText}</td>
                 <td>
                     <span style="font-size: 11px; color: #64748b; font-weight:600;">Xem ${g.items.length} mục</span>
@@ -1100,6 +1131,8 @@ function _gngRenderDetailApproved(target) {
         g.items.forEach(p => {
             const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
             const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
+            const subCutRatioText = p.fabric_cut_ratio ? (Number(p.fabric_cut_ratio) + ' sp/kg') : '---';
+            const subFinishedPriceText = (p.fabric_cut_ratio > 0) ? (Math.round(Number(p.price) / Number(p.fabric_cut_ratio))).toLocaleString('vi-VN') + ' đ' : '---';
             
             rowsHtml += `
                 <tr class="gng-sub-row ${g.key}" style="${showExpanded ? '' : 'display: none;'}">
@@ -1110,6 +1143,10 @@ function _gngRenderDetailApproved(target) {
                     </td>
                     ${_gng.filter.supplierId === 'all' ? `<td></td>` : ''}
                     <td style="text-align: right; font-weight: 700; color: #059669;">${formattedPrice}</td>
+                    ${isFabricSupplier ? `
+                        <td style="text-align: center; font-weight: 600; color: #4f46e5;">${subCutRatioText}</td>
+                        <td style="text-align: right; font-weight: 700; color: #b45309;">${subFinishedPriceText}</td>
+                    ` : ''}
                     <td>${formattedDate}</td>
                     <td>
                         <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); _gngShowItemHistory('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
@@ -1136,6 +1173,10 @@ function _gngRenderDetailApproved(target) {
                         <th>Màu Sắc / Kho</th>
                         ${_gng.filter.supplierId === 'all' ? '<th>Nhà Cung Cấp</th>' : ''}
                         <th style="text-align: right;">Đơn Giá Gốc</th>
+                        ${isFabricSupplier ? `
+                            <th style="text-align: center;">Tỉ Lệ Cắt</th>
+                            <th style="text-align: right;">Giá Thành Phẩm</th>
+                        ` : ''}
                         <th>Cập Nhật Cuối</th>
                         <th>Hành Động</th>
                     </tr>
@@ -1594,6 +1635,11 @@ function _gngGetSupplierBadgeHtml(name) {
     }
     
     return `<span class="gng-sup-badge" style="background: ${bg}; color: ${color}; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">${name}</span>`;
+}
+
+function _gngIsFabricSupplier(supplierId) {
+    if (supplierId === 'all' || supplierId === 'pending_all') return false;
+    return _gng.prices.some(p => p.source_id == supplierId && p.item_type === 'fabric');
 }
 
 async function _gngInitializeFromHistory() {
