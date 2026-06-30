@@ -779,6 +779,7 @@ async function _bvlOpenMatEdit(id) {
                 unit: item.unit || ''
             };
         });
+        _bvl.originalMaterials = JSON.parse(JSON.stringify(_bvl.addedMaterials));
 
         var extraCosts = [];
         try {
@@ -1234,6 +1235,19 @@ async function _bvlSubmitMat() {
     if (!srcId) { showToast('Vui lòng chọn nhà cung cấp', 'error'); resetBtn(); return; }
     if (!_bvl.addedMaterials || _bvl.addedMaterials.length === 0) { showToast('Vui lòng thêm ít nhất 1 vật liệu', 'error'); resetBtn(); return; }
     if (!_bvl.uploadImg) { showToast('Ảnh bill bắt buộc', 'error'); resetBtn(); return; }
+    if (_bvl.isEdit && _bvl.originalMaterials) {
+        for (var i = 0; i < _bvl.addedMaterials.length; i++) {
+            var curr = _bvl.addedMaterials[i];
+            var orig = _bvl.originalMaterials.find(function(o) {
+                return o.id === curr.id || o.name === curr.name;
+            });
+            if (orig && curr.price === orig.price) {
+                showToast('Đơn giá của ' + curr.name + ' phải khác giá cũ (' + _bvlFM(orig.price) + 'đ)!', 'error');
+                resetBtn();
+                return;
+            }
+        }
+    }
 
     var shipCostVal = Number(document.getElementById('_bvlShipCost')?.value) || 0;
     var shipPayerVal = document.getElementById('_bvlShipPayer')?.value;
