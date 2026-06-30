@@ -1174,19 +1174,15 @@ async function _kkRenderAudit(content) {
                             const isMissing = hasChecked && r.actual_weight !== null && Number(r.actual_weight) === 0;
                             if (isMissing) {
                                 actionHtml = `
-                                    <button class="kk-action-btn" style="background: rgba(217, 119, 6, 0.15); border: 1px solid #d97706; color: #ea580c; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false, false, ${isPartnerShelf})" title="Xác nhận có cây trong kho">
-                                        🔍 Kiểm xem có cây này không
-                                    </button>
                                     <button class="kk-action-btn" style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true, false, ${isPartnerShelf})" title="Hủy xác nhận báo mất">
-                                        ❌ Đã báo mất (Hủy?)
+                                        ❌ Hủy báo mất
                                     </button>
                                 `;
                             } else if (hasChecked) {
                                 actionHtml = `
                                     <button class="kk-action-btn" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 4px 10px; border-radius: 6px; font-weight: 800; width: auto; height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;" onclick="event.stopPropagation(); _kkToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true, false, ${isPartnerShelf})" title="Hủy xác nhận có cây">
-                                        ✅ Có cây này (Hủy?)
+                                        ✅ Hủy có cây này
                                     </button>
-                                    <button class="kk-action-btn red" onclick="event.stopPropagation(); _kkMarkMissing(${r.roll_id}, '${r.roll_code}')" title="❌ Báo mất">❌ Báo mất</button>
                                 `;
                             } else {
                                 actionHtml = `
@@ -1589,10 +1585,18 @@ async function _kkMarkPresent(rollId, systemWeight, rollImg) {
 }
 
 async function _kkToggleReturnRollCheck(rollId, rollCode, isCurrentlyChecked, isReturnRoll = false, isPartnerShelf = false) {
+    const r = _kk.rolls.find(item => item.roll_id === rollId);
+    const isMissing = r && r.is_checked && r.actual_weight !== null && Number(r.actual_weight) === 0;
+
     const rollTypeLabel = isReturnRoll ? 'cây hoàn' : (isPartnerShelf ? 'cây đối tác' : 'cây nguyên');
-    const confirmMsg = isCurrentlyChecked 
-        ? `Xác nhận hủy kiểm tra ${rollTypeLabel} này (mã ${rollCode})?`
-        : `Xác nhận có ${rollTypeLabel} này (mã ${rollCode}) trong kho?`;
+    let confirmMsg = '';
+    if (isMissing) {
+        confirmMsg = `Xác nhận hủy báo mất ${rollTypeLabel} này (mã ${rollCode})?`;
+    } else {
+        confirmMsg = isCurrentlyChecked 
+            ? `Xác nhận hủy kiểm tra ${rollTypeLabel} này (mã ${rollCode})?`
+            : `Xác nhận có ${rollTypeLabel} này (mã ${rollCode}) trong kho?`;
+    }
     
     if (!confirm(confirmMsg)) return;
 
