@@ -662,7 +662,7 @@ module.exports = async function(fastify) {
                     await client.query(
                         `UPDATE qlx_fabric_reservations 
                          SET status = 'arrived', arrived_at = $1, arrived_by = $2, updated_at = $1
-                         WHERE status = 'pending_price_approval' AND roll_id IN (SELECT id FROM kv_rolls WHERE source_import_id = $3)`,
+                         WHERE status = 'pending_price' AND roll_id IN (SELECT id FROM kv_rolls WHERE source_import_id = $3)`,
                         [now, req.user.id, id]
                     );
 
@@ -773,12 +773,12 @@ module.exports = async function(fastify) {
                     [now, id]
                 );
 
-                // If fabric import, revert reservations status to pending_price_approval and clear arrived_at/by
+                // If fabric import, revert reservations status to pending_price and clear arrived_at/by
                 if (record.record_type === 'fabric') {
                     // Revert from_stock reservations
                     await client.query(
                         `UPDATE qlx_fabric_reservations 
-                         SET status = 'pending_price_approval', arrived_at = NULL, arrived_by = NULL, updated_at = $1
+                         SET status = 'pending_price', arrived_at = NULL, arrived_by = NULL, updated_at = $1
                          WHERE roll_id IN (SELECT id FROM kv_rolls WHERE source_import_id = $2)`,
                         [now, id]
                     );
@@ -835,12 +835,12 @@ module.exports = async function(fastify) {
                     [now, id]
                 );
 
-                // If fabric import, revert reservations status to pending_price_approval and clear arrived_at/by
+                // If fabric import, revert reservations status to pending_price and clear arrived_at/by
                 if (record.record_type === 'fabric') {
                     // Revert from_stock reservations
                     await client.query(
                         `UPDATE qlx_fabric_reservations 
-                         SET status = 'pending_price_approval', arrived_at = NULL, arrived_by = NULL, updated_at = $1
+                         SET status = 'pending_price', arrived_at = NULL, arrived_by = NULL, updated_at = $1
                          WHERE roll_id IN (SELECT id FROM kv_rolls WHERE source_import_id = $2)`,
                         [now, id]
                     );
@@ -1125,7 +1125,7 @@ module.exports = async function(fastify) {
                 await client.query(
                     `UPDATE qlx_fabric_reservations 
                      SET status = 'arrived', arrived_at = $1, arrived_by = $2, updated_at = $1
-                     WHERE status = 'pending_price_approval' AND roll_id IN (SELECT id FROM kv_rolls WHERE source_import_id = $3)`,
+                     WHERE status = 'pending_price' AND roll_id IN (SELECT id FROM kv_rolls WHERE source_import_id = $3)`,
                     [now, req.user.id, id]
                 );
 
@@ -1882,7 +1882,7 @@ module.exports = async function(fastify) {
                                 [target.dht_order_id, target.item_id, target.phoi_index,
                                  target.material_name, target.color_name, target.unit || 'kg',
                                  newRollId, rollCode, w, 
-                                 requiresPriceApproval ? 'pending_price_approval' : 'arrived', 
+                                 requiresPriceApproval ? 'pending_price' : 'arrived', 
                                  requiresPriceApproval ? null : now, 
                                  requiresPriceApproval ? null : req.user.id, 
                                  req.user.id]
@@ -1903,7 +1903,7 @@ module.exports = async function(fastify) {
                                     [child.dht_order_id, child.item_id, child.phoi_index,
                                      child.material_name, child.color_name, child.unit || 'kg',
                                      newRollId, rollCode, w, 
-                                     requiresPriceApproval ? 'pending_price_approval' : 'arrived', 
+                                     requiresPriceApproval ? 'pending_price' : 'arrived', 
                                      requiresPriceApproval ? null : now, 
                                      requiresPriceApproval ? null : req.user.id, 
                                      req.user.id]
