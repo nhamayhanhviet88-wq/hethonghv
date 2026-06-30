@@ -53,8 +53,8 @@ module.exports = async function(fastify) {
                     RETURN OLD;
                 END IF;
 
-                -- Only sync if it is a general material import
-                IF NEW.record_type = 'general' THEN
+                -- Only sync if it is a general material import and approved or doesn't require price approval
+                IF NEW.record_type = 'general' AND (NEW.requires_price_approval = false OR NEW.is_checked = true) THEN
                     IF NEW.fabric_items IS NOT NULL AND jsonb_typeof(NEW.fabric_items) = 'array' THEN
                         FOR item IN SELECT * FROM jsonb_to_recordset(NEW.fabric_items) AS x(material_item_id INT, quantity NUMERIC, price NUMERIC, cost NUMERIC) LOOP
                             IF item.material_item_id IS NOT NULL THEN
@@ -66,7 +66,7 @@ module.exports = async function(fastify) {
                                 IF tx_id IS NOT NULL THEN
                                     -- Update existing transaction to preserve ID
                                     UPDATE material_transactions 
-                                    SET quantity = COALESCE(item.quantity, 0),
+                                SET quantity = COALESCE(item.quantity, 0),
                                         price = COALESCE(item.price, 0),
                                         total_amount = COALESCE(item.cost, 0),
                                         performed_at = COALESCE(NEW.import_date::timestamptz, NEW.created_at),
@@ -100,6 +100,8 @@ module.exports = async function(fastify) {
                     -- Clean up any general NHAP transactions that were deleted from fabric_items
                     DELETE FROM material_transactions 
                     WHERE import_record_id = NEW.id AND tx_type = 'NHAP' AND NOT (id = ANY(existing_ids));
+                ELSE
+                    DELETE FROM material_transactions WHERE import_record_id = NEW.id AND tx_type = 'NHAP';
                 END IF;
 
                 RETURN NEW;

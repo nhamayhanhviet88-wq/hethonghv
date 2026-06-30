@@ -13,10 +13,10 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #f1f5f9;
+            background: #f8fafc;
             min-height: 100vh;
             color: #1e293b;
-            padding-bottom: 40px;
+            padding-bottom: 80px;
         }
 
         /* Header */
@@ -26,7 +26,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -38,135 +38,200 @@
             background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px;
         }
 
-        /* Toast */
-        .m-toast-container { position: fixed; top: 60px; left: 8px; right: 8px; z-index: 999; }
-        .m-toast {
-            padding: 12px 16px; border-radius: 10px; color: white; font-size: 14px; font-weight: 600;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.25); animation: mSlideIn .3s ease; margin-bottom: 6px;
-        }
-        .m-toast-success { background: linear-gradient(135deg, #10b981, #059669); }
-        .m-toast-error { background: linear-gradient(135deg, #ef4444, #dc2626); }
-        .m-toast-info { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-        @keyframes mSlideIn { from { opacity:0; transform:translateY(-15px); } to { opacity:1; transform:translateY(0); } }
-
-        /* Content */
+        /* Content container */
         .m-content { padding: 14px; max-width: 600px; margin: 0 auto; }
 
         /* Stats Grid */
         .m-stats {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 16px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
         }
         .m-stat-card {
             background: white;
-            border-radius: 14px;
-            padding: 14px;
+            border-radius: 12px;
+            padding: 10px;
             border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.01);
+            text-align: center;
+        }
+        .m-stat-val { font-size: 16px; font-weight: 800; color: #0f172a; }
+        .m-stat-lbl { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 2px; }
+
+        /* Mobile Tabs */
+        .m-tabs {
+            display: flex;
+            background: white;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 14px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            border: 1px solid #e2e8f0;
         }
-        .m-stat-val {
-            font-size: 18px;
-            font-weight: 800;
-            color: #0f172a;
-        }
-        .m-stat-lbl {
-            font-size: 10px;
+        .m-tab-btn {
+            flex: 1;
+            padding: 10px 6px;
+            text-align: center;
+            font-size: 12px;
             font-weight: 700;
             color: #64748b;
-            text-transform: uppercase;
-            margin-top: 2px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .m-tab-btn.active {
+            background: #4f46e5;
+            color: white;
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
+        }
+        .m-tab-badge {
+            font-size: 9px;
+            background: #ef4444;
+            color: white;
+            padding: 1px 5px;
+            border-radius: 999px;
+            font-weight: 700;
         }
 
-        /* Search input */
-        .m-search-box {
-            display: flex; gap: 8px; margin-bottom: 16px;
+        /* Search area */
+        .m-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 14px;
         }
         .m-search-input {
-            flex: 1; padding: 12px 14px; border: 2px solid #e2e8f0;
-            border-radius: 12px; font-size: 15px; font-family: inherit;
-            background: white; color: #1e293b; outline: none; transition: border .2s;
-            -webkit-appearance: none;
+            width: 100%;
+            padding: 11px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            background: white;
         }
-        .m-search-input:focus { border-color: #3b82f6; }
+        .m-search-input:focus {
+            border-color: #4f46e5;
+        }
 
-        /* List items */
+        /* List layout */
         .m-list {
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
-        .m-item {
+        .m-card {
             background: white;
             border-radius: 14px;
             padding: 14px;
             border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.01);
             position: relative;
         }
-        .m-item-title {
-            font-size: 15px;
+
+        /* Card details */
+        .m-card-title {
+            font-size: 14px;
             font-weight: 800;
             color: #0f172a;
             margin-bottom: 4px;
-        }
-        .m-item-color {
-            font-size: 12px;
-            font-weight: 600;
-            color: #475569;
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            gap: 4px;
-            margin-bottom: 8px;
+            gap: 6px;
         }
-        .m-item-supplier {
+        .m-card-subtitle {
+            font-size: 12px;
+            color: #475569;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .m-card-meta {
             font-size: 11px;
             color: #64748b;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
-        .m-item-price-row {
+        .m-card-price-row {
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
             border-top: 1px dashed #f1f5f9;
             padding-top: 10px;
+            margin-top: 6px;
         }
-        .m-item-price-col {
-            display: flex;
-            flex-direction: column;
-        }
-        .m-item-price-lbl {
+        .m-card-price-lbl {
             font-size: 9px;
             font-weight: 700;
             color: #94a3b8;
             text-transform: uppercase;
         }
-        .m-item-price-val {
+        .m-card-price-val {
             font-size: 15px;
             font-weight: 800;
             color: #4f46e5;
         }
-        .m-item-price-base {
-            font-size: 11px;
-            color: #64748b;
-            font-weight: 600;
-        }
-        .m-badge {
-            position: absolute;
-            top: 14px;
-            right: 14px;
-            padding: 2px 8px;
-            border-radius: 6px;
+
+        /* Badges */
+        .m-badge-type {
             font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .m-badge-fabric { background: #e0e7ff; color: #4338ca; }
+        .m-badge-material { background: #fef3c7; color: #d97706; }
+
+        .m-badge-status {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 999px;
             font-weight: 700;
         }
-        .m-badge-stable { background: #e0f2fe; color: #0369a1; }
-        .m-badge-up { background: #fef3c7; color: #b45309; }
-        .m-badge-down { background: #dcfce7; color: #15803d; }
+        .m-badge-stable { background: #dcfce7; color: #15803d; }
+        .m-badge-alert { background: #fee2e2; color: #b91c1c; }
+
+        /* Discrepancy Card UI */
+        .m-disc-item {
+            background: #fffbeb;
+            border-radius: 10px;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #fef3c7;
+        }
+        .m-disc-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #b45309;
+            margin-bottom: 6px;
+        }
+        .m-disc-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: #475569;
+        }
+        .m-btn-approve {
+            background: #10b981;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 13px;
+            margin-top: 12px;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+        }
 
         /* Empty state */
-        .m-empty { text-align: center; padding: 40px 20px; color: #94a3b8; }
+        .m-empty { text-align: center; padding: 40px 20px; color: #64748b; }
         .m-empty-icon { font-size: 40px; margin-bottom: 8px; opacity: 0.5; }
         .m-empty-text { font-size: 14px; font-weight: 600; }
 
@@ -180,6 +245,72 @@
             justify-content: center;
             box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
+
+        /* Bottom Sheet (Modal) */
+        .m-modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: flex-end;
+            z-index: 1000;
+        }
+        .m-modal-card {
+            background: white;
+            width: 100%;
+            border-radius: 20px 20px 0 0;
+            padding: 20px 20px 30px 20px;
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
+            animation: mSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes mSlideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .m-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .m-modal-header h3 { font-size: 16px; font-weight: 800; color: #0f172a; }
+        .m-modal-close {
+            background: #f1f5f9; border: none; font-size: 20px;
+            width: 32px; height: 32px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; color: #64748b;
+        }
+        .m-form-group {
+            margin-bottom: 16px;
+        }
+        .m-form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+        .m-btn-primary {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+        }
+
+        /* Toast notifications on mobile */
+        .m-toast-container { position: fixed; top: 60px; left: 8px; right: 8px; z-index: 999; }
+        .m-toast {
+            padding: 12px 16px; border-radius: 10px; color: white; font-size: 13px; font-weight: 600;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15); animation: mSlideIn .3s ease; margin-bottom: 6px;
+        }
+        .m-toast-success { background: #10b981; }
+        .m-toast-error { background: #ef4444; }
+        @keyframes mSlideIn { from { opacity:0; transform:translateY(-15px); } to { opacity:1; transform:translateY(0); } }
     </style>
     <!-- Unified Mobile Style -->
     <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
@@ -198,17 +329,34 @@
         <div class="m-stats">
             <div class="m-stat-card">
                 <div class="m-stat-val" id="mStatTotal">0</div>
-                <div class="m-stat-lbl">Tổng Vật Tư</div>
+                <div class="m-stat-lbl">Đã Lưu Giá</div>
             </div>
             <div class="m-stat-card">
-                <div class="m-stat-val" id="mStatAvg">0 đ</div>
-                <div class="m-stat-lbl">Giá Trung Bình</div>
+                <div class="m-stat-val" id="mStatPending">0</div>
+                <div class="m-stat-lbl">Chờ Duyệt</div>
+            </div>
+            <div class="m-stat-card">
+                <div class="m-stat-val" id="mStatDiff">0</div>
+                <div class="m-stat-lbl">Chênh Lệch</div>
             </div>
         </div>
 
-        <!-- Search Box -->
-        <div class="m-search-box">
-            <input type="search" id="mSearchInput" class="m-search-input" placeholder="Tìm vật tư, màu sắc, NCC...">
+        <!-- Tabs Navigation -->
+        <div class="m-tabs">
+            <button class="m-tab-btn active" id="mTabBtnApproved" onclick="switchTab('approved')">
+                📋 Giá Gốc
+            </button>
+            <button class="m-tab-btn" id="mTabBtnPending" onclick="switchTab('pending')">
+                ⚠️ Chờ Duyệt <span class="m-tab-badge" id="mTabBadgePending" style="display:none;">0</span>
+            </button>
+            <button class="m-tab-btn" id="mTabBtnHistory" onclick="switchTab('history')">
+                ⏳ Lịch Sử
+            </button>
+        </div>
+
+        <!-- Controls Area -->
+        <div class="m-controls" id="mControlsArea">
+            <input type="search" id="mSearchInput" class="m-search-input" placeholder="Tìm vật tư, màu sắc, nhà cung cấp...">
         </div>
 
         <!-- List Area -->
@@ -219,20 +367,17 @@
         <a href="/gianhapgoc" class="m-back">← Giao diện Máy Tính</a>
     </div>
 
-    <script>
-        // Mock data
-        const mockData = [
-            { id: 1, material: 'Cotton 100% 2 chiều', color: 'Đen Jet Black', supplier: 'Dệt May Thành Công', basePrice: 125000, vat: 8, finalPrice: 135000, date: '2026-06-28', status: 'Bình ổn' },
-            { id: 2, material: 'Cotton 100% 2 chiều', color: 'Trắng Super White', supplier: 'Dệt May Thành Công', basePrice: 123000, vat: 8, finalPrice: 132840, date: '2026-06-28', status: 'Bình ổn' },
-            { id: 3, material: 'Cotton 100% 4 chiều', color: 'Xanh Navy', supplier: 'Dệt Kim Phong Phú', basePrice: 142000, vat: 10, finalPrice: 156200, date: '2026-06-25', status: 'Tăng nhẹ' },
-            { id: 4, material: 'CVC 65/35', color: 'Xám Melange', supplier: 'Dệt May Thành Công', basePrice: 98000, vat: 8, finalPrice: 105840, date: '2026-06-24', status: 'Bình ổn' },
-            { id: 5, material: 'Lacoste 4 chiều (Cá sấu)', color: 'Đỏ Đô', supplier: 'Hạnh Vĩ Fabric', basePrice: 155000, vat: 10, finalPrice: 170500, date: '2026-06-22', status: 'Tăng nhẹ' },
-            { id: 6, material: 'Poly 2 chiều (Mè)', color: 'Vàng Cúc', supplier: 'Hạnh Vĩ Fabric', basePrice: 65000, vat: 8, finalPrice: 70200, date: '2026-06-20', status: 'Bình ổn' },
-            { id: 7, material: 'Khaki Chun', color: 'Vàng Cát', supplier: 'Hồng Phát Textile', basePrice: 85000, vat: 10, finalPrice: 93500, date: '2026-06-19', status: 'Bình ổn' },
-            { id: 8, material: 'Cotton Tici 30s', color: 'Hồng Cam', supplier: 'Dệt Kim Phong Phú', basePrice: 110000, vat: 8, finalPrice: 118800, date: '2026-06-15', status: 'Giảm giá' }
-        ];
+    <!-- Edit Price Modal / Bottom Sheet -->
+    <div id="mEditModalWrapper"></div>
 
+    <script>
         let currentUser = null;
+        let isDuyetUser = false;
+        let prices = [];
+        let history = [];
+        let pending = [];
+        let currentTab = 'approved';
+        let searchQuery = '';
 
         async function apiCall(url, method = 'GET', body = null) {
             const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
@@ -242,86 +387,337 @@
             return res.json();
         }
 
+        function toast(msg, type = 'success') {
+            const container = document.getElementById('mToastContainer');
+            const el = document.createElement('div');
+            el.className = `m-toast m-toast-${type}`;
+            el.textContent = msg;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+
         // Init page
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const auth = await apiCall('/api/auth/me');
                 if (!auth || !auth.user) { window.location.href = '/index.html'; return; }
                 currentUser = auth.user;
-
-                if (currentUser.role !== 'giam_doc' && (!currentUser.permissions || !currentUser.permissions.gia_nhap_goc || !currentUser.permissions.gia_nhap_goc.can_view)) {
-                    sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Giá Nhập Gốc!');
-                    window.location.href = '/m';
-                    return;
-                }
                 document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
+
+                // Check duyet permission
+                const permRes = await apiCall('/api/import/check-duyet-perm', 'GET');
+                isDuyetUser = !!permRes.allowed;
             } catch(e) {
                 console.error(e);
             }
 
-            renderStats();
-            renderList(mockData);
+            await loadData();
 
             // Search event
             document.getElementById('mSearchInput').addEventListener('input', (e) => {
-                const q = e.target.value.toLowerCase().trim();
-                if (!q) {
-                    renderList(mockData);
-                    return;
-                }
-                const filtered = mockData.filter(item => 
-                    item.material.toLowerCase().includes(q) || 
-                    item.color.toLowerCase().includes(q) || 
-                    item.supplier.toLowerCase().includes(q)
-                );
-                renderList(filtered);
+                searchQuery = e.target.value.toLowerCase().trim();
+                renderTab();
             });
         });
 
-        function renderStats() {
-            document.getElementById('mStatTotal').textContent = mockData.length;
-            const avg = mockData.reduce((acc, curr) => acc + curr.basePrice, 0) / mockData.length;
-            document.getElementById('mStatAvg').textContent = Number(avg.toFixed(0)).toLocaleString('vi-VN') + ' đ';
+        async function loadData() {
+            try {
+                const [pricesRes, historyRes, pendingRes] = await Promise.all([
+                    apiCall('/api/gianhapgoc/prices'),
+                    apiCall('/api/gianhapgoc/history'),
+                    apiCall('/api/gianhapgoc/pending')
+                ]);
+
+                prices = pricesRes.prices || [];
+                history = historyRes.history || [];
+                pending = pendingRes.pending || [];
+
+                // Update tab badges & stats
+                document.getElementById('mStatTotal').textContent = prices.length;
+                document.getElementById('mStatPending').textContent = pending.length;
+                
+                const diffCount = pending.reduce((acc, curr) => acc + (curr.discrepancies?.length || 0), 0);
+                document.getElementById('mStatDiff').textContent = diffCount;
+
+                const pendingBadge = document.getElementById('mTabBadgePending');
+                if (pending.length > 0) {
+                    pendingBadge.textContent = pending.length;
+                    pendingBadge.style.display = 'inline-block';
+                } else {
+                    pendingBadge.style.display = 'none';
+                }
+
+                renderTab();
+            } catch(e) {
+                toast('Không thể tải dữ liệu: ' + e.message, 'error');
+            }
         }
 
-        function renderList(items) {
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Toggle active classes on tab buttons
+            document.querySelectorAll('.m-tab-btn').forEach(btn => btn.classList.remove('active'));
+            if (tab === 'approved') document.getElementById('mTabBtnApproved').classList.add('active');
+            if (tab === 'pending') document.getElementById('mTabBtnPending').classList.add('active');
+            if (tab === 'history') document.getElementById('mTabBtnHistory').classList.add('active');
+
+            // Hide controls for pending tab
+            const controls = document.getElementById('mControlsArea');
+            if (tab === 'pending') {
+                controls.style.display = 'none';
+            } else {
+                controls.style.display = 'block';
+            }
+
+            renderTab();
+        }
+
+        function renderTab() {
             const container = document.getElementById('mListArea');
-            if (items.length === 0) {
-                container.innerHTML = `
-                    <div class="m-empty">
-                        <div class="m-empty-icon">🔍</div>
-                        <div class="m-empty-text">Không tìm thấy kết quả</div>
-                    </div>
-                `;
+            container.innerHTML = '';
+
+            if (currentTab === 'approved') {
+                renderApprovedTab(container);
+            } else if (currentTab === 'history') {
+                renderHistoryTab(container);
+            } else if (currentTab === 'pending') {
+                renderPendingTab(container);
+            }
+        }
+
+        function renderApprovedTab(container) {
+            const filtered = prices.filter(p => {
+                if (!searchQuery) return true;
+                return (p.item_name || '').toLowerCase().includes(searchQuery) ||
+                       (p.fabric_material_name || '').toLowerCase().includes(searchQuery) ||
+                       (p.source_name || '').toLowerCase().includes(searchQuery);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="m-empty"><div class="m-empty-icon">📂</div><div class="m-empty-text">Chưa có bảng giá gốc phù hợp</div></div>`;
                 return;
             }
 
             let html = '';
-            items.forEach(item => {
-                let badgeClass = 'm-badge-stable';
-                if (item.status === 'Tăng nhẹ') badgeClass = 'm-badge-up';
-                if (item.status === 'Giảm giá') badgeClass = 'm-badge-down';
+            filtered.forEach(p => {
+                const isFabric = p.item_type === 'fabric';
+                const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
 
                 html += `
-                    <div class="m-item">
-                        <div class="m-item-title">${item.material}</div>
-                        <div class="m-item-color">🎨 ${item.color}</div>
-                        <div class="m-item-supplier">🏭 NCC: ${item.supplier}</div>
-                        <span class="m-badge ${badgeClass}">${item.status}</span>
-                        <div class="m-item-price-row">
-                            <div class="m-item-price-col">
-                                <span class="m-item-price-lbl">Giá Chưa Thuế</span>
-                                <span class="m-item-price-base">${Number(item.basePrice).toLocaleString('vi-VN')} đ</span>
-                            </div>
-                            <div class="m-item-price-col" style="text-align: right;">
-                                <span class="m-item-price-lbl">Giá Sau Thuế (${item.vat}%)</span>
-                                <span class="m-item-price-val">${Number(item.finalPrice).toLocaleString('vi-VN')} đ</span>
-                            </div>
+                    <div class="m-card" ${isDuyetUser ? `onclick="openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}')"` : ''}>
+                        <div class="m-card-title">
+                            <span class="m-badge-type ${isFabric ? 'm-badge-fabric' : 'm-badge-material'}">
+                                ${isFabric ? 'Vải' : 'Phụ liệu'}
+                            </span>
+                            ${isFabric ? (p.fabric_material_name || 'Vải') : (p.item_name || 'Vật tư')}
+                        </div>
+                        <div class="m-card-subtitle">
+                            ${isFabric ? `🎨 Màu: ${p.fabric_color_name || '---'}` : `🏢 Kho: ${p.warehouse_name || '---'}`}
+                        </div>
+                        <div class="m-card-meta">🏭 NCC: <b>${p.source_name || '---'}</b></div>
+                        <div class="m-card-price-row">
+                            <span class="m-card-price-lbl">Đơn giá gốc</span>
+                            <span class="m-card-price-val">${formattedPrice}</span>
                         </div>
                     </div>
                 `;
             });
             container.innerHTML = html;
+        }
+
+        function renderHistoryTab(container) {
+            const filtered = history.filter(h => {
+                if (!searchQuery) return true;
+                return (h.material_name || '').toLowerCase().includes(searchQuery) ||
+                       (h.color_name || '').toLowerCase().includes(searchQuery) ||
+                       (h.source_name || '').toLowerCase().includes(searchQuery);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="m-empty"><div class="m-empty-icon">⏳</div><div class="m-empty-text">Chưa có lịch sử phù hợp</div></div>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(h => {
+                const isFabric = h.item_type === 'fabric';
+                const formattedPrice = Number(h.unit_price).toLocaleString('vi-VN') + ' đ';
+                const formattedDate = h.import_date ? new Date(h.import_date).toLocaleDateString('vi-VN') : '---';
+
+                html += `
+                    <div class="m-card">
+                        <div class="m-card-title">
+                            <span class="m-badge-type ${isFabric ? 'm-badge-fabric' : 'm-badge-material'}">
+                                ${isFabric ? 'Vải' : 'Phụ liệu'}
+                            </span>
+                            ${h.material_name || 'Chất liệu'}
+                        </div>
+                        <div class="m-card-subtitle">
+                            ${isFabric ? `🎨 Màu: ${h.color_name || '---'}` : '---'}
+                        </div>
+                        <div class="m-card-meta">
+                            🏭 NCC: <b>${h.source_name || '---'}</b><br>
+                            📅 Ngày nhập: <b>${formattedDate}</b>
+                        </div>
+                        <div class="m-card-price-row">
+                            <span class="m-card-price-lbl">Đơn giá nhập</span>
+                            <span class="m-card-price-val" style="color:#0f172a;">${formattedPrice}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderPendingTab(container) {
+            if (pending.length === 0) {
+                container.innerHTML = `<div class="m-empty"><div class="m-empty-icon">✅</div><div class="m-empty-text">Tất cả hóa đơn đã khớp giá</div></div>`;
+                return;
+            }
+
+            let html = '';
+            pending.forEach(rec => {
+                const isFabric = rec.record_type === 'fabric';
+                const formattedDate = rec.import_date ? new Date(rec.import_date).toLocaleDateString('vi-VN') : '---';
+
+                let discHtml = '';
+                (rec.discrepancies || []).forEach(d => {
+                    const priceStr = Number(d.unit_price).toLocaleString('vi-VN') + ' đ';
+                    const appPriceStr = d.approved_price !== null 
+                        ? Number(d.approved_price).toLocaleString('vi-VN') + ' đ' 
+                        : 'Mới';
+
+                    let diffStr = '';
+                    if (d.approved_price !== null) {
+                        diffStr = d.difference > 0 ? `+${d.difference.toLocaleString('vi-VN')} đ` : `${d.difference.toLocaleString('vi-VN')} đ`;
+                    } else {
+                        diffStr = 'Giá mới';
+                    }
+
+                    discHtml += `
+                        <div class="m-disc-item">
+                            <div class="m-disc-title">⚠️ ${d.item_name}</div>
+                            <div class="m-disc-row">
+                                <span>Giá bill: <b>${priceStr}</b></span>
+                                <span>Giá gốc: <b>${appPriceStr}</b></span>
+                            </div>
+                            <div class="m-disc-row" style="margin-top:2px;">
+                                <span>Chênh lệch: <b style="color:${d.difference > 0 ? '#ef4444' : '#10b981'};">${diffStr}</b></span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                    <div class="m-card">
+                        <div class="m-card-title">
+                            <span class="m-badge-type ${isFabric ? 'm-badge-fabric' : 'm-badge-material'}">
+                                ${isFabric ? 'Vải' : 'Phụ liệu'}
+                            </span>
+                            Hóa đơn #${rec.fabric_import_code || rec.id}
+                        </div>
+                        <div class="m-card-meta">
+                            🏭 NCC: <b>${rec.source_name || '---'}</b><br>
+                            📅 Ngày nhập: <b>${formattedDate}</b><br>
+                            👤 Người nhập: <b>${rec.importer_name || '---'}</b>
+                        </div>
+                        
+                        ${discHtml}
+
+                        ${isDuyetUser ? `
+                            <button class="m-btn-approve" onclick="approveBill(${rec.id}, '${rec.fabric_import_code || rec.id}')">
+                                Phê Duyệt Giá & Hóa Đơn
+                            </button>
+                        ` : `
+                            <div style="margin-top:10px; font-size:12px; font-weight:700; color:#ef4444; text-align:center;">
+                                ⏳ Đang chờ quản lý cấp cao duyệt giá
+                            </div>
+                        `}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        async function approveBill(id, code) {
+            if (!confirm(`Phê duyệt hóa đơn #${code}?`)) return;
+            try {
+                const res = await apiCall('/api/import/toggle/' + id, 'POST', { action: 'check' });
+                if (res.success) {
+                    toast(`Đã phê duyệt hóa đơn #${code}`, 'success');
+                    await loadData();
+                } else {
+                    throw new Error(res.error || 'Lỗi phê duyệt');
+                }
+            } catch(e) {
+                toast(e.message, 'error');
+            }
+        }
+
+        function openEditSheet(itemType, itemId, sourceId, currentPrice, itemName, sourceName) {
+            const modalHtml = `
+                <div class="m-modal-backdrop" id="mEditSheet" onclick="closeSheet(event)">
+                    <div class="m-modal-card" onclick="event.stopPropagation()">
+                        <div class="m-modal-header">
+                            <h3>✏️ Cập Nhật Đơn Giá Gốc</h3>
+                            <button class="m-modal-close" onclick="closeSheet()">&times;</button>
+                        </div>
+                        <div style="margin-bottom:14px; font-size:13px; color:#64748b;">
+                            Vật tư: <b style="color:#0f172a;">${itemName}</b><br>
+                            Nhà cung cấp: <b style="color:#0f172a;">${sourceName}</b>
+                        </div>
+                        <div class="m-form-group">
+                            <label for="mNewPriceInput">Đơn Giá Gốc Mới (đ):</label>
+                            <input type="number" id="mNewPriceInput" class="m-search-input" style="-webkit-appearance: none;" value="${currentPrice}">
+                        </div>
+                        <button class="m-btn-primary" onclick="submitEditPrice('${itemType}', ${itemId}, ${sourceId})">
+                            Lưu Thay Đổi
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('mEditModalWrapper').innerHTML = modalHtml;
+        }
+
+        function closeSheet(e) {
+            if (e && e.target !== document.getElementById('mEditSheet')) return;
+            document.getElementById('mEditModalWrapper').innerHTML = '';
+        }
+
+        async function submitEditPrice(itemType, itemId, sourceId) {
+            const priceInput = document.getElementById('mNewPriceInput');
+            if (!priceInput) return;
+            const newPrice = Number(priceInput.value);
+            if (isNaN(newPrice) || newPrice < 0) {
+                alert('Vui lòng nhập đơn giá hợp lệ');
+                return;
+            }
+
+            try {
+                const body = { item_type: itemType, source_id: sourceId, price: newPrice };
+                if (itemType === 'fabric') {
+                    body.fabric_color_id = itemId;
+                } else {
+                    body.material_item_id = itemId;
+                }
+
+                const res = await apiCall('/api/gianhapgoc/set-price', 'POST', body);
+                if (res.success) {
+                    toast('Đã cập nhật giá gốc thành công');
+                    document.getElementById('mEditModalWrapper').innerHTML = '';
+                    await loadData();
+                } else {
+                    throw new Error(res.error || 'Lỗi lưu giá');
+                }
+            } catch(e) {
+                alert(e.message);
+            }
+        }
+
+        function escapeJS(str) {
+            if (!str) return '';
+            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
         }
     </script>
     <!-- Unified Mobile Navigation Script -->
