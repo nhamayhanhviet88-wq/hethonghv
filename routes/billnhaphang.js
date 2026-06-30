@@ -2312,10 +2312,34 @@ module.exports = async function(fastify) {
         try {
             await client.query('BEGIN');
 
+            const prevItems = typeof rec.fabric_items === 'string' ? JSON.parse(rec.fabric_items) : (rec.fabric_items || []);
             const fabricCode = rec.fabric_import_code;
 
-            // --- 1. ROLLBACK PREVIOUS STATE ---
-            const prevItems = typeof rec.fabric_items === 'string' ? JSON.parse(rec.fabric_items) : (rec.fabric_items || []);
+            if (rec.is_disapproved) {
+                const sourceId = Number(b.source_id);
+                for (const fi of b.fabric_items) {
+                    const matchingPrev = prevItems.find(p => Number(p.fabric_color_id) === Number(fi.fabric_color_id));
+                    if (matchingPrev) {
+                        const oldPrice = Number(matchingPrev.unit_price) || 0;
+                        const newPrice = Number(fi.unit_price) || 0;
+                        if (newPrice === oldPrice) {
+                            const approvedRes = await client.query(
+                                `SELECT price FROM approved_import_prices 
+                                 WHERE item_type = 'fabric' AND fabric_color_id = $1 AND source_id = $2`,
+                                [fi.fabric_color_id, sourceId]
+                            );
+                            const basePrice = approvedRes.rows.length > 0 ? Number(approvedRes.rows[0].price) : null;
+                            if (basePrice === null || oldPrice !== basePrice) {
+                                await client.query('ROLLBACK');
+                                client.release();
+                                return reply.code(400).send({
+                                    error: `Đơn giá của ${fi.material_name} (${fi.color_name}) không được trùng với giá cũ đã bị từ chối duyệt (${oldPrice.toLocaleString('vi-VN')} đ)! Vui lòng nhập đơn giá mới.`
+                                });
+                            }
+                        }
+                    }
+                }
+            }
             const affectedOrders = [];
             for (const fi of prevItems) {
                 if (fi.roll_ids_created && fi.roll_ids_created.length) {

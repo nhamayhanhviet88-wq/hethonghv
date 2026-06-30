@@ -55,17 +55,19 @@ async function _bnhOpenFabric() {
 function _bnhFabClose() { var o = document.getElementById('_fabOv'); if (o) o.remove(); }
 
 async function _bnhOpenFabricEdit(id) {
-    _bnhFab = { isEdit: true, editId: id, items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false, vat: 0 };
+    _bnhFab = { isEdit: true, editId: id, items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false, vat: 0, basePrices: [] };
     try {
-        var [recRes, sr, cfg] = await Promise.all([
+        var [recRes, sr, cfg, basePricesRes] = await Promise.all([
             apiCall('/api/import/records/' + id),
             apiCall('/api/import/sources?source_type=fabric'),
-            apiCall('/api/app-config/fabric_import_require_roll_photo')
+            apiCall('/api/app-config/fabric_import_require_roll_photo'),
+            apiCall('/api/gianhapgoc/prices', 'GET')
         ]);
         var rec = recRes.record;
         _bnhFab.code = rec.fabric_import_code;
         _bnhFab.selectedSrc = rec.source_id;
         _bnhFab.availSources = sr.sources || [];
+        _bnhFab.basePrices = basePricesRes || [];
         _bnhFab.requireRollPhoto = cfg && cfg.value !== undefined ? (cfg.value === 'true') : true;
         _bnhFab.notes = rec.cost_notes || '';
         _bnhFab.vat = Number(rec.vat_amount) || 0;
@@ -77,6 +79,7 @@ async function _bnhOpenFabricEdit(id) {
             _bnhFab.shipImg = { url: rec.ship_image_url, path: rec.ship_image_path };
         }
 
+        _bnhFab.isDisapproved = rec.is_disapproved || false;
         var items = typeof rec.fabric_items === 'string' ? JSON.parse(rec.fabric_items) : (rec.fabric_items || []);
         _bnhFab.items = items.map(function(it) {
             return {
@@ -85,6 +88,7 @@ async function _bnhOpenFabricEdit(id) {
                 color_name: it.color_name,
                 unit: it.unit || 'kg',
                 unit_price: Number(it.unit_price) || 0,
+                old_unit_price: Number(it.unit_price) || 0,
                 reservation_ids: it.reservation_ids || [],
                 trees: (it.trees || []).map(function(t) {
                     return {
@@ -512,6 +516,26 @@ async function _bnhFabSubmit() {
             var w = parseFloat(String(it.trees[t].weight || '0').replace(',', '.')) || 0;
             if (w <= 0) { showToast(it.material_name+': Cây '+(t+1)+' phải > 0', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
             if (f.requireRollPhoto && !it.trees[t].image_path) { showToast(it.material_name+': Cây '+(t+1)+' bắt buộc phải chụp ảnh định danh', 'error'); _bnhFab.submitting = false; if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; } return; }
+        }
+    }
+    if (f.isEdit && f.isDisapproved) {
+        var basePrices = f.basePrices || [];
+        for (var i = 0; i < f.items.length; i++) {
+            var it = f.items[i];
+            var matchedBase = basePrices.find(function(bp) {
+                return bp.item_type === 'fabric' && 
+                       Number(bp.fabric_color_id) === Number(it.fabric_color_id) && 
+                       Number(bp.source_id) === Number(srcId);
+            });
+            var basePrice = matchedBase ? Number(matchedBase.price) : null;
+            if (Number(it.unit_price) === Number(it.old_unit_price)) {
+                if (basePrice === null || Number(it.old_unit_price) !== basePrice) {
+                    showToast(it.material_name + ' (' + it.color_name + '): Đơn giá không được trùng với giá cũ đã bị từ chối duyệt (' + (Number(it.old_unit_price).toLocaleString('vi-VN')) + ' đ)! Vui lòng nhập đơn giá mới.', 'error');
+                    _bnhFab.submitting = false;
+                    if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; }
+                    return;
+                }
+            }
         }
     }
     for (var j = 0; j < f.extraCosts.length; j++) {

@@ -52,7 +52,7 @@ async function _bnhLoadAll(){
         document.head.appendChild(style);
     }
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260630_edit_v2';document.head.appendChild(s);}
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260630_edit_v3';document.head.appendChild(s);}
     try{
         var u=window._currentUser||window.currentUser||{};
         var promises = [
@@ -190,7 +190,7 @@ function _bnhRender(){
                         (u.department_name && (u.department_name.toLowerCase().includes('kế toán') || u.department_name.toLowerCase().includes('ke toan')));
             if(!r.is_checked&&_bnh.isDuyet){duyetHtml='<button class="bnh-ib" onclick="event.stopPropagation();_bnhTog('+r.id+',\'check\')" title="Duyệt kiểm tra">⬜</button>';}
             else if(r.is_checked){duyetHtml='<span style="font-size:11px" title="Đã duyệt: '+(r.checked_by_name||'')+'">✅</span>';}
-            if(r.record_type==='fabric' && isAcc && !r.is_checked){
+            if(r.record_type==='fabric' && isAcc && !r.is_checked && r.is_disapproved){
                 duyetHtml += '<button class="bnh-ib" style="margin-left:4px;background:#fef3c7;border-color:#f59e0b;color:#d97706" onclick="event.stopPropagation();_bnhOpenFabricEdit('+r.id+')" title="Sửa bill nhập vải">✏️</button>';
             }
             if(Number(r.debt)>0){payHtml='<button class="bnh-ib" style="background:#fffbeb;border-color:#f59e0b" onclick="event.stopPropagation();_bnhPayModal('+r.id+','+r.debt+','+srcDebt+')" title="Thanh toán">💳</button>';}
