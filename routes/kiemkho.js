@@ -673,9 +673,13 @@ module.exports = async function(fastify) {
         const isReturnRoll = cleanLoc.includes('dự định hoàn vải');
         const isUnassignedNguyen = roll.is_unassigned && (Number(roll.weight) >= Number(roll.original_weight));
         const isPartnerShelf = roll.is_partner_shelf;
-        if (isReturnRoll || isUnassignedNguyen || isPartnerShelf) {
+        if (isReturnRoll) {
             if (action !== 'toggle_check') {
-                return reply.code(400).send({ error: 'Cây vải này chỉ được xác nhận có/không, không được nhập cân lệch.' });
+                return reply.code(400).send({ error: 'Cây vải chờ hoàn NCC chỉ được xác nhận có/không, không được báo mất hoặc nhập cân.' });
+            }
+        } else if (isUnassignedNguyen || isPartnerShelf) {
+            if (action !== 'toggle_check' && actual_weight !== 0) {
+                return reply.code(400).send({ error: 'Cây vải này chỉ được xác nhận có/không hoặc báo mất, không được nhập cân lệch.' });
             }
         }
 
@@ -934,20 +938,22 @@ module.exports = async function(fastify) {
             const isReturnRoll = cleanLoc.includes('dự định hoàn vải') || (rec.notes && rec.notes.includes('Kệ dự định hoàn vải'));
             const isPartnerShelf = rec.is_partner_shelf;
 
-            if (isReturnRoll || isPartnerShelf) {
-                // Ignore return confirm rolls and partner shelves
-            } else if (rec.source === 'kiem_kho_du' && new Date(rec.roll_created_at) >= new Date(session.started_at)) {
-                surplusRolls++;
-                surplusWeight += newW;
-
-                uStats.surplus_rolls++;
-                uStats.surplus_weight += newW;
+            if (isReturnRoll) {
+                // Ignore return confirm rolls
             } else if (newW === 0) {
                 missingRolls++;
                 missingWeight += oldW;
 
                 uStats.missing_rolls++;
                 uStats.missing_weight += oldW;
+            } else if (isPartnerShelf) {
+                // Ignore partner shelves
+            } else if (rec.source === 'kiem_kho_du' && new Date(rec.roll_created_at) >= new Date(session.started_at)) {
+                surplusRolls++;
+                surplusWeight += newW;
+
+                uStats.surplus_rolls++;
+                uStats.surplus_weight += newW;
             } else {
                 if (diff !== 0) {
                     netDiff += diff;
@@ -1080,22 +1086,6 @@ module.exports = async function(fastify) {
 
                 if (isReturnRoll) {
                     type = 'return_confirm';
-                } else if (isPartnerShelf) {
-                    type = 'partner_confirm';
-                } else if (rec.source === 'kiem_kho_du' && new Date(rec.roll_created_at) >= new Date(session.started_at)) {
-                    // Added as surplus during audit
-                    surplusRolls++;
-                    surplusWeight += newW;
-                    type = 'surplus';
-                    if (diff !== 0) {
-                        const isLe = Number(rec.old_weight) < Number(rec.original_weight);
-                        if (isLe) {
-                            const diffOrig = Number(rec.original_weight) - Number(rec.old_weight);
-                            await db.run('UPDATE kv_rolls SET weight = $1, original_weight = $2 WHERE id = $3', [newW, newW + diffOrig, rec.roll_id]);
-                        } else {
-                            await db.run('UPDATE kv_rolls SET weight = $1, original_weight = $1 WHERE id = $2', [newW, rec.roll_id]);
-                        }
-                    }
                 } else if (newW === 0) {
                     // Missing roll (Loss 100%)
                     missingRolls++;
@@ -1118,6 +1108,22 @@ module.exports = async function(fastify) {
                         INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
                         VALUES ($1, 'XUAT', $2, $3, $4)
                     `, [rec.color_id, oldW, `Thất thoát kiểm kê (Báo mất cây: ${rec.roll_code})`, req.user.id]);
+                } else if (isPartnerShelf) {
+                    type = 'partner_confirm';
+                } else if (rec.source === 'kiem_kho_du' && new Date(rec.roll_created_at) >= new Date(session.started_at)) {
+                    // Added as surplus during audit
+                    surplusRolls++;
+                    surplusWeight += newW;
+                    type = 'surplus';
+                    if (diff !== 0) {
+                        const isLe = Number(rec.old_weight) < Number(rec.original_weight);
+                        if (isLe) {
+                            const diffOrig = Number(rec.original_weight) - Number(rec.old_weight);
+                            await db.run('UPDATE kv_rolls SET weight = $1, original_weight = $2 WHERE id = $3', [newW, newW + diffOrig, rec.roll_id]);
+                        } else {
+                            await db.run('UPDATE kv_rolls SET weight = $1, original_weight = $1 WHERE id = $2', [newW, rec.roll_id]);
+                        }
+                    }
                 } else if (diff !== 0) {
                     netDiff += diff;
                     type = 'difference';

@@ -291,11 +291,11 @@ function toast(m,t='success'){
 function fn(n){return Number(n||0).toLocaleString('vi-VN')}
 
 function diff(r){
+    if (r.is_checked && r.actual_weight !== null && Number(r.actual_weight) === 0) return '<span class="df short">❌ Mất</span>';
     const isReturnRoll = r.location && r.location.toLowerCase().includes('dự định hoàn vải');
     if (isReturnRoll) return '<span class="df ok" style="background:rgba(59,130,246,0.2);color:#93c5fd">🔄 Chờ hoàn NCC</span>';
     if (r.is_partner_shelf) return '<span class="df ok" style="background:rgba(124,58,237,0.2);color:#c084fc">🏭 Kệ đối tác</span>';
     if(!r.is_checked)return'<span class="df none">— Chưa kiểm</span>';
-    if(r.actual_weight === 0)return'<span class="df short">❌ Mất</span>';
     const d=Number(r.difference)||0;
     if(d===0)return'<span class="df ok">✅ Khớp</span>';
     if(d>0)return'<span class="df short">🔴 Thiếu '+fn(d)+' kg</span>';
@@ -728,24 +728,69 @@ function mCards(){
                     </div>
                 `;
             } else if (isReturnRoll || isPartnerShelf || (r.is_unassigned && (Number(r.system_weight) >= Number(r.original_weight)))) {
-                if (cA) {
-                    actionRowHtml = `
-                        <div class="ca" style="grid-template-columns: 1fr;">
-                            <button class="ab" style="border-color: #10b981; background: rgba(16,185,129,0.15); color: #34d399;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true, ${isReturnRoll}, ${isPartnerShelf})">
-                                <span class="ai">✅</span>
-                                <span class="al" style="color: #34d399; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;">ĐÃ XÁC NHẬN CÓ CÂY NÀY (HỦY?)</span>
-                            </button>
-                        </div>
-                    `;
+                if (isReturnRoll) {
+                    if (cA) {
+                        actionRowHtml = `
+                            <div class="ca" style="grid-template-columns: 1fr;">
+                                <button class="ab" style="border-color: #10b981; background: rgba(16,185,129,0.15); color: #34d399;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true, true, false)">
+                                    <span class="ai">✅</span>
+                                    <span class="al" style="color: #34d399; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;">ĐÃ XÁC NHẬN CÓ CÂY NÀY (HỦY?)</span>
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        actionRowHtml = `
+                            <div class="ca" style="grid-template-columns: 1fr;">
+                                <button class="ab" style="border-color: #d97706; background: rgba(217,119,6,0.15); color: #fbbf24;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false, true, false)">
+                                    <span class="ai">🔍</span>
+                                    <span class="al" style="color: #fbbf24; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;">KIỂM XEM CÓ CÂY NÀY KHÔNG</span>
+                                </button>
+                            </div>
+                        `;
+                    }
                 } else {
-                    actionRowHtml = `
-                        <div class="ca" style="grid-template-columns: 1fr;">
-                            <button class="ab" style="border-color: #d97706; background: rgba(217,119,6,0.15); color: #fbbf24;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false, ${isReturnRoll}, ${isPartnerShelf})">
-                                <span class="ai">🔍</span>
-                                <span class="al" style="color: #fbbf24; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;">KIỂM XEM CÓ CÂY NÀY KHÔNG</span>
-                            </button>
-                        </div>
-                    `;
+                    // Partner shelf or unassigned whole roll
+                    const isSpecialMissing = cA && Number(r.actual_weight) === 0;
+                    if (isSpecialMissing) {
+                        actionRowHtml = `
+                            <div class="ca" style="grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <button class="ab" style="border-color: #d97706; background: rgba(217,119,6,0.15); color: #fbbf24;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false, false, ${isPartnerShelf})">
+                                    <span class="ai">🔍</span>
+                                    <span class="al" style="color: #fbbf24; font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">KIỂM CÓ CÂY NÀY</span>
+                                </button>
+                                <button class="ab red on" style="border-color: #ef4444; background: rgba(239,68,68,0.15); color: #f87171;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true, false, ${isPartnerShelf})">
+                                    <span class="ai">❌</span>
+                                    <span class="al" style="color: #f87171; font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">HỦY BÁO MẤT</span>
+                                </button>
+                            </div>
+                        `;
+                    } else if (cA) {
+                        actionRowHtml = `
+                            <div class="ca" style="grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <button class="ab" style="border-color: #10b981; background: rgba(16,185,129,0.15); color: #34d399;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', true, false, ${isPartnerShelf})">
+                                    <span class="ai">✅</span>
+                                    <span class="al" style="color: #34d399; font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">HỦY CÓ CÂY NÀY</span>
+                                </button>
+                                <button class="ab red" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
+                                    <span class="ai">❌</span>
+                                    <span class="al" style="font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">BÁO MẤT</span>
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        actionRowHtml = `
+                            <div class="ca" style="grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <button class="ab" style="border-color: #d97706; background: rgba(217,119,6,0.15); color: #fbbf24;" onclick="mToggleReturnRollCheck(${r.roll_id}, '${r.roll_code}', false, false, ${isPartnerShelf})">
+                                    <span class="ai">🔍</span>
+                                    <span class="al" style="color: #fbbf24; font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">KIỂM CÓ CÂY NÀY</span>
+                                </button>
+                                <button class="ab red" onclick="mMarkMissing(${r.roll_id}, '${r.roll_code}')">
+                                    <span class="ai">❌</span>
+                                    <span class="al" style="font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">BÁO MẤT</span>
+                                </button>
+                            </div>
+                        `;
+                    }
                 }
             } else {
                 const isMissing = cA && Number(r.actual_weight) === 0;
@@ -965,8 +1010,8 @@ async function mMarkPresent(rollId, systemWeight, rollImg) {
 
 async function mMarkMissing(rollId, rollCode) {
     const r = mr.find(item => item.roll_id === rollId);
-    if (r && ((r.location && r.location.toLowerCase().includes('dự định hoàn vải')) || r.is_partner_shelf)) {
-        toast('⚠️ Cây vải thuộc kệ đối tác hoặc hoàn trả NCC, không được thay đổi số liệu.', 'error');
+    if (r && r.location && r.location.toLowerCase().includes('dự định hoàn vải')) {
+        toast('⚠️ Cây vải thuộc kệ hoàn trả NCC không được báo mất.', 'error');
         return;
     }
     const isMissing = r && r.is_checked && Number(r.actual_weight) === 0;
