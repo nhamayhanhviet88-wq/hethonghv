@@ -1710,6 +1710,55 @@ function _gngOpenImportBill(importId) {
 }
 window._gngOpenImportBill = _gngOpenImportBill;
 
+function _gngOpenHistoryBill(itemType, importId) {
+    var runDetail = async function() {
+        var overlayId = itemType === 'fabric' ? '_fabDetailOv' : '_bvlDetailOv';
+        var checkInterval = setInterval(function() {
+            var detailOv = document.getElementById(overlayId);
+            if (detailOv) {
+                detailOv.style.zIndex = '100000';
+            }
+        }, 30);
+        
+        try {
+            if (itemType === 'fabric') {
+                await _bnhFabDetail(importId);
+            } else {
+                await _bvlDetail(importId);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        
+        clearInterval(checkInterval);
+        var detailOv = document.getElementById(overlayId);
+        if (detailOv) {
+            detailOv.style.zIndex = '100000';
+        }
+    };
+
+    if (itemType === 'fabric') {
+        if (typeof _bnhFabDetail === 'function') {
+            runDetail();
+        } else {
+            var s = document.createElement('script');
+            s.src = '/js/pages/fab-import-v4.js?v=20260630_edit_v4';
+            s.onload = runDetail;
+            document.head.appendChild(s);
+        }
+    } else {
+        if (typeof _bvlDetail === 'function') {
+            runDetail();
+        } else {
+            var s = document.createElement('script');
+            s.src = '/js/pages/billvatlieu.js?v=20260630_price_decouple_v1';
+            s.onload = runDetail;
+            document.head.appendChild(s);
+        }
+    }
+}
+window._gngOpenHistoryBill = _gngOpenHistoryBill;
+
 function _gngShowConfirmPopup(title, message, type, onConfirm) {
     const overlay = document.createElement('div');
     overlay.id = 'gngConfirmPopup';
@@ -2027,8 +2076,8 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
     );
 
     const sorted = [...filtered].sort((a, b) => {
-        const dateA = new Date(a.import_date || 0);
-        const dateB = new Date(b.import_date || 0);
+        const dateA = new Date(a.created_at || a.import_date || 0);
+        const dateB = new Date(b.created_at || b.import_date || 0);
         if (dateB - dateA !== 0) return dateB - dateA;
         return b.import_id - a.import_id;
     });
@@ -2046,9 +2095,15 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
                 badgeClass = 'gng-badge-warning';
             }
         }
+        
+        const dateStr = _gngFormatDateTime(h.created_at || h.import_date);
+
         modalRowsHtml += `
             <tr>
-                <td>${h.import_date ? new Date(h.import_date).toLocaleDateString('vi-VN') : '---'}</td>
+                <td>${dateStr}</td>
+                <td style="text-align:center;">
+                    <a href="javascript:void(0)" onclick="_gngOpenHistoryBill('${h.item_type}', ${h.import_id})" style="color:#2563eb;text-decoration:underline;font-weight:800;font-size:12px;">Xem bill</a>
+                </td>
                 <td style="font-weight:700; text-align:right;">${Number(h.unit_price).toLocaleString('vi-VN')} đ</td>
                 <td>
                     <span class="gng-badge ${badgeClass}">
@@ -2075,12 +2130,13 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
                         <thead>
                             <tr style="background:#f1f5f9;">
                                 <th style="color:#475569; background:#f1f5f9;">Ngày nhập</th>
+                                <th style="color:#475569; background:#f1f5f9; text-align:center;">Bill</th>
                                 <th style="color:#475569; background:#f1f5f9; text-align:right;">Đơn giá</th>
                                 <th style="color:#475569; background:#f1f5f9;">Trạng thái</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${modalRowsHtml || '<tr><td colspan="3" style="text-align:center; padding:16px;">Không có dữ liệu lịch sử</td></tr>'}
+                            ${modalRowsHtml || '<tr><td colspan="4" style="text-align:center; padding:16px;">Không có dữ liệu lịch sử</td></tr>'}
                         </tbody>
                     </table>
                 </div>
