@@ -406,15 +406,17 @@ async function renderGiaNhapGocPage(content) {
                 font-size: 12px;
                 border-bottom: 1px solid #fef3c7;
             }
-            .gng-badge-type {
-                font-size: 10px;
-                padding: 2px 4px;
-                border-radius: 4px;
+             .gng-badge-type {
+                font-size: 11px;
+                padding: 4px 8px;
+                border-radius: 6px;
                 font-weight: 700;
                 text-transform: uppercase;
+                white-space: nowrap;
+                display: inline-block;
             }
-            .gng-badge-fabric { background: #e0e7ff; color: #4338ca; }
-            .gng-badge-material { background: #fef3c7; color: #d97706; }
+            .gng-badge-fabric { background: #dbeafe; color: #1e40af; }
+            .gng-badge-material { background: #ffedd5; color: #9a3412; }
 
             .gng-badge {
                 font-size: 11px;
@@ -1075,13 +1077,10 @@ function _gngRenderDetailApproved(target) {
                 </td>
                 <td style="font-weight: 700; color: #1e293b;">
                     <span class="gng-group-arrow" id="arrow_${g.key}" style="${showExpanded ? 'transform: rotate(90deg);' : ''}">▶</span>
-                    ${g.name}
-                    <span class="gng-badge-count-color">
-                        ${g.items.length} ${isFabric ? 'màu' : 'kho/mục'}
-                    </span>
+                    ${_gngCleanMaterialName(g.name)}
                 </td>
                 <td style="color: #64748b; font-style: italic; font-size:12px;">(Nhấp để xem chi tiết)</td>
-                ${_gng.filter.supplierId === 'all' ? `<td style="font-weight: 600;">${g.source_name || '---'}</td>` : ''}
+                ${_gng.filter.supplierId === 'all' ? `<td>${_gngGetSupplierBadgeHtml(g.source_name)}</td>` : ''}
                 <td style="text-align: right; font-weight: 700; color: #4f46e5;">${priceRangeText}</td>
                 <td>${latestDateText}</td>
                 <td>
@@ -1228,12 +1227,12 @@ function _gngRenderDetailHistory(target) {
                     </span>
                 </td>
                 <td style="font-weight: 700; color: #1e293b;">
-                    ${h.material_name || 'Chất liệu'}
+                    ${_gngCleanMaterialName(h.material_name || 'Chất liệu')}
                 </td>
                 <td>
                     ${isFabric ? (h.color_name || '---') : '---'}
                 </td>
-                ${_gng.filter.supplierId === 'all' ? `<td style="font-weight: 600;">${h.source_name || '---'}</td>` : ''}
+                ${_gng.filter.supplierId === 'all' ? `<td>${_gngGetSupplierBadgeHtml(h.source_name)}</td>` : ''}
                 <td style="text-align: right; font-weight: 700; color: #4f46e5;">${formattedPrice}</td>
                 <td>${formattedDate}</td>
                 <td>
@@ -1433,7 +1432,7 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
                 </div>
                 <div class="gng-modal-body">
                     <div style="margin-bottom:12px; font-size:13px; color:#475569;">
-                        Vật tư: <b style="color:#0f172a;">${itemName}</b><br>
+                        Vật tư: <b style="color:#0f172a;">${_gngCleanMaterialName(itemName)}</b><br>
                         Nhà cung cấp: <b style="color:#0f172a;">${filtered[0]?.source_name || '---'}</b>
                     </div>
                     <table class="gng-disc-table" style="width:100%;">
@@ -1473,7 +1472,7 @@ function _gngOpenEditPriceModal(itemType, itemId, sourceId, currentPrice, itemNa
                 <div class="gng-modal-body">
                     <div style="margin-bottom:12px; font-size:12px; color:#64748b;">
                         Thay đổi đơn giá gốc tiêu chuẩn cho vật tư:<br>
-                        <b style="color:#0f172a;">${itemName}</b>
+                        <b style="color:#0f172a;">${_gngCleanMaterialName(itemName)}</b>
                     </div>
                     <div class="gng-form-group">
                         <label for="gngNewPriceInput">Đơn Giá Gốc Mới (đ):</label>
@@ -1540,6 +1539,49 @@ function _gngCloseModal(modalId) {
 function escapeJS(str) {
     if (!str) return '';
     return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
+
+function _gngCleanMaterialName(name) {
+    if (!name) return '';
+    return name.replace(/\s+\d+\s*màu/gi, '').replace(/\s+\d+\s*kho\/mục/gi, '').replace(/\s+\d+\s*kho/gi, '').trim();
+}
+
+function _gngGetSupplierBadgeHtml(name) {
+    if (!name) return '---';
+    const cleanName = name.trim().toLowerCase();
+    let bg = '#f1f5f9';
+    let color = '#475569';
+    
+    if (cleanName.includes('ngọc hân') || cleanName.includes('ngoc han')) {
+        bg = '#e0e7ff';
+        color = '#4338ca';
+    } else if (cleanName.includes('ngọc ngà') || cleanName.includes('ngoc nga')) {
+        bg = '#ecfdf5';
+        color = '#047857';
+    } else if (cleanName.includes('dung pet') || cleanName.includes('a dung')) {
+        bg = '#fff7ed';
+        color = '#c2410c';
+    } else if (cleanName.includes('sbc')) {
+        bg = '#f0f9ff';
+        color = '#0369a1';
+    } else {
+        let hash = 0;
+        for (let i = 0; i < cleanName.length; i++) {
+            hash = cleanName.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const index = Math.abs(hash) % 5;
+        const palettes = [
+            { bg: '#fdf2f8', color: '#be185d' },
+            { bg: '#faf5ff', color: '#7e22ce' },
+            { bg: '#f5f5f4', color: '#44403c' },
+            { bg: '#f0fdf4', color: '#15803d' },
+            { bg: '#fef2f2', color: '#b91c1c' }
+        ];
+        bg = palettes[index].bg;
+        color = palettes[index].color;
+    }
+    
+    return `<span class="gng-sup-badge" style="background: ${bg}; color: ${color}; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">${name}</span>`;
 }
 
 async function _gngInitializeFromHistory() {
