@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>📏 Tỉ Lệ Cắt Gốc — Đồng Phục HV</title>
+    <meta name="description" content="Cấu hình và tra cứu tỉ lệ cắt gốc định lượng sản phẩm trên Mobile">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            color: #1e293b;
+            padding-bottom: 80px;
+        }
+
+        /* Header */
+        .m-header {
+            background: linear-gradient(135deg, #122546, #1e3a5f);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .m-header img { width: 32px; height: 32px; border-radius: 8px; }
+        .m-header h1 { font-size: 15px; font-weight: 800; color: #fbbf24; flex: 1; text-transform: uppercase; }
+        .m-header .m-user {
+            font-size: 10px; color: #93c5fd; font-weight: 600;
+            background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px;
+        }
+
+        /* Content container */
+        .m-content { padding: 14px; max-width: 600px; margin: 0 auto; }
+
+        /* Stats Grid */
+        .m-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .m-stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.01);
+            text-align: center;
+        }
+        .m-stat-val { font-size: 16px; font-weight: 800; color: #4f46e5; }
+        .m-stat-lbl { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 2px; }
+
+        /* Mobile Controls */
+        .m-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .m-search-input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            background: white;
+        }
+        .m-search-input:focus {
+            border-color: #4f46e5;
+        }
+
+        /* Fabric Cards */
+        .m-fabric-card {
+            background: white;
+            border-radius: 14px;
+            padding: 14px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .m-fabric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .m-fabric-name {
+            font-size: 14.5px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .m-fabric-wh {
+            font-size: 10px;
+            background: #e2e8f0;
+            color: #475569;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-weight: 700;
+        }
+        .m-fabric-ratios {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            background: #f8fafc;
+            padding: 8px;
+            border-radius: 8px;
+        }
+        .m-ratio-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .m-ratio-lbl {
+            font-size: 9px;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 2px;
+        }
+        .m-ratio-val {
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .m-ratio-ao { color: #1e40af; }
+        .m-ratio-tre { color: #15803d; }
+        .m-ratio-over { color: #d97706; }
+
+        .m-btn-update {
+            align-self: flex-end;
+            background: #ede9fe;
+            color: #5b21b6;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        /* Empty state */
+        .m-empty { text-align: center; padding: 40px 20px; color: #64748b; }
+        .m-empty-icon { font-size: 40px; margin-bottom: 8px; opacity: 0.5; }
+        .m-empty-text { font-size: 14px; font-weight: 600; }
+
+        /* Bottom Sheet (Modal) */
+        .m-modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: flex-end;
+            z-index: 1000;
+        }
+        .m-modal-card {
+            background: white;
+            width: 100%;
+            border-radius: 20px 20px 0 0;
+            padding: 20px 20px 30px 20px;
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
+            animation: mSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes mSlideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .m-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .m-modal-header h3 { font-size: 16px; font-weight: 800; color: #0f172a; }
+        .m-modal-close {
+            background: #f1f5f9; border: none; font-size: 20px;
+            width: 32px; height: 32px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; color: #64748b;
+        }
+        .m-form-group {
+            margin-bottom: 16px;
+        }
+        .m-form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+        .m-form-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            font-weight: 700;
+        }
+        .m-btn-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+        }
+
+        /* Toast notifications on mobile */
+        .m-toast-container { position: fixed; top: 60px; left: 8px; right: 8px; z-index: 999; }
+        .m-toast {
+            padding: 12px 16px; border-radius: 10px; color: white; font-size: 13px; font-weight: 600;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15); animation: mSlideIn .3s ease; margin-bottom: 6px;
+        }
+        .m-toast-success { background: #10b981; }
+        .m-toast-error { background: #ef4444; }
+        @keyframes mSlideIn { from { opacity:0; transform:translateY(-15px); } to { opacity:1; transform:translateY(0); } }
+    </style>
+    <!-- Unified Mobile Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
+</head>
+<body>
+    <div class="m-header">
+        <img src="/images/logo.png" alt="Logo">
+        <h1>📏 TỈ LỆ CẮT GỐC</h1>
+        <span class="m-user" id="mUserBadge">...</span>
+    </div>
+
+    <div class="m-toast-container" id="mToastContainer"></div>
+
+    <div class="m-content">
+        <!-- Stats Grid -->
+        <div class="m-stats">
+            <div class="m-stat-card">
+                <div class="m-stat-val" id="mStatTotal">0</div>
+                <div class="m-stat-lbl">Tổng Vải</div>
+            </div>
+            <div class="m-stat-card">
+                <div class="m-stat-val" style="color: #10b981;" id="mStatConfigured">0</div>
+                <div class="m-stat-lbl">Đã Cấu Hình</div>
+            </div>
+            <div class="m-stat-card">
+                <div class="m-stat-val" style="color: #f59e0b;" id="mStatPending">0</div>
+                <div class="m-stat-lbl">Chưa Có</div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="m-controls">
+            <input type="text" class="m-search-input" id="mSearchInput" placeholder="🔍 Tìm kiếm loại vải...">
+        </div>
+
+        <!-- Fabric Cards List -->
+        <div id="mFabricList">
+            <div class="m-empty">
+                <div class="m-empty-icon">⏳</div>
+                <div class="m-empty-text">Đang tải dữ liệu...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal Sheet wrapper -->
+    <div id="mEditModalWrapper"></div>
+
+    <script>
+        let _mobileTlcg = {
+            materials: [],
+            categories: [],
+            targets: [],
+            filter: { search: '' },
+            isGD: false,
+            currentUser: null
+        };
+
+        // Utility to display toast message
+        function toast(msg, type = 'success') {
+            const container = document.getElementById('mToastContainer');
+            if (!container) return;
+            const el = document.createElement('div');
+            el.className = `m-toast m-toast-${type}`;
+            el.textContent = msg;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300);
+            }, 3000);
+        }
+
+        async function apiCall(url, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: {},
+                credentials: 'include'
+            };
+            if (body) {
+                options.headers['Content-Type'] = 'application/json';
+                options.body = JSON.stringify(body);
+            }
+            const res = await fetch(url, options);
+            if (res.status === 401 || res.status === 403) {
+                window.location.href = '/login';
+                throw new Error('Chưa đăng nhập');
+            }
+            return res.json();
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Fetch User Details
+                const me = await apiCall('/api/auth/me');
+                _mobileTlcg.currentUser = me.user || me;
+                _mobileTlcg.isGD = _mobileTlcg.currentUser.role === 'giam_doc';
+                
+                const badge = document.getElementById('mUserBadge');
+                if (badge) {
+                    badge.textContent = _mobileTlcg.currentUser.username || 'User';
+                }
+
+                // Load Data
+                await loadData();
+
+                // Search handler
+                document.getElementById('mSearchInput').addEventListener('input', (e) => {
+                    _mobileTlcg.filter.search = e.target.value;
+                    renderList();
+                });
+            } catch (err) {
+                console.error(err);
+                toast('Lỗi khởi tạo trang: ' + err.message, 'error');
+            }
+        });
+
+        async function loadData() {
+            try {
+                const res = await apiCall('/api/cutting/target-ratios', 'GET');
+                _mobileTlcg.materials = res.materials || [];
+                _mobileTlcg.categories = res.categories || [];
+                _mobileTlcg.targets = res.targets || [];
+                
+                updateStats();
+                renderList();
+            } catch (err) {
+                console.error(err);
+                toast('Không thể tải dữ liệu tỉ lệ cắt gốc', 'error');
+            }
+        }
+
+        function updateStats() {
+            const total = _mobileTlcg.materials.length;
+            const configured = new Set(_mobileTlcg.targets.map(t => t.material_id)).size;
+            const pending = total - configured;
+
+            document.getElementById('mStatTotal').textContent = total;
+            document.getElementById('mStatConfigured').textContent = configured;
+            document.getElementById('mStatPending').textContent = pending;
+        }
+
+        function renderList() {
+            const listContainer = document.getElementById('mFabricList');
+            if (!listContainer) return;
+
+            const q = (_mobileTlcg.filter.search || '').trim().toLowerCase();
+            const filtered = _mobileTlcg.materials.filter(m => {
+                return !q || (m.name || '').toLowerCase().indexOf(q) >= 0 || (m.warehouse_name || '').toLowerCase().indexOf(q) >= 0;
+            });
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="m-empty">
+                        <div class="m-empty-icon">🔍</div>
+                        <div class="m-empty-text">Không tìm thấy loại vải nào</div>
+                    </div>
+                `;
+                return;
+            }
+
+            listContainer.innerHTML = filtered.map(m => {
+                const targetAo = _mobileTlcg.targets.find(t => t.material_id === m.id && t.cutting_category === 'Áo')?.target_ratio || 0;
+                const targetTre = _mobileTlcg.targets.find(t => t.material_id === m.id && t.cutting_category === 'Áo Trẻ Em')?.target_ratio || 0;
+                const targetOver = _mobileTlcg.targets.find(t => t.material_id === m.id && t.cutting_category === 'Áo Oversize')?.target_ratio || 0;
+
+                return `
+                    <div class="m-fabric-card">
+                        <div class="m-fabric-header">
+                            <span class="m-fabric-name">${m.name}</span>
+                            <span class="m-fabric-wh">${m.warehouse_name || 'Kho vải'}</span>
+                        </div>
+                        <div class="m-fabric-ratios">
+                            <div class="m-ratio-item">
+                                <span class="m-ratio-lbl">👔 Áo</span>
+                                <span class="m-ratio-val m-ratio-ao">${targetAo > 0 ? targetAo + ' sp' : '---'}</span>
+                            </div>
+                            <div class="m-ratio-item">
+                                <span class="m-ratio-lbl">👶 Trẻ Em</span>
+                                <span class="m-ratio-val m-ratio-tre">${targetTre > 0 ? targetTre + ' sp' : '---'}</span>
+                            </div>
+                            <div class="m-ratio-item">
+                                <span class="m-ratio-lbl">👕 Oversize</span>
+                                <span class="m-ratio-val m-ratio-over">${targetOver > 0 ? targetOver + ' sp' : '---'}</span>
+                            </div>
+                        </div>
+                        ${_mobileTlcg.isGD ? `
+                            <button class="m-btn-update" onclick="showEditSheet(${m.id}, '${escapeJS(m.name)}')">
+                                ✏️ Cập Nhật Tỉ Lệ
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeJS(str) {
+            if (!str) return '';
+            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        }
+
+        function showEditSheet(matId, name) {
+            const targetAo = _mobileTlcg.targets.find(t => t.material_id === matId && t.cutting_category === 'Áo')?.target_ratio || 0;
+            const targetTre = _mobileTlcg.targets.find(t => t.material_id === matId && t.cutting_category === 'Áo Trẻ Em')?.target_ratio || 0;
+            const targetOver = _mobileTlcg.targets.find(t => t.material_id === matId && t.cutting_category === 'Áo Oversize')?.target_ratio || 0;
+
+            const html = `
+                <div class="m-modal-backdrop" id="mEditSheet" onclick="closeEditSheet(event)">
+                    <div class="m-modal-card" onclick="event.stopPropagation()">
+                        <div class="m-modal-header">
+                            <h3>✏️ Cập Nhật Tỉ Lệ: ${name}</h3>
+                            <button class="m-modal-close" onclick="closeEditSheet()">&times;</button>
+                        </div>
+                        
+                        <div class="m-form-group">
+                            <label>👔 Áo (sp/kg)</label>
+                            <input type="number" step="0.1" min="0" class="m-form-input" id="mInputAo" value="${targetAo}">
+                        </div>
+                        <div class="m-form-group">
+                            <label>👶 Áo Trẻ Em (sp/kg)</label>
+                            <input type="number" step="0.1" min="0" class="m-form-input" id="mInputTre" value="${targetTre}">
+                        </div>
+                        <div class="m-form-group">
+                            <label>👕 Áo Oversize (sp/kg)</label>
+                            <input type="number" step="0.1" min="0" class="m-form-input" id="mInputOver" value="${targetOver}">
+                        </div>
+
+                        <button class="m-btn-primary" onclick="saveRatios(${matId})">
+                            💾 Lưu Thay Đổi
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('mEditModalWrapper').innerHTML = html;
+        }
+
+        function closeEditSheet(e) {
+            if (e && e.target !== document.getElementById('mEditSheet')) return;
+            document.getElementById('mEditModalWrapper').innerHTML = '';
+        }
+
+        async function saveRatios(matId) {
+            const ao = parseFloat(document.getElementById('mInputAo').value) || 0;
+            const tre = parseFloat(document.getElementById('mInputTre').value) || 0;
+            const over = parseFloat(document.getElementById('mInputOver').value) || 0;
+
+            if (ao < 0 || tre < 0 || over < 0) {
+                toast('Tỉ lệ không được âm!', 'error');
+                return;
+            }
+
+            const ratios = [
+                { material_id: matId, cutting_category: 'Áo', target_ratio: ao },
+                { material_id: matId, cutting_category: 'Áo Trẻ Em', target_ratio: tre },
+                { material_id: matId, cutting_category: 'Áo Oversize', target_ratio: over }
+            ];
+
+            try {
+                const res = await apiCall('/api/cutting/target-ratios', 'POST', { ratios });
+                if (res.success) {
+                    toast('Đã cập nhật tỉ lệ cắt gốc thành công');
+                    document.getElementById('mEditModalWrapper').innerHTML = '';
+                    await loadData();
+                } else {
+                    toast(res.error || 'Lỗi lưu tỉ lệ', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                toast('Lỗi kết nối tới hệ thống', 'error');
+            }
+        }
+    </script>
+    <!-- Unified Mobile Navigation Script -->
+    <script src="/js/mobile-nav.js?v=20260624_menu_move"></script>
+</body>
+</html>

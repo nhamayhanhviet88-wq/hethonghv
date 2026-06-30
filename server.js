@@ -1503,6 +1503,11 @@ async function start() {
     fastify.get('/m/gianhapgoc', async (request, reply) => {
         return reply.sendFile('mobile-gianhapgoc.html');
     });
+    
+    // Mobile Tỉ Lệ Cắt Gốc — standalone touch-optimized page
+    fastify.get('/m/tilecatgoc', async (request, reply) => {
+        return reply.sendFile('mobile-tilecatgoc.html');
+    });
 
     // Mobile Nhập Xuất Hoàn Vải — standalone touch-optimized page
     fastify.get('/m/nhapxuathoanvai', async (request, reply) => {

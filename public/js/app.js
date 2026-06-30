@@ -175,6 +175,7 @@ const MENU_CONFIG = [
 
     // ========== BỘ PHẬN XƯỞNG SX ==========
     { id: 'gia-nhap-goc', label: 'Giá Nhập Gốc', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/gianhapgoc', permKey: 'gia_nhap_goc' },
+    { id: 'ti-le-cat-goc', label: 'Tỉ Lệ Cắt Gốc', icon: '📏', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/tilecatgoc', permKey: 'ti_le_cat_goc' },
     { id: 'luong-san-xuat', label: 'Lương Sản Xuất', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/luongsanxuat', permKey: 'luong_san_xuat' },
     { id: 'bang-mau-vai', label: 'Bảng Màu Vải', icon: '🎨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bangmauvai', permKey: 'bang_mau_vai' },
     { id: 'kinh-doanh-gui-hang', label: 'Đơn Hàng Kinh Doanh Gửi', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/kinhdoanhguihang', permKey: 'kinh_doanh_gui_hang' },
@@ -1738,6 +1739,7 @@ function findMenuItemForPage(pageId) {
             'chamsocaffiliate': 'cham-soc-affiliate',
             'chamsockockol': 'cham-soc-koc-kol',
             'luongsanxuat': 'luong-san-xuat',
+            'tilecatgoc': 'ti-le-cat-goc',
             'donkhachsll': 'don-khach-sll',
             'donkhachnhieulan': 'don-khach-nhieu-lan',
             'donkhachmoi': 'don-khach-moi',
