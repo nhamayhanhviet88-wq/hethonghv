@@ -63,7 +63,7 @@
         .m-controls {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
             margin-bottom: 14px;
         }
         .m-search-input {
@@ -79,6 +79,30 @@
             border-color: #4f46e5;
         }
 
+        /* Range Filter Select */
+        .m-range-select-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .m-range-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+        }
+        .m-range-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #334155;
+            background-color: white;
+            outline: none;
+        }
+
         /* Fabric Cards */
         .m-fabric-card {
             background: white;
@@ -90,6 +114,11 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            cursor: pointer;
+            position: relative;
+        }
+        .m-fabric-card:active {
+            background: #f8fafc;
         }
         .m-fabric-header {
             display: flex;
@@ -137,18 +166,6 @@
         .m-ratio-tre { color: #15803d; }
         .m-ratio-over { color: #d97706; }
 
-        .m-btn-update {
-            align-self: flex-end;
-            background: #ede9fe;
-            color: #5b21b6;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 11px;
-            cursor: pointer;
-        }
-
         /* Empty state */
         .m-empty { text-align: center; padding: 40px 20px; color: #64748b; }
         .m-empty-icon { font-size: 40px; margin-bottom: 8px; opacity: 0.5; }
@@ -171,6 +188,8 @@
             padding: 20px 20px 30px 20px;
             box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
             animation: mSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            max-height: 80vh;
+            overflow-y: auto;
         }
         @keyframes mSlideUp {
             from { transform: translateY(100%); }
@@ -181,6 +200,11 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
+            position: sticky;
+            top: 0;
+            background: white;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
         }
         .m-modal-header h3 { font-size: 16px; font-weight: 800; color: #0f172a; }
         .m-modal-close {
@@ -188,35 +212,114 @@
             width: 32px; height: 32px; border-radius: 50%; display: flex;
             align-items: center; justify-content: center; color: #64748b;
         }
-        .m-form-group {
-            margin-bottom: 16px;
+
+        /* Color stats in modal */
+        .m-color-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            margin-bottom: 12px;
         }
-        .m-form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 700;
-            color: #475569;
-            margin-bottom: 6px;
+        .m-color-title {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .m-form-input {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #cbd5e1;
+        .m-color-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #94a3b8;
+            border: 1px solid #64748b;
+        }
+        .m-color-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+        .m-color-cell {
+            background: white;
+            padding: 8px;
             border-radius: 8px;
-            font-size: 14px;
-            outline: none;
-            font-weight: 700;
+            text-align: center;
+            border: 1px solid #e2e8f0;
         }
-        .m-btn-primary {
-            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+        .m-color-cell-lbl {
+            font-size: 8.5px;
+            font-weight: 700;
+            color: #64748b;
+        }
+        .m-color-cell-val {
+            font-size: 11px;
+            font-weight: 800;
+            color: #1e293b;
+            margin-top: 2px;
+        }
+
+        /* Ticket rows */
+        .m-ticket-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 14px;
+        }
+        .m-ticket-row {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .m-ticket-row.pending {
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+        .m-ticket-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .m-ticket-code {
+            font-size: 12.5px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+        .m-ticket-sub {
+            font-size: 10.5px;
+            color: #64748b;
+        }
+        .m-ticket-val {
+            font-size: 12px;
+            font-weight: 800;
+            color: #4f46e5;
+            text-align: right;
+        }
+        .m-btn-approve {
+            background: #10b981;
             color: white;
             border: none;
-            width: 100%;
-            padding: 12px;
-            border-radius: 10px;
+            padding: 5px 10px;
+            border-radius: 6px;
             font-weight: 700;
-            font-size: 14px;
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .m-btn-unapprove {
+            background: #fee2e2;
+            color: #ef4444;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 10px;
+            cursor: pointer;
         }
 
         /* Toast notifications on mobile */
@@ -235,7 +338,7 @@
 <body>
     <div class="m-header">
         <img src="/images/logo.png" alt="Logo">
-        <h1>📏 TỈ LỆ CẮT GỐC</h1>
+        <h1>📏 TỈ LỆ CẮT THỰC TẾ</h1>
         <span class="m-user" id="mUserBadge">...</span>
     </div>
 
@@ -250,7 +353,7 @@
             </div>
             <div class="m-stat-card">
                 <div class="m-stat-val" style="color: #10b981;" id="mStatConfigured">0</div>
-                <div class="m-stat-lbl">Đã Cấu Hình</div>
+                <div class="m-stat-lbl">Có Tỉ Lệ</div>
             </div>
             <div class="m-stat-card">
                 <div class="m-stat-val" style="color: #f59e0b;" id="mStatPending">0</div>
@@ -261,6 +364,13 @@
         <!-- Controls -->
         <div class="m-controls">
             <input type="text" class="m-search-input" id="mSearchInput" placeholder="🔍 Tìm kiếm loại vải...">
+            
+            <div class="m-range-select-wrapper">
+                <span class="m-range-label">Khung Số Lượng</span>
+                <select class="m-range-select" id="mRangeSelect">
+                    <option value="">-- Tất cả số lượng --</option>
+                </select>
+            </div>
         </div>
 
         <!-- Fabric Cards List -->
@@ -272,17 +382,20 @@
         </div>
     </div>
 
-    <!-- Edit Modal Sheet wrapper -->
-    <div id="mEditModalWrapper"></div>
+    <!-- Bottom Sheet modal wrapper -->
+    <div id="mModalWrapper"></div>
 
     <script>
         let _mobileTlcg = {
             materials: [],
-            categories: [],
-            targets: [],
+            colors: [],
+            ranges: [],
+            stats: [],
             filter: { search: '' },
+            selectedRangeId: '',
             isGD: false,
-            currentUser: null
+            currentUser: null,
+            activeMat: null
         };
 
         // Utility to display toast message
@@ -337,35 +450,87 @@
                     _mobileTlcg.filter.search = e.target.value;
                     renderList();
                 });
+
+                // Range select handler
+                document.getElementById('mRangeSelect').addEventListener('change', async (e) => {
+                    _mobileTlcg.selectedRangeId = e.target.value;
+                    await loadData(false);
+                });
             } catch (err) {
                 console.error(err);
                 toast('Lỗi khởi tạo trang: ' + err.message, 'error');
             }
         });
 
-        async function loadData() {
+        async function loadData(loadRanges = true) {
             try {
-                const res = await apiCall('/api/cutting/target-ratios', 'GET');
+                const query = _mobileTlcg.selectedRangeId ? `?range_id=${_mobileTlcg.selectedRangeId}` : '';
+                const res = await apiCall(`/api/cutting/ratio-stats${query}`, 'GET');
                 _mobileTlcg.materials = res.materials || [];
-                _mobileTlcg.categories = res.categories || [];
-                _mobileTlcg.targets = res.targets || [];
+                _mobileTlcg.colors = res.colors || [];
+                _mobileTlcg.stats = res.stats || [];
+                
+                if (loadRanges) {
+                    _mobileTlcg.ranges = res.ranges || [];
+                    populateRangesSelect();
+                }
                 
                 updateStats();
                 renderList();
             } catch (err) {
                 console.error(err);
-                toast('Không thể tải dữ liệu tỉ lệ cắt gốc', 'error');
+                toast('Không thể tải dữ liệu tỉ lệ cắt thực tế', 'error');
             }
+        }
+
+        function populateRangesSelect() {
+            const select = document.getElementById('mRangeSelect');
+            if (!select) return;
+            let html = '<option value="">-- Tất cả số lượng --</option>';
+            _mobileTlcg.ranges.forEach(r => {
+                const label = r.max_qty >= 999999 ? `Từ ${r.min_qty} sp trở lên` : `${r.min_qty} - ${r.max_qty} sp`;
+                html += `<option value="${r.id}">${label}</option>`;
+            });
+            select.innerHTML = html;
         }
 
         function updateStats() {
             const total = _mobileTlcg.materials.length;
-            const configured = new Set(_mobileTlcg.targets.map(t => t.material_id)).size;
+            const activeMaterialsSet = new Set();
+            _mobileTlcg.stats.forEach(s => {
+                if (Number(s.total_kg) > 0) {
+                    const mat = _mobileTlcg.materials.find(m => m.name.trim().toLowerCase() === s.material_name.trim().toLowerCase());
+                    if (mat) activeMaterialsSet.add(mat.id);
+                }
+            });
+            const configured = activeMaterialsSet.size;
             const pending = total - configured;
 
             document.getElementById('mStatTotal').textContent = total;
             document.getElementById('mStatConfigured').textContent = configured;
             document.getElementById('mStatPending').textContent = pending;
+        }
+
+        function getMaterialRatios(matName) {
+            const mStats = _mobileTlcg.stats.filter(s => s.material_name.trim().toLowerCase() === matName.trim().toLowerCase());
+            const segments = { 'Người Lớn': { qty: 0, kg: 0 }, 'Trẻ Em': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
+            mStats.forEach(s => {
+                if (segments[s.size_segment]) {
+                    segments[s.size_segment].qty += Number(s.total_qty);
+                    segments[s.size_segment].kg += Number(s.total_kg);
+                }
+            });
+
+            const format = (seg) => {
+                const d = segments[seg];
+                return d.kg > 0 ? `${(d.qty / d.kg).toFixed(2)} sp` : '---';
+            };
+
+            return {
+                adult: format('Người Lớn'),
+                child: format('Trẻ Em'),
+                oversize: format('Oversize')
+            };
         }
 
         function renderList() {
@@ -388,114 +553,204 @@
             }
 
             listContainer.innerHTML = filtered.map(m => {
-                const targetAo = _mobileTlcg.targets.find(t => t.material_id === m.id && t.cutting_category === 'Áo')?.target_ratio || 0;
-                const targetTre = _mobileTlcg.targets.find(t => t.material_id === m.id && t.cutting_category === 'Áo Trẻ Em')?.target_ratio || 0;
-                const targetOver = _mobileTlcg.targets.find(t => t.material_id === m.id && t.cutting_category === 'Áo Oversize')?.target_ratio || 0;
-
+                const s = getMaterialRatios(m.name);
                 return `
-                    <div class="m-fabric-card">
+                    <div class="m-fabric-card" onclick="openDetailsSheet(${m.id})">
                         <div class="m-fabric-header">
                             <span class="m-fabric-name">${m.name}</span>
                             <span class="m-fabric-wh">${m.warehouse_name || 'Kho vải'}</span>
                         </div>
                         <div class="m-fabric-ratios">
                             <div class="m-ratio-item">
-                                <span class="m-ratio-lbl">👔 Áo</span>
-                                <span class="m-ratio-val m-ratio-ao">${targetAo > 0 ? targetAo + ' sp' : '---'}</span>
+                                <span class="m-ratio-lbl">👔 Người Lớn</span>
+                                <span class="m-ratio-val m-ratio-ao">${s.adult}</span>
                             </div>
                             <div class="m-ratio-item">
                                 <span class="m-ratio-lbl">👶 Trẻ Em</span>
-                                <span class="m-ratio-val m-ratio-tre">${targetTre > 0 ? targetTre + ' sp' : '---'}</span>
+                                <span class="m-ratio-val m-ratio-tre">${s.child}</span>
                             </div>
                             <div class="m-ratio-item">
                                 <span class="m-ratio-lbl">👕 Oversize</span>
-                                <span class="m-ratio-val m-ratio-over">${targetOver > 0 ? targetOver + ' sp' : '---'}</span>
+                                <span class="m-ratio-val m-ratio-over">${s.oversize}</span>
                             </div>
                         </div>
-                        ${_mobileTlcg.isGD ? `
-                            <button class="m-btn-update" onclick="showEditSheet(${m.id}, '${escapeJS(m.name)}')">
-                                ✏️ Cập Nhật Tỉ Lệ
-                            </button>
-                        ` : ''}
                     </div>
                 `;
             }).join('');
         }
 
-        function escapeJS(str) {
-            if (!str) return '';
-            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
-        }
+        // ========== MOBILE BOTTOM SHEET DETAILS ==========
 
-        function showEditSheet(matId, name) {
-            const targetAo = _mobileTlcg.targets.find(t => t.material_id === matId && t.cutting_category === 'Áo')?.target_ratio || 0;
-            const targetTre = _mobileTlcg.targets.find(t => t.material_id === matId && t.cutting_category === 'Áo Trẻ Em')?.target_ratio || 0;
-            const targetOver = _mobileTlcg.targets.find(t => t.material_id === matId && t.cutting_category === 'Áo Oversize')?.target_ratio || 0;
+        async function openDetailsSheet(matId) {
+            const mat = _mobileTlcg.materials.find(m => m.id === matId);
+            if (!mat) return;
+            _mobileTlcg.activeMat = mat;
 
             const html = `
-                <div class="m-modal-backdrop" id="mEditSheet" onclick="closeEditSheet(event)">
+                <div class="m-modal-backdrop" id="mDetailsSheet" onclick="closeModalSheet(event)">
                     <div class="m-modal-card" onclick="event.stopPropagation()">
                         <div class="m-modal-header">
-                            <h3>✏️ Cập Nhật Tỉ Lệ: ${name}</h3>
-                            <button class="m-modal-close" onclick="closeEditSheet()">&times;</button>
+                            <h3>${mat.name}</h3>
+                            <button class="m-modal-close" onclick="closeModalSheet()">&times;</button>
                         </div>
                         
-                        <div class="m-form-group">
-                            <label>👔 Áo (sp/kg)</label>
-                            <input type="number" step="0.1" min="0" class="m-form-input" id="mInputAo" value="${targetAo}">
+                        <div id="mSheetLoading" style="text-align: center; padding: 20px; color: #64748b;">
+                            ⏳ Đang tải chi tiết...
                         </div>
-                        <div class="m-form-group">
-                            <label>👶 Áo Trẻ Em (sp/kg)</label>
-                            <input type="number" step="0.1" min="0" class="m-form-input" id="mInputTre" value="${targetTre}">
-                        </div>
-                        <div class="m-form-group">
-                            <label>👕 Áo Oversize (sp/kg)</label>
-                            <input type="number" step="0.1" min="0" class="m-form-input" id="mInputOver" value="${targetOver}">
-                        </div>
-
-                        <button class="m-btn-primary" onclick="saveRatios(${matId})">
-                            💾 Lưu Thay Đổi
-                        </button>
+                        
+                        <div id="mSheetContent" style="display: none;"></div>
                     </div>
                 </div>
             `;
 
-            document.getElementById('mEditModalWrapper').innerHTML = html;
+            document.getElementById('mModalWrapper').innerHTML = html;
+            await loadSheetContent(mat);
         }
 
-        function closeEditSheet(e) {
-            if (e && e.target !== document.getElementById('mEditSheet')) return;
-            document.getElementById('mEditModalWrapper').innerHTML = '';
+        function closeModalSheet(e) {
+            if (e && e.target !== document.getElementById('mDetailsSheet')) return;
+            document.getElementById('mModalWrapper').innerHTML = '';
+            _mobileTlcg.activeMat = null;
         }
 
-        async function saveRatios(matId) {
-            const ao = parseFloat(document.getElementById('mInputAo').value) || 0;
-            const tre = parseFloat(document.getElementById('mInputTre').value) || 0;
-            const over = parseFloat(document.getElementById('mInputOver').value) || 0;
-
-            if (ao < 0 || tre < 0 || over < 0) {
-                toast('Tỉ lệ không được âm!', 'error');
-                return;
-            }
-
-            const ratios = [
-                { material_id: matId, cutting_category: 'Áo', target_ratio: ao },
-                { material_id: matId, cutting_category: 'Áo Trẻ Em', target_ratio: tre },
-                { material_id: matId, cutting_category: 'Áo Oversize', target_ratio: over }
-            ];
-
+        async function loadSheetContent(mat) {
             try {
-                const res = await apiCall('/api/cutting/target-ratios', 'POST', { ratios });
-                if (res.success) {
-                    toast('Đã cập nhật tỉ lệ cắt gốc thành công');
-                    document.getElementById('mEditModalWrapper').innerHTML = '';
-                    await loadData();
+                const contentDiv = document.getElementById('mSheetContent');
+                const loadingDiv = document.getElementById('mSheetLoading');
+                
+                // Fetch tickets matching the material
+                const queryParams = `?material_name=${encodeURIComponent(mat.name)}${_mobileTlcg.selectedRangeId ? `&range_id=${_mobileTlcg.selectedRangeId}` : ''}`;
+                const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
+                const tickets = res.tickets || [];
+
+                // Colors
+                const matColors = _mobileTlcg.colors.filter(c => c.material_id === mat.id);
+
+                let html = '';
+
+                // 1. Color breakdown
+                html += `<div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase;">📊 Tỉ lệ theo màu sắc</div>`;
+                if (matColors.length === 0) {
+                    html += `<div style="text-align:center; padding:12px; font-size:12px; color:#64748b;">Chưa cấu hình màu trong kho</div>`;
                 } else {
-                    toast(res.error || 'Lỗi lưu tỉ lệ', 'error');
+                    matColors.forEach(c => {
+                        const cStats = _mobileTlcg.stats.filter(s => 
+                            s.material_name.trim().toLowerCase() === mat.name.trim().toLowerCase() &&
+                            s.fabric_color.trim().toLowerCase() === c.color_name.trim().toLowerCase()
+                        );
+                        
+                        const segs = { 'Người Lớn': { qty: 0, kg: 0 }, 'Trẻ Em': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
+                        cStats.forEach(s => {
+                            if (segs[s.size_segment]) {
+                                segs[s.size_segment].qty += Number(s.total_qty);
+                                segs[s.size_segment].kg += Number(s.total_kg);
+                            }
+                        });
+
+                        const format = (seg) => {
+                            const d = segs[seg];
+                            return d.kg > 0 ? `${(d.qty / d.kg).toFixed(2)} sp` : '---';
+                        };
+
+                        html += `
+                            <div class="m-color-card">
+                                <div class="m-color-title">
+                                    <span class="m-color-dot" style="background: ${c.color_name === 'Trắng' ? '#fff' : (c.color_name === 'Đen' ? '#000' : '#4f46e5')};"></span>
+                                    ${c.color_name}
+                                </div>
+                                <div class="m-color-grid">
+                                    <div class="m-color-cell">
+                                        <div class="m-color-cell-lbl">Lớn</div>
+                                        <div class="m-color-cell-val">${format('Người Lớn')}</div>
+                                    </div>
+                                    <div class="m-color-cell">
+                                        <div class="m-color-cell-lbl">Trẻ</div>
+                                        <div class="m-color-cell-val">${format('Trẻ Em')}</div>
+                                    </div>
+                                    <div class="m-color-cell">
+                                        <div class="m-color-cell-lbl">Over</div>
+                                        <div class="m-color-cell-val">${format('Oversize')}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                // 2. Ticket approvals
+                html += `<div style="font-size: 12px; font-weight: 700; color: #475569; margin: 16px 0 8px 0; text-transform: uppercase;">📝 Phiếu cắt thực tế</div>`;
+                if (tickets.length === 0) {
+                    html += `<div style="text-align:center; padding:16px; font-size:12px; color:#64748b; background:#f8fafc; border-radius:8px;">Không có phiếu cắt nào</div>`;
+                } else {
+                    html += `<div class="m-ticket-list">`;
+                    tickets.forEach(t => {
+                        const isPending = !t.ratio_approved;
+                        html += `
+                            <div class="m-ticket-row ${isPending ? 'pending' : ''}">
+                                <div class="m-ticket-info">
+                                    <span class="m-ticket-code">${t.order_code || '---'} (${t.fabric_color})</span>
+                                    <span class="m-ticket-sub">${t.cut_quantity} áo / ${t.kg_cut} kg • ${t.size_segment || 'Chưa phân loại'}</span>
+                                </div>
+                                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                                    <span class="m-ticket-val">${Number(t.cut_ratio).toFixed(2)}</span>
+                                    ${_mobileTlcg.isGD ? `
+                                        ${isPending ? `
+                                            <button class="m-btn-approve" onclick="approveTicket(${t.id})">Duyệt</button>
+                                        ` : `
+                                            <button class="m-btn-unapprove" onclick="unapproveTicket(${t.id})">Hủy duyệt</button>
+                                        `}
+                                    ` : `
+                                        <span style="font-size:10px; font-weight:700; color:${t.ratio_approved ? '#10b981' : '#f59e0b'};">
+                                            ${t.ratio_approved ? 'Đã duyệt' : 'Chờ duyệt'}
+                                        </span>
+                                    `}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+
+                loadingDiv.style.display = 'none';
+                contentDiv.innerHTML = html;
+                contentDiv.style.display = 'block';
+
+            } catch (err) {
+                console.error(err);
+                const loadingDiv = document.getElementById('mSheetLoading');
+                if (loadingDiv) loadingDiv.innerText = '❌ Lỗi tải dữ liệu chi tiết!';
+            }
+        }
+
+        async function approveTicket(id) {
+            try {
+                const res = await apiCall(`/api/cutting/approve-ratio/${id}`, 'POST');
+                if (res.success) {
+                    toast('Đã duyệt tỉ lệ đơn cắt');
+                    await loadSheetContent(_mobileTlcg.activeMat);
+                    await loadData(false);
+                } else {
+                    toast(res.error || 'Duyệt thất bại', 'error');
                 }
             } catch (err) {
                 console.error(err);
-                toast('Lỗi kết nối tới hệ thống', 'error');
+                toast(err.message, 'error');
+            }
+        }
+
+        async function unapproveTicket(id) {
+            try {
+                const res = await apiCall(`/api/cutting/unapprove-ratio/${id}`, 'POST');
+                if (res.success) {
+                    toast('Đã hủy duyệt tỉ lệ đơn cắt');
+                    await loadSheetContent(_mobileTlcg.activeMat);
+                    await loadData(false);
+                } else {
+                    toast(res.error || 'Hủy duyệt thất bại', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                toast(err.message, 'error');
             }
         }
     </script>

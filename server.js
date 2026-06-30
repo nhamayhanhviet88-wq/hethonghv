@@ -1100,6 +1100,36 @@ async function start() {
         if ((fixTT?.changes || 0) + (fixOther?.changes || 0) > 0) console.log(`[Migration] Fixed handover_status: ${fixTT?.changes || 0} → chua_bangiao, ${fixOther?.changes || 0} → thu_quy_nhan`);
     } catch(e) { /* already done */ }
 
+    // v14: Tỉ lệ cắt gốc thực tế & Phân loại phân khúc sản phẩm
+    try {
+        await db.exec(`ALTER TABLE dht_products ADD COLUMN IF NOT EXISTS size_segment VARCHAR(50)`);
+        await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_approved BOOLEAN DEFAULT false`);
+        await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_approved_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_approved_by INTEGER`);
+        
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_ratio_quantity_ranges (
+            id SERIAL PRIMARY KEY,
+            min_qty INT NOT NULL,
+            max_qty INT NOT NULL,
+            display_order INT DEFAULT 0
+        )`);
+        
+        const rCount = await db.get(`SELECT COUNT(*)::int AS cnt FROM kv_ratio_quantity_ranges`);
+        if (rCount.cnt === 0) {
+            const defaultRanges = [
+                [10, 20, 1],
+                [21, 100, 2],
+                [101, 500, 3],
+                [500, 999, 4],
+                [1000, 999999, 5]
+            ];
+            for (const r of defaultRanges) {
+                await db.run(`INSERT INTO kv_ratio_quantity_ranges (min_qty, max_qty, display_order) VALUES ($1, $2, $3)`, r);
+            }
+            console.log('[Migration] Seeded default quantity ranges for cutting ratio stats');
+        }
+    } catch(e) { console.error('[Migration v14] Cutting Ratio Stats:', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));

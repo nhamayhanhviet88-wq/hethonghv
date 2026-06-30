@@ -3853,4 +3853,267 @@ module.exports = async function(fastify) {
             return reply.code(500).send({ error: e.message });
         }
     });
+
+    // ========== GET PRODUCTS SEGMENT FOR SETTINGS ==========
+    fastify.get('/api/cutting/products-segment', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const products = await db.all(`
+                SELECT p.id, p.name, p.size_segment, s.name as sale_type_name
+                FROM dht_products p
+                JOIN dht_settings_options s ON s.id = p.sale_type_id
+                WHERE p.is_active = true AND s.name = 'Bán'
+                ORDER BY p.name
+            `);
+            return { products };
+        } catch (e) {
+            console.error('[API products-segment] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== POST PRODUCTS SEGMENT (Director Only) ==========
+    fastify.post('/api/cutting/products-segment', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập phân khúc sản phẩm!' });
+        }
+        const { updates } = request.body || {};
+        if (!updates || !Array.isArray(updates)) {
+            return reply.code(400).send({ error: 'Dữ liệu không hợp lệ!' });
+        }
+        for (const item of updates) {
+            const segment = item.size_segment ? String(item.size_segment).trim() : null;
+            await db.run(`
+                UPDATE dht_products 
+                SET size_segment = $1 
+                WHERE id = $2
+            `, [segment, Number(item.id)]);
+        }
+        return { success: true };
+    });
+
+    // ========== GET QUANTITY RANGES ==========
+    fastify.get('/api/cutting/quantity-ranges', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const ranges = await db.all(`
+                SELECT id, min_qty, max_qty, display_order 
+                FROM kv_ratio_quantity_ranges 
+                ORDER BY display_order ASC, min_qty ASC
+            `);
+            return { ranges };
+        } catch (e) {
+            console.error('[API quantity-ranges] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== POST QUANTITY RANGES (Director Only) ==========
+    fastify.post('/api/cutting/quantity-ranges', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền cấu hình khung số lượng!' });
+        }
+        const { ranges } = request.body || {};
+        if (!ranges || !Array.isArray(ranges)) {
+            return reply.code(400).send({ error: 'Dữ liệu không hợp lệ!' });
+        }
+        
+        // Clean and save
+        await db.run(`DELETE FROM kv_ratio_quantity_ranges`);
+        for (let i = 0; i < ranges.length; i++) {
+            const r = ranges[i];
+            const minQty = Number(r.min_qty);
+            const maxQty = Number(r.max_qty);
+            if (isNaN(minQty) || isNaN(maxQty) || minQty < 0 || maxQty < minQty) {
+                return reply.code(400).send({ error: 'Khoảng số lượng không hợp lệ!' });
+            }
+            await db.run(`
+                INSERT INTO kv_ratio_quantity_ranges (min_qty, max_qty, display_order)
+                VALUES ($1, $2, $3)
+            `, [minQty, maxQty, i + 1]);
+        }
+        return { success: true };
+    });
+
+    // ========== GET CUTTING RATIO STATS ==========
+    fastify.get('/api/cutting/ratio-stats', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const { range_id } = request.query || {};
+            
+            // 1. Get ranges
+            const ranges = await db.all(`
+                SELECT id, min_qty, max_qty, display_order 
+                FROM kv_ratio_quantity_ranges 
+                ORDER BY display_order ASC, min_qty ASC
+            `);
+            
+            let rangeFilter = '';
+            const params = [];
+            if (range_id) {
+                const selectedRange = ranges.find(r => r.id === Number(range_id));
+                if (selectedRange) {
+                    rangeFilter = 'AND cr.cut_quantity >= $1 AND cr.cut_quantity <= $2';
+                    params.push(selectedRange.min_qty, selectedRange.max_qty);
+                }
+            }
+
+            // 2. Query stats
+            const statsQuery = `
+                SELECT 
+                    TRIM(cr.material_name) AS material_name,
+                    TRIM(cr.fabric_color) AS fabric_color,
+                    p.size_segment,
+                    SUM(cr.cut_quantity)::numeric AS total_qty,
+                    SUM(cr.kg_cut)::numeric AS total_kg
+                FROM cutting_records cr
+                JOIN dht_order_items oi ON cr.order_item_id = oi.id
+                JOIN dht_orders o ON oi.dht_order_id = o.id
+                LEFT JOIN dht_products p ON (TRIM(LOWER(p.name)) = TRIM(LOWER(oi.product_name)) AND p.is_active = true)
+                WHERE cr.is_cut_done = true 
+                  AND cr.cut_ratio > 0 
+                  AND cr.ratio_approved = true
+                  AND cr.multi_cut_group_id IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM dht_order_items sub_oi
+                      WHERE sub_oi.dht_order_id = o.id
+                        AND COALESCE(jsonb_array_length(sub_oi.material_pairs::jsonb), 0) > 1
+                  )
+                  ${rangeFilter}
+                GROUP BY TRIM(cr.material_name), TRIM(cr.fabric_color), p.size_segment
+            `;
+            
+            const statsRows = await db.all(statsQuery, params);
+
+            // 3. Get materials and colors
+            const materials = await db.all(`
+                SELECT m.id, m.name, w.name as warehouse_name, w.unit
+                FROM kv_materials m
+                JOIN kv_warehouses w ON m.warehouse_id = w.id
+                WHERE m.is_active = true
+                ORDER BY w.display_order, m.display_order, m.name
+            `);
+            
+            const colors = await db.all(`
+                SELECT id, material_id, color_name 
+                FROM kv_fabric_colors 
+                WHERE is_active = true
+                ORDER BY color_name ASC
+            `);
+
+            return { ranges, stats: statsRows, materials, colors };
+        } catch (e) {
+            console.error('[API ratio-stats] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== GET MATERIAL TICKETS (For review & approval) ==========
+    fastify.get('/api/cutting/material-tickets', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const { material_name, fabric_color, size_segment, range_id } = request.query || {};
+            if (!material_name) {
+                return reply.code(400).send({ error: 'Thiếu tên chất liệu' });
+            }
+
+            const ranges = await db.all(`SELECT id, min_qty, max_qty FROM kv_ratio_quantity_ranges`);
+            
+            let query = `
+                SELECT 
+                    cr.id, 
+                    cr.dht_order_id, 
+                    cr.product_name, 
+                    cr.fabric_color, 
+                    cr.order_quantity, 
+                    cr.cut_quantity, 
+                    cr.kg_cut, 
+                    cr.cut_ratio, 
+                    cr.cut_date, 
+                    cr.ratio_approved, 
+                    cr.ratio_approved_at,
+                    o.order_code,
+                    u_cutter.full_name AS cutter_name,
+                    u_approved.full_name AS approved_by_name,
+                    p.size_segment
+                FROM cutting_records cr
+                JOIN dht_order_items oi ON cr.order_item_id = oi.id
+                JOIN dht_orders o ON oi.dht_order_id = o.id
+                LEFT JOIN dht_products p ON (TRIM(LOWER(p.name)) = TRIM(LOWER(oi.product_name)) AND p.is_active = true)
+                LEFT JOIN users u_cutter ON u_cutter.id = cr.cutter_id
+                LEFT JOIN users u_approved ON u_approved.id = cr.ratio_approved_by
+                WHERE cr.is_cut_done = true 
+                  AND cr.cut_ratio > 0 
+                  AND cr.multi_cut_group_id IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM dht_order_items sub_oi
+                      WHERE sub_oi.dht_order_id = o.id
+                        AND COALESCE(jsonb_array_length(sub_oi.material_pairs::jsonb), 0) > 1
+                  )
+                  AND TRIM(LOWER(cr.material_name)) = TRIM(LOWER($1))
+            `;
+            
+            const params = [material_name.trim()];
+            let idx = 2;
+
+            if (fabric_color) {
+                query += ` AND TRIM(LOWER(cr.fabric_color)) = TRIM(LOWER($${idx++}))`;
+                params.push(fabric_color.trim());
+            }
+
+            if (size_segment) {
+                query += ` AND p.size_segment = $${idx++}`;
+                params.push(size_segment.trim());
+            }
+
+            if (range_id) {
+                const r = ranges.find(x => x.id === Number(range_id));
+                if (r) {
+                    query += ` AND cr.cut_quantity >= $${idx++} AND cr.cut_quantity <= $${idx++}`;
+                    params.push(r.min_qty, r.max_qty);
+                }
+            }
+
+            query += ` ORDER BY cr.cut_date DESC, cr.id DESC`;
+
+            const tickets = await db.all(query, params);
+            return { tickets };
+        } catch (e) {
+            console.error('[API material-tickets] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== POST APPROVE RATIO (Director Only) ==========
+    fastify.post('/api/cutting/approve-ratio/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền duyệt tỉ lệ cắt!' });
+        }
+        const { id } = request.params;
+        const { vnNow } = require('./utils/timezone');
+        
+        await db.run(`
+            UPDATE cutting_records 
+            SET ratio_approved = true, 
+                ratio_approved_at = $1, 
+                ratio_approved_by = $2 
+            WHERE id = $3
+        `, [vnNow(), request.user.id, Number(id)]);
+        
+        return { success: true };
+    });
+
+    // ========== POST UNAPPROVE RATIO (Director Only) ==========
+    fastify.post('/api/cutting/unapprove-ratio/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền hủy duyệt tỉ lệ cắt!' });
+        }
+        const { id } = request.params;
+        
+        await db.run(`
+            UPDATE cutting_records 
+            SET ratio_approved = false, 
+                ratio_approved_at = NULL, 
+                ratio_approved_by = NULL 
+            WHERE id = $1
+        `, [Number(id)]);
+        
+        return { success: true };
+    });
 };
