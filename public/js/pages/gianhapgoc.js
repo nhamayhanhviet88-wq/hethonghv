@@ -1514,14 +1514,7 @@ function _gngRenderDetailPending(target) {
         const formattedDate = rec.import_date ? new Date(rec.import_date).toLocaleDateString('vi-VN') : '---';
         const totalCostStr = Number(rec.total_amount || rec.cost).toLocaleString('vi-VN') + ' đ';
 
-        // Filter discrepancies inside this record if we have a specific material filtered
         let discList = rec.discrepancies || [];
-        if (_gng.filter.supplierId !== 'all' && _gng.filter.materialName) {
-            const filterMat = _gng.filter.materialName.toLowerCase();
-            discList = discList.filter(d => (d.item_name || '').toLowerCase().includes(filterMat));
-        }
-
-        // If no discrepancies match the filter, do not show this bill at all
         if (discList.length === 0) return;
 
         let discrepanciesHtml = '';
