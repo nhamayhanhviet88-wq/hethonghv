@@ -1660,9 +1660,9 @@ async function _gngShowApprovalDialog(id) {
         discrepanciesHtml += `
             <tr>
                 <td style="font-weight:600; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:left; color:#1e293b;">${d.item_name}</td>
-                <td style="color:#ef4444; font-weight:700; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:right;">${unitPriceStr}</td>
-                <td style="color:#64748b; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:right;">${approvedPriceStr}</td>
-                <td style="padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:center;">${diffHtml}</td>
+                <td style="color:#ef4444; font-weight:700; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:right; white-space:nowrap;">${unitPriceStr}</td>
+                <td style="color:#64748b; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:right; white-space:nowrap;">${approvedPriceStr}</td>
+                <td style="padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:center; white-space:nowrap;">${diffHtml}</td>
             </tr>
         `;
     });
@@ -1670,7 +1670,7 @@ async function _gngShowApprovalDialog(id) {
     let imgHtml = '';
     if (rec.bill_image_url) {
         imgHtml = `
-            <div style="flex: 1.1; min-width: 260px; display:flex; flex-direction:column; gap:8px;">
+            <div style="flex: 0.9; min-width: 280px; display:flex; flex-direction:column; gap:8px;">
                 <div style="font-weight:700; color:#475569; font-size:12px; letter-spacing:0.5px;">📸 ẢNH HÓA ĐƠN GỐC:</div>
                 <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow:hidden; background:#f8fafc; display:flex; align-items:center; justify-content:center; position:relative; cursor:zoom-in; height:320px; transition:border-color 0.15s;" onclick="window.open('${rec.bill_image_url}')" title="Bấm để xem ảnh gốc kích thước đầy đủ" onmouseover="this.style.borderColor='#cbd5e1'" onmouseout="this.style.borderColor='#e2e8f0'">
                     <img src="${rec.bill_image_url}" style="max-width:100%; max-height:100%; object-fit:contain;">
@@ -1680,7 +1680,7 @@ async function _gngShowApprovalDialog(id) {
         `;
     } else {
         imgHtml = `
-            <div style="flex: 1.1; min-width: 260px; display:flex; flex-direction:column; gap:8px; align-items:center; justify-content:center; border: 2px dashed #cbd5e1; border-radius:12px; height:320px; background:#f8fafc;">
+            <div style="flex: 0.9; min-width: 280px; display:flex; flex-direction:column; gap:8px; align-items:center; justify-content:center; border: 2px dashed #cbd5e1; border-radius:12px; height:320px; background:#f8fafc;">
                 <span style="font-size:36px; margin-bottom:8px;">🖼️</span>
                 <span style="color:#94a3b8; font-weight:700; font-size:13px;">Không có ảnh hóa đơn</span>
             </div>
@@ -1688,7 +1688,7 @@ async function _gngShowApprovalDialog(id) {
     }
 
     modal.innerHTML = `
-        <div style="background: #ffffff; border-radius: 16px; width: 95%; max-width: 880px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); transition: transform 0.2s ease-out; border: 1px solid #cbd5e1;">
+        <div style="background: #ffffff; border-radius: 16px; width: 95%; max-width: 1100px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); transition: transform 0.2s ease-out; border: 1px solid #cbd5e1;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #1e293b, #334155); color:#fff; padding: 18px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155;">
                 <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:10px; letter-spacing:0.3px;">
@@ -1703,7 +1703,7 @@ async function _gngShowApprovalDialog(id) {
             <!-- Body -->
             <div style="padding: 24px; overflow-y:auto; max-height: calc(85vh - 120px); display:flex; flex-wrap:wrap; gap:24px;">
                 <!-- Left: Bill Details -->
-                <div style="flex: 1.4; min-width: 320px; display:flex; flex-direction:column; gap:18px;">
+                <div style="flex: 1.6; min-width: 380px; display:flex; flex-direction:column; gap:18px;">
                     <!-- Meta Grid -->
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; background:#f8fafc; padding:16px; border-radius:12px; border:1px solid #e2e8f0;">
                         <div>
@@ -1731,10 +1731,10 @@ async function _gngShowApprovalDialog(id) {
                             <table style="width:100%; border-collapse:collapse; margin:0; background:#fff;">
                                 <thead>
                                     <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
-                                        <th style="padding:12px 14px; font-weight:800; color:#475569; font-size:11px; text-transform:uppercase; text-align:left; letter-spacing:0.5px;">Tên Vật Tư / Chất Liệu</th>
-                                        <th style="padding:12px 14px; font-weight:800; color:#475569; font-size:11px; text-transform:uppercase; text-align:right; width:95px; letter-spacing:0.5px;">Giá Trên Bill</th>
-                                        <th style="padding:12px 14px; font-weight:800; color:#475569; font-size:11px; text-transform:uppercase; text-align:right; width:95px; letter-spacing:0.5px;">Giá Gốc Cũ</th>
-                                        <th style="padding:12px 14px; font-weight:800; color:#475569; font-size:11px; text-transform:uppercase; text-align:center; width:100px; letter-spacing:0.5px;">Chênh Lệch</th>
+                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:left; letter-spacing:0.5px; white-space:nowrap;">Tên Vật Tư / Chất Liệu</th>
+                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:right; width:95px; letter-spacing:0.5px; white-space:nowrap;">Giá Trên Bill</th>
+                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:right; width:95px; letter-spacing:0.5px; white-space:nowrap;">Giá Gốc Cũ</th>
+                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:center; width:100px; letter-spacing:0.5px; white-space:nowrap;">Chênh Lệch</th>
                                     </tr>
                                 </thead>
                                 <tbody>
