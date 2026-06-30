@@ -745,6 +745,7 @@ function _bvlRemoveExtraCostRow(index) {
 function _bvlOpenMat() {
     _bvl.isEdit = false;
     _bvl.editId = null;
+    _bvl.isDisapproved = false;
     _bvl.uploadImg = null;
     _bvl.uploadShipImg = null;
     _bvl.addedMaterials = [];
@@ -761,6 +762,7 @@ async function _bvlOpenMatEdit(id) {
 
         _bvl.isEdit = true;
         _bvl.editId = id;
+        _bvl.isDisapproved = r.is_disapproved === true;
         _bvl.addedMaterials = [];
         _bvl.addedExtraCosts = [];
 
@@ -1235,16 +1237,29 @@ async function _bvlSubmitMat() {
     if (!srcId) { showToast('Vui lòng chọn nhà cung cấp', 'error'); resetBtn(); return; }
     if (!_bvl.addedMaterials || _bvl.addedMaterials.length === 0) { showToast('Vui lòng thêm ít nhất 1 vật liệu', 'error'); resetBtn(); return; }
     if (!_bvl.uploadImg) { showToast('Ảnh bill bắt buộc', 'error'); resetBtn(); return; }
-    if (_bvl.isEdit && _bvl.originalMaterials) {
+    if (_bvl.isEdit && _bvl.originalMaterials && _bvl.isDisapproved) {
+        var basePrices = _bvl.basePrices || [];
         for (var i = 0; i < _bvl.addedMaterials.length; i++) {
             var curr = _bvl.addedMaterials[i];
             var orig = _bvl.originalMaterials.find(function(o) {
                 return o.id === curr.id || o.name === curr.name;
             });
             if (orig && curr.price === orig.price) {
-                showToast('Đơn giá của ' + curr.name + ' phải khác giá cũ (' + _bvlFM(orig.price) + 'đ)!', 'error');
-                resetBtn();
-                return;
+                // Find if there is an approved base price for this item and source
+                var matchedBase = basePrices.find(function(bp) {
+                    return bp.item_type === 'material' && 
+                           Number(bp.material_item_id) === curr.id && 
+                           Number(bp.source_id) === Number(srcId);
+                });
+                var basePrice = matchedBase ? Number(matchedBase.price) : null;
+                
+                // If there is no base price, or if the original price was different from the base price,
+                // then they are not allowed to submit the bill with the exact same disapproved price.
+                if (basePrice === null || Number(orig.price) !== basePrice) {
+                    showToast('Đơn giá của ' + curr.name + ' phải khác giá cũ (' + _bvlFM(orig.price) + 'đ) do giá cũ bị từ chối duyệt!', 'error');
+                    resetBtn();
+                    return;
+                }
             }
         }
     }

@@ -1751,7 +1751,7 @@ function _gngOpenHistoryBill(itemType, importId) {
             runDetail();
         } else {
             var s = document.createElement('script');
-            s.src = '/js/pages/billvatlieu.js?v=20260630_rejected_edit_v5';
+            s.src = '/js/pages/billvatlieu.js?v=20260701_price_edit_validation_v1';
             s.onload = runDetail;
             document.head.appendChild(s);
         }
