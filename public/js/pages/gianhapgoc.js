@@ -17,6 +17,18 @@ var _gng = {
     isDuyetUser: false
 };
 
+function _gngSaveState() {
+    try {
+        const state = {
+            filter: _gng.filter,
+            sidebarExpanded: _gng.sidebarExpanded
+        };
+        sessionStorage.setItem('gng_state', JSON.stringify(state));
+    } catch (e) {
+        console.error('Failed to save GNG state', e);
+    }
+}
+
 function _gngFormatRatioAndPriceHtml(p) {
     const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
     const ratioChild = Number(p.fabric_cut_ratio_child) || 0;
@@ -178,6 +190,20 @@ function _gngFormatDateTime(dateVal) {
 async function renderGiaNhapGocPage(content) {
     if (!content) content = document.getElementById('contentArea');
     if (!content) return;
+
+    // Load state from sessionStorage
+    try {
+        const savedStateStr = sessionStorage.getItem('gng_state');
+        if (savedStateStr) {
+            const savedState = JSON.parse(savedStateStr);
+            if (savedState) {
+                if (savedState.filter) _gng.filter = { ..._gng.filter, ...savedState.filter };
+                if (savedState.sidebarExpanded) _gng.sidebarExpanded = { ..._gng.sidebarExpanded, ...savedState.sidebarExpanded };
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load GNG state', e);
+    }
 
     // Inject custom premium CSS for Master-Detail layout
     if (!document.getElementById('_gngStyles')) {
@@ -768,6 +794,7 @@ function _gngRenderLayout() {
     if (sidebarSearch) {
         sidebarSearch.addEventListener('input', function(e) {
             _gng.filter.supplierSearch = e.target.value;
+            _gngSaveState();
             _gngRenderSidebar();
         });
     }
@@ -792,6 +819,7 @@ function _gngAutoExpandActiveCategory() {
 
 function _gngToggleSidebarCategory(type) {
     _gng.sidebarExpanded[type] = !_gng.sidebarExpanded[type];
+    _gngSaveState();
     _gngRenderSidebar();
 }
 
@@ -975,6 +1003,7 @@ function _gngSelectSupplier(id) {
         }
     }
 
+    _gngSaveState();
     _gngRenderSidebar();
     _gngRenderDetailPanel();
 }
@@ -982,6 +1011,7 @@ function _gngSelectSupplier(id) {
 function _gngSelectMaterial(supplierId, materialName) {
     _gng.filter.supplierId = supplierId;
     _gng.filter.materialName = materialName;
+    _gngSaveState();
     _gngRenderSidebar();
     _gngRenderDetailPanel();
 }
@@ -1050,6 +1080,7 @@ function _gngRenderDetailPanel() {
     if (detailSearch) {
         detailSearch.addEventListener('input', function(e) {
             _gng.filter.search = e.target.value;
+            _gngSaveState();
             _gngRenderDetailTabContent();
         });
     }
@@ -1059,12 +1090,14 @@ function _gngRenderDetailPanel() {
 
 function _gngSwitchDetailTab(tabName) {
     _gng.filter.tab = tabName;
+    _gngSaveState();
     _gngRenderDetailPanel();
 }
 
 function _gngUpdateDetailFilters() {
     const typeEl = document.getElementById('gngDetailType');
     if (typeEl) _gng.filter.type = typeEl.value;
+    _gngSaveState();
     _gngRenderDetailTabContent();
 }
 

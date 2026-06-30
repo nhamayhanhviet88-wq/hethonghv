@@ -434,6 +434,35 @@
         let supplierSearchQuery = '';
         let materialSearchQuery = '';
 
+        function saveMobileState() {
+            try {
+                const state = {
+                    selectedSupplierId,
+                    currentTab,
+                    supplierSearchQuery,
+                    materialSearchQuery
+                };
+                sessionStorage.setItem('mgng_state', JSON.stringify(state));
+            } catch (e) {
+                console.error('Failed to save mobile state', e);
+            }
+        }
+
+        try {
+            const savedStateStr = sessionStorage.getItem('mgng_state');
+            if (savedStateStr) {
+                const savedState = JSON.parse(savedStateStr);
+                if (savedState) {
+                    if (savedState.selectedSupplierId !== undefined) selectedSupplierId = savedState.selectedSupplierId;
+                    if (savedState.currentTab !== undefined) currentTab = savedState.currentTab;
+                    if (savedState.supplierSearchQuery !== undefined) supplierSearchQuery = savedState.supplierSearchQuery;
+                    if (savedState.materialSearchQuery !== undefined) materialSearchQuery = savedState.materialSearchQuery;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load mobile state', e);
+        }
+
         function _gngIsFabricSupplier(supplierId) {
             if (supplierId === 'all' || supplierId === 'pending_all') return false;
             return prices.some(p => p.source_id == supplierId && p.item_type === 'fabric');
@@ -775,6 +804,7 @@
             if (supSearch) {
                 supSearch.addEventListener('input', (e) => {
                     supplierSearchQuery = e.target.value.toLowerCase();
+                    saveMobileState();
                     // Render locally to avoid API calls and lag
                     renderDynamicView();
                     // Refocus and place cursor at the end
@@ -845,6 +875,7 @@
             if (matSearch) {
                 matSearch.addEventListener('input', (e) => {
                     materialSearchQuery = e.target.value.toLowerCase().trim();
+                    saveMobileState();
                     renderDetailItemsList();
                 });
             }
@@ -1193,16 +1224,19 @@
                 currentTab = 'approved';
             }
             materialSearchQuery = '';
+            saveMobileState();
             renderDynamicView();
         }
 
         function goBackToSuppliers() {
             selectedSupplierId = null;
+            saveMobileState();
             renderDynamicView();
         }
 
         function switchDetailTab(tab) {
             currentTab = tab;
+            saveMobileState();
             // Re-render active tab button styles and content
             renderSupplierDetailView(document.getElementById('mDynamicViewArea'));
         }
