@@ -255,23 +255,69 @@ async function renderGiaNhapGocPage(content) {
                 margin-bottom: 24px;
             }
             .gng-stat-card {
-                background: white;
                 border-radius: 16px;
                 padding: 20px;
-                border: 1px solid #e2e8f0;
-                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.01), 0 2px 4px -1px rgba(0,0,0,0.01);
-                transition: all 0.2s ease;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                cursor: pointer;
+                position: relative;
+                overflow: hidden;
+                border: 2px solid transparent;
+            }
+            .gng-stat-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 100%);
+                pointer-events: none;
+            }
+            .gng-stat-card:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 12px 20px -8px rgba(0,0,0,0.15);
+            }
+            .gng-stat-card:active {
+                transform: translateY(-1px);
+            }
+            .gng-stat-card-total {
+                background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            }
+            .gng-stat-card-bills {
+                background: linear-gradient(135deg, #0d9488 0%, #115e59 100%);
+            }
+            .gng-stat-card-items {
+                background: linear-gradient(135deg, #e11d48 0%, #9f1239 100%);
+            }
+            
+            /* White active bottom line indicator */
+            .gng-stat-card.active::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 10%;
+                width: 80%;
+                height: 4px;
+                background: #ffffff;
+                border-radius: 4px 4px 0 0;
+                box-shadow: 0 0 8px rgba(255,255,255,0.8);
+            }
+            .gng-stat-card.active {
+                border-color: rgba(255,255,255,0.4);
             }
             .gng-stat-val {
-                font-size: 26px;
+                font-size: 30px;
                 font-weight: 800;
-                color: #0f172a;
-                margin-bottom: 4px;
+                color: #ffffff;
+                margin-bottom: 6px;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.15);
             }
             .gng-stat-label {
                 font-size: 13px;
-                color: #64748b;
-                font-weight: 500;
+                color: rgba(255, 255, 255, 0.95);
+                font-weight: 600;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.15);
             }
 
             /* Master-Detail Layout */
@@ -769,15 +815,15 @@ function _gngRenderLayout() {
 
             <!-- Stats Overview -->
             <div class="gng-stats">
-                <div class="gng-stat-card" style="border-top: 4px solid #4f46e5;">
+                <div class="gng-stat-card gng-stat-card-total ${_gng.filter.supplierId === 'all' && _gng.filter.tab === 'approved' ? 'active' : ''}" onclick="_gngSelectStatCard('approved')">
                     <div class="gng-stat-val">${totalPrices}</div>
                     <div class="gng-stat-label">Tổng Vật Tư Đã Lưu Giá Gốc</div>
                 </div>
-                <div class="gng-stat-card" style="border-top: 4px solid #10b981;">
+                <div class="gng-stat-card gng-stat-card-bills ${_gng.filter.supplierId === 'pending_all' && _gng.filter.tab === 'pending' ? 'active' : ''}" onclick="_gngSelectStatCard('pending')">
                     <div class="gng-stat-val">${totalPending}</div>
                     <div class="gng-stat-label">Hóa Đơn Chờ Duyệt Lệch Giá</div>
                 </div>
-                <div class="gng-stat-card" style="border-top: 4px solid #ef4444;">
+                <div class="gng-stat-card gng-stat-card-items ${_gng.filter.supplierId === 'pending_all' && _gng.filter.tab === 'pending' ? 'active' : ''}" onclick="_gngSelectStatCard('pending')">
                     <div class="gng-stat-val">${totalDiff}</div>
                     <div class="gng-stat-label">Mục Bị Chênh Lệch Đang Chờ Duyệt</div>
                 </div>
@@ -1758,6 +1804,21 @@ function _gngOpenHistoryBill(itemType, importId) {
     }
 }
 window._gngOpenHistoryBill = _gngOpenHistoryBill;
+
+function _gngSelectStatCard(mode) {
+    if (mode === 'approved') {
+        _gng.filter.supplierId = 'all';
+        _gng.filter.tab = 'approved';
+        _gng.filter.materialName = null;
+    } else if (mode === 'pending') {
+        _gng.filter.supplierId = 'pending_all';
+        _gng.filter.tab = 'pending';
+        _gng.filter.materialName = null;
+    }
+    _gngSaveState();
+    _gngRenderLayout();
+}
+window._gngSelectStatCard = _gngSelectStatCard;
 
 function _gngShowConfirmPopup(title, message, type, onConfirm) {
     const overlay = document.createElement('div');
