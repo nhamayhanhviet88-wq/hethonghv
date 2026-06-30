@@ -52,7 +52,7 @@ async function _bnhLoadAll(){
         document.head.appendChild(style);
     }
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260630_edit_v1';document.head.appendChild(s);}
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260630_edit_v2';document.head.appendChild(s);}
     try{
         var u=window._currentUser||window.currentUser||{};
         var promises = [
@@ -182,7 +182,12 @@ function _bnhRender(){
             payHtml='—';
         }else{
             var u = window._currentUser || window.currentUser || {};
-            var isAcc = u.role === 'giam_doc' || u.role === 'ke_toan';
+            var isAcc = u.role === 'giam_doc' || 
+                        u.role === 'ke_toan' || 
+                        u.username === 'ketoan' || 
+                        u.username === 'ketoan1' ||
+                        (u.full_name && (u.full_name.toLowerCase().includes('kế toán') || u.full_name.toLowerCase().includes('ke toan'))) ||
+                        (u.department_name && (u.department_name.toLowerCase().includes('kế toán') || u.department_name.toLowerCase().includes('ke toan')));
             if(!r.is_checked&&_bnh.isDuyet){duyetHtml='<button class="bnh-ib" onclick="event.stopPropagation();_bnhTog('+r.id+',\'check\')" title="Duyệt kiểm tra">⬜</button>';}
             else if(r.is_checked){duyetHtml='<span style="font-size:11px" title="Đã duyệt: '+(r.checked_by_name||'')+'">✅</span>';}
             if(r.record_type==='fabric' && isAcc && !r.is_checked){
