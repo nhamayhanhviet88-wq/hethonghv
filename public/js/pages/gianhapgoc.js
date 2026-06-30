@@ -1065,6 +1065,7 @@ function _gngRenderDetailApproved(target) {
         const latestDateText = latestTime > 0 ? new Date(latestTime).toLocaleDateString('vi-VN') : '---';
 
         // Render Group Header
+        const showExpanded = (q.length > 0);
         rowsHtml += `
             <tr class="gng-group-header" onclick="_gngToggleGroup('${g.key}')">
                 <td>
@@ -1073,7 +1074,7 @@ function _gngRenderDetailApproved(target) {
                     </span>
                 </td>
                 <td style="font-weight: 700; color: #1e293b;">
-                    <span class="gng-group-arrow" id="arrow_${g.key}">▶</span>
+                    <span class="gng-group-arrow" id="arrow_${g.key}" style="${showExpanded ? 'transform: rotate(90deg);' : ''}">▶</span>
                     ${g.name}
                     <span class="gng-badge-count-color">
                         ${g.items.length} ${isFabric ? 'màu' : 'kho/mục'}
@@ -1095,7 +1096,7 @@ function _gngRenderDetailApproved(target) {
             const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
             
             rowsHtml += `
-                <tr class="gng-sub-row ${g.key}" style="display: none;">
+                <tr class="gng-sub-row ${g.key}" style="${showExpanded ? '' : 'display: none;'}">
                     <td></td>
                     <td></td>
                     <td style="color: #0f172a; font-weight: 600;">
