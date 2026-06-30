@@ -610,6 +610,7 @@ async function renderGiaNhapGocPage(content) {
             }
             .gng-badge-stable { background: #dcfce7; color: #15803d; }
             .gng-badge-alert { background: #fee2e2; color: #b91c1c; }
+            .gng-badge-warning { background: #fef3c7; color: #d97706; }
 
             /* Modal Styles */
             .gng-modal-backdrop {
@@ -2041,14 +2042,24 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
 
     let modalRowsHtml = '';
     sorted.forEach(h => {
-        const isPending = !h.is_checked && h.requires_price_approval;
+        let statusText = 'Khớp giá';
+        let badgeClass = 'gng-badge-stable';
+        if (!h.is_checked && h.requires_price_approval) {
+            if (h.is_disapproved) {
+                statusText = '❌ Từ chối duyệt';
+                badgeClass = 'gng-badge-alert';
+            } else {
+                statusText = '⚠️ Chờ duyệt';
+                badgeClass = 'gng-badge-warning';
+            }
+        }
         modalRowsHtml += `
             <tr>
                 <td>${h.import_date ? new Date(h.import_date).toLocaleDateString('vi-VN') : '---'}</td>
                 <td style="font-weight:700; text-align:right;">${Number(h.unit_price).toLocaleString('vi-VN')} đ</td>
                 <td>
-                    <span class="gng-badge ${isPending ? 'gng-badge-alert' : 'gng-badge-stable'}">
-                        ${isPending ? 'Chờ duyệt' : 'Khớp giá'}
+                    <span class="gng-badge ${badgeClass}">
+                        ${statusText}
                     </span>
                 </td>
             </tr>
