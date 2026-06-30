@@ -54,6 +54,79 @@ async function _bnhOpenFabric() {
 
 function _bnhFabClose() { var o = document.getElementById('_fabOv'); if (o) o.remove(); }
 
+async function _bnhOpenFabricEdit(id) {
+    _bnhFab = { isEdit: true, editId: id, items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false, vat: 0 };
+    try {
+        var [recRes, sr, cfg] = await Promise.all([
+            apiCall('/api/import/records/' + id),
+            apiCall('/api/import/sources?source_type=fabric'),
+            apiCall('/api/app-config/fabric_import_require_roll_photo')
+        ]);
+        var rec = recRes.record;
+        _bnhFab.code = rec.fabric_import_code;
+        _bnhFab.selectedSrc = rec.source_id;
+        _bnhFab.availSources = sr.sources || [];
+        _bnhFab.requireRollPhoto = cfg && cfg.value !== undefined ? (cfg.value === 'true') : true;
+        _bnhFab.notes = rec.cost_notes || '';
+        _bnhFab.vat = Number(rec.vat_amount) || 0;
+        _bnhFab.shipCost = Number(rec.ship_cost) || 0;
+        if (rec.bill_image_url) {
+            _bnhFab.billImg = { url: rec.bill_image_url, path: rec.bill_image_path };
+        }
+        if (rec.ship_image_url) {
+            _bnhFab.shipImg = { url: rec.ship_image_url, path: rec.ship_image_path };
+        }
+
+        var items = typeof rec.fabric_items === 'string' ? JSON.parse(rec.fabric_items) : (rec.fabric_items || []);
+        _bnhFab.items = items.map(function(it) {
+            return {
+                fabric_color_id: it.fabric_color_id,
+                material_name: it.material_name,
+                color_name: it.color_name,
+                unit: it.unit || 'kg',
+                unit_price: Number(it.unit_price) || 0,
+                reservation_ids: it.reservation_ids || [],
+                trees: (it.trees || []).map(function(t) {
+                    return {
+                        weight: String(t.weight).replace('.', ','),
+                        image_path: t.image_path || null
+                    };
+                })
+            };
+        });
+
+        var extraCosts = typeof rec.extra_costs === 'string' ? JSON.parse(rec.extra_costs) : (rec.extra_costs || []);
+        _bnhFab.extraCosts = extraCosts.map(function(ec) {
+            return {
+                content: ec.content,
+                amount: Number(ec.amount) || 0
+            };
+        });
+
+        _bnhFab.userName = rec.importer_name || '—';
+        _bnhFab.userDept = '';
+        
+        var importD = new Date(rec.import_date || rec.created_at);
+        var dd = String(importD.getDate()).padStart(2, '0');
+        var mm = String(importD.getMonth() + 1).padStart(2, '0');
+        var yyyy = importD.getFullYear();
+        _bnhFab.dateStr = dd + '/' + mm + '/' + yyyy;
+
+    } catch (e) { showToast(e.message || 'Lỗi tải dữ liệu', 'error'); return; }
+
+    var ov = document.createElement('div');
+    ov.id = '_fabOv';
+    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:100%;max-width:700px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:16px 16px 0 0;color:#fff">'
+        + '<div style="font-size:16px;font-weight:800">✏️ Sửa Bill Nhập Vải</div>'
+        + '<button onclick="_bnhFabClose()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button></div>'
+        + '<div style="padding:20px 24px" id="_fabBody"></div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('div').onclick = function (e) { e.stopPropagation(); };
+    _bnhFabRenderBody();
+}
+
 function _escAttr(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function _bnhFabRenderBody() {
@@ -467,12 +540,15 @@ async function _bnhFabSubmit() {
             vat_amount: Number(f.vat) || 0,
             cost_notes: document.getElementById('_fabNotes')?.value || ''
         };
-        var res = await apiCall('/api/import/fabric-submit', 'POST', body);
+
+        var url = f.isEdit ? ('/api/import/fabric-update/' + f.editId) : '/api/import/fabric-submit';
+        var res = await apiCall(url, 'POST', body);
         if (res.error) {
             throw new Error(res.error);
         }
-        showToast('✅ Nhập vải thành công! Mã: ' + res.fabric_import_code);
-        if (res.ship_cashflow_code) showToast('💰 Đã tạo phiếu chi ship: ' + res.ship_cashflow_code);
+        showToast(f.isEdit ? '✅ Cập nhật bill vải thành công!' : '✅ Nhập vải thành công! Mã: ' + res.fabric_import_code);
+        if (!f.isEdit && res.ship_cashflow_code) showToast('💰 Đã tạo phiếu chi ship: ' + res.ship_cashflow_code);
+
         _bnhFabClose();
         _bnhLoadAll();
     } catch (e) {
