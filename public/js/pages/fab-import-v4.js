@@ -136,6 +136,33 @@ async function _bnhOpenFabricEdit(id) {
 function _escAttr(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function _bnhFabRenderBody() {
+    if (!document.getElementById('fabSuggestStyles')) {
+        var style = document.createElement('style');
+        style.id = 'fabSuggestStyles';
+        style.innerHTML = `
+            @keyframes fabSuggestBlink {
+                0% {
+                    opacity: 1;
+                    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 0.7;
+                    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+                    transform: scale(1.02);
+                }
+                100% {
+                    opacity: 1;
+                    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+                    transform: scale(1);
+                }
+            }
+            .fab-suggest-blink {
+                animation: fabSuggestBlink 1.4s infinite ease-in-out;
+            }
+        `;
+        document.head.appendChild(style);
+    }
     var notesEl = document.getElementById('_fabNotes');
     if (notesEl) _bnhFab.notes = notesEl.value;
     var srcEl = document.getElementById('_fabSrc');
@@ -191,8 +218,9 @@ function _bnhFabRenderBody() {
                 if (matchedBase) {
                     var bpVal = Number(matchedBase.price);
                     basePriceHtml = '<button onclick="event.preventDefault();_bnhFab.items['+idx+'].unit_price=' + bpVal + ';_bnhFabRenderBody();" '
-                        + 'style="margin-left:8px;padding:3px 10px;border-radius:6px;border:1px solid #10b981;background:#ecfdf5;color:#047857;font-size:10px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;outline:none" '
-                        + 'onmouseover="this.style.background=\'#d1fae5\'" onmouseout="this.style.background=\'#ecfdf5\'" title="Click để tự động điền giá gốc này">'
+                        + 'class="fab-suggest-blink" '
+                        + 'style="margin-left:12px;padding:4px 14px;border-radius:20px;border:2.5px solid #10b981;background:#ecfdf5;color:#047857;font-size:11px;font-weight:900;letter-spacing:0.5px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;outline:none;font-family:inherit;box-shadow: 0 1px 3px rgba(0,0,0,0.05)" '
+                        + 'onmouseover="this.style.background=\'#d1fae5\';this.style.transform=\'scale(1.05)\'" onmouseout="this.style.background=\'#ecfdf5\';this.style.transform=\'none\'" title="Click để tự động điền giá gốc này">'
                         + '💡 Giá gốc: ' + bpVal.toLocaleString('vi-VN') + 'đ'
                         + '</button>';
                 }
