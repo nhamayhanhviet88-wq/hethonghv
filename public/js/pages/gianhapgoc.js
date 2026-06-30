@@ -115,6 +115,54 @@ function _gngFormatRatioAndPriceRangeHtml(g, minBasePrice, maxBasePrice) {
     return { cutRatioHtml, finishedPriceHtml };
 }
 
+function _gngFormatDateTime(dateVal) {
+    if (!dateVal) return '---';
+    const date = new Date(dateVal);
+    if (isNaN(date.getTime())) return '---';
+    
+    try {
+        const options = {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            day: 'numeric',
+            month: 'numeric',
+            year: 'numeric'
+        };
+        const formatter = new Intl.DateTimeFormat('vi-VN', options);
+        const parts = formatter.formatToParts(date);
+        
+        let hour = '';
+        let minute = '';
+        let day = '';
+        let month = '';
+        let year = '';
+        
+        for (const part of parts) {
+            if (part.type === 'hour') hour = part.value;
+            if (part.type === 'minute') minute = part.value;
+            if (part.type === 'day') day = part.value;
+            if (part.type === 'month') month = part.value;
+            if (part.type === 'year') year = part.value;
+        }
+        
+        hour = String(hour).padStart(2, '0');
+        minute = String(minute).padStart(2, '0');
+        const yr2 = String(year).slice(-2);
+        
+        return `${hour}:${minute} thứ ${day}/${month}/${yr2}`;
+    } catch (e) {
+        const pad = (num) => String(num).padStart(2, '0');
+        const h = pad(date.getHours());
+        const m = pad(date.getMinutes());
+        const d = date.getDate();
+        const mo = date.getMonth() + 1;
+        const y = String(date.getFullYear()).slice(-2);
+        return `${h}:${m} thứ ${d}/${mo}/${y}`;
+    }
+}
+
 async function renderGiaNhapGocPage(content) {
     if (!content) content = document.getElementById('contentArea');
     if (!content) return;
@@ -1067,7 +1115,7 @@ function _gngRenderDetailApproved(target) {
         let rowsHtml = '';
         filtered.forEach(p => {
             const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
-            const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
+            const formattedDate = _gngFormatDateTime(p.updated_at);
             const isFabric = p.item_type === 'fabric';
 
             const { cutRatioHtml, finishedPriceHtml } = _gngFormatRatioAndPriceHtml(p);
@@ -1180,7 +1228,7 @@ function _gngRenderDetailApproved(target) {
         // Get latest update date
         const datesList = g.items.map(it => it.updated_at ? new Date(it.updated_at).getTime() : 0);
         const latestTime = Math.max(...datesList);
-        const latestDateText = latestTime > 0 ? new Date(latestTime).toLocaleDateString('vi-VN') : '---';
+        const latestDateText = latestTime > 0 ? _gngFormatDateTime(latestTime) : '---';
 
         // Render Group Header
         const showExpanded = (q.length > 0);
@@ -1214,7 +1262,7 @@ function _gngRenderDetailApproved(target) {
         // Render Sub-rows
         g.items.forEach(p => {
             const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
-            const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
+            const formattedDate = _gngFormatDateTime(p.updated_at);
             const { cutRatioHtml, finishedPriceHtml } = _gngFormatRatioAndPriceHtml(p);
             
             rowsHtml += `
