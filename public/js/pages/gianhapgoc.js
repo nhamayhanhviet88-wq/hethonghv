@@ -891,6 +891,9 @@ function _gngRenderDetailApproved(target) {
                             ${isFabric ? '🧵 Vải' : '📦 Phụ liệu'}
                         </span>
                     </td>
+                    <td style="font-weight: 600; color: #475569;">
+                        ${isFabric ? (p.fabric_material_name || '---') : (p.item_name || '---')}
+                    </td>
                     <td style="color: #0f172a; font-weight: 700;">
                         ${isFabric ? `🎨 ${p.fabric_color_name || 'Màu sắc'}` : `🏢 ${p.warehouse_name || '---'}`}
                     </td>
@@ -916,6 +919,7 @@ function _gngRenderDetailApproved(target) {
                     <thead>
                         <tr>
                             <th style="width: 80px;">Loại</th>
+                            <th>Chất Liệu / Vật Liệu</th>
                             <th>Màu Sắc / Kho</th>
                             <th style="text-align: right;">Đơn Giá Gốc</th>
                             <th>Cập Nhật Cuối</th>
@@ -1137,11 +1141,9 @@ function _gngRenderDetailHistory(target) {
                         ${isFabric ? '🧵 Vải' : '📦 Phụ liệu'}
                     </span>
                 </td>
-                ${!isSingleMaterialMode ? `
-                    <td style="font-weight: 700; color: #1e293b;">
-                        ${h.material_name || 'Chất liệu'}
-                    </td>
-                ` : ''}
+                <td style="font-weight: 700; color: #1e293b;">
+                    ${h.material_name || 'Chất liệu'}
+                </td>
                 <td>
                     ${isFabric ? (h.color_name || '---') : '---'}
                 </td>
@@ -1163,7 +1165,7 @@ function _gngRenderDetailHistory(target) {
                 <thead>
                     <tr>
                         <th style="width: 80px;">Loại</th>
-                        ${!isSingleMaterialMode ? '<th>Tên Chất Liệu / Vật Tư</th>' : ''}
+                        <th>Chất Liệu / Vật Liệu</th>
                         <th>Màu Sắc</th>
                         ${_gng.filter.supplierId === 'all' ? '<th>Nhà Cung Cấp</th>' : ''}
                         <th style="text-align: right;">Đơn Giá Nhập Gần Nhất</th>
