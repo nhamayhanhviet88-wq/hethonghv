@@ -1598,11 +1598,19 @@ async function start() {
             return reply.type('text/html').sendFile('doitac-dashboard.html');
         } else {
             // Serve auto-injected dashboard HTML (disable caching to force script updates)
-            reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-                 .header('Pragma', 'no-cache')
-                 .header('Expires', '0')
-                 .type('text/html')
-                 .send(_cachedDashboardHtml || buildDashboardHtml());
+            if (process.env.NODE_ENV !== 'production') {
+                reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+                     .header('Pragma', 'no-cache')
+                     .header('Expires', '0')
+                     .type('text/html')
+                     .send(buildDashboardHtml());
+            } else {
+                reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+                     .header('Pragma', 'no-cache')
+                     .header('Expires', '0')
+                     .type('text/html')
+                     .send(_cachedDashboardHtml || buildDashboardHtml());
+            }
         }
     });
 
