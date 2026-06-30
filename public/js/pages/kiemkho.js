@@ -3122,11 +3122,11 @@ function _kkRenderReportTabItems(items, type) {
                     shelfBadge = `<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #fde68a; white-space: nowrap;">${locationName}</span>`;
                 } else if (isUnassigned || locationName.toLowerCase().includes('chưa xếp kệ') || locationName.toLowerCase().includes('cần xử lý kho')) {
                     if (locationName.toLowerCase().includes('cần xử lý kho')) {
-                        // Purple/lavender theme for Cây Nguyên Cần Xử Lý Kho
-                        shelfBadge = `<span style="background: #f3e8ff; color: #6b21a8; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #d8b4fe; white-space: nowrap;">${locationName}</span>`;
+                        // Slate/gray theme for Cây Nguyên Cần Xử Lý Kho (distinct from Kệ C purple)
+                        shelfBadge = `<span style="background: #e2e8f0; color: #0f172a; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #94a3b8; white-space: nowrap;">${locationName}</span>`;
                     } else {
-                        // Pink/rose theme for Cây Lẻ Chưa Xếp Kệ
-                        shelfBadge = `<span style="background: #fce7f3; color: #be185d; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #fbcfe8; white-space: nowrap;">${locationName}</span>`;
+                        // Light slate theme for Cây Lẻ Chưa Xếp Kệ
+                        shelfBadge = `<span style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #cbd5e1; white-space: nowrap;">${locationName}</span>`;
                     }
                 } else if (locationName.toLowerCase().includes('in 3d phượng tc') || locationName.toLowerCase().includes('in 3d thiện linh')) {
                     shelfBadge = `<span style="background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bfdbfe; white-space: nowrap;">${locationName}</span>`;
