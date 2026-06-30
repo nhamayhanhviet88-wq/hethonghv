@@ -111,6 +111,21 @@ async function _bvlWhFilterChange(val) {
 }
 
 async function _bvlLoadAll() {
+    if (!document.getElementById('bvlBlinkStyles')) {
+        var style = document.createElement('style');
+        style.id = 'bvlBlinkStyles';
+        style.innerHTML = `
+            @keyframes bvlBlink {
+                0% { opacity: 1; }
+                50% { opacity: 0.15; }
+                100% { opacity: 1; }
+            }
+            .bvl-blink {
+                animation: bvlBlink 1.2s infinite;
+            }
+        `;
+        document.head.appendChild(style);
+    }
     try {
         var treeQs = '?record_type=general';
         if (_bvl.filter.warehouse_id) treeQs += '&warehouse_id=' + _bvl.filter.warehouse_id;
@@ -361,7 +376,7 @@ function _bvlRender() {
                 if (r.is_disapproved) {
                     badgeHtml += '<span style="background:#fef2f2;color:#ef4444;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fecaca;display:inline-block;vertical-align:middle;line-height:1.2;cursor:pointer" title="Manager từ chối duyệt giá, yêu cầu sửa lại giá!">❌ Từ chối duyệt</span>';
                 } else {
-                    badgeHtml += '<span style="background:#fffbeb;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fef3c7;display:inline-block;vertical-align:middle;line-height:1.2" title="Chờ Trinh duyệt giá">⚠️ Chờ duyệt giá</span>';
+                    badgeHtml += '<span class="bvl-blink" style="background:#ef4444;color:#fff;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #dc2626;display:inline-block;vertical-align:middle;line-height:1.2" title="Chờ Trinh duyệt giá">⚠️ Chờ duyệt giá</span>';
                 }
             }
 
@@ -468,7 +483,7 @@ function _bvlRender() {
                 + '<td style="text-align:right;color:#f59e0b;font-weight:600;vertical-align:middle">' + _bvlFM(r.refund) + '</td>'
                 + '<td style="text-align:right;font-weight:800;color:#1e293b;vertical-align:middle">' + _bvlFM(r.total_amount) + '</td>'
                 + paidCellHtml
-                + '<td style="text-align:center;vertical-align:middle">' + _bvlDebt(runDebt[i]) + '</td>'
+                + '<td style="text-align:center;vertical-align:middle">' + (r.requires_price_approval && !r.is_checked ? '<span class="bvl-blink" style="background:#fee2e2;color:#ef4444;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #fca5a5;display:inline-block">Chờ duyệt giá</span>' : _bvlDebt(runDebt[i])) + '</td>'
                 + '<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">' + (r.cost_notes || '—') + '</td>'
                 + '<td style="font-size:9px;color:#6b7280;vertical-align:middle">' + upd + '</td></tr>';
         }).join('');

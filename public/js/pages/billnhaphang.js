@@ -36,6 +36,21 @@ function renderBillnhaphangPage(content){
 }
 
 async function _bnhLoadAll(){
+    if (!document.getElementById('bnhBlinkStyles')) {
+        var style = document.createElement('style');
+        style.id = 'bnhBlinkStyles';
+        style.innerHTML = `
+            @keyframes bnhBlink {
+                0% { opacity: 1; }
+                50% { opacity: 0.15; }
+                100% { opacity: 1; }
+            }
+            .bnh-blink {
+                animation: bnhBlink 1.2s infinite;
+            }
+        `;
+        document.head.appendChild(style);
+    }
     // Load fabric module if not yet loaded
     if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260630_vdecimal';document.head.appendChild(s);}
     try{
@@ -180,7 +195,7 @@ function _bnhRender(){
             if (r.is_disapproved) {
                 badgeHtml += '<span style="background:#fef2f2;color:#ef4444;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fecaca;display:inline-block;vertical-align:middle;line-height:1.2;cursor:pointer" title="Manager từ chối duyệt giá, yêu cầu sửa lại giá!">❌ Từ chối duyệt</span>';
             } else {
-                badgeHtml += '<span style="background:#fffbeb;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fef3c7;display:inline-block;vertical-align:middle;line-height:1.2" title="Chờ Trinh duyệt giá">⚠️ Chờ duyệt giá</span>';
+                badgeHtml += '<span class="bnh-blink" style="background:#ef4444;color:#fff;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #dc2626;display:inline-block;vertical-align:middle;line-height:1.2" title="Chờ Trinh duyệt giá">⚠️ Chờ duyệt giá</span>';
             }
         }
 
@@ -260,7 +275,7 @@ function _bnhRender(){
         +'<td style="text-align:right;color:#f59e0b;font-weight:600;vertical-align:middle">'+_bnhFM(r.refund)+'</td>'
         +amountCellHtml
         +paidCellHtml
-        +'<td style="text-align:center;vertical-align:middle">'+_bnhDebt(runDebt[i])+'</td>'
+        +'<td style="text-align:center;vertical-align:middle">'+(r.requires_price_approval && !r.is_checked ? '<span class="bnh-blink" style="background:#fee2e2;color:#ef4444;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #fca5a5;display:inline-block">Chờ duyệt giá</span>' : _bnhDebt(runDebt[i]))+'</td>'
         +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">'+(r.cost_notes||'—')+'</td>'
         +'<td style="font-size:9px;color:#6b7280;vertical-align:middle">'+upd+'</td></tr>';}).join('');}
     var el=document.getElementById('bnhInfo');if(el){var src=_bnh.filter.source_id?(_bnh.sources.find(function(s){return s.id==_bnh.filter.source_id;})||{}).name||'':'Tất cả';
