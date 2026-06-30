@@ -508,6 +508,44 @@
             }
         }
 
+        function _gngGetSupplierBadgeHtml(name) {
+            if (!name) return '---';
+            const cleanName = name.trim().toLowerCase();
+            let bg = '#f1f5f9';
+            let color = '#475569';
+            
+            if (cleanName.includes('ngọc hân') || cleanName.includes('ngoc han')) {
+                bg = '#e0e7ff';
+                color = '#4338ca';
+            } else if (cleanName.includes('ngọc ngà') || cleanName.includes('ngoc nga')) {
+                bg = '#ecfdf5';
+                color = '#047857';
+            } else if (cleanName.includes('dung pet') || cleanName.includes('a dung')) {
+                bg = '#fff7ed';
+                color = '#c2410c';
+            } else if (cleanName.includes('sbc')) {
+                bg = '#f0f9ff';
+                color = '#0369a1';
+            } else {
+                let hash = 0;
+                for (let i = 0; i < cleanName.length; i++) {
+                    hash = cleanName.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                const index = Math.abs(hash) % 5;
+                const palettes = [
+                    { bg: '#fdf2f8', color: '#be185d' },
+                    { bg: '#faf5ff', color: '#7e22ce' },
+                    { bg: '#f5f5f4', color: '#44403c' },
+                    { bg: '#f0fdf4', color: '#15803d' },
+                    { bg: '#fef2f2', color: '#b91c1c' }
+                ];
+                bg = palettes[index].bg;
+                color = palettes[index].color;
+            }
+            
+            return `<span class="gng-sup-badge" style="background: ${bg}; color: ${color}; padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">${name}</span>`;
+        }
+
         function renderSupplierListView(container) {
             // Process suppliers
             const suppliersMap = new Map(); // source_id -> { name, priceCount, pendingCount }
@@ -539,40 +577,150 @@
                 !supplierSearchQuery || (s.name || '').toLowerCase().includes(supplierSearchQuery)
             );
 
+            // Filter individual items globally by matching all words of the search query
+            let matchedItems = [];
+            if (supplierSearchQuery) {
+                const searchTerms = supplierSearchQuery.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+                if (searchTerms.length > 0) {
+                    matchedItems = prices.filter(p => {
+                        const searchString = `
+                            ${p.source_name || ''} 
+                            ${p.item_name || ''} 
+                            ${p.fabric_material_name || ''} 
+                            ${p.fabric_color_name || ''}
+                        `.toLowerCase();
+                        return searchTerms.every(term => searchString.includes(term));
+                    });
+                }
+            }
+
             const totalPendingCount = pending.reduce((acc, curr) => acc + (curr.discrepancies?.length || 0), 0);
 
             let html = `
                 <div class="m-controls">
-                    <input type="search" id="mSupplierSearch" class="m-search-input" placeholder="Tìm kiếm nhà cung cấp..." value="${supplierSearchQuery}">
+                    <input type="search" id="mSupplierSearch" class="m-search-input" placeholder="Tìm nhà cung cấp, chất liệu, màu sắc..." value="${supplierSearchQuery}">
                 </div>
                 
                 <div class="m-list">
-                    <!-- Global all suppliers card -->
-                    <div class="m-sup-item" onclick="selectSupplier('all')">
-                        <div>
-                            <div class="m-sup-name">🌍 Tất cả nhà cung cấp</div>
-                            <div class="m-sup-info">Thống kê toàn bộ ${prices.length} vật tư đã lưu giá</div>
-                        </div>
-                        <div>▶</div>
-                    </div>
-
-                    <!-- Global pending approvals card -->
-                    <div class="m-sup-item" onclick="selectSupplier('pending_all')">
-                        <div>
-                            <div class="m-sup-name" style="color:#b91c1c;">⚠️ Tổng hợp chờ duyệt giá</div>
-                            <div class="m-sup-info">Xem toàn bộ ${pending.length} hóa đơn bị lệch giá</div>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            ${totalPendingCount > 0 ? `<span class="m-badge-pending-red">${totalPendingCount} mục</span>` : ''}
-                            <span>▶</span>
-                        </div>
-                    </div>
-                    
-                    <hr style="border:0; border-top:1px solid #e2e8f0; margin:12px 0 6px 0;" />
             `;
 
-            if (filteredSuppliers.length === 0) {
-                html += `<div class="m-empty"><div class="m-empty-icon">🏢</div><div class="m-empty-text">Không tìm thấy nhà cung cấp nào</div></div>`;
+            // If searching and items match, display matched items list at the top
+            if (supplierSearchQuery && matchedItems.length > 0) {
+                html += `
+                    <div style="margin-top: 6px; margin-bottom: 8px; font-size: 11px; font-weight: 800; color: #0d9488; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+                        <span>🔍 CHI TIẾT VẬT TƯ TÌM THẤY</span>
+                        <span style="background: #ccfbf1; color: #0d9488; font-size: 10px; padding: 1px 6px; border-radius: 9999px;">${matchedItems.length}</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+                `;
+
+                matchedItems.forEach(p => {
+                    const isFabric = p.item_type === 'fabric';
+                    const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
+                    const supBadge = _gngGetSupplierBadgeHtml(p.source_name);
+
+                    const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
+                    const ratioChild = Number(p.fabric_cut_ratio_child) || 0;
+                    const ratioOversize = Number(p.fabric_cut_ratio_oversize) || 0;
+
+                    const priceAdult = ratioAdult > 0 ? Math.round(Number(p.price) / ratioAdult) : 0;
+                    const priceChild = ratioChild > 0 ? Math.round(Number(p.price) / ratioChild) : 0;
+                    const priceOversize = ratioOversize > 0 ? Math.round(Number(p.price) / ratioOversize) : 0;
+
+                    let fabricDetailsHtml = '';
+                    if (isFabric) {
+                        fabricDetailsHtml = `
+                            <div style="margin-top: 6px; padding: 6px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                                    <span style="color: #64748b;">🧑 Lớn:</span>
+                                    <span>
+                                        <b style="color: #2563eb;">${ratioAdult > 0 ? ratioAdult + ' sp/kg' : '---'}</b>
+                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
+                                        <b style="color: #2563eb;">${priceAdult > 0 ? priceAdult.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                    </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                                    <span style="color: #64748b;">👶 Trẻ:</span>
+                                    <span>
+                                        <b style="color: #059669;">${ratioChild > 0 ? ratioChild + ' sp/kg' : '---'}</b>
+                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
+                                        <b style="color: #059669;">${priceChild > 0 ? priceChild.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                    </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                                    <span style="color: #64748b;">👕 Over:</span>
+                                    <span>
+                                        <b style="color: #ea580c;">${ratioOversize > 0 ? ratioOversize + ' sp/kg' : '---'}</b>
+                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
+                                        <b style="color: #ea580c;">${priceOversize > 0 ? priceOversize.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    html += `
+                        <div class="m-card" style="padding: 12px; margin-bottom: 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                                <div style="font-size: 13px; font-weight: 700; color: #0f172a; text-align: left;">
+                                    <span class="m-badge-type ${isFabric ? 'm-badge-fabric' : 'm-badge-material'}" style="padding: 2px 6px; font-size: 10px; margin-right: 4px;">
+                                        ${isFabric ? 'Vải' : 'Phụ liệu'}
+                                    </span>
+                                    ${isFabric ? p.fabric_material_name : p.item_name}
+                                </div>
+                                <div>${supBadge}</div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #f1f5f9;">
+                                <div style="font-size: 12px; font-weight: 600; color: #475569;">
+                                    ${isFabric ? `🎨 Màu: <b>${p.fabric_color_name}</b>` : `🏢 Kho: <b>${p.warehouse_name || '---'}</b>`}
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 13px; font-weight: 800; color: #059669; margin-right: 4px;">${formattedPrice}</span>
+                                    <button class="m-btn-secondary" style="padding: 3px 6px; font-size: 10px; background: #f1f5f9; color: #475569; border-radius: 4px;" onclick="event.stopPropagation(); openHistorySheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
+                                        Lịch sử
+                                    </button>
+                                    ${isDuyetUser ? `
+                                        <button class="m-btn-primary" style="padding: 3px 6px; font-size: 10px; border-radius: 4px;" onclick="event.stopPropagation(); openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}')">
+                                            Sửa
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            ${fabricDetailsHtml}
+                        </div>
+                    `;
+                });
+
+                html += `</div><hr style="border:0; border-top:1px solid #e2e8f0; margin:12px 0;" />`;
+            }
+
+            html += `
+                <!-- Global all suppliers card -->
+                <div class="m-sup-item" onclick="selectSupplier('all')">
+                    <div>
+                        <div class="m-sup-name">🌍 Tất cả nhà cung cấp</div>
+                        <div class="m-sup-info">Thống kê toàn bộ ${prices.length} vật tư đã lưu giá</div>
+                    </div>
+                    <div>▶</div>
+                </div>
+
+                <!-- Global pending approvals card -->
+                <div class="m-sup-item" onclick="selectSupplier('pending_all')">
+                    <div>
+                        <div class="m-sup-name" style="color:#b91c1c;">⚠️ Tổng hợp chờ duyệt giá</div>
+                        <div class="m-sup-info">Xem toàn bộ ${pending.length} hóa đơn bị lệch giá</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        ${totalPendingCount > 0 ? `<span class="m-badge-pending-red">${totalPendingCount} mục</span>` : ''}
+                        <span>▶</span>
+                    </div>
+                </div>
+                
+                <hr style="border:0; border-top:1px solid #e2e8f0; margin:12px 0 6px 0;" />
+            `;
+
+            if (filteredSuppliers.length === 0 && (!supplierSearchQuery || matchedItems.length === 0)) {
+                html += `<div class="m-empty"><div class="m-empty-icon">🏢</div><div class="m-empty-text">Không tìm thấy nhà cung cấp hay vật tư nào</div></div>`;
             } else {
                 const fabricSuppliers = filteredSuppliers.filter(s => _gngIsFabricSupplier(s.id));
                 const materialSuppliers = filteredSuppliers.filter(s => !_gngIsFabricSupplier(s.id));
@@ -631,9 +779,15 @@
             const supSearch = document.getElementById('mSupplierSearch');
             if (supSearch) {
                 supSearch.addEventListener('input', (e) => {
-                    supplierSearchQuery = e.target.value.toLowerCase().trim();
-                    // Just update list items to avoid full reload lag
-                    loadData();
+                    supplierSearchQuery = e.target.value.toLowerCase();
+                    // Render locally to avoid API calls and lag
+                    renderDynamicView();
+                    // Refocus and place cursor at the end
+                    const freshInp = document.getElementById('mSupplierSearch');
+                    if (freshInp) {
+                        freshInp.focus();
+                        freshInp.selectionStart = freshInp.selectionEnd = freshInp.value.length;
+                    }
                 });
             }
         }
