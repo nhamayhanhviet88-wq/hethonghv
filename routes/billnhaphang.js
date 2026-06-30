@@ -2333,7 +2333,7 @@ module.exports = async function(fastify) {
                                 await client.query('ROLLBACK');
                                 client.release();
                                 return reply.code(400).send({
-                                    error: `Đơn giá của ${fi.material_name} (${fi.color_name}) không được trùng với giá cũ đã bị từ chối duyệt (${oldPrice.toLocaleString('vi-VN')} đ)! Vui lòng nhập đơn giá mới.`
+                                    error: `Đơn giá của ${fi.material_name} (${fi.color_name}) không được nhập giá cũ đã bị từ chối duyệt (${oldPrice.toLocaleString('vi-VN')} đ)! Vui lòng nhập đơn giá mới khác.`
                                 });
                             }
                         }

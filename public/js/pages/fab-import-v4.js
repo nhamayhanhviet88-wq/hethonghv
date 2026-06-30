@@ -67,7 +67,7 @@ async function _bnhOpenFabricEdit(id) {
         _bnhFab.code = rec.fabric_import_code;
         _bnhFab.selectedSrc = rec.source_id;
         _bnhFab.availSources = sr.sources || [];
-        _bnhFab.basePrices = basePricesRes || [];
+        _bnhFab.basePrices = (basePricesRes && basePricesRes.prices) || [];
         _bnhFab.requireRollPhoto = cfg && cfg.value !== undefined ? (cfg.value === 'true') : true;
         _bnhFab.notes = rec.cost_notes || '';
         _bnhFab.vat = Number(rec.vat_amount) || 0;
@@ -530,7 +530,7 @@ async function _bnhFabSubmit() {
             var basePrice = matchedBase ? Number(matchedBase.price) : null;
             if (Number(it.unit_price) === Number(it.old_unit_price)) {
                 if (basePrice === null || Number(it.old_unit_price) !== basePrice) {
-                    showToast(it.material_name + ' (' + it.color_name + '): Đơn giá không được trùng với giá cũ đã bị từ chối duyệt (' + (Number(it.old_unit_price).toLocaleString('vi-VN')) + ' đ)! Vui lòng nhập đơn giá mới.', 'error');
+                    showToast(it.material_name + ' (' + it.color_name + '): Đơn giá không được nhập giá cũ đã bị từ chối duyệt (' + (Number(it.old_unit_price).toLocaleString('vi-VN')) + ' đ)! Vui lòng nhập đơn giá mới khác.', 'error');
                     _bnhFab.submitting = false;
                     if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu'; }
                     return;

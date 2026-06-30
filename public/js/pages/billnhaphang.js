@@ -52,7 +52,7 @@ async function _bnhLoadAll(){
         document.head.appendChild(style);
     }
     // Load fabric module if not yet loaded
-    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260630_edit_v3';document.head.appendChild(s);}
+    if(!window._bnhFabLoaded){window._bnhFabLoaded=true;var s=document.createElement('script');s.src='/js/pages/fab-import-v4.js?v=20260630_edit_v4';document.head.appendChild(s);}
     try{
         var u=window._currentUser||window.currentUser||{};
         var promises = [
