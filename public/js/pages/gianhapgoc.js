@@ -1043,8 +1043,15 @@ function _gngRenderDetailApproved(target) {
     });
 
     const groups = Object.values(groupsMap);
-    // Sort groups alphabetically by name
-    groups.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    // Sort groups: fabric first, material second. Within each type, sort alphabetically by name.
+    groups.sort((a, b) => {
+        const typeOrderA = a.item_type === 'fabric' ? 0 : 1;
+        const typeOrderB = b.item_type === 'fabric' ? 0 : 1;
+        if (typeOrderA !== typeOrderB) {
+            return typeOrderA - typeOrderB;
+        }
+        return (a.name || '').localeCompare(b.name || '', 'vi');
+    });
 
     let rowsHtml = '';
     groups.forEach(g => {
@@ -1198,8 +1205,13 @@ function _gngRenderDetailHistory(target) {
         };
     });
 
-    // Sort grouped list alphabetically
+    // Sort grouped list: fabric first, material second. Within type, sort alphabetically.
     groupedList.sort((a, b) => {
+        const typeOrderA = a.latest.item_type === 'fabric' ? 0 : 1;
+        const typeOrderB = b.latest.item_type === 'fabric' ? 0 : 1;
+        if (typeOrderA !== typeOrderB) {
+            return typeOrderA - typeOrderB;
+        }
         const nameA = a.latest.material_name || '';
         const nameB = b.latest.material_name || '';
         const comp = nameA.localeCompare(nameB, 'vi');
