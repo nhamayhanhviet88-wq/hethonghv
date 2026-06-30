@@ -1144,10 +1144,16 @@ function _bvlUpdateAddedMatQty(index, val) {
 }
 window._bvlUpdateAddedMatQty = _bvlUpdateAddedMatQty;
 
-function _bvlUpdateAddedMatPrice(index, val) {
-    var price = Number(val) || 0;
-    _bvl.addedMaterials[index].price = price;
-    _bvl.addedMaterials[index].cost = price * _bvl.addedMaterials[index].qty;
+function _bvlFormatRowInput(el, index, type) {
+    var raw = el.value.replace(/\./g, '').replace(/[^0-9]/g, '');
+    var formatted = raw ? Number(raw).toLocaleString('vi-VN').replace(/,/g, '.') : '';
+    el.value = formatted;
+    
+    var numVal = Number(raw) || 0;
+    if (type === 'price') {
+        _bvl.addedMaterials[index].price = numVal;
+        _bvl.addedMaterials[index].cost = numVal * _bvl.addedMaterials[index].qty;
+    }
     
     var costText = document.getElementById('_bvlRowCostText_' + index);
     if (costText) {
@@ -1155,7 +1161,7 @@ function _bvlUpdateAddedMatPrice(index, val) {
     }
     _bvlCalculateTotal();
 }
-window._bvlUpdateAddedMatPrice = _bvlUpdateAddedMatPrice;
+window._bvlFormatRowInput = _bvlFormatRowInput;
 
 function _bvlRenderAddedMats() {
     var listContainer = document.getElementById('_bvlMatAddedList');
@@ -1189,7 +1195,7 @@ function _bvlRenderAddedMats() {
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:4px">'
             + '<span style="font-size:11px;color:#64748b">Giá:</span>'
-            + '<input type="number" class="_bvlRowPriceInput" data-index="' + index + '" value="' + item.price + '" oninput="_bvlUpdateAddedMatPrice(' + index + ', this.value)" style="width:85px;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px;font-weight:700;text-align:right;outline:none;color:#1e293b"> '
+            + '<input type="text" class="_bvlRowPriceInput" data-index="' + index + '" value="' + _bvlFM(item.price) + '" oninput="_bvlFormatRowInput(this, ' + index + ', 'price')" style="width:85px;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px;font-weight:700;text-align:right;outline:none;color:#1e293b"> '
             + '</div>'
             + '<div style="min-width:90px;text-align:right"><b id="_bvlRowCostText_' + index + '" style="color:#0d9488;font-size:13px">' + _bvlFM(item.cost) + '₫</b></div>'
             + '<button type="button" onclick="_bvlRemoveMatRow(' + index + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-weight:700;font-size:14px;padding:2px;margin-left:4px" title="Xóa">🗑️</button>'
