@@ -10,6 +10,10 @@ var _gng = {
         supplierSearch: '',
         type: '' // '', 'fabric', 'material'
     },
+    sidebarExpanded: {
+        fabric: true,
+        material: true
+    },
     isDuyetUser: false
 };
 
@@ -480,14 +484,32 @@ async function renderGiaNhapGocPage(content) {
                 font-size: 11px;
                 color: #64748b;
             }
-            .gng-badge-count-color {
-                font-size: 10.5px;
+            .gng-sidebar-category-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 12px;
+                font-size: 11px;
+                font-weight: 800;
+                color: #1e293b;
+                background: #f8fafc;
+                border-radius: 8px;
+                cursor: pointer;
+                user-select: none;
+                margin-top: 12px;
+                margin-bottom: 6px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                border: 1px solid #e2e8f0;
+                transition: all 0.15s ease;
+            }
+            .gng-sidebar-category-header:hover {
                 background: #f1f5f9;
-                color: #475569;
-                padding: 2px 6px;
-                border-radius: 6px;
-                font-weight: 600;
-                margin-left: 8px;
+                border-color: #cbd5e1;
+            }
+            .gng-category-arrow {
+                font-size: 9px;
+                color: #64748b;
             }
         `;
         document.head.appendChild(style);
@@ -594,9 +616,31 @@ function _gngRenderLayout() {
     _gngRenderDetailPanel();
 }
 
+function _gngAutoExpandActiveCategory() {
+    if (_gng.filter.supplierId === 'all' || _gng.filter.supplierId === 'pending_all') return;
+    
+    // Find the active supplier's type
+    const sId = _gng.filter.supplierId;
+    const hasFabric = _gng.prices.some(p => p.source_id == sId && p.item_type === 'fabric') ||
+                      _gng.history.some(h => h.source_id == sId && h.item_type === 'fabric') ||
+                      _gng.pending.some(rec => rec.source_id == sId && rec.record_type === 'fabric');
+    const type = hasFabric ? 'fabric' : 'material';
+    
+    // Expand it
+    _gng.sidebarExpanded[type] = true;
+}
+
+function _gngToggleSidebarCategory(type) {
+    _gng.sidebarExpanded[type] = !_gng.sidebarExpanded[type];
+    _gngRenderSidebar();
+}
+
 function _gngRenderSidebar() {
     const listArea = document.getElementById('gngSidebarListArea');
     if (!listArea) return;
+
+    // Auto expand category containing active supplier
+    _gngAutoExpandActiveCategory();
 
     // Process unique suppliers and their statistics
     const suppliersMap = new Map(); // source_id -> { name, priceCount, pendingCount }
@@ -650,7 +694,24 @@ function _gngRenderSidebar() {
     const q = (_gng.filter.supplierSearch || '').toLowerCase().trim();
     const filteredSuppliers = suppliersList.filter(s => (s.name || '').toLowerCase().includes(q));
 
+    // Group into Fabric vs Material
+    const fabricList = [];
+    const materialList = [];
+
     filteredSuppliers.forEach(s => {
+        // Classify supplier
+        const hasFabric = _gng.prices.some(p => p.source_id == s.id && p.item_type === 'fabric') ||
+                          _gng.history.some(h => h.source_id == s.id && h.item_type === 'fabric') ||
+                          _gng.pending.some(rec => rec.source_id == s.id && rec.record_type === 'fabric');
+        if (hasFabric) {
+            fabricList.push(s);
+        } else {
+            materialList.push(s);
+        }
+    });
+
+    // Helper to render supplier items
+    function renderSupplierItem(s) {
         const isActive = _gng.filter.supplierId == s.id;
         
         // Find materials for this supplier
@@ -664,7 +725,7 @@ function _gngRenderSidebar() {
         const materials = Array.from(materialsSet);
         materials.sort((a, b) => a.localeCompare(b, 'vi'));
 
-        html += `
+        let itemHtml = `
             <div class="gng-sidebar-item ${isActive ? 'active' : ''}" onclick="_gngSelectSupplier(${s.id})">
                 <span class="gng-sidebar-item-name" title="${s.name}">${s.name}</span>
                 <div class="gng-sidebar-badges">
@@ -684,13 +745,37 @@ function _gngRenderSidebar() {
                     </div>
                 `;
             });
-            html += `
+            itemHtml += `
                 <div class="gng-sidebar-sub-list" style="margin-left: 16px; padding-left: 8px; border-left: 1.5px solid #cbd5e1; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; margin-bottom: 4px;">
                     ${subItemsHtml}
                 </div>
             `;
         }
-    });
+        return itemHtml;
+    }
+
+    const isSearching = q.length > 0;
+    const isFabricExpanded = isSearching || _gng.sidebarExpanded.fabric;
+    const isMaterialExpanded = isSearching || _gng.sidebarExpanded.material;
+
+    // Build categories html
+    html += `
+        <div class="gng-sidebar-category-header" onclick="_gngToggleSidebarCategory('fabric')">
+            <span>🧵 NGUỒN NHẬP VẢI</span>
+            <span class="gng-category-arrow">${isFabricExpanded ? '▼' : '▶'}</span>
+        </div>
+        <div class="gng-sidebar-category-content" style="display: ${isFabricExpanded ? 'flex' : 'none'}; flex-direction: column; gap: 4px; padding-left: 4px;">
+            ${fabricList.length > 0 ? fabricList.map(renderSupplierItem).join('') : '<div style="font-size:11px; color:#94a3b8; padding:8px; text-align:center;">Không có nguồn nhập vải</div>'}
+        </div>
+        
+        <div class="gng-sidebar-category-header" onclick="_gngToggleSidebarCategory('material')">
+            <span>📦 NGUỒN NHẬP VẬT LIỆU</span>
+            <span class="gng-category-arrow">${isMaterialExpanded ? '▼' : '▶'}</span>
+        </div>
+        <div class="gng-sidebar-category-content" style="display: ${isMaterialExpanded ? 'flex' : 'none'}; flex-direction: column; gap: 4px; padding-left: 4px;">
+            ${materialList.length > 0 ? materialList.map(renderSupplierItem).join('') : '<div style="font-size:11px; color:#94a3b8; padding:8px; text-align:center;">Không có nguồn nhập vật liệu</div>'}
+        </div>
+    `;
 
     listArea.innerHTML = html;
 }
