@@ -326,8 +326,8 @@ async function renderTilecatgocPage(content) {
             .tlcg-drawer {
                 position: fixed;
                 top: 0;
-                right: -650px;
-                width: 650px;
+                right: -720px;
+                width: 720px;
                 height: 100%;
                 background: white;
                 box-shadow: -10px 0 25px -5px rgba(0,0,0,0.1), -10px 0 10px -5px rgba(0,0,0,0.04);
@@ -446,11 +446,11 @@ async function renderTilecatgocPage(content) {
             .tlcg-ticket-table {
                 width: 100%;
                 border-collapse: collapse;
-                font-size: 12px;
+                font-size: 11.5px;
             }
             .tlcg-ticket-table th {
                 background: #f8fafc;
-                padding: 8px 10px;
+                padding: 8px 6px;
                 color: #475569;
                 font-weight: 700;
                 text-transform: uppercase;
@@ -458,7 +458,7 @@ async function renderTilecatgocPage(content) {
                 text-align: left;
             }
             .tlcg-ticket-table td {
-                padding: 8px 10px;
+                padding: 8px 6px;
                 color: #334155;
                 border-bottom: 1px solid #f1f5f9;
             }
@@ -1011,10 +1011,11 @@ async function _tlcgLoadDrawerContent(mat) {
                             </div>
                         </div>
                         
-                        <div class="tlcg-accordion-body">
-                            <table class="tlcg-ticket-table">
-                                <thead>
-                                    <tr>
+                        <div class="tlcg-accordion-body" style="padding: 16px 8px;">
+                            <div style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                                <table class="tlcg-ticket-table" style="min-width: 580px;">
+                                    <thead>
+                                        <tr>
                                         <th>Mã Đơn / SP</th>
                                         <th>Màu sắc</th>
                                         <th>Phân khúc</th>
@@ -1056,6 +1057,7 @@ async function _tlcgLoadDrawerContent(mat) {
                                     }).join('')}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
                 `;

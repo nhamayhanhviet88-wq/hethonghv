@@ -4086,7 +4086,6 @@ module.exports = async function(fastify) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền duyệt tỉ lệ cắt!' });
         }
         const { id } = request.params;
-        const { vnNow } = require('./utils/timezone');
         
         await db.run(`
             UPDATE cutting_records 
@@ -4126,7 +4125,6 @@ module.exports = async function(fastify) {
         if (!ids || !Array.isArray(ids) || ids.length === 0) {
             return reply.code(400).send({ error: 'Danh sách ID không hợp lệ!' });
         }
-        const { vnNow } = require('./utils/timezone');
         
         const placeholders = ids.map((_, idx) => `$${idx + 3}`).join(', ');
         const query = `
