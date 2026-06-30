@@ -679,11 +679,6 @@
                                     <button class="m-btn-secondary" style="padding: 3px 6px; font-size: 10px; background: #f1f5f9; color: #475569; border-radius: 4px;" onclick="event.stopPropagation(); openHistorySheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
                                         Lịch sử
                                     </button>
-                                    ${isDuyetUser ? `
-                                        <button class="m-btn-primary" style="padding: 3px 6px; font-size: 10px; border-radius: 4px;" onclick="event.stopPropagation(); openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}')">
-                                            Sửa
-                                        </button>
-                                    ` : ''}
                                 </div>
                             </div>
                             ${fabricDetailsHtml}
@@ -992,11 +987,6 @@
                                     <button class="m-btn-secondary" style="padding: 2px 6px; font-size: 10px; background:#f1f5f9; color:#475569; border-radius:4px;" onclick="event.stopPropagation(); openHistorySheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
                                         Lịch sử
                                     </button>
-                                    ${isDuyetUser ? `
-                                        <button class="m-btn-primary" style="padding: 2px 6px; font-size: 10px; border-radius:4px;" onclick="event.stopPropagation(); openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}')">
-                                            Sửa
-                                        </button>
-                                    ` : ''}
                                 </div>
                             </div>
                             ${fabricDetailsHtml}

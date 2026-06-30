@@ -1155,11 +1155,6 @@ function _gngRenderDetailApproved(target) {
                         <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); _gngShowItemHistory('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
                             📈 Lịch sử
                         </button>
-                        ${_gng.isDuyetUser ? `
-                            <button class="gng-btn-primary" style="padding: 4px 8px; font-size: 11px; margin-left: 2px;" onclick="event.stopPropagation(); _gngOpenEditPriceModal('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
-                                ✏️ Sửa
-                            </button>
-                        ` : ''}
                     </td>
                 </tr>
             `;
@@ -1295,11 +1290,6 @@ function _gngRenderDetailApproved(target) {
                         <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); _gngShowItemHistory('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
                             📈 Lịch sử
                         </button>
-                        ${_gng.isDuyetUser ? `
-                            <button class="gng-btn-primary" style="padding: 4px 8px; font-size: 11px; margin-left: 2px;" onclick="event.stopPropagation(); _gngOpenEditPriceModal('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
-                                ✏️ Sửa
-                            </button>
-                        ` : ''}
                     </td>
                 </tr>
             `;
