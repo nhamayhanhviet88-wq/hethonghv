@@ -867,6 +867,15 @@ module.exports = async function(fastify) {
 
         const records = await db.all(`
             SELECT sc.*, r.roll_code, r.weight AS old_weight, r.original_weight, r.source, r.location, r.created_at AS roll_created_at,
+                   r.locked_by_cutting_id,
+                   EXISTS (
+                       SELECT 1 FROM qlx_fabric_reservations res
+                       WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
+                   ) AS has_reservation,
+                   EXISTS (
+                       SELECT 1 FROM cutting_records cr
+                       WHERE cr.id = r.locked_by_cutting_id AND cr.is_cut_done = false
+                   ) AS is_active_cut,
                    CASE WHEN (fc.is_active = false OR m.is_active = false) THEN fc.color_name || ' ( Không Bán )' ELSE fc.color_name END AS color_name,
                    fc.id AS color_id,
                    CASE WHEN m.is_active = false THEN m.name || ' ( Không Bán )' ELSE m.name END AS material_name,
@@ -1332,7 +1341,16 @@ module.exports = async function(fastify) {
         if (!session) return reply.code(404).send({ error: 'Phiên kiểm kê không tồn tại.' });
 
         const items = await db.all(`
-            SELECT i.*, u.full_name AS checked_by_name, r.location AS current_location, r.original_weight
+            SELECT i.*, u.full_name AS checked_by_name, r.location AS current_location, r.original_weight,
+                   r.locked_by_cutting_id,
+                   EXISTS (
+                       SELECT 1 FROM qlx_fabric_reservations res
+                       WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
+                   ) AS has_reservation,
+                   EXISTS (
+                       SELECT 1 FROM cutting_records cr
+                       WHERE cr.id = r.locked_by_cutting_id AND cr.is_cut_done = false
+                   ) AS is_active_cut
             FROM stockcheck_session_items i
             LEFT JOIN users u ON i.checked_by = u.id
             LEFT JOIN kv_rolls r ON i.roll_id = r.id
@@ -1343,6 +1361,8 @@ module.exports = async function(fastify) {
         items.forEach(item => {
             item.original_weight = Number(item.original_weight || 0);
             item.location = item.location || item.current_location || '—';
+            item.has_reservation = !!item.has_reservation;
+            item.is_active_cut = !!item.is_active_cut;
         });
 
         return { session, items };
