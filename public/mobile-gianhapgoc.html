@@ -59,6 +59,86 @@
         .m-stat-val { font-size: 16px; font-weight: 800; color: #0f172a; }
         .m-stat-lbl { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 2px; }
 
+        /* Mobile Controls */
+        .m-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .m-search-input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            background: white;
+        }
+        .m-search-input:focus {
+            border-color: #4f46e5;
+        }
+
+        /* Supplier List View Item */
+        .m-sup-item {
+            background: white;
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+            cursor: pointer;
+        }
+        .m-sup-name {
+            font-size: 14px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .m-sup-info {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        /* Detail Drill-down view header */
+        .m-detail-header {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .m-btn-back {
+            background: #f1f5f9;
+            color: #475569;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .m-detail-title {
+            font-size: 14px;
+            font-weight: 800;
+            color: #0f172a;
+            flex: 1;
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-left: 8px;
+        }
+
         /* Mobile Tabs */
         .m-tabs {
             display: flex;
@@ -71,7 +151,7 @@
         }
         .m-tab-btn {
             flex: 1;
-            padding: 10px 6px;
+            padding: 8px 4px;
             text-align: center;
             font-size: 12px;
             font-weight: 700;
@@ -100,27 +180,7 @@
             font-weight: 700;
         }
 
-        /* Search area */
-        .m-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 14px;
-        }
-        .m-search-input {
-            width: 100%;
-            padding: 11px 14px;
-            border: 1px solid #cbd5e1;
-            border-radius: 10px;
-            font-size: 14px;
-            outline: none;
-            background: white;
-        }
-        .m-search-input:focus {
-            border-color: #4f46e5;
-        }
-
-        /* List layout */
+        /* Cards list */
         .m-list {
             display: flex;
             flex-direction: column;
@@ -195,6 +255,15 @@
         }
         .m-badge-stable { background: #dcfce7; color: #15803d; }
         .m-badge-alert { background: #fee2e2; color: #b91c1c; }
+
+        .m-badge-pending-red {
+            font-size: 10px;
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-weight: 700;
+        }
 
         /* Discrepancy Card UI */
         .m-disc-item {
@@ -333,35 +402,17 @@
             </div>
             <div class="m-stat-card">
                 <div class="m-stat-val" id="mStatPending">0</div>
-                <div class="m-stat-lbl">Chờ Duyệt</div>
+                <div class="m-stat-lbl">Hóa đơn lệch</div>
             </div>
             <div class="m-stat-card">
                 <div class="m-stat-val" id="mStatDiff">0</div>
-                <div class="m-stat-lbl">Chênh Lệch</div>
+                <div class="m-stat-lbl">Tổng mục lệch</div>
             </div>
         </div>
 
-        <!-- Tabs Navigation -->
-        <div class="m-tabs">
-            <button class="m-tab-btn active" id="mTabBtnApproved" onclick="switchTab('approved')">
-                📋 Giá Gốc
-            </button>
-            <button class="m-tab-btn" id="mTabBtnPending" onclick="switchTab('pending')">
-                ⚠️ Chờ Duyệt <span class="m-tab-badge" id="mTabBadgePending" style="display:none;">0</span>
-            </button>
-            <button class="m-tab-btn" id="mTabBtnHistory" onclick="switchTab('history')">
-                ⏳ Lịch Sử
-            </button>
-        </div>
-
-        <!-- Controls Area -->
-        <div class="m-controls" id="mControlsArea">
-            <input type="search" id="mSearchInput" class="m-search-input" placeholder="Tìm vật tư, màu sắc, nhà cung cấp...">
-        </div>
-
-        <!-- List Area -->
-        <div class="m-list" id="mListArea">
-            <!-- Items rendered dynamically -->
+        <!-- Dynamic Main Area (Supplier selection list or Supplier Details) -->
+        <div id="mDynamicViewArea">
+            <!-- Rendered Dynamically -->
         </div>
 
         <a href="/gianhapgoc" class="m-back">← Giao diện Máy Tính</a>
@@ -376,8 +427,12 @@
         let prices = [];
         let history = [];
         let pending = [];
-        let currentTab = 'approved';
-        let searchQuery = '';
+        
+        // Navigation states
+        let selectedSupplierId = null; // null means on Supplier List view, 'all' or specific number
+        let currentTab = 'approved'; // 'approved', 'history', 'pending'
+        let supplierSearchQuery = '';
+        let materialSearchQuery = '';
 
         async function apiCall(url, method = 'GET', body = null) {
             const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
@@ -412,12 +467,6 @@
             }
 
             await loadData();
-
-            // Search event
-            document.getElementById('mSearchInput').addEventListener('input', (e) => {
-                searchQuery = e.target.value.toLowerCase().trim();
-                renderTab();
-            });
         });
 
         async function loadData() {
@@ -432,66 +481,212 @@
                 history = historyRes.history || [];
                 pending = pendingRes.pending || [];
 
-                // Update tab badges & stats
+                // Update header stats
                 document.getElementById('mStatTotal').textContent = prices.length;
                 document.getElementById('mStatPending').textContent = pending.length;
                 
                 const diffCount = pending.reduce((acc, curr) => acc + (curr.discrepancies?.length || 0), 0);
                 document.getElementById('mStatDiff').textContent = diffCount;
 
-                const pendingBadge = document.getElementById('mTabBadgePending');
-                if (pending.length > 0) {
-                    pendingBadge.textContent = pending.length;
-                    pendingBadge.style.display = 'inline-block';
-                } else {
-                    pendingBadge.style.display = 'none';
-                }
-
-                renderTab();
+                renderDynamicView();
             } catch(e) {
                 toast('Không thể tải dữ liệu: ' + e.message, 'error');
             }
         }
 
-        function switchTab(tab) {
-            currentTab = tab;
-            
-            // Toggle active classes on tab buttons
-            document.querySelectorAll('.m-tab-btn').forEach(btn => btn.classList.remove('active'));
-            if (tab === 'approved') document.getElementById('mTabBtnApproved').classList.add('active');
-            if (tab === 'pending') document.getElementById('mTabBtnPending').classList.add('active');
-            if (tab === 'history') document.getElementById('mTabBtnHistory').classList.add('active');
-
-            // Hide controls for pending tab
-            const controls = document.getElementById('mControlsArea');
-            if (tab === 'pending') {
-                controls.style.display = 'none';
+        function renderDynamicView() {
+            const viewArea = document.getElementById('mDynamicViewArea');
+            if (selectedSupplierId === null) {
+                renderSupplierListView(viewArea);
             } else {
-                controls.style.display = 'block';
+                renderSupplierDetailView(viewArea);
             }
-
-            renderTab();
         }
 
-        function renderTab() {
-            const container = document.getElementById('mListArea');
-            container.innerHTML = '';
+        function renderSupplierListView(container) {
+            // Process suppliers
+            const suppliersMap = new Map(); // source_id -> { name, priceCount, pendingCount }
+            prices.forEach(p => {
+                if (p.source_id) {
+                    if (!suppliersMap.has(p.source_id)) {
+                        suppliersMap.set(p.source_id, { name: p.source_name, priceCount: 0, pendingCount: 0 });
+                    }
+                    suppliersMap.get(p.source_id).priceCount++;
+                }
+            });
+            pending.forEach(rec => {
+                if (rec.source_id) {
+                    if (!suppliersMap.has(rec.source_id)) {
+                        suppliersMap.set(rec.source_id, { name: rec.source_name, priceCount: 0, pendingCount: 0 });
+                    }
+                    suppliersMap.get(rec.source_id).pendingCount += (rec.discrepancies?.length || 0);
+                }
+            });
+
+            const suppliersList = [];
+            suppliersMap.forEach((val, key) => {
+                suppliersList.push({ id: key, ...val });
+            });
+            suppliersList.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+
+            // Filter suppliers
+            const filteredSuppliers = suppliersList.filter(s => 
+                !supplierSearchQuery || (s.name || '').toLowerCase().includes(supplierSearchQuery)
+            );
+
+            const totalPendingCount = pending.reduce((acc, curr) => acc + (curr.discrepancies?.length || 0), 0);
+
+            let html = `
+                <div class="m-controls">
+                    <input type="search" id="mSupplierSearch" class="m-search-input" placeholder="Tìm kiếm nhà cung cấp..." value="${supplierSearchQuery}">
+                </div>
+                
+                <div class="m-list">
+                    <!-- Global all suppliers card -->
+                    <div class="m-sup-item" onclick="selectSupplier('all')">
+                        <div>
+                            <div class="m-sup-name">🌍 Tất cả nhà cung cấp</div>
+                            <div class="m-sup-info">Thống kê toàn bộ ${prices.length} vật tư đã lưu giá</div>
+                        </div>
+                        <div>▶</div>
+                    </div>
+
+                    <!-- Global pending approvals card -->
+                    <div class="m-sup-item" onclick="selectSupplier('pending_all')">
+                        <div>
+                            <div class="m-sup-name" style="color:#b91c1c;">⚠️ Tổng hợp chờ duyệt giá</div>
+                            <div class="m-sup-info">Xem toàn bộ ${pending.length} hóa đơn bị lệch giá</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            ${totalPendingCount > 0 ? `<span class="m-badge-pending-red">${totalPendingCount} mục</span>` : ''}
+                            <span>▶</span>
+                        </div>
+                    </div>
+                    
+                    <hr style="border:0; border-top:1px solid #e2e8f0; margin:6px 0;" />
+            `;
+
+            if (filteredSuppliers.length === 0) {
+                html += `<div class="m-empty"><div class="m-empty-icon">🏢</div><div class="m-empty-text">Không tìm thấy nhà cung cấp nào</div></div>`;
+            } else {
+                filteredSuppliers.forEach(s => {
+                    html += `
+                        <div class="m-sup-item" onclick="selectSupplier(${s.id})">
+                            <div>
+                                <div class="m-sup-name">${s.name}</div>
+                                <div class="m-sup-info">Vật tư đã lưu: ${s.priceCount}</div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                ${s.pendingCount > 0 ? `<span class="m-badge-pending-red">${s.pendingCount} mục</span>` : ''}
+                                <span>▶</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `</div>`;
+            container.innerHTML = html;
+
+            // Bind search
+            const supSearch = document.getElementById('mSupplierSearch');
+            if (supSearch) {
+                supSearch.addEventListener('input', (e) => {
+                    supplierSearchQuery = e.target.value.toLowerCase().trim();
+                    // Just update list items to avoid full reload lag
+                    loadData();
+                });
+            }
+        }
+
+        function renderSupplierDetailView(container) {
+            // Find supplier name
+            let supplierName = 'Tất cả nhà cung cấp';
+            if (selectedSupplierId === 'pending_all') {
+                supplierName = 'Tổng hợp chờ duyệt';
+            } else if (selectedSupplierId !== 'all') {
+                const match = prices.find(p => p.source_id == selectedSupplierId) || 
+                              history.find(h => h.source_id == selectedSupplierId) ||
+                              pending.find(r => r.source_id == selectedSupplierId);
+                supplierName = match ? match.source_name : `NCC #${selectedSupplierId}`;
+            }
+
+            // Pending count for tabs
+            const pendingFiltered = pending.filter(rec => selectedSupplierId === 'all' || selectedSupplierId === 'pending_all' || rec.source_id == selectedSupplierId);
+            const pendingCount = pendingFiltered.length;
+
+            let html = `
+                <!-- Detail Header with Back button -->
+                <div class="m-detail-header">
+                    <button class="m-btn-back" onclick="goBackToSuppliers()">← Quay lại</button>
+                    <div class="m-detail-title" title="${supplierName}">${supplierName}</div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="m-tabs">
+                    ${selectedSupplierId !== 'pending_all' ? `
+                        <button class="m-tab-btn ${currentTab === 'approved' ? 'active' : ''}" onclick="switchDetailTab('approved')">
+                            📋 Giá Gốc
+                        </button>
+                        <button class="m-tab-btn ${currentTab === 'history' ? 'active' : ''}" onclick="switchDetailTab('history')">
+                            ⏳ Lịch Sử
+                        </button>
+                    ` : ''}
+                    <button class="m-tab-btn ${currentTab === 'pending' ? 'active' : ''}" onclick="switchDetailTab('pending')">
+                        ⚠️ Chờ Duyệt ${pendingCount > 0 ? `<span class="m-tab-badge">${pendingCount}</span>` : ''}
+                    </button>
+                </div>
+
+                <!-- Filter Controls -->
+                ${currentTab !== 'pending' ? `
+                    <div class="m-controls">
+                        <input type="search" id="mMaterialSearch" class="m-search-input" placeholder="Tìm kiếm tên vật tư, màu sắc..." value="${materialSearchQuery}">
+                    </div>
+                ` : ''}
+
+                <!-- Items List Area -->
+                <div class="m-list" id="mDetailItemsListArea">
+                    <!-- Rendered below -->
+                </div>
+            `;
+
+            container.innerHTML = html;
+
+            // Bind material search
+            const matSearch = document.getElementById('mMaterialSearch');
+            if (matSearch) {
+                matSearch.addEventListener('input', (e) => {
+                    materialSearchQuery = e.target.value.toLowerCase().trim();
+                    renderDetailItemsList();
+                });
+            }
+
+            renderDetailItemsList();
+        }
+
+        function renderDetailItemsList() {
+            const listContainer = document.getElementById('mDetailItemsListArea');
+            if (!listContainer) return;
 
             if (currentTab === 'approved') {
-                renderApprovedTab(container);
+                renderDetailApproved(listContainer);
             } else if (currentTab === 'history') {
-                renderHistoryTab(container);
+                renderDetailHistory(listContainer);
             } else if (currentTab === 'pending') {
-                renderPendingTab(container);
+                renderDetailPending(listContainer);
             }
         }
 
-        function renderApprovedTab(container) {
+        function renderDetailApproved(container) {
             const filtered = prices.filter(p => {
-                if (!searchQuery) return true;
-                return (p.item_name || '').toLowerCase().includes(searchQuery) ||
-                       (p.fabric_material_name || '').toLowerCase().includes(searchQuery) ||
-                       (p.source_name || '').toLowerCase().includes(searchQuery);
+                if (selectedSupplierId !== 'all' && p.source_id != selectedSupplierId) return false;
+                if (materialSearchQuery) {
+                    const matches = (p.item_name || '').toLowerCase().includes(materialSearchQuery) ||
+                                    (p.fabric_material_name || '').toLowerCase().includes(materialSearchQuery) ||
+                                    (p.fabric_color_name || '').toLowerCase().includes(materialSearchQuery);
+                    if (!matches) return false;
+                }
+                return true;
             });
 
             if (filtered.length === 0) {
@@ -515,7 +710,7 @@
                         <div class="m-card-subtitle">
                             ${isFabric ? `🎨 Màu: ${p.fabric_color_name || '---'}` : `🏢 Kho: ${p.warehouse_name || '---'}`}
                         </div>
-                        <div class="m-card-meta">🏭 NCC: <b>${p.source_name || '---'}</b></div>
+                        ${selectedSupplierId === 'all' ? `<div class="m-card-meta">🏭 NCC: <b>${p.source_name || '---'}</b></div>` : ''}
                         <div class="m-card-price-row">
                             <span class="m-card-price-lbl">Đơn giá gốc</span>
                             <span class="m-card-price-val">${formattedPrice}</span>
@@ -526,12 +721,15 @@
             container.innerHTML = html;
         }
 
-        function renderHistoryTab(container) {
+        function renderDetailHistory(container) {
             const filtered = history.filter(h => {
-                if (!searchQuery) return true;
-                return (h.material_name || '').toLowerCase().includes(searchQuery) ||
-                       (h.color_name || '').toLowerCase().includes(searchQuery) ||
-                       (h.source_name || '').toLowerCase().includes(searchQuery);
+                if (selectedSupplierId !== 'all' && h.source_id != selectedSupplierId) return false;
+                if (materialSearchQuery) {
+                    const matches = (h.material_name || '').toLowerCase().includes(materialSearchQuery) ||
+                                    (h.color_name || '').toLowerCase().includes(materialSearchQuery);
+                    if (!matches) return false;
+                }
+                return true;
             });
 
             if (filtered.length === 0) {
@@ -557,7 +755,7 @@
                             ${isFabric ? `🎨 Màu: ${h.color_name || '---'}` : '---'}
                         </div>
                         <div class="m-card-meta">
-                            🏭 NCC: <b>${h.source_name || '---'}</b><br>
+                            ${selectedSupplierId === 'all' ? `🏭 NCC: <b>${h.source_name || '---'}</b><br>` : ''}
                             📅 Ngày nhập: <b>${formattedDate}</b>
                         </div>
                         <div class="m-card-price-row">
@@ -570,14 +768,20 @@
             container.innerHTML = html;
         }
 
-        function renderPendingTab(container) {
-            if (pending.length === 0) {
+        function renderDetailPending(container) {
+            const filtered = pending.filter(rec => 
+                selectedSupplierId === 'all' || 
+                selectedSupplierId === 'pending_all' || 
+                rec.source_id == selectedSupplierId
+            );
+
+            if (filtered.length === 0) {
                 container.innerHTML = `<div class="m-empty"><div class="m-empty-icon">✅</div><div class="m-empty-text">Tất cả hóa đơn đã khớp giá</div></div>`;
                 return;
             }
 
             let html = '';
-            pending.forEach(rec => {
+            filtered.forEach(rec => {
                 const isFabric = rec.record_type === 'fabric';
                 const formattedDate = rec.import_date ? new Date(rec.import_date).toLocaleDateString('vi-VN') : '---';
 
@@ -638,6 +842,28 @@
                 `;
             });
             container.innerHTML = html;
+        }
+
+        function selectSupplier(id) {
+            selectedSupplierId = id;
+            if (id === 'pending_all') {
+                currentTab = 'pending';
+            } else {
+                currentTab = 'approved';
+            }
+            materialSearchQuery = '';
+            renderDynamicView();
+        }
+
+        function goBackToSuppliers() {
+            selectedSupplierId = null;
+            renderDynamicView();
+        }
+
+        function switchDetailTab(tab) {
+            currentTab = tab;
+            // Re-render active tab button styles and content
+            renderSupplierDetailView(document.getElementById('mDynamicViewArea'));
         }
 
         async function approveBill(id, code) {

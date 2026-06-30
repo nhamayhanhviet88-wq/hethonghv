@@ -1,4 +1,4 @@
-// ========== GIÁ NHẬP GỐC — Desktop SPA ==========
+// ========== GIÁ NHẬP GỐC — Desktop SPA (Master-Detail Design) ==========
 var _gng = {
     prices: [],
     history: [],
@@ -6,7 +6,8 @@ var _gng = {
     filter: {
         tab: 'approved', // 'approved', 'history', 'pending'
         search: '',
-        supplier: '',
+        supplierId: 'all', // 'all', 'pending_all', or number (source_id)
+        supplierSearch: '',
         type: '' // '', 'fabric', 'material'
     },
     isDuyetUser: false
@@ -16,7 +17,7 @@ async function renderGiaNhapGocPage(content) {
     if (!content) content = document.getElementById('contentArea');
     if (!content) return;
 
-    // Inject custom premium CSS for this page
+    // Inject custom premium CSS for Master-Detail layout
     if (!document.getElementById('_gngStyles')) {
         const style = document.createElement('style');
         style.id = '_gngStyles';
@@ -36,7 +37,7 @@ async function renderGiaNhapGocPage(content) {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 24px;
+                margin-bottom: 20px;
                 border-bottom: 1px solid #e2e8f0;
                 padding-bottom: 16px;
             }
@@ -58,48 +59,7 @@ async function renderGiaNhapGocPage(content) {
                 margin: 4px 0 0 0;
             }
             
-            /* Tabs Navigation */
-            .gng-tabs {
-                display: flex;
-                gap: 8px;
-                margin-bottom: 20px;
-                border-bottom: 1px solid #e2e8f0;
-                padding-bottom: 1px;
-            }
-            .gng-tab-btn {
-                padding: 12px 20px;
-                font-size: 14px;
-                font-weight: 600;
-                color: #64748b;
-                background: transparent;
-                border: none;
-                border-bottom: 2px solid transparent;
-                cursor: pointer;
-                transition: all 0.2s;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-            .gng-tab-btn:hover {
-                color: #4f46e5;
-                background: #f1f5f9;
-                border-radius: 8px 8px 0 0;
-            }
-            .gng-tab-btn.active {
-                color: #4f46e5;
-                border-bottom-color: #4f46e5;
-                font-weight: 700;
-            }
-            .gng-tab-badge {
-                font-size: 11px;
-                background: #ef4444;
-                color: white;
-                padding: 2px 8px;
-                border-radius: 9999px;
-                font-weight: 700;
-            }
-
-            /* Stats grid */
+            /* Stats Overview */
             .gng-stats {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -113,11 +73,6 @@ async function renderGiaNhapGocPage(content) {
                 border: 1px solid #e2e8f0;
                 box-shadow: 0 4px 6px -1px rgba(0,0,0,0.01), 0 2px 4px -1px rgba(0,0,0,0.01);
                 transition: all 0.2s ease;
-                position: relative;
-            }
-            .gng-stat-card:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 8px 12px -3px rgba(0,0,0,0.04);
             }
             .gng-stat-val {
                 font-size: 26px;
@@ -131,48 +86,204 @@ async function renderGiaNhapGocPage(content) {
                 font-weight: 500;
             }
 
+            /* Master-Detail Layout */
+            .gng-layout {
+                display: flex;
+                gap: 20px;
+                min-height: calc(100vh - 240px);
+                align-items: stretch;
+            }
+            
+            /* Left Sidebar: Supplier List */
+            .gng-sidebar {
+                width: 280px;
+                background: white;
+                border-radius: 16px;
+                border: 1px solid #e2e8f0;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+            }
+            .gng-sidebar-header {
+                font-size: 12px;
+                font-weight: 700;
+                color: #475569;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .gng-sidebar-search {
+                padding: 8px 12px;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                font-size: 13px;
+                outline: none;
+                width: 100%;
+                transition: all 0.2s;
+            }
+            .gng-sidebar-search:focus {
+                border-color: #4f46e5;
+                box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+            }
+            .gng-sidebar-list {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                overflow-y: auto;
+                flex: 1;
+                max-height: calc(100vh - 380px);
+            }
+            .gng-sidebar-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 12px;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s;
+                font-size: 13px;
+                font-weight: 600;
+                color: #475569;
+                border: 1px solid transparent;
+            }
+            .gng-sidebar-item:hover {
+                background: #f1f5f9;
+                color: #0f172a;
+            }
+            .gng-sidebar-item.active {
+                background: #e0e7ff;
+                color: #4338ca;
+                border-color: #c7d2fe;
+            }
+            .gng-sidebar-item-name {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 160px;
+            }
+            .gng-sidebar-badges {
+                display: flex;
+                gap: 4px;
+                align-items: center;
+            }
+            .gng-sidebar-badge-count {
+                font-size: 10px;
+                background: #f1f5f9;
+                color: #64748b;
+                padding: 2px 6px;
+                border-radius: 6px;
+            }
+            .gng-sidebar-item.active .gng-sidebar-badge-count {
+                background: #c7d2fe;
+                color: #4338ca;
+            }
+            .gng-sidebar-badge-pending {
+                font-size: 10px;
+                background: #fee2e2;
+                color: #b91c1c;
+                padding: 2px 6px;
+                border-radius: 6px;
+                font-weight: 700;
+                animation: gngPulse 2s infinite;
+            }
+            @keyframes gngPulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
+            }
+
+            /* Right Content: Material details */
+            .gng-detail-panel {
+                flex: 1;
+                background: white;
+                border-radius: 16px;
+                border: 1px solid #e2e8f0;
+                padding: 20px;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            
+            /* Tabs Navigation */
+            .gng-tabs {
+                display: flex;
+                gap: 8px;
+                border-bottom: 1px solid #e2e8f0;
+                padding-bottom: 1px;
+            }
+            .gng-tab-btn {
+                padding: 10px 16px;
+                font-size: 13px;
+                font-weight: 600;
+                color: #64748b;
+                background: transparent;
+                border: none;
+                border-bottom: 2px solid transparent;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .gng-tab-btn:hover {
+                color: #4f46e5;
+                background: #f1f5f9;
+                border-radius: 8px 8px 0 0;
+            }
+            .gng-tab-btn.active {
+                color: #4f46e5;
+                border-bottom-color: #4f46e5;
+                font-weight: 700;
+            }
+            .gng-tab-badge {
+                font-size: 10px;
+                background: #ef4444;
+                color: white;
+                padding: 1px 6px;
+                border-radius: 9999px;
+                font-weight: 700;
+            }
+
             /* Controls and filters */
             .gng-controls {
                 display: flex;
                 gap: 12px;
-                margin-bottom: 20px;
                 flex-wrap: wrap;
                 align-items: center;
             }
             .gng-input {
                 flex: 1;
-                min-width: 260px;
-                padding: 10px 14px;
-                border-radius: 10px;
+                min-width: 200px;
+                padding: 9px 12px;
+                border-radius: 8px;
                 border: 1px solid #cbd5e1;
-                font-size: 14px;
+                font-size: 13px;
                 outline: none;
                 transition: all 0.2s;
             }
             .gng-input:focus {
                 border-color: #4f46e5;
-                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
             }
             .gng-select {
-                padding: 10px 14px;
-                border-radius: 10px;
+                padding: 9px 12px;
+                border-radius: 8px;
                 border: 1px solid #cbd5e1;
-                font-size: 14px;
+                font-size: 13px;
                 background-color: white;
                 outline: none;
                 cursor: pointer;
                 transition: all 0.2s;
             }
-            .gng-select:focus {
-                border-color: #4f46e5;
-            }
 
-            /* Cards and tables */
+            /* Tables and cards */
             .gng-table-card {
-                background: white;
-                border-radius: 16px;
                 border: 1px solid #e2e8f0;
-                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+                border-radius: 12px;
                 overflow: hidden;
             }
             .gng-table {
@@ -182,16 +293,16 @@ async function renderGiaNhapGocPage(content) {
             }
             .gng-table th {
                 background: #f8fafc;
-                padding: 14px 18px;
-                font-size: 12px;
+                padding: 12px 14px;
+                font-size: 11px;
                 font-weight: 700;
                 color: #475569;
                 text-transform: uppercase;
                 border-bottom: 1px solid #e2e8f0;
             }
             .gng-table td {
-                padding: 14px 18px;
-                font-size: 14px;
+                padding: 12px 14px;
+                font-size: 13px;
                 color: #334155;
                 border-bottom: 1px solid #f1f5f9;
             }
@@ -206,38 +317,34 @@ async function renderGiaNhapGocPage(content) {
             .gng-pending-list {
                 display: flex;
                 flex-direction: column;
-                gap: 16px;
+                gap: 14px;
             }
             .gng-pending-card {
                 background: white;
-                border-radius: 16px;
+                border-radius: 12px;
                 border: 1px solid #e2e8f0;
-                padding: 20px;
-                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
-                transition: all 0.2s;
-            }
-            .gng-pending-card:hover {
-                box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04);
+                padding: 16px;
             }
             .gng-pending-header {
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-start;
                 border-bottom: 1px solid #f1f5f9;
-                padding-bottom: 12px;
-                margin-bottom: 14px;
+                padding-bottom: 10px;
+                margin-bottom: 12px;
             }
             .gng-pending-title {
-                font-size: 16px;
+                font-size: 14px;
                 font-weight: 700;
                 color: #0f172a;
             }
             .gng-pending-meta {
-                font-size: 13px;
+                font-size: 12px;
                 color: #64748b;
                 margin-top: 4px;
                 display: flex;
-                gap: 16px;
+                gap: 12px;
+                flex-wrap: wrap;
             }
             .gng-pending-actions {
                 display: flex;
@@ -247,12 +354,11 @@ async function renderGiaNhapGocPage(content) {
                 background: #10b981;
                 color: white;
                 border: none;
-                padding: 8px 16px;
-                border-radius: 8px;
+                padding: 6px 12px;
+                border-radius: 6px;
                 font-weight: 700;
-                font-size: 13px;
+                font-size: 12px;
                 cursor: pointer;
-                transition: all 0.2s;
             }
             .gng-btn-approve:hover {
                 background: #059669;
@@ -260,26 +366,23 @@ async function renderGiaNhapGocPage(content) {
             .gng-disc-table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 8px;
+                margin-top: 6px;
             }
             .gng-disc-table th {
                 background: #fffbeb;
                 color: #b45309;
-                font-size: 12px;
-                padding: 8px 12px;
+                font-size: 11px;
+                padding: 6px 10px;
                 text-align: left;
             }
             .gng-disc-table td {
-                padding: 10px 12px;
-                font-size: 13px;
+                padding: 8px 10px;
+                font-size: 12px;
                 border-bottom: 1px solid #fef3c7;
             }
-            .gng-disc-table tr:last-child td {
-                border-bottom: none;
-            }
             .gng-badge-type {
-                font-size: 11px;
-                padding: 2px 6px;
+                font-size: 10px;
+                padding: 2px 4px;
                 border-radius: 4px;
                 font-weight: 700;
                 text-transform: uppercase;
@@ -288,9 +391,9 @@ async function renderGiaNhapGocPage(content) {
             .gng-badge-material { background: #fef3c7; color: #d97706; }
 
             .gng-badge {
-                font-size: 12px;
-                padding: 4px 8px;
-                border-radius: 9999px;
+                font-size: 11px;
+                padding: 2px 6px;
+                border-radius: 6px;
                 font-weight: 600;
             }
             .gng-badge-stable { background: #dcfce7; color: #15803d; }
@@ -299,114 +402,41 @@ async function renderGiaNhapGocPage(content) {
             /* Modal Styles */
             .gng-modal-backdrop {
                 position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
+                top: 0; left: 0; width: 100vw; height: 100vh;
                 background: rgba(15, 23, 42, 0.4);
                 backdrop-filter: blur(4px);
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                display: flex; align-items: center; justify-content: center;
                 z-index: 1000;
-                animation: gngFadeIn 0.2s ease-out;
             }
             .gng-modal-card {
-                background: white;
-                border-radius: 16px;
-                width: 100%;
-                max-width: 600px;
-                border: 1px solid #e2e8f0;
-                box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+                background: white; border-radius: 12px; width: 100%; max-width: 500px;
+                border: 1px solid #e2e8f0; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
                 overflow: hidden;
             }
             .gng-modal-header {
-                padding: 16px 20px;
-                border-bottom: 1px solid #e2e8f0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
+                padding: 12px 16px; border-bottom: 1px solid #e2e8f0;
+                display: flex; justify-content: space-between; align-items: center;
                 background: #f8fafc;
             }
-            .gng-modal-header h3 {
-                margin: 0;
-                font-size: 18px;
-                font-weight: 700;
-                color: #0f172a;
-            }
-            .gng-modal-close {
-                background: transparent;
-                border: none;
-                font-size: 20px;
-                cursor: pointer;
-                color: #64748b;
-            }
-            .gng-modal-body {
-                padding: 20px;
-                max-height: 70vh;
-                overflow-y: auto;
-            }
-            .gng-modal-footer {
-                padding: 14px 20px;
-                border-top: 1px solid #e2e8f0;
-                display: flex;
-                justify-content: flex-end;
-                gap: 10px;
-                background: #f8fafc;
-            }
-            .gng-form-group {
-                margin-bottom: 16px;
-            }
-            .gng-form-group label {
-                display: block;
-                font-size: 13px;
-                font-weight: 600;
-                color: #475569;
-                margin-bottom: 6px;
-            }
-            .gng-btn-primary {
-                background: #4f46e5;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 14px;
-                cursor: pointer;
-            }
-            .gng-btn-primary:hover {
-                background: #4338ca;
-            }
-            .gng-btn-secondary {
-                background: #e2e8f0;
-                color: #475569;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 14px;
-                cursor: pointer;
-            }
-            .gng-btn-secondary:hover {
-                background: #cbd5e1;
-            }
-            .gng-empty {
-                padding: 40px;
-                text-align: center;
-                color: #64748b;
-            }
-            .gng-empty-icon {
-                font-size: 40px;
-                margin-bottom: 12px;
-            }
+            .gng-modal-header h3 { margin: 0; font-size: 15px; font-weight: 700; color: #0f172a; }
+            .gng-modal-close { background: transparent; border: none; font-size: 18px; cursor: pointer; color: #64748b; }
+            .gng-modal-body { padding: 16px; max-height: 60vh; overflow-y: auto; }
+            .gng-modal-footer { padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; }
+            .gng-form-group { margin-bottom: 12px; }
+            .gng-form-group label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+            .gng-btn-primary { background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; }
+            .gng-btn-primary:hover { background: #4338ca; }
+            .gng-btn-secondary { background: #e2e8f0; color: #475569; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; }
+            .gng-btn-secondary:hover { background: #cbd5e1; }
+            .gng-empty { padding: 32px; text-align: center; color: #64748b; }
+            .gng-empty-icon { font-size: 32px; margin-bottom: 8px; }
         `;
         document.head.appendChild(style);
     }
 
-    // Set active area
     _gng.content = content;
 
-    // Fetch user permissions first
+    // Fetch user permissions
     try {
         const permRes = await apiCall('/api/import/check-duyet-perm', 'GET');
         _gng.isDuyetUser = !!permRes.allowed;
@@ -439,128 +469,264 @@ async function _gngLoadData() {
 function _gngRenderLayout() {
     if (!_gng.content) return;
 
-    // Compile list of unique suppliers
-    const suppliers = new Set();
-    _gng.prices.forEach(p => { if (p.source_name) suppliers.add(p.source_name); });
-    _gng.history.forEach(h => { if (h.source_name) suppliers.add(h.source_name); });
+    // Compute stats
+    const totalPrices = _gng.prices.length;
+    const totalPending = _gng.pending.length;
+    const totalDiff = _gng.pending.reduce((acc, curr) => acc + (curr.discrepancies?.length || 0), 0);
 
-    let supplierOptions = '';
-    suppliers.forEach(s => {
-        supplierOptions += `<option value="${s}" ${_gng.filter.supplier === s ? 'selected' : ''}>${s}</option>`;
-    });
-
+    // Render header and overall stats
     _gng.content.innerHTML = `
         <div class="gng-container">
             <div class="gng-header">
                 <div class="gng-title-area">
                     <h2>🏷️ Giá Nhập Gốc</h2>
-                    <p>Quản lý, tra cứu và kiểm soát chênh lệch đơn giá của nguyên vật liệu & phụ liệu sản xuất</p>
+                    <p>Quản lý, tra cứu và duyệt đơn giá nguyên vật liệu & phụ liệu sản xuất</p>
                 </div>
             </div>
 
             <!-- Stats Overview -->
             <div class="gng-stats">
                 <div class="gng-stat-card" style="border-top: 4px solid #4f46e5;">
-                    <div class="gng-stat-val">${_gng.prices.length}</div>
+                    <div class="gng-stat-val">${totalPrices}</div>
                     <div class="gng-stat-label">Tổng Vật Tư Đã Lưu Giá Gốc</div>
                 </div>
                 <div class="gng-stat-card" style="border-top: 4px solid #10b981;">
-                    <div class="gng-stat-val">${_gng.pending.length}</div>
-                    <div class="gng-stat-label">Đang Chờ Duyệt Biến Động Giá</div>
+                    <div class="gng-stat-val">${totalPending}</div>
+                    <div class="gng-stat-label">Hóa Đơn Chờ Duyệt Lệch Giá</div>
                 </div>
                 <div class="gng-stat-card" style="border-top: 4px solid #ef4444;">
-                    <div class="gng-stat-val">
-                        ${_gng.pending.reduce((acc, curr) => acc + (curr.discrepancies?.length || 0), 0)}
-                    </div>
+                    <div class="gng-stat-val">${totalDiff}</div>
                     <div class="gng-stat-label">Mục Bị Chênh Lệch Đang Chờ Duyệt</div>
                 </div>
             </div>
 
-            <!-- Tabs Navigation -->
-            <div class="gng-tabs">
-                <button class="gng-tab-btn ${_gng.filter.tab === 'approved' ? 'active' : ''}" onclick="_gngSwitchTab('approved')">
-                    📋 Bảng Giá Nhập Gốc
-                </button>
-                <button class="gng-tab-btn ${_gng.filter.tab === 'history' ? 'active' : ''}" onclick="_gngSwitchTab('history')">
-                    ⏳ Lịch Sử Thay Đổi Đơn Giá
-                </button>
-                <button class="gng-tab-btn ${_gng.filter.tab === 'pending' ? 'active' : ''}" onclick="_gngSwitchTab('pending')">
-                    ⚠️ Yêu Cầu Duyệt Giá 
-                    ${_gng.pending.length > 0 ? `<span class="gng-tab-badge">${_gng.pending.length}</span>` : ''}
-                </button>
-            </div>
-
-            <!-- Filters Area -->
-            ${_gng.filter.tab !== 'pending' ? `
-                <div class="gng-controls">
-                    <input type="text" id="gngSearch" class="gng-input" placeholder="🔍 Tìm kiếm vật tư, màu sắc, nhà cung cấp..." value="${_gng.filter.search}">
-                    <select id="gngSupplierFilter" class="gng-select" onchange="_gngUpdateFilters()">
-                        <option value="">Nhà cung cấp: Tất cả</option>
-                        ${supplierOptions}
-                    </select>
-                    <select id="gngTypeFilter" class="gng-select" onchange="_gngUpdateFilters()">
-                        <option value="" ${_gng.filter.type === '' ? 'selected' : ''}>Loại vật tư: Tất cả</option>
-                        <option value="fabric" ${_gng.filter.type === 'fabric' ? 'selected' : ''}>Vải (Fabric)</option>
-                        <option value="material" ${_gng.filter.type === 'material' ? 'selected' : ''}>Phụ liệu/Vật liệu</option>
-                    </select>
+            <!-- Master-Detail Structure -->
+            <div class="gng-layout">
+                <!-- Left Sidebar: Supplier List -->
+                <div class="gng-sidebar">
+                    <div class="gng-sidebar-header">
+                        <span>🏢 Nhà cung cấp</span>
+                        <button class="gng-btn-secondary" style="padding:2px 6px; font-size:10px;" onclick="_gngLoadData()">🔄 Tải lại</button>
+                    </div>
+                    <input type="text" id="gngSidebarSearch" class="gng-sidebar-search" placeholder="Tìm kiếm nhà cung cấp..." value="${_gng.filter.supplierSearch || ''}">
+                    <div class="gng-sidebar-list" id="gngSidebarListArea">
+                        <!-- Suppliers loaded dynamically -->
+                    </div>
                 </div>
-            ` : ''}
 
-            <!-- Main Render Area -->
-            <div id="gngTabContent">
-                <!-- Rendered Dynamically -->
+                <!-- Right Detail Panel -->
+                <div class="gng-detail-panel" id="gngDetailPanelArea">
+                    <!-- Dynamic details -->
+                </div>
             </div>
         </div>
     `;
 
-    // Rebind search events
-    const searchInput = document.getElementById('gngSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            _gng.filter.search = e.target.value;
-            _gngRenderTabContent();
+    // Bind sidebar search event
+    const sidebarSearch = document.getElementById('gngSidebarSearch');
+    if (sidebarSearch) {
+        sidebarSearch.addEventListener('input', function(e) {
+            _gng.filter.supplierSearch = e.target.value;
+            _gngRenderSidebar();
         });
     }
 
-    _gngRenderTabContent();
+    _gngRenderSidebar();
+    _gngRenderDetailPanel();
 }
 
-function _gngSwitchTab(tabName) {
+function _gngRenderSidebar() {
+    const listArea = document.getElementById('gngSidebarListArea');
+    if (!listArea) return;
+
+    // Process unique suppliers and their statistics
+    const suppliersMap = new Map(); // source_id -> { name, priceCount, pendingCount }
+    
+    _gng.prices.forEach(p => {
+        if (p.source_id) {
+            if (!suppliersMap.has(p.source_id)) {
+                suppliersMap.set(p.source_id, { name: p.source_name, priceCount: 0, pendingCount: 0 });
+            }
+            suppliersMap.get(p.source_id).priceCount++;
+        }
+    });
+
+    _gng.pending.forEach(rec => {
+        if (rec.source_id) {
+            if (!suppliersMap.has(rec.source_id)) {
+                suppliersMap.set(rec.source_id, { name: rec.source_name, priceCount: 0, pendingCount: 0 });
+            }
+            suppliersMap.get(rec.source_id).pendingCount += (rec.discrepancies?.length || 0);
+        }
+    });
+
+    const suppliersList = [];
+    suppliersMap.forEach((val, key) => {
+        suppliersList.push({ id: key, ...val });
+    });
+
+    // Sort alphabetically by name
+    suppliersList.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+
+    // Global Statistics
+    const totalPendingCount = _gng.pending.reduce((acc, curr) => acc + (curr.discrepancies?.length || 0), 0);
+
+    let html = `
+        <div class="gng-sidebar-item ${_gng.filter.supplierId === 'all' ? 'active' : ''}" onclick="_gngSelectSupplier('all')">
+            <span class="gng-sidebar-item-name">🌍 Tất cả nhà cung cấp</span>
+            <div class="gng-sidebar-badges">
+                <span class="gng-sidebar-badge-count">${_gng.prices.length}</span>
+            </div>
+        </div>
+        <div class="gng-sidebar-item ${_gng.filter.supplierId === 'pending_all' ? 'active' : ''}" onclick="_gngSelectSupplier('pending_all')">
+            <span class="gng-sidebar-item-name">⚠️ Tổng hợp chờ duyệt</span>
+            <div class="gng-sidebar-badges">
+                ${totalPendingCount > 0 ? `<span class="gng-sidebar-badge-pending">${totalPendingCount}</span>` : `<span class="gng-sidebar-badge-count">0</span>`}
+            </div>
+        </div>
+        <hr style="border:0; border-top: 1px solid #e2e8f0; margin: 4px 0;" />
+    `;
+
+    // Filter suppliers
+    const q = (_gng.filter.supplierSearch || '').toLowerCase().trim();
+    const filteredSuppliers = suppliersList.filter(s => (s.name || '').toLowerCase().includes(q));
+
+    filteredSuppliers.forEach(s => {
+        const isActive = _gng.filter.supplierId == s.id;
+        html += `
+            <div class="gng-sidebar-item ${isActive ? 'active' : ''}" onclick="_gngSelectSupplier(${s.id})">
+                <span class="gng-sidebar-item-name" title="${s.name}">${s.name}</span>
+                <div class="gng-sidebar-badges">
+                    <span class="gng-sidebar-badge-count">${s.priceCount}</span>
+                    ${s.pendingCount > 0 ? `<span class="gng-sidebar-badge-pending">${s.pendingCount}</span>` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    listArea.innerHTML = html;
+}
+
+function _gngSelectSupplier(id) {
+    _gng.filter.supplierId = id;
+    
+    // Auto shift tab if 'pending_all' is selected
+    if (id === 'pending_all') {
+        _gng.filter.tab = 'pending';
+    } else if (_gng.filter.supplierId !== 'all' && _gng.filter.tab === 'pending') {
+        // If specific supplier has no pending, shift back to approved prices
+        const hasPending = _gng.pending.some(rec => rec.source_id == id);
+        if (!hasPending) _gng.filter.tab = 'approved';
+    }
+
+    _gngRenderSidebar();
+    _gngRenderDetailPanel();
+}
+
+function _gngRenderDetailPanel() {
+    const detailPanel = document.getElementById('gngDetailPanelArea');
+    if (!detailPanel) return;
+
+    // Determine Title name
+    let titleName = 'Tất cả nhà cung cấp';
+    if (_gng.filter.supplierId === 'pending_all') {
+        titleName = 'Tổng hợp yêu cầu chờ duyệt giá';
+    } else if (_gng.filter.supplierId !== 'all') {
+        // Find supplier name
+        const match = _gng.prices.find(p => p.source_id == _gng.filter.supplierId) || 
+                      _gng.history.find(h => h.source_id == _gng.filter.supplierId) ||
+                      _gng.pending.find(r => r.source_id == _gng.filter.supplierId);
+        titleName = match ? match.source_name : `Nhà cung cấp #${_gng.filter.supplierId}`;
+    }
+
+    // Number of pending records specifically for selected supplier
+    const pendingFiltered = _gng.pending.filter(rec => _gng.filter.supplierId === 'all' || _gng.filter.supplierId === 'pending_all' || rec.source_id == _gng.filter.supplierId);
+    const pendingCount = pendingFiltered.length;
+
+    detailPanel.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:16px; font-weight:800; color:#0f172a;">🏢 ${titleName}</h3>
+        </div>
+
+        <!-- Detail Tabs -->
+        <div class="gng-tabs">
+            ${_gng.filter.supplierId !== 'pending_all' ? `
+                <button class="gng-tab-btn ${_gng.filter.tab === 'approved' ? 'active' : ''}" onclick="_gngSwitchDetailTab('approved')">
+                    📋 Bảng Giá Gốc
+                </button>
+                <button class="gng-tab-btn ${_gng.filter.tab === 'history' ? 'active' : ''}" onclick="_gngSwitchDetailTab('history')">
+                    ⏳ Lịch Sử Nhập Hàng
+                </button>
+            ` : ''}
+            <button class="gng-tab-btn ${_gng.filter.tab === 'pending' ? 'active' : ''}" onclick="_gngSwitchDetailTab('pending')">
+                ⚠️ Chờ Duyệt Giá ${pendingCount > 0 ? `<span class="gng-tab-badge">${pendingCount}</span>` : ''}
+            </button>
+        </div>
+
+        <!-- Right Side search/type filter -->
+        ${_gng.filter.tab !== 'pending' ? `
+            <div class="gng-controls">
+                <input type="text" id="gngDetailSearch" class="gng-input" placeholder="🔍 Tìm tên vật tư, màu sắc..." value="${_gng.filter.search}">
+                <select id="gngDetailType" class="gng-select" onchange="_gngUpdateDetailFilters()">
+                    <option value="" ${_gng.filter.type === '' ? 'selected' : ''}>Loại: Tất cả</option>
+                    <option value="fabric" ${_gng.filter.type === 'fabric' ? 'selected' : ''}>🧵 Vải (Fabric)</option>
+                    <option value="material" ${_gng.filter.type === 'material' ? 'selected' : ''}>📦 Phụ liệu</option>
+                </select>
+            </div>
+        ` : ''}
+
+        <!-- Tab content container -->
+        <div id="gngDetailContentArea"></div>
+    `;
+
+    // Bind inputs
+    const detailSearch = document.getElementById('gngDetailSearch');
+    if (detailSearch) {
+        detailSearch.addEventListener('input', function(e) {
+            _gng.filter.search = e.target.value;
+            _gngRenderDetailTabContent();
+        });
+    }
+
+    _gngRenderDetailTabContent();
+}
+
+function _gngSwitchDetailTab(tabName) {
     _gng.filter.tab = tabName;
-    _gngRenderLayout();
+    _gngRenderDetailPanel();
 }
 
-function _gngUpdateFilters() {
-    const supplierEl = document.getElementById('gngSupplierFilter');
-    const typeEl = document.getElementById('gngTypeFilter');
-    if (supplierEl) _gng.filter.supplier = supplierEl.value;
+function _gngUpdateDetailFilters() {
+    const typeEl = document.getElementById('gngDetailType');
     if (typeEl) _gng.filter.type = typeEl.value;
-    _gngRenderTabContent();
+    _gngRenderDetailTabContent();
 }
 
-function _gngRenderTabContent() {
-    const tabArea = document.getElementById('gngTabContent');
-    if (!tabArea) return;
+function _gngRenderDetailTabContent() {
+    const target = document.getElementById('gngDetailContentArea');
+    if (!target) return;
 
     if (_gng.filter.tab === 'approved') {
-        _gngRenderApprovedTab(tabArea);
+        _gngRenderDetailApproved(target);
     } else if (_gng.filter.tab === 'history') {
-        _gngRenderHistoryTab(tabArea);
+        _gngRenderDetailHistory(target);
     } else if (_gng.filter.tab === 'pending') {
-        _gngRenderPendingTab(tabArea);
+        _gngRenderDetailPending(target);
     }
 }
 
-function _gngRenderApprovedTab(target) {
-    // Filter prices
-    const q = _gng.filter.search.toLowerCase();
+function _gngRenderDetailApproved(target) {
+    const q = (_gng.filter.search || '').toLowerCase().trim();
     const filtered = _gng.prices.filter(p => {
-        if (_gng.filter.supplier && p.source_name !== _gng.filter.supplier) return false;
+        // Supplier filter
+        if (_gng.filter.supplierId !== 'all' && p.source_id != _gng.filter.supplierId) return false;
+        // Type filter
         if (_gng.filter.type && p.item_type !== _gng.filter.type) return false;
+        // Search filter
         if (q) {
             const matches = (p.item_name || '').toLowerCase().includes(q) ||
                             (p.fabric_material_name || '').toLowerCase().includes(q) ||
-                            (p.source_name || '').toLowerCase().includes(q);
+                            (p.fabric_color_name || '').toLowerCase().includes(q);
             if (!matches) return false;
         }
         return true;
@@ -568,12 +734,10 @@ function _gngRenderApprovedTab(target) {
 
     if (filtered.length === 0) {
         target.innerHTML = `
-            <div class="gng-table-card">
-                <div class="gng-empty">
-                    <div class="gng-empty-icon">📂</div>
-                    <h3>Chưa có bảng giá nhập gốc phù hợp</h3>
-                    <p>Hệ thống tự động ghi nhận giá nhập gốc khi các hóa đơn mua vải/vật liệu lần đầu được duyệt.</p>
-                </div>
+            <div class="gng-empty">
+                <div class="gng-empty-icon">📂</div>
+                <h3>Không tìm thấy giá nhập gốc</h3>
+                <p>Nhà cung cấp chưa có giá gốc lưu trữ hoặc không khớp bộ lọc.</p>
             </div>
         `;
         return;
@@ -598,16 +762,16 @@ function _gngRenderApprovedTab(target) {
                 <td style="color: #475569;">
                     ${isFabric ? (p.fabric_color_name || 'Màu sắc') : (p.warehouse_name || '---')}
                 </td>
-                <td style="font-weight: 600; color: #0f172a;">${p.source_name || 'Chưa rõ'}</td>
+                ${_gng.filter.supplierId === 'all' ? `<td style="font-weight: 600;">${p.source_name || '---'}</td>` : ''}
                 <td style="text-align: right; font-weight: 700; color: #4f46e5;">${formattedPrice}</td>
                 <td>${formattedDate}</td>
                 <td>
-                    <button class="gng-btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="_gngShowItemHistory('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
+                    <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="_gngShowItemHistory('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
                         📈 Lịch sử
                     </button>
                     ${_gng.isDuyetUser ? `
-                        <button class="gng-btn-primary" style="padding: 4px 10px; font-size: 12px; margin-left: 4px;" onclick="_gngOpenEditPriceModal('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
-                            ✏️ Sửa giá
+                        <button class="gng-btn-primary" style="padding: 4px 8px; font-size: 11px; margin-left: 2px;" onclick="_gngOpenEditPriceModal('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
+                            ✏️ Sửa
                         </button>
                     ` : ''}
                 </td>
@@ -620,12 +784,12 @@ function _gngRenderApprovedTab(target) {
             <table class="gng-table">
                 <thead>
                     <tr>
-                        <th style="width: 100px;">Loại</th>
-                        <th>Tên Vật Tư / Chất Liệu</th>
+                        <th style="width: 80px;">Loại</th>
+                        <th>Tên Chất Liệu / Vật Tư</th>
                         <th>Màu Sắc / Kho</th>
-                        <th>Nhà Cung Cấp</th>
-                        <th style="text-align: right;">Đơn Giá Nhập Gốc</th>
-                        <th>Ngày Cập Nhật</th>
+                        ${_gng.filter.supplierId === 'all' ? '<th>Nhà Cung Cấp</th>' : ''}
+                        <th style="text-align: right;">Đơn Giá Gốc</th>
+                        <th>Cập Nhật Cuối</th>
                         <th>Hành Động</th>
                     </tr>
                 </thead>
@@ -637,15 +801,17 @@ function _gngRenderApprovedTab(target) {
     `;
 }
 
-function _gngRenderHistoryTab(target) {
-    const q = _gng.filter.search.toLowerCase();
+function _gngRenderDetailHistory(target) {
+    const q = (_gng.filter.search || '').toLowerCase().trim();
     const filtered = _gng.history.filter(h => {
-        if (_gng.filter.supplier && h.source_name !== _gng.filter.supplier) return false;
+        // Supplier filter
+        if (_gng.filter.supplierId !== 'all' && h.source_id != _gng.filter.supplierId) return false;
+        // Type filter
         if (_gng.filter.type && h.item_type !== _gng.filter.type) return false;
+        // Search filter
         if (q) {
             const matches = (h.material_name || '').toLowerCase().includes(q) ||
-                            (h.color_name || '').toLowerCase().includes(q) ||
-                            (h.source_name || '').toLowerCase().includes(q);
+                            (h.color_name || '').toLowerCase().includes(q);
             if (!matches) return false;
         }
         return true;
@@ -653,12 +819,10 @@ function _gngRenderHistoryTab(target) {
 
     if (filtered.length === 0) {
         target.innerHTML = `
-            <div class="gng-table-card">
-                <div class="gng-empty">
-                    <div class="gng-empty-icon">⏳</div>
-                    <h3>Chưa có lịch sử biến động giá</h3>
-                    <p>Các hóa đơn nhập hàng thành công sẽ tự động xuất hiện tại đây.</p>
-                </div>
+            <div class="gng-empty">
+                <div class="gng-empty-icon">⏳</div>
+                <h3>Chưa có lịch sử nhập hàng</h3>
+                <p>Nhà cung cấp chưa có hóa đơn hoàn thành trong lịch sử.</p>
             </div>
         `;
         return;
@@ -683,7 +847,7 @@ function _gngRenderHistoryTab(target) {
                 <td>
                     ${isFabric ? (h.color_name || '---') : '---'}
                 </td>
-                <td style="color: #475569;">${h.source_name || 'Chưa rõ'}</td>
+                ${_gng.filter.supplierId === 'all' ? `<td style="font-weight: 600;">${h.source_name || '---'}</td>` : ''}
                 <td style="text-align: right; font-weight: 700; color: #0f172a;">${formattedPrice}</td>
                 <td>${formattedDate}</td>
                 <td>
@@ -700,13 +864,13 @@ function _gngRenderHistoryTab(target) {
             <table class="gng-table">
                 <thead>
                     <tr>
-                        <th style="width: 100px;">Loại</th>
-                        <th>Tên Vật Tư / Chất Liệu</th>
+                        <th style="width: 80px;">Loại</th>
+                        <th>Tên Chất Liệu / Vật Tư</th>
                         <th>Màu Sắc</th>
-                        <th>Nhà Cung Cấp</th>
-                        <th style="text-align: right;">Giá Nhập Thực Tế</th>
-                        <th>Ngày Nhập Hàng</th>
-                        <th>Trạng Thái Hóa Đơn</th>
+                        ${_gng.filter.supplierId === 'all' ? '<th>Nhà Cung Cấp</th>' : ''}
+                        <th style="text-align: right;">Đơn Giá Nhập Thực Tế</th>
+                        <th>Ngày Nhập</th>
+                        <th>Trạng Thái</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -717,22 +881,26 @@ function _gngRenderHistoryTab(target) {
     `;
 }
 
-function _gngRenderPendingTab(target) {
-    if (_gng.pending.length === 0) {
+function _gngRenderDetailPending(target) {
+    const filtered = _gng.pending.filter(rec => 
+        _gng.filter.supplierId === 'all' || 
+        _gng.filter.supplierId === 'pending_all' || 
+        rec.source_id == _gng.filter.supplierId
+    );
+
+    if (filtered.length === 0) {
         target.innerHTML = `
-            <div class="gng-table-card">
-                <div class="gng-empty">
-                    <div class="gng-empty-icon">✅</div>
-                    <h3>Không có hóa đơn chờ duyệt giá</h3>
-                    <p>Tất cả hóa đơn nhập hàng hiện đã khớp hoặc áp dụng đúng đơn giá nhập gốc đã lưu.</p>
-                </div>
+            <div class="gng-empty">
+                <div class="gng-empty-icon">✅</div>
+                <h3>Không có hóa đơn lệch giá</h3>
+                <p>Tất cả hóa đơn nhập hàng của nhà cung cấp này đều khớp giá gốc.</p>
             </div>
         `;
         return;
     }
 
     let cardsHtml = '';
-    _gng.pending.forEach(rec => {
+    filtered.forEach(rec => {
         const isFabric = rec.record_type === 'fabric';
         const formattedDate = rec.import_date ? new Date(rec.import_date).toLocaleDateString('vi-VN') : '---';
         const totalCostStr = Number(rec.total_amount || rec.cost).toLocaleString('vi-VN') + ' đ';
@@ -742,15 +910,14 @@ function _gngRenderPendingTab(target) {
             const unitPriceStr = Number(d.unit_price).toLocaleString('vi-VN') + ' đ';
             const approvedPriceStr = d.approved_price !== null 
                 ? Number(d.approved_price).toLocaleString('vi-VN') + ' đ' 
-                : 'Lần đầu nhập (Chưa có giá gốc)';
+                : 'Lần đầu nhập (Mới)';
             
             let diffHtml = '';
             if (d.approved_price !== null) {
-                const diff = d.difference;
-                if (diff > 0) {
-                    diffHtml = `<span style="color:#ef4444; font-weight:700;">📈 Tăng +${diff.toLocaleString('vi-VN')} đ</span>`;
-                } else if (diff < 0) {
-                    diffHtml = `<span style="color:#10b981; font-weight:700;">📉 Giảm ${diff.toLocaleString('vi-VN')} đ</span>`;
+                if (d.difference > 0) {
+                    diffHtml = `<span style="color:#ef4444; font-weight:700;">📈 Tăng +${d.difference.toLocaleString('vi-VN')} đ</span>`;
+                } else if (d.difference < 0) {
+                    diffHtml = `<span style="color:#10b981; font-weight:700;">📉 Giảm ${d.difference.toLocaleString('vi-VN')} đ</span>`;
                 } else {
                     diffHtml = `<span style="color:#64748b;">Khớp</span>`;
                 }
@@ -788,19 +955,19 @@ function _gngRenderPendingTab(target) {
                     <div class="gng-pending-actions">
                         ${_gng.isDuyetUser ? `
                             <button class="gng-btn-approve" onclick="_gngApproveBill(${rec.id}, '${rec.fabric_import_code || rec.id}')">
-                                Phê Duyệt Giá & Hóa Đơn
+                                Phê Duyệt
                             </button>
-                        ` : '<span style="color:#ef4444; font-weight:600; font-size:13px;">⚠️ Đang chờ Giám đốc/QLCC duyệt giá</span>'}
+                        ` : '<span style="color:#ef4444; font-weight:600; font-size:12px;">⏳ Đang chờ Giám đốc duyệt giá</span>'}
                     </div>
                 </div>
                 <div>
-                    <h5 style="margin: 0 0 10px 0; color:#475569; font-size:13px; font-weight:700;">CHI TIẾT CHÊNH LỆCH ĐƠN GIÁ:</h5>
+                    <h5 style="margin: 0 0 6px 0; color:#475569; font-size:12px; font-weight:700;">CHI TIẾT LỆCH GIÁ:</h5>
                     <table class="gng-disc-table">
                         <thead>
                             <tr>
                                 <th>Tên Vật Tư / Chất Liệu</th>
-                                <th>Đơn Giá Trên Bill</th>
-                                <th>Đơn Giá Gốc Cũ</th>
+                                <th>Giá Trên Bill</th>
+                                <th>Giá Gốc Cũ</th>
                                 <th>Chênh Lệch</th>
                             </tr>
                         </thead>
@@ -817,7 +984,7 @@ function _gngRenderPendingTab(target) {
 }
 
 async function _gngApproveBill(id, code) {
-    if (!confirm(`Xác nhận phê duyệt giá và hoàn tất hóa đơn nhập hàng #${code}?`)) return;
+    if (!confirm(`Xác nhận phê duyệt giá và hoàn tất hóa đơn #${code}?`)) return;
     try {
         const res = await apiCall('/api/import/toggle/' + id, 'POST', { action: 'check' });
         if (res.success) {
@@ -861,7 +1028,7 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
                     <button class="gng-modal-close" onclick="_gngCloseModal('gngHistoryModal')">&times;</button>
                 </div>
                 <div class="gng-modal-body">
-                    <div style="margin-bottom:14px; font-size:14px; color:#475569;">
+                    <div style="margin-bottom:12px; font-size:13px; color:#475569;">
                         Vật tư: <b style="color:#0f172a;">${itemName}</b><br>
                         Nhà cung cấp: <b style="color:#0f172a;">${filtered[0]?.source_name || '---'}</b>
                     </div>
@@ -874,7 +1041,7 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${modalRowsHtml || '<tr><td colspan="3" style="text-align:center; padding:20px;">Không có dữ liệu lịch sử</td></tr>'}
+                            ${modalRowsHtml || '<tr><td colspan="3" style="text-align:center; padding:16px;">Không có dữ liệu lịch sử</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -894,18 +1061,18 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
 function _gngOpenEditPriceModal(itemType, itemId, sourceId, currentPrice, itemName) {
     const modalHtml = `
         <div class="gng-modal-backdrop" id="gngEditPriceModal">
-            <div class="gng-modal-card" style="max-width: 420px;">
+            <div class="gng-modal-card" style="max-width: 400px;">
                 <div class="gng-modal-header">
                     <h3>✏️ Cập Nhật Đơn Giá Gốc</h3>
                     <button class="gng-modal-close" onclick="_gngCloseModal('gngEditPriceModal')">&times;</button>
                 </div>
                 <div class="gng-modal-body">
-                    <div style="margin-bottom:14px; font-size:13px; color:#64748b;">
-                        Thay đổi đơn giá nhập gốc tiêu chuẩn cho vật tư:<br>
+                    <div style="margin-bottom:12px; font-size:12px; color:#64748b;">
+                        Thay đổi đơn giá gốc tiêu chuẩn cho vật tư:<br>
                         <b style="color:#0f172a;">${itemName}</b>
                     </div>
                     <div class="gng-form-group">
-                        <label for="gngNewPriceInput">Đơn Giá Gốc Mới (đ/kg hoặc đ/cái...):</label>
+                        <label for="gngNewPriceInput">Đơn Giá Gốc Mới (đ):</label>
                         <input type="number" id="gngNewPriceInput" class="gng-input" style="width:100%;" value="${currentPrice}">
                     </div>
                 </div>
@@ -946,7 +1113,7 @@ async function _gngSubmitEditPrice(itemType, itemId, sourceId) {
 
         const res = await apiCall('/api/gianhapgoc/set-price', 'POST', body);
         if (res.success) {
-            if (typeof showToast === 'function') showToast('Cập nhật giá nhập gốc thành công', 'success');
+            if (typeof showToast === 'function') showToast('Cập nhật giá gốc thành công', 'success');
             _gngCloseModal('gngEditPriceModal');
             await _gngLoadData();
         } else {
@@ -966,7 +1133,6 @@ function _gngCloseModal(modalId) {
     }
 }
 
-// Helpers
 function escapeJS(str) {
     if (!str) return '';
     return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
