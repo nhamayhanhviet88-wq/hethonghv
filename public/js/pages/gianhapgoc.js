@@ -17,6 +17,104 @@ var _gng = {
     isDuyetUser: false
 };
 
+function _gngFormatRatioAndPriceHtml(p) {
+    const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
+    const ratioChild = Number(p.fabric_cut_ratio_child) || 0;
+    const ratioOversize = Number(p.fabric_cut_ratio_oversize) || 0;
+
+    const priceAdult = ratioAdult > 0 ? Math.round(Number(p.price) / ratioAdult) : 0;
+    const priceChild = ratioChild > 0 ? Math.round(Number(p.price) / ratioChild) : 0;
+    const priceOversize = ratioOversize > 0 ? Math.round(Number(p.price) / ratioOversize) : 0;
+
+    const cutRatioHtml = `
+        <div style="line-height: 1.6; text-align: left; font-size: 12px; font-family: inherit; display: inline-block;">
+            <div style="display: flex; gap: 8px; justify-content: space-between;">
+                <span style="color: #64748b; font-weight: 500;">🧑 Lớn:</span>
+                <span style="font-weight: 700; color: #4f46e5;">${ratioAdult > 0 ? (ratioAdult + ' sp/kg') : '---'}</span>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 2px;">
+                <span style="color: #64748b; font-weight: 500;">👶 Trẻ:</span>
+                <span style="font-weight: 700; color: #0891b2;">${ratioChild > 0 ? (ratioChild + ' sp/kg') : '---'}</span>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 2px;">
+                <span style="color: #64748b; font-weight: 500;">👕 Over:</span>
+                <span style="font-weight: 700; color: #0d9488;">${ratioOversize > 0 ? (ratioOversize + ' sp/kg') : '---'}</span>
+            </div>
+        </div>
+    `;
+
+    const finishedPriceHtml = `
+        <div style="line-height: 1.6; text-align: right; font-size: 12px; font-family: inherit; display: inline-block;">
+            <div>
+                <span style="color: #64748b; font-weight: 500; font-size: 11px;">🧑 Lớn:</span>
+                <span style="font-weight: 700; color: #b45309; margin-left: 4px;">${priceAdult > 0 ? (priceAdult.toLocaleString('vi-VN') + ' đ') : '---'}</span>
+            </div>
+            <div style="margin-top: 2px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 11px;">👶 Trẻ:</span>
+                <span style="font-weight: 700; color: #b45309; margin-left: 4px;">${priceChild > 0 ? (priceChild.toLocaleString('vi-VN') + ' đ') : '---'}</span>
+            </div>
+            <div style="margin-top: 2px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 11px;">👕 Over:</span>
+                <span style="font-weight: 700; color: #b45309; margin-left: 4px;">${priceOversize > 0 ? (priceOversize.toLocaleString('vi-VN') + ' đ') : '---'}</span>
+            </div>
+        </div>
+    `;
+
+    return { cutRatioHtml, finishedPriceHtml };
+}
+
+function _gngFormatRatioAndPriceRangeHtml(g, minBasePrice, maxBasePrice) {
+    const ratioAdult = Number(g.items[0]?.fabric_cut_ratio_adult) || 0;
+    const ratioChild = Number(g.items[0]?.fabric_cut_ratio_child) || 0;
+    const ratioOversize = Number(g.items[0]?.fabric_cut_ratio_oversize) || 0;
+
+    function getRangeText(ratio) {
+        if (ratio <= 0) return '---';
+        const minP = Math.round(minBasePrice / ratio);
+        const maxP = Math.round(maxBasePrice / ratio);
+        if (minP === maxP) {
+            return minP.toLocaleString('vi-VN') + ' đ';
+        }
+        return `${minP.toLocaleString('vi-VN')} đ - ${maxP.toLocaleString('vi-VN')} đ`;
+    }
+
+    const cutRatioHtml = `
+        <div style="line-height: 1.6; text-align: left; font-size: 12px; font-family: inherit; display: inline-block;">
+            <div style="display: flex; gap: 8px; justify-content: space-between;">
+                <span style="color: #64748b; font-weight: 500;">🧑 Lớn:</span>
+                <span style="font-weight: 700; color: #4f46e5;">${ratioAdult > 0 ? (ratioAdult + ' sp/kg') : '---'}</span>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 2px;">
+                <span style="color: #64748b; font-weight: 500;">👶 Trẻ:</span>
+                <span style="font-weight: 700; color: #0891b2;">${ratioChild > 0 ? (ratioChild + ' sp/kg') : '---'}</span>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 2px;">
+                <span style="color: #64748b; font-weight: 500;">👕 Over:</span>
+                <span style="font-weight: 700; color: #0d9488;">${ratioOversize > 0 ? (ratioOversize + ' sp/kg') : '---'}</span>
+            </div>
+        </div>
+    `;
+
+    const finishedPriceHtml = `
+        <div style="line-height: 1.6; text-align: right; font-size: 12px; font-family: inherit; display: inline-block;">
+            <div>
+                <span style="color: #64748b; font-weight: 500; font-size: 11px;">🧑 Lớn:</span>
+                <span style="font-weight: 700; color: #b45309; margin-left: 4px;">${getRangeText(ratioAdult)}</span>
+            </div>
+            <div style="margin-top: 2px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 11px;">👶 Trẻ:</span>
+                <span style="font-weight: 700; color: #b45309; margin-left: 4px;">${getRangeText(ratioChild)}</span>
+            </div>
+            <div style="margin-top: 2px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 11px;">👕 Over:</span>
+                <span style="font-weight: 700; color: #b45309; margin-left: 4px;">${getRangeText(ratioOversize)}</span>
+            </div>
+        </div>
+    `;
+
+    return { cutRatioHtml, finishedPriceHtml };
+}
+
 async function renderGiaNhapGocPage(content) {
     if (!content) content = document.getElementById('contentArea');
     if (!content) return;
@@ -972,8 +1070,7 @@ function _gngRenderDetailApproved(target) {
             const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
             const isFabric = p.item_type === 'fabric';
 
-            const cutRatioText = p.fabric_cut_ratio ? (Number(p.fabric_cut_ratio) + ' sp/kg') : '---';
-            const finishedPriceText = (p.fabric_cut_ratio > 0) ? (Math.round(Number(p.price) / Number(p.fabric_cut_ratio))).toLocaleString('vi-VN') + ' đ' : '---';
+            const { cutRatioHtml, finishedPriceHtml } = _gngFormatRatioAndPriceHtml(p);
 
             rowsHtml += `
                 <tr>
@@ -990,8 +1087,8 @@ function _gngRenderDetailApproved(target) {
                     </td>
                     <td style="text-align: right; font-weight: 700; color: #059669;">${formattedPrice}</td>
                     ${isFabricSupplier ? `
-                        <td style="text-align: center; font-weight: 600; color: #4f46e5;">${cutRatioText}</td>
-                        <td style="text-align: right; font-weight: 700; color: #b45309;">${finishedPriceText}</td>
+                        <td style="vertical-align: middle;">${cutRatioHtml}</td>
+                        <td style="vertical-align: middle; text-align: right;">${finishedPriceHtml}</td>
                     ` : ''}
                     <td>${formattedDate}</td>
                     <td>
@@ -1087,20 +1184,7 @@ function _gngRenderDetailApproved(target) {
 
         // Render Group Header
         const showExpanded = (q.length > 0);
-        const cutRatioText = g.items[0]?.fabric_cut_ratio ? (Number(g.items[0].fabric_cut_ratio) + ' sp/kg') : '---';
-        
-        let ratioPriceRangeText = '---';
-        if (g.items[0]?.fabric_cut_ratio > 0) {
-            const ratioVal = Number(g.items[0].fabric_cut_ratio);
-            const pricesList2 = g.items.map(it => Number(it.price) || 0);
-            const minRatioPrice = Math.round(Math.min(...pricesList2) / ratioVal);
-            const maxRatioPrice = Math.round(Math.max(...pricesList2) / ratioVal);
-            if (minRatioPrice === maxRatioPrice) {
-                ratioPriceRangeText = minRatioPrice.toLocaleString('vi-VN') + ' đ';
-            } else {
-                ratioPriceRangeText = `${minRatioPrice.toLocaleString('vi-VN')} đ - ${maxRatioPrice.toLocaleString('vi-VN')} đ`;
-            }
-        }
+        const { cutRatioHtml, finishedPriceHtml } = _gngFormatRatioAndPriceRangeHtml(g, minPrice, maxPrice);
 
         rowsHtml += `
             <tr class="gng-group-header" onclick="_gngToggleGroup('${g.key}')">
@@ -1117,8 +1201,8 @@ function _gngRenderDetailApproved(target) {
                 ${_gng.filter.supplierId === 'all' ? `<td>${_gngGetSupplierBadgeHtml(g.source_name)}</td>` : ''}
                 <td style="text-align: right; font-weight: 700; color: #4f46e5;">${priceRangeText}</td>
                 ${isFabricSupplier ? `
-                    <td style="text-align: center; font-weight: 600; color: #4f46e5;">${cutRatioText}</td>
-                    <td style="text-align: right; font-weight: 700; color: #b45309;">${ratioPriceRangeText}</td>
+                    <td style="vertical-align: middle;">${cutRatioHtml}</td>
+                    <td style="vertical-align: middle; text-align: right;">${finishedPriceHtml}</td>
                 ` : ''}
                 <td>${latestDateText}</td>
                 <td>
@@ -1131,8 +1215,7 @@ function _gngRenderDetailApproved(target) {
         g.items.forEach(p => {
             const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
             const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
-            const subCutRatioText = p.fabric_cut_ratio ? (Number(p.fabric_cut_ratio) + ' sp/kg') : '---';
-            const subFinishedPriceText = (p.fabric_cut_ratio > 0) ? (Math.round(Number(p.price) / Number(p.fabric_cut_ratio))).toLocaleString('vi-VN') + ' đ' : '---';
+            const { cutRatioHtml, finishedPriceHtml } = _gngFormatRatioAndPriceHtml(p);
             
             rowsHtml += `
                 <tr class="gng-sub-row ${g.key}" style="${showExpanded ? '' : 'display: none;'}">
@@ -1144,8 +1227,8 @@ function _gngRenderDetailApproved(target) {
                     ${_gng.filter.supplierId === 'all' ? `<td></td>` : ''}
                     <td style="text-align: right; font-weight: 700; color: #059669;">${formattedPrice}</td>
                     ${isFabricSupplier ? `
-                        <td style="text-align: center; font-weight: 600; color: #4f46e5;">${subCutRatioText}</td>
-                        <td style="text-align: right; font-weight: 700; color: #b45309;">${subFinishedPriceText}</td>
+                        <td style="vertical-align: middle;">${cutRatioHtml}</td>
+                        <td style="vertical-align: middle; text-align: right;">${finishedPriceHtml}</td>
                     ` : ''}
                     <td>${formattedDate}</td>
                     <td>

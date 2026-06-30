@@ -84,6 +84,18 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BNH] approved_import_prices table:', e.message); }
 
     try {
+        // Seed new cutting categories for child and oversize
+        const existingCats = await db.all(`SELECT name FROM dht_settings_options WHERE category = 'cutting_category'`);
+        const existingNames = (existingCats || []).map(c => c.name);
+        if (!existingNames.includes('Áo Trẻ Em')) {
+            await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('cutting_category', 'Áo Trẻ Em', 12)`);
+        }
+        if (!existingNames.includes('Áo Oversize')) {
+            await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('cutting_category', 'Áo Oversize', 13)`);
+        }
+    } catch(e) { console.error('[BNH] seed cutting categories:', e.message); }
+
+    try {
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS requires_price_approval BOOLEAN DEFAULT FALSE`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS price_approved_by INTEGER REFERENCES users(id)`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS price_approved_at TIMESTAMPTZ`);
@@ -2056,7 +2068,15 @@ module.exports = async function(fastify) {
                     (SELECT target_ratio FROM kv_material_cutting_targets WHERE material_id = kfm.id AND cutting_category = 'Áo'),
                     kfm.target_cut_ratio,
                     0
-                ) AS fabric_cut_ratio
+                ) AS fabric_cut_ratio_adult,
+                COALESCE(
+                    (SELECT target_ratio FROM kv_material_cutting_targets WHERE material_id = kfm.id AND cutting_category = 'Áo Trẻ Em'),
+                    0
+                ) AS fabric_cut_ratio_child,
+                COALESCE(
+                    (SELECT target_ratio FROM kv_material_cutting_targets WHERE material_id = kfm.id AND cutting_category = 'Áo Oversize'),
+                    0
+                ) AS fabric_cut_ratio_oversize
             FROM approved_import_prices ap
             LEFT JOIN import_sources s ON ap.source_id = s.id
             LEFT JOIN kv_fabric_colors kfc ON ap.fabric_color_id = kfc.id
