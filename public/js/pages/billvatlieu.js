@@ -1131,6 +1131,32 @@ function _bvlRemoveMatRow(idx) {
     _bvlRenderAddedMats();
 }
 
+function _bvlUpdateAddedMatQty(index, val) {
+    var qty = Number(val) || 0;
+    _bvl.addedMaterials[index].qty = qty;
+    _bvl.addedMaterials[index].cost = qty * _bvl.addedMaterials[index].price;
+    
+    var costText = document.getElementById('_bvlRowCostText_' + index);
+    if (costText) {
+        costText.textContent = _bvlFM(_bvl.addedMaterials[index].cost) + '₫';
+    }
+    _bvlCalculateTotal();
+}
+window._bvlUpdateAddedMatQty = _bvlUpdateAddedMatQty;
+
+function _bvlUpdateAddedMatPrice(index, val) {
+    var price = Number(val) || 0;
+    _bvl.addedMaterials[index].price = price;
+    _bvl.addedMaterials[index].cost = price * _bvl.addedMaterials[index].qty;
+    
+    var costText = document.getElementById('_bvlRowCostText_' + index);
+    if (costText) {
+        costText.textContent = _bvlFM(_bvl.addedMaterials[index].cost) + '₫';
+    }
+    _bvlCalculateTotal();
+}
+window._bvlUpdateAddedMatPrice = _bvlUpdateAddedMatPrice;
+
 function _bvlRenderAddedMats() {
     var listContainer = document.getElementById('_bvlMatAddedList');
     var countBadge = document.getElementById('_bvlTotalItemsCount');
@@ -1151,14 +1177,22 @@ function _bvlRenderAddedMats() {
     var html = '';
     _bvl.addedMaterials.forEach(function (item, index) {
         var unitStr = item.unit ? ' ' + item.unit : '';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:4px">'
-            + '<div style="flex:1">'
-            + '<b style="color:#1e293b">' + item.name + '</b>'
-            + '<span style="color:#6b7280;margin-left:8px">(SL: <b>' + _bvlFM(item.qty) + unitStr + '</b> × ' + _bvlFM(item.price) + '₫)</span>'
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05)">'
+            + '<div style="flex:1.5;display:flex;flex-direction:column;gap:2px">'
+            + '<b style="color:#1e293b;font-size:13px">' + item.name + '</b>'
+            + '<span style="color:#94a3b8;font-size:10px">' + (item.unit ? 'Đơn vị: ' + item.unit : '') + '</span>'
             + '</div>'
-            + '<div style="display:flex;align-items:center;gap:12px">'
-            + '<b style="color:#0d9488">' + _bvlFM(item.cost) + '₫</b>'
-            + '<button type="button" onclick="_bvlRemoveMatRow(' + index + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-weight:700;font-size:14px;padding:2px" title="Xóa">🗑️</button>'
+            + '<div style="flex:2.5;display:flex;align-items:center;gap:8px;justify-content:flex-end">'
+            + '<div style="display:flex;align-items:center;gap:4px">'
+            + '<span style="font-size:11px;color:#64748b">SL:</span>'
+            + '<input type="number" class="_bvlRowQtyInput" data-index="' + index + '" value="' + item.qty + '" oninput="_bvlUpdateAddedMatQty(' + index + ', this.value)" style="width:65px;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px;font-weight:700;text-align:center;outline:none;color:#1e293b"> '
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:4px">'
+            + '<span style="font-size:11px;color:#64748b">Giá:</span>'
+            + '<input type="number" class="_bvlRowPriceInput" data-index="' + index + '" value="' + item.price + '" oninput="_bvlUpdateAddedMatPrice(' + index + ', this.value)" style="width:85px;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px;font-weight:700;text-align:right;outline:none;color:#1e293b"> '
+            + '</div>'
+            + '<div style="min-width:90px;text-align:right"><b id="_bvlRowCostText_' + index + '" style="color:#0d9488;font-size:13px">' + _bvlFM(item.cost) + '₫</b></div>'
+            + '<button type="button" onclick="_bvlRemoveMatRow(' + index + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-weight:700;font-size:14px;padding:2px;margin-left:4px" title="Xóa">🗑️</button>'
             + '</div>'
             + '</div>';
     });
