@@ -1098,14 +1098,99 @@ module.exports = async function(fastify) {
                 }
             }
 
+            let shipCost = Number(rec.ship_cost) || 0;
+            let shipPayer = rec.ship_payer;
+            let shipImageUrl = rec.ship_image_url;
+            let shipImagePath = rec.ship_image_path;
+            let shipCfId = rec.ship_cashflow_id;
+            let shipCfCode = rec.ship_cashflow_code;
+
+            if (b.ship_cost !== undefined || b.ship_payer !== undefined) {
+                if (rec.ship_cashflow_id) {
+                    await client.query('DELETE FROM cashflow_records WHERE id = $1', [rec.ship_cashflow_id]);
+                }
+                if (rec.ship_cashflow_code) {
+                    await client.query('DELETE FROM payment_records WHERE payment_code = $1', [rec.ship_cashflow_code]);
+                }
+
+                shipCost = Number(b.ship_cost) || 0;
+                shipPayer = b.ship_payer || null;
+                shipImageUrl = b.ship_image_url || null;
+                shipImagePath = b.ship_image_path || null;
+                shipCfId = null;
+                shipCfCode = null;
+
+                if (shipCost > 0 && (shipPayer === 'congty' || shipPayer === 'cophanmay')) {
+                    const srcRes = await client.query('SELECT name FROM import_sources WHERE id = $1', [sourceId]);
+                    const srcName = srcRes.rows[0]?.name || 'N/A';
+                    
+                    const importDate = b.import_date || rec.import_date || now.toISOString().split('T')[0];
+                    const dateParts = importDate.split('-');
+                    const yyyy = Number(dateParts[0]);
+                    const mm = Number(dateParts[1]);
+                    const dd = Number(dateParts[2]);
+                    const yy = String(yyyy).slice(-2);
+                    const cfDate = importDate;
+
+                    if (shipPayer === 'cophanmay') {
+                        const cfRow = await client.query(
+                            `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1 AND cashflow_code LIKE 'CPMAY-%'`,
+                            [cfDate]
+                        );
+                        const seq = Number(cfRow.rows[0].max_seq) + 1;
+                        const cfCode = `CPMAY-TM-${seq}-${dd}-${mm}-Y${yy}`;
+                        const cfDesc = `Chi ship nhập vật liệu + ${srcName} (CP May trả)`;
+                        
+                        const cfResult = await client.query(
+                            `INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, money_source, created_by, image_url)
+                             VALUES ($1, 'CHI', $2, $3, $4, $5, 'cophanmay', $6, $7) RETURNING id, cashflow_code`,
+                            [cfCode, seq, cfDate, cfDesc, shipCost, req.user.id, shipImageUrl]
+                        );
+                        shipCfId = cfResult.rows[0].id;
+                        shipCfCode = cfResult.rows[0].cashflow_code;
+                    } else {
+                        const prRow = await client.query(
+                            `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM payment_records WHERE payment_date = $1 AND payment_method = 'TM'`,
+                            [cfDate]
+                        );
+                        const cfRow = await client.query(
+                            `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1 AND cashflow_code LIKE 'TM%'`,
+                            [cfDate]
+                        );
+                        const seq = Math.max(Number(prRow.rows[0].max_seq), Number(cfRow.rows[0].max_seq)) + 1;
+                        const cfCode = `TM${seq}-${dd}-${mm}-Y${yy}`;
+                        const cfDesc = `Chi ship nhập vật liệu + ${srcName} (Công Ty trả)`;
+                        
+                        await client.query(
+                            `INSERT INTO payment_records (payment_code, payment_method, daily_seq, amount, payment_type, transfer_note, money_source, source, payment_date, created_by)
+                             VALUES ($1, 'TM', $2, $3, 'chi', $4, 'congty', 'cashflow_chi', $5, $6)`,
+                            [cfCode, seq, shipCost, cfDesc, cfDate, req.user.id]
+                        );
+                        
+                        const cfResult = await client.query(
+                            `INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, money_source, created_by, image_url)
+                             VALUES ($1, 'CHI', $2, $3, $4, $5, 'congty', $6, $7) RETURNING id, cashflow_code`,
+                            [cfCode, seq, cfDate, cfDesc, shipCost, req.user.id, shipImageUrl]
+                        );
+                        shipCfId = cfResult.rows[0].id;
+                        shipCfCode = cfResult.rows[0].cashflow_code;
+                    }
+                }
+            }
+
+            const billImageUrl = b.bill_image_url !== undefined ? b.bill_image_url : rec.bill_image_url;
+            const billImagePath = b.bill_image_path !== undefined ? b.bill_image_path : rec.bill_image_path;
+
             await client.query(
                 `UPDATE import_records SET import_date=$1,source_id=$2,importer_id=$3,fabric_material=$4,fabric_quantity=$5,
                  material_name=$6,material_quantity=$7,cost=$8,refund=$9,total_amount=$10,paid=$11,debt=$12,cost_notes=$13,updated_at=$14,
                  warehouse_id=$15,material_item_id=$16,fabric_items=$17,
                  requires_price_approval=$18, is_disapproved=false, is_checked=false,
                  price_approved_at = CASE WHEN $18 = true THEN NULL ELSE price_approved_at END,
-                 price_approved_by = CASE WHEN $18 = true THEN NULL ELSE price_approved_by END
-                 WHERE id=$19`,
+                 price_approved_by = CASE WHEN $18 = true THEN NULL ELSE price_approved_by END,
+                 bill_image_url=$19, bill_image_path=$20, ship_cost=$21, ship_payer=$22,
+                 ship_cashflow_id=$23, ship_cashflow_code=$24, ship_image_url=$25, ship_image_path=$26
+                 WHERE id=$27`,
                 [b.import_date!==undefined?b.import_date:rec.import_date, sourceId,
                  b.importer_id!==undefined?b.importer_id:rec.importer_id, b.fabric_material!==undefined?b.fabric_material:rec.fabric_material,
                  b.fabric_quantity!==undefined?Number(b.fabric_quantity):rec.fabric_quantity,
@@ -1116,7 +1201,10 @@ module.exports = async function(fastify) {
                  b.warehouse_id!==undefined?b.warehouse_id:rec.warehouse_id,
                  b.material_item_id!==undefined?b.material_item_id:rec.material_item_id,
                  rawFabricItems,
-                 requiresPriceApproval, id]
+                 requiresPriceApproval,
+                 billImageUrl, billImagePath, shipCost, shipPayer || null,
+                 shipCfId, shipCfCode, shipImageUrl, shipImagePath,
+                 id]
             );
 
             // If fabric and price discrepancy is cleared, auto-arrive reservations
