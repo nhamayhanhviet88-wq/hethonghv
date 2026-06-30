@@ -3097,14 +3097,13 @@ function _kkRenderReportTabItems(items, type) {
 
                 let locationName = item.location;
                 let isUnassigned = false;
-                const isExplicitUnassigned = locationName && (
-                    locationName.trim() === 'Chưa Phân Vị Trí Cây Nguyên' ||
-                    locationName.trim() === 'Chưa xếp kệ' ||
-                    locationName.trim() === 'Chưa xếp vị trí'
-                );
+                const cleanLoc = locationName ? locationName.replace(/^📍\s*/, '').trim() : '';
+                const isExplicitUnassigned = cleanLoc === 'Chưa Phân Vị Trí Cây Nguyên' ||
+                                             cleanLoc === 'Chưa xếp kệ' ||
+                                             cleanLoc === 'Chưa xếp vị trí';
                 if (!locationName || locationName === '—' || locationName.trim() === '' || isExplicitUnassigned) {
                     if (item.has_reservation || item.is_active_cut || item.locked_by_cutting_id) {
-                        locationName = 'Cây Chờ Cắt / Đang Cắt';
+                        locationName = 'Cây Nguyên Chờ Cắt / Đang Cắt';
                     } else {
                         const sysW = Number(item.system_weight !== undefined ? item.system_weight : (item.old_weight || 0));
                         const origW = Number(item.original_weight || 0);
@@ -3122,7 +3121,7 @@ function _kkRenderReportTabItems(items, type) {
                 if (locationName.toLowerCase().includes('chờ cắt') || locationName.toLowerCase().includes('đang cắt')) {
                     shelfBadge = `<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #fde68a; white-space: nowrap;">${locationName}</span>`;
                 } else if (isUnassigned || locationName.toLowerCase().includes('chưa xếp kệ') || locationName.toLowerCase().includes('cần xử lý kho')) {
-                    shelfBadge = `<span style="background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 20px; font-weight: 600; font-size: 10px; border: 1px solid #e2e8f0; white-space: nowrap;">${locationName}</span>`;
+                    shelfBadge = `<span style="background: #f1f5f9; color: #0f172a; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #94a3b8; white-space: nowrap;">${locationName}</span>`;
                 } else if (locationName.toLowerCase().includes('in 3d phượng tc') || locationName.toLowerCase().includes('in 3d thiện linh')) {
                     shelfBadge = `<span style="background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bfdbfe; white-space: nowrap;">${locationName}</span>`;
                 } else if (locationName.toLowerCase().includes('dự định hoàn vải')) {
@@ -3525,14 +3524,13 @@ async function _kkExportReportToExcel() {
         const missingItems = items.filter(i => i.type === 'missing');
         missingItems.forEach((i, idx) => {
             let loc = i.location;
-            const isExplicitUnassigned = loc && (
-                loc.trim() === 'Chưa Phân Vị Trí Cây Nguyên' ||
-                loc.trim() === 'Chưa xếp kệ' ||
-                loc.trim() === 'Chưa xếp vị trí'
-            );
+            const cleanLoc = loc ? loc.replace(/^📍\s*/, '').trim() : '';
+            const isExplicitUnassigned = cleanLoc === 'Chưa Phân Vị Trí Cây Nguyên' ||
+                                         cleanLoc === 'Chưa xếp kệ' ||
+                                         cleanLoc === 'Chưa xếp vị trí';
             if (!loc || loc === '—' || loc.trim() === '' || isExplicitUnassigned) {
                 if (i.has_reservation || i.is_active_cut || i.locked_by_cutting_id) {
-                    loc = 'Cây Chờ Cắt / Đang Cắt';
+                    loc = 'Cây Nguyên Chờ Cắt / Đang Cắt';
                 } else {
                     const sysW = Number(i.system_weight !== undefined ? i.system_weight : (i.old_weight || 0));
                     const origW = Number(i.original_weight || 0);
@@ -3561,14 +3559,13 @@ async function _kkExportReportToExcel() {
         surplusItems.forEach((i, idx) => {
             const isLe = i.notes && i.notes.includes("Cây lẻ");
             let loc = i.location;
-            const isExplicitUnassigned = loc && (
-                loc.trim() === 'Chưa Phân Vị Trí Cây Nguyên' ||
-                loc.trim() === 'Chưa xếp kệ' ||
-                loc.trim() === 'Chưa xếp vị trí'
-            );
+            const cleanLoc = loc ? loc.replace(/^📍\s*/, '').trim() : '';
+            const isExplicitUnassigned = cleanLoc === 'Chưa Phân Vị Trí Cây Nguyên' ||
+                                         cleanLoc === 'Chưa xếp kệ' ||
+                                         cleanLoc === 'Chưa xếp vị trí';
             if (!loc || loc === '—' || loc.trim() === '' || isExplicitUnassigned) {
                 if (i.has_reservation || i.is_active_cut || i.locked_by_cutting_id) {
-                    loc = 'Cây Chờ Cắt / Đang Cắt';
+                    loc = 'Cây Nguyên Chờ Cắt / Đang Cắt';
                 } else {
                     const sysW = Number(i.system_weight !== undefined ? i.system_weight : (i.old_weight || 0));
                     const origW = Number(i.original_weight || 0);
@@ -3595,14 +3592,13 @@ async function _kkExportReportToExcel() {
         const diffItems = items.filter(i => i.type === 'difference');
         diffItems.forEach((i, idx) => {
             let loc = i.location;
-            const isExplicitUnassigned = loc && (
-                loc.trim() === 'Chưa Phân Vị Trí Cây Nguyên' ||
-                loc.trim() === 'Chưa xếp kệ' ||
-                loc.trim() === 'Chưa xếp vị trí'
-            );
+            const cleanLoc = loc ? loc.replace(/^📍\s*/, '').trim() : '';
+            const isExplicitUnassigned = cleanLoc === 'Chưa Phân Vị Trí Cây Nguyên' ||
+                                         cleanLoc === 'Chưa xếp kệ' ||
+                                         cleanLoc === 'Chưa xếp vị trí';
             if (!loc || loc === '—' || loc.trim() === '' || isExplicitUnassigned) {
                 if (i.has_reservation || i.is_active_cut || i.locked_by_cutting_id) {
-                    loc = 'Cây Chờ Cắt / Đang Cắt';
+                    loc = 'Cây Nguyên Chờ Cắt / Đang Cắt';
                 } else {
                     const sysW = Number(i.system_weight !== undefined ? i.system_weight : (i.old_weight || 0));
                     const origW = Number(i.original_weight || 0);
