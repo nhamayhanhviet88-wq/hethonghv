@@ -3095,13 +3095,17 @@ function _kkRenderReportTabItems(items, type) {
                     }
                 }
 
-                let locationName = item.location || '—';
-                if (locationName !== '—' && !locationName.includes('📍') && !locationName.toLowerCase().includes('chưa xếp kệ')) {
+                let locationName = item.location;
+                if (!locationName || locationName === '—' || locationName.trim() === '') {
+                    locationName = 'Chưa xếp kệ';
+                }
+
+                if (locationName !== 'Chưa xếp kệ' && !locationName.includes('📍')) {
                     locationName = '📍 ' + locationName;
                 }
 
                 let shelfBadge = '';
-                if (locationName.toLowerCase().includes('chưa xếp kệ') || locationName === '—') {
+                if (locationName.toLowerCase().includes('chưa xếp kệ')) {
                     shelfBadge = `<span style="background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 20px; font-weight: 600; font-size: 10px; border: 1px solid #e2e8f0; white-space: nowrap;">${locationName}</span>`;
                 } else if (locationName.toLowerCase().includes('in 3d phượng tc') || locationName.toLowerCase().includes('in 3d thiện linh')) {
                     shelfBadge = `<span style="background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 10px; border: 1px solid #bfdbfe; white-space: nowrap;">${locationName}</span>`;
@@ -3503,12 +3507,14 @@ async function _kkExportReportToExcel() {
         ];
         const missingItems = items.filter(i => i.type === 'missing');
         missingItems.forEach((i, idx) => {
+            let loc = i.location;
+            if (!loc || loc === '—' || loc.trim() === '') loc = 'Chưa xếp kệ';
             missingRows.push([
                 idx + 1,
                 i.roll_code,
                 i.material_name,
                 i.color_name,
-                i.location || '—',
+                loc,
                 Number(i.system_weight),
                 0,
                 -Number(i.system_weight),
@@ -3523,12 +3529,14 @@ async function _kkExportReportToExcel() {
         const surplusItems = items.filter(i => i.type === 'surplus');
         surplusItems.forEach((i, idx) => {
             const isLe = i.notes && i.notes.includes("Cây lẻ");
+            let loc = i.location;
+            if (!loc || loc === '—' || loc.trim() === '') loc = 'Chưa xếp kệ';
             surplusRows.push([
                 idx + 1,
                 i.roll_code,
                 i.material_name,
                 i.color_name,
-                i.location || '—',
+                loc,
                 Number(i.actual_weight),
                 isLe ? "Cây Lẻ" : "Cây Nguyên",
                 i.notes || ''
@@ -3541,12 +3549,14 @@ async function _kkExportReportToExcel() {
         ];
         const diffItems = items.filter(i => i.type === 'difference');
         diffItems.forEach((i, idx) => {
+            let loc = i.location;
+            if (!loc || loc === '—' || loc.trim() === '') loc = 'Chưa xếp kệ';
             diffRows.push([
                 idx + 1,
                 i.roll_code,
                 i.material_name,
                 i.color_name,
-                i.location || '—',
+                loc,
                 Number(i.system_weight),
                 Number(i.actual_weight),
                 -Number(i.difference),
