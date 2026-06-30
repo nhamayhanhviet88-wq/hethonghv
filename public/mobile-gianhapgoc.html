@@ -705,26 +705,88 @@
                 return;
             }
 
-            let html = '';
+            // Group items by unique material + supplier combination
+            const groupsMap = {};
+            let groupIndex = 0;
             filtered.forEach(p => {
                 const isFabric = p.item_type === 'fabric';
-                const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
+                const mapKey = isFabric ? `fabric_${p.fabric_material_name}_${p.source_id}` : `material_${p.item_name}_${p.source_id}`;
+                if (!groupsMap[mapKey]) {
+                    groupIndex++;
+                    groupsMap[mapKey] = {
+                        key: `m_group_${groupIndex}`,
+                        name: isFabric ? p.fabric_material_name : p.item_name,
+                        item_type: p.item_type,
+                        source_id: p.source_id,
+                        source_name: p.source_name,
+                        items: []
+                    };
+                }
+                groupsMap[mapKey].items.push(p);
+            });
+
+            const groups = Object.values(groupsMap);
+            groups.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+
+            let html = '';
+            groups.forEach(g => {
+                const isFabric = g.item_type === 'fabric';
+                
+                // Calculate price range
+                const pricesList = g.items.map(it => Number(it.price) || 0);
+                const minPrice = Math.min(...pricesList);
+                const maxPrice = Math.max(...pricesList);
+                let priceRangeText = '';
+                if (minPrice === maxPrice) {
+                    priceRangeText = minPrice.toLocaleString('vi-VN') + ' đ';
+                } else {
+                    priceRangeText = `${minPrice.toLocaleString('vi-VN')} đ - ${maxPrice.toLocaleString('vi-VN')} đ`;
+                }
+
+                // Sub-rows rendering
+                let subRowsHtml = '';
+                g.items.forEach(p => {
+                    const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
+                    subRowsHtml += `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom:1px dashed #e2e8f0;">
+                            <div style="font-size:13px; font-weight:600; color:#334155; text-align:left;">
+                                ${isFabric ? `🎨 ${p.fabric_color_name}` : `🏢 ${p.warehouse_name || '---'}`}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:12.5px; font-weight:700; color:#059669;">${formattedPrice}</span>
+                                <button class="m-btn-secondary" style="padding: 2px 6px; font-size: 10px; background:#f1f5f9; color:#475569; border-radius:4px;" onclick="event.stopPropagation(); openHistorySheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
+                                    Lịch sử
+                                </button>
+                                ${isDuyetUser ? `
+                                    <button class="m-btn-primary" style="padding: 2px 6px; font-size: 10px; border-radius:4px;" onclick="event.stopPropagation(); openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}')">
+                                        Sửa
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
 
                 html += `
-                    <div class="m-card" ${isDuyetUser ? `onclick="openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}')"` : ''}>
-                        <div class="m-card-title">
-                            <span class="m-badge-type ${isFabric ? 'm-badge-fabric' : 'm-badge-material'}">
-                                ${isFabric ? 'Vải' : 'Phụ liệu'}
-                            </span>
-                            ${isFabric ? (p.fabric_material_name || 'Vải') : (p.item_name || 'Vật tư')}
+                    <div class="m-card" onclick="toggleMobileGroup('${g.key}')" style="cursor:pointer; padding: 14px; margin-bottom: 12px; background: white; border-radius: 12px; border: 1px solid #e2e8f0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="m-card-title" style="margin-bottom:0; font-size:14px; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                                <span class="m-badge-type ${isFabric ? 'm-badge-fabric' : 'm-badge-material'}" style="padding:2px 6px; font-size:10px;">
+                                    ${isFabric ? 'Vải' : 'Phụ liệu'}
+                                </span>
+                                ${g.name}
+                            </div>
+                            <span class="m-group-arrow" id="m_arrow_${g.key}" style="transition: transform 0.2s; font-size:11px; color:#94a3b8;">▶</span>
                         </div>
-                        <div class="m-card-subtitle">
-                            ${isFabric ? `🎨 Màu: ${p.fabric_color_name || '---'}` : `🏢 Kho: ${p.warehouse_name || '---'}`}
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:12px; color:#64748b;">
+                            <span>${g.items.length} ${isFabric ? 'màu sắc' : 'kho/mục'}</span>
+                            <span>Giá: <b style="color:#4f46e5;">${priceRangeText}</b></span>
                         </div>
-                        ${selectedSupplierId === 'all' ? `<div class="m-card-meta">🏭 NCC: <b>${p.source_name || '---'}</b></div>` : ''}
-                        <div class="m-card-price-row">
-                            <span class="m-card-price-lbl">Đơn giá gốc</span>
-                            <span class="m-card-price-val">${formattedPrice}</span>
+                        ${selectedSupplierId === 'all' ? `<div style="font-size:11px; color:#94a3b8; margin-top:4px; text-align:left;">🏭 NCC: <b>${g.source_name || '---'}</b></div>` : ''}
+                        
+                        <!-- Collapsible sub-items -->
+                        <div id="m_sub_${g.key}" style="display:none; margin-top:12px; border-top:1px solid #f1f5f9; padding-top:8px;" onclick="event.stopPropagation()">
+                            ${subRowsHtml}
                         </div>
                     </div>
                 `;
@@ -1088,6 +1150,19 @@
             } catch (e) {
                 console.error(e);
                 alert('Có lỗi xảy ra khi khởi tạo.');
+            }
+        }
+
+        function toggleMobileGroup(groupKey) {
+            const subContainer = document.getElementById('m_sub_' + groupKey);
+            const arrow = document.getElementById('m_arrow_' + groupKey);
+            if (!subContainer) return;
+            
+            const isCollapsed = subContainer.style.display === 'none';
+            subContainer.style.display = isCollapsed ? 'block' : 'none';
+            
+            if (arrow) {
+                arrow.style.transform = isCollapsed ? 'rotate(90deg)' : 'rotate(0deg)';
             }
         }
     </script>

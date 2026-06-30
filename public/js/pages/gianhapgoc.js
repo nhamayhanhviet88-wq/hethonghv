@@ -430,6 +430,43 @@ async function renderGiaNhapGocPage(content) {
             .gng-btn-secondary:hover { background: #cbd5e1; }
             .gng-empty { padding: 32px; text-align: center; color: #64748b; }
             .gng-empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+            /* Accordion Styling */
+            .gng-group-header {
+                cursor: pointer;
+                background: #f8fafc !important;
+                font-weight: 700;
+                color: #0f172a;
+                border-bottom: 1px solid #e2e8f0;
+                transition: background 0.15s ease;
+            }
+            .gng-group-header:hover {
+                background: #f1f5f9 !important;
+            }
+            .gng-sub-row {
+                background: #ffffff;
+            }
+            .gng-sub-row td {
+                padding: 10px 14px 10px 32px !important;
+                font-size: 12.5px;
+                border-bottom: 1px solid #f1f5f9;
+            }
+            .gng-group-arrow {
+                display: inline-block;
+                transition: transform 0.2s ease;
+                margin-right: 8px;
+                font-size: 11px;
+                color: #64748b;
+            }
+            .gng-badge-count-color {
+                font-size: 10.5px;
+                background: #f1f5f9;
+                color: #475569;
+                padding: 2px 6px;
+                border-radius: 6px;
+                font-weight: 600;
+                margin-left: 8px;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -749,40 +786,103 @@ function _gngRenderDetailApproved(target) {
         return;
     }
 
-    let rowsHtml = '';
+    // Group items by unique material + supplier combination
+    const groupsMap = {};
+    let groupIndex = 0;
     filtered.forEach(p => {
-        const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
-        const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
         const isFabric = p.item_type === 'fabric';
+        const mapKey = isFabric ? `fabric_${p.fabric_material_name}_${p.source_id}` : `material_${p.item_name}_${p.source_id}`;
+        if (!groupsMap[mapKey]) {
+            groupIndex++;
+            groupsMap[mapKey] = {
+                key: `gng_group_${groupIndex}`,
+                name: isFabric ? p.fabric_material_name : p.item_name,
+                item_type: p.item_type,
+                source_id: p.source_id,
+                source_name: p.source_name,
+                items: []
+            };
+        }
+        groupsMap[mapKey].items.push(p);
+    });
 
+    const groups = Object.values(groupsMap);
+    // Sort groups alphabetically by name
+    groups.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+
+    let rowsHtml = '';
+    groups.forEach(g => {
+        const isFabric = g.item_type === 'fabric';
+        
+        // Calculate price range
+        const pricesList = g.items.map(it => Number(it.price) || 0);
+        const minPrice = Math.min(...pricesList);
+        const maxPrice = Math.max(...pricesList);
+        let priceRangeText = '';
+        if (minPrice === maxPrice) {
+            priceRangeText = minPrice.toLocaleString('vi-VN') + ' đ';
+        } else {
+            priceRangeText = `${minPrice.toLocaleString('vi-VN')} đ - ${maxPrice.toLocaleString('vi-VN')} đ`;
+        }
+
+        // Get latest update date
+        const datesList = g.items.map(it => it.updated_at ? new Date(it.updated_at).getTime() : 0);
+        const latestTime = Math.max(...datesList);
+        const latestDateText = latestTime > 0 ? new Date(latestTime).toLocaleDateString('vi-VN') : '---';
+
+        // Render Group Header
         rowsHtml += `
-            <tr>
+            <tr class="gng-group-header" onclick="_gngToggleGroup('${g.key}')">
                 <td>
                     <span class="gng-badge-type ${isFabric ? 'gng-badge-fabric' : 'gng-badge-material'}">
                         ${isFabric ? '🧵 Vải' : '📦 Phụ liệu'}
                     </span>
                 </td>
                 <td style="font-weight: 700; color: #1e293b;">
-                    ${isFabric ? (p.fabric_material_name || 'Vải') : (p.item_name || 'Vật tư')}
+                    <span class="gng-group-arrow" id="arrow_${g.key}">▶</span>
+                    ${g.name}
+                    <span class="gng-badge-count-color">
+                        ${g.items.length} ${isFabric ? 'màu' : 'kho/mục'}
+                    </span>
                 </td>
-                <td style="color: #475569;">
-                    ${isFabric ? (p.fabric_color_name || 'Màu sắc') : (p.warehouse_name || '---')}
-                </td>
-                ${_gng.filter.supplierId === 'all' ? `<td style="font-weight: 600;">${p.source_name || '---'}</td>` : ''}
-                <td style="text-align: right; font-weight: 700; color: #4f46e5;">${formattedPrice}</td>
-                <td>${formattedDate}</td>
+                <td style="color: #64748b; font-style: italic; font-size:12px;">(Nhấp để xem chi tiết)</td>
+                ${_gng.filter.supplierId === 'all' ? `<td style="font-weight: 600;">${g.source_name || '---'}</td>` : ''}
+                <td style="text-align: right; font-weight: 700; color: #4f46e5;">${priceRangeText}</td>
+                <td>${latestDateText}</td>
                 <td>
-                    <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="_gngShowItemHistory('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
-                        📈 Lịch sử
-                    </button>
-                    ${_gng.isDuyetUser ? `
-                        <button class="gng-btn-primary" style="padding: 4px 8px; font-size: 11px; margin-left: 2px;" onclick="_gngOpenEditPriceModal('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
-                            ✏️ Sửa
-                        </button>
-                    ` : ''}
+                    <span style="font-size: 11px; color: #64748b; font-weight:600;">Xem ${g.items.length} mục</span>
                 </td>
             </tr>
         `;
+
+        // Render Sub-rows
+        g.items.forEach(p => {
+            const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
+            const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
+            
+            rowsHtml += `
+                <tr class="gng-sub-row ${g.key}" style="display: none;">
+                    <td></td>
+                    <td></td>
+                    <td style="color: #0f172a; font-weight: 600;">
+                        ${isFabric ? `🎨 ${p.fabric_color_name || 'Màu sắc'}` : `🏢 ${p.warehouse_name || '---'}`}
+                    </td>
+                    ${_gng.filter.supplierId === 'all' ? `<td></td>` : ''}
+                    <td style="text-align: right; font-weight: 700; color: #059669;">${formattedPrice}</td>
+                    <td>${formattedDate}</td>
+                    <td>
+                        <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); _gngShowItemHistory('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
+                            📈 Lịch sử
+                        </button>
+                        ${_gng.isDuyetUser ? `
+                            <button class="gng-btn-primary" style="padding: 4px 8px; font-size: 11px; margin-left: 2px;" onclick="event.stopPropagation(); _gngOpenEditPriceModal('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
+                                ✏️ Sửa
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        });
     });
 
     target.innerHTML = `
@@ -1206,6 +1306,21 @@ async function _gngInitializeFromHistory() {
     } catch (e) {
         console.error(e);
         alert('Có lỗi xảy ra khi khởi tạo.');
+    }
+}
+
+function _gngToggleGroup(groupKey) {
+    const rows = document.querySelectorAll('.' + groupKey);
+    const arrow = document.getElementById('arrow_' + groupKey);
+    if (!rows || rows.length === 0) return;
+    
+    const isCollapsed = rows[0].style.display === 'none';
+    rows.forEach(r => {
+        r.style.display = isCollapsed ? 'table-row' : 'none';
+    });
+    
+    if (arrow) {
+        arrow.style.transform = isCollapsed ? 'rotate(90deg)' : 'rotate(0deg)';
     }
 }
 
