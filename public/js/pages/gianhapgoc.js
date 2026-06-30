@@ -1893,7 +1893,6 @@ async function _gngShowApprovalDialog(id) {
         } else {
             qtyText = `<span style="font-weight:700; color:#1e293b;">${Number(d.quantity).toLocaleString('vi-VN')} ${d.unit || ''}</span>`;
         }
-
         discrepanciesHtml += `
             <tr>
                 <td style="font-weight:600; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:left; color:#1e293b;">${d.item_name}</td>
@@ -1901,6 +1900,9 @@ async function _gngShowApprovalDialog(id) {
                 <td style="color:#ef4444; font-weight:700; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:right; white-space:nowrap;">${unitPriceStr}</td>
                 <td style="color:#64748b; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:right; white-space:nowrap;">${approvedPriceStr}</td>
                 <td style="padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:center; white-space:nowrap;">${diffHtml}</td>
+                <td style="padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:center;">
+                    <input type="checkbox" class="gng-row-checkbox" data-id="${d.fabric_color_id || d.material_item_id || ''}" style="cursor:pointer; width:16px; height:16px;" checked>
+                </td>
             </tr>
         `;
     });
@@ -1966,15 +1968,16 @@ async function _gngShowApprovalDialog(id) {
                     <!-- Items Table -->
                     <div>
                         <div style="font-weight:700; color:#475569; font-size:12px; margin-bottom:8px; letter-spacing:0.5px;">📋 BẢNG SO SÁNH GIÁ CHI TIẾT:</div>
-                        <div style="border:1px solid #cbd5e1; border-radius:10px; overflow:hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div style="border:1px solid #cbd5e1; border-radius:10px; overflow-x:auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                             <table style="width:100%; border-collapse:collapse; margin:0; background:#fff;">
                                 <thead>
                                     <tr style="background:#1e293b; border-bottom:1px solid #334155;">
-                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:left; letter-spacing:0.5px; white-space:nowrap;">Tên Vật Tư / Chất Liệu</th>
-                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:center; letter-spacing:0.5px; white-space:nowrap;">Số Lượng</th>
-                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:right; width:95px; letter-spacing:0.5px; white-space:nowrap;">Giá Trên Bill</th>
-                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:right; width:95px; letter-spacing:0.5px; white-space:nowrap;">Giá Gốc Cũ</th>
-                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:center; width:100px; letter-spacing:0.5px; white-space:nowrap;">Chênh Lệch</th>
+                                        <th style="padding:10px 8px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:left; letter-spacing:0.5px; white-space:nowrap;">Tên Vật Tư / Chất Liệu</th>
+                                        <th style="padding:10px 8px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:center; letter-spacing:0.5px; white-space:nowrap;">Số Lượng</th>
+                                        <th style="padding:10px 8px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:right; width:85px; letter-spacing:0.5px; white-space:nowrap;">Giá Bill</th>
+                                        <th style="padding:10px 8px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:right; width:85px; letter-spacing:0.5px; white-space:nowrap;">Giá Gốc Cũ</th>
+                                        <th style="padding:10px 8px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:center; width:90px; letter-spacing:0.5px; white-space:nowrap;">Chênh Lệch</th>
+                                        <th style="padding:10px 8px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:center; width:80px; letter-spacing:0.5px; white-space:nowrap;">Giá Gốc Mới?<br><input type="checkbox" id="gngSelectAll" style="cursor:pointer; margin-top:4px; vertical-align:middle;" checked onclick="_gngToggleAllCheckboxes(this)"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2039,7 +2042,15 @@ async function _gngConfirmChoice(id, choice) {
     } else if (choice === 'approve_update') {
         confirmTitle = 'Duyệt & Cập Nhật Giá Gốc';
         confirmMsg = `Bạn có chắc chắn muốn DUYỆT & CẬP NHẬT GIÁ GỐC mới từ bill #${code}?\n\n- Duyệt đơn giá của hóa đơn này để hoạt động (cho phép xuất kho/giao đơn).\n- Giá trên bill này sẽ được lưu làm giá gốc mới cho các lần nhập sau.`;
-        payload = { action: 'check', price_only: true, update_base_price: true };
+        const checkedIds = [];
+        const checkboxes = document.querySelectorAll('.gng-row-checkbox');
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                const val = Number(cb.getAttribute('data-id'));
+                if (val) checkedIds.push(val);
+            }
+        });
+        payload = { action: 'check', price_only: true, update_base_price: true, update_item_ids: checkedIds };
     } else if (choice === 'disapprove') {
         confirmTitle = 'Từ Chối Đơn Giá';
         confirmMsg = `Bạn có chắc chắn muốn TỪ CHỐI đơn giá của bill #${code}?\n\n- Từ chối đơn giá nhập của hóa đơn này.\n- Yêu cầu kế toán sửa lại thông tin/đơn giá bill này.`;
@@ -2067,6 +2078,13 @@ async function _gngConfirmChoice(id, choice) {
         }
     });
 }
+
+window._gngToggleAllCheckboxes = function(master) {
+    const checkboxes = document.querySelectorAll('.gng-row-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = master.checked;
+    });
+};
 
 function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
     const filtered = _gng.history.filter(h => 

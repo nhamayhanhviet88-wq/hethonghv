@@ -640,11 +640,15 @@ module.exports = async function(fastify) {
                     );
 
                     // Upsert prices into approved_import_prices if requires_price_approval is true AND update_base_price is not false
-                    const { update_base_price } = req.body || {};
+                    const { update_base_price, update_item_ids } = req.body || {};
+                    const updateItemIds = Array.isArray(update_item_ids) ? update_item_ids.map(Number) : null;
                     if (record.requires_price_approval && update_base_price !== false) {
                         if (record.record_type === 'fabric') {
                             for (const fi of fabricItems) {
                                 if (fi.fabric_color_id) {
+                                    if (updateItemIds && !updateItemIds.includes(Number(fi.fabric_color_id))) {
+                                        continue;
+                                    }
                                     await client.query(
                                         `INSERT INTO approved_import_prices (item_type, fabric_color_id, source_id, price, created_by, updated_at)
                                          VALUES ('fabric', $1, $2, $3, $4, NOW())
@@ -657,6 +661,9 @@ module.exports = async function(fastify) {
                         } else if (record.record_type === 'general') {
                             for (const item of fabricItems) {
                                 if (item.material_item_id) {
+                                    if (updateItemIds && !updateItemIds.includes(Number(item.material_item_id))) {
+                                        continue;
+                                    }
                                     await client.query(
                                         `INSERT INTO approved_import_prices (item_type, material_item_id, source_id, price, created_by, updated_at)
                                          VALUES ('material', $1, $2, $3, $4, NOW())
@@ -3138,7 +3145,9 @@ module.exports = async function(fastify) {
                         quantity: quantity,
                         roll_count: rollCount,
                         record_type: rec.record_type,
-                        unit: item.unit || ''
+                        unit: item.unit || '',
+                        fabric_color_id: item.fabric_color_id || null,
+                        material_item_id: item.material_item_id || null
                     });
                 }
             }
