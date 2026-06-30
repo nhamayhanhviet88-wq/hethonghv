@@ -3108,7 +3108,7 @@ module.exports = async function(fastify) {
                         approvedPrice = appRes ? Number(appRes.price) : null;
                     }
                 } else {
-                    itemName = item.material_name || '';
+                    itemName = item.material_item_name || item.material_name || '';
                     if (item.material_item_id) {
                         const appRes = await db.get(
                             `SELECT price FROM approved_import_prices 
