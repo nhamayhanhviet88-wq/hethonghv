@@ -627,8 +627,9 @@ module.exports = async function(fastify) {
                     [now, req.user.id, id]
                 );
 
-                // Upsert prices into approved_import_prices if requires_price_approval is true
-                if (record.requires_price_approval) {
+                // Upsert prices into approved_import_prices if requires_price_approval is true AND update_base_price is not false
+                const { update_base_price } = req.body || {};
+                if (record.requires_price_approval && update_base_price !== false) {
                     if (record.record_type === 'fabric') {
                         for (const fi of fabricItems) {
                             if (fi.fabric_color_id) {
@@ -757,10 +758,18 @@ module.exports = async function(fastify) {
                     }
                 }
 
+                let historyDetails = '✅ Duyệt kiểm tra';
+                if (record.requires_price_approval) {
+                    if (update_base_price === true) {
+                        historyDetails = '✅ Duyệt và cập nhật làm giá gốc mới';
+                    } else if (update_base_price === false) {
+                        historyDetails = '✅ Duyệt riêng lần này (giữ giá gốc cũ)';
+                    }
+                }
                 await client.query(
                     `INSERT INTO import_history (import_id,action,details,performed_by,performed_at) 
                      VALUES ($1,$2,$3,$4,$5)`, 
-                    [id, 'check', '✅ Duyệt kiểm tra', req.user.id, now]
+                    [id, 'check', historyDetails, req.user.id, now]
                 );
 
             } else if (action === 'disapprove') {
