@@ -151,7 +151,14 @@ function _gngFormatDateTime(dateVal) {
         minute = String(minute).padStart(2, '0');
         const yr2 = String(year).slice(-2);
         
-        return `${hour}:${minute} thứ ${day}/${month}/${yr2}`;
+        // Safe weekday calculations in Vietnam offset
+        const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+        const vnTime = new Date(utcTime + (3600000 * 7));
+        const dayOfWeekIndex = vnTime.getDay();
+        const dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = dayNames[dayOfWeekIndex];
+        
+        return `${hour}:${minute} ${dayName} - ${day}/${month}/${yr2}`;
     } catch (e) {
         const pad = (num) => String(num).padStart(2, '0');
         const h = pad(date.getHours());
@@ -159,7 +166,12 @@ function _gngFormatDateTime(dateVal) {
         const d = date.getDate();
         const mo = date.getMonth() + 1;
         const y = String(date.getFullYear()).slice(-2);
-        return `${h}:${m} thứ ${d}/${mo}/${y}`;
+        
+        const dayOfWeekIndex = date.getDay();
+        const dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayName = dayNames[dayOfWeekIndex];
+        
+        return `${h}:${m} ${dayName} - ${d}/${mo}/${y}`;
     }
 }
 
