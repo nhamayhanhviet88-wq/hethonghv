@@ -6,13 +6,14 @@ async function _bnhCheckFabPerm() {
 }
 
 async function _bnhOpenFabric() {
-    _bnhFab = { calls: [], items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false, vat: 0 };
+    _bnhFab = { calls: [], items: [], extraCosts: [], shipImg: null, billImg: null, submitting: false, vat: 0, basePrices: [] };
     // Load pending calls + sources + configuration
     try {
-        var [cr, sr, cfg] = await Promise.all([
+        var [cr, sr, cfg, basePricesRes] = await Promise.all([
             apiCall('/api/import/fabric-pending-calls'),
             apiCall('/api/import/sources?source_type=fabric'),
-            apiCall('/api/app-config/fabric_import_require_roll_photo')
+            apiCall('/api/app-config/fabric_import_require_roll_photo'),
+            apiCall('/api/gianhapgoc/prices', 'GET')
         ]);
         if (cr.pendingRequestedReturns && cr.pendingRequestedReturns.length > 0) {
             _bnhFabShowPendingReturnsModal(cr.pendingRequestedReturns);
@@ -24,6 +25,7 @@ async function _bnhOpenFabric() {
         }
         _bnhFab.groups = cr.groups || [];
         _bnhFab.availSources = sr.sources || [];
+        _bnhFab.basePrices = (basePricesRes && basePricesRes.prices) || [];
         _bnhFab.requireRollPhoto = cfg && cfg.value !== undefined ? (cfg.value === 'true') : true;
     } catch (e) { showToast(e.message || 'Lỗi tải dữ liệu', 'error'); return; }
 
@@ -179,10 +181,29 @@ function _bnhFabRenderBody() {
             }
             h += '</div><button onclick="_bnhFabRemoveItem(' + idx + ')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:2px 8px;font-size:10px;cursor:pointer;font-weight:700">✕</button></div>';
             // Unit price
+            var basePriceHtml = '';
+            if (_bnhFab.selectedSrc) {
+                var matchedBase = (_bnhFab.basePrices || []).find(function(bp) {
+                    return bp.item_type === 'fabric' && 
+                           Number(bp.fabric_color_id) === Number(it.fabric_color_id) && 
+                           Number(bp.source_id) === Number(_bnhFab.selectedSrc);
+                });
+                if (matchedBase) {
+                    var bpVal = Number(matchedBase.price);
+                    basePriceHtml = '<button onclick="event.preventDefault();_bnhFab.items['+idx+'].unit_price=' + bpVal + ';_bnhFabRenderBody();" '
+                        + 'style="margin-left:8px;padding:3px 10px;border-radius:6px;border:1px solid #10b981;background:#ecfdf5;color:#047857;font-size:10px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;outline:none" '
+                        + 'onmouseover="this.style.background=\'#d1fae5\'" onmouseout="this.style.background=\'#ecfdf5\'" title="Click để tự động điền giá gốc này">'
+                        + '💡 Giá gốc: ' + bpVal.toLocaleString('vi-VN') + 'đ'
+                        + '</button>';
+                }
+            }
+
             h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:6px 8px;background:#f0fdf4;border-radius:6px">'
                 + '<span style="font-size:10px;font-weight:700;color:#059669">💰 Đơn giá:</span>'
                 + '<input type="number" step="1000" min="0" value="' + (it.unit_price||'') + '" placeholder="0" onchange="_bnhFab.items['+idx+'].unit_price=Number(this.value)||0;_bnhFabRenderBody()" style="width:130px;padding:4px 8px;border:1px solid #86efac;border-radius:6px;font-size:12px;font-weight:700">'
-                + '<span style="font-size:10px;color:#6b7280">đ/' + (it.unit||'kg') + '</span></div>';
+                + '<span style="font-size:10px;color:#6b7280">đ/' + (it.unit||'kg') + '</span>'
+                + basePriceHtml
+                + '</div>';
             // Trees
             var trees = it.trees || [];
             trees.forEach(function (tr, ti) {
