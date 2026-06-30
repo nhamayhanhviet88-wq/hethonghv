@@ -99,6 +99,7 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS requires_price_approval BOOLEAN DEFAULT FALSE`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS price_approved_by INTEGER REFERENCES users(id)`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS price_approved_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS is_disapproved BOOLEAN DEFAULT FALSE`);
     } catch(e) { console.error('[BNH] requires_price_approval columns:', e.message); }
 
     // ===== Material Warehouse & Items tables =====
@@ -271,7 +272,7 @@ module.exports = async function(fastify) {
             SELECT s.id, s.name, 
                    COUNT(r.id) FILTER (WHERE r.id IS NOT NULL)::int AS count, 
                    COALESCE(SUM(r.total_amount),0)::numeric AS sum_total,
-                   COALESCE(SUM(r.debt),0)::numeric AS sum_debt
+                   COALESCE(SUM(CASE WHEN r.requires_price_approval = true AND r.is_checked = false THEN 0 ELSE r.debt END),0)::numeric AS sum_debt
             FROM import_sources s 
             LEFT JOIN import_records r ON s.id=r.source_id
         `;
@@ -300,7 +301,7 @@ module.exports = async function(fastify) {
 
         let totalsQuery = `
             SELECT COUNT(*)::int AS total, COALESCE(SUM(total_amount),0)::numeric AS sum_total,
-            COALESCE(SUM(debt),0)::numeric AS sum_debt, COALESCE(SUM(paid),0)::numeric AS sum_paid
+            COALESCE(SUM(CASE WHEN requires_price_approval = true AND is_checked = false THEN 0 ELSE debt END),0)::numeric AS sum_debt, COALESCE(SUM(paid),0)::numeric AS sum_paid
             FROM import_records
         `;
         let totalsParams = [];
@@ -591,7 +592,7 @@ module.exports = async function(fastify) {
     // ========== TOGGLE CHECK ==========
     fastify.post('/api/import/toggle/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { action } = req.body || {}, now = vnNow();
-        if (action !== 'check' && action !== 'uncheck') {
+        if (action !== 'check' && action !== 'uncheck' && action !== 'disapprove') {
             return reply.code(400).send({ error: 'Action không hợp lệ' });
         }
         if (!(await isDuyetUser(req))) {
@@ -615,10 +616,11 @@ module.exports = async function(fastify) {
             const fabricItems = typeof record.fabric_items === 'string' ? JSON.parse(record.fabric_items) : (record.fabric_items || []);
 
             if (action === 'check') {
-                // Update import_records
+                // Update import_records and reset is_disapproved flag on success
                 await client.query(
                     `UPDATE import_records 
                      SET is_checked=true, checked_at=$1, checked_by=$2, updated_at=$1,
+                         is_disapproved=false,
                          price_approved_by = CASE WHEN requires_price_approval = true THEN $2::int ELSE price_approved_by END,
                          price_approved_at = CASE WHEN requires_price_approval = true THEN $1::timestamptz ELSE price_approved_at END
                      WHERE id=$3`,
@@ -761,6 +763,69 @@ module.exports = async function(fastify) {
                     [id, 'check', '✅ Duyệt kiểm tra', req.user.id, now]
                 );
 
+            } else if (action === 'disapprove') {
+                // Update import_records
+                await client.query(
+                    `UPDATE import_records 
+                     SET is_disapproved=true, is_checked=false, checked_at=NULL, checked_by=NULL, 
+                         price_approved_by=NULL, price_approved_at=NULL, updated_at=$1 
+                     WHERE id=$2`, 
+                    [now, id]
+                );
+
+                // If fabric import, revert reservations status to pending_price_approval and clear arrived_at/by
+                if (record.record_type === 'fabric') {
+                    // Revert from_stock reservations
+                    await client.query(
+                        `UPDATE qlx_fabric_reservations 
+                         SET status = 'pending_price_approval', arrived_at = NULL, arrived_by = NULL, updated_at = $1
+                         WHERE roll_id IN (SELECT id FROM kv_rolls WHERE source_import_id = $2)`,
+                        [now, id]
+                    );
+
+                    // Revert new_call reservations in the bill back to reserved
+                    const newCallResIds = fabricItems.flatMap(fi => fi.reservation_ids || []).map(Number).filter(n => n > 0);
+                    if (newCallResIds.length > 0) {
+                        await client.query(
+                            `UPDATE qlx_fabric_reservations 
+                             SET status = 'reserved', arrived_at = NULL, arrived_by = NULL, updated_at = $1
+                             WHERE id = ANY($2)`,
+                            [now, newCallResIds]
+                        );
+
+                        // Cascade to children
+                        await client.query(
+                            `UPDATE qlx_fabric_reservations 
+                             SET status = 'reserved', arrived_at = NULL, arrived_by = NULL, updated_at = $1
+                             WHERE linked_call_id = ANY($2)`,
+                            [now, newCallResIds]
+                        );
+                    }
+
+                    // Reset fabric_arrived on qlx_preparation for affected orders
+                    const ordersRes = await client.query(
+                        `SELECT DISTINCT dht_order_id FROM qlx_fabric_reservations 
+                         WHERE roll_id IN (SELECT id FROM kv_rolls WHERE source_import_id = $1)
+                            OR id = ANY($2)`,
+                        [id, newCallResIds.length > 0 ? newCallResIds : [-1]]
+                    );
+                    const affectedOrders = ordersRes.rows.map(o => o.dht_order_id).filter(Boolean);
+                    if (affectedOrders.length > 0) {
+                        await client.query(
+                            `UPDATE qlx_preparation 
+                             SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL 
+                             WHERE dht_order_id = ANY($1)`,
+                            [affectedOrders]
+                        );
+                    }
+                }
+
+                await client.query(
+                    `INSERT INTO import_history (import_id,action,details,performed_by,performed_at) 
+                     VALUES ($1,$2,$3,$4,$5)`, 
+                    [id, 'disapprove', '❌ Từ chối duyệt (Yêu cầu sửa giá)', req.user.id, now]
+                );
+
             } else if (action === 'uncheck') {
                 // Update import_records
                 await client.query(
@@ -858,11 +923,14 @@ module.exports = async function(fastify) {
         if (!image_data) return reply.code(400).send({ error: 'Hình ảnh thanh toán bắt buộc (Ctrl+V)' });
 
         // Get the primary bill and its source
-        const rec = await db.get('SELECT id, source_id, total_amount, paid, debt FROM import_records WHERE id=$1', [importId]);
+        const rec = await db.get('SELECT id, source_id, total_amount, paid, debt, requires_price_approval, is_checked FROM import_records WHERE id=$1', [importId]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bill' });
+        if (rec.requires_price_approval && !rec.is_checked) {
+            return reply.code(400).send({ error: 'Không thể thanh toán bill chưa được duyệt giá!' });
+        }
 
-        // Calculate total source debt (all bills same source)
-        const sourceDebtRow = await db.get('SELECT COALESCE(SUM(debt), 0)::numeric AS total_debt FROM import_records WHERE source_id=$1 AND debt > 0', [rec.source_id]);
+        // Calculate total source debt (all bills same source) excluding unapproved ones
+        const sourceDebtRow = await db.get('SELECT COALESCE(SUM(debt), 0)::numeric AS total_debt FROM import_records WHERE source_id=$1 AND debt > 0 AND NOT (requires_price_approval = true AND is_checked = false)', [rec.source_id]);
         const totalSourceDebt = Number(sourceDebtRow?.total_debt) || 0;
         if (payAmt > totalSourceDebt) {
             return reply.code(400).send({ error: 'Số tiền vượt Tổng Công Nợ còn lại (' + totalSourceDebt.toLocaleString('vi-VN') + '₫). Vui lòng kiểm tra lại!' });
@@ -909,7 +977,7 @@ module.exports = async function(fastify) {
         // 2. Distribute remainder FIFO to other bills of the same source
         if (remaining > 0) {
             const otherBills = await db.all(
-                'SELECT id, total_amount, paid, debt FROM import_records WHERE source_id=$1 AND id!=$2 AND debt > 0 ORDER BY import_date ASC NULLS LAST, created_at ASC',
+                'SELECT id, total_amount, paid, debt FROM import_records WHERE source_id=$1 AND id!=$2 AND debt > 0 AND NOT (requires_price_approval = true AND is_checked = false) ORDER BY import_date ASC NULLS LAST, created_at ASC',
                 [rec.source_id, rec.id]
             );
             for (const bill of otherBills) {
@@ -975,29 +1043,194 @@ module.exports = async function(fastify) {
     // ========== UPDATE ==========
     fastify.put('/api/import/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), b = req.body || {}, now = vnNow();
-        const rec = await db.get('SELECT * FROM import_records WHERE id=$1', [id]);
-        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
-        const cost = b.cost!==undefined ? Number(b.cost)||0 : Number(rec.cost)||0;
-        const refund = b.refund!==undefined ? Number(b.refund)||0 : Number(rec.refund)||0;
-        const paid = b.paid!==undefined ? Number(b.paid)||0 : Number(rec.paid)||0;
-        const fin = calcFinance(cost, refund, paid);
-        await db.run(`UPDATE import_records SET import_date=$1,source_id=$2,importer_id=$3,fabric_material=$4,fabric_quantity=$5,
-            material_name=$6,material_quantity=$7,cost=$8,refund=$9,total_amount=$10,paid=$11,debt=$12,cost_notes=$13,updated_at=$14,
-            warehouse_id=$15,material_item_id=$16,fabric_items=$17 WHERE id=$18`,
-            [b.import_date!==undefined?b.import_date:rec.import_date, b.source_id!==undefined?b.source_id:rec.source_id,
-             b.importer_id!==undefined?b.importer_id:rec.importer_id, b.fabric_material!==undefined?b.fabric_material:rec.fabric_material,
-             b.fabric_quantity!==undefined?Number(b.fabric_quantity):rec.fabric_quantity,
-             b.material_name!==undefined?b.material_name:rec.material_name,
-             b.material_quantity!==undefined?Number(b.material_quantity):rec.material_quantity,
-             cost, refund, fin.total_amount, paid, fin.debt,
-             b.cost_notes!==undefined?b.cost_notes:rec.cost_notes, now,
-             b.warehouse_id!==undefined?b.warehouse_id:rec.warehouse_id,
-             b.material_item_id!==undefined?b.material_item_id:rec.material_item_id,
-             b.fabric_items!==undefined ? (typeof b.fabric_items === 'string' ? b.fabric_items : JSON.stringify(b.fabric_items)) : rec.fabric_items,
-             id]);
-        await db.run(`INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [id, 'update', 'Cập nhật bill nhập hàng', req.user.id, now]);
-        return { success: true, total_amount: fin.total_amount, debt: fin.debt };
+        const pool = db.getDB();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            const recRes = await client.query('SELECT * FROM import_records WHERE id=$1 FOR UPDATE', [id]);
+            if (recRes.rows.length === 0) {
+                throw new Error('Không tìm thấy bill');
+            }
+            const rec = recRes.rows[0];
+
+            const cost = b.cost!==undefined ? Number(b.cost)||0 : Number(rec.cost)||0;
+            const refund = b.refund!==undefined ? Number(b.refund)||0 : Number(rec.refund)||0;
+            const paid = b.paid!==undefined ? Number(b.paid)||0 : Number(rec.paid)||0;
+            const fin = calcFinance(cost, refund, paid);
+
+            const sourceId = b.source_id!==undefined ? Number(b.source_id) : Number(rec.source_id);
+            const rawFabricItems = b.fabric_items!==undefined ? (typeof b.fabric_items === 'string' ? b.fabric_items : JSON.stringify(b.fabric_items)) : rec.fabric_items;
+            const fabricItems = typeof rawFabricItems === 'string' ? JSON.parse(rawFabricItems || '[]') : (rawFabricItems || []);
+
+            // Re-evaluate requires_price_approval
+            let requiresPriceApproval = false;
+            if (rec.record_type === 'fabric') {
+                for (const fi of fabricItems) {
+                    if (fi.fabric_color_id) {
+                        const approvedRes = await client.query(
+                            `SELECT price FROM approved_import_prices 
+                             WHERE item_type = 'fabric' AND fabric_color_id = $1 AND source_id = $2`,
+                            [fi.fabric_color_id, sourceId]
+                        );
+                        if (approvedRes.rows.length === 0) {
+                            requiresPriceApproval = true;
+                        } else if (Number(approvedRes.rows[0].price) !== Number(fi.unit_price)) {
+                            requiresPriceApproval = true;
+                        }
+                    } else {
+                        requiresPriceApproval = true;
+                    }
+                }
+            } else {
+                for (const item of fabricItems) {
+                    if (item.material_item_id) {
+                        const approvedRes = await client.query(
+                            `SELECT price FROM approved_import_prices 
+                             WHERE item_type = 'material' AND material_item_id = $1 AND source_id = $2`,
+                            [item.material_item_id, sourceId]
+                        );
+                        if (approvedRes.rows.length === 0) {
+                            requiresPriceApproval = true;
+                        } else if (Number(approvedRes.rows[0].price) !== Number(item.price)) {
+                            requiresPriceApproval = true;
+                        }
+                    } else {
+                        requiresPriceApproval = true;
+                    }
+                }
+            }
+
+            await client.query(
+                `UPDATE import_records SET import_date=$1,source_id=$2,importer_id=$3,fabric_material=$4,fabric_quantity=$5,
+                 material_name=$6,material_quantity=$7,cost=$8,refund=$9,total_amount=$10,paid=$11,debt=$12,cost_notes=$13,updated_at=$14,
+                 warehouse_id=$15,material_item_id=$16,fabric_items=$17,
+                 requires_price_approval=$18, is_disapproved=false, is_checked=false
+                 WHERE id=$19`,
+                [b.import_date!==undefined?b.import_date:rec.import_date, sourceId,
+                 b.importer_id!==undefined?b.importer_id:rec.importer_id, b.fabric_material!==undefined?b.fabric_material:rec.fabric_material,
+                 b.fabric_quantity!==undefined?Number(b.fabric_quantity):rec.fabric_quantity,
+                 b.material_name!==undefined?b.material_name:rec.material_name,
+                 b.material_quantity!==undefined?Number(b.material_quantity):rec.material_quantity,
+                 cost, refund, fin.total_amount, paid, fin.debt,
+                 b.cost_notes!==undefined?b.cost_notes:rec.cost_notes, now,
+                 b.warehouse_id!==undefined?b.warehouse_id:rec.warehouse_id,
+                 b.material_item_id!==undefined?b.material_item_id:rec.material_item_id,
+                 rawFabricItems,
+                 requiresPriceApproval, id]
+            );
+
+            // If fabric and price discrepancy is cleared, auto-arrive reservations
+            if (rec.record_type === 'fabric' && !requiresPriceApproval) {
+                await client.query(
+                    `UPDATE qlx_fabric_reservations 
+                     SET status = 'arrived', arrived_at = $1, arrived_by = $2, updated_at = $1
+                     WHERE status = 'pending_price_approval' AND roll_id IN (SELECT id FROM kv_rolls WHERE source_import_id = $3)`,
+                    [now, req.user.id, id]
+                );
+
+                // Run smart fulfillment for reservations in this bill
+                const allImportRows = await client.query(`SELECT fabric_items FROM import_records WHERE record_type='fabric' AND (requires_price_approval = false OR is_checked = true)`);
+                const prevImportEntries = [];
+                for (const row of allImportRows.rows) {
+                    let items = []; try { items = typeof row.fabric_items === 'string' ? JSON.parse(row.fabric_items) : (row.fabric_items || []); } catch(e) {}
+                    for (const fi of items) {
+                        const resIds = (fi.reservation_ids || []).map(Number).filter(n => n > 0);
+                        const treeCount = (fi.trees || []).length;
+                        if (resIds.length > 0 && treeCount > 0) {
+                            prevImportEntries.push({ resIds: new Set(resIds), treeCount });
+                        }
+                    }
+                }
+
+                const checkedResGroups = new Set();
+                for (const fi of fabricItems) {
+                    const fiResIds = (fi.reservation_ids || []).map(Number).filter(n => n > 0);
+                    if (!fiResIds.length) continue;
+                    const resKey = fiResIds.slice().sort((a, b) => a - b).join(',');
+                    if (checkedResGroups.has(resKey)) continue;
+                    checkedResGroups.add(resKey);
+
+                    const fiResIdSet = new Set(fiResIds);
+
+                    const groupRes = await client.query(
+                        `SELECT id, dht_order_id, call_trees, call_amount FROM qlx_fabric_reservations
+                         WHERE id = ANY($1) AND reservation_type='new_call' AND status='reserved'
+                         FOR UPDATE`,
+                        [fiResIds]
+                    );
+                    if (groupRes.rows.length === 0) continue;
+
+                    let neededTrees = 0;
+                    for (const r of groupRes.rows) {
+                        neededTrees += (Number(r.call_trees) || 0) + (Number(r.call_amount) > 0 ? 1 : 0);
+                    }
+
+                    let prevImported = 0;
+                    for (const entry of prevImportEntries) {
+                        for (const rid of entry.resIds) {
+                            if (fiResIdSet.has(rid)) {
+                                prevImported += entry.treeCount;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (prevImported >= neededTrees) {
+                        const resIds = groupRes.rows.map(r => r.id);
+                        await client.query(
+                            `UPDATE qlx_fabric_reservations SET status='fulfilled', arrived_at=$1, arrived_by=$2, updated_at=$1 WHERE id=ANY($3)`,
+                            [now, req.user.id, resIds]
+                        );
+
+                        const linkedChildren = await client.query(
+                            `SELECT id, dht_order_id FROM qlx_fabric_reservations WHERE linked_call_id = ANY($1) AND status = 'reserved'`,
+                            [resIds]
+                        );
+                        if (linkedChildren.rows.length > 0) {
+                            const childResIds = linkedChildren.rows.map(c => c.id);
+                            await client.query(
+                                `UPDATE qlx_fabric_reservations SET status = 'fulfilled', arrived_at = $1, arrived_by = $2, updated_at = $1 WHERE id = ANY($3)`,
+                                [now, req.user.id, childResIds]
+                            );
+                        }
+
+                        const parentOrders = groupRes.rows.map(r => r.dht_order_id);
+                        const childOrders = linkedChildren.rows.map(c => c.dht_order_id);
+                        const affectedOrders = [...new Set([...parentOrders, ...childOrders])];
+
+                        for (const ordId of affectedOrders) {
+                            const pending = await client.query(
+                                `SELECT COUNT(*)::int AS cnt FROM qlx_fabric_reservations WHERE dht_order_id=$1 AND status='reserved'`,
+                                [ordId]
+                            );
+                            if (pending.rows[0].cnt === 0) {
+                                await client.query(
+                                    `INSERT INTO qlx_preparation (dht_order_id, fabric_arrived, fabric_arrived_at, fabric_arrived_by)
+                                     VALUES ($1, true, $2, $3)
+                                     ON CONFLICT (dht_order_id) WHERE item_id IS NULL DO UPDATE SET fabric_arrived=true, fabric_arrived_at=$2, fabric_arrived_by=$3, updated_at=$2`,
+                                    [ordId, now, req.user.id]
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            await client.query(
+                `INSERT INTO import_history (import_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [id, 'update', 'Cập nhật bill nhập hàng', req.user.id, now]
+            );
+
+            await client.query('COMMIT');
+            return { success: true, total_amount: fin.total_amount, debt: fin.debt };
+        } catch(err) {
+            await client.query('ROLLBACK');
+            console.error('[BNH Update Record]', err.message);
+            return reply.code(400).send({ error: err.message || 'Lỗi cập nhật bill' });
+        } finally {
+            client.release();
+        }
     });
 
     // ========== INLINE FIELD ==========
@@ -2149,7 +2382,7 @@ module.exports = async function(fastify) {
             FROM import_records ir
             LEFT JOIN import_sources s ON ir.source_id = s.id
             LEFT JOIN users u ON ir.importer_id = u.id
-            WHERE ir.requires_price_approval = true AND ir.is_checked = false
+            WHERE ir.requires_price_approval = true AND ir.is_checked = false AND ir.is_disapproved = false
             ORDER BY ir.import_date DESC, ir.id DESC
         `);
 

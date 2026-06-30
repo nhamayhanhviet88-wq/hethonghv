@@ -1202,8 +1202,11 @@
                         ${discHtml}
 
                         ${isDuyetUser ? `
-                            <button class="m-btn-approve" onclick="approveBill(${rec.id}, '${rec.fabric_import_code || rec.id}')">
+                            <button class="m-btn-approve" onclick="approveBill(${rec.id}, '${rec.fabric_import_code || rec.id}')" style="margin-bottom:8px;">
                                 Phê Duyệt Giá & Hóa Đơn
+                            </button>
+                            <button class="m-btn-reject" onclick="disapproveBill(${rec.id}, '${rec.fabric_import_code || rec.id}')" style="width:100%; padding:10px; background-color:#ef4444; color:white; border:none; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">
+                                Từ Chối Duyệt (Yêu cầu sửa giá)
                             </button>
                         ` : `
                             <div style="margin-top:10px; font-size:12px; font-weight:700; color:#ef4444; text-align:center;">
@@ -1250,6 +1253,21 @@
                     await loadData();
                 } else {
                     throw new Error(res.error || 'Lỗi phê duyệt');
+                }
+            } catch(e) {
+                toast(e.message, 'error');
+            }
+        }
+
+        async function disapproveBill(id, code) {
+            if (!confirm(`Từ chối phê duyệt hóa đơn #${code}? Kế toán sẽ phải chỉnh sửa lại giá.`)) return;
+            try {
+                const res = await apiCall('/api/import/toggle/' + id, 'POST', { action: 'disapprove' });
+                if (res.success) {
+                    toast(`Đã từ chối hóa đơn #${code}`, 'success');
+                    await loadData();
+                } else {
+                    throw new Error(res.error || 'Lỗi từ chối phê duyệt');
                 }
             } catch(e) {
                 toast(e.message, 'error');

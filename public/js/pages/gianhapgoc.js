@@ -1557,8 +1557,11 @@ function _gngRenderDetailPending(target) {
                     </div>
                     <div class="gng-pending-actions">
                         ${_gng.isDuyetUser ? `
-                            <button class="gng-btn-approve" onclick="_gngApproveBill(${rec.id}, '${rec.fabric_import_code || rec.id}')">
+                            <button class="gng-btn-approve" onclick="_gngApproveBill(${rec.id}, '${rec.fabric_import_code || rec.id}')" style="margin-right:8px;">
                                 Phê Duyệt
+                            </button>
+                            <button class="gng-btn-reject" onclick="_gngDisapproveBill(${rec.id}, '${rec.fabric_import_code || rec.id}')" style="background-color:#ef4444; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600;">
+                                Không Duyệt
                             </button>
                         ` : '<span style="color:#ef4444; font-weight:600; font-size:12px;">⏳ Đang chờ Giám đốc duyệt giá</span>'}
                     </div>
@@ -1606,6 +1609,21 @@ async function _gngApproveBill(id, code) {
             await _gngLoadData();
         } else {
             throw new Error(res.error || 'Lỗi phê duyệt');
+        }
+    } catch(e) {
+        if (typeof showToast === 'function') showToast(e.message, 'error');
+    }
+}
+
+async function _gngDisapproveBill(id, code) {
+    if (!confirm(`Xác nhận từ chối phê duyệt hóa đơn #${code}? Hóa đơn này sẽ yêu cầu kế toán chỉnh sửa lại giá.`)) return;
+    try {
+        const res = await apiCall('/api/import/toggle/' + id, 'POST', { action: 'disapprove' });
+        if (res.success) {
+            if (typeof showToast === 'function') showToast(`Đã từ chối hóa đơn #${code}`, 'success');
+            await _gngLoadData();
+        } else {
+            throw new Error(res.error || 'Lỗi từ chối phê duyệt');
         }
     } catch(e) {
         if (typeof showToast === 'function') showToast(e.message, 'error');

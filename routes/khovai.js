@@ -430,7 +430,9 @@ module.exports = async function (fastify) {
              JOIN kv_warehouses w ON w.id = m.warehouse_id
              LEFT JOIN cutting_records cr ON cr.id = r.locked_by_cutting_id
              LEFT JOIN users u_cut ON u_cut.id = cr.cutter_id
+             LEFT JOIN import_records ir ON ir.id = r.source_import_id
              WHERE r.fabric_color_id = $1 AND r.is_returned = false AND r.weight > 0
+               AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)
              ORDER BY r.created_at DESC`,
             [fcid]
         );
@@ -1036,8 +1038,10 @@ module.exports = async function (fastify) {
         const offset = (p - 1) * l;
 
         const countRow = await db.get(
-            `SELECT COUNT(*)::int AS total FROM kv_rolls
-             WHERE fabric_color_id = $1 AND is_returned = false AND weight = 0`,
+            `SELECT COUNT(*)::int AS total FROM kv_rolls r
+             LEFT JOIN import_records ir ON ir.id = r.source_import_id
+             WHERE r.fabric_color_id = $1 AND r.is_returned = false AND r.weight = 0
+               AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)`,
             [fcid]
         );
         const total = countRow ? countRow.total : 0;
@@ -1047,7 +1051,9 @@ module.exports = async function (fastify) {
                     u.full_name AS created_by_name
              FROM kv_rolls r
              LEFT JOIN users u ON u.id = r.created_by
+             LEFT JOIN import_records ir ON ir.id = r.source_import_id
              WHERE r.fabric_color_id = $1 AND r.is_returned = false AND r.weight = 0
+               AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)
              ORDER BY r.updated_at DESC NULLS LAST, r.id DESC
              LIMIT $2 OFFSET $3`,
             [fcid, l, offset]
@@ -1076,12 +1082,23 @@ module.exports = async function (fastify) {
         );
         if (!roll) return { error: 'Không tìm thấy cuộn vải' };
 
+        if (roll.source_import_id) {
+            const ir = await db.get('SELECT requires_price_approval, is_checked FROM import_records WHERE id = $1', [roll.source_import_id]);
+            if (ir && ir.requires_price_approval && !ir.is_checked) {
+                return { error: 'Cuộn vải này chưa được phê duyệt đơn giá nhập gốc' };
+            }
+        }
+
         if (!roll.source_import_id && roll.note && roll.note.startsWith('Nhập vải từ bill ')) {
             const code = roll.note.replace('Nhập vải từ bill ', '').trim();
             const imp = await db.get('SELECT id FROM import_records WHERE fabric_import_code = $1', [code]);
             if (imp) {
                 roll.source_import_id = imp.id;
                 await db.run('UPDATE kv_rolls SET source_import_id = $1 WHERE id = $2', [imp.id, roll.id]);
+                const ir = await db.get('SELECT requires_price_approval, is_checked FROM import_records WHERE id = $1', [imp.id]);
+                if (ir && ir.requires_price_approval && !ir.is_checked) {
+                    return { error: 'Cuộn vải này chưa được phê duyệt đơn giá nhập gốc' };
+                }
             }
         }
 
@@ -1335,13 +1352,21 @@ module.exports = async function (fastify) {
                              WHERE t.fabric_color_id = fc.id AND t.tx_type = 'NHAP'), 0) AS dau_ky,
                    GREATEST(0, COALESCE((SELECT SUM(t.quantity) FROM kv_transactions t
                              WHERE t.fabric_color_id = fc.id AND t.tx_type = 'NHAP'), 0) - COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
-                             WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0)) AS xuat,
-                    COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
-                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false), 0) AS cuoi_ky,
-                   COALESCE((SELECT COUNT(*) FROM kv_rolls r
-                             WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0), 0) AS so_cuc,
-                   COALESCE((SELECT COUNT(*) FROM kv_rolls r
+                             LEFT JOIN import_records ir ON ir.id = r.source_import_id
                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false
+                               AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)), 0)) AS xuat,
+                    COALESCE((SELECT SUM(r.weight) FROM kv_rolls r
+                              LEFT JOIN import_records ir ON ir.id = r.source_import_id
+                              WHERE r.fabric_color_id = fc.id AND r.is_returned = false
+                                AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)), 0) AS cuoi_ky,
+                   COALESCE((SELECT COUNT(*) FROM kv_rolls r
+                             LEFT JOIN import_records ir ON ir.id = r.source_import_id
+                             WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0
+                               AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)), 0) AS so_cuc,
+                   COALESCE((SELECT COUNT(*) FROM kv_rolls r
+                             LEFT JOIN import_records ir ON ir.id = r.source_import_id
+                             WHERE r.fabric_color_id = fc.id AND r.is_returned = false
+                               AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)
                              AND r.weight = r.original_weight), 0) AS cay_nguyen,
                          COALESCE((
                         SELECT json_agg(json_build_object(
@@ -1429,7 +1454,10 @@ module.exports = async function (fastify) {
                                 WHERE res.roll_id = r.id AND res.status IN ('reserved', 'arrived')
                             )
                         ) ORDER BY r.weight DESC)
-                        FROM kv_rolls r WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0
+                        FROM kv_rolls r
+                        LEFT JOIN import_records ir ON ir.id = r.source_import_id
+                        WHERE r.fabric_color_id = fc.id AND r.is_returned = false AND r.weight > 0
+                          AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)
                     ), '[]') AS roll_weights,
                     (
                        SELECT json_agg(json_build_object(
@@ -1605,14 +1633,18 @@ module.exports = async function (fastify) {
                        FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials mat ON mat.id = fc.material_id
+                       LEFT JOIN import_records ir ON ir.id = r.source_import_id
                        WHERE mat.warehouse_id = w.id AND mat.is_active = true AND r.is_returned = false
+                         AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)
                    ), 0) AS total_balance,
                    COALESCE((
                        SELECT COUNT(r.id)
                        FROM kv_rolls r
                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
                        JOIN kv_materials mat ON mat.id = fc.material_id
+                       LEFT JOIN import_records ir ON ir.id = r.source_import_id
                        WHERE mat.warehouse_id = w.id AND mat.is_active = true AND r.is_returned = false AND r.weight > 0
+                         AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)
                    ), 0)::int AS total_rolls
             FROM kv_warehouses w
             WHERE w.is_active = true
@@ -1626,13 +1658,17 @@ module.exports = async function (fastify) {
                            SELECT SUM(r.weight)
                            FROM kv_rolls r
                            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                           LEFT JOIN import_records ir ON ir.id = r.source_import_id
                            WHERE fc.material_id = m.id AND r.is_returned = false
+                             AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)
                        ), 0) AS total_balance,
                        COALESCE((
                            SELECT COUNT(r.id)
                            FROM kv_rolls r
                            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                           LEFT JOIN import_records ir ON ir.id = r.source_import_id
                            WHERE fc.material_id = m.id AND r.is_returned = false AND r.weight > 0
+                             AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.is_checked = true)
                        ), 0)::int AS total_rolls
                 FROM kv_materials m
                 WHERE m.warehouse_id = $1 AND m.is_active = true

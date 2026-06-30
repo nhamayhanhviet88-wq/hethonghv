@@ -135,7 +135,8 @@ function _bnhRender(){
     var tot=all.length;
     var sumCost=0,sumTotal=0,sumPaid=0,sumDebt=0,sumTrees=0,sumQtyByUnit={};
     all.forEach(function(r){
-        sumCost+=Number(r.cost)||0;sumTotal+=Number(r.total_amount)||0;sumPaid+=Number(r.paid)||0;sumDebt+=Number(r.debt)||0;
+        var isPending = r.requires_price_approval && !r.is_checked;
+        sumCost+=Number(r.cost)||0;sumTotal+=Number(r.total_amount)||0;sumPaid+=Number(r.paid)||0;sumDebt+=isPending ? 0 : (Number(r.debt)||0);
         var info=_bnhTreeInfo(r);sumTrees+=info.trees;
         if(info.byUnit){Object.keys(info.byUnit).forEach(function(u){sumQtyByUnit[u]=(sumQtyByUnit[u]||0)+info.byUnit[u];});}
     });
@@ -148,9 +149,9 @@ function _bnhRender(){
     if(!all.length){tb.innerHTML='<tr><td colspan="16"><div class="empty-state"><div class="icon">🧾</div><h3>Chưa có bill nhập vải</h3></div></td></tr>';}else{
     // Compute running cumulative debt per source (oldest → newest, bottom → top)
     var runDebt=new Array(all.length);var srcCumDebt={};
-    for(var ri=all.length-1;ri>=0;ri--){var sid=all[ri].source_id||0;if(!srcCumDebt[sid])srcCumDebt[sid]=0;srcCumDebt[sid]+=Number(all[ri].debt)||0;runDebt[ri]=srcCumDebt[sid];}
+    for(var ri=all.length-1;ri>=0;ri--){var sid=all[ri].source_id||0;if(!srcCumDebt[sid])srcCumDebt[sid]=0;var isPending=all[ri].requires_price_approval && !all[ri].is_checked;srcCumDebt[sid]+=isPending ? 0 : (Number(all[ri].debt)||0);runDebt[ri]=srcCumDebt[sid];}
     // Compute per-source debt map
-    var srcDebtMap={};all.forEach(function(r){var sid=r.source_id||0;if(!srcDebtMap[sid])srcDebtMap[sid]=0;srcDebtMap[sid]+=Number(r.debt)||0;});
+    var srcDebtMap={};all.forEach(function(r){var sid=r.source_id||0;if(!srcDebtMap[sid])srcDebtMap[sid]=0;var isPending=r.requires_price_approval && !r.is_checked;srcDebtMap[sid]+=isPending ? 0 : (Number(r.debt)||0);});
     tb.innerHTML=all.map(function(r,i){
         var upd='';if(r.last_update_at){upd=_bnhFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#4f46e5;font-size:9px">'+r.last_update_by+'</span>';}
         var info;
@@ -174,6 +175,13 @@ function _bnhRender(){
         var badgeHtml = '';
         if (Number(r.ship_cost) > 0 && r.ship_payer === 'congty') {
             badgeHtml = '<span style="background:#fee2e2;color:#dc2626;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fca5a5;display:inline-block;vertical-align:middle;line-height:1.2">CTy Mất Ship</span>';
+        }
+        if (r.requires_price_approval && !r.is_checked) {
+            if (r.is_disapproved) {
+                badgeHtml += '<span style="background:#fef2f2;color:#ef4444;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fecaca;display:inline-block;vertical-align:middle;line-height:1.2;cursor:pointer" title="Manager từ chối duyệt giá, yêu cầu sửa lại giá!">❌ Từ chối duyệt</span>';
+            } else {
+                badgeHtml += '<span style="background:#fffbeb;color:#d97706;padding:1.5px 5.5px;border-radius:4px;font-size:9px;font-weight:800;margin-right:6px;border:1px solid #fef3c7;display:inline-block;vertical-align:middle;line-height:1.2" title="Chờ Trinh duyệt giá">⚠️ Chờ duyệt giá</span>';
+            }
         }
 
         var paidCellHtml = '';

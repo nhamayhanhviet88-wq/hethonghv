@@ -222,7 +222,7 @@
     </div>
 
     <script>
-    let cu=null,mr=[],srcs=[];
+    let cu=null,mr=[],srcs=[],isDuyetUser=false;
     let mFormState = { source_id: null, items: [], extraCosts: [], vat: 0, billImg: null, shipImg: null, notes: '' };
     let pickerGroups = [];
     let isSubmittingForm = false;
@@ -250,6 +250,7 @@
             const a=await api('/api/auth/me');
             if(!a.user){location.href='/index.html';return}
             cu=a.user;
+            isDuyetUser = (cu.role === 'giam_doc' || (cu.permissions && cu.permissions.bill_nhap_hang && cu.permissions.bill_nhap_hang.can_approve));
             if (cu.role !== 'giam_doc' && (!cu.permissions || !cu.permissions.bill_nhap_hang || !cu.permissions.bill_nhap_hang.can_view)) {
                 sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Bill Nhập Vải!');
                 window.location.href = '/';
@@ -304,7 +305,15 @@
     }
     
     function mStats(){
-        const t=mr.length;let sm=0,sp=0,sd=0,strees=0,sqU={};mr.forEach(r=>{sm+=Number(r.total_amount)||0;sp+=Number(r.paid)||0;sd+=Number(r.debt)||0;const info=mTreeInfo(r);strees+=info.trees;if(info.byUnit)Object.keys(info.byUnit).forEach(u=>{sqU[u]=(sqU[u]||0)+info.byUnit[u];});});
+        const t=mr.length;let sm=0,sp=0,sd=0,strees=0,sqU={};mr.forEach(r=>{
+            const isPending = r.requires_price_approval && !r.is_checked;
+            sm+=Number(r.total_amount)||0;
+            sp+=Number(r.paid)||0;
+            sd+=isPending ? 0 : (Number(r.debt)||0);
+            const info=mTreeInfo(r);
+            strees+=info.trees;
+            if(info.byUnit)Object.keys(info.byUnit).forEach(u=>{sqU[u]=(sqU[u]||0)+info.byUnit[u];});
+        });
         const qP=[];Object.keys(sqU).forEach(u=>{if(sqU[u]>0)qP.push(fn(sqU[u])+' '+u);});
         document.getElementById('sT').textContent=t;document.getElementById('sTR').textContent=strees;document.getElementById('sM').textContent=fns(sm);document.getElementById('sP').textContent=fns(sp);document.getElementById('sD').textContent=fns(sd);document.getElementById('sQ').textContent=qP.join(' + ')||'—';
     }
@@ -315,7 +324,16 @@
             const ic=r.is_checked?'✅':'🧾';const cA=r.is_checked?'uncheck':'check';
             const hl=r.last_update_at?'⏰ '+ft(r.last_update_at)+(r.last_update_by?' — <span>'+r.last_update_by+'</span>':''):'';
             const info=mTreeInfo(r);
+            let badgeHtml = '';
+            if (r.requires_price_approval && !r.is_checked) {
+                if (r.is_disapproved) {
+                    badgeHtml = '<div style="margin: 6px 0;"><span style="background:#fef2f2;color:#ef4444;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #fecaca;display:inline-block;">❌ Từ chối duyệt (Sửa giá)</span></div>';
+                } else {
+                    badgeHtml = '<div style="margin: 6px 0;"><span style="background:#fffbeb;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;border:1px solid #fef3c7;display:inline-block;">⚠️ Chờ duyệt giá</span></div>';
+                }
+            }
             return '<div class="card" onclick="openDetail('+r.id+')"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+(r.source_name||'Nguồn')+'</div><div class="cc">'+fd(r.import_date)+'</div></div>'
+            +badgeHtml
             +'<div class="cb">'
             +'<div class="cr"><span class="cl">👤 NV Nhập</span><span class="cv" style="color:#a5b4fc">'+(r.importer_name||'—')+'</span></div>'
             +'<div class="cr"><span class="cl">🧵 Chất liệu</span><span class="cv" style="font-size:11px">'+(r.fabric_material||'—')+'</span></div>'
@@ -390,6 +408,14 @@
             const extras = typeof r.extra_costs === 'string' ? JSON.parse(r.extra_costs) : (r.extra_costs || []);
             
             let h = '';
+            
+            if (r.requires_price_approval && !r.is_checked) {
+                if (r.is_disapproved) {
+                    h += `<div style="background:#fef2f2; border:1px solid #fecaca; color:#ef4444; padding:8px 12px; border-radius:8px; font-size:12px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px;">❌ Từ chối duyệt (Kế toán cần kiểm tra/sửa lại giá)</div>`;
+                } else {
+                    h += `<div style="background:#fffbeb; border:1px solid #fef3c7; color:#d97706; padding:8px 12px; border-radius:8px; font-size:12px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px;">⚠️ Chờ Trinh duyệt giá gốc (Đang lệch giá)</div>`;
+                }
+            }
             
             // Header stats
             h += `<div class="info-grid">`;
@@ -473,8 +499,19 @@
             }
 
             // Action
-            const cA = r.is_checked ? 'uncheck' : 'check';
-            h += `<div style="margin-top:16px"><button class="ab${r.is_checked ? ' on' : ''}" onclick="closeDetail(); mTog(${r.id},'${cA}')">✅ ${r.is_checked ? 'ĐÃ DUYỆT' : 'DUYỆT KIỂM TRA'}</button></div>`;
+            if (r.requires_price_approval && !r.is_checked) {
+                if (typeof isDuyetUser !== 'undefined' && isDuyetUser) {
+                    h += `<div style="margin-top:16px; display:flex; gap:10px;">
+                        <button class="ab" style="flex:1;" onclick="closeDetail(); mTog(${r.id},'check')">✅ Phê Duyệt</button>
+                        <button class="ab" style="flex:1; background-color:#ef4444;" onclick="closeDetail(); mTog(${r.id},'disapprove')">❌ Không Duyệt</button>
+                    </div>`;
+                } else {
+                    h += `<div style="margin-top:16px; text-align:center; padding:10px; background:rgba(239,68,68,0.1); color:#ef4444; font-weight:700; font-size:12px; border-radius:8px;">⏳ Đang chờ quản lý duyệt giá</div>`;
+                }
+            } else {
+                const cA = r.is_checked ? 'uncheck' : 'check';
+                h += `<div style="margin-top:16px"><button class="ab${r.is_checked ? ' on' : ''}" onclick="closeDetail(); mTog(${r.id},'${cA}')">✅ ${r.is_checked ? 'ĐÃ DUYỆT' : 'DUYỆT KIỂM TRA'}</button></div>`;
+            }
 
             document.getElementById('mDetailBody').innerHTML = h;
 
