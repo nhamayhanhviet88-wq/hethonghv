@@ -159,6 +159,28 @@ async function renderGiaNhapGocPage(content) {
                 color: #4338ca;
                 border-color: #c7d2fe;
             }
+            .gng-sidebar-sub-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 10px;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.15s;
+                border: 1px solid transparent;
+            }
+            .gng-sidebar-sub-item:hover {
+                background: #f1f5f9;
+                color: #0f172a;
+            }
+            .gng-sidebar-sub-item.active {
+                background: #4f46e5;
+                color: white;
+                font-weight: 700;
+            }
+            .gng-sidebar-sub-item.active .gng-sidebar-item-name {
+                color: white;
+            }
             .gng-sidebar-item-name {
                 white-space: nowrap;
                 overflow: hidden;
@@ -630,6 +652,18 @@ function _gngRenderSidebar() {
 
     filteredSuppliers.forEach(s => {
         const isActive = _gng.filter.supplierId == s.id;
+        
+        // Find materials for this supplier
+        const materialsSet = new Set();
+        _gng.prices.forEach(p => {
+            if (p.source_id == s.id) {
+                const name = p.item_type === 'fabric' ? p.fabric_material_name : p.item_name;
+                if (name) materialsSet.add(name);
+            }
+        });
+        const materials = Array.from(materialsSet);
+        materials.sort((a, b) => a.localeCompare(b, 'vi'));
+
         html += `
             <div class="gng-sidebar-item ${isActive ? 'active' : ''}" onclick="_gngSelectSupplier(${s.id})">
                 <span class="gng-sidebar-item-name" title="${s.name}">${s.name}</span>
@@ -639,6 +673,23 @@ function _gngRenderSidebar() {
                 </div>
             </div>
         `;
+
+        if (isActive && materials.length > 0) {
+            let subItemsHtml = '';
+            materials.forEach(m => {
+                const isSubActive = _gng.filter.materialName === m;
+                subItemsHtml += `
+                    <div class="gng-sidebar-sub-item ${isSubActive ? 'active' : ''}" onclick="event.stopPropagation(); _gngSelectMaterial(${s.id}, '${escapeJS(m)}')">
+                        <span class="gng-sidebar-item-name" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;" title="${m}">🧵 ${m}</span>
+                    </div>
+                `;
+            });
+            html += `
+                <div class="gng-sidebar-sub-list" style="margin-left: 16px; padding-left: 8px; border-left: 1.5px solid #cbd5e1; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; margin-bottom: 4px;">
+                    ${subItemsHtml}
+                </div>
+            `;
+        }
     });
 
     listArea.innerHTML = html;
@@ -650,12 +701,42 @@ function _gngSelectSupplier(id) {
     // Auto shift tab if 'pending_all' is selected
     if (id === 'pending_all') {
         _gng.filter.tab = 'pending';
-    } else if (_gng.filter.supplierId !== 'all' && _gng.filter.tab === 'pending') {
-        // If specific supplier has no pending, shift back to approved prices
-        const hasPending = _gng.pending.some(rec => rec.source_id == id);
-        if (!hasPending) _gng.filter.tab = 'approved';
+        _gng.filter.materialName = null;
+    } else if (id === 'all') {
+        _gng.filter.materialName = null;
+    } else {
+        // Auto select first material for this supplier
+        const materialsSet = new Set();
+        _gng.prices.forEach(p => {
+            if (p.source_id == id) {
+                const name = p.item_type === 'fabric' ? p.fabric_material_name : p.item_name;
+                if (name) materialsSet.add(name);
+            }
+        });
+        const materials = Array.from(materialsSet);
+        materials.sort((a, b) => a.localeCompare(b, 'vi'));
+
+        if (materials.length > 0) {
+            if (!_gng.filter.materialName || !materials.includes(_gng.filter.materialName)) {
+                _gng.filter.materialName = materials[0];
+            }
+        } else {
+            _gng.filter.materialName = null;
+        }
+
+        if (_gng.filter.tab === 'pending') {
+            const hasPending = _gng.pending.some(rec => rec.source_id == id);
+            if (!hasPending) _gng.filter.tab = 'approved';
+        }
     }
 
+    _gngRenderSidebar();
+    _gngRenderDetailPanel();
+}
+
+function _gngSelectMaterial(supplierId, materialName) {
+    _gng.filter.supplierId = supplierId;
+    _gng.filter.materialName = materialName;
     _gngRenderSidebar();
     _gngRenderDetailPanel();
 }
@@ -674,6 +755,9 @@ function _gngRenderDetailPanel() {
                       _gng.history.find(h => h.source_id == _gng.filter.supplierId) ||
                       _gng.pending.find(r => r.source_id == _gng.filter.supplierId);
         titleName = match ? match.source_name : `Nhà cung cấp #${_gng.filter.supplierId}`;
+        if (_gng.filter.materialName) {
+            titleName += ` &gt; <span style="color: #4f46e5;">🧵 ${_gng.filter.materialName}</span>`;
+        }
     }
 
     // Number of pending records specifically for selected supplier
@@ -757,6 +841,11 @@ function _gngRenderDetailApproved(target) {
     const filtered = _gng.prices.filter(p => {
         // Supplier filter
         if (_gng.filter.supplierId !== 'all' && p.source_id != _gng.filter.supplierId) return false;
+        // Material filter
+        if (_gng.filter.supplierId !== 'all' && _gng.filter.materialName) {
+            const name = p.item_type === 'fabric' ? p.fabric_material_name : p.item_name;
+            if (name !== _gng.filter.materialName) return false;
+        }
         // Type filter
         if (_gng.filter.type && p.item_type !== _gng.filter.type) return false;
         // Search filter
@@ -781,6 +870,62 @@ function _gngRenderDetailApproved(target) {
                         ⚡ Khởi tạo nhanh Giá Gốc từ Lịch Sử Nhập Hàng
                     </button>
                 ` : ''}
+            </div>
+        `;
+        return;
+    }
+
+    const isSingleMaterialMode = (_gng.filter.supplierId !== 'all' && _gng.filter.materialName);
+
+    if (isSingleMaterialMode) {
+        let rowsHtml = '';
+        filtered.forEach(p => {
+            const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
+            const formattedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('vi-VN') : '---';
+            const isFabric = p.item_type === 'fabric';
+
+            rowsHtml += `
+                <tr>
+                    <td>
+                        <span class="gng-badge-type ${isFabric ? 'gng-badge-fabric' : 'gng-badge-material'}">
+                            ${isFabric ? '🧵 Vải' : '📦 Phụ liệu'}
+                        </span>
+                    </td>
+                    <td style="color: #0f172a; font-weight: 700;">
+                        ${isFabric ? `🎨 ${p.fabric_color_name || 'Màu sắc'}` : `🏢 ${p.warehouse_name || '---'}`}
+                    </td>
+                    <td style="text-align: right; font-weight: 700; color: #059669;">${formattedPrice}</td>
+                    <td>${formattedDate}</td>
+                    <td>
+                        <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); _gngShowItemHistory('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
+                            📈 Lịch sử
+                        </button>
+                        ${_gng.isDuyetUser ? `
+                            <button class="gng-btn-primary" style="padding: 4px 8px; font-size: 11px; margin-left: 2px;" onclick="event.stopPropagation(); _gngOpenEditPriceModal('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
+                                ✏️ Sửa
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+
+        target.innerHTML = `
+            <div class="gng-table-card">
+                <table class="gng-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">Loại</th>
+                            <th>Màu Sắc / Kho</th>
+                            <th style="text-align: right;">Đơn Giá Gốc</th>
+                            <th>Cập Nhật Cuối</th>
+                            <th>Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
             </div>
         `;
         return;
@@ -912,6 +1057,11 @@ function _gngRenderDetailHistory(target) {
     const filtered = _gng.history.filter(h => {
         // Supplier filter
         if (_gng.filter.supplierId !== 'all' && h.source_id != _gng.filter.supplierId) return false;
+        // Material filter
+        if (_gng.filter.supplierId !== 'all' && _gng.filter.materialName) {
+            const name = h.material_name;
+            if (name !== _gng.filter.materialName) return false;
+        }
         // Type filter
         if (_gng.filter.type && h.item_type !== _gng.filter.type) return false;
         // Search filter
@@ -970,6 +1120,8 @@ function _gngRenderDetailHistory(target) {
         return colorA.localeCompare(colorB, 'vi');
     });
 
+    const isSingleMaterialMode = (_gng.filter.supplierId !== 'all' && _gng.filter.materialName);
+
     let rowsHtml = '';
     groupedList.forEach(g => {
         const h = g.latest;
@@ -985,9 +1137,11 @@ function _gngRenderDetailHistory(target) {
                         ${isFabric ? '🧵 Vải' : '📦 Phụ liệu'}
                     </span>
                 </td>
-                <td style="font-weight: 700; color: #1e293b;">
-                    ${h.material_name || 'Chất liệu'}
-                </td>
+                ${!isSingleMaterialMode ? `
+                    <td style="font-weight: 700; color: #1e293b;">
+                        ${h.material_name || 'Chất liệu'}
+                    </td>
+                ` : ''}
                 <td>
                     ${isFabric ? (h.color_name || '---') : '---'}
                 </td>
@@ -1009,7 +1163,7 @@ function _gngRenderDetailHistory(target) {
                 <thead>
                     <tr>
                         <th style="width: 80px;">Loại</th>
-                        <th>Tên Chất Liệu / Vật Tư</th>
+                        ${!isSingleMaterialMode ? '<th>Tên Chất Liệu / Vật Tư</th>' : ''}
                         <th>Màu Sắc</th>
                         ${_gng.filter.supplierId === 'all' ? '<th>Nhà Cung Cấp</th>' : ''}
                         <th style="text-align: right;">Đơn Giá Nhập Gần Nhất</th>
@@ -1032,25 +1186,24 @@ function _gngRenderDetailPending(target) {
         rec.source_id == _gng.filter.supplierId
     );
 
-    if (filtered.length === 0) {
-        target.innerHTML = `
-            <div class="gng-empty">
-                <div class="gng-empty-icon">✅</div>
-                <h3>Không có hóa đơn lệch giá</h3>
-                <p>Tất cả hóa đơn nhập hàng của nhà cung cấp này đều khớp giá gốc.</p>
-            </div>
-        `;
-        return;
-    }
-
     let cardsHtml = '';
     filtered.forEach(rec => {
         const isFabric = rec.record_type === 'fabric';
         const formattedDate = rec.import_date ? new Date(rec.import_date).toLocaleDateString('vi-VN') : '---';
         const totalCostStr = Number(rec.total_amount || rec.cost).toLocaleString('vi-VN') + ' đ';
 
+        // Filter discrepancies inside this record if we have a specific material filtered
+        let discList = rec.discrepancies || [];
+        if (_gng.filter.supplierId !== 'all' && _gng.filter.materialName) {
+            const filterMat = _gng.filter.materialName.toLowerCase();
+            discList = discList.filter(d => (d.item_name || '').toLowerCase().includes(filterMat));
+        }
+
+        // If no discrepancies match the filter, do not show this bill at all
+        if (discList.length === 0) return;
+
         let discrepanciesHtml = '';
-        (rec.discrepancies || []).forEach(d => {
+        discList.forEach(d => {
             const unitPriceStr = Number(d.unit_price).toLocaleString('vi-VN') + ' đ';
             const approvedPriceStr = d.approved_price !== null 
                 ? Number(d.approved_price).toLocaleString('vi-VN') + ' đ' 
@@ -1123,6 +1276,17 @@ function _gngRenderDetailPending(target) {
             </div>
         `;
     });
+
+    if (cardsHtml === '') {
+        target.innerHTML = `
+            <div class="gng-empty">
+                <div class="gng-empty-icon">✅</div>
+                <h3>Không có hóa đơn lệch giá</h3>
+                <p>Tất cả hóa đơn nhập hàng của nhà cung cấp này đều khớp giá gốc.</p>
+            </div>
+        `;
+        return;
+    }
 
     target.innerHTML = `<div class="gng-pending-list">${cardsHtml}</div>`;
 }
