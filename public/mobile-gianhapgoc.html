@@ -737,14 +737,52 @@
                 return;
             }
 
-            let html = '';
+            // Group by unique (item_type, item_id, source_id)
+            const groupsMap = {};
             filtered.forEach(h => {
+                const itemId = h.item_type === 'fabric' ? h.fabric_color_id : h.material_item_id;
+                const key = `${h.item_type}_${itemId}_${h.source_id}`;
+                if (!groupsMap[key]) {
+                    groupsMap[key] = [];
+                }
+                groupsMap[key].push(h);
+            });
+
+            // Extract latest and sort descending
+            const groupedList = Object.values(groupsMap).map(group => {
+                const sortedGroup = [...group].sort((a, b) => {
+                    const dateA = new Date(a.import_date || 0);
+                    const dateB = new Date(b.import_date || 0);
+                    if (dateB - dateA !== 0) return dateB - dateA;
+                    return b.import_id - a.import_id;
+                });
+                return {
+                    latest: sortedGroup[0],
+                    records: sortedGroup
+                };
+            });
+
+            // Sort grouped list alphabetically
+            groupedList.sort((a, b) => {
+                const nameA = a.latest.material_name || '';
+                const nameB = b.latest.material_name || '';
+                const comp = nameA.localeCompare(nameB, 'vi');
+                if (comp !== 0) return comp;
+                const colorA = a.latest.color_name || '';
+                const colorB = b.latest.color_name || '';
+                return colorA.localeCompare(colorB, 'vi');
+            });
+
+            let html = '';
+            groupedList.forEach(g => {
+                const h = g.latest;
                 const isFabric = h.item_type === 'fabric';
+                const itemId = isFabric ? h.fabric_color_id : h.material_item_id;
                 const formattedPrice = Number(h.unit_price).toLocaleString('vi-VN') + ' đ';
                 const formattedDate = h.import_date ? new Date(h.import_date).toLocaleDateString('vi-VN') : '---';
 
                 html += `
-                    <div class="m-card">
+                    <div class="m-card" onclick="openHistorySheet('${h.item_type}', ${itemId}, ${h.source_id}, '${escapeJS(h.material_name)}')">
                         <div class="m-card-title">
                             <span class="m-badge-type ${isFabric ? 'm-badge-fabric' : 'm-badge-material'}">
                                 ${isFabric ? 'Vải' : 'Phụ liệu'}
@@ -756,11 +794,14 @@
                         </div>
                         <div class="m-card-meta">
                             ${selectedSupplierId === 'all' ? `🏭 NCC: <b>${h.source_name || '---'}</b><br>` : ''}
-                            📅 Ngày nhập: <b>${formattedDate}</b>
+                            📅 Ngày nhập gần nhất: <b>${formattedDate}</b>
                         </div>
                         <div class="m-card-price-row">
-                            <span class="m-card-price-lbl">Đơn giá nhập</span>
-                            <span class="m-card-price-val" style="color:#0f172a;">${formattedPrice}</span>
+                            <span class="m-card-price-lbl">Giá nhập gần nhất</span>
+                            <span class="m-card-price-val" style="color:#4f46e5;">${formattedPrice}</span>
+                        </div>
+                        <div style="margin-top: 8px; font-size:11px; text-align:right; color:#64748b; font-weight:700;">
+                            📈 Xem lịch sử (${g.records.length} lần nhập)
                         </div>
                     </div>
                 `;
@@ -908,6 +949,79 @@
 
         function closeSheet(e) {
             if (e && e.target !== document.getElementById('mEditSheet')) return;
+            document.getElementById('mEditModalWrapper').innerHTML = '';
+        }
+
+        function openHistorySheet(itemType, itemId, sourceId, itemName) {
+            const filtered = history.filter(h => 
+                h.item_type === itemType && 
+                (itemType === 'fabric' ? h.fabric_color_id == itemId : h.material_item_id == itemId) &&
+                h.source_id == sourceId
+            );
+
+            const sorted = [...filtered].sort((a, b) => {
+                const dateA = new Date(a.import_date || 0);
+                const dateB = new Date(b.import_date || 0);
+                if (dateB - dateA !== 0) return dateB - dateA;
+                return b.import_id - a.import_id;
+            });
+
+            const firstRec = sorted[0];
+            const sourceName = firstRec ? firstRec.source_name : 'Nhà cung cấp';
+
+            let rowsHtml = '';
+            sorted.forEach(h => {
+                const formattedPrice = Number(h.unit_price).toLocaleString('vi-VN') + ' đ';
+                const formattedDate = h.import_date ? new Date(h.import_date).toLocaleDateString('vi-VN') : '---';
+                rowsHtml += `
+                    <tr>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size:12px;">${formattedDate}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size:12px; font-weight:700; text-align:right;">${formattedPrice}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size:12px; text-align:right;">
+                            <span class="m-badge-status ${h.is_checked ? 'm-badge-stable' : 'm-badge-alert'}" style="padding: 2px 6px; font-size:10px;">
+                                ${h.is_checked ? 'Đã duyệt' : 'Chờ'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            const modalHtml = `
+                <div class="m-modal-backdrop" id="mHistorySheet" onclick="closeHistorySheet(event)">
+                    <div class="m-modal-card" onclick="event.stopPropagation()">
+                        <div class="m-modal-header">
+                            <h3>📈 Lịch Sử Đơn Giá Nhập</h3>
+                            <button class="m-modal-close" onclick="closeHistorySheet()">&times;</button>
+                        </div>
+                        <div style="margin-bottom:14px; font-size:13px; color:#64748b; text-align:left;">
+                            Vật tư: <b style="color:#0f172a;">${itemName}</b><br>
+                            Nhà cung cấp: <b style="color:#0f172a;">${sourceName}</b>
+                        </div>
+                        <div style="max-height: 40vh; overflow-y: auto;">
+                            <table style="width:100%; border-collapse:collapse;">
+                                <thead>
+                                    <tr style="color:#94a3b8; font-size:10px; text-transform:uppercase; text-align:left;">
+                                        <th style="padding-bottom:6px; border-bottom:1px solid #e2e8f0;">Ngày nhập</th>
+                                        <th style="padding-bottom:6px; border-bottom:1px solid #e2e8f0; text-align:right;">Đơn giá</th>
+                                        <th style="padding-bottom:6px; border-bottom:1px solid #e2e8f0; text-align:right;">Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHtml || '<tr><td colspan="3" style="text-align:center; padding:20px; color:#94a3b8;">Không có lịch sử</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                        <button class="m-btn-primary" style="margin-top:16px; background:#f1f5f9; color:#475569; box-shadow:none;" onclick="closeHistorySheet()">
+                            Đóng
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('mEditModalWrapper').innerHTML = modalHtml;
+        }
+
+        function closeHistorySheet(e) {
+            if (e && e.target !== document.getElementById('mHistorySheet')) return;
             document.getElementById('mEditModalWrapper').innerHTML = '';
         }
 

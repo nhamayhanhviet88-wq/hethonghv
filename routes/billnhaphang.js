@@ -2046,16 +2046,16 @@ module.exports = async function(fastify) {
                 ap.*,
                 s.name AS source_name,
                 CASE 
-                    WHEN ap.item_type = 'fabric' THEN kfc.name
+                    WHEN ap.item_type = 'fabric' THEN kfc.color_name
                     ELSE mi.name 
                 END AS item_name,
                 kfm.name AS fabric_material_name,
-                kfc.name AS fabric_color_name,
+                kfc.color_name AS fabric_color_name,
                 wh.name AS warehouse_name
             FROM approved_import_prices ap
             LEFT JOIN import_sources s ON ap.source_id = s.id
             LEFT JOIN kv_fabric_colors kfc ON ap.fabric_color_id = kfc.id
-            LEFT JOIN kv_fabric_materials kfm ON kfc.material_id = kfm.id
+            LEFT JOIN kv_materials kfm ON kfc.material_id = kfm.id
             LEFT JOIN material_items mi ON ap.material_item_id = mi.id
             LEFT JOIN material_warehouses wh ON mi.warehouse_id = wh.id
             ORDER BY ap.item_type, s.name, ap.id

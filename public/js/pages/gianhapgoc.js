@@ -828,14 +828,52 @@ function _gngRenderDetailHistory(target) {
         return;
     }
 
-    let rowsHtml = '';
+    // Group by unique (item_type, item_id, source_id)
+    const groupsMap = {};
     filtered.forEach(h => {
+        const itemId = h.item_type === 'fabric' ? h.fabric_color_id : h.material_item_id;
+        const key = `${h.item_type}_${itemId}_${h.source_id}`;
+        if (!groupsMap[key]) {
+            groupsMap[key] = [];
+        }
+        groupsMap[key].push(h);
+    });
+
+    // Extract latest and sort descending
+    const groupedList = Object.values(groupsMap).map(group => {
+        const sortedGroup = [...group].sort((a, b) => {
+            const dateA = new Date(a.import_date || 0);
+            const dateB = new Date(b.import_date || 0);
+            if (dateB - dateA !== 0) return dateB - dateA;
+            return b.import_id - a.import_id;
+        });
+        return {
+            latest: sortedGroup[0],
+            records: sortedGroup
+        };
+    });
+
+    // Sort grouped list alphabetically
+    groupedList.sort((a, b) => {
+        const nameA = a.latest.material_name || '';
+        const nameB = b.latest.material_name || '';
+        const comp = nameA.localeCompare(nameB, 'vi');
+        if (comp !== 0) return comp;
+        const colorA = a.latest.color_name || '';
+        const colorB = b.latest.color_name || '';
+        return colorA.localeCompare(colorB, 'vi');
+    });
+
+    let rowsHtml = '';
+    groupedList.forEach(g => {
+        const h = g.latest;
         const formattedPrice = Number(h.unit_price).toLocaleString('vi-VN') + ' đ';
         const formattedDate = h.import_date ? new Date(h.import_date).toLocaleDateString('vi-VN') : '---';
         const isFabric = h.item_type === 'fabric';
+        const itemId = isFabric ? h.fabric_color_id : h.material_item_id;
 
         rowsHtml += `
-            <tr>
+            <tr style="cursor: pointer;" onclick="_gngShowItemHistory('${h.item_type}', ${itemId}, ${h.source_id}, '${escapeJS(h.material_name)}')">
                 <td>
                     <span class="gng-badge-type ${isFabric ? 'gng-badge-fabric' : 'gng-badge-material'}">
                         ${isFabric ? '🧵 Vải' : '📦 Phụ liệu'}
@@ -848,12 +886,12 @@ function _gngRenderDetailHistory(target) {
                     ${isFabric ? (h.color_name || '---') : '---'}
                 </td>
                 ${_gng.filter.supplierId === 'all' ? `<td style="font-weight: 600;">${h.source_name || '---'}</td>` : ''}
-                <td style="text-align: right; font-weight: 700; color: #0f172a;">${formattedPrice}</td>
+                <td style="text-align: right; font-weight: 700; color: #4f46e5;">${formattedPrice}</td>
                 <td>${formattedDate}</td>
                 <td>
-                    <span class="gng-badge ${h.is_checked ? 'gng-badge-stable' : 'gng-badge-alert'}">
-                        ${h.is_checked ? 'Đã duyệt' : 'Chờ duyệt'}
-                    </span>
+                    <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); _gngShowItemHistory('${h.item_type}', ${itemId}, ${h.source_id}, '${escapeJS(h.material_name)}')">
+                        📈 Lịch sử (${g.records.length})
+                    </button>
                 </td>
             </tr>
         `;
@@ -868,9 +906,9 @@ function _gngRenderDetailHistory(target) {
                         <th>Tên Chất Liệu / Vật Tư</th>
                         <th>Màu Sắc</th>
                         ${_gng.filter.supplierId === 'all' ? '<th>Nhà Cung Cấp</th>' : ''}
-                        <th style="text-align: right;">Đơn Giá Nhập Thực Tế</th>
-                        <th>Ngày Nhập</th>
-                        <th>Trạng Thái</th>
+                        <th style="text-align: right;">Đơn Giá Nhập Gần Nhất</th>
+                        <th>Ngày Nhập Gần Nhất</th>
+                        <th>Hành Động</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1005,8 +1043,15 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
         h.source_id === sourceId
     );
 
+    const sorted = [...filtered].sort((a, b) => {
+        const dateA = new Date(a.import_date || 0);
+        const dateB = new Date(b.import_date || 0);
+        if (dateB - dateA !== 0) return dateB - dateA;
+        return b.import_id - a.import_id;
+    });
+
     let modalRowsHtml = '';
-    filtered.forEach(h => {
+    sorted.forEach(h => {
         modalRowsHtml += `
             <tr>
                 <td>${h.import_date ? new Date(h.import_date).toLocaleDateString('vi-VN') : '---'}</td>
