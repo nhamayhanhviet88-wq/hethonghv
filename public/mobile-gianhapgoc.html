@@ -434,6 +434,11 @@
         let supplierSearchQuery = '';
         let materialSearchQuery = '';
 
+        function _gngIsFabricSupplier(supplierId) {
+            if (supplierId === 'all' || supplierId === 'pending_all') return false;
+            return prices.some(p => p.source_id == supplierId && p.item_type === 'fabric');
+        }
+
         async function apiCall(url, method = 'GET', body = null) {
             const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
             if (body) opts.body = JSON.stringify(body);
@@ -563,26 +568,60 @@
                         </div>
                     </div>
                     
-                    <hr style="border:0; border-top:1px solid #e2e8f0; margin:6px 0;" />
+                    <hr style="border:0; border-top:1px solid #e2e8f0; margin:12px 0 6px 0;" />
             `;
 
             if (filteredSuppliers.length === 0) {
                 html += `<div class="m-empty"><div class="m-empty-icon">🏢</div><div class="m-empty-text">Không tìm thấy nhà cung cấp nào</div></div>`;
             } else {
-                filteredSuppliers.forEach(s => {
+                const fabricSuppliers = filteredSuppliers.filter(s => _gngIsFabricSupplier(s.id));
+                const materialSuppliers = filteredSuppliers.filter(s => !_gngIsFabricSupplier(s.id));
+
+                if (fabricSuppliers.length > 0) {
                     html += `
-                        <div class="m-sup-item" onclick="selectSupplier(${s.id})">
-                            <div>
-                                <div class="m-sup-name">${s.name}</div>
-                                <div class="m-sup-info">Vật tư đã lưu: ${s.priceCount}</div>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                ${s.pendingCount > 0 ? `<span class="m-badge-pending-red">${s.pendingCount} mục</span>` : ''}
-                                <span>▶</span>
-                            </div>
+                        <div style="margin-top: 14px; margin-bottom: 8px; font-size: 11px; font-weight: 800; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+                            <span>🧵 NGUỒN NHẬP VẢI</span>
+                            <span style="background: #e0e7ff; color: #4338ca; font-size: 10px; padding: 1px 6px; border-radius: 9999px;">${fabricSuppliers.length}</span>
                         </div>
                     `;
-                });
+                    fabricSuppliers.forEach(s => {
+                        html += `
+                            <div class="m-sup-item" onclick="selectSupplier(${s.id})">
+                                <div>
+                                    <div class="m-sup-name">${s.name}</div>
+                                    <div class="m-sup-info">Vật tư đã lưu: ${s.priceCount}</div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    ${s.pendingCount > 0 ? `<span class="m-badge-pending-red">${s.pendingCount} mục</span>` : ''}
+                                    <span>▶</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                if (materialSuppliers.length > 0) {
+                    html += `
+                        <div style="margin-top: 18px; margin-bottom: 8px; font-size: 11px; font-weight: 800; color: #c2410c; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+                            <span>📦 NGUỒN NHẬP VẬT LIỆU</span>
+                            <span style="background: #fff7ed; color: #c2410c; font-size: 10px; padding: 1px 6px; border-radius: 9999px;">${materialSuppliers.length}</span>
+                        </div>
+                    `;
+                    materialSuppliers.forEach(s => {
+                        html += `
+                            <div class="m-sup-item" onclick="selectSupplier(${s.id})">
+                                <div>
+                                    <div class="m-sup-name">${s.name}</div>
+                                    <div class="m-sup-info">Vật tư đã lưu: ${s.priceCount}</div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    ${s.pendingCount > 0 ? `<span class="m-badge-pending-red">${s.pendingCount} mục</span>` : ''}
+                                    <span>▶</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
             }
 
             html += `</div>`;
@@ -740,29 +779,73 @@
                 if (minPrice === maxPrice) {
                     priceRangeText = minPrice.toLocaleString('vi-VN') + ' đ';
                 } else {
-                    priceRangeText = `${minPrice.toLocaleString('vi-VN')} đ - ${maxPrice.toLocaleString('vi-VN')} đ`;
+                    priceRangeText = `<span style="color: #312e81;">${minPrice.toLocaleString('vi-VN')} đ</span> <span style="color: #64748b; font-weight: normal;">-</span> <span style="color: #be123c;">${maxPrice.toLocaleString('vi-VN')} đ</span>`;
                 }
 
                 // Sub-rows rendering
                 let subRowsHtml = '';
                 g.items.forEach(p => {
                     const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
+                    
+                    const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
+                    const ratioChild = Number(p.fabric_cut_ratio_child) || 0;
+                    const ratioOversize = Number(p.fabric_cut_ratio_oversize) || 0;
+
+                    const priceAdult = ratioAdult > 0 ? Math.round(Number(p.price) / ratioAdult) : 0;
+                    const priceChild = ratioChild > 0 ? Math.round(Number(p.price) / ratioChild) : 0;
+                    const priceOversize = ratioOversize > 0 ? Math.round(Number(p.price) / ratioOversize) : 0;
+
+                    let fabricDetailsHtml = '';
+                    if (isFabric) {
+                        fabricDetailsHtml = `
+                            <div style="margin-top: 6px; padding: 6px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                                    <span style="color: #64748b;">🧑 Lớn:</span>
+                                    <span>
+                                        <b style="color: #2563eb;">${ratioAdult > 0 ? ratioAdult + ' sp/kg' : '---'}</b>
+                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
+                                        <b style="color: #2563eb;">${priceAdult > 0 ? priceAdult.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                    </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                                    <span style="color: #64748b;">👶 Trẻ:</span>
+                                    <span>
+                                        <b style="color: #059669;">${ratioChild > 0 ? ratioChild + ' sp/kg' : '---'}</b>
+                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
+                                        <b style="color: #059669;">${priceChild > 0 ? priceChild.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                    </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                                    <span style="color: #64748b;">👕 Over:</span>
+                                    <span>
+                                        <b style="color: #ea580c;">${ratioOversize > 0 ? ratioOversize + ' sp/kg' : '---'}</b>
+                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
+                                        <b style="color: #ea580c;">${priceOversize > 0 ? priceOversize.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }
+
                     subRowsHtml += `
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom:1px dashed #e2e8f0;">
-                            <div style="font-size:13px; font-weight:600; color:#334155; text-align:left;">
-                                ${isFabric ? `🎨 ${p.fabric_color_name}` : `🏢 ${p.warehouse_name || '---'}`}
-                            </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <span style="font-size:12.5px; font-weight:700; color:#059669;">${formattedPrice}</span>
-                                <button class="m-btn-secondary" style="padding: 2px 6px; font-size: 10px; background:#f1f5f9; color:#475569; border-radius:4px;" onclick="event.stopPropagation(); openHistorySheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
-                                    Lịch sử
-                                </button>
-                                ${isDuyetUser ? `
-                                    <button class="m-btn-primary" style="padding: 2px 6px; font-size: 10px; border-radius:4px;" onclick="event.stopPropagation(); openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}')">
-                                        Sửa
+                        <div style="display:flex; flex-direction:column; padding: 10px 0; border-bottom:1px dashed #e2e8f0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="font-size:13px; font-weight:600; color:#334155; text-align:left;">
+                                    ${isFabric ? `🎨 ${p.fabric_color_name}` : `🏢 ${p.warehouse_name || '---'}`}
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:12.5px; font-weight:700; color:#059669;">${formattedPrice}</span>
+                                    <button class="m-btn-secondary" style="padding: 2px 6px; font-size: 10px; background:#f1f5f9; color:#475569; border-radius:4px;" onclick="event.stopPropagation(); openHistorySheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
+                                        Lịch sử
                                     </button>
-                                ` : ''}
+                                    ${isDuyetUser ? `
+                                        <button class="m-btn-primary" style="padding: 2px 6px; font-size: 10px; border-radius:4px;" onclick="event.stopPropagation(); openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}')">
+                                            Sửa
+                                        </button>
+                                    ` : ''}
+                                </div>
                             </div>
+                            ${fabricDetailsHtml}
                         </div>
                     `;
                 });
