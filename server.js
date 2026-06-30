@@ -467,7 +467,8 @@ async function start() {
             notes                   TEXT,
             is_active               BOOLEAN DEFAULT true,
             created_at              TIMESTAMP DEFAULT NOW(),
-            updated_at              TIMESTAMP DEFAULT NOW()
+            updated_at              TIMESTAMP DEFAULT NOW(),
+            created_by              INTEGER REFERENCES users(id)
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_fc_mid ON kv_fabric_colors(material_id)`);
         await db.exec(`CREATE TABLE IF NOT EXISTS kv_rolls (
@@ -505,6 +506,7 @@ async function start() {
         try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS stop_import BOOLEAN DEFAULT FALSE`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS allowed_import_slips INTEGER DEFAULT NULL`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS pending_stop_active BOOLEAN DEFAULT FALSE`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id)`); } catch(e) {}
         // Migrations for kv_rolls
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS original_weight NUMERIC NOT NULL DEFAULT 0`); } catch(e) {}
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS is_cutting BOOLEAN DEFAULT false`); } catch(e) {}
