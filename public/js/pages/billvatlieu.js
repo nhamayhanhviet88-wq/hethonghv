@@ -1196,7 +1196,7 @@ function _bvlRenderAddedMats() {
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:4px">'
             + '<span style="font-size:11px;color:#64748b">Giá:</span>'
-            + '<input type="text" class="_bvlRowPriceInput" data-index="' + index + '" value="' + _bvlFM(item.price) + '" oninput="_bvlFormatRowInput(this, ' + index + ', 'price')" style="width:85px;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px;font-weight:700;text-align:right;outline:none;color:#1e293b"> '
+            + '<input type="text" class="_bvlRowPriceInput" data-index="' + index + '" value="' + _bvlFM(item.price) + '" oninput="_bvlFormatRowInput(this, ' + index + ', \'price\')" style="width:85px;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px;font-weight:700;text-align:right;outline:none;color:#1e293b"> '
             + '</div>'
             + '<div style="min-width:90px;text-align:right"><b id="_bvlRowCostText_' + index + '" style="color:#0d9488;font-size:13px">' + _bvlFM(item.cost) + '₫</b></div>'
             + '<button type="button" onclick="_bvlRemoveMatRow(' + index + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-weight:700;font-size:14px;padding:2px;margin-left:4px" title="Xóa">🗑️</button>'
