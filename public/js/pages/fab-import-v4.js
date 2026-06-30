@@ -562,18 +562,18 @@ function _bnhFormatFullDateTime(importDate, createdAt) {
     var utc = dObj.getTime() + (dObj.getTimezoneOffset() * 60000);
     var vnTime = new Date(utc + (3600000 * 7));
 
-    var dd = String(vnTime.getDate()).padStart(2, '0');
-    var mm = String(vnTime.getMonth() + 1).padStart(2, '0');
-    var yyyy = vnTime.getFullYear();
+    var day = vnTime.getDate();
+    var month = vnTime.getMonth() + 1;
+    var year2D = String(vnTime.getFullYear()).slice(-2);
     var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
     var dayOfWeekStr = days[vnTime.getDay()];
 
     if (hasTime) {
         var hh = String(vnTime.getHours()).padStart(2, '0');
         var mi = String(vnTime.getMinutes()).padStart(2, '0');
-        return hh + ':' + mi + ' - ' + dayOfWeekStr + ' ' + dd + '/' + mm + '/' + yyyy;
+        return hh + ':' + mi + ' - ' + dayOfWeekStr + ' - ' + day + '/' + month + '/' + year2D;
     } else {
-        return dayOfWeekStr + ' - ' + dd + '/' + mm + '/' + yyyy;
+        return dayOfWeekStr + ' - ' + day + '/' + month + '/' + year2D;
     }
 }
 

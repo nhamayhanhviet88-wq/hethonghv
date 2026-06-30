@@ -43,6 +43,7 @@ module.exports = async function(fastify) {
     try {
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS record_type VARCHAR(10) DEFAULT 'general'`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS fabric_import_code VARCHAR(13)`);
+        await db.exec(`ALTER TABLE import_records ALTER COLUMN fabric_import_code TYPE VARCHAR(50)`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS fabric_items JSONB DEFAULT '[]'`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS extra_costs JSONB DEFAULT '[]'`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS ship_cost NUMERIC DEFAULT 0`);
@@ -1716,13 +1717,34 @@ module.exports = async function(fastify) {
             await client.query('BEGIN');
 
             // 1. Generate unique fabric_import_code
-            let fabricCode;
-            for (let attempt = 0; attempt < 5; attempt++) {
-                fabricCode = genFabricCode();
-                const exists = await client.query('SELECT 1 FROM import_records WHERE fabric_import_code=$1', [fabricCode]);
-                if (exists.rows.length === 0) break;
-                if (attempt === 4) throw new Error('Không thể tạo mã nhập vải duy nhất');
+            const ddVal = String(now.getDate()).padStart(2, '0');
+            const mmVal = String(now.getMonth() + 1).padStart(2, '0');
+            const yyyyVal = now.getFullYear();
+            const importDateStr = `${yyyyVal}-${mmVal}-${ddVal}`;
+            
+            const maxSeqRow = await client.query(
+                `SELECT fabric_import_code FROM import_records 
+                 WHERE record_type = 'fabric' AND import_date::date = $1::date`,
+                [importDateStr]
+            );
+            
+            let seq = 1;
+            if (maxSeqRow.rows.length > 0) {
+                let maxVal = 0;
+                for (const row of maxSeqRow.rows) {
+                    const code = row.fabric_import_code || '';
+                    const parts = code.split('-');
+                    if (parts.length >= 2 && parts[0] === 'BILLVAI') {
+                        const val = parseInt(parts[1], 10);
+                        if (!isNaN(val) && val > maxVal) {
+                            maxVal = val;
+                        }
+                    }
+                }
+                seq = maxVal + 1;
             }
+            const yy = String(yyyyVal).slice(-2);
+            const fabricCode = `BILLVAI-${seq}-${now.getDate()}-${now.getMonth() + 1}-Y${yy}`;
 
             // 2. Lock and validate reservations (now supports multiple IDs per item)
             const reservationIds = b.fabric_items.flatMap(fi => fi.reservation_ids || (fi.reservation_id ? [fi.reservation_id] : [])).filter(Boolean);
@@ -2425,12 +2447,26 @@ module.exports = async function(fastify) {
                     }
                 }
                 const unitPrice = Number(rec.record_type === 'fabric' ? item.unit_price : item.price) || 0;
+                let quantity = 0;
+                let rollCount = 0;
+                if (rec.record_type === 'fabric') {
+                    if (Array.isArray(item.trees)) {
+                        rollCount = item.trees.length;
+                        quantity = item.trees.reduce((sum, t) => sum + (parseFloat(t.weight) || 0), 0);
+                    }
+                } else {
+                    quantity = Number(item.quantity) || 0;
+                }
                 if (approvedPrice === null || approvedPrice !== unitPrice) {
                     discrepancies.push({
                         item_name: itemName,
                         unit_price: unitPrice,
                         approved_price: approvedPrice,
-                        difference: approvedPrice !== null ? (unitPrice - approvedPrice) : null
+                        difference: approvedPrice !== null ? (unitPrice - approvedPrice) : null,
+                        quantity: quantity,
+                        roll_count: rollCount,
+                        record_type: rec.record_type,
+                        unit: item.unit || ''
                     });
                 }
             }

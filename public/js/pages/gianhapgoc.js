@@ -1612,6 +1612,172 @@ function _gngRenderDetailPending(target) {
     target.innerHTML = `<div class="gng-pending-list">${cardsHtml}</div>`;
 }
 
+function _gngFormatFullDateTime(importDate, createdAt) {
+    var dObj = null;
+    var hasTime = false;
+    if (createdAt) {
+        dObj = new Date(createdAt);
+        hasTime = true;
+    } else if (importDate) {
+        dObj = new Date(importDate);
+        hasTime = true;
+    }
+    if (!dObj || isNaN(dObj.getTime())) return '—';
+
+    var utc = dObj.getTime() + (dObj.getTimezoneOffset() * 60000);
+    var vnTime = new Date(utc + (3600000 * 7));
+
+    var day = vnTime.getDate();
+    var month = vnTime.getMonth() + 1;
+    var year2D = String(vnTime.getFullYear()).slice(-2);
+    var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    var dayOfWeekStr = days[vnTime.getDay()];
+
+    if (hasTime) {
+        var hh = String(vnTime.getHours()).padStart(2, '0');
+        var mi = String(vnTime.getMinutes()).padStart(2, '0');
+        return hh + ':' + mi + ' - ' + dayOfWeekStr + ' - ' + day + '/' + month + '/' + year2D;
+    } else {
+        return dayOfWeekStr + ' - ' + day + '/' + month + '/' + year2D;
+    }
+}
+
+function _gngViewImage(src) {
+    if (!src) return;
+    var ov = document.createElement('div');
+    ov.id = '_gngImgOv';
+    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.8);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity 0.2s ease-out;';
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(0,0,0,0.3);outline:none;z-index:1000000;';
+    closeBtn.onmouseover = function() {
+        closeBtn.style.background = 'rgba(255,255,255,0.3)';
+        closeBtn.style.transform = 'scale(1.1) rotate(90deg)';
+    };
+    closeBtn.onmouseout = function() {
+        closeBtn.style.background = 'rgba(255,255,255,0.15)';
+        closeBtn.style.transform = 'scale(1) rotate(0deg)';
+    };
+    var img = document.createElement('img');
+    img.src = src;
+    img.style.cssText = 'max-width:90%;max-height:90%;object-fit:contain;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6);border:3px solid rgba(255,255,255,0.95);transform:scale(0.95);transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1);';
+    ov.appendChild(closeBtn);
+    ov.appendChild(img);
+    var close = function() {
+        ov.style.opacity = '0';
+        img.style.transform = 'scale(0.95)';
+        document.removeEventListener('keydown', escClose);
+        setTimeout(function() { 
+            ov.remove(); 
+        }, 200);
+    };
+    var escClose = function(e) { if (e.key === 'Escape') close(); };
+    ov.onclick = close;
+    closeBtn.onclick = function(e) { e.stopPropagation(); close(); };
+    img.onclick = function(e) { e.stopPropagation(); };
+    document.addEventListener('keydown', escClose);
+    document.body.appendChild(ov);
+    requestAnimationFrame(function() {
+        ov.style.opacity = '1';
+        img.style.transform = 'scale(1)';
+    });
+}
+
+function _gngOpenImportBill(importId) {
+    if (typeof _bnhFabDetail === 'function') {
+        _bnhFabDetail(importId);
+    } else {
+        var s = document.createElement('script');
+        s.src = '/js/pages/fab-import-v4.js?v=20260630_vdecimal';
+        s.onload = function() { _bnhFabDetail(importId); };
+        document.head.appendChild(s);
+    }
+}
+window._gngOpenImportBill = _gngOpenImportBill;
+
+function _gngShowConfirmPopup(title, message, type, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.id = 'gngConfirmPopup';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(6px);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 1000000;
+        opacity: 0; transition: opacity 0.2s ease;
+    `;
+    
+    let accentColor = '#3b82f6';
+    let icon = '❓';
+    if (type === 'approve_once') {
+        accentColor = '#3b82f6';
+        icon = '🔹';
+    } else if (type === 'approve_update') {
+        accentColor = '#10b981';
+        icon = '✅';
+    } else if (type === 'disapprove') {
+        accentColor = '#ef4444';
+        icon = '❌';
+    }
+    
+    overlay.innerHTML = `
+        <div style="background:#fff; border-radius:16px; width:440px; max-width:90%; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow:hidden; border: 1px solid #cbd5e1; transform: scale(0.9); transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);">
+            <div style="background: linear-gradient(135deg, ${accentColor}, ${accentColor}dd); color:#fff; padding:18px 24px; font-weight:800; font-size:16px; display:flex; align-items:center; gap:10px;">
+                <span>${icon}</span> ${title}
+            </div>
+            <div style="padding:24px; font-size:14px; color:#334155; line-height:1.6; text-align:left; white-space:pre-line;">
+                ${message}
+            </div>
+            <div style="background:#f8fafc; padding:16px 24px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px;">
+                <button id="gngConfirmCancel" style="background:#e2e8f0; color:#475569; border:none; padding:10px 18px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; transition: background-color 0.15s;" onmouseover="this.style.backgroundColor='#cbd5e1'" onmouseout="this.style.backgroundColor='#e2e8f0'">
+                    Hủy bỏ
+                </button>
+                <button id="gngConfirmOk" style="background:${accentColor}; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.15); transition: opacity 0.15s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                    Đồng ý
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    
+    const popup = overlay.firstElementChild;
+    setTimeout(() => {
+        overlay.style.opacity = '1';
+        popup.style.transform = 'scale(1)';
+    }, 10);
+    
+    const closePopup = () => {
+        overlay.style.opacity = '0';
+        popup.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            overlay.remove();
+        }, 200);
+    };
+    
+    overlay.querySelector('#gngConfirmCancel').onclick = closePopup;
+    overlay.querySelector('#gngConfirmOk').onclick = () => {
+        closePopup();
+        onConfirm();
+    };
+    
+    overlay.onclick = (e) => { if (e.target === overlay) closePopup(); };
+    const keyHandler = (e) => { if (e.key === 'Escape') closePopup(); };
+    document.addEventListener('keydown', keyHandler);
+    
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.removedNodes.forEach((node) => {
+                if (node === overlay) {
+                    document.removeEventListener('keydown', keyHandler);
+                    observer.disconnect();
+                }
+            });
+        });
+    });
+    observer.observe(document.body, { childList: true });
+}
+
 async function _gngShowApprovalDialog(id) {
     const rec = _gng.pending.find(r => r.id == id);
     if (!rec) return;
@@ -1633,7 +1799,7 @@ async function _gngShowApprovalDialog(id) {
     }
 
     const isFabric = rec.record_type === 'fabric';
-    const formattedDate = rec.import_date ? new Date(rec.import_date).toLocaleDateString('vi-VN') : '---';
+    const formattedDate = _gngFormatFullDateTime(rec.import_date, rec.created_at);
     const totalCostStr = Number(rec.total_amount || rec.cost).toLocaleString('vi-VN') + ' đ';
 
     let discrepanciesHtml = '';
@@ -1657,9 +1823,17 @@ async function _gngShowApprovalDialog(id) {
             diffHtml = `<span style="color:#3b82f6; font-weight:700;">✨ Giá mới</span>`;
         }
 
+        let qtyText = '';
+        if (d.record_type === 'fabric') {
+            qtyText = `<span style="font-weight:700; color:#4f46e5;">${d.roll_count} cây</span> / <span style="font-weight:700; color:#7c3aed;">${Number(d.quantity).toLocaleString('vi-VN')} kg</span>`;
+        } else {
+            qtyText = `<span style="font-weight:700; color:#1e293b;">${Number(d.quantity).toLocaleString('vi-VN')} ${d.unit || ''}</span>`;
+        }
+
         discrepanciesHtml += `
             <tr>
                 <td style="font-weight:600; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:left; color:#1e293b;">${d.item_name}</td>
+                <td style="padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:center; white-space:nowrap;">${qtyText}</td>
                 <td style="color:#ef4444; font-weight:700; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:right; white-space:nowrap;">${unitPriceStr}</td>
                 <td style="color:#64748b; padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:right; white-space:nowrap;">${approvedPriceStr}</td>
                 <td style="padding:12px 14px; border-bottom:1px solid #e2e8f0; font-size:13px; text-align:center; white-space:nowrap;">${diffHtml}</td>
@@ -1672,7 +1846,7 @@ async function _gngShowApprovalDialog(id) {
         imgHtml = `
             <div style="flex: 0.9; min-width: 280px; display:flex; flex-direction:column; gap:8px;">
                 <div style="font-weight:700; color:#475569; font-size:12px; letter-spacing:0.5px;">📸 ẢNH HÓA ĐƠN GỐC:</div>
-                <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow:hidden; background:#f8fafc; display:flex; align-items:center; justify-content:center; position:relative; cursor:zoom-in; height:320px; transition:border-color 0.15s;" onclick="window.open('${rec.bill_image_url}')" title="Bấm để xem ảnh gốc kích thước đầy đủ" onmouseover="this.style.borderColor='#cbd5e1'" onmouseout="this.style.borderColor='#e2e8f0'">
+                <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow:hidden; background:#f8fafc; display:flex; align-items:center; justify-content:center; position:relative; cursor:zoom-in; height:320px; transition:border-color 0.15s;" onclick="_gngViewImage('${rec.bill_image_url}')" title="Bấm để xem ảnh gốc kích thước đầy đủ" onmouseover="this.style.borderColor='#cbd5e1'" onmouseout="this.style.borderColor='#e2e8f0'">
                     <img src="${rec.bill_image_url}" style="max-width:100%; max-height:100%; object-fit:contain;">
                     <div style="position:absolute; bottom:12px; right:12px; background:rgba(15, 23, 42, 0.75); color:#fff; font-size:11px; padding:4px 10px; border-radius:6px; font-weight:600;">🔍 Xem ảnh gốc</div>
                 </div>
@@ -1690,12 +1864,13 @@ async function _gngShowApprovalDialog(id) {
     modal.innerHTML = `
         <div style="background: #ffffff; border-radius: 16px; width: 95%; max-width: 1100px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); transition: transform 0.2s ease-out; border: 1px solid #cbd5e1;">
             <!-- Header -->
-            <div style="background: linear-gradient(135deg, #1e293b, #334155); color:#fff; padding: 18px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155;">
-                <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:10px; letter-spacing:0.3px;">
-                    <span style="background: #ef4444; color:#fff; padding: 3px 8px; border-radius:6px; font-size:11px; font-weight:800; letter-spacing:0.5px; class="gng-blink">
+            <div style="background: linear-gradient(135deg, #0f172a, #1e293b); color:#fff; padding: 18px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b;">
+                <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:10px; letter-spacing:0.3px; color:#fff !important;">
+                    <span style="background: #ef4444; color:#fff; padding: 3px 8px; border-radius:6px; font-size:11px; font-weight:800; letter-spacing:0.5px;" class="gng-blink">
                         ⚠️ LỆCH GIÁ NHẬP
                     </span>
                     DUYỆT GIÁ HOÁ ĐƠN #${rec.fabric_import_code || rec.id}
+                    ${rec.record_type === 'fabric' ? `<a href="javascript:void(0)" onclick="_gngOpenImportBill(${rec.id})" style="color:#a78bfa; font-size:12px; font-weight:800; text-decoration:none; margin-left:15px; border:1px solid #a78bfa; padding:4px 10px; border-radius:6px; background:rgba(167,139,250,0.1); transition:all 0.15s; display:inline-flex; align-items:center; gap:4px;" onmouseover="this.style.background='rgba(167,139,250,0.2)'" onmouseout="this.style.background='rgba(167,139,250,0.1)'">🧵 Xem Bill Vải</a>` : ''}
                 </h3>
                 <button onclick="_gngCloseApprovalDialog()" style="background:none; border:none; color:#94a3b8; font-size:26px; cursor:pointer; font-weight:300; transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#94a3b8'">&times;</button>
             </div>
@@ -1727,11 +1902,12 @@ async function _gngShowApprovalDialog(id) {
                     <!-- Items Table -->
                     <div>
                         <div style="font-weight:700; color:#475569; font-size:12px; margin-bottom:8px; letter-spacing:0.5px;">📋 BẢNG SO SÁNH GIÁ CHI TIẾT:</div>
-                        <div style="border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div style="border:1px solid #cbd5e1; border-radius:10px; overflow:hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                             <table style="width:100%; border-collapse:collapse; margin:0; background:#fff;">
                                 <thead>
-                                    <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                                    <tr style="background:#1e293b; border-bottom:1px solid #334155;">
                                         <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:left; letter-spacing:0.5px; white-space:nowrap;">Tên Vật Tư / Chất Liệu</th>
+                                        <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:center; letter-spacing:0.5px; white-space:nowrap;">Số Lượng</th>
                                         <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:right; width:95px; letter-spacing:0.5px; white-space:nowrap;">Giá Trên Bill</th>
                                         <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:right; width:95px; letter-spacing:0.5px; white-space:nowrap;">Giá Gốc Cũ</th>
                                         <th style="padding:12px 14px; font-weight:800; color:#ffffff !important; font-size:11px; text-transform:uppercase; text-align:center; width:100px; letter-spacing:0.5px; white-space:nowrap;">Chênh Lệch</th>
@@ -1787,41 +1963,45 @@ async function _gngConfirmChoice(id, choice) {
     const rec = _gng.pending.find(r => r.id == id);
     if (!rec) return;
 
+    let confirmTitle = '';
     let confirmMsg = '';
     let payload = {};
     const code = rec.fabric_import_code || rec.id;
 
     if (choice === 'approve_once') {
-        confirmMsg = `Xác nhận DUYỆT RIÊNG bill #${code}?\n\n- Chỉ duyệt hóa đơn này hoạt động.\n- Giữ nguyên bảng giá nhập gốc cũ.`;
+        confirmTitle = 'Duyệt Riêng Hóa Đơn';
+        confirmMsg = `Bạn có chắc chắn muốn DUYỆT RIÊNG bill #${code}?\n\n- Chỉ duyệt hóa đơn này hoạt động.\n- Bảng giá gốc cũ vẫn được giữ nguyên.`;
         payload = { action: 'check', update_base_price: false };
     } else if (choice === 'approve_update') {
-        confirmMsg = `Xác nhận DUYỆT & CẬP NHẬT GIÁ GỐC mới từ bill #${code}?\n\n- Duyệt hóa đơn này hoạt động.\n- Cập nhật đè giá gốc mới để áp dụng cho các lần nhập sau.`;
+        confirmTitle = 'Duyệt & Cập Nhật Giá Gốc';
+        confirmMsg = `Bạn có chắc chắn muốn DUYỆT & CẬP NHẬT GIÁ GỐC mới từ bill #${code}?\n\n- Duyệt hóa đơn này hoạt động.\n- Giá trên bill này sẽ được lưu làm giá gốc mới cho các lần nhập sau.`;
         payload = { action: 'check', update_base_price: true };
     } else if (choice === 'disapprove') {
-        confirmMsg = `Xác nhận KHÔNG DUYỆT bill #${code}?\n\n- Hóa đơn sẽ ở trạng thái từ chối.\n- Yêu cầu kế toán sửa lại giá hóa đơn.`;
+        confirmTitle = 'Từ Chối Hóa Đơn';
+        confirmMsg = `Bạn có chắc chắn muốn TỪ CHỐI bill #${code}?\n\n- Hóa đơn sẽ không được duyệt.\n- Yêu cầu kế toán sửa lại thông tin/đơn giá bill này.`;
         payload = { action: 'disapprove' };
     }
 
-    if (!confirm(confirmMsg)) return;
+    _gngShowConfirmPopup(confirmTitle, confirmMsg, choice, async () => {
+        _gngCloseApprovalDialog();
 
-    _gngCloseApprovalDialog();
-
-    try {
-        const res = await apiCall('/api/import/toggle/' + id, 'POST', payload);
-        if (res.success) {
-            let toastMsg = '';
-            if (choice === 'approve_once') toastMsg = `Đã duyệt riêng hóa đơn #${code}`;
-            if (choice === 'approve_update') toastMsg = `Đã duyệt và cập nhật giá gốc mới cho hóa đơn #${code}`;
-            if (choice === 'disapprove') toastMsg = `Đã từ chối hóa đơn #${code}`;
-            
-            if (typeof showToast === 'function') showToast(toastMsg, 'success');
-            await _gngLoadData();
-        } else {
-            throw new Error(res.error || 'Thao tác thất bại');
+        try {
+            const res = await apiCall('/api/import/toggle/' + id, 'POST', payload);
+            if (res.success) {
+                let toastMsg = '';
+                if (choice === 'approve_once') toastMsg = `Đã duyệt riêng hóa đơn #${code}`;
+                if (choice === 'approve_update') toastMsg = `Đã duyệt và cập nhật giá gốc mới cho hóa đơn #${code}`;
+                if (choice === 'disapprove') toastMsg = `Đã từ chối hóa đơn #${code}`;
+                
+                if (typeof showToast === 'function') showToast(toastMsg, 'success');
+                await _gngLoadData();
+            } else {
+                throw new Error(res.error || 'Thao tác thất bại');
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast(e.message, 'error');
         }
-    } catch(e) {
-        if (typeof showToast === 'function') showToast(e.message, 'error');
-    }
+    });
 }
 
 function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
