@@ -1497,6 +1497,11 @@ async function start() {
         return reply.sendFile('mobile-xuatvaicat.html');
     });
 
+    // Mobile Giá Nhập Gốc — standalone touch-optimized page
+    fastify.get('/m/gianhapgoc', async (request, reply) => {
+        return reply.sendFile('mobile-gianhapgoc.html');
+    });
+
     // Mobile Nhập Xuất Hoàn Vải — standalone touch-optimized page
     fastify.get('/m/nhapxuathoanvai', async (request, reply) => {
         return reply.sendFile('mobile-nhapxuathoanvai.html');

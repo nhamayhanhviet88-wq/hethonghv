@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🏷️ Giá Nhập Gốc — Đồng Phục HV</title>
+    <meta name="description" content="Quản lý và tra cứu đơn giá nhập gốc nguyên vật liệu & phụ liệu sản xuất trên Mobile">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            color: #1e293b;
+            padding-bottom: 40px;
+        }
+
+        /* Header */
+        .m-header {
+            background: linear-gradient(135deg, #122546, #1e3a5f);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .m-header img { width: 32px; height: 32px; border-radius: 8px; }
+        .m-header h1 { font-size: 15px; font-weight: 800; color: #fbbf24; flex: 1; text-transform: uppercase; }
+        .m-header .m-user {
+            font-size: 10px; color: #93c5fd; font-weight: 600;
+            background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px;
+        }
+
+        /* Toast */
+        .m-toast-container { position: fixed; top: 60px; left: 8px; right: 8px; z-index: 999; }
+        .m-toast {
+            padding: 12px 16px; border-radius: 10px; color: white; font-size: 14px; font-weight: 600;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25); animation: mSlideIn .3s ease; margin-bottom: 6px;
+        }
+        .m-toast-success { background: linear-gradient(135deg, #10b981, #059669); }
+        .m-toast-error { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .m-toast-info { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        @keyframes mSlideIn { from { opacity:0; transform:translateY(-15px); } to { opacity:1; transform:translateY(0); } }
+
+        /* Content */
+        .m-content { padding: 14px; max-width: 600px; margin: 0 auto; }
+
+        /* Stats Grid */
+        .m-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .m-stat-card {
+            background: white;
+            border-radius: 14px;
+            padding: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .m-stat-val {
+            font-size: 18px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .m-stat-lbl {
+            font-size: 10px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* Search input */
+        .m-search-box {
+            display: flex; gap: 8px; margin-bottom: 16px;
+        }
+        .m-search-input {
+            flex: 1; padding: 12px 14px; border: 2px solid #e2e8f0;
+            border-radius: 12px; font-size: 15px; font-family: inherit;
+            background: white; color: #1e293b; outline: none; transition: border .2s;
+            -webkit-appearance: none;
+        }
+        .m-search-input:focus { border-color: #3b82f6; }
+
+        /* List items */
+        .m-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .m-item {
+            background: white;
+            border-radius: 14px;
+            padding: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            position: relative;
+        }
+        .m-item-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+        .m-item-color {
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        .m-item-supplier {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+        .m-item-price-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 10px;
+        }
+        .m-item-price-col {
+            display: flex;
+            flex-direction: column;
+        }
+        .m-item-price-lbl {
+            font-size: 9px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+        .m-item-price-val {
+            font-size: 15px;
+            font-weight: 800;
+            color: #4f46e5;
+        }
+        .m-item-price-base {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 600;
+        }
+        .m-badge {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .m-badge-stable { background: #e0f2fe; color: #0369a1; }
+        .m-badge-up { background: #fef3c7; color: #b45309; }
+        .m-badge-down { background: #dcfce7; color: #15803d; }
+
+        /* Empty state */
+        .m-empty { text-align: center; padding: 40px 20px; color: #94a3b8; }
+        .m-empty-icon { font-size: 40px; margin-bottom: 8px; opacity: 0.5; }
+        .m-empty-text { font-size: 14px; font-weight: 600; }
+
+        /* Desktop redirect link */
+        .m-back {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: #3b82f6; font-size: 13px; font-weight: 600;
+            text-decoration: none; margin-top: 14px; padding: 10px 16px;
+            background: white; border-radius: 10px; border: 1px solid #e2e8f0;
+            width: 100%;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+    </style>
+    <!-- Unified Mobile Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
+</head>
+<body>
+    <div class="m-header">
+        <img src="/images/logo.png" alt="Logo">
+        <h1>🏷️ GIÁ NHẬP GỐC</h1>
+        <span class="m-user" id="mUserBadge">...</span>
+    </div>
+
+    <div class="m-toast-container" id="mToastContainer"></div>
+
+    <div class="m-content">
+        <!-- Stats Grid -->
+        <div class="m-stats">
+            <div class="m-stat-card">
+                <div class="m-stat-val" id="mStatTotal">0</div>
+                <div class="m-stat-lbl">Tổng Vật Tư</div>
+            </div>
+            <div class="m-stat-card">
+                <div class="m-stat-val" id="mStatAvg">0 đ</div>
+                <div class="m-stat-lbl">Giá Trung Bình</div>
+            </div>
+        </div>
+
+        <!-- Search Box -->
+        <div class="m-search-box">
+            <input type="search" id="mSearchInput" class="m-search-input" placeholder="Tìm vật tư, màu sắc, NCC...">
+        </div>
+
+        <!-- List Area -->
+        <div class="m-list" id="mListArea">
+            <!-- Items rendered dynamically -->
+        </div>
+
+        <a href="/gianhapgoc" class="m-back">← Giao diện Máy Tính</a>
+    </div>
+
+    <script>
+        // Mock data
+        const mockData = [
+            { id: 1, material: 'Cotton 100% 2 chiều', color: 'Đen Jet Black', supplier: 'Dệt May Thành Công', basePrice: 125000, vat: 8, finalPrice: 135000, date: '2026-06-28', status: 'Bình ổn' },
+            { id: 2, material: 'Cotton 100% 2 chiều', color: 'Trắng Super White', supplier: 'Dệt May Thành Công', basePrice: 123000, vat: 8, finalPrice: 132840, date: '2026-06-28', status: 'Bình ổn' },
+            { id: 3, material: 'Cotton 100% 4 chiều', color: 'Xanh Navy', supplier: 'Dệt Kim Phong Phú', basePrice: 142000, vat: 10, finalPrice: 156200, date: '2026-06-25', status: 'Tăng nhẹ' },
+            { id: 4, material: 'CVC 65/35', color: 'Xám Melange', supplier: 'Dệt May Thành Công', basePrice: 98000, vat: 8, finalPrice: 105840, date: '2026-06-24', status: 'Bình ổn' },
+            { id: 5, material: 'Lacoste 4 chiều (Cá sấu)', color: 'Đỏ Đô', supplier: 'Hạnh Vĩ Fabric', basePrice: 155000, vat: 10, finalPrice: 170500, date: '2026-06-22', status: 'Tăng nhẹ' },
+            { id: 6, material: 'Poly 2 chiều (Mè)', color: 'Vàng Cúc', supplier: 'Hạnh Vĩ Fabric', basePrice: 65000, vat: 8, finalPrice: 70200, date: '2026-06-20', status: 'Bình ổn' },
+            { id: 7, material: 'Khaki Chun', color: 'Vàng Cát', supplier: 'Hồng Phát Textile', basePrice: 85000, vat: 10, finalPrice: 93500, date: '2026-06-19', status: 'Bình ổn' },
+            { id: 8, material: 'Cotton Tici 30s', color: 'Hồng Cam', supplier: 'Dệt Kim Phong Phú', basePrice: 110000, vat: 8, finalPrice: 118800, date: '2026-06-15', status: 'Giảm giá' }
+        ];
+
+        let currentUser = null;
+
+        async function apiCall(url, method = 'GET', body = null) {
+            const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch(url, opts);
+            if (res.status === 401) { window.location.href = '/index.html'; return; }
+            return res.json();
+        }
+
+        // Init page
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const auth = await apiCall('/api/auth/me');
+                if (!auth || !auth.user) { window.location.href = '/index.html'; return; }
+                currentUser = auth.user;
+
+                if (currentUser.role !== 'giam_doc' && (!currentUser.permissions || !currentUser.permissions.gia_nhap_goc || !currentUser.permissions.gia_nhap_goc.can_view)) {
+                    sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Giá Nhập Gốc!');
+                    window.location.href = '/m';
+                    return;
+                }
+                document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
+            } catch(e) {
+                console.error(e);
+            }
+
+            renderStats();
+            renderList(mockData);
+
+            // Search event
+            document.getElementById('mSearchInput').addEventListener('input', (e) => {
+                const q = e.target.value.toLowerCase().trim();
+                if (!q) {
+                    renderList(mockData);
+                    return;
+                }
+                const filtered = mockData.filter(item => 
+                    item.material.toLowerCase().includes(q) || 
+                    item.color.toLowerCase().includes(q) || 
+                    item.supplier.toLowerCase().includes(q)
+                );
+                renderList(filtered);
+            });
+        });
+
+        function renderStats() {
+            document.getElementById('mStatTotal').textContent = mockData.length;
+            const avg = mockData.reduce((acc, curr) => acc + curr.basePrice, 0) / mockData.length;
+            document.getElementById('mStatAvg').textContent = Number(avg.toFixed(0)).toLocaleString('vi-VN') + ' đ';
+        }
+
+        function renderList(items) {
+            const container = document.getElementById('mListArea');
+            if (items.length === 0) {
+                container.innerHTML = `
+                    <div class="m-empty">
+                        <div class="m-empty-icon">🔍</div>
+                        <div class="m-empty-text">Không tìm thấy kết quả</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            items.forEach(item => {
+                let badgeClass = 'm-badge-stable';
+                if (item.status === 'Tăng nhẹ') badgeClass = 'm-badge-up';
+                if (item.status === 'Giảm giá') badgeClass = 'm-badge-down';
+
+                html += `
+                    <div class="m-item">
+                        <div class="m-item-title">${item.material}</div>
+                        <div class="m-item-color">🎨 ${item.color}</div>
+                        <div class="m-item-supplier">🏭 NCC: ${item.supplier}</div>
+                        <span class="m-badge ${badgeClass}">${item.status}</span>
+                        <div class="m-item-price-row">
+                            <div class="m-item-price-col">
+                                <span class="m-item-price-lbl">Giá Chưa Thuế</span>
+                                <span class="m-item-price-base">${Number(item.basePrice).toLocaleString('vi-VN')} đ</span>
+                            </div>
+                            <div class="m-item-price-col" style="text-align: right;">
+                                <span class="m-item-price-lbl">Giá Sau Thuế (${item.vat}%)</span>
+                                <span class="m-item-price-val">${Number(item.finalPrice).toLocaleString('vi-VN')} đ</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+    </script>
+    <!-- Unified Mobile Navigation Script -->
+    <script src="/js/mobile-nav.js?v=20260624_menu_move"></script>
+</body>
+</html>
