@@ -1052,13 +1052,14 @@ function _gngShowItemHistory(itemType, itemId, sourceId, itemName) {
 
     let modalRowsHtml = '';
     sorted.forEach(h => {
+        const isPending = !h.is_checked && h.requires_price_approval;
         modalRowsHtml += `
             <tr>
                 <td>${h.import_date ? new Date(h.import_date).toLocaleDateString('vi-VN') : '---'}</td>
                 <td style="font-weight:700; text-align:right;">${Number(h.unit_price).toLocaleString('vi-VN')} đ</td>
                 <td>
-                    <span class="gng-badge ${h.is_checked ? 'gng-badge-stable' : 'gng-badge-alert'}">
-                        ${h.is_checked ? 'Đã duyệt' : 'Chờ duyệt'}
+                    <span class="gng-badge ${isPending ? 'gng-badge-alert' : 'gng-badge-stable'}">
+                        ${isPending ? 'Chờ duyệt' : 'Khớp giá'}
                     </span>
                 </td>
             </tr>

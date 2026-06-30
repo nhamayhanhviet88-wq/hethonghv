@@ -973,13 +973,14 @@
             sorted.forEach(h => {
                 const formattedPrice = Number(h.unit_price).toLocaleString('vi-VN') + ' đ';
                 const formattedDate = h.import_date ? new Date(h.import_date).toLocaleDateString('vi-VN') : '---';
+                const isPending = !h.is_checked && h.requires_price_approval;
                 rowsHtml += `
                     <tr>
                         <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size:12px;">${formattedDate}</td>
                         <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size:12px; font-weight:700; text-align:right;">${formattedPrice}</td>
                         <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size:12px; text-align:right;">
-                            <span class="m-badge-status ${h.is_checked ? 'm-badge-stable' : 'm-badge-alert'}" style="padding: 2px 6px; font-size:10px;">
-                                ${h.is_checked ? 'Đã duyệt' : 'Chờ'}
+                            <span class="m-badge-status ${isPending ? 'm-badge-alert' : 'm-badge-stable'}" style="padding: 2px 6px; font-size:10px;">
+                                ${isPending ? 'Chờ duyệt' : 'Khớp giá'}
                             </span>
                         </td>
                     </tr>
