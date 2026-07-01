@@ -1044,7 +1044,8 @@ function _tlcgGetActiveSegmentsForMaterial(mat) {
         try {
             const parsed = JSON.parse(mat.active_segments);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                return parsed;
+                const globalNames = (_tlcg.sizeSegments || []).map(s => s.name);
+                return parsed.filter(name => globalNames.includes(name));
             }
         } catch(e) {
             console.error('Error parsing active segments:', e);

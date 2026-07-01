@@ -36,7 +36,8 @@ function _gngGetActiveSegments(p) {
         try {
             const parsed = JSON.parse(p.material_active_segments);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                return parsed;
+                const globalNames = (_gng.sizeSegments || []).map(s => s.name);
+                return parsed.filter(name => globalNames.includes(name));
             }
         } catch(e) {
             console.error('Error parsing material active segments:', e);
