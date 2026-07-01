@@ -113,39 +113,72 @@ async function renderTilecatgocPage(content) {
                 flex-direction: column;
                 cursor: pointer;
                 transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-                border: 3px solid transparent;
+                border: 2px solid transparent;
             }
             .tlcg-stat-card:hover {
                 transform: translateY(-2px);
-                box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+                box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02);
+            }
+            
+            /* Card 1: All */
+            .tlcg-stat-card#stat-card-all {
+                background: linear-gradient(135deg, #f0f2ff 0%, #e0e7ff 100%);
+                border-color: #e0e7ff;
+            }
+            .tlcg-stat-card#stat-card-all .tlcg-stat-val {
+                color: #4f46e5;
+            }
+            .tlcg-stat-card#stat-card-all .tlcg-stat-label {
+                color: #4338ca;
             }
             .tlcg-stat-card#stat-card-all.active {
-                border-color: #1e1b4b;
-                box-shadow: 0 0 0 2px #c7d2fe, 0 10px 20px rgba(79, 70, 229, 0.15);
+                border-color: #4f46e5;
+                box-shadow: 0 0 0 2px #c7d2fe, 0 10px 20px rgba(79, 70, 229, 0.1);
                 transform: translateY(-2px) scale(1.02);
+            }
+
+            /* Card 2: Configured */
+            .tlcg-stat-card#stat-card-configured {
+                background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+                border-color: #d1fae5;
+            }
+            .tlcg-stat-card#stat-card-configured .tlcg-stat-val {
+                color: #10b981;
+            }
+            .tlcg-stat-card#stat-card-configured .tlcg-stat-label {
+                color: #047857;
             }
             .tlcg-stat-card#stat-card-configured.active {
-                border-color: #064e3b;
-                box-shadow: 0 0 0 2px #a7f3d0, 0 10px 20px rgba(16, 185, 129, 0.15);
+                border-color: #10b981;
+                box-shadow: 0 0 0 2px #a7f3d0, 0 10px 20px rgba(16, 185, 129, 0.1);
                 transform: translateY(-2px) scale(1.02);
+            }
+
+            /* Card 3: Unconfigured */
+            .tlcg-stat-card#stat-card-unconfigured {
+                background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+                border-color: #fef3c7;
+            }
+            .tlcg-stat-card#stat-card-unconfigured .tlcg-stat-val {
+                color: #f59e0b;
+            }
+            .tlcg-stat-card#stat-card-unconfigured .tlcg-stat-label {
+                color: #b45309;
             }
             .tlcg-stat-card#stat-card-unconfigured.active {
-                border-color: #78350f;
-                box-shadow: 0 0 0 2px #fde68a, 0 10px 20px rgba(245, 158, 11, 0.15);
+                border-color: #f59e0b;
+                box-shadow: 0 0 0 2px #fde68a, 0 10px 20px rgba(245, 158, 11, 0.1);
                 transform: translateY(-2px) scale(1.02);
             }
+
             .tlcg-stat-val {
                 font-size: 28px;
                 font-weight: 800;
-                color: #ffffff;
                 margin-bottom: 6px;
-                text-shadow: 0 1px 2px rgba(0,0,0,0.1);
             }
             .tlcg-stat-label {
                 font-size: 13.5px;
-                color: #ffffff;
                 font-weight: 700;
-                text-shadow: 0 1px 2px rgba(0,0,0,0.1);
             }
             
             /* Toolbar & Tabs */
@@ -866,15 +899,15 @@ function _tlcgRenderPage() {
             </div>
 
             <div class="tlcg-stats-row">
-                <div class="tlcg-stat-card ${_tlcg.statsFilter === 'ALL' ? 'active' : ''}" id="stat-card-all" onclick="_tlcgSetStatsFilter('ALL')" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);">
+                <div class="tlcg-stat-card ${_tlcg.statsFilter === 'ALL' ? 'active' : ''}" id="stat-card-all" onclick="_tlcgSetStatsFilter('ALL')">
                     <span class="tlcg-stat-val">${totalMaterials}</span>
                     <span class="tlcg-stat-label">Tổng số loại vải</span>
                 </div>
-                <div class="tlcg-stat-card ${_tlcg.statsFilter === 'CONFIGURED' ? 'active' : ''}" id="stat-card-configured" onclick="_tlcgSetStatsFilter('CONFIGURED')" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                <div class="tlcg-stat-card ${_tlcg.statsFilter === 'CONFIGURED' ? 'active' : ''}" id="stat-card-configured" onclick="_tlcgSetStatsFilter('CONFIGURED')">
                     <span class="tlcg-stat-val">${configuredCount}</span>
                     <span class="tlcg-stat-label">Loại vải có tỉ lệ thực tế</span>
                 </div>
-                <div class="tlcg-stat-card ${_tlcg.statsFilter === 'UNCONFIGURED' ? 'active' : ''}" id="stat-card-unconfigured" onclick="_tlcgSetStatsFilter('UNCONFIGURED')" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                <div class="tlcg-stat-card ${_tlcg.statsFilter === 'UNCONFIGURED' ? 'active' : ''}" id="stat-card-unconfigured" onclick="_tlcgSetStatsFilter('UNCONFIGURED')">
                     <span class="tlcg-stat-val">${totalMaterials - configuredCount}</span>
                     <span class="tlcg-stat-label">Chưa có số liệu thực tế</span>
                 </div>
