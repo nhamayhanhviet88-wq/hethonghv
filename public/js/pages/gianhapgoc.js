@@ -112,7 +112,7 @@ function _gngFormatRatioAndPriceHtml(p) {
             ${segmentRatios.map(sr => `
                 <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
                     <span style="color: #64748b; font-weight: 500;">${sr.icon} ${sr.label}:</span>
-                    <span style="font-weight: 700; color: ${sr.color};">${sr.ratio > 0 ? (sr.ratio + ' sp/kg') : '---'}</span>
+                    <span style="font-weight: 700; color: ${sr.color};">${sr.ratio > 0 ? (sr.ratio.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' sp/kg') : '---'}</span>
                 </div>
             `).join('')}
         </div>
@@ -179,7 +179,7 @@ function _gngFormatRatioAndPriceRangeHtml(g, minBasePrice, maxBasePrice) {
             ${segmentRatios.map(sr => `
                 <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
                     <span style="color: #64748b; font-weight: 500;">${sr.icon} ${sr.label}:</span>
-                    <span style="font-weight: 700; color: ${sr.color};">${sr.ratio > 0 ? (sr.ratio + ' sp/kg') : '---'}</span>
+                    <span style="font-weight: 700; color: ${sr.color};">${sr.ratio > 0 ? (sr.ratio.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' sp/kg') : '---'}</span>
                 </div>
             `).join('')}
         </div>

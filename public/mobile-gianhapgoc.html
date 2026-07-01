@@ -548,7 +548,7 @@
                     color = colors[hash % colors.length];
                 }
 
-                const ratioText = ratio > 0 ? `${ratio} sp/kg` : '---';
+                const ratioText = ratio > 0 ? `${ratio.toLocaleString('vi-VN', { maximumFractionDigits: 2 })} sp/kg` : '---';
                 const priceText = itemPrice > 0 ? `${itemPrice.toLocaleString('vi-VN')} đ` : '---';
                 const lightRedStyle = ratio === 0 ? 'background-color: #fee2e2; color: #b91c1c; font-weight: bold; padding: 2px 4px; border-radius: 4px;' : '';
                 
