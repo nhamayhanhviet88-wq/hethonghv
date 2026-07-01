@@ -468,6 +468,12 @@ async function renderTilecatgocPage(content) {
             .tlcg-ticket-table tr.pending-row:hover {
                 background: #fef3c7;
             }
+            .tlcg-ticket-table tr.rejected-row {
+                background: #fef2f2;
+            }
+            .tlcg-ticket-table tr.rejected-row:hover {
+                background: #fee2e2;
+            }
             
             /* Modal overlay */
             .tlcg-modal-overlay {
@@ -729,7 +735,12 @@ function _tlcgParseProductName(prodName, orderCode) {
         const part = parts[i].trim();
         if (!part) continue;
         
-        if (i === 0 && part.toLowerCase() === code.toLowerCase()) {
+        const lowerPart = part.toLowerCase();
+        if (['aff', 'ctv', 'kol', 'koc', 'svd', 'dt', 'off'].includes(lowerPart)) {
+            continue;
+        }
+        
+        if (i === 0 && lowerPart === code.toLowerCase()) {
             continue;
         }
         
@@ -745,7 +756,7 @@ function _tlcgParseProductName(prodName, orderCode) {
             continue;
         }
         
-        if (part.toLowerCase() === code.toLowerCase()) {
+        if (lowerPart === code.toLowerCase()) {
             continue;
         }
         
@@ -999,6 +1010,8 @@ async function _tlcgOpenMaterialDrawer(matId) {
     if (!mat) return;
     _tlcg.activeMaterial = mat;
     _tlcg.expandedMonths.clear();
+    _tlcg.activeFilter = 'all';
+    _tlcg.initialOrderMap = null;
 
     // Inject drawer overlay and drawer if not present
     if (!document.getElementById('tlcgDrawerOverlay')) {
@@ -1048,6 +1061,7 @@ function _tlcgCloseDrawer() {
     const drawer = document.getElementById('tlcgDrawer');
     if (overlay) overlay.classList.remove('active');
     if (drawer) drawer.classList.remove('active');
+    _tlcg.initialOrderMap = null;
     _tlcg.activeMaterial = null;
     _tlcg.expandedMonths.clear();
 }
@@ -1062,9 +1076,57 @@ async function _tlcgLoadDrawerContent(mat) {
         const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
         const tickets = res.tickets || [];
 
+        // Sort tickets globally (in-place persistence until drawer close / page refresh)
+        if (_tlcg.initialOrderMap) {
+            tickets.sort((a, b) => {
+                const idxA = _tlcg.initialOrderMap.has(a.id) ? _tlcg.initialOrderMap.get(a.id) : 99999;
+                const idxB = _tlcg.initialOrderMap.has(b.id) ? _tlcg.initialOrderMap.get(b.id) : 99999;
+                return idxA - idxB;
+            });
+        } else {
+            tickets.sort((a, b) => {
+                // Sort by Month descending first
+                const dateA = a.cut_date || '';
+                const dateB = b.cut_date || '';
+                const monthA = dateA.substring(0, 7); // 'YYYY-MM'
+                const monthB = dateB.substring(0, 7);
+                const monthCmp = monthB.localeCompare(monthA);
+                if (monthCmp !== 0) return monthCmp;
+
+                // Sort by Pending first (neither approved nor rejected)
+                const pendingA = (!a.ratio_approved && !a.ratio_rejected) ? 0 : 1;
+                const pendingB = (!b.ratio_approved && !b.ratio_rejected) ? 0 : 1;
+                if (pendingA !== pendingB) return pendingA - pendingB;
+
+                // Sort by code naturally
+                const parsedA = _tlcgParseProductName(a.product_name, a.order_code);
+                const parsedB = _tlcgParseProductName(b.product_name, b.order_code);
+                const codeCmp = parsedA.code.localeCompare(parsedB.code, undefined, { numeric: true, sensitivity: 'base' });
+                if (codeCmp !== 0) return codeCmp;
+
+                // Sort by fabric color
+                const colorCmp = (a.fabric_color || '').localeCompare(b.fabric_color || '');
+                if (colorCmp !== 0) return colorCmp;
+
+                return a.id - b.id;
+            });
+            _tlcg.initialOrderMap = new Map(tickets.map((t, idx) => [t.id, idx]));
+        }
+
+        // Apply active filter
+        const activeFilter = _tlcg.activeFilter || 'all';
+        let filteredTickets = tickets;
+        if (activeFilter === 'pending') {
+            filteredTickets = tickets.filter(t => !t.ratio_approved && !t.ratio_rejected);
+        } else if (activeFilter === 'approved') {
+            filteredTickets = tickets.filter(t => t.ratio_approved);
+        } else if (activeFilter === 'rejected') {
+            filteredTickets = tickets.filter(t => t.ratio_rejected);
+        }
+
         // Group tickets by Month
         const grouped = {};
-        tickets.forEach(t => {
+        filteredTickets.forEach(t => {
             const parts = (t.cut_date || '').split('-');
             if (parts.length < 2) return;
             const key = `${parts[0]}-${parts[1]}`; // 'YYYY-MM'
@@ -1096,29 +1158,13 @@ async function _tlcgLoadDrawerContent(mat) {
                 grouped[key].approvedQty += qty;
                 grouped[key].approvedKg += kg;
                 grouped[key].approvedCount++;
-            } else {
+            } else if (!t.ratio_rejected) {
                 grouped[key].pendingIds.push(t.id);
                 grouped[key].pendingCount++;
             }
         });
 
         const monthKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a)); // Sort months descending
-
-        // Sort tickets in each month naturally by parsed code
-        Object.keys(grouped).forEach(key => {
-            grouped[key].tickets.sort((tA, tB) => {
-                const parsedA = _tlcgParseProductName(tA.product_name, tA.order_code);
-                const parsedB = _tlcgParseProductName(tB.product_name, tB.order_code);
-                
-                const cmp = parsedA.code.localeCompare(parsedB.code, undefined, { numeric: true, sensitivity: 'base' });
-                if (cmp !== 0) return cmp;
-                
-                const colorCmp = (tA.fabric_color || '').localeCompare(tB.fabric_color || '');
-                if (colorCmp !== 0) return colorCmp;
-                
-                return tA.id - tB.id;
-            });
-        });
 
         // Auto-expand the first/latest month
         if (monthKeys.length > 0 && _tlcg.expandedMonths.size === 0) {
@@ -1150,6 +1196,17 @@ async function _tlcgLoadDrawerContent(mat) {
         // 2. Month Accordions
         html += `<h4 style="margin: 0 0 12px 0; color: #334155; font-size: 14.5px; font-weight: 800;">📅 Danh sách phiếu cắt theo tháng</h4>`;
         
+        // Add status filter tabs
+        const activeFilter = _tlcg.activeFilter || 'all';
+        html += `
+            <div class="tlcg-drawer-filters" style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('all')" style="border: 1px solid #cbd5e1; background: ${activeFilter === 'all' ? '#cbd5e1' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #334155; outline: none; transition: all 0.2s;">Tất cả</button>
+                <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('pending')" style="border: 1px solid #fef3c7; background: ${activeFilter === 'pending' ? '#fef3c7' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #d97706; outline: none; transition: all 0.2s;">Chờ xử lý</button>
+                <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('approved')" style="border: 1px solid #dcfce7; background: ${activeFilter === 'approved' ? '#dcfce7' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #15803d; outline: none; transition: all 0.2s;">Đã duyệt</button>
+                <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('rejected')" style="border: 1px solid #fee2e2; background: ${activeFilter === 'rejected' ? '#fee2e2' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ef4444; outline: none; transition: all 0.2s;">Không duyệt</button>
+            </div>
+        `;
+
         if (monthKeys.length === 0) {
             html += `<div style="text-align: center; padding: 30px; background: white; border-radius: 12px; border: 1px solid #e2e8f0; color: #64748b; font-size: 13.5px;">Không phát sinh đơn cắt lẻ nào thỏa mãn điều kiện lọc</div>`;
         } else {
@@ -1198,13 +1255,13 @@ async function _tlcgLoadDrawerContent(mat) {
                                         <th>Màu sắc</th>
                                         <th style="text-align: center;">SL / Trọng lượng</th>
                                         <th style="text-align: center;">Tỉ lệ</th>
-                                        <th style="text-align: center; width: 140px;">Hành động</th>
+                                        <th style="text-align: center; width: 150px;">Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${group.tickets.map(t => {
-                                        const isPending = !t.ratio_approved;
-                                        const rowClass = isPending ? 'pending-row' : '';
+                                        const isPending = !t.ratio_approved && !t.ratio_rejected;
+                                        const rowClass = isPending ? 'pending-row' : (t.ratio_rejected ? 'rejected-row' : '');
                                         const segmentLabel = t.size_segment || '<span style="color:#ef4444;font-style:italic;">Chưa phân loại</span>';
                                         const parsed = _tlcgParseProductName(t.product_name, t.order_code);
                                         return `
@@ -1224,12 +1281,14 @@ async function _tlcgLoadDrawerContent(mat) {
                                                                 <button class="btn btn-sm btn-success" style="font-size: 11px; padding: 3px 8px; font-weight: 700;" onclick="_tlcgApproveTicket(${t.id})">Duyệt</button>
                                                                 <button class="btn btn-sm btn-danger" style="font-size: 11px; padding: 3px 8px; font-weight: 700;" onclick="_tlcgRejectTicket(${t.id})">Không duyệt</button>
                                                             </div>
+                                                        ` : (t.ratio_approved ? `
+                                                            <button class="btn btn-sm btn-success" style="font-size: 11px; padding: 3px 8px; font-weight: 700; width: 100%;" onclick="_tlcgUnapproveTicket(${t.id}, 'Bạn có chắc chắn muốn hủy duyệt đơn cắt này?')">✔️ Đã duyệt</button>
                                                         ` : `
-                                                            <button class="btn btn-sm btn-outline-danger" style="font-size: 10px; padding: 2px 6px; font-weight: 700;" onclick="_tlcgUnapproveTicket(${t.id})">Hủy</button>
-                                                        `}
+                                                            <button class="btn btn-sm btn-danger" style="font-size: 11px; padding: 3px 8px; font-weight: 700; width: 100%;" onclick="_tlcgUnapproveTicket(${t.id}, 'Bạn có chắc chắn muốn hủy trạng thái không duyệt đơn cắt này?')">❌ Không duyệt</button>
+                                                        `)}
                                                     ` : `
-                                                        <span class="badge ${t.ratio_approved ? 'badge-success' : 'badge-warning'}" style="font-size:10px;">
-                                                            ${t.ratio_approved ? 'Đã duyệt' : 'Chờ'}
+                                                        <span style="font-size: 11px; font-weight: 700; color: ${t.ratio_approved ? '#10b981' : (t.ratio_rejected ? '#ef4444' : '#f59e0b')}; padding: 4px 8px; background: ${t.ratio_approved ? '#dcfce7' : (t.ratio_rejected ? '#fee2e2' : '#fef3c7')}; border-radius: 6px; display: inline-block;">
+                                                            ${t.ratio_approved ? 'Đã duyệt' : (t.ratio_rejected ? 'Không duyệt' : 'Chờ duyệt')}
                                                         </span>
                                                     `}
                                                 </td>
@@ -1285,15 +1344,16 @@ async function _tlcgApproveTicket(id) {
     }
 }
 
-async function _tlcgUnapproveTicket(id) {
+async function _tlcgUnapproveTicket(id, confirmMsg) {
+    if (confirmMsg && !confirm(confirmMsg)) return;
     try {
         const res = await apiCall(`/api/cutting/unapprove-ratio/${id}`, 'POST');
         if (res.success) {
-            if (typeof showToast === 'function') showToast('Đã hủy duyệt tỉ lệ đơn cắt!', 'success');
+            if (typeof showToast === 'function') showToast('Đã hủy trạng thái đơn cắt!', 'success');
             await _tlcgLoadDrawerContent(_tlcg.activeMaterial);
             await _tlcgLoadData();
         } else {
-            if (typeof showToast === 'function') showToast(res.error || 'Hủy duyệt thất bại', 'error');
+            if (typeof showToast === 'function') showToast(res.error || 'Hủy trạng thái thất bại', 'error');
         }
     } catch (err) {
         console.error('[Unapprove ticket error]', err);
@@ -1302,11 +1362,11 @@ async function _tlcgUnapproveTicket(id) {
 }
 
 async function _tlcgRejectTicket(id) {
-    if (!confirm('Bạn có chắc chắn muốn không duyệt và ẩn đơn cắt này?')) return;
+    if (!confirm('Bạn có chắc chắn muốn chuyển trạng thái đơn cắt này thành không duyệt?')) return;
     try {
         const res = await apiCall(`/api/cutting/reject-ratio/${id}`, 'POST');
         if (res.success) {
-            if (typeof showToast === 'function') showToast('Đã không duyệt và ẩn đơn cắt!', 'success');
+            if (typeof showToast === 'function') showToast('Đã chuyển trạng thái đơn cắt thành không duyệt!', 'success');
             await _tlcgLoadDrawerContent(_tlcg.activeMaterial);
             await _tlcgLoadData();
         } else {
@@ -1316,6 +1376,11 @@ async function _tlcgRejectTicket(id) {
         console.error('[Reject ticket error]', err);
         if (typeof showToast === 'function') showToast(err.message, 'error');
     }
+}
+
+function _tlcgSetFilter(val) {
+    _tlcg.activeFilter = val;
+    _tlcgLoadDrawerContent(_tlcg.activeMaterial);
 }
 
 async function _tlcgApproveBatch(ids) {

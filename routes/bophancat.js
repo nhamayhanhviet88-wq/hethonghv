@@ -4029,6 +4029,7 @@ module.exports = async function(fastify) {
                     cr.cut_date, 
                     cr.ratio_approved, 
                     cr.ratio_approved_at,
+                    cr.ratio_rejected,
                     o.order_code,
                     u_cutter.full_name AS cutter_name,
                     u_approved.full_name AS approved_by_name,
@@ -4047,7 +4048,6 @@ module.exports = async function(fastify) {
                       WHERE sub_oi.dht_order_id = o.id
                         AND COALESCE(jsonb_array_length(sub_oi.material_pairs::jsonb), 0) > 1
                   )
-                  AND COALESCE(cr.ratio_rejected, false) = false
                   AND TRIM(LOWER(cr.material_name)) = TRIM(LOWER($1))
             `;
             
@@ -4110,6 +4110,7 @@ module.exports = async function(fastify) {
         await db.run(`
             UPDATE cutting_records 
             SET ratio_approved = false, 
+                ratio_rejected = false,
                 ratio_approved_at = NULL, 
                 ratio_approved_by = NULL 
             WHERE id = $1

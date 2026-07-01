@@ -304,6 +304,10 @@
             background: #fffbeb;
             border-color: #fde68a;
         }
+        .m-ticket-row.rejected {
+            background: #fef2f2;
+            border-color: #fca5a5;
+        }
         .m-ticket-info {
             display: flex;
             flex-direction: column;
@@ -546,7 +550,12 @@
                 const part = parts[i].trim();
                 if (!part) continue;
                 
-                if (i === 0 && part.toLowerCase() === code.toLowerCase()) {
+                const lowerPart = part.toLowerCase();
+                if (['aff', 'ctv', 'kol', 'koc', 'svd', 'dt', 'off'].includes(lowerPart)) {
+                    continue;
+                }
+                
+                if (i === 0 && lowerPart === code.toLowerCase()) {
                     continue;
                 }
                 
@@ -562,7 +571,7 @@
                     continue;
                 }
                 
-                if (part.toLowerCase() === code.toLowerCase()) {
+                if (lowerPart === code.toLowerCase()) {
                     continue;
                 }
                 
@@ -739,6 +748,8 @@
             if (!mat) return;
             _mobileTlcg.activeMat = mat;
             _mobileTlcg.expandedMonths.clear();
+            _mobileTlcg.activeFilter = 'all';
+            _mobileTlcg.initialOrderMap = null;
 
             const html = `
                 <div class="m-modal-backdrop" id="mDetailsSheet" onclick="closeModalSheet(event)">
@@ -766,6 +777,7 @@
             document.getElementById('mModalWrapper').innerHTML = '';
             _mobileTlcg.activeMat = null;
             _mobileTlcg.expandedMonths.clear();
+            _mobileTlcg.initialOrderMap = null;
         }
 
         async function loadSheetContent(mat) {
@@ -778,9 +790,57 @@
                 const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
                 const tickets = res.tickets || [];
 
+                // Sort tickets globally (in-place persistence until drawer close / page refresh)
+                if (_mobileTlcg.initialOrderMap) {
+                    tickets.sort((a, b) => {
+                        const idxA = _mobileTlcg.initialOrderMap.has(a.id) ? _mobileTlcg.initialOrderMap.get(a.id) : 99999;
+                        const idxB = _mobileTlcg.initialOrderMap.has(b.id) ? _mobileTlcg.initialOrderMap.get(b.id) : 99999;
+                        return idxA - idxB;
+                    });
+                } else {
+                    tickets.sort((a, b) => {
+                        // Sort by Month descending first
+                        const dateA = a.cut_date || '';
+                        const dateB = b.cut_date || '';
+                        const monthA = dateA.substring(0, 7); // 'YYYY-MM'
+                        const monthB = dateB.substring(0, 7);
+                        const monthCmp = monthB.localeCompare(monthA);
+                        if (monthCmp !== 0) return monthCmp;
+
+                        // Sort by Pending first (neither approved nor rejected)
+                        const pendingA = (!a.ratio_approved && !a.ratio_rejected) ? 0 : 1;
+                        const pendingB = (!b.ratio_approved && !b.ratio_rejected) ? 0 : 1;
+                        if (pendingA !== pendingB) return pendingA - pendingB;
+
+                        // Sort by code naturally
+                        const parsedA = parseProductName(a.product_name, a.order_code);
+                        const parsedB = parseProductName(b.product_name, b.order_code);
+                        const codeCmp = parsedA.code.localeCompare(parsedB.code, undefined, { numeric: true, sensitivity: 'base' });
+                        if (codeCmp !== 0) return codeCmp;
+
+                        // Sort by fabric color
+                        const colorCmp = (a.fabric_color || '').localeCompare(b.fabric_color || '');
+                        if (colorCmp !== 0) return colorCmp;
+
+                        return a.id - b.id;
+                    });
+                    _mobileTlcg.initialOrderMap = new Map(tickets.map((t, idx) => [t.id, idx]));
+                }
+
+                // Apply active filter
+                const activeFilter = _mobileTlcg.activeFilter || 'all';
+                let filteredTickets = tickets;
+                if (activeFilter === 'pending') {
+                    filteredTickets = tickets.filter(t => !t.ratio_approved && !t.ratio_rejected);
+                } else if (activeFilter === 'approved') {
+                    filteredTickets = tickets.filter(t => t.ratio_approved);
+                } else if (activeFilter === 'rejected') {
+                    filteredTickets = tickets.filter(t => t.ratio_rejected);
+                }
+
                 // Group tickets by Month
                 const grouped = {};
-                tickets.forEach(t => {
+                filteredTickets.forEach(t => {
                     const parts = (t.cut_date || '').split('-');
                     if (parts.length < 2) return;
                     const key = `${parts[0]}-${parts[1]}`;
@@ -812,29 +872,13 @@
                         grouped[key].approvedQty += qty;
                         grouped[key].approvedKg += kg;
                         grouped[key].approvedCount++;
-                    } else {
+                    } else if (!t.ratio_rejected) {
                         grouped[key].pendingIds.push(t.id);
                         grouped[key].pendingCount++;
                     }
                 });
 
                 const monthKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-
-                // Sort tickets inside each month group naturally
-                Object.keys(grouped).forEach(key => {
-                    grouped[key].tickets.sort((tA, tB) => {
-                        const parsedA = parseProductName(tA.product_name, tA.order_code);
-                        const parsedB = parseProductName(tB.product_name, tB.order_code);
-                        
-                        const cmp = parsedA.code.localeCompare(parsedB.code, undefined, { numeric: true, sensitivity: 'base' });
-                        if (cmp !== 0) return cmp;
-                        
-                        const colorCmp = (tA.fabric_color || '').localeCompare(tB.fabric_color || '');
-                        if (colorCmp !== 0) return colorCmp;
-                        
-                        return tA.id - tB.id;
-                    });
-                });
 
                 // Auto-expand latest month
                 if (monthKeys.length > 0 && _mobileTlcg.expandedMonths.size === 0) {
@@ -862,9 +906,20 @@
                     </div>
                 `;
 
+                // Add status filter tabs on mobile
+                const activeFilter = _mobileTlcg.activeFilter || 'all';
+                html += `
+                    <div class="m-drawer-filters" style="display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch;">
+                        <button onclick="setMobileFilter('all')" style="border: 1px solid #cbd5e1; background: ${activeFilter === 'all' ? '#cbd5e1' : 'white'}; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; cursor: pointer; color: #334155; white-space: nowrap; outline: none; transition: all 0.2s;">Tất cả</button>
+                        <button onclick="setMobileFilter('pending')" style="border: 1px solid #fef3c7; background: ${activeFilter === 'pending' ? '#fef3c7' : 'white'}; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; cursor: pointer; color: #d97706; white-space: nowrap; outline: none; transition: all 0.2s;">Chờ xử lý</button>
+                        <button onclick="setMobileFilter('approved')" style="border: 1px solid #dcfce7; background: ${activeFilter === 'approved' ? '#dcfce7' : 'white'}; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; cursor: pointer; color: #15803d; white-space: nowrap; outline: none; transition: all 0.2s;">Đã duyệt</button>
+                        <button onclick="setMobileFilter('rejected')" style="border: 1px solid #fee2e2; background: ${activeFilter === 'rejected' ? '#fee2e2' : 'white'}; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ef4444; white-space: nowrap; outline: none; transition: all 0.2s;">Không duyệt</button>
+                    </div>
+                `;
+
                 // Month items
                 if (monthKeys.length === 0) {
-                    html += `<div style="text-align:center; padding:20px; font-size:13px; color:#64748b;">Không có phiếu cắt nào</div>`;
+                    html += `<div style="text-align:center; padding:20px; font-size:13px; color:#64748b;">Không có phiếu cắt nào thỏa mãn điều kiện lọc</div>`;
                 } else {
                     monthKeys.forEach(key => {
                         const group = grouped[key];
@@ -900,10 +955,11 @@
                                 <div class="m-month-body">
                                     <div class="m-ticket-list">
                                         ${group.tickets.map(t => {
-                                            const isPending = !t.ratio_approved;
+                                            const isPending = !t.ratio_approved && !t.ratio_rejected;
+                                            const rowClass = isPending ? 'pending' : (t.ratio_rejected ? 'rejected' : '');
                                             const parsed = parseProductName(t.product_name, t.order_code);
                                             return `
-                                                <div class="m-ticket-row ${isPending ? 'pending' : ''}">
+                                                <div class="m-ticket-row ${rowClass}">
                                                     <div class="m-ticket-info" style="cursor: pointer; flex: 1;" onclick="openTicketDetailMobile(${t.id})" title="Nhấp để xem chi tiết đơn cắt">
                                                         <span class="m-ticket-code" style="color: #2563eb; text-decoration: underline;">${parsed.code} (${t.fabric_color})</span>
                                                         <span class="m-ticket-sub" style="font-size:10.5px; color:#475569; font-weight:500; margin-top:2px; display:block;">${parsed.product}</span>
@@ -917,12 +973,14 @@
                                                                     <button class="m-btn-approve" onclick="approveTicket(${t.id})">Duyệt</button>
                                                                     <button class="m-btn-unapprove" style="background:#fee2e2; color:#ef4444; padding:5px 10px; font-size:11px;" onclick="rejectTicket(${t.id})">Không duyệt</button>
                                                                 </div>
+                                                            ` : (t.ratio_approved ? `
+                                                                <button class="m-btn-approve" style="background:#dcfce7; color:#15803d; border: 1px solid #15803d; padding:5px 10px; font-size:11px;" onclick="unapproveTicket(${t.id}, 'Bạn có chắc chắn muốn hủy duyệt đơn cắt này?')">✔️ Đã duyệt</button>
                                                             ` : `
-                                                                <button class="m-btn-unapprove" onclick="unapproveTicket(${t.id})">Hủy</button>
-                                                            `}
+                                                                <button class="m-btn-unapprove" style="background:#fee2e2; color:#ef4444; border: 1px solid #ef4444; padding:5px 10px; font-size:11px;" onclick="unapproveTicket(${t.id}, 'Bạn có chắc chắn muốn hủy trạng thái không duyệt đơn cắt này?')">❌ Không duyệt</button>
+                                                            `)}
                                                         ` : `
-                                                            <span style="font-size:9.5px; font-weight:700; color:${t.ratio_approved ? '#10b981' : '#f59e0b'};">
-                                                                ${t.ratio_approved ? 'Đã duyệt' : 'Chờ'}
+                                                            <span style="font-size:9.5px; font-weight:700; color:${t.ratio_approved ? '#10b981' : (t.ratio_rejected ? '#ef4444' : '#f59e0b')}; padding:3px 6px; background:${t.ratio_approved ? '#dcfce7' : (t.ratio_rejected ? '#fee2e2' : '#fef3c7')}; border-radius:4px;">
+                                                                ${t.ratio_approved ? 'Đã duyệt' : (t.ratio_rejected ? 'Không duyệt' : 'Chờ duyệt')}
                                                             </span>
                                                         `}
                                                     </div>
@@ -1174,15 +1232,16 @@
             }
         }
 
-        async function unapproveTicket(id) {
+        async function unapproveTicket(id, confirmMsg) {
+            if (confirmMsg && !confirm(confirmMsg)) return;
             try {
                 const res = await apiCall(`/api/cutting/unapprove-ratio/${id}`, 'POST');
                 if (res.success) {
-                    toast('Đã hủy duyệt tỉ lệ đơn cắt');
+                    toast('Đã hủy trạng thái đơn cắt');
                     await loadSheetContent(_mobileTlcg.activeMat);
                     await loadData(false);
                 } else {
-                    toast(res.error || 'Hủy duyệt thất bại', 'error');
+                    toast(res.error || 'Hủy trạng thái thất bại', 'error');
                 }
             } catch (err) {
                 console.error(err);
@@ -1191,11 +1250,11 @@
         }
 
         async function rejectTicket(id) {
-            if (!confirm('Bạn có chắc chắn muốn không duyệt và ẩn đơn cắt này?')) return;
+            if (!confirm('Bạn có chắc chắn muốn chuyển trạng thái đơn cắt này thành không duyệt?')) return;
             try {
                 const res = await apiCall(`/api/cutting/reject-ratio/${id}`, 'POST');
                 if (res.success) {
-                    toast('Đã không duyệt và ẩn đơn cắt');
+                    toast('Đã chuyển trạng thái đơn cắt thành không duyệt');
                     await loadSheetContent(_mobileTlcg.activeMat);
                     await loadData(false);
                 } else {
@@ -1205,6 +1264,11 @@
                 console.error(err);
                 toast(err.message, 'error');
             }
+        }
+
+        function setMobileFilter(val) {
+            _mobileTlcg.activeFilter = val;
+            loadSheetContent(_mobileTlcg.activeMat);
         }
 
         async function approveBatch(ids) {
