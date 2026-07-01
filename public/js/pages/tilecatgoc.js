@@ -2015,7 +2015,13 @@ async function _tlcgShowTicketDetail(recordId) {
 function _tlcgLoadPetConfigs() {
     _tlcg.petEnabled = localStorage.getItem('tlcg_pet_enabled') === 'true';
     _tlcg.petSheetPrice = Number(localStorage.getItem('tlcg_pet_sheet_price')) || 40000;
-    _tlcg.petSpacing = localStorage.getItem('tlcg_pet_spacing') !== null ? Number(localStorage.getItem('tlcg_pet_spacing')) : 0.3;
+    const storedSpacing = localStorage.getItem('tlcg_pet_spacing');
+    if (storedSpacing === null || storedSpacing === '0.3') {
+        _tlcg.petSpacing = 0.4;
+        localStorage.setItem('tlcg_pet_spacing', '0.4');
+    } else {
+        _tlcg.petSpacing = Number(storedSpacing);
+    }
     _tlcg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
     try {
         _tlcg.petShapes = JSON.parse(localStorage.getItem('tlcg_pet_shapes')) || [{ name: 'Logo ngực', width: 10, height: 5 }];

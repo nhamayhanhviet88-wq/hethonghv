@@ -1487,7 +1487,13 @@
         function mPetLoadConfigs() {
             _mobileTlcg.petEnabled = localStorage.getItem('tlcg_pet_enabled') === 'true';
             _mobileTlcg.petSheetPrice = Number(localStorage.getItem('tlcg_pet_sheet_price')) || 40000;
-            _mobileTlcg.petSpacing = localStorage.getItem('tlcg_pet_spacing') !== null ? Number(localStorage.getItem('tlcg_pet_spacing')) : 0.3;
+            const storedSpacing = localStorage.getItem('tlcg_pet_spacing');
+            if (storedSpacing === null || storedSpacing === '0.3') {
+                _mobileTlcg.petSpacing = 0.4;
+                localStorage.setItem('tlcg_pet_spacing', '0.4');
+            } else {
+                _mobileTlcg.petSpacing = Number(storedSpacing);
+            }
             _mobileTlcg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
             try {
                 _mobileTlcg.petShapes = JSON.parse(localStorage.getItem('tlcg_pet_shapes')) || [{ name: 'Logo ngực', width: 10, height: 5 }];
