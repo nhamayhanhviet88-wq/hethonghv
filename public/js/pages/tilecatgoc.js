@@ -2843,6 +2843,11 @@ async function _tlcgUpdateMaterialSegments(matId) {
     }
 }
 
+function _tlcgCloseRangeTicketsModal() {
+    const overlay = document.getElementById('tlcgRangeTicketsOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
 function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
     const res = _tlcg.lastCalcResponse;
     if (!res) return;
@@ -2853,13 +2858,19 @@ function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
     
     const tickets = rc.tickets || [];
     
-    if (!document.getElementById('tlcgModalOverlay')) {
+    if (!document.getElementById('tlcgRangeTicketsOverlay')) {
         const overlay = document.createElement('div');
-        overlay.id = 'tlcgModalOverlay';
+        overlay.id = 'tlcgRangeTicketsOverlay';
         overlay.className = 'tlcg-modal-overlay';
+        overlay.style.zIndex = '1020';
+        overlay.onclick = function(e) {
+            if (e.target === this) {
+                _tlcgCloseRangeTicketsModal();
+            }
+        };
         document.body.appendChild(overlay);
     }
-    const overlay = document.getElementById('tlcgModalOverlay');
+    const overlay = document.getElementById('tlcgRangeTicketsOverlay');
 
     let rowsHtml = '';
     if (tickets.length === 0) {
@@ -2876,7 +2887,7 @@ function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
             const parsed = _tlcgParseProductName(t.product_name, t.order_code);
             return `
                 <tr>
-                    <td style="cursor: pointer; padding: 10px 8px;" onclick="_tlcgCloseModal(); _tlcgShowTicketDetail(${t.id})" title="Nhấp để xem chi tiết đơn cắt">
+                    <td style="cursor: pointer; padding: 10px 8px;" onclick="_tlcgCloseRangeTicketsModal(); _tlcgCloseModal(); _tlcgShowTicketDetail(${t.id})" title="Nhấp để xem chi tiết đơn cắt">
                         <div style="font-weight: 800; color: #2563eb; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${parsed.code}</div>
                     </td>
                     <td style="font-weight: 500; font-size: 11.5px; color: #334155; max-width: 200px; word-break: break-word; padding: 10px 8px;">${parsed.product}</td>
@@ -2898,7 +2909,7 @@ function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
         <div class="tlcg-modal" style="max-width: 900px; width: 90%;">
             <div class="tlcg-modal-header">
                 <h4 class="tlcg-modal-title">🔍 Danh Sách Đơn Đã Duyệt - Khung ${rc.range_label} (${calc.segment})</h4>
-                <button class="tlcg-drawer-close" onclick="_tlcgCloseModal()">×</button>
+                <button class="tlcg-drawer-close" onclick="_tlcgCloseRangeTicketsModal()">×</button>
             </div>
             <div class="tlcg-modal-body" style="padding: 16px 8px; max-height: 70vh; overflow-y: auto;">
                 <div style="overflow-x: auto; width: 100%;">
@@ -2921,7 +2932,7 @@ function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
                 </div>
             </div>
             <div class="tlcg-modal-footer">
-                <button class="tlcg-btn" onclick="_tlcgCloseModal()">Đóng</button>
+                <button class="tlcg-btn" onclick="_tlcgCloseRangeTicketsModal()">Đóng</button>
             </div>
         </div>
     `;
