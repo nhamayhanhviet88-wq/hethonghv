@@ -326,8 +326,8 @@ async function renderTilecatgocPage(content) {
             .tlcg-drawer {
                 position: fixed;
                 top: 0;
-                right: -720px;
-                width: 720px;
+                right: -909px;
+                width: 909px;
                 height: 100%;
                 background: white;
                 box-shadow: -10px 0 25px -5px rgba(0,0,0,0.1), -10px 0 10px -5px rgba(0,0,0,0.04);
