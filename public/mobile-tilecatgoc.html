@@ -1622,28 +1622,79 @@
             html += `
                 <div style="background: #f1f5f9; border-radius: 12px; padding: 12px; margin-bottom: 16px;">
                     <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px;">
-                        🏭 Giá Nhập Gốc Các Nguồn (Đã Duyệt)
+                        🏭 Giá Vải Gốc & Thành Phẩm
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
             `;
 
             if (res.suppliers && res.suppliers.length > 0) {
                 // Option for All (Cheapest)
+                let cheapestTexts = [];
+                if (res.calculations && res.calculations.length > 0) {
+                    res.calculations.forEach(calc => {
+                        const rangeCalc = calc.range_calcs && calc.range_calcs.length > 0 ? calc.range_calcs[0] : null;
+                        const hasQty = res.quantity !== null && res.quantity > 0;
+                        const cheapestObj = (hasQty && rangeCalc && rangeCalc.cheapest_range)
+                            ? rangeCalc.cheapest_range
+                            : calc.cheapest_overall;
+                        if (cheapestObj) {
+                            if (res.calculations.length > 1) {
+                                cheapestTexts.push(`${calc.segment}: ${Number(cheapestObj.price).toLocaleString('vi-VN')}đ (${cheapestObj.source_name})`);
+                            } else {
+                                cheapestTexts.push(`${Number(cheapestObj.price).toLocaleString('vi-VN')}đ (${cheapestObj.source_name})`);
+                            }
+                        }
+                    });
+                }
+                const cheapestDisplay = cheapestTexts.length > 0 ? cheapestTexts.join('<br>') : 'So sánh tối ưu';
+
                 html += `
-                    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: ${selectedId === 'all' ? '#e0f2fe' : 'transparent'}; border: 1px solid ${selectedId === 'all' ? '#bae6fd' : 'transparent'}; cursor: pointer;" onclick="selectMobileCalcSupplier('all')">
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; background: ${selectedId === 'all' ? '#e0f2fe' : 'transparent'}; border: 1px solid ${selectedId === 'all' ? '#bae6fd' : 'transparent'}; cursor: pointer;" onclick="selectMobileCalcSupplier('all')">
                         <input type="radio" name="m_calc_supplier" value="all" ${selectedId === 'all' ? 'checked' : ''} style="margin: 0; width: 16px; height: 16px; cursor: pointer;" onclick="event.stopPropagation(); selectMobileCalcSupplier('all')">
-                        <div style="flex: 1; font-size: 12.5px; font-weight: 700; color: #0369a1;">🏆 Tất cả (So sánh rẻ nhất)</div>
-                        <div style="font-size: 11.5px; font-style: italic; color: #64748b;">So sánh tối ưu</div>
+                        <div style="flex: 1; font-size: 12px; font-weight: 700; color: #0369a1; line-height: 1.3;">
+                            <div>🏆 Tất cả (Tự động rẻ nhất)</div>
+                            <div style="font-size: 11px; color: #64748b; font-weight: normal; font-style: italic;">So sánh tối ưu</div>
+                        </div>
+                        <div style="text-align: right; font-size: 12px; font-weight: 800; color: #059669; line-height: 1.3;">
+                            <div style="font-size: 10px; color: #64748b; font-weight: normal;">Thành phẩm:</div>
+                            <div>${cheapestDisplay}</div>
+                        </div>
                     </div>
                 `;
 
                 res.suppliers.forEach(ap => {
                     const isChecked = selectedId === String(ap.source_id);
+                    
+                    let priceTexts = [];
+                    if (res.calculations && res.calculations.length > 0) {
+                        res.calculations.forEach(calc => {
+                            const rangeCalc = calc.range_calcs && calc.range_calcs.length > 0 ? calc.range_calcs[0] : null;
+                            const hasQty = res.quantity !== null && res.quantity > 0;
+                            const price = (hasQty && rangeCalc && rangeCalc.range_prices[ap.source_id])
+                                ? rangeCalc.range_prices[ap.source_id]
+                                : calc.overall_prices[ap.source_id];
+                            if (price) {
+                                if (res.calculations.length > 1) {
+                                    priceTexts.push(`${calc.segment}: ${Number(price).toLocaleString('vi-VN')}đ`);
+                                } else {
+                                    priceTexts.push(`${Number(price).toLocaleString('vi-VN')}đ`);
+                                }
+                            }
+                        });
+                    }
+                    const priceDisplay = priceTexts.length > 0 ? priceTexts.join('<br>') : '—';
+
                     html += `
-                        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: ${isChecked ? '#e0f2fe' : 'transparent'}; border: 1px solid ${isChecked ? '#bae6fd' : 'transparent'}; cursor: pointer;" onclick="selectMobileCalcSupplier('${ap.source_id}')">
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; background: ${isChecked ? '#e0f2fe' : 'transparent'}; border: 1px solid ${isChecked ? '#bae6fd' : 'transparent'}; cursor: pointer;" onclick="selectMobileCalcSupplier('${ap.source_id}')">
                             <input type="radio" name="m_calc_supplier" value="${ap.source_id}" ${isChecked ? 'checked' : ''} style="margin: 0; width: 16px; height: 16px; cursor: pointer;" onclick="event.stopPropagation(); selectMobileCalcSupplier('${ap.source_id}')">
-                            <div style="flex: 1; font-size: 12.5px; font-weight: 700; color: #334155;">${ap.source_name}</div>
-                            <div style="font-size: 12.5px; font-weight: 800; color: #1e293b;">${Number(ap.price).toLocaleString('vi-VN')} đ / ${res.unit}</div>
+                            <div style="flex: 1; font-size: 12px; font-weight: 700; color: #334155; line-height: 1.3;">
+                                <div>${ap.source_name}</div>
+                                <div style="font-size: 11px; color: #64748b; font-weight: normal;">Gốc: ${Number(ap.price).toLocaleString('vi-VN')} đ / ${res.unit}</div>
+                            </div>
+                            <div style="text-align: right; font-size: 12px; font-weight: 800; color: #1e293b; line-height: 1.3;">
+                                <div style="font-size: 10px; color: #64748b; font-weight: normal;">Thành phẩm:</div>
+                                <div>${priceDisplay}</div>
+                            </div>
                         </div>
                     `;
                 });
