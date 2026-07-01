@@ -167,7 +167,7 @@
         }
         .m-fabric-ratios {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: repeat(4, 1fr);
             gap: 8px;
             background: #f8fafc;
             padding: 8px;
@@ -665,7 +665,7 @@
 
         function getMaterialRatios(mat) {
             const mStats = _mobileTlcg.stats.filter(s => s.material_name.trim().toLowerCase() === mat.name.trim().toLowerCase());
-            const segments = { 'Người Lớn': { qty: 0, kg: 0 }, 'Trẻ Em': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
+            const segments = { 'Người Lớn': { qty: 0, kg: 0 }, 'Mầm Non': { qty: 0, kg: 0 }, 'Tiểu Học': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
             mStats.forEach(s => {
                 if (segments[s.size_segment]) {
                     segments[s.size_segment].qty += Number(s.total_qty);
@@ -680,7 +680,8 @@
 
             return {
                 adult: format('Người Lớn'),
-                child: format('Trẻ Em'),
+                mamnon: format('Mầm Non'),
+                tieuhoc: format('Tiểu Học'),
                 oversize: format('Oversize')
             };
         }
@@ -724,15 +725,19 @@
                         </div>
                         <div class="m-fabric-ratios">
                             <div class="m-ratio-item">
-                                <span class="m-ratio-lbl">👔 Người Lớn</span>
+                                <span class="m-ratio-lbl">👔 Lớn</span>
                                 <span class="m-ratio-val m-ratio-ao">${s.adult}</span>
                             </div>
                             <div class="m-ratio-item">
-                                <span class="m-ratio-lbl">👶 Trẻ Em</span>
-                                <span class="m-ratio-val m-ratio-tre">${s.child}</span>
+                                <span class="m-ratio-lbl">👶 MN</span>
+                                <span class="m-ratio-val m-ratio-tre">${s.mamnon}</span>
                             </div>
                             <div class="m-ratio-item">
-                                <span class="m-ratio-lbl">👕 Oversize</span>
+                                <span class="m-ratio-lbl">🎒 TH</span>
+                                <span class="m-ratio-val m-ratio-tre">${s.tieuhoc}</span>
+                            </div>
+                            <div class="m-ratio-item">
+                                <span class="m-ratio-lbl">👕 Over</span>
                                 <span class="m-ratio-val m-ratio-over">${s.oversize}</span>
                             </div>
                         </div>
@@ -890,14 +895,18 @@
                 // Overall Stats Summary
                 const s = getMaterialRatios(mat);
                 html += `
-                    <div style="background: #f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px; margin-bottom:16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+                    <div style="background: #f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px; margin-bottom:16px; display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
                         <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
-                            <div style="font-size:8.5px; font-weight:700; color:#64748b;">Người Lớn</div>
+                            <div style="font-size:8.5px; font-weight:700; color:#64748b;">Lớn</div>
                             <div style="font-size:12px; font-weight:800; color:#4f46e5; margin-top:2px;">${s.adult}</div>
                         </div>
                         <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
-                            <div style="font-size:8.5px; font-weight:700; color:#64748b;">Trẻ Em</div>
-                            <div style="font-size:12px; font-weight:800; color:#4f46e5; margin-top:2px;">${s.child}</div>
+                            <div style="font-size:8.5px; font-weight:700; color:#64748b;">Mầm Non</div>
+                            <div style="font-size:12px; font-weight:800; color:#4f46e5; margin-top:2px;">${s.mamnon}</div>
+                        </div>
+                        <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+                            <div style="font-size:8.5px; font-weight:700; color:#64748b;">Tiểu Học</div>
+                            <div style="font-size:12px; font-weight:800; color:#4f46e5; margin-top:2px;">${s.tieuhoc}</div>
                         </div>
                         <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
                             <div style="font-size:8.5px; font-weight:700; color:#64748b;">Oversize</div>

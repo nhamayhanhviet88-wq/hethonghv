@@ -923,7 +923,7 @@ function _tlcgGetMaterialStats(matName) {
     const mStats = _tlcg.stats.filter(s => s.material_name.trim().toLowerCase() === matName.trim().toLowerCase());
     
     // Group stats by size segment
-    const segments = { 'Người Lớn': { qty: 0, kg: 0 }, 'Trẻ Em': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
+    const segments = { 'Người Lớn': { qty: 0, kg: 0 }, 'Mầm Non': { qty: 0, kg: 0 }, 'Tiểu Học': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
     mStats.forEach(s => {
         if (segments[s.size_segment]) {
             segments[s.size_segment].qty += Number(s.total_qty);
@@ -941,7 +941,8 @@ function _tlcgGetMaterialStats(matName) {
 
     return (mat) => ({
         adult: formatRatio('Người Lớn', mat),
-        child: formatRatio('Trẻ Em', mat),
+        mamnon: formatRatio('Mầm Non', mat),
+        tieuhoc: formatRatio('Tiểu Học', mat),
         oversize: formatRatio('Oversize', mat)
     });
 }
@@ -978,8 +979,12 @@ function _tlcgRenderGrid() {
                     <span class="tlcg-segment-val ${s.adult !== '---' ? 'val-active' : ''}">${s.adult}</span>
                 </div>
                 <div class="tlcg-segment-row">
-                    <span class="tlcg-segment-name">👶 Trẻ Em</span>
-                    <span class="tlcg-segment-val ${s.child !== '---' ? 'val-active' : ''}">${s.child}</span>
+                    <span class="tlcg-segment-name">👶 Mầm Non</span>
+                    <span class="tlcg-segment-val ${s.mamnon !== '---' ? 'val-active' : ''}">${s.mamnon}</span>
+                </div>
+                <div class="tlcg-segment-row">
+                    <span class="tlcg-segment-name">🎒 Tiểu Học</span>
+                    <span class="tlcg-segment-val ${s.tieuhoc !== '---' ? 'val-active' : ''}">${s.tieuhoc}</span>
                 </div>
                 <div class="tlcg-segment-row">
                     <span class="tlcg-segment-name">👕 Oversize</span>
@@ -1177,14 +1182,18 @@ async function _tlcgLoadDrawerContent(mat) {
         const statsBuilder = _tlcgGetMaterialStats(mat.name);
         const sOverall = statsBuilder(mat);
         html += `
-            <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.01);">
+            <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.01);">
                 <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
                     <div style="font-size: 11px; color: #64748b; font-weight: 600;">Người Lớn</div>
                     <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.adult}</div>
                 </div>
                 <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Trẻ Em</div>
-                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.child}</div>
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Mầm Non</div>
+                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.mamnon}</div>
+                </div>
+                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Tiểu Học</div>
+                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.tieuhoc}</div>
                 </div>
                 <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
                     <div style="font-size: 11px; color: #64748b; font-weight: 600;">Oversize</div>
@@ -1467,7 +1476,8 @@ function _tlcgRenderModalProducts() {
                 <select class="tlcg-prod-select" data-id="${p.id}">
                     <option value="" ${seg === '' ? 'selected' : ''}>-- Chưa phân loại --</option>
                     <option value="Người Lớn" ${seg === 'Người Lớn' ? 'selected' : ''}>👔 Người Lớn</option>
-                    <option value="Trẻ Em" ${seg === 'Trẻ Em' ? 'selected' : ''}>👶 Trẻ Em</option>
+                    <option value="Mầm Non" ${seg === 'Mầm Non' ? 'selected' : ''}>👶 Mầm Non</option>
+                    <option value="Tiểu Học" ${seg === 'Tiểu Học' ? 'selected' : ''}>🎒 Tiểu Học</option>
                     <option value="Oversize" ${seg === 'Oversize' ? 'selected' : ''}>👕 Oversize</option>
                 </select>
             </div>

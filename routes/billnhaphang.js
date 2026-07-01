@@ -88,8 +88,11 @@ module.exports = async function(fastify) {
         // Seed new cutting categories for child and oversize
         const existingCats = await db.all(`SELECT name FROM dht_settings_options WHERE category = 'cutting_category'`);
         const existingNames = (existingCats || []).map(c => c.name);
-        if (!existingNames.includes('Áo Trẻ Em')) {
-            await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('cutting_category', 'Áo Trẻ Em', 12)`);
+        if (!existingNames.includes('Áo Mầm Non')) {
+            await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('cutting_category', 'Áo Mầm Non', 12)`);
+        }
+        if (!existingNames.includes('Áo Tiểu Học')) {
+            await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('cutting_category', 'Áo Tiểu Học', 14)`);
         }
         if (!existingNames.includes('Áo Oversize')) {
             await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('cutting_category', 'Áo Oversize', 13)`);
@@ -3009,9 +3012,13 @@ module.exports = async function(fastify) {
                     0
                 ) AS fabric_cut_ratio_adult,
                 COALESCE(
-                    (SELECT target_ratio FROM kv_material_cutting_targets WHERE material_id = kfm.id AND cutting_category = 'Áo Trẻ Em'),
+                    (SELECT target_ratio FROM kv_material_cutting_targets WHERE material_id = kfm.id AND cutting_category = 'Áo Mầm Non'),
                     0
-                ) AS fabric_cut_ratio_child,
+                ) AS fabric_cut_ratio_mamnon,
+                COALESCE(
+                    (SELECT target_ratio FROM kv_material_cutting_targets WHERE material_id = kfm.id AND cutting_category = 'Áo Tiểu Học'),
+                    0
+                ) AS fabric_cut_ratio_tieuhoc,
                 COALESCE(
                     (SELECT target_ratio FROM kv_material_cutting_targets WHERE material_id = kfm.id AND cutting_category = 'Áo Oversize'),
                     0

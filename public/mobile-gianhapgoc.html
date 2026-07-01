@@ -649,11 +649,13 @@
                     const supBadge = _gngGetSupplierBadgeHtml(p.source_name);
 
                     const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
-                    const ratioChild = Number(p.fabric_cut_ratio_child) || 0;
+                    const ratioMamNon = Number(p.fabric_cut_ratio_mamnon) || 0;
+                    const ratioTieuHoc = Number(p.fabric_cut_ratio_tieuhoc) || 0;
                     const ratioOversize = Number(p.fabric_cut_ratio_oversize) || 0;
 
                     const priceAdult = ratioAdult > 0 ? Math.round(Number(p.price) / ratioAdult) : 0;
-                    const priceChild = ratioChild > 0 ? Math.round(Number(p.price) / ratioChild) : 0;
+                    const priceMamNon = ratioMamNon > 0 ? Math.round(Number(p.price) / ratioMamNon) : 0;
+                    const priceTieuHoc = ratioTieuHoc > 0 ? Math.round(Number(p.price) / ratioTieuHoc) : 0;
                     const priceOversize = ratioOversize > 0 ? Math.round(Number(p.price) / ratioOversize) : 0;
 
                     let fabricDetailsHtml = '';
@@ -669,11 +671,19 @@
                                     </span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">👶 Trẻ:</span>
+                                    <span style="color: #64748b;">👶 MN:</span>
                                     <span>
-                                        <b style="color: #059669;">${ratioChild > 0 ? ratioChild + ' sp/kg' : '---'}</b>
+                                        <b style="color: #059669;">${ratioMamNon > 0 ? ratioMamNon + ' sp/kg' : '---'}</b>
                                         <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #059669;">${priceChild > 0 ? priceChild.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                        <b style="color: #059669;">${priceMamNon > 0 ? priceMamNon.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                    </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                                    <span style="color: #64748b;">🎒 TH:</span>
+                                    <span>
+                                        <b style="color: #0d9488;">${ratioTieuHoc > 0 ? ratioTieuHoc + ' sp/kg' : '---'}</b>
+                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
+                                        <b style="color: #0d9488;">${priceTieuHoc > 0 ? priceTieuHoc.toLocaleString('vi-VN') + ' đ' : '---'}</b>
                                     </span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; font-size: 11px;">
@@ -968,11 +978,13 @@
                     const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
                     
                     const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
-                    const ratioChild = Number(p.fabric_cut_ratio_child) || 0;
+                    const ratioMamNon = Number(p.fabric_cut_ratio_mamnon) || 0;
+                    const ratioTieuHoc = Number(p.fabric_cut_ratio_tieuhoc) || 0;
                     const ratioOversize = Number(p.fabric_cut_ratio_oversize) || 0;
 
                     const priceAdult = ratioAdult > 0 ? Math.round(Number(p.price) / ratioAdult) : 0;
-                    const priceChild = ratioChild > 0 ? Math.round(Number(p.price) / ratioChild) : 0;
+                    const priceMamNon = ratioMamNon > 0 ? Math.round(Number(p.price) / ratioMamNon) : 0;
+                    const priceTieuHoc = ratioTieuHoc > 0 ? Math.round(Number(p.price) / ratioTieuHoc) : 0;
                     const priceOversize = ratioOversize > 0 ? Math.round(Number(p.price) / ratioOversize) : 0;
 
                     let fabricDetailsHtml = '';
@@ -988,11 +1000,19 @@
                                     </span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">👶 Trẻ:</span>
+                                    <span style="color: #64748b;">👶 MN:</span>
                                     <span>
-                                        <b style="color: #059669;">${ratioChild > 0 ? ratioChild + ' sp/kg' : '---'}</b>
+                                        <b style="color: #059669;">${ratioMamNon > 0 ? ratioMamNon + ' sp/kg' : '---'}</b>
                                         <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #059669;">${priceChild > 0 ? priceChild.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                        <b style="color: #059669;">${priceMamNon > 0 ? priceMamNon.toLocaleString('vi-VN') + ' đ' : '---'}</b>
+                                    </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                                    <span style="color: #64748b;">🎒 TH:</span>
+                                    <span>
+                                        <b style="color: #0d9488;">${ratioTieuHoc > 0 ? ratioTieuHoc + ' sp/kg' : '---'}</b>
+                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
+                                        <b style="color: #0d9488;">${priceTieuHoc > 0 ? priceTieuHoc.toLocaleString('vi-VN') + ' đ' : '---'}</b>
                                     </span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; font-size: 11px;">

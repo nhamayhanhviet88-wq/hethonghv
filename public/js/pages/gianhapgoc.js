@@ -31,24 +31,30 @@ function _gngSaveState() {
 
 function _gngFormatRatioAndPriceHtml(p) {
     const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
-    const ratioChild = Number(p.fabric_cut_ratio_child) || 0;
+    const ratioMamNon = Number(p.fabric_cut_ratio_mamnon) || 0;
+    const ratioTieuHoc = Number(p.fabric_cut_ratio_tieuhoc) || 0;
     const ratioOversize = Number(p.fabric_cut_ratio_oversize) || 0;
 
     const priceAdult = ratioAdult > 0 ? Math.round(Number(p.price) / ratioAdult) : 0;
-    const priceChild = ratioChild > 0 ? Math.round(Number(p.price) / ratioChild) : 0;
+    const priceMamNon = ratioMamNon > 0 ? Math.round(Number(p.price) / ratioMamNon) : 0;
+    const priceTieuHoc = ratioTieuHoc > 0 ? Math.round(Number(p.price) / ratioTieuHoc) : 0;
     const priceOversize = ratioOversize > 0 ? Math.round(Number(p.price) / ratioOversize) : 0;
 
     const cutRatioHtml = `
-        <div style="line-height: 1.6; text-align: left; font-size: 12px; font-family: inherit; display: inline-block;">
+        <div style="line-height: 1.5; text-align: left; font-size: 11px; font-family: inherit; display: inline-block;">
             <div style="display: flex; gap: 8px; justify-content: space-between;">
                 <span style="color: #64748b; font-weight: 500;">🧑 Lớn:</span>
                 <span style="font-weight: 700; color: #2563eb;">${ratioAdult > 0 ? (ratioAdult + ' sp/kg') : '---'}</span>
             </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 2px;">
-                <span style="color: #64748b; font-weight: 500;">👶 Trẻ:</span>
-                <span style="font-weight: 700; color: #059669;">${ratioChild > 0 ? (ratioChild + ' sp/kg') : '---'}</span>
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500;">👶 MN:</span>
+                <span style="font-weight: 700; color: #059669;">${ratioMamNon > 0 ? (ratioMamNon + ' sp/kg') : '---'}</span>
             </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 2px;">
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500;">🎒 TH:</span>
+                <span style="font-weight: 700; color: #0d9488;">${ratioTieuHoc > 0 ? (ratioTieuHoc + ' sp/kg') : '---'}</span>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
                 <span style="color: #64748b; font-weight: 500;">👕 Over:</span>
                 <span style="font-weight: 700; color: #ea580c;">${ratioOversize > 0 ? (ratioOversize + ' sp/kg') : '---'}</span>
             </div>
@@ -56,17 +62,21 @@ function _gngFormatRatioAndPriceHtml(p) {
     `;
 
     const finishedPriceHtml = `
-        <div style="line-height: 1.6; text-align: right; font-size: 12px; font-family: inherit; display: inline-block;">
+        <div style="line-height: 1.5; text-align: right; font-size: 11px; font-family: inherit; display: inline-block;">
             <div>
-                <span style="color: #64748b; font-weight: 500; font-size: 11px;">🧑 Lớn:</span>
+                <span style="color: #64748b; font-weight: 500; font-size: 10px;">🧑 Lớn:</span>
                 <span style="font-weight: 700; color: #2563eb; margin-left: 4px;">${priceAdult > 0 ? (priceAdult.toLocaleString('vi-VN') + ' đ') : '---'}</span>
             </div>
-            <div style="margin-top: 2px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 11px;">👶 Trẻ:</span>
-                <span style="font-weight: 700; color: #059669; margin-left: 4px;">${priceChild > 0 ? (priceChild.toLocaleString('vi-VN') + ' đ') : '---'}</span>
+            <div style="margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 10px;">👶 MN:</span>
+                <span style="font-weight: 700; color: #059669; margin-left: 4px;">${priceMamNon > 0 ? (priceMamNon.toLocaleString('vi-VN') + ' đ') : '---'}</span>
             </div>
-            <div style="margin-top: 2px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 11px;">👕 Over:</span>
+            <div style="margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 10px;">🎒 TH:</span>
+                <span style="font-weight: 700; color: #0d9488; margin-left: 4px;">${priceTieuHoc > 0 ? (priceTieuHoc.toLocaleString('vi-VN') + ' đ') : '---'}</span>
+            </div>
+            <div style="margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 10px;">👕 Over:</span>
                 <span style="font-weight: 700; color: #ea580c; margin-left: 4px;">${priceOversize > 0 ? (priceOversize.toLocaleString('vi-VN') + ' đ') : '---'}</span>
             </div>
         </div>
@@ -77,7 +87,8 @@ function _gngFormatRatioAndPriceHtml(p) {
 
 function _gngFormatRatioAndPriceRangeHtml(g, minBasePrice, maxBasePrice) {
     const ratioAdult = Number(g.items[0]?.fabric_cut_ratio_adult) || 0;
-    const ratioChild = Number(g.items[0]?.fabric_cut_ratio_child) || 0;
+    const ratioMamNon = Number(g.items[0]?.fabric_cut_ratio_mamnon) || 0;
+    const ratioTieuHoc = Number(g.items[0]?.fabric_cut_ratio_tieuhoc) || 0;
     const ratioOversize = Number(g.items[0]?.fabric_cut_ratio_oversize) || 0;
 
     function getRangeText(ratio, color) {
@@ -91,16 +102,20 @@ function _gngFormatRatioAndPriceRangeHtml(g, minBasePrice, maxBasePrice) {
     }
 
     const cutRatioHtml = `
-        <div style="line-height: 1.6; text-align: left; font-size: 12px; font-family: inherit; display: inline-block;">
+        <div style="line-height: 1.5; text-align: left; font-size: 11px; font-family: inherit; display: inline-block;">
             <div style="display: flex; gap: 8px; justify-content: space-between;">
                 <span style="color: #64748b; font-weight: 500;">🧑 Lớn:</span>
                 <span style="font-weight: 700; color: #2563eb;">${ratioAdult > 0 ? (ratioAdult + ' sp/kg') : '---'}</span>
             </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 2px;">
-                <span style="color: #64748b; font-weight: 500;">👶 Trẻ:</span>
-                <span style="font-weight: 700; color: #059669;">${ratioChild > 0 ? (ratioChild + ' sp/kg') : '---'}</span>
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500;">👶 MN:</span>
+                <span style="font-weight: 700; color: #059669;">${ratioMamNon > 0 ? (ratioMamNon + ' sp/kg') : '---'}</span>
             </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 2px;">
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500;">🎒 TH:</span>
+                <span style="font-weight: 700; color: #0d9488;">${ratioTieuHoc > 0 ? (ratioTieuHoc + ' sp/kg') : '---'}</span>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
                 <span style="color: #64748b; font-weight: 500;">👕 Over:</span>
                 <span style="font-weight: 700; color: #ea580c;">${ratioOversize > 0 ? (ratioOversize + ' sp/kg') : '---'}</span>
             </div>
@@ -108,17 +123,21 @@ function _gngFormatRatioAndPriceRangeHtml(g, minBasePrice, maxBasePrice) {
     `;
 
     const finishedPriceHtml = `
-        <div style="line-height: 1.6; text-align: right; font-size: 12px; font-family: inherit; display: inline-block;">
+        <div style="line-height: 1.5; text-align: right; font-size: 11px; font-family: inherit; display: inline-block;">
             <div>
-                <span style="color: #64748b; font-weight: 500; font-size: 11px;">🧑 Lớn:</span>
+                <span style="color: #64748b; font-weight: 500; font-size: 10px;">🧑 Lớn:</span>
                 <span style="margin-left: 4px;">${getRangeText(ratioAdult, '#2563eb')}</span>
             </div>
-            <div style="margin-top: 2px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 11px;">👶 Trẻ:</span>
-                <span style="margin-left: 4px;">${getRangeText(ratioChild, '#059669')}</span>
+            <div style="margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 10px;">👶 MN:</span>
+                <span style="margin-left: 4px;">${getRangeText(ratioMamNon, '#059669')}</span>
             </div>
-            <div style="margin-top: 2px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 11px;">👕 Over:</span>
+            <div style="margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 10px;">🎒 TH:</span>
+                <span style="margin-left: 4px;">${getRangeText(ratioTieuHoc, '#0d9488')}</span>
+            </div>
+            <div style="margin-top: 1px;">
+                <span style="color: #64748b; font-weight: 500; font-size: 10px;">👕 Over:</span>
                 <span style="margin-left: 4px;">${getRangeText(ratioOversize, '#ea580c')}</span>
             </div>
         </div>
