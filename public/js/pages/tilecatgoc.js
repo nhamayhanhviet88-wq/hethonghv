@@ -2191,9 +2191,14 @@ function _tlcgGetPetCosts() {
     const enabled = document.getElementById('calc_enable_pet')?.checked;
     if (!enabled) return { enabled: false, alignedCost: 0, optimizedCost: 0, details: [] };
     
+    const shapes = _tlcg.petShapes || [];
+    const validShapes = shapes.filter(s => Number(s.width) > 0 && Number(s.height) > 0);
+    if (validShapes.length === 0) {
+        return { enabled: false, alignedCost: 0, optimizedCost: 0, details: [] };
+    }
+    
     const price = Number(document.getElementById('pet_sheet_price')?.value) || 0;
     const spacing = Number(document.getElementById('pet_spacing')?.value) || 0;
-    const shapes = _tlcg.petShapes || [];
     
     let alignedCost = 0;
     let optimizedCost = 0;
@@ -2371,6 +2376,30 @@ async function _tlcgRunCalculation() {
     if (!matId || !colorId) {
         if (typeof showToast === 'function') showToast('Vui lòng chọn đầy đủ chất liệu và màu sắc!', 'error');
         return;
+    }
+
+    const petEnabled = document.getElementById('calc_enable_pet')?.checked;
+    if (petEnabled) {
+        const shapes = _tlcg.petShapes || [];
+        if (shapes.length === 0) {
+            if (typeof showToast === 'function') showToast('Vui lòng thêm ít nhất một hình in PET!', 'error');
+            return;
+        }
+        
+        let hasInvalidShape = false;
+        for (const s of shapes) {
+            const w = Number(s.width);
+            const h = Number(s.height);
+            if (!s.name || isNaN(w) || w <= 0 || isNaN(h) || h <= 0) {
+                hasInvalidShape = true;
+                break;
+            }
+        }
+        
+        if (hasInvalidShape) {
+            if (typeof showToast === 'function') showToast('Vui lòng điền đầy đủ tên và kích thước (> 0) cho tất cả hình in PET!', 'error');
+            return;
+        }
     }
 
     const resultsDiv = document.getElementById('calc_results');

@@ -1646,9 +1646,15 @@
         function mPetGetCosts() {
             const enabled = document.getElementById('m_calc_enable_pet')?.checked;
             if (!enabled) return { enabled: false, alignedCost: 0, optimizedCost: 0, details: [] };
+            
+            const shapes = _mobileTlcg.petShapes || [];
+            const validShapes = shapes.filter(s => Number(s.width) > 0 && Number(s.height) > 0);
+            if (validShapes.length === 0) {
+                return { enabled: false, alignedCost: 0, optimizedCost: 0, details: [] };
+            }
+            
             const price = Number(document.getElementById('m_pet_sheet_price')?.value) || 0;
             const spacing = Number(document.getElementById('m_pet_spacing')?.value) || 0;
-            const shapes = _mobileTlcg.petShapes || [];
             let alignedCost = 0;
             let optimizedCost = 0;
             const details = [];
@@ -1850,6 +1856,30 @@
             if (!matId || !colorId) {
                 toast('Vui lòng chọn Chất liệu và Màu sắc', 'error');
                 return;
+            }
+
+            const petEnabled = document.getElementById('m_calc_enable_pet')?.checked;
+            if (petEnabled) {
+                const shapes = _mobileTlcg.petShapes || [];
+                if (shapes.length === 0) {
+                    toast('Vui lòng thêm ít nhất một hình in PET', 'error');
+                    return;
+                }
+                
+                let hasInvalidShape = false;
+                for (const s of shapes) {
+                    const w = Number(s.width);
+                    const h = Number(s.height);
+                    if (!s.name || isNaN(w) || w <= 0 || isNaN(h) || h <= 0) {
+                        hasInvalidShape = true;
+                        break;
+                    }
+                }
+                
+                if (hasInvalidShape) {
+                    toast('Vui lòng điền đầy đủ tên và kích thước (> 0) cho các hình in PET', 'error');
+                    return;
+                }
             }
 
             resultsDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #64748b;">⏳ Đang tính toán giá vải...</div>';
