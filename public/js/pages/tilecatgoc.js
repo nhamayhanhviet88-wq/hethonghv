@@ -2024,9 +2024,20 @@ function _tlcgLoadPetConfigs() {
     }
     _tlcg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
     try {
-        _tlcg.petShapes = JSON.parse(localStorage.getItem('tlcg_pet_shapes')) || [{ name: 'Logo ngực', width: 10, height: 5 }];
+        const storedShapes = localStorage.getItem('tlcg_pet_shapes');
+        if (storedShapes) {
+            const parsed = JSON.parse(storedShapes);
+            if (Array.isArray(parsed) && parsed.length === 1 && parsed[0] && parsed[0].name === 'Logo ngực' && parsed[0].width === 10 && parsed[0].height === 5) {
+                _tlcg.petShapes = [];
+                localStorage.setItem('tlcg_pet_shapes', JSON.stringify([]));
+            } else {
+                _tlcg.petShapes = parsed;
+            }
+        } else {
+            _tlcg.petShapes = [];
+        }
     } catch(e) {
-        _tlcg.petShapes = [{ name: 'Logo ngực', width: 10, height: 5 }];
+        _tlcg.petShapes = [];
     }
 }
 
