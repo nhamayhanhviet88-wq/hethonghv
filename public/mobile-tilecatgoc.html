@@ -1555,7 +1555,7 @@
         }
 
         function mPetRenderShapeRows() {
-            const list = document.getElementById('m_pet_shapes_list');
+            const list = document.getElementById('m_pet_shapes_rows');
             if (!list) return;
             list.style.display = 'flex';
             list.style.flexDirection = 'column';
@@ -1792,7 +1792,7 @@
                                 </div>
                                 
                                 <div id="m_pet_shapes_container" style="display: ${_mobileTlcg.petEnabled ? 'block' : 'none'}; border-top: 1px dashed #bbf7d0; padding-top: 8px;">
-                                    <div id="m_pet_shapes_list" style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div id="m_pet_shapes_rows" style="display: flex; flex-direction: column; gap: 6px;">
                                         <!-- Shape rows rendered here -->
                                     </div>
                                     <button class="mm-btn" style="margin-top: 8px; font-size: 11px; padding: 6px 10px; background: #166534; color: white; border: none; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" onclick="mPetAddShapeRow()">

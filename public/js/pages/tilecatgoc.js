@@ -2086,7 +2086,7 @@ function _tlcgTogglePetSection(enabled) {
 }
 
 function _tlcgRenderPetShapeRows() {
-    const list = document.getElementById('pet_shapes_list');
+    const list = document.getElementById('pet_shapes_rows');
     if (!list) return;
     list.style.display = 'flex';
     list.style.flexDirection = 'column';
@@ -2334,7 +2334,7 @@ async function _tlcgOpenPricingCalculatorModal() {
                     </div>
                     
                     <div id="pet_shapes_container" style="display: ${_tlcg.petEnabled ? 'block' : 'none'}; border-top: 1px dashed #bbf7d0; padding-top: 12px;">
-                        <div id="pet_shapes_list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <div id="pet_shapes_rows" style="display: flex; flex-direction: column; gap: 8px;">
                             <!-- Shape rows rendered here -->
                         </div>
                         <button class="tlcg-btn" style="margin-top: 10px; font-size: 12px; padding: 6px 12px; background: #166534; color: white; border: none; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" onclick="_tlcgAddPetShapeRow()">
