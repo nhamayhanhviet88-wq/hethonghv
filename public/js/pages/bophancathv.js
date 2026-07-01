@@ -264,7 +264,7 @@ function renderBophancatPage(content) {
         +'</div>'
         +'<div id="bpcStatCards" style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center;align-items:center"></div>'
         +'<button onclick="_bpcOpenMultiCut()" style="padding:8px 16px;background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 3px 12px rgba(234,88,12,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">✂️+ CẮT NHIỀU ĐƠN</button>'
-        +((window._currentUser && window._currentUser.role === 'giam_doc') ? '<button onclick="_bpcOpenTargetRatioModal()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;margin-left:8px;box-shadow:0 3px 12px rgba(16,185,129,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">⚖️ ĐỊNH LƯỢNG TỈ LỆ CẮT</button>' : '')
+        +'<button onclick="_bpcOpenTargetRatioModal()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;margin-left:8px;box-shadow:0 3px 12px rgba(16,185,129,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">⚖️ ĐỊNH LƯỢNG TỈ LỆ CẮT</button>'
         +'</div>'
         +'<div id="bpcPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card" style="flex:none;display:block;overflow:visible"><div class="card-body" style="overflow-x:auto;overflow-y:visible;padding:8px;position:relative" id="bpcTableWrap"></div></div>'
@@ -3987,37 +3987,60 @@ async function _bpcOpenTargetRatioModal() {
         
         let h = '<div class="bpc-modal-overlay" id="_bpcTargetRatioModal" onclick="if(event.target===this)_bpcCloseTargetRatioModal()">';
         h += '<div class="bpc-modal" style="width:700px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column">';
-        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-icon">⚖️</div><div><div class="m-title">ĐỊNH LƯỢNG TỈ LỆ CẮT</div><div class="m-sub">Giám đốc thiết lập số sản phẩm tối thiểu thu hồi được trên 1 Kg hoặc 1 Mét vải</div></div></div>';
+        h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="m-icon">⚖️</div><div><div class="m-title">ĐỊNH LƯỢNG TỈ LỆ CẮT</div><div class="m-sub">Định lượng tỉ lệ cắt được đồng bộ tự động từ Tỉ lệ cắt gốc (GNG)</div></div></div>';
         h += '<div class="bpc-modal-body" style="overflow-y:auto;flex:1;padding:20px;background:#f8fafc">';
         
+        const segmentNames = {
+            'Áo': { name: 'Người Lớn', icon: '👔' },
+            'Áo Mầm Non': { name: 'Mầm Non', icon: '👶' },
+            'Áo Tiểu Học': { name: 'Tiểu Học', icon: '🎒' },
+            'Áo Oversize': { name: 'Oversize', icon: '👕' }
+        };
+
+        const getCategoryMeta = (catName) => {
+            if (segmentNames[catName]) return segmentNames[catName];
+            return { name: catName, icon: '🏷️' };
+        };
+
         // Group materials by warehouse
         const groups = {};
         materials.forEach(m => {
-            const whKey = m.warehouse_name + ' (Đơn vị: ' + m.unit + ')';
-            if (!groups[whKey]) groups[whKey] = [];
-            groups[whKey].push(m);
+            const activeSegs = [];
+            categories.forEach(cat => {
+                const key = m.id + '_' + cat.name;
+                const val = targetMap[key] || 0;
+                if (val > 0) {
+                    const meta = getCategoryMeta(cat.name);
+                    activeSegs.push({ name: meta.name, icon: meta.icon, val });
+                }
+            });
+            if (activeSegs.length > 0) {
+                const whKey = m.warehouse_name + ' (Đơn vị: ' + m.unit + ')';
+                if (!groups[whKey]) groups[whKey] = [];
+                groups[whKey].push({ mat: m, activeSegs });
+            }
         });
         
+        let hasData = false;
         for (const [whName, list] of Object.entries(groups)) {
+            hasData = true;
             h += '<div style="margin-bottom:20px">';
             h += '<div style="font-size:12px;font-weight:800;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;border-left:3px solid #059669;padding-left:8px">' + whName + '</div>';
             h += '<div style="display:grid;grid-template-columns:1fr;gap:10px">';
-            list.forEach(m => {
+            list.forEach(({ mat, activeSegs }) => {
                 h += '<div class="material-acc-group" style="border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.02)">';
                 h += '  <div class="acc-header" onclick="var b=this.nextElementSibling; b.style.display=b.style.display===\'none\'?\'grid\':\'none\'; this.querySelector(\'.arrow\').textContent=b.style.display===\'none\'?\'▼\':\'▲\'" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#f9fafb;cursor:pointer;user-select:none;border-bottom:1.5px solid #f1f5f9">';
-                h += '    <span style="font-size:13px;font-weight:800;color:#1e293b">🧶 ' + m.name + '</span>';
-                h += '    <span style="font-size:11px;font-weight:700;color:#059669">Thiết lập định lượng (sp/' + m.unit + ') <span class="arrow" style="margin-left:4px">▼</span></span>';
+                h += '    <span style="font-size:13px;font-weight:800;color:#1e293b">🧶 ' + mat.name + '</span>';
+                h += '    <span style="font-size:11px;font-weight:700;color:#059669">Tỉ lệ cắt gốc (sp/' + mat.unit + ') <span class="arrow" style="margin-left:4px">▼</span></span>';
                 h += '  </div>';
                 h += '  <div class="acc-body" style="display:none;grid-template-columns:repeat(2,1fr);gap:10px;padding:16px;background:#fff">';
                 
-                categories.forEach(cat => {
-                    const key = m.id + '_' + cat.name;
-                    const val = targetMap[key] || 0;
+                activeSegs.forEach(({ name, icon, val }) => {
                     h += '    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid #f1f5f9;border-radius:8px;background:#f9fafb">';
-                    h += '      <span style="font-size:12px;font-weight:700;color:#475569">🏷️ ' + cat.name + '</span>';
+                    h += '      <span style="font-size:12px;font-weight:700;color:#475569">' + icon + ' ' + name + '</span>';
                     h += '      <div style="display:flex;align-items:center;gap:4px">';
-                    h += '        <input class="_bpcTargetInput" data-mat-id="' + m.id + '" data-cat="' + cat.name + '" type="text" inputmode="decimal" value="' + val + '" style="width:75px;padding:5px 8px;border:1.5px solid #10b981;border-radius:6px;font-size:13px;font-weight:800;text-align:center;color:#059669;background:#fff">';
-                    h += '        <span style="font-size:10px;color:#64748b;font-weight:600">sp/' + m.unit + '</span>';
+                    h += '        <span style="font-size:13.5px;font-weight:850;color:#059669;background:#e6f4ea;padding:4px 10px;border-radius:8px;border:1px solid #10b981;min-width:55px;text-align:center">' + val + '</span>';
+                    h += '        <span style="font-size:10px;color:#64748b;font-weight:600">sp/' + mat.unit + '</span>';
                     h += '      </div>';
                     h += '    </div>';
                 });
@@ -4028,9 +4051,12 @@ async function _bpcOpenTargetRatioModal() {
             h += '</div></div>';
         }
         
+        if (!hasData) {
+            h += '<div style="text-align:center;padding:40px;color:#64748b;font-size:13px;font-weight:600">📭 Chưa cấu hình tỉ lệ cắt gốc cho chất liệu nào.</div>';
+        }
+        
         h += '</div>';
-        h += '<div class="bpc-modal-actions"><button class="bpc-modal-btn cancel" onclick="_bpcCloseTargetRatioModal()">Hủy</button>';
-        h += '<button class="bpc-modal-btn confirm" style="background:linear-gradient(135deg,#059669,#10b981)" onclick="_bpcSaveTargetRatios()">💾 LƯU THAY ĐỔI</button></div>';
+        h += '<div class="bpc-modal-actions" style="justify-content:center"><button class="bpc-modal-btn cancel" onclick="_bpcCloseTargetRatioModal()" style="background:#475569;color:#fff;border:none;min-width:120px">Đóng</button></div>';
         h += '</div></div>';
         
         document.body.insertAdjacentHTML('beforeend', h);
@@ -4048,27 +4074,7 @@ function _bpcCloseTargetRatioModal() {
 }
 
 async function _bpcSaveTargetRatios() {
-    const inputs = document.querySelectorAll('._bpcTargetInput');
-    const ratios = [];
-    inputs.forEach(inp => {
-        ratios.push({
-            material_id: Number(inp.dataset.matId),
-            cutting_category: inp.dataset.cat,
-            target_ratio: parseFloat(inp.value.replace(/,/g, '.')) || 0
-        });
-    });
-    
-    const btn = document.querySelector('#_bpcTargetRatioModal .confirm');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
-    try {
-        await apiCall('/api/cutting/target-ratios', 'POST', { ratios });
-        _bpcCloseTargetRatioModal();
-        showToast('✅ Đã lưu tỉ lệ định lượng!');
-        await _bpcLoadAll();
-    } catch (e) {
-        showToast(e.message || 'Lỗi khi lưu', 'error');
-        if (btn) { btn.disabled = false; btn.textContent = '💾 LƯU THAY ĐỔI'; }
-    }
+    // Read-only modal has no save actions
 }
 
 function _bpcCompressImage(file, callback) {

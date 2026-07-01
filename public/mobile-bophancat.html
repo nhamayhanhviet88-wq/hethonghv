@@ -568,10 +568,8 @@ async function mInit(){
             return;
         }
     document.getElementById('mUser').textContent=mUser.full_name||mUser.username;
-        if(mUser.role === 'giam_doc'){
-            const btn = document.getElementById('mRatioBtn');
-            if(btn) btn.style.display = 'block';
-        }
+        const btn = document.getElementById('mRatioBtn');
+        if(btn) btn.style.display = 'block';
         const vnNowDate = mGetVNDate();
         if (vnNowDate) {
             const mSelect = document.getElementById('mHistMonthSelect');
@@ -588,10 +586,9 @@ async function mOpenRatioModal() {
     window._mBusy = true;
     let h = '<div class="mm-overlay" id="_mRatioModal" onclick="if(event.target===this)mCloseRatioModal()">';
     h += '<div class="mm-sheet" style="max-height:85vh;display:flex;flex-direction:column">';
-    h += '<div class="mm-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mm-icon">⚖️</div><div><div class="mm-title">ĐỊNH LƯỢNG TỈ LỆ CẮT</div><div class="mm-sub">Giám đốc thiết lập số sản phẩm tối thiểu trên 1 Kg hoặc 1 Mét vải</div></div></div>';
+    h += '<div class="mm-header" style="background:linear-gradient(135deg,#059669,#10b981)"><div class="mm-icon">⚖️</div><div><div class="mm-title">ĐỊNH LƯỢNG TỈ LỆ CẮT</div><div class="mm-sub">Định lượng tỉ lệ cắt được đồng bộ tự động từ Tỉ lệ cắt gốc (GNG)</div></div></div>';
     h += '<div class="mm-body" id="_mRatioBody" style="overflow-y:auto;flex:1;padding:16px;background:#111827"><div style="text-align:center;padding:30px;color:#94a3b8">⏳ Đang tải...</div></div>';
-    h += '<div class="mm-actions" style="border-top:1px solid rgba(255,255,255,0.06);padding:16px"><button class="mm-btn mm-btn-no" onclick="mCloseRatioModal()">Hủy</button>';
-    h += '<button class="mm-btn mm-btn-ok" style="background:linear-gradient(135deg,#059669,#10b981)" onclick="mSaveTargetRatios()">💾 LƯU THAY ĐỔI</button></div>';
+    h += '<div class="mm-actions" style="border-top:1px solid rgba(255,255,255,0.06);padding:16px;justify-content:center"><button class="mm-btn mm-btn-no" onclick="mCloseRatioModal()" style="background:#475569;color:#fff;border:none;min-width:100px">Đóng</button></div>';
     h += '</div></div>';
     document.body.insertAdjacentHTML('beforeend', h);
     requestAnimationFrame(() => document.getElementById('_mRatioModal').classList.add('show'));
@@ -607,36 +604,59 @@ async function mOpenRatioModal() {
             targetMap[t.material_id + '_' + t.cutting_category] = Number(t.target_ratio) || 0;
         });
 
+        const segmentNames = {
+            'Áo': { name: 'Người Lớn', icon: '👔' },
+            'Áo Mầm Non': { name: 'Mầm Non', icon: '👶' },
+            'Áo Tiểu Học': { name: 'Tiểu Học', icon: '🎒' },
+            'Áo Oversize': { name: 'Oversize', icon: '👕' }
+        };
+
+        const getCategoryMeta = (catName) => {
+            if (segmentNames[catName]) return segmentNames[catName];
+            return { name: catName, icon: '🏷️' };
+        };
+
         const bd = document.getElementById('_mRatioBody');
         let b = '<div style="padding-bottom:10px">';
         
         const groups = {};
         materials.forEach(m => {
-            const whKey = m.warehouse_name + ' (Đơn vị: ' + m.unit + ')';
-            if (!groups[whKey]) groups[whKey] = [];
-            groups[whKey].push(m);
+            const activeSegs = [];
+            categories.forEach(cat => {
+                const key = m.id + '_' + cat.name;
+                const val = targetMap[key] || 0;
+                if (val > 0) {
+                    const meta = getCategoryMeta(cat.name);
+                    activeSegs.push({ name: meta.name, icon: meta.icon, val });
+                }
+            });
+            if (activeSegs.length > 0) {
+                const whKey = m.warehouse_name + ' (Đơn vị: ' + m.unit + ')';
+                if (!groups[whKey]) groups[whKey] = [];
+                groups[whKey].push({ mat: m, activeSegs });
+            }
         });
         
+        let hasData = false;
         for (const [whName, list] of Object.entries(groups)) {
+            hasData = true;
             b += '<div style="margin-bottom:16px">';
             b += '<div style="font-size:11px;font-weight:800;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-left:3px solid #10b981;padding-left:6px">' + whName + '</div>';
             b += '<div style="display:flex;flex-direction:column;gap:8px">';
-            list.forEach(m => {
+            list.forEach(({ mat, activeSegs }) => {
                 b += '<div class="material-acc-group" style="border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:#1f2937;overflow:hidden">';
                 b += '  <div class="acc-header" onclick="var body=this.nextElementSibling; body.style.display=body.style.display===\'none\'?\'block\':\'none\'; this.querySelector(\'.arrow\').textContent=body.style.display===\'none\'?\'▼\':\'▲\'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#111827;cursor:pointer;user-select:none">';
-                b += '    <span style="font-size:12px;font-weight:700;color:#f3f4f6">🧶 ' + m.name + '</span>';
-                b += '    <span style="font-size:10px;color:#10b981;font-weight:600">sp/' + m.unit + ' <span class="arrow" style="margin-left:4px">▼</span></span>';
+                b += '    <span style="font-size:12px;font-weight:700;color:#f3f4f6">🧶 ' + mat.name + '</span>';
+                b += '    <span style="font-size:10px;color:#10b981;font-weight:600">Tỉ lệ cắt gốc (sp/' + mat.unit + ') <span class="arrow" style="margin-left:4px">▼</span></span>';
                 b += '  </div>';
                 b += '  <div class="acc-body" style="display:none;padding:12px;background:#1f2937;border-top:1px solid rgba(255,255,255,0.06)">';
                 
-                categories.forEach(cat => {
-                    const key = m.id + '_' + cat.name;
-                    const val = targetMap[key] || 0;
+                activeSegs.forEach(({ name, icon, val }) => {
                     b += '    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
-                    b += '      <span style="font-size:11px;color:#d1d5db">🏷️ ' + cat.name + '</span>';
+                    b += '      <span style="font-size:11px;color:#d1d5db">' + icon + ' ' + name + '</span>';
                     b += '      <div style="display:flex;align-items:center;gap:4px">';
-                    b += '        <input class="_mRatioInput" data-mat-id="' + m.id + '" data-cat="' + cat.name + '" type="text" inputmode="decimal" value="' + val + '" style="width:65px;padding:4px;border:1.5px solid #10b981;border-radius:6px;font-size:12px;font-weight:800;text-align:center;color:#10b981;background:rgba(255,255,255,0.04)">';
-                    b += '        <span style="font-size:9px;color:#94a3b8">sp/' + m.unit + '</span>';
+                    b += '        <span style="font-size:12.5px;font-weight:850;color:#10b981;background:rgba(16,185,129,0.1);padding:3px 8px;border-radius:6px;border:1px solid #10b981;min-width:45px;text-align:center">' + val + '</span>';
+                    b += '        <span style="font-size:9px;color:#94a3b8">sp/' + mat.unit + '</span>';
                     b += '      </div>';
                     b += '    </div>';
                 });
@@ -645,6 +665,10 @@ async function mOpenRatioModal() {
                 b += '</div>';
             });
             b += '</div></div>';
+        }
+        
+        if (!hasData) {
+            b += '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:12px;font-weight:600">📭 Chưa cấu hình tỉ lệ cắt gốc cho chất liệu nào.</div>';
         }
         
         b += '</div>';
@@ -662,32 +686,7 @@ function mCloseRatioModal() {
 }
 
 async function mSaveTargetRatios() {
-    if(window._mSubmitBusy) return;
-    window._mSubmitBusy = true;
-    const inputs = document.querySelectorAll('._mRatioInput');
-    const ratios = [];
-    inputs.forEach(inp => {
-        ratios.push({
-            material_id: Number(inp.dataset.matId),
-            cutting_category: inp.dataset.cat,
-            target_ratio: parseFloat(inp.value.replace(/,/g, '.')) || 0
-        });
-    });
-
-    const btn = document.querySelector('#_mRatioModal .mm-btn-ok');
-    if(btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
-
-    try {
-        await mApi('/api/cutting/target-ratios', 'POST', { ratios });
-        mCloseRatioModal();
-        mToast('✅ Đã lưu tỉ lệ định lượng!');
-        await mLoadAll();
-    } catch(e) {
-        mToast(e.message || 'Lỗi', false);
-        if(btn) { btn.disabled = false; btn.textContent = '💾 LƯU THAY ĐỔI'; }
-    } finally {
-        window._mSubmitBusy = false;
-    }
+    // Read-only modal has no save actions
 }
 
 async function mLoadAll(){
