@@ -46,7 +46,29 @@ function _gngGetActiveSegments(p) {
     return (_gng.sizeSegments || []).map(s => s.name);
 }
 
+function _gngGetActualRatioForSegment(materialName, segmentName) {
+    if (!_gng.actualStats || !materialName || !segmentName) return 0;
+    let qty = 0;
+    let kg = 0;
+    const cleanMat = materialName.trim().toUpperCase();
+    const cleanSeg = segmentName.trim();
+    _gng.actualStats.forEach(s => {
+        if (s.material_name && s.material_name.trim().toUpperCase() === cleanMat &&
+            s.size_segment && s.size_segment.trim() === cleanSeg) {
+            qty += Number(s.total_qty) || 0;
+            kg += Number(s.total_kg) || 0;
+        }
+    });
+    return kg > 0 ? (qty / kg) : 0;
+}
+
 function _gngGetTargetRatioForSegment(p, segmentName) {
+    const matName = p.fabric_material_name || p.material_name || '';
+    if (matName) {
+        const actual = _gngGetActualRatioForSegment(matName, segmentName);
+        if (actual > 0) return actual;
+    }
+
     const materialId = p.material_id || p.fabric_material_id || p.id;
     if (materialId && _gng.targets) {
         const categoryMappings = [
@@ -848,13 +870,17 @@ async function _gngLoadData() {
         document.head.appendChild(style);
     }
     try {
-        const [pricesRes, historyRes, pendingRes, segRes] = await Promise.all([
+        const [pricesRes, historyRes, pendingRes, segRes, ratioStatsRes] = await Promise.all([
             apiCall('/api/gianhapgoc/prices', 'GET'),
             apiCall('/api/gianhapgoc/history', 'GET'),
             apiCall('/api/gianhapgoc/pending', 'GET'),
             apiCall('/api/cutting/size-segments', 'GET').catch(e => {
                 console.error(e);
                 return { segments: [{ name: 'Người Lớn' }, { name: 'Tiểu Học' }, { name: 'Mầm Non' }, { name: 'Oversize' }] };
+            }),
+            apiCall('/api/cutting/ratio-stats', 'GET').catch(e => {
+                console.error(e);
+                return { stats: [] };
             })
         ]);
 
@@ -863,6 +889,7 @@ async function _gngLoadData() {
         _gng.sizeSegments = segRes.segments || [];
         _gng.history = historyRes.history || [];
         _gng.pending = pendingRes.pending || [];
+        _gng.actualStats = ratioStatsRes.stats || [];
 
         _gngRenderLayout();
     } catch(err) {

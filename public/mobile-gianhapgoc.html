@@ -429,6 +429,7 @@
         let pending = [];
         let sizeSegments = [];
         let targets = [];
+        let actualStats = [];
         
         // Navigation states
         let selectedSupplierId = null; // null means on Supplier List view, 'all' or specific number
@@ -485,7 +486,29 @@
             return (sizeSegments || []).map(s => s.name);
         }
 
+        function _gngGetActualRatioForSegment(materialName, segmentName) {
+            if (!actualStats || !materialName || !segmentName) return 0;
+            let qty = 0;
+            let kg = 0;
+            const cleanMat = materialName.trim().toUpperCase();
+            const cleanSeg = segmentName.trim();
+            actualStats.forEach(s => {
+                if (s.material_name && s.material_name.trim().toUpperCase() === cleanMat &&
+                    s.size_segment && s.size_segment.trim() === cleanSeg) {
+                    qty += Number(s.total_qty) || 0;
+                    kg += Number(s.total_kg) || 0;
+                }
+            });
+            return kg > 0 ? (qty / kg) : 0;
+        }
+
         function _gngGetTargetRatioForSegment(p, segmentName) {
+            const matName = p.fabric_material_name || p.material_name || '';
+            if (matName) {
+                const actual = _gngGetActualRatioForSegment(matName, segmentName);
+                if (actual > 0) return actual;
+            }
+
             const materialId = p.material_id || p.fabric_material_id || p.id;
             if (materialId && targets) {
                 const categoryMappings = [
@@ -604,13 +627,17 @@
 
         async function loadData() {
             try {
-                const [pricesRes, historyRes, pendingRes, segRes] = await Promise.all([
+                const [pricesRes, historyRes, pendingRes, segRes, ratioStatsRes] = await Promise.all([
                     apiCall('/api/gianhapgoc/prices'),
                     apiCall('/api/gianhapgoc/history'),
                     apiCall('/api/gianhapgoc/pending'),
                     apiCall('/api/cutting/size-segments').catch(e => {
                         console.error(e);
                         return { segments: [{ name: 'Người Lớn' }, { name: 'Tiểu Học' }, { name: 'Mầm Non' }, { name: 'Oversize' }] };
+                    }),
+                    apiCall('/api/cutting/ratio-stats').catch(e => {
+                        console.error(e);
+                        return { stats: [] };
                     })
                 ]);
 
@@ -619,6 +646,7 @@
                 history = historyRes.history || [];
                 pending = pendingRes.pending || [];
                 sizeSegments = segRes.segments || [];
+                actualStats = ratioStatsRes.stats || [];
 
                 // Update header stats
                 document.getElementById('mStatTotal').textContent = prices.length;
