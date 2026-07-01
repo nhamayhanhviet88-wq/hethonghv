@@ -3765,13 +3765,37 @@ module.exports = async function(fastify) {
             }
         }
         if (matName && cuttingCategory) {
-            const target = await db.get(`
-                SELECT t.target_ratio
-                FROM kv_material_cutting_targets t
-                JOIN kv_materials m ON m.id = t.material_id
-                WHERE m.name = $1 AND t.cutting_category = $2 AND m.is_active = true LIMIT 1
-            `, [matName.trim(), cuttingCategory.trim()]);
-            return target ? Number(target.target_ratio) || 0 : 0;
+            let segment = null;
+            if (cuttingCategory === 'Áo') segment = 'Người Lớn';
+            else if (cuttingCategory === 'Áo Mầm Non') segment = 'Mầm Non';
+            else if (cuttingCategory === 'Áo Tiểu Học') segment = 'Tiểu Học';
+            else if (cuttingCategory === 'Áo Oversize') segment = 'Oversize';
+            else return 0;
+
+            const stats = await db.get(`
+                SELECT 
+                    SUM(cr.cut_quantity)::numeric AS total_qty,
+                    SUM(cr.kg_cut)::numeric AS total_kg
+                FROM cutting_records cr
+                JOIN dht_order_items oi ON cr.order_item_id = oi.id
+                JOIN dht_orders o ON oi.dht_order_id = o.id
+                LEFT JOIN dht_products p ON (TRIM(LOWER(p.name)) = TRIM(LOWER(oi.product_name)) AND p.is_active = true)
+                WHERE cr.is_cut_done = true 
+                  AND cr.cut_ratio > 0 
+                  AND cr.ratio_approved = true
+                  AND cr.multi_cut_group_id IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM dht_order_items sub_oi
+                      WHERE sub_oi.dht_order_id = o.id
+                        AND COALESCE(jsonb_array_length(sub_oi.material_pairs::jsonb), 0) > 1
+                  )
+                  AND TRIM(LOWER(cr.material_name)) = TRIM(LOWER($1))
+                  AND p.size_segment = $2
+            `, [matName.trim(), segment]);
+
+            if (stats && Number(stats.total_kg) > 0) {
+                return parseFloat((Number(stats.total_qty) / Number(stats.total_kg)).toFixed(2)) || 0;
+            }
         }
         return 0;
     }
@@ -3793,10 +3817,58 @@ module.exports = async function(fastify) {
         if (!categories.length) {
             categories = [{ name: 'Áo' }, { name: 'Áo Gió' }, { name: 'Quần' }, { name: 'Váy' }, { name: 'Tạp Dề' }, { name: 'Túi' }, { name: 'Quà' }];
         }
-        const targets = await db.all(`
-            SELECT material_id, cutting_category, target_ratio
-            FROM kv_material_cutting_targets
+        
+        // Get dynamic stats
+        const statsRows = await db.all(`
+            SELECT 
+                TRIM(cr.material_name) AS material_name,
+                p.size_segment,
+                SUM(cr.cut_quantity)::numeric AS total_qty,
+                SUM(cr.kg_cut)::numeric AS total_kg
+            FROM cutting_records cr
+            JOIN dht_order_items oi ON cr.order_item_id = oi.id
+            JOIN dht_orders o ON oi.dht_order_id = o.id
+            LEFT JOIN dht_products p ON (TRIM(LOWER(p.name)) = TRIM(LOWER(oi.product_name)) AND p.is_active = true)
+            WHERE cr.is_cut_done = true 
+              AND cr.cut_ratio > 0 
+              AND cr.ratio_approved = true
+              AND cr.multi_cut_group_id IS NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM dht_order_items sub_oi
+                  WHERE sub_oi.dht_order_id = o.id
+                    AND COALESCE(jsonb_array_length(sub_oi.material_pairs::jsonb), 0) > 1
+              )
+            GROUP BY TRIM(cr.material_name), p.size_segment
         `);
+
+        const targets = [];
+        materials.forEach(m => {
+            categories.forEach(cat => {
+                let segment = null;
+                if (cat.name === 'Áo') segment = 'Người Lớn';
+                else if (cat.name === 'Áo Mầm Non') segment = 'Mầm Non';
+                else if (cat.name === 'Áo Tiểu Học') segment = 'Tiểu Học';
+                else if (cat.name === 'Áo Oversize') segment = 'Oversize';
+                
+                if (segment) {
+                    const stat = statsRows.find(s => 
+                        s.material_name.trim().toLowerCase() === m.name.trim().toLowerCase() && 
+                        s.size_segment === segment
+                    );
+                    if (stat && Number(stat.total_kg) > 0) {
+                        const ratio = parseFloat((Number(stat.total_qty) / Number(stat.total_kg)).toFixed(2));
+                        if (ratio > 0) {
+                            targets.push({
+                                material_id: m.id,
+                                cutting_category: cat.name,
+                                target_ratio: ratio
+                            });
+                        }
+                    }
+                }
+            });
+        });
+
         return { materials, categories, targets };
     });
 
