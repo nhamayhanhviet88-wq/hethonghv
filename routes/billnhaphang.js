@@ -3118,9 +3118,14 @@ module.exports = async function(fastify) {
             const materialNameUpper = mat.name.trim().toUpperCase();
             const rawRecords = await db.all(`
                 SELECT 
+                    cr.id,
                     p.size_segment,
                     cr.cut_quantity,
-                    cr.kg_cut
+                    cr.kg_cut,
+                    o.order_code,
+                    oi.product_name,
+                    cr.fabric_color,
+                    cr.cut_ratio
                 FROM cutting_records cr
                 JOIN dht_order_items oi ON cr.order_item_id = oi.id
                 JOIN dht_orders o ON oi.dht_order_id = o.id
@@ -3207,7 +3212,17 @@ module.exports = async function(fastify) {
                         max_qty: range.max_qty,
                         range_ratio,
                         range_prices,
-                        cheapest_range
+                        cheapest_range,
+                        tickets: rangeRecords.map(r => ({
+                            id: r.id,
+                            order_code: r.order_code,
+                            product_name: r.product_name,
+                            size_segment: r.size_segment,
+                            fabric_color: r.fabric_color,
+                            cut_quantity: r.cut_quantity,
+                            kg_cut: r.kg_cut,
+                            cut_ratio: r.cut_ratio
+                        }))
                     });
                 });
 

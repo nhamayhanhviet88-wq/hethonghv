@@ -1367,6 +1367,69 @@
             }
         }
 
+        function openRangeTicketsModalMobile(calcIndex, rcIndex) {
+            const res = _mobileTlcg.lastCalcResponse;
+            if (!res) return;
+            const calc = res.calculations[calcIndex];
+            if (!calc) return;
+            const rc = calc.range_calcs[rcIndex];
+            if (!rc) return;
+            
+            const tickets = rc.tickets || [];
+            
+            let rowsHtml = '';
+            if (tickets.length === 0) {
+                rowsHtml = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #94a3b8; font-style: italic; padding: 16px; font-size: 12px;">
+                            Không có đơn nào trong khung này.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                rowsHtml = tickets.map(t => {
+                    const segmentLabel = t.size_segment ? getSegmentBadgeMobile(t.size_segment) : `<span style="color:#ef4444; font-style:italic; font-size: 11px;">Chưa chia</span>`;
+                    const parsed = parseProductName(t.product_name, t.order_code);
+                    return `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                            <td style="padding: 8px 6px; font-size: 12px;" onclick="const el=document.getElementById('_mmRangeTicketsModal'); if(el){el.classList.remove('show'); setTimeout(()=>el.remove(),350)} openTicketDetailMobile(${t.id})">
+                                <div style="font-weight: 800; color: #60a5fa; text-decoration: underline;">${parsed.code}</div>
+                            </td>
+                            <td style="font-weight: 500; font-size: 11px; color: #cbd5e1; max-width: 140px; word-break: break-word; padding: 8px 6px;">${parsed.product}</td>
+                            <td style="font-weight: 600; padding: 8px 6px; font-size: 11px;">${segmentLabel}</td>
+                            <td style="font-weight: 600; padding: 8px 6px; font-size: 11px; color: #cbd5e1;">${t.fabric_color || '—'}</td>
+                            <td style="text-align: center; font-weight: 600; padding: 8px 6px; font-size: 11px; color: #cbd5e1; white-space: nowrap;">${t.cut_quantity} áo / ${t.kg_cut} kg</td>
+                            <td style="text-align: center; font-weight: 800; color: #818cf8; padding: 8px 6px; font-size: 11px;">${Number(t.cut_ratio).toFixed(2)}</td>
+                            <td style="text-align: center; padding: 8px 6px;">
+                                <span style="font-size: 10px; font-weight: 700; color: #34d399; padding: 2px 6px; background: rgba(52,211,153,0.15); border-radius: 4px; display: inline-block; white-space: nowrap;">
+                                    ✔️ Đã duyệt
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            let h = '<div class="mm-overlay" id="_mmRangeTicketsModal" onclick="if(event.target===this){this.classList.remove(\'show\');setTimeout(()=>this.remove(),350)}">';
+            h += '<div class="mm-sheet" style="width: 100%; max-width: 100%;"><div class="mm-header" style="background:linear-gradient(135deg,#1e3a8a,#3b82f6)"><div class="mm-icon">🔍</div><div><div class="mm-title">DANH SÁCH ĐƠN ĐÃ DUYỆT</div><div class="mm-sub">Khung ' + rc.range_label + ' (' + calc.segment + ')</div></div></div>';
+            h += '<div class="mm-body" style="padding: 10px 6px; max-height: 65vh; overflow-y: auto;">';
+            h += '<div style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">';
+            h += '<table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 580px;">';
+            h += '<thead><tr style="border-bottom: 2px solid rgba(255,255,255,0.15);"><th style="padding: 6px; font-size: 11px; color: #94a3b8;">Mã Đơn</th><th style="padding: 6px; font-size: 11px; color: #94a3b8;">Sản phẩm</th><th style="padding: 6px; font-size: 11px; color: #94a3b8;">Phân khúc</th><th style="padding: 6px; font-size: 11px; color: #94a3b8;">Màu sắc</th><th style="padding: 6px; font-size: 11px; color: #94a3b8; text-align: center;">SL / Trọng lượng</th><th style="padding: 6px; font-size: 11px; color: #94a3b8; text-align: center;">Tỉ lệ</th><th style="padding: 6px; font-size: 11px; color: #94a3b8; text-align: center;">Hành động</th></tr></thead>';
+            h += '<tbody>' + rowsHtml + '</tbody>';
+            h += '</table>';
+            h += '</div>';
+            h += '</div>';
+            h += '<div class="mm-actions" style="margin-top: 10px;"><button class="mm-btn mm-btn-no" style="width:100%" onclick="var m=document.getElementById(\'_mmRangeTicketsModal\');if(m){m.classList.remove(\'show\');setTimeout(()=>m.remove(),350)}">Đóng</button></div>';
+            h += '</div></div>';
+            
+            document.body.insertAdjacentHTML('beforeend', h);
+            requestAnimationFrame(() => {
+                const modal = document.getElementById('_mmRangeTicketsModal');
+                if (modal) modal.classList.add('show');
+            });
+        }
+
         async function approveTicket(id) {
             try {
                 const res = await apiCall(`/api/cutting/approve-ratio/${id}`, 'POST');
@@ -1737,7 +1800,7 @@
             `;
 
             if (res.calculations && res.calculations.length > 0) {
-                res.calculations.forEach(calc => {
+                res.calculations.forEach((calc, calcIndex) => {
                     const hasQty = res.quantity !== null && res.quantity > 0;
                     const rangeCalc = calc.range_calcs && calc.range_calcs.length > 0 ? calc.range_calcs[0] : null;
 
@@ -1952,7 +2015,7 @@
                                 </div>
 
                                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                                    ${calc.range_calcs.map(rc => {
+                                    ${calc.range_calcs.map((rc, rcIndex) => {
                                         const rcSupplierPrices = [];
                                         res.suppliers.forEach(s => {
                                             const rPrice = rc.range_prices[s.source_id];
@@ -1977,7 +2040,14 @@
                                             <div style="background: ${rcBg}; border: 1.5px solid ${rcBorder}; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 4px;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                                     <span style="font-size: 11px; font-weight: 800; color: ${rcText}; text-transform: uppercase;">Khung: ${rc.range_label}</span>
-                                                    <span style="font-size: 13.5px; font-weight: 900; color: ${rcSub};">Tỉ lệ: ${rc.range_ratio ? rc.range_ratio.toFixed(2) + ' sp' : 'Chưa có'}</span>
+                                                    ${rcHasData ? `
+                                                        <a href="javascript:void(0)" onclick="openRangeTicketsModalMobile(${calcIndex}, ${rcIndex})" style="font-size: 11px; font-weight: 700; color: #3b82f6; text-decoration: underline;">
+                                                            🔍 Xem Đơn
+                                                        </a>
+                                                    ` : ''}
+                                                </div>
+                                                <div style="font-size: 13.5px; font-weight: 900; color: ${rcSub};">
+                                                    Tỉ lệ: ${rc.range_ratio ? rc.range_ratio.toFixed(2) + ' sp' : 'Chưa có'}
                                                 </div>
                                                 ${rcHasData ? `
                                                     <div style="border-top: 1px dashed ${rcBorder}; padding-top: 6px; margin-top: 4px; font-size: 12px; line-height: 1.5;">

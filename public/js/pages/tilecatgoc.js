@@ -2294,7 +2294,7 @@ function _tlcgRenderCalcResults() {
     `;
 
     if (res.calculations && res.calculations.length > 0) {
-        res.calculations.forEach(calc => {
+        res.calculations.forEach((calc, calcIndex) => {
             const hasQty = res.quantity !== null && res.quantity > 0;
             const rangeCalc = calc.range_calcs && calc.range_calcs.length > 0 ? calc.range_calcs[0] : null;
 
@@ -2509,7 +2509,7 @@ function _tlcgRenderCalcResults() {
                         </div>
 
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
-                            ${calc.range_calcs.map(rc => {
+                            ${calc.range_calcs.map((rc, rcIndex) => {
                                 const rcSupplierPrices = [];
                                 res.suppliers.forEach(s => {
                                     const rPrice = rc.range_prices[s.source_id];
@@ -2533,8 +2533,15 @@ function _tlcgRenderCalcResults() {
                                 return `
                                     <div style="background: ${rcBg}; border: 1.5px solid ${rcBorder}; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
                                         <div>
-                                            <div style="font-size: 11px; font-weight: 800; color: ${rcText}; text-transform: uppercase; margin-bottom: 4px;">
-                                                Khung: ${rc.range_label}
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                                <div style="font-size: 11px; font-weight: 800; color: ${rcText}; text-transform: uppercase;">
+                                                    Khung: ${rc.range_label}
+                                                </div>
+                                                ${rcHasData ? `
+                                                    <a href="javascript:void(0)" onclick="_tlcgShowRangeTicketsModal(${calcIndex}, ${rcIndex})" style="font-size: 11px; font-weight: 700; color: #2563eb; text-decoration: underline; display: flex; align-items: center; gap: 2px;">
+                                                        🔍 Xem Đơn
+                                                    </a>
+                                                ` : ''}
                                             </div>
                                             <div style="font-size: 15px; font-weight: 800; color: ${rcSub}; margin-bottom: 4px;">
                                                 Tỉ lệ: ${rc.range_ratio ? rc.range_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
@@ -2834,4 +2841,89 @@ async function _tlcgUpdateMaterialSegments(matId) {
         console.error('[Update material segments error]', err);
         if (typeof showToast === 'function') showToast(err.message, 'error');
     }
+}
+
+function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
+    const res = _tlcg.lastCalcResponse;
+    if (!res) return;
+    const calc = res.calculations[calcIndex];
+    if (!calc) return;
+    const rc = calc.range_calcs[rcIndex];
+    if (!rc) return;
+    
+    const tickets = rc.tickets || [];
+    
+    if (!document.getElementById('tlcgModalOverlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'tlcgModalOverlay';
+        overlay.className = 'tlcg-modal-overlay';
+        document.body.appendChild(overlay);
+    }
+    const overlay = document.getElementById('tlcgModalOverlay');
+
+    let rowsHtml = '';
+    if (tickets.length === 0) {
+        rowsHtml = `
+            <tr>
+                <td colspan="7" style="text-align: center; color: #64748b; font-style: italic; padding: 20px;">
+                    Không có đơn nào trong khung này.
+                </td>
+            </tr>
+        `;
+    } else {
+        rowsHtml = tickets.map(t => {
+            const segmentLabel = t.size_segment ? _tlcgGetSegmentBadge(t.size_segment) : `<span style="color:#ef4444; font-style:italic; font-size: 11.5px;">Chưa phân loại</span>`;
+            const parsed = _tlcgParseProductName(t.product_name, t.order_code);
+            return `
+                <tr>
+                    <td style="cursor: pointer; padding: 10px 8px;" onclick="_tlcgCloseModal(); _tlcgShowTicketDetail(${t.id})" title="Nhấp để xem chi tiết đơn cắt">
+                        <div style="font-weight: 800; color: #2563eb; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${parsed.code}</div>
+                    </td>
+                    <td style="font-weight: 500; font-size: 11.5px; color: #334155; max-width: 200px; word-break: break-word; padding: 10px 8px;">${parsed.product}</td>
+                    <td style="font-weight: 600; padding: 10px 8px;">${segmentLabel}</td>
+                    <td style="font-weight: 600; padding: 10px 8px;">${t.fabric_color || '—'}</td>
+                    <td style="text-align: center; font-weight: 600; padding: 10px 8px;">${t.cut_quantity} áo / ${t.kg_cut} kg</td>
+                    <td style="text-align: center; font-weight: 800; color: #4f46e5; padding: 10px 8px;">${Number(t.cut_ratio).toFixed(2)}</td>
+                    <td style="text-align: center; padding: 10px 8px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #10b981; padding: 4px 8px; background: #dcfce7; border-radius: 6px; display: inline-block;">
+                            ✔️ Đã duyệt
+                        </span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    overlay.innerHTML = `
+        <div class="tlcg-modal" style="max-width: 900px; width: 90%;">
+            <div class="tlcg-modal-header">
+                <h4 class="tlcg-modal-title">🔍 Danh Sách Đơn Đã Duyệt - Khung ${rc.range_label} (${calc.segment})</h4>
+                <button class="tlcg-drawer-close" onclick="_tlcgCloseModal()">×</button>
+            </div>
+            <div class="tlcg-modal-body" style="padding: 16px 8px; max-height: 70vh; overflow-y: auto;">
+                <div style="overflow-x: auto; width: 100%;">
+                    <table class="tlcg-ticket-table" style="min-width: 750px; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Mã Đơn</th>
+                                <th>Sản phẩm</th>
+                                <th>Phân khúc</th>
+                                <th>Màu sắc</th>
+                                <th style="text-align: center;">SL / Trọng lượng</th>
+                                <th style="text-align: center;">Tỉ lệ</th>
+                                <th style="text-align: center;">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="tlcg-modal-footer">
+                <button class="tlcg-btn" onclick="_tlcgCloseModal()">Đóng</button>
+            </div>
+        </div>
+    `;
+    overlay.classList.add('active');
 }
