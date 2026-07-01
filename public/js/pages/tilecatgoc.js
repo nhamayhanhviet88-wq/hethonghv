@@ -919,6 +919,36 @@ function _tlcgSelectGroup(group) {
     }
 }
 
+function _tlcgGetSegmentBadge(segment) {
+    if (!segment) {
+        return `<span style="color:#ef4444; font-style:italic; font-size: 11.5px;">Chưa phân loại</span>`;
+    }
+    const cleanSegment = segment.trim();
+    let bg = '#e2e8f0';
+    let color = '#475569';
+    let icon = '❓';
+    
+    if (cleanSegment === 'Người Lớn') {
+        bg = '#dbeafe'; // Light blue
+        color = '#1e40af'; // Dark blue
+        icon = '👔';
+    } else if (cleanSegment === 'Mầm Non') {
+        bg = '#fce7f3'; // Light pink
+        color = '#9d174d'; // Dark pink
+        icon = '👶';
+    } else if (cleanSegment === 'Tiểu Học') {
+        bg = '#dcfce7'; // Light green
+        color = '#166534'; // Dark green
+        icon = '🎒';
+    } else if (cleanSegment === 'Oversize') {
+        bg = '#f3e8ff'; // Light purple
+        color = '#6b21a8'; // Dark purple
+        icon = '👕';
+    }
+    
+    return `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background-color: ${bg}; color: ${color}; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">${icon} ${cleanSegment}</span>`;
+}
+
 function _tlcgGetMaterialStats(matName) {
     const mStats = _tlcg.stats.filter(s => s.material_name.trim().toLowerCase() === matName.trim().toLowerCase());
     
@@ -1270,7 +1300,7 @@ async function _tlcgLoadDrawerContent(mat) {
                                     ${group.tickets.map(t => {
                                         const isPending = !t.ratio_approved && !t.ratio_rejected;
                                         const rowClass = isPending ? 'pending-row' : (t.ratio_rejected ? 'rejected-row' : '');
-                                        const segmentLabel = t.size_segment || '<span style="color:#ef4444;font-style:italic;">Chưa phân loại</span>';
+                                        const segmentLabel = _tlcgGetSegmentBadge(t.size_segment);
                                         const parsed = _tlcgParseProductName(t.product_name, t.order_code);
                                         return `
                                             <tr class="${rowClass}">
