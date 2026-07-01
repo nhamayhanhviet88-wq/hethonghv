@@ -1465,16 +1465,14 @@
             const mat = _mobileTlcg.materials.find(m => String(m.id) === String(matId));
             if (!mat) return;
 
-            const materialNameUpper = mat.name.trim().toUpperCase();
-            
-            // Filter colors for this material from colors list
-            const matchedColors = _mobileTlcg.colors.filter(c => c.material_name.trim().toUpperCase() === materialNameUpper);
+            // Filter colors for this material from colors list by material_id
+            const matchedColors = _mobileTlcg.colors.filter(c => String(c.material_id) === String(matId));
             
             // Populate select dropdown
             matchedColors.forEach((c, idx) => {
                 // Auto-select the first color
                 const selected = idx === 0 ? 'selected' : '';
-                colorSelect.insertAdjacentHTML('beforeend', `<option value="${c.color_id}" ${selected}>${c.color_name}</option>`);
+                colorSelect.insertAdjacentHTML('beforeend', `<option value="${c.id}" ${selected}>${c.color_name}</option>`);
             });
         }
 
