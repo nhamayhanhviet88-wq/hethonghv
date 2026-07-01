@@ -2028,11 +2028,19 @@ function _tlcgLoadPetConfigs() {
         if (storedShapes) {
             const parsed = JSON.parse(storedShapes);
             if (Array.isArray(parsed)) {
-                if (parsed.length === 1 && parsed[0] && parsed[0].name === 'Logo ngực' && parsed[0].width === 10 && parsed[0].height === 5) {
-                    _tlcg.petShapes = [];
-                    localStorage.setItem('tlcg_pet_shapes', JSON.stringify([]));
-                } else {
-                    _tlcg.petShapes = parsed;
+                // Filter out null/invalid elements AND ghost shapes (all fields empty)
+                const cleaned = parsed.filter(s => {
+                    if (!s || typeof s !== 'object') return false;
+                    // Keep only shapes that have at least some real data
+                    const hasName = s.name && s.name.trim() !== '';
+                    const hasWidth = s.width !== '' && s.width !== undefined && s.width !== null && Number(s.width) > 0;
+                    const hasHeight = s.height !== '' && s.height !== undefined && s.height !== null && Number(s.height) > 0;
+                    return hasName || hasWidth || hasHeight;
+                });
+                _tlcg.petShapes = cleaned;
+                // Persist the cleaned version
+                if (cleaned.length !== parsed.length) {
+                    localStorage.setItem('tlcg_pet_shapes', JSON.stringify(cleaned));
                 }
             } else {
                 _tlcg.petShapes = [];
@@ -2080,6 +2088,9 @@ function _tlcgTogglePetSection(enabled) {
 function _tlcgRenderPetShapeRows() {
     const list = document.getElementById('pet_shapes_list');
     if (!list) return;
+    list.style.display = 'flex';
+    list.style.flexDirection = 'column';
+    list.style.gap = '8px';
     
     if (!Array.isArray(_tlcg.petShapes)) {
         _tlcg.petShapes = [];
@@ -2105,11 +2116,13 @@ function _tlcgRenderPetShapeRows() {
 }
 
 function _tlcgAddPetShapeRow() {
+
     if (!Array.isArray(_tlcg.petShapes)) {
         _tlcg.petShapes = [];
     }
     _tlcg.petShapes = _tlcg.petShapes.filter(s => s && typeof s === 'object');
     _tlcg.petShapes.push({ name: '', width: '', height: '' });
+
     _tlcgRenderPetShapeRows();
     _tlcgSavePetConfigs();
     _tlcgRenderCalcResults();

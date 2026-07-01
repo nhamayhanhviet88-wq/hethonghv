@@ -1500,11 +1500,16 @@
                 if (storedShapes) {
                     const parsed = JSON.parse(storedShapes);
                     if (Array.isArray(parsed)) {
-                        if (parsed.length === 1 && parsed[0] && parsed[0].name === 'Logo ngực' && parsed[0].width === 10 && parsed[0].height === 5) {
-                            _mobileTlcg.petShapes = [];
-                            localStorage.setItem('tlcg_pet_shapes', JSON.stringify([]));
-                        } else {
-                            _mobileTlcg.petShapes = parsed;
+                        const cleaned = parsed.filter(s => {
+                            if (!s || typeof s !== 'object') return false;
+                            const hasName = s.name && s.name.trim() !== '';
+                            const hasWidth = s.width !== '' && s.width !== undefined && s.width !== null && Number(s.width) > 0;
+                            const hasHeight = s.height !== '' && s.height !== undefined && s.height !== null && Number(s.height) > 0;
+                            return hasName || hasWidth || hasHeight;
+                        });
+                        _mobileTlcg.petShapes = cleaned;
+                        if (cleaned.length !== parsed.length) {
+                            localStorage.setItem('tlcg_pet_shapes', JSON.stringify(cleaned));
                         }
                     } else {
                         _mobileTlcg.petShapes = [];
@@ -1552,6 +1557,9 @@
         function mPetRenderShapeRows() {
             const list = document.getElementById('m_pet_shapes_list');
             if (!list) return;
+            list.style.display = 'flex';
+            list.style.flexDirection = 'column';
+            list.style.gap = '8px';
             
             if (!Array.isArray(_mobileTlcg.petShapes)) {
                 _mobileTlcg.petShapes = [];
