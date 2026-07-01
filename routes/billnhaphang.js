@@ -3125,7 +3125,9 @@ module.exports = async function(fastify) {
                     o.order_code,
                     oi.product_name,
                     cr.fabric_color,
-                    cr.cut_ratio
+                    cr.cut_ratio,
+                    cr.cut_done_at,
+                    cr.cut_date
                 FROM cutting_records cr
                 JOIN dht_order_items oi ON cr.order_item_id = oi.id
                 JOIN dht_orders o ON oi.dht_order_id = o.id
@@ -3221,7 +3223,9 @@ module.exports = async function(fastify) {
                             fabric_color: r.fabric_color,
                             cut_quantity: r.cut_quantity,
                             kg_cut: r.kg_cut,
-                            cut_ratio: r.cut_ratio
+                            cut_ratio: r.cut_ratio,
+                            cut_done_at: r.cut_done_at,
+                            cut_date: r.cut_date
                         }))
                     });
                 });

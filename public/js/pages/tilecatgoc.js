@@ -2848,6 +2848,32 @@ function _tlcgCloseRangeTicketsModal() {
     if (overlay) overlay.classList.remove('active');
 }
 
+function _tlcgFormatCutDoneTime(isoStr) {
+    if (!isoStr) return '—';
+    try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return isoStr;
+        // Shift to VN timezone (UTC+7)
+        const vnDate = new Date(d.getTime() + 7 * 3600000);
+        const pad = (n) => String(n).padStart(2, '0');
+        const hour = pad(vnDate.getUTCHours());
+        const min = pad(vnDate.getUTCMinutes());
+        
+        // Day of week
+        const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayOfWeek = days[vnDate.getUTCDay()];
+        
+        const date = pad(vnDate.getUTCDate());
+        const month = pad(vnDate.getUTCMonth() + 1);
+        const yearFull = String(vnDate.getUTCFullYear());
+        const yearShort = yearFull.substring(yearFull.length - 2);
+        
+        return `${hour}:${min} ${dayOfWeek} - ${date}/${month}/${yearShort}`;
+    } catch(e) {
+        return '—';
+    }
+}
+
 function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
     const res = _tlcg.lastCalcResponse;
     if (!res) return;
@@ -2876,7 +2902,7 @@ function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
     if (tickets.length === 0) {
         rowsHtml = `
             <tr>
-                <td colspan="7" style="text-align: center; color: #64748b; font-style: italic; padding: 20px;">
+                <td colspan="8" style="text-align: center; color: #64748b; font-style: italic; padding: 20px;">
                     Không có đơn nào trong khung này.
                 </td>
             </tr>
@@ -2885,9 +2911,11 @@ function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
         rowsHtml = tickets.map(t => {
             const segmentLabel = t.size_segment ? _tlcgGetSegmentBadge(t.size_segment) : `<span style="color:#ef4444; font-style:italic; font-size: 11.5px;">Chưa phân loại</span>`;
             const parsed = _tlcgParseProductName(t.product_name, t.order_code);
+            const cutDoneTimeFormatted = _tlcgFormatCutDoneTime(t.cut_done_at || t.cut_date);
             return `
                 <tr>
-                    <td style="cursor: pointer; padding: 10px 8px;" onclick="_tlcgCloseRangeTicketsModal(); _tlcgCloseModal(); _tlcgShowTicketDetail(${t.id})" title="Nhấp để xem chi tiết đơn cắt">
+                    <td style="padding: 10px 8px; font-weight: 600; color: #475569; font-size: 12px; white-space: nowrap;">${cutDoneTimeFormatted}</td>
+                    <td style="cursor: pointer; padding: 10px 8px;" onclick="_tlcgShowTicketDetail(${t.id})" title="Nhấp để xem chi tiết đơn cắt">
                         <div style="font-weight: 800; color: #2563eb; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${parsed.code}</div>
                     </td>
                     <td style="font-weight: 500; font-size: 11.5px; color: #334155; max-width: 200px; word-break: break-word; padding: 10px 8px;">${parsed.product}</td>
@@ -2906,16 +2934,17 @@ function _tlcgShowRangeTicketsModal(calcIndex, rcIndex) {
     }
 
     overlay.innerHTML = `
-        <div class="tlcg-modal" style="max-width: 900px; width: 90%;">
+        <div class="tlcg-modal" style="max-width: 1000px; width: 95%;">
             <div class="tlcg-modal-header">
                 <h4 class="tlcg-modal-title">🔍 Danh Sách Đơn Đã Duyệt - Khung ${rc.range_label} (${calc.segment})</h4>
                 <button class="tlcg-drawer-close" onclick="_tlcgCloseRangeTicketsModal()">×</button>
             </div>
             <div class="tlcg-modal-body" style="padding: 16px 8px; max-height: 70vh; overflow-y: auto;">
                 <div style="overflow-x: auto; width: 100%;">
-                    <table class="tlcg-ticket-table" style="min-width: 750px; width: 100%;">
+                    <table class="tlcg-ticket-table" style="min-width: 900px; width: 100%;">
                         <thead>
                             <tr>
+                                <th>Cắt Xong</th>
                                 <th>Mã Đơn</th>
                                 <th>Sản phẩm</th>
                                 <th>Phân khúc</th>
