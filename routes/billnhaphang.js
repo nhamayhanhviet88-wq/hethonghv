@@ -3034,6 +3034,181 @@ module.exports = async function(fastify) {
         return { prices };
     });
 
+    // pricing calculator v5
+    fastify.post('/api/pricing/calculate', { preHandler: [authenticate] }, async (req, reply) => {
+        const { material_id, fabric_color_id, quantity, size_segment } = req.body || {};
+        if (!material_id || !fabric_color_id) {
+            return reply.code(400).send({ error: 'Chất liệu và màu sắc là bắt buộc.' });
+        }
+
+        try {
+            // 1. Fetch material info
+            const mat = await db.get('SELECT name FROM kv_materials WHERE id = $1', [Number(material_id)]);
+            if (!mat) return reply.code(404).send({ error: 'Không tìm thấy chất liệu.' });
+
+            // 2. Fetch color info
+            const col = await db.get('SELECT color_name FROM kv_fabric_colors WHERE id = $1 AND material_id = $2', [Number(fabric_color_id), Number(material_id)]);
+            if (!col) return reply.code(404).send({ error: 'Không tìm thấy màu sắc tương ứng.' });
+
+            // 3. Fetch approved prices
+            const prices = await db.all(`
+                SELECT ap.source_id, s.name AS source_name, ap.price
+                FROM approved_import_prices ap
+                JOIN import_sources s ON ap.source_id = s.id
+                WHERE ap.item_type = 'fabric' AND ap.fabric_color_id = $1
+                ORDER BY ap.price ASC
+            `, [Number(fabric_color_id)]);
+
+            // 4. Fetch target ratios
+            const targetRows = await db.all(`
+                SELECT cutting_category, target_ratio 
+                FROM kv_material_cutting_targets 
+                WHERE material_id = $1
+            `, [Number(material_id)]);
+
+            const targetRatioMap = {};
+            targetRows.forEach(row => {
+                targetRatioMap[row.cutting_category] = Number(row.target_ratio) || 0;
+            });
+
+            // Mapping from size_segment to cutting_category
+            const segmentMapping = {
+                'Người Lớn': 'Áo',
+                'Mầm Non': 'Áo Mầm Non',
+                'Tiểu Học': 'Áo Tiểu Học',
+                'Oversize': 'Áo Oversize'
+            };
+
+            // Determine which segments to calculate
+            let segmentsToCalc = ['Người Lớn', 'Mầm Non', 'Tiểu Học', 'Oversize'];
+            if (size_segment && segmentMapping[size_segment]) {
+                segmentsToCalc = [size_segment];
+            }
+
+            // 5. Fetch quantity ranges
+            let ranges = [];
+            if (quantity !== undefined && quantity !== null && quantity !== '') {
+                const qty = Number(quantity);
+                const matchedRange = await db.get(`
+                    SELECT id, min_qty, max_qty 
+                    FROM kv_ratio_quantity_ranges 
+                    WHERE min_qty <= $1 AND max_qty >= $1 
+                    LIMIT 1
+                `, [qty]);
+                if (matchedRange) {
+                    ranges.push(matchedRange);
+                } else {
+                    // Fallback to all ranges if quantity is out of bounds
+                    ranges = await db.all('SELECT id, min_qty, max_qty FROM kv_ratio_quantity_ranges ORDER BY display_order ASC');
+                }
+            } else {
+                ranges = await db.all('SELECT id, min_qty, max_qty FROM kv_ratio_quantity_ranges ORDER BY display_order ASC');
+            }
+
+            // 6. Fetch actual cutting stats for each range and segment
+            const calculations = [];
+            const materialNameUpper = mat.name.trim().toUpperCase();
+            const colorNameUpper = col.color_name.trim().toUpperCase();
+
+            for (const r of ranges) {
+                // Fetch stats for this specific range
+                const statsQuery = `
+                    SELECT 
+                        p.size_segment,
+                        SUM(cr.cut_quantity)::numeric AS total_qty,
+                        SUM(cr.kg_cut)::numeric AS total_kg
+                    FROM cutting_records cr
+                    JOIN dht_order_items oi ON cr.order_item_id = oi.id
+                    JOIN dht_orders o ON oi.dht_order_id = o.id
+                    LEFT JOIN dht_products p ON (TRIM(LOWER(p.name)) = TRIM(LOWER(oi.product_name)) AND p.is_active = true)
+                    WHERE cr.is_cut_done = true 
+                      AND cr.cut_ratio > 0 
+                      AND cr.ratio_approved = true
+                      AND cr.multi_cut_group_id IS NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM dht_order_items sub_oi
+                          WHERE sub_oi.dht_order_id = o.id
+                            AND COALESCE(jsonb_array_length(sub_oi.material_pairs::jsonb), 0) > 1
+                      )
+                      AND UPPER(TRIM(cr.material_name)) = $1
+                      AND UPPER(TRIM(cr.fabric_color)) = $2
+                      AND cr.cut_quantity >= $3 AND cr.cut_quantity <= $4
+                    GROUP BY p.size_segment
+                `;
+                const statsRows = await db.all(statsQuery, [materialNameUpper, colorNameUpper, r.min_qty, r.max_qty]);
+                const actualRatioMap = {};
+                statsRows.forEach(row => {
+                    const qty = Number(row.total_qty);
+                    const kg = Number(row.total_kg);
+                    if (kg > 0) {
+                        actualRatioMap[row.size_segment] = qty / kg;
+                    }
+                });
+
+                for (const seg of segmentsToCalc) {
+                    const catName = segmentMapping[seg];
+                    const targetRatio = targetRatioMap[catName] || 0;
+                    const actualRatio = actualRatioMap[seg] || 0;
+
+                    const targetPrices = {};
+                    const actualPrices = {};
+                    let cheapestTarget = null;
+                    let cheapestActual = null;
+
+                    prices.forEach(p => {
+                        const basePrice = Number(p.price);
+                        
+                        // Target price calculation
+                        if (targetRatio > 0) {
+                            const tgtPrice = Math.round(basePrice / targetRatio);
+                            targetPrices[p.source_id] = tgtPrice;
+                            if (!cheapestTarget || tgtPrice < cheapestTarget.price) {
+                                cheapestTarget = { source_id: p.source_id, source_name: p.source_name, price: tgtPrice, base_price: basePrice };
+                            }
+                        }
+
+                        // Actual price calculation
+                        if (actualRatio > 0) {
+                            const actPrice = Math.round(basePrice / actualRatio);
+                            actualPrices[p.source_id] = actPrice;
+                            if (!cheapestActual || actPrice < cheapestActual.price) {
+                                cheapestActual = { source_id: p.source_id, source_name: p.source_name, price: actPrice, base_price: basePrice };
+                            }
+                        }
+                    });
+
+                    calculations.push({
+                        segment: seg,
+                        range_id: r.id,
+                        range_min: r.min_qty,
+                        range_max: r.max_qty,
+                        range_label: r.max_qty >= 999999 ? `Từ ${r.min_qty} sp trở lên` : `${r.min_qty} - ${r.max_qty} sp`,
+                        target_ratio: targetRatio,
+                        actual_ratio: actualRatio,
+                        target_prices: targetPrices,
+                        actual_prices: actualPrices,
+                        cheapest_target: cheapestTarget,
+                        cheapest_actual: cheapestActual
+                    });
+                }
+            }
+
+            return {
+                success: true,
+                material_name: mat.name,
+                color_name: col.color_name,
+                unit: 'kg',
+                quantity,
+                ranges,
+                suppliers: prices,
+                calculations
+            };
+        } catch(e) {
+            console.error('[API pricing calculate] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     fastify.get('/api/gianhapgoc/history', { preHandler: [authenticate] }, async (req) => {
         const history = await db.all(`
             SELECT 

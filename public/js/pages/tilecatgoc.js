@@ -887,6 +887,9 @@ function _tlcgRenderPage() {
                     <p>Số liệu sản phẩm cắt được trên mỗi kg/mét/cái từ các đơn cắt thành công</p>
                 </div>
                 <div class="tlcg-header-actions">
+                    <button class="tlcg-btn tlcg-btn-primary" onclick="_tlcgOpenPricingCalculatorModal()">
+                        🧮 Tra Cứu Giá Vải
+                    </button>
                     <button class="tlcg-btn" onclick="_tlcgOpenProductSegmentModal()">
                         ⚙️ Cấu Hình Phân Loại
                     </button>
@@ -1952,5 +1955,289 @@ async function _tlcgShowTicketDetail(recordId) {
         if (typeof showToast === 'function') showToast(err.message, 'error');
     } finally {
         window._tlcgDetailBusy = false;
+    }
+}
+
+// ========== CUSTOMER PRICE INQUIRY CALCULATOR ==========
+
+async function _tlcgOpenPricingCalculatorModal() {
+    if (!document.getElementById('tlcgModalOverlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'tlcgModalOverlay';
+        overlay.className = 'tlcg-modal-overlay';
+        document.body.appendChild(overlay);
+    }
+    const overlay = document.getElementById('tlcgModalOverlay');
+
+    overlay.innerHTML = `
+        <div class="tlcg-modal" style="max-width: 800px; width: 90%;">
+            <div class="tlcg-modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); color: white; padding: 16px 20px;">
+                <h4 class="tlcg-modal-title" style="color: white; font-weight: 800; font-size: 16px; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    🧮 Tra Cứu & So Sánh Giá Vải Thành Phẩm
+                </h4>
+                <button class="tlcg-drawer-close" style="color: white; background: rgba(255,255,255,0.2); border-radius: 50%; width: 28px; height: 28px; line-height: 28px; font-size: 16px;" onclick="_tlcgCloseModal()">×</button>
+            </div>
+            <div class="tlcg-modal-body" style="max-height: 75vh; overflow-y: auto; padding: 20px;">
+                <div class="calculator-inputs" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">Chất liệu *</label>
+                        <select id="calc_material_id" class="tlcg-search-input" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px;" onchange="_tlcgCalcHandleMaterialChange(this.value)">
+                            <option value="">-- Chọn chất liệu --</option>
+                            ${_tlcg.materials.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">Màu sắc *</label>
+                        <select id="calc_color_id" class="tlcg-search-input" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px;">
+                            <option value="">-- Chọn màu sắc --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">Phân khúc</label>
+                        <select id="calc_segment" class="tlcg-search-input" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px;">
+                            <option value="">-- Tất cả phân khúc --</option>
+                            <option value="Người Lớn">👔 Người Lớn</option>
+                            <option value="Mầm Non">👶 Mầm Non</option>
+                            <option value="Tiểu Học">🎒 Tiểu Học</option>
+                            <option value="Oversize">👕 Oversize</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">Số lượng áo</label>
+                        <input type="number" id="calc_quantity" class="tlcg-search-input" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px;" placeholder="Tự điền (tùy chọn)">
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 20px;">
+                    <button class="tlcg-btn" style="border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 8px; font-weight: 600;" onclick="_tlcgCloseModal()">Hủy</button>
+                    <button class="tlcg-btn tlcg-btn-primary" style="padding: 8px 16px; border-radius: 8px; font-weight: 600;" onclick="_tlcgRunCalculation()">🧮 Tính toán & So sánh</button>
+                </div>
+
+                <div id="calc_results" style="display: none;">
+                    <!-- Calculations will be rendered here dynamically -->
+                </div>
+            </div>
+        </div>
+    `;
+    overlay.classList.add('active');
+}
+
+function _tlcgCalcHandleMaterialChange(matId) {
+    const colorSelect = document.getElementById('calc_color_id');
+    if (!colorSelect) return;
+    
+    colorSelect.innerHTML = '<option value="">-- Chọn màu sắc --</option>';
+    if (!matId) return;
+
+    // Filter colors by material_id
+    const filteredColors = _tlcg.colors.filter(c => String(c.material_id) === String(matId));
+    filteredColors.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.color_name;
+        colorSelect.appendChild(opt);
+    });
+}
+
+async function _tlcgRunCalculation() {
+    const matId = document.getElementById('calc_material_id').value;
+    const colorId = document.getElementById('calc_color_id').value;
+    const segment = document.getElementById('calc_segment').value;
+    const qty = document.getElementById('calc_quantity').value;
+
+    if (!matId || !colorId) {
+        if (typeof showToast === 'function') showToast('Vui lòng chọn đầy đủ chất liệu và màu sắc!', 'error');
+        return;
+    }
+
+    const resultsDiv = document.getElementById('calc_results');
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #64748b; font-weight: 600; font-size: 14px;">⏳ Đang tính toán dữ liệu...</div>';
+
+    try {
+        const payload = {
+            material_id: Number(matId),
+            fabric_color_id: Number(colorId)
+        };
+        if (segment) payload.size_segment = segment;
+        if (qty !== '') payload.quantity = Number(qty);
+
+        const res = await apiCall('/api/pricing/calculate', 'POST', payload);
+        if (!res.success) {
+            resultsDiv.innerHTML = `<div style="padding: 16px; background: #fee2e2; color: #b91c1c; border-radius: 8px; font-weight: 600;">❌ Lỗi: ${res.error || 'Có lỗi xảy ra'}</div>`;
+            return;
+        }
+
+        // Render results
+        let html = '';
+
+        // 1. Supplier Base Prices Table
+        html += `
+            <div style="margin-bottom: 24px;">
+                <h5 style="margin: 0 0 12px 0; font-size: 13.5px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                    🏢 ĐƠN GIÁ NHẬP VẢI GỐC CÁC NGUỒN
+                </h5>
+                <div style="overflow-x: auto; border: 1.5px solid #e2e8f0; border-radius: 10px;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                                <th style="padding: 10px 12px; font-weight: 700; color: #475569;">Nhà cung cấp (Nguồn nhập)</th>
+                                <th style="padding: 10px 12px; font-weight: 700; color: #475569; text-align: right;">Đơn giá gốc đã duyệt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        if (res.suppliers && res.suppliers.length > 0) {
+            res.suppliers.forEach(s => {
+                html += `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 10px 12px; font-weight: 600; color: #1e293b;">${s.source_name}</td>
+                        <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: #4f46e5;">${Number(s.price).toLocaleString('vi-VN')} đ / ${res.unit}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            html += `
+                <tr>
+                    <td colspan="2" style="padding: 16px; text-align: center; color: #64748b; font-style: italic;">Chưa có giá nhập gốc nào được duyệt cho màu này.</td>
+                </tr>
+            `;
+        }
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        // 2. Calculations (by segment / qty range)
+        html += `
+            <h5 style="margin: 0 0 12px 0; font-size: 13.5px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 6px; text-transform: uppercase;">
+                📊 CHI TIẾT GIÁ THÀNH PHẨM SO SÁNH
+            </h5>
+        `;
+
+        if (res.calculations && res.calculations.length > 0) {
+            res.calculations.forEach(calc => {
+                const targetCheapest = calc.cheapest_target;
+                const actualCheapest = calc.cheapest_actual;
+
+                html += `
+                    <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">
+                            <span style="font-weight: 800; font-size: 14.5px; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                                ${calc.segment === 'Người Lớn' ? '👔' : calc.segment === 'Mầm Non' ? '👶' : calc.segment === 'Tiểu Học' ? '🎒' : '👕'} 
+                                Phân khúc: ${calc.segment} 
+                                <span style="font-size: 11px; font-weight: 700; background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 6px; margin-left: 6px;">
+                                    📦 Khung: ${calc.range_label}
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 12px;">
+                            <!-- Target Ratio Column -->
+                            <div style="background: #faf5ff; border: 1px solid #f3e8ff; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <div style="font-size: 11.5px; font-weight: 700; color: #7e22ce; margin-bottom: 6px;">
+                                        🎯 Tỉ Lệ Cắt Mục Tiêu
+                                    </div>
+                                    <div style="font-size: 16px; font-weight: 800; color: #6b21a8; margin-bottom: 8px;">
+                                        ${calc.target_ratio ? calc.target_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa cấu hình'}
+                                    </div>
+                                </div>
+                                ${calc.target_ratio > 0 && targetCheapest ? `
+                                    <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed #e9d5ff; padding-top: 8px; margin-top: 8px;">
+                                        <div>🏆 Nguồn rẻ nhất: <strong style="color: #6b21a8;">${targetCheapest.source_name}</strong></div>
+                                        <div style="font-size: 16px; font-weight: 900; color: #10b981; margin-top: 4px;">
+                                            ${Number(targetCheapest.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo thành phẩm</span>
+                                        </div>
+                                        <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
+                                            (Đơn giá gốc: ${Number(targetCheapest.base_price).toLocaleString('vi-VN')}đ / ${res.unit})
+                                        </div>
+                                    </div>
+                                ` : '<div style="font-size: 12px; color: #64748b; font-style: italic; border-top: 1px dashed #e9d5ff; padding-top: 8px; margin-top: 8px;">Không thể tính giá (tỉ lệ = 0 hoặc chưa có giá)</div>'}
+                            </div>
+
+                            <!-- Actual Ratio Column -->
+                            <div style="background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <div style="font-size: 11.5px; font-weight: 700; color: #047857; margin-bottom: 6px;">
+                                        📊 Tỉ Lệ Cắt Thực Tế
+                                    </div>
+                                    <div style="font-size: 16px; font-weight: 800; color: #065f46; margin-bottom: 8px;">
+                                        ${calc.actual_ratio ? calc.actual_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
+                                    </div>
+                                </div>
+                                ${calc.actual_ratio > 0 && actualCheapest ? `
+                                    <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed #a7f3d0; padding-top: 8px; margin-top: 8px;">
+                                        <div>🏆 Nguồn rẻ nhất: <strong style="color: #065f46;">${actualCheapest.source_name}</strong></div>
+                                        <div style="font-size: 16px; font-weight: 900; color: #059669; margin-top: 4px;">
+                                            ${Number(actualCheapest.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo thành phẩm</span>
+                                        </div>
+                                        <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
+                                            (Đơn giá gốc: ${Number(actualCheapest.base_price).toLocaleString('vi-VN')}đ / ${res.unit})
+                                        </div>
+                                    </div>
+                                ` : '<div style="font-size: 12px; color: #64748b; font-style: italic; border-top: 1px dashed #a7f3d0; padding-top: 8px; margin-top: 8px;">Không có thực tế (chưa có đơn cắt thực tế hoặc chưa có giá)</div>'}
+                            </div>
+                        </div>
+
+                        <!-- Full comparison table for this range -->
+                        <div style="margin-top: 10px;">
+                            <span style="font-size: 11.5px; font-weight: 700; color: #4f46e5; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" onclick="const t = this.nextElementSibling; t.style.display = t.style.display === 'none' ? 'block' : 'none'">
+                                🔍 Xem chi tiết bảng so sánh các nguồn ▾
+                            </span>
+                            <div style="display: none; margin-top: 8px; border: 1.5px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                                    <thead>
+                                        <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                                            <th style="padding: 8px 10px; font-weight: 700; color: #475569;">Nguồn nhập</th>
+                                            <th style="padding: 8px 10px; font-weight: 700; color: #475569; text-align: right;">Giá vải gốc</th>
+                                            <th style="padding: 8px 10px; font-weight: 700; color: #475569; text-align: right;">Giá theo Mục Tiêu</th>
+                                            <th style="padding: 8px 10px; font-weight: 700; color: #475569; text-align: right;">Giá theo Thực Tế</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                `;
+                res.suppliers.forEach(s => {
+                    const tgtP = calc.target_prices[s.source_id] ? Number(calc.target_prices[s.source_id]).toLocaleString('vi-VN') + ' đ' : '—';
+                    const actP = calc.actual_prices[s.source_id] ? Number(calc.actual_prices[s.source_id]).toLocaleString('vi-VN') + ' đ' : '—';
+                    
+                    const isTgtBest = targetCheapest && String(targetCheapest.source_id) === String(s.source_id);
+                    const isActBest = actualCheapest && String(actualCheapest.source_id) === String(s.source_id);
+
+                    html += `
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 8px 10px; font-weight: 600; color: #1e293b;">${s.source_name}</td>
+                            <td style="padding: 8px 10px; text-align: right; color: #64748b;">${Number(s.price).toLocaleString('vi-VN')} đ</td>
+                            <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: ${isTgtBest ? '#10b981' : '#475569'}; background: ${isTgtBest ? 'rgba(245,243,255,0.6)' : 'transparent'};">
+                                ${tgtP} ${isTgtBest ? '🏆' : ''}
+                            </td>
+                            <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: ${isActBest ? '#059669' : '#475569'}; background: ${isActBest ? 'rgba(236,253,245,0.6)' : 'transparent'};">
+                                ${actP} ${isActBest ? '🏆' : ''}
+                            </td>
+                        </tr>
+                    `;
+                });
+                html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            html += `
+                <div style="text-align: center; padding: 20px; color: #64748b; font-style: italic;">
+                    Không tìm thấy dữ liệu tính toán phù hợp.
+                </div>
+            `;
+        }
+
+        resultsDiv.innerHTML = html;
+    } catch (err) {
+        console.error('[Run calculation error]', err);
+        resultsDiv.innerHTML = `<div style="padding: 16px; background: #fee2e2; color: #b91c1c; border-radius: 8px; font-weight: 600;">❌ Lỗi: ${err.message}</div>`;
     }
 }
