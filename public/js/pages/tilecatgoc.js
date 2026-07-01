@@ -2127,83 +2127,101 @@ async function _tlcgRunCalculation() {
                     const rangeKgNeeded = rangeCalc.range_ratio > 0 ? (res.quantity / rangeCalc.range_ratio).toFixed(2) : null;
                     const overallKgNeeded = calc.overall_ratio > 0 ? (res.quantity / calc.overall_ratio).toFixed(2) : null;
                     
+                    const rangeHasData = rangeCalc.range_ratio > 0 && rangeCalc.cheapest_range;
+                    const rangeBg = rangeHasData ? '#eff6ff' : '#fef2f2';
+                    const rangeBorder = rangeHasData ? '#bfdbfe' : '#fca5a5';
+                    const rangeText = rangeHasData ? '#1d4ed8' : '#991b1b';
+                    const rangeSub = rangeHasData ? '#1e40af' : '#b91c1c';
+
+                    const overallHasData = calc.overall_ratio > 0 && calc.cheapest_overall;
+                    const overallBg = overallHasData ? '#ecfdf5' : '#fef2f2';
+                    const overallBorder = overallHasData ? '#a7f3d0' : '#fca5a5';
+                    const overallText = overallHasData ? '#047857' : '#991b1b';
+                    const overallSub = overallHasData ? '#065f46' : '#b91c1c';
+
                     subCardsHtml = `
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
                             <!-- Column 1: Range Specific -->
-                            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div style="background: ${rangeBg}; border: 1.5px solid ${rangeBorder}; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
                                 <div>
-                                    <div style="font-size: 11.5px; font-weight: 800; color: #1d4ed8; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                                    <div style="font-size: 11.5px; font-weight: 800; color: ${rangeText}; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                                         📦 Theo Khung Số Lượng [${rangeCalc.range_label}]
                                     </div>
-                                    <div style="font-size: 18px; font-weight: 900; color: #1e40af; margin-bottom: 6px;">
+                                    <div style="font-size: 18px; font-weight: 900; color: ${rangeSub}; margin-bottom: 6px;">
                                         ${rangeCalc.range_ratio ? rangeCalc.range_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
                                     </div>
                                     ${rangeKgNeeded ? `
-                                        <div style="font-size: 12px; color: #1e40af; font-weight: 600; margin-bottom: 8px;">
-                                            ⚖️ Số kg vải dự kiến: <strong style="font-size: 13.5px; color: #1d4ed8;">${rangeKgNeeded} kg</strong>
+                                        <div style="font-size: 12px; color: ${rangeSub}; font-weight: 600; margin-bottom: 8px;">
+                                            ⚖️ Số kg vải dự kiến: <strong style="font-size: 13.5px; color: ${rangeText};">${rangeKgNeeded} kg</strong>
                                         </div>
                                     ` : ''}
                                 </div>
-                                ${rangeCalc.range_ratio > 0 && rangeCalc.cheapest_range ? `
-                                    <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed #93c5fd; padding-top: 8px; margin-top: 8px;">
-                                        <div>🏆 Rẻ nhất: <strong style="color: #1e40af;">${rangeCalc.cheapest_range.source_name}</strong></div>
-                                        <div style="font-size: 17px; font-weight: 900; color: #2563eb; margin-top: 4px;">
+                                ${rangeHasData ? `
+                                    <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 8px;">
+                                        <div>🏆 Rẻ nhất: <strong style="color: ${rangeSub};">${rangeCalc.cheapest_range.source_name}</strong></div>
+                                        <div style="font-size: 17px; font-weight: 900; color: ${rangeText}; margin-top: 4px;">
                                             ${Number(rangeCalc.cheapest_range.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo</span>
                                         </div>
                                         <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
                                             (Giá gốc: ${Number(rangeCalc.cheapest_range.base_price).toLocaleString('vi-VN')}đ)
                                         </div>
-                                        <div style="font-size: 13px; font-weight: 800; color: #1d4ed8; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                        <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
                                             💰 Tổng tiền: ${Math.round(rangeCalc.cheapest_range.price * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     </div>
-                                ` : '<div style="font-size: 12px; color: #64748b; font-style: italic; border-top: 1px dashed #93c5fd; padding-top: 8px; margin-top: 8px;">Không có thực tế cho khung này hoặc chưa có giá</div>'}
+                                ` : `<div style="font-size: 12px; color: ${rangeSub}; font-style: italic; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 8px;">Không có thực tế cho khung này hoặc chưa có giá</div>`}
                             </div>
 
                             <!-- Column 2: Overall -->
-                            <div style="background: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div style="background: ${overallBg}; border: 1.5px solid ${overallBorder}; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
                                 <div>
-                                    <div style="font-size: 11.5px; font-weight: 800; color: #047857; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                                    <div style="font-size: 11.5px; font-weight: 800; color: ${overallText}; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                                         📊 Trung Bình Toàn Chất Liệu
                                     </div>
-                                    <div style="font-size: 18px; font-weight: 900; color: #065f46; margin-bottom: 6px;">
+                                    <div style="font-size: 18px; font-weight: 900; color: ${overallSub}; margin-bottom: 6px;">
                                         ${calc.overall_ratio ? calc.overall_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
                                     </div>
                                     ${overallKgNeeded ? `
-                                        <div style="font-size: 12px; color: #065f46; font-weight: 600; margin-bottom: 8px;">
-                                            ⚖️ Số kg vải dự kiến: <strong style="font-size: 13.5px; color: #047857;">${overallKgNeeded} kg</strong>
+                                        <div style="font-size: 12px; color: ${overallSub}; font-weight: 600; margin-bottom: 8px;">
+                                            ⚖️ Số kg vải dự kiến: <strong style="font-size: 13.5px; color: ${overallText};">${overallKgNeeded} kg</strong>
                                         </div>
                                     ` : ''}
                                 </div>
-                                ${calc.overall_ratio > 0 && calc.cheapest_overall ? `
-                                    <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed #6ee7b7; padding-top: 8px; margin-top: 8px;">
-                                        <div>🏆 Rẻ nhất: <strong style="color: #065f46;">${calc.cheapest_overall.source_name}</strong></div>
-                                        <div style="font-size: 17px; font-weight: 900; color: #059669; margin-top: 4px;">
+                                ${overallHasData ? `
+                                    <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 8px;">
+                                        <div>🏆 Rẻ nhất: <strong style="color: ${overallSub};">${calc.cheapest_overall.source_name}</strong></div>
+                                        <div style="font-size: 17px; font-weight: 900; color: ${overallText}; margin-top: 4px;">
                                             ${Number(calc.cheapest_overall.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo</span>
                                         </div>
                                         <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
                                             (Giá gốc: ${Number(calc.cheapest_overall.base_price).toLocaleString('vi-VN')}đ)
                                         </div>
-                                        <div style="font-size: 13px; font-weight: 800; color: #059669; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                        <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
                                             💰 Tổng tiền: ${Math.round(calc.cheapest_overall.price * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     </div>
-                                ` : '<div style="font-size: 12px; color: #64748b; font-style: italic; border-top: 1px dashed #6ee7b7; padding-top: 8px; margin-top: 8px;">Không có thực tế toàn chất liệu hoặc chưa có giá</div>'}
+                                ` : `<div style="font-size: 12px; color: ${overallSub}; font-style: italic; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 8px;">Không có thực tế toàn chất liệu hoặc chưa có giá</div>`}
                             </div>
                         </div>
                     `;
                 } else {
+                    const overallHasData = calc.overall_ratio > 0 && calc.cheapest_overall;
+                    const ovBg = overallHasData ? '#f8fafc' : '#fef2f2';
+                    const ovBorder = overallHasData ? '#e2e8f0' : '#fca5a5';
+                    const ovText = overallHasData ? '#334155' : '#991b1b';
+                    const ovLabelText = overallHasData ? '#64748b' : '#b91c1c';
+
                     subCardsHtml = `
                         <div style="display: flex; flex-direction: column; gap: 12px;">
                             <!-- Overall Summary Card -->
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div style="background: ${ovBg}; border: 1px solid ${ovBorder}; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                 <div>
-                                    <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">📊 Trung Bình Toàn Chất Liệu</div>
-                                    <div style="font-size: 16px; font-weight: 900; color: #334155;">
+                                    <div style="font-size: 11px; font-weight: 800; color: ${ovLabelText}; text-transform: uppercase;">📊 Trung Bình Toàn Chất Liệu</div>
+                                    <div style="font-size: 16px; font-weight: 900; color: ${ovText};">
                                         ${calc.overall_ratio ? calc.overall_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
                                     </div>
                                 </div>
-                                ${calc.overall_ratio > 0 && calc.cheapest_overall ? `
+                                ${overallHasData ? `
                                     <div style="text-align: right;">
                                         <div style="font-size: 11px; color: #64748b;">Rẻ nhất: <strong style="color: #334155;">${calc.cheapest_overall.source_name}</strong></div>
                                         <div style="font-size: 15px; font-weight: 800; color: #059669;">
@@ -2219,22 +2237,28 @@ async function _tlcgRunCalculation() {
 
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
                                 ${calc.range_calcs.map(rc => {
+                                    const rcHasData = rc.range_ratio > 0 && rc.cheapest_range;
+                                    const rcBg = rcHasData ? '#eff6ff' : '#fef2f2';
+                                    const rcBorder = rcHasData ? '#bfdbfe' : '#fca5a5';
+                                    const rcText = rcHasData ? '#1d4ed8' : '#991b1b';
+                                    const rcSub = rcHasData ? '#1e40af' : '#b91c1c';
+
                                     return `
-                                        <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+                                        <div style="background: ${rcBg}; border: 1.5px solid ${rcBorder}; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
                                             <div>
-                                                <div style="font-size: 11px; font-weight: 800; color: #1d4ed8; text-transform: uppercase; margin-bottom: 4px;">
+                                                <div style="font-size: 11px; font-weight: 800; color: ${rcText}; text-transform: uppercase; margin-bottom: 4px;">
                                                     Khung: ${rc.range_label}
                                                 </div>
-                                                <div style="font-size: 15px; font-weight: 800; color: #1e40af; margin-bottom: 4px;">
+                                                <div style="font-size: 15px; font-weight: 800; color: ${rcSub}; margin-bottom: 4px;">
                                                     Tỉ lệ: ${rc.range_ratio ? rc.range_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
                                                 </div>
                                             </div>
-                                            ${rc.range_ratio > 0 && rc.cheapest_range ? `
-                                                <div style="border-top: 1px dashed #bfdbfe; padding-top: 6px; margin-top: 6px; display: flex; justify-content: space-between; align-items: flex-end;">
+                                            ${rcHasData ? `
+                                                <div style="border-top: 1px dashed ${rcBorder}; padding-top: 6px; margin-top: 6px; display: flex; justify-content: space-between; align-items: flex-end;">
                                                     <span style="font-size: 11px; color: #475569;">🏆 ${rc.cheapest_range.source_name}</span>
-                                                    <span style="font-size: 13.5px; font-weight: 900; color: #2563eb;">${Number(rc.cheapest_range.price).toLocaleString('vi-VN')} đ</span>
+                                                    <span style="font-size: 13.5px; font-weight: 900; color: ${rcText};">${Number(rc.cheapest_range.price).toLocaleString('vi-VN')} đ</span>
                                                 </div>
-                                            ` : '<div style="font-size: 11px; color: #64748b; font-style: italic; border-top: 1px dashed #bfdbfe; padding-top: 6px; margin-top: 6px;">Chưa có dữ liệu thực tế</div>'}
+                                            ` : `<div style="font-size: 11px; color: ${rcSub}; font-style: italic; border-top: 1px dashed ${rcBorder}; padding-top: 6px; margin-top: 6px;">Chưa có dữ liệu thực tế</div>`}
                                         </div>
                                     `;
                                 }).join('')}
