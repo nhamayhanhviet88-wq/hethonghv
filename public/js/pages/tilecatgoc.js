@@ -2164,6 +2164,35 @@ function _tlcgRenderCalcResults() {
 
     const selectedId = _tlcg.selectedCalcSupplierId || 'all';
 
+    const getRankStyles = (idx) => {
+        const icons = ['🏆 ', '🥈 ', '🥉 ', '• '];
+        const icon = icons[Math.min(idx, 3)];
+        
+        let nameColor = '#1e293b';
+        let priceColor = '#334155';
+        let fontWeight = '600';
+        
+        if (idx === 0) {
+            priceColor = '#15803d'; // Green 700
+            nameColor = '#1e3a8a';  // Navy 800
+            fontWeight = '800';
+        } else if (idx === 1) {
+            priceColor = '#c2410c'; // Orange 700
+            nameColor = '#0369a1';  // Light Navy 700
+            fontWeight = '700';
+        } else if (idx === 2) {
+            priceColor = '#b91c1c'; // Red 700
+            nameColor = '#4f46e5';  // Indigo 600
+            fontWeight = '700';
+        } else {
+            priceColor = '#475569'; // Slate 600
+            nameColor = '#475569';  // Slate 600
+            fontWeight = '500';
+        }
+        
+        return { icon, nameColor, priceColor, fontWeight };
+    };
+
     let html = '';
 
     // 1. Supplier Base Prices Table
@@ -2369,16 +2398,17 @@ function _tlcgRenderCalcResults() {
                                 ` : ''}
                             </div>
                             ${rangeHasData ? `
-                                <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 8px; line-height: 1.5;">
+                                <div style="font-size: 12px; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 8px; line-height: 1.5;">
                                     ${rangeSupplierPrices.map((sp, idx) => {
-                                        const isCheapest = idx === 0;
                                         const isSelected = selectedId === 'all' || selectedId === String(sp.source_id);
-                                        const textWeight = isSelected ? '700' : 'normal';
-                                        const textColor = isSelected ? '#1e293b' : '#64748b';
+                                        const styles = getRankStyles(idx);
+                                        const finalNameColor = isSelected ? styles.nameColor : '#64748b';
+                                        const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
+                                        const finalWeight = isSelected ? styles.fontWeight : 'normal';
                                         return `
-                                            <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${textWeight}; color: ${textColor}; padding: 2px 0;">
-                                                <span>${isCheapest ? '🏆 ' : ''}${sp.source_name}</span>
-                                                <span>${Number(sp.price).toLocaleString('vi-VN')} đ</span>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 2px 0;">
+                                                <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
+                                                <span style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price).toLocaleString('vi-VN')} đ</span>
                                             </div>
                                         `;
                                     }).join('')}
@@ -2411,16 +2441,17 @@ function _tlcgRenderCalcResults() {
                                 ` : ''}
                             </div>
                             ${overallHasData ? `
-                                <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 8px; line-height: 1.5;">
+                                <div style="font-size: 12px; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 8px; line-height: 1.5;">
                                     ${overallSupplierPrices.map((sp, idx) => {
-                                        const isCheapest = idx === 0;
                                         const isSelected = selectedId === 'all' || selectedId === String(sp.source_id);
-                                        const textWeight = isSelected ? '700' : 'normal';
-                                        const textColor = isSelected ? '#1e293b' : '#64748b';
+                                        const styles = getRankStyles(idx);
+                                        const finalNameColor = isSelected ? styles.nameColor : '#64748b';
+                                        const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
+                                        const finalWeight = isSelected ? styles.fontWeight : 'normal';
                                         return `
-                                            <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${textWeight}; color: ${textColor}; padding: 2px 0;">
-                                                <span>${isCheapest ? '🏆 ' : ''}${sp.source_name}</span>
-                                                <span>${Number(sp.price).toLocaleString('vi-VN')} đ / áo</span>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 2px 0;">
+                                                <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
+                                                <span style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price).toLocaleString('vi-VN')} đ / áo</span>
                                             </div>
                                         `;
                                     }).join('')}
@@ -2456,15 +2487,16 @@ function _tlcgRenderCalcResults() {
                                 </div>
                             </div>
                             ${overallHasData ? `
-                                <div style="text-align: right; line-height: 1.5; font-size: 12px;">
+                                <div style="text-align: right; line-height: 1.5; font-size: 12.5px;">
                                     ${overallSupplierPrices.map((sp, idx) => {
-                                        const isCheapest = idx === 0;
                                         const isSelected = selectedId === 'all' || selectedId === String(sp.source_id);
-                                        const textWeight = isSelected ? '700' : 'normal';
-                                        const textColor = isSelected ? '#1e293b' : '#64748b';
+                                        const styles = getRankStyles(idx);
+                                        const finalNameColor = isSelected ? styles.nameColor : '#64748b';
+                                        const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
+                                        const finalWeight = isSelected ? styles.fontWeight : 'normal';
                                         return `
-                                            <div style="font-weight: ${textWeight}; color: ${textColor};">
-                                                ${isCheapest ? '🏆 ' : ''}${sp.source_name}: ${Number(sp.price).toLocaleString('vi-VN')} đ / áo
+                                            <div style="font-weight: ${finalWeight}; color: ${finalNameColor};">
+                                                ${styles.icon}${sp.source_name}: <span style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price).toLocaleString('vi-VN')} đ / áo</span>
                                             </div>
                                         `;
                                     }).join('')}
@@ -2511,14 +2543,15 @@ function _tlcgRenderCalcResults() {
                                         ${rcHasData ? `
                                             <div style="border-top: 1px dashed ${rcBorder}; padding-top: 6px; margin-top: 6px; font-size: 11.5px; line-height: 1.5;">
                                                 ${rcSupplierPrices.map((sp, idx) => {
-                                                    const isCheapest = idx === 0;
                                                     const isSelected = selectedId === 'all' || selectedId === String(sp.source_id);
-                                                    const textWeight = isSelected ? '700' : 'normal';
-                                                    const textColor = isSelected ? '#1e293b' : '#64748b';
+                                                    const styles = getRankStyles(idx);
+                                                    const finalNameColor = isSelected ? styles.nameColor : '#64748b';
+                                                    const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
+                                                    const finalWeight = isSelected ? styles.fontWeight : 'normal';
                                                     return `
-                                                        <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${textWeight}; color: ${textColor}; padding: 1px 0;">
-                                                            <span>${isCheapest ? '🏆 ' : ''}${sp.source_name}</span>
-                                                            <span style="font-weight: 700; color: ${isSelected ? rcText : '#64748b'};">${Number(sp.price).toLocaleString('vi-VN')} đ</span>
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 1px 0;">
+                                                            <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
+                                                            <span style="font-weight: 800; color: ${finalPriceColor};">${Number(sp.price).toLocaleString('vi-VN')} đ</span>
                                                         </div>
                                                     `;
                                                 }).join('')}
