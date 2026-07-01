@@ -7,6 +7,7 @@ var _tlcg = {
     products: [],
     selectedRangeId: '',
     selectedGroup: 'ALL', // 'ALL', 'KG', 'MET', 'SAN'
+    statsFilter: 'ALL', // 'ALL', 'CONFIGURED', 'UNCONFIGURED'
     filter: {
         search: ''
     },
@@ -106,24 +107,45 @@ async function renderTilecatgocPage(content) {
                 margin-bottom: 24px;
             }
             .tlcg-stat-card {
-                background: white;
                 border-radius: 16px;
-                padding: 16px 20px;
-                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03), 0 2px 4px -1px rgba(0,0,0,0.02);
-                border: 1px solid #e2e8f0;
+                padding: 18px 22px;
                 display: flex;
                 flex-direction: column;
+                cursor: pointer;
+                transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+                border: 3px solid transparent;
+            }
+            .tlcg-stat-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+            }
+            .tlcg-stat-card#stat-card-all.active {
+                border-color: #1e1b4b;
+                box-shadow: 0 0 0 2px #c7d2fe, 0 10px 20px rgba(79, 70, 229, 0.15);
+                transform: translateY(-2px) scale(1.02);
+            }
+            .tlcg-stat-card#stat-card-configured.active {
+                border-color: #064e3b;
+                box-shadow: 0 0 0 2px #a7f3d0, 0 10px 20px rgba(16, 185, 129, 0.15);
+                transform: translateY(-2px) scale(1.02);
+            }
+            .tlcg-stat-card#stat-card-unconfigured.active {
+                border-color: #78350f;
+                box-shadow: 0 0 0 2px #fde68a, 0 10px 20px rgba(245, 158, 11, 0.15);
+                transform: translateY(-2px) scale(1.02);
             }
             .tlcg-stat-val {
-                font-size: 26px;
+                font-size: 28px;
                 font-weight: 800;
-                color: #4f46e5;
-                margin-bottom: 4px;
+                color: #ffffff;
+                margin-bottom: 6px;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.1);
             }
             .tlcg-stat-label {
-                font-size: 13px;
-                color: #64748b;
-                font-weight: 600;
+                font-size: 13.5px;
+                color: #ffffff;
+                font-weight: 700;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.1);
             }
             
             /* Toolbar & Tabs */
@@ -844,16 +866,16 @@ function _tlcgRenderPage() {
             </div>
 
             <div class="tlcg-stats-row">
-                <div class="tlcg-stat-card">
+                <div class="tlcg-stat-card ${_tlcg.statsFilter === 'ALL' ? 'active' : ''}" id="stat-card-all" onclick="_tlcgSetStatsFilter('ALL')" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);">
                     <span class="tlcg-stat-val">${totalMaterials}</span>
                     <span class="tlcg-stat-label">Tổng số loại vải</span>
                 </div>
-                <div class="tlcg-stat-card">
-                    <span class="tlcg-stat-val" style="color: #10b981;">${configuredCount}</span>
+                <div class="tlcg-stat-card ${_tlcg.statsFilter === 'CONFIGURED' ? 'active' : ''}" id="stat-card-configured" onclick="_tlcgSetStatsFilter('CONFIGURED')" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <span class="tlcg-stat-val">${configuredCount}</span>
                     <span class="tlcg-stat-label">Loại vải có tỉ lệ thực tế</span>
                 </div>
-                <div class="tlcg-stat-card">
-                    <span class="tlcg-stat-val" style="color: #f59e0b;">${totalMaterials - configuredCount}</span>
+                <div class="tlcg-stat-card ${_tlcg.statsFilter === 'UNCONFIGURED' ? 'active' : ''}" id="stat-card-unconfigured" onclick="_tlcgSetStatsFilter('UNCONFIGURED')" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    <span class="tlcg-stat-val">${totalMaterials - configuredCount}</span>
                     <span class="tlcg-stat-label">Chưa có số liệu thực tế</span>
                 </div>
             </div>
@@ -913,6 +935,20 @@ function _tlcgSelectGroup(group) {
     const grpIdx = ['ALL', 'KG', 'MET', 'SAN'].indexOf(group);
     if (tabs[grpIdx]) tabs[grpIdx].classList.add('active');
 
+    const grid = document.getElementById('tlcgGrid');
+    if (grid) {
+        grid.innerHTML = _tlcgRenderGrid();
+    }
+}
+
+function _tlcgSetStatsFilter(filterVal) {
+    _tlcg.statsFilter = filterVal;
+    
+    // Re-render active card borders and glows
+    document.querySelectorAll('.tlcg-stat-card').forEach(c => c.classList.remove('active'));
+    const activeCard = document.getElementById(`stat-card-${filterVal.toLowerCase()}`);
+    if (activeCard) activeCard.classList.add('active');
+    
     const grid = document.getElementById('tlcgGrid');
     if (grid) {
         grid.innerHTML = _tlcgRenderGrid();
@@ -979,6 +1015,16 @@ function _tlcgGetMaterialStats(matName) {
 
 function _tlcgRenderGrid() {
     const q = (_tlcg.filter.search || '').trim().toLowerCase();
+    
+    // Build active materials set
+    const activeMaterialsSet = new Set();
+    _tlcg.stats.forEach(s => {
+        if (Number(s.total_kg) > 0) {
+            const mat = _tlcg.materials.find(m => m.name.trim().toLowerCase() === s.material_name.trim().toLowerCase());
+            if (mat) activeMaterialsSet.add(mat.id);
+        }
+    });
+
     const filtered = _tlcg.materials.filter(m => {
         // Filter by search query
         const matchQuery = !q || (m.name || '').toLowerCase().indexOf(q) >= 0 || (m.warehouse_name || '').toLowerCase().indexOf(q) >= 0;
@@ -988,6 +1034,13 @@ function _tlcgRenderGrid() {
         if (_tlcg.selectedGroup !== 'ALL') {
             const grp = _tlcgGetWarehouseGroup(m);
             if (grp !== _tlcg.selectedGroup) return false;
+        }
+
+        // Filter by statsFilter
+        if (_tlcg.statsFilter === 'CONFIGURED') {
+            if (!activeMaterialsSet.has(m.id)) return false;
+        } else if (_tlcg.statsFilter === 'UNCONFIGURED') {
+            if (activeMaterialsSet.has(m.id)) return false;
         }
 
         return true;
