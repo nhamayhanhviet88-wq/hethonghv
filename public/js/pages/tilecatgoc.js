@@ -1197,7 +1197,6 @@ async function _tlcgLoadDrawerContent(mat) {
         html += `<h4 style="margin: 0 0 12px 0; color: #334155; font-size: 14.5px; font-weight: 800;">📅 Danh sách phiếu cắt theo tháng</h4>`;
         
         // Add status filter tabs
-        const activeFilter = _tlcg.activeFilter || 'all';
         html += `
             <div class="tlcg-drawer-filters" style="display: flex; gap: 8px; margin-bottom: 16px;">
                 <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('all')" style="border: 1px solid #cbd5e1; background: ${activeFilter === 'all' ? '#cbd5e1' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #334155; outline: none; transition: all 0.2s;">Tất cả</button>

@@ -907,7 +907,6 @@
                 `;
 
                 // Add status filter tabs on mobile
-                const activeFilter = _mobileTlcg.activeFilter || 'all';
                 html += `
                     <div class="m-drawer-filters" style="display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch;">
                         <button onclick="setMobileFilter('all')" style="border: 1px solid #cbd5e1; background: ${activeFilter === 'all' ? '#cbd5e1' : 'white'}; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; cursor: pointer; color: #334155; white-space: nowrap; outline: none; transition: all 0.2s;">Tất cả</button>
