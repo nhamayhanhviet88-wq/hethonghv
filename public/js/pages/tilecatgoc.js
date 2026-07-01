@@ -1228,6 +1228,7 @@ async function _tlcgLoadDrawerContent(mat) {
         const queryParams = `?material_name=${encodeURIComponent(mat.name)}${_tlcg.selectedRangeId ? `&range_id=${_tlcg.selectedRangeId}` : ''}`;
         const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
         const tickets = res.tickets || [];
+        const activeSegmentsList = _tlcgGetActiveSegmentsForMaterial(mat);
 
         // Sort tickets globally (in-place persistence until drawer close / page refresh)
         if (_tlcg.initialOrderMap) {
@@ -1441,7 +1442,8 @@ async function _tlcgLoadDrawerContent(mat) {
                                     ${group.tickets.map(t => {
                                         const isPending = !t.ratio_approved && !t.ratio_rejected;
                                         const rowClass = isPending ? 'pending-row' : (t.ratio_rejected ? 'rejected-row' : '');
-                                        const segmentLabel = _tlcgGetSegmentBadge(t.size_segment);
+                                        const isActiveSeg = t.size_segment && activeSegmentsList.includes(t.size_segment);
+                                        const segmentLabel = isActiveSeg ? _tlcgGetSegmentBadge(t.size_segment) : `<span style="color:#ef4444; font-style:italic; font-size: 11.5px;">Chưa phân loại</span>`;
                                         const parsed = _tlcgParseProductName(t.product_name, t.order_code);
                                         return `
                                             <tr class="${rowClass}">

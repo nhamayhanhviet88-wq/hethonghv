@@ -710,7 +710,10 @@
             let bg = '#e2e8f0';
             let color = '#475569';
             const segObj = (_mobileTlcg.sizeSegments || []).find(s => s.name === cleanSegment);
-            let icon = segObj && segObj.icon ? segObj.icon : '🧑';
+            if (!segObj) {
+                return `<span style="color:#ef4444; font-style:italic;">Chưa chia</span>`;
+            }
+            let icon = segObj.icon ? segObj.icon : '🧑';
             
             if (cleanSegment === 'Người Lớn') {
                 bg = '#dbeafe';
@@ -896,6 +899,7 @@
                 const queryParams = `?material_name=${encodeURIComponent(mat.name)}${_mobileTlcg.selectedRangeId ? `&range_id=${_mobileTlcg.selectedRangeId}` : ''}`;
                 const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
                 const tickets = res.tickets || [];
+                const activeSegmentsList = _mobileTlcgGetActiveSegmentsForMaterial(mat);
 
                 // Sort tickets globally (in-place persistence until drawer close / page refresh)
                 if (_mobileTlcg.initialOrderMap) {
@@ -1107,7 +1111,7 @@
                                                     <div class="m-ticket-info" style="cursor: pointer; flex: 1;" onclick="openTicketDetailMobile(${t.id})" title="Nhấp để xem chi tiết đơn cắt">
                                                         <span class="m-ticket-code" style="color: #2563eb; text-decoration: underline;">${parsed.code} (${t.fabric_color})</span>
                                                         <span class="m-ticket-sub" style="font-size:10.5px; color:#475569; font-weight:500; margin-top:2px; display:block;">${parsed.product}</span>
-                                                        <span class="m-ticket-sub">${t.cut_quantity} áo / ${t.kg_cut} ${mat.unit || 'kg'} • ${getSegmentBadgeMobile(t.size_segment)}</span>
+                                                        <span class="m-ticket-sub">${t.cut_quantity} áo / ${t.kg_cut} ${mat.unit || 'kg'} • ${t.size_segment && activeSegmentsList.includes(t.size_segment) ? getSegmentBadgeMobile(t.size_segment) : '<span style="color:#ef4444; font-style:italic;">Chưa chia</span>'}</span>
                                                     </div>
                                                     <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
                                                         <span class="m-ticket-val">${Number(t.cut_ratio).toFixed(2)}</span>
