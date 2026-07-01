@@ -530,6 +530,66 @@
             }
         });
 
+        function parseProductName(prodName, orderCode) {
+            if (!prodName) return { code: orderCode || '---', product: '---' };
+            
+            // Normalize dashes
+            const normalized = prodName.replace(/\s*[—–-]\s*/g, ' - ');
+            const parts = normalized.split(' - ');
+            
+            const code = orderCode || parts[0] || '---';
+            let phieuNum = null;
+            let phoiNum = null;
+            let productParts = [];
+            
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i].trim();
+                if (!part) continue;
+                
+                if (i === 0 && part.toLowerCase() === code.toLowerCase()) {
+                    continue;
+                }
+                
+                const phieuMatch = part.match(/^Phi\u1ebfu\s+(\d+)$/i);
+                if (phieuMatch) {
+                    phieuNum = phieuMatch[1];
+                    continue;
+                }
+                
+                const phoiMatch = part.match(/^P\s*(\d+)$/i);
+                if (phoiMatch) {
+                    phoiNum = phoiMatch[1];
+                    continue;
+                }
+                
+                if (part.toLowerCase() === code.toLowerCase()) {
+                    continue;
+                }
+                
+                productParts.push(part);
+            }
+            
+            let displayCode = code;
+            if (phieuNum !== null) {
+                displayCode += ` - P.${phieuNum}`;
+            }
+            if (phoiNum !== null) {
+                displayCode += ` - ${phoiNum}`;
+            }
+            
+            let displayProduct = '---';
+            if (productParts.length > 0) {
+                displayProduct = productParts.join(' - ');
+            } else if (parts.length > 1 && !phieuNum && !phoiNum) {
+                displayProduct = parts.slice(1).join(' - ');
+            }
+            
+            return {
+                code: displayCode,
+                product: displayProduct
+            };
+        }
+
         async function loadData(loadRanges = true) {
             try {
                 const query = _mobileTlcg.selectedRangeId ? `?range_id=${_mobileTlcg.selectedRangeId}` : '';
@@ -760,6 +820,22 @@
 
                 const monthKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
+                // Sort tickets inside each month group naturally
+                Object.keys(grouped).forEach(key => {
+                    grouped[key].tickets.sort((tA, tB) => {
+                        const parsedA = parseProductName(tA.product_name, tA.order_code);
+                        const parsedB = parseProductName(tB.product_name, tB.order_code);
+                        
+                        const cmp = parsedA.code.localeCompare(parsedB.code, undefined, { numeric: true, sensitivity: 'base' });
+                        if (cmp !== 0) return cmp;
+                        
+                        const colorCmp = (tA.fabric_color || '').localeCompare(tB.fabric_color || '');
+                        if (colorCmp !== 0) return colorCmp;
+                        
+                        return tA.id - tB.id;
+                    });
+                });
+
                 // Auto-expand latest month
                 if (monthKeys.length > 0 && _mobileTlcg.expandedMonths.size === 0) {
                     _mobileTlcg.expandedMonths.add(monthKeys[0]);
@@ -825,17 +901,22 @@
                                     <div class="m-ticket-list">
                                         ${group.tickets.map(t => {
                                             const isPending = !t.ratio_approved;
+                                            const parsed = parseProductName(t.product_name, t.order_code);
                                             return `
                                                 <div class="m-ticket-row ${isPending ? 'pending' : ''}">
                                                     <div class="m-ticket-info" style="cursor: pointer; flex: 1;" onclick="openTicketDetailMobile(${t.id})" title="Nhấp để xem chi tiết đơn cắt">
-                                                        <span class="m-ticket-code" style="color: #2563eb; text-decoration: underline;">${t.order_code || '---'} (${t.fabric_color})</span>
+                                                        <span class="m-ticket-code" style="color: #2563eb; text-decoration: underline;">${parsed.code} (${t.fabric_color})</span>
+                                                        <span class="m-ticket-sub" style="font-size:10.5px; color:#475569; font-weight:500; margin-top:2px; display:block;">${parsed.product}</span>
                                                         <span class="m-ticket-sub">${t.cut_quantity} áo / ${t.kg_cut} ${mat.unit || 'kg'} • ${t.size_segment || 'Chưa chia'}</span>
                                                     </div>
                                                     <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
                                                         <span class="m-ticket-val">${Number(t.cut_ratio).toFixed(2)}</span>
                                                         ${_mobileTlcg.isGD ? `
                                                             ${isPending ? `
-                                                                <button class="m-btn-approve" onclick="approveTicket(${t.id})">Duyệt</button>
+                                                                <div style="display:flex; gap:6px;">
+                                                                    <button class="m-btn-approve" onclick="approveTicket(${t.id})">Duyệt</button>
+                                                                    <button class="m-btn-unapprove" style="background:#fee2e2; color:#ef4444; padding:5px 10px; font-size:11px;" onclick="rejectTicket(${t.id})">Không duyệt</button>
+                                                                </div>
                                                             ` : `
                                                                 <button class="m-btn-unapprove" onclick="unapproveTicket(${t.id})">Hủy</button>
                                                             `}
@@ -1102,6 +1183,23 @@
                     await loadData(false);
                 } else {
                     toast(res.error || 'Hủy duyệt thất bại', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                toast(err.message, 'error');
+            }
+        }
+
+        async function rejectTicket(id) {
+            if (!confirm('Bạn có chắc chắn muốn không duyệt và ẩn đơn cắt này?')) return;
+            try {
+                const res = await apiCall(`/api/cutting/reject-ratio/${id}`, 'POST');
+                if (res.success) {
+                    toast('Đã không duyệt và ẩn đơn cắt');
+                    await loadSheetContent(_mobileTlcg.activeMat);
+                    await loadData(false);
+                } else {
+                    toast(res.error || 'Thao tác thất bại', 'error');
                 }
             } catch (err) {
                 console.error(err);

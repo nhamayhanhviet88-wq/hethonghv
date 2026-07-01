@@ -375,6 +375,7 @@ module.exports = async function(fastify) {
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS wash_market_image TEXT`); } catch(e) {}
     // Add printing_contractor_id to cutting_records
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS printing_contractor_id INTEGER REFERENCES printing_contractors(id) ON DELETE SET NULL`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_rejected BOOLEAN DEFAULT false`); } catch(e) {}
     // Backfill cutting_category for existing records
     try {
         await db.exec(`
@@ -4046,6 +4047,7 @@ module.exports = async function(fastify) {
                       WHERE sub_oi.dht_order_id = o.id
                         AND COALESCE(jsonb_array_length(sub_oi.material_pairs::jsonb), 0) > 1
                   )
+                  AND COALESCE(cr.ratio_rejected, false) = false
                   AND TRIM(LOWER(cr.material_name)) = TRIM(LOWER($1))
             `;
             
@@ -4108,6 +4110,25 @@ module.exports = async function(fastify) {
         await db.run(`
             UPDATE cutting_records 
             SET ratio_approved = false, 
+                ratio_approved_at = NULL, 
+                ratio_approved_by = NULL 
+            WHERE id = $1
+        `, [Number(id)]);
+        
+        return { success: true };
+    });
+
+    // ========== POST REJECT RATIO (Director Only) ==========
+    fastify.post('/api/cutting/reject-ratio/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền không duyệt tỉ lệ cắt!' });
+        }
+        const { id } = request.params;
+        
+        await db.run(`
+            UPDATE cutting_records 
+            SET ratio_approved = false, 
+                ratio_rejected = true,
                 ratio_approved_at = NULL, 
                 ratio_approved_by = NULL 
             WHERE id = $1

@@ -713,6 +713,66 @@ function _tlcgGetWarehouseGroup(mat) {
     return 'OTHER';
 }
 
+function _tlcgParseProductName(prodName, orderCode) {
+    if (!prodName) return { code: orderCode || '---', product: '---' };
+    
+    // Normalize dashes
+    const normalized = prodName.replace(/\s*[—–-]\s*/g, ' - ');
+    const parts = normalized.split(' - ');
+    
+    const code = orderCode || parts[0] || '---';
+    let phieuNum = null;
+    let phoiNum = null;
+    let productParts = [];
+    
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i].trim();
+        if (!part) continue;
+        
+        if (i === 0 && part.toLowerCase() === code.toLowerCase()) {
+            continue;
+        }
+        
+        const phieuMatch = part.match(/^Phi\u1ebfu\s+(\d+)$/i);
+        if (phieuMatch) {
+            phieuNum = phieuMatch[1];
+            continue;
+        }
+        
+        const phoiMatch = part.match(/^P\s*(\d+)$/i);
+        if (phoiMatch) {
+            phoiNum = phoiMatch[1];
+            continue;
+        }
+        
+        if (part.toLowerCase() === code.toLowerCase()) {
+            continue;
+        }
+        
+        productParts.push(part);
+    }
+    
+    let displayCode = code;
+    if (phieuNum !== null) {
+        displayCode += ` - P.${phieuNum}`;
+    }
+    if (phoiNum !== null) {
+        displayCode += ` - ${phoiNum}`;
+    }
+    
+    let displayProduct = '---';
+    if (productParts.length > 0) {
+        displayProduct = productParts.join(' - ');
+    } else if (parts.length > 1 && !phieuNum && !phoiNum) {
+        displayProduct = parts.slice(1).join(' - ');
+    }
+    
+    return {
+        code: displayCode,
+        product: displayProduct
+    };
+}
+
 async function _tlcgLoadData() {
     try {
         const query = _tlcg.selectedRangeId ? `?range_id=${_tlcg.selectedRangeId}` : '';
@@ -1044,6 +1104,22 @@ async function _tlcgLoadDrawerContent(mat) {
 
         const monthKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a)); // Sort months descending
 
+        // Sort tickets in each month naturally by parsed code
+        Object.keys(grouped).forEach(key => {
+            grouped[key].tickets.sort((tA, tB) => {
+                const parsedA = _tlcgParseProductName(tA.product_name, tA.order_code);
+                const parsedB = _tlcgParseProductName(tB.product_name, tB.order_code);
+                
+                const cmp = parsedA.code.localeCompare(parsedB.code, undefined, { numeric: true, sensitivity: 'base' });
+                if (cmp !== 0) return cmp;
+                
+                const colorCmp = (tA.fabric_color || '').localeCompare(tB.fabric_color || '');
+                if (colorCmp !== 0) return colorCmp;
+                
+                return tA.id - tB.id;
+            });
+        });
+
         // Auto-expand the first/latest month
         if (monthKeys.length > 0 && _tlcg.expandedMonths.size === 0) {
             _tlcg.expandedMonths.add(monthKeys[0]);
@@ -1116,12 +1192,13 @@ async function _tlcgLoadDrawerContent(mat) {
                                 <table class="tlcg-ticket-table" style="min-width: 580px;">
                                     <thead>
                                         <tr>
-                                        <th>Mã Đơn / SP</th>
-                                        <th>Màu sắc</th>
+                                        <th>Mã Đơn</th>
+                                        <th>Sản phẩm</th>
                                         <th>Phân khúc</th>
+                                        <th>Màu sắc</th>
                                         <th style="text-align: center;">SL / Trọng lượng</th>
                                         <th style="text-align: center;">Tỉ lệ</th>
-                                        <th style="text-align: center; width: 100px;">Hành động</th>
+                                        <th style="text-align: center; width: 140px;">Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1129,20 +1206,24 @@ async function _tlcgLoadDrawerContent(mat) {
                                         const isPending = !t.ratio_approved;
                                         const rowClass = isPending ? 'pending-row' : '';
                                         const segmentLabel = t.size_segment || '<span style="color:#ef4444;font-style:italic;">Chưa phân loại</span>';
+                                        const parsed = _tlcgParseProductName(t.product_name, t.order_code);
                                         return `
                                             <tr class="${rowClass}">
                                                 <td style="cursor: pointer;" onclick="_tlcgShowTicketDetail(${t.id})" title="Nhấp để xem chi tiết đơn cắt">
-                                                    <div style="font-weight: 800; color: #2563eb; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${t.order_code || '---'}</div>
-                                                    <div style="font-size: 10.5px; color: #1e3a8a; font-weight: 600; max-width: 165px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${t.product_name}</div>
+                                                    <div style="font-weight: 800; color: #2563eb; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${parsed.code}</div>
                                                 </td>
-                                                <td style="font-weight: 600;">${t.fabric_color}</td>
+                                                <td style="font-weight: 500; font-size: 11.5px; color: #334155; max-width: 200px; word-break: break-word;">${parsed.product}</td>
                                                 <td style="font-weight: 600;">${segmentLabel}</td>
+                                                <td style="font-weight: 600;">${t.fabric_color}</td>
                                                 <td style="text-align: center; font-weight: 600;">${t.cut_quantity} áo / ${t.kg_cut} ${mat.unit || 'kg'}</td>
                                                 <td style="text-align: center; font-weight: 800; color: #4f46e5;">${Number(t.cut_ratio).toFixed(2)}</td>
                                                 <td style="text-align: center;">
                                                     ${_tlcg.isGD ? `
                                                         ${isPending ? `
-                                                            <button class="btn btn-sm btn-success" style="font-size: 11px; padding: 3px 8px; font-weight: 700;" onclick="_tlcgApproveTicket(${t.id})">Duyệt</button>
+                                                            <div style="display: flex; gap: 4px; justify-content: center;">
+                                                                <button class="btn btn-sm btn-success" style="font-size: 11px; padding: 3px 8px; font-weight: 700;" onclick="_tlcgApproveTicket(${t.id})">Duyệt</button>
+                                                                <button class="btn btn-sm btn-danger" style="font-size: 11px; padding: 3px 8px; font-weight: 700;" onclick="_tlcgRejectTicket(${t.id})">Không duyệt</button>
+                                                            </div>
                                                         ` : `
                                                             <button class="btn btn-sm btn-outline-danger" style="font-size: 10px; padding: 2px 6px; font-weight: 700;" onclick="_tlcgUnapproveTicket(${t.id})">Hủy</button>
                                                         `}
@@ -1216,6 +1297,23 @@ async function _tlcgUnapproveTicket(id) {
         }
     } catch (err) {
         console.error('[Unapprove ticket error]', err);
+        if (typeof showToast === 'function') showToast(err.message, 'error');
+    }
+}
+
+async function _tlcgRejectTicket(id) {
+    if (!confirm('Bạn có chắc chắn muốn không duyệt và ẩn đơn cắt này?')) return;
+    try {
+        const res = await apiCall(`/api/cutting/reject-ratio/${id}`, 'POST');
+        if (res.success) {
+            if (typeof showToast === 'function') showToast('Đã không duyệt và ẩn đơn cắt!', 'success');
+            await _tlcgLoadDrawerContent(_tlcg.activeMaterial);
+            await _tlcgLoadData();
+        } else {
+            if (typeof showToast === 'function') showToast(res.error || 'Thao tác thất bại', 'error');
+        }
+    } catch (err) {
+        console.error('[Reject ticket error]', err);
         if (typeof showToast === 'function') showToast(err.message, 'error');
     }
 }
