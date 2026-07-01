@@ -1098,12 +1098,12 @@ function _tlcgRenderGrid() {
                     <span class="tlcg-segment-val ${s.adult !== '---' ? 'val-active' : ''}">${s.adult}</span>
                 </div>
                 <div class="tlcg-segment-row">
-                    <span class="tlcg-segment-name">👶 Mầm Non</span>
-                    <span class="tlcg-segment-val ${s.mamnon !== '---' ? 'val-active' : ''}">${s.mamnon}</span>
-                </div>
-                <div class="tlcg-segment-row">
                     <span class="tlcg-segment-name">🎒 Tiểu Học</span>
                     <span class="tlcg-segment-val ${s.tieuhoc !== '---' ? 'val-active' : ''}">${s.tieuhoc}</span>
+                </div>
+                <div class="tlcg-segment-row">
+                    <span class="tlcg-segment-name">👶 Mầm Non</span>
+                    <span class="tlcg-segment-val ${s.mamnon !== '---' ? 'val-active' : ''}">${s.mamnon}</span>
                 </div>
                 <div class="tlcg-segment-row">
                     <span class="tlcg-segment-name">👕 Oversize</span>
@@ -1307,12 +1307,12 @@ async function _tlcgLoadDrawerContent(mat) {
                     <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.adult}</div>
                 </div>
                 <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Mầm Non</div>
-                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.mamnon}</div>
-                </div>
-                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
                     <div style="font-size: 11px; color: #64748b; font-weight: 600;">Tiểu Học</div>
                     <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.tieuhoc}</div>
+                </div>
+                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Mầm Non</div>
+                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.mamnon}</div>
                 </div>
                 <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
                     <div style="font-size: 11px; color: #64748b; font-weight: 600;">Oversize</div>
@@ -1603,8 +1603,8 @@ function _tlcgRenderModalProducts() {
                 <select class="tlcg-prod-select" data-id="${p.id}">
                     <option value="" ${seg === '' ? 'selected' : ''}>-- Chưa phân loại --</option>
                     <option value="Người Lớn" ${seg === 'Người Lớn' ? 'selected' : ''}>👔 Người Lớn</option>
-                    <option value="Mầm Non" ${seg === 'Mầm Non' ? 'selected' : ''}>👶 Mầm Non</option>
                     <option value="Tiểu Học" ${seg === 'Tiểu Học' ? 'selected' : ''}>🎒 Tiểu Học</option>
+                    <option value="Mầm Non" ${seg === 'Mầm Non' ? 'selected' : ''}>👶 Mầm Non</option>
                     <option value="Oversize" ${seg === 'Oversize' ? 'selected' : ''}>👕 Oversize</option>
                 </select>
             </div>
@@ -1997,8 +1997,8 @@ async function _tlcgOpenPricingCalculatorModal() {
                         <select id="calc_segment" class="tlcg-search-input" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px;">
                             <option value="">-- Tất cả phân khúc --</option>
                             <option value="Người Lớn">👔 Người Lớn</option>
-                            <option value="Mầm Non">👶 Mầm Non</option>
                             <option value="Tiểu Học">🎒 Tiểu Học</option>
+                            <option value="Mầm Non">👶 Mầm Non</option>
                             <option value="Oversize">👕 Oversize</option>
                         </select>
                     </div>

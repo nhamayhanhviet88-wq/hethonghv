@@ -3066,7 +3066,7 @@ module.exports = async function(fastify) {
                 'Tiểu Học': 'Áo Tiểu Học',
                 'Oversize': 'Áo Oversize'
             };
-            let segmentsToCalc = ['Người Lớn', 'Mầm Non', 'Tiểu Học', 'Oversize'];
+            let segmentsToCalc = ['Người Lớn', 'Tiểu Học', 'Mầm Non', 'Oversize'];
             if (size_segment && segmentMapping[size_segment]) {
                 segmentsToCalc = [size_segment];
             }
