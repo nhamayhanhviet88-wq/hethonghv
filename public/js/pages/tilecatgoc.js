@@ -1016,24 +1016,21 @@ function _tlcgGetSegmentBadge(segment) {
     const cleanSegment = segment.trim();
     let bg = '#e2e8f0';
     let color = '#475569';
-    let icon = '❓';
+    const segObj = (_tlcg.sizeSegments || []).find(s => s.name === cleanSegment);
+    let icon = segObj && segObj.icon ? segObj.icon : '🧑';
     
     if (cleanSegment === 'Người Lớn') {
         bg = '#dbeafe'; // Light blue
         color = '#1e40af'; // Dark blue
-        icon = '👔';
     } else if (cleanSegment === 'Mầm Non') {
         bg = '#fce7f3'; // Light pink
         color = '#9d174d'; // Dark pink
-        icon = '👶';
     } else if (cleanSegment === 'Tiểu Học') {
         bg = '#dcfce7'; // Light green
         color = '#166534'; // Dark green
-        icon = '🎒';
     } else if (cleanSegment === 'Oversize') {
         bg = '#f3e8ff'; // Light purple
         color = '#6b21a8'; // Dark purple
-        icon = '👕';
     }
     
     return `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background-color: ${bg}; color: ${color}; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">${icon} ${cleanSegment}</span>`;
@@ -1078,10 +1075,8 @@ function _tlcgGetMaterialStats(matName, mat) {
             ratioText = `${(data.qty / data.kg).toFixed(2)} sp/${mat.unit || 'kg'}`;
         }
         
-        let icon = '👔';
-        if (seg.includes('Mầm Non') || seg.includes('MN') || seg === 'Mầm Non') icon = '👶';
-        else if (seg.includes('Tiểu Học') || seg.includes('TH') || seg === 'Tiểu Học') icon = '🎒';
-        else if (seg.includes('Oversize') || seg.includes('Over') || seg === 'Oversize') icon = '👕';
+        const segObj = (_tlcg.sizeSegments || []).find(s => s.name === seg);
+        const icon = segObj && segObj.icon ? segObj.icon : '🧑';
         
         return {
             name: seg,
@@ -1648,10 +1643,7 @@ function _tlcgRenderModalProducts() {
     listDiv.innerHTML = filtered.map(p => {
         const seg = p.size_segment || '';
         const optionsHtml = (_tlcg.sizeSegments || []).map(s => {
-            let icon = '👔';
-            if (s.name.includes('Mầm Non') || s.name.includes('MN') || s.name === 'Mầm Non') icon = '👶';
-            else if (s.name.includes('Tiểu Học') || s.name.includes('TH') || s.name === 'Tiểu Học') icon = '🎒';
-            else if (s.name.includes('Oversize') || s.name.includes('Over') || s.name === 'Oversize') icon = '👕';
+            const icon = s.icon || '🧑';
             return `<option value="${s.name}" ${seg === s.name ? 'selected' : ''}>${icon} ${s.name}</option>`;
         }).join('');
 
@@ -2052,11 +2044,7 @@ async function _tlcgOpenPricingCalculatorModal() {
                         <select id="calc_segment" class="tlcg-search-input" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px;">
                             <option value="">-- Tất cả phân khúc --</option>
                             ${(_tlcg.sizeSegments || []).map(s => {
-                                let icon = '👔';
-                                if (s.name.includes('Mầm Non') || s.name.includes('MN') || s.name === 'Mầm Non') icon = '👶';
-                                else if (s.name.includes('Tiểu Học') || s.name.includes('TH') || s.name === 'Tiểu Học') icon = '🎒';
-                                else if (s.name.includes('Oversize') || s.name.includes('Over') || s.name === 'Oversize') icon = '👕';
-                                return `<option value="${s.name}">${icon} ${s.name}</option>`;
+                                return `<option value="${s.name}">${s.icon || '🧑'} ${s.name}</option>`;
                             }).join('')}
                         </select>
                     </div>
@@ -2091,11 +2079,7 @@ function _tlcgCalcHandleMaterialChange(matId) {
         segmentSelect.innerHTML = `
             <option value="">-- Tất cả phân khúc --</option>
             ${(_tlcg.sizeSegments || []).map(s => {
-                let icon = '👔';
-                if (s.name.includes('Mầm Non') || s.name.includes('MN') || s.name === 'Mầm Non') icon = '👶';
-                else if (s.name.includes('Tiểu Học') || s.name.includes('TH') || s.name === 'Tiểu Học') icon = '🎒';
-                else if (s.name.includes('Oversize') || s.name.includes('Over') || s.name === 'Oversize') icon = '👕';
-                return `<option value="${s.name}">${icon} ${s.name}</option>`;
+                return `<option value="${s.name}">${s.icon || '🧑'} ${s.name}</option>`;
             }).join('')}
         `;
         return;
@@ -2116,10 +2100,8 @@ function _tlcgCalcHandleMaterialChange(matId) {
     segmentSelect.innerHTML = `
         <option value="">-- Tất cả phân khúc --</option>
         ${activeSegs.map(seg => {
-            let icon = '👔';
-            if (seg.includes('Mầm Non') || seg.includes('MN') || seg === 'Mầm Non') icon = '👶';
-            else if (seg.includes('Tiểu Học') || seg.includes('TH') || seg === 'Tiểu Học') icon = '🎒';
-            else if (seg.includes('Oversize') || seg.includes('Over') || seg === 'Oversize') icon = '👕';
+            const segObj = (_tlcg.sizeSegments || []).find(s => s.name === seg);
+            const icon = segObj && segObj.icon ? segObj.icon : '🧑';
             return `<option value="${seg}">${icon} ${seg}</option>`;
         }).join('')}
     `;
@@ -2424,7 +2406,10 @@ async function _tlcgRunCalculation() {
                     <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">
                             <span style="font-weight: 800; font-size: 14.5px; color: #1e293b; display: flex; align-items: center; gap: 6px;">
-                                ${calc.segment === 'Người Lớn' ? '👔' : calc.segment === 'Mầm Non' ? '👶' : calc.segment === 'Tiểu Học' ? '🎒' : '👕'} 
+                                ${(() => {
+                                    const segObj = (_tlcg.sizeSegments || []).find(s => s.name === calc.segment);
+                                    return segObj && segObj.icon ? segObj.icon : '🧑';
+                                })()} 
                                 Phân khúc: ${calc.segment} 
                             </span>
                         </div>
