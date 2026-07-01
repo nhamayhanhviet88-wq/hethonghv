@@ -264,7 +264,6 @@ function renderBophancatPage(content) {
         +'</div>'
         +'<div id="bpcStatCards" style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center;align-items:center"></div>'
         +'<button onclick="_bpcOpenMultiCut()" style="padding:8px 16px;background:linear-gradient(135deg,#ea580c,#f97316);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 3px 12px rgba(234,88,12,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">✂️+ CẮT NHIỀU ĐƠN</button>'
-        +'<button onclick="_bpcOpenTargetRatioModal()" style="padding:8px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;margin-left:8px;box-shadow:0 3px 12px rgba(16,185,129,0.35);font-family:Inter,system-ui,sans-serif;letter-spacing:0.3px" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">⚖️ ĐỊNH LƯỢNG TỈ LỆ CẮT</button>'
         +'</div>'
         +'<div id="bpcPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card" style="flex:none;display:block;overflow:visible"><div class="card-body" style="overflow-x:auto;overflow-y:visible;padding:8px;position:relative" id="bpcTableWrap"></div></div>'

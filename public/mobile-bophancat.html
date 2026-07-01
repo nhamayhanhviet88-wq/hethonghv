@@ -104,7 +104,7 @@
     <div class="m-header">
         <img src="/images/logo.png" alt="Logo">
         <h1>✂️ BỘ PHẬN CẮT</h1>
-        <button id="mRatioBtn" onclick="mOpenTargetRatioModal()" style="display:none;background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-weight:800;margin-right:10px;cursor:pointer">⚖️ Định lượng</button>
+
         <span class="m-user" id="mUser">...</span>
     </div>
     <div class="m-toast-c" id="mToastC"></div>
@@ -568,8 +568,7 @@ async function mInit(){
             return;
         }
     document.getElementById('mUser').textContent=mUser.full_name||mUser.username;
-        const btn = document.getElementById('mRatioBtn');
-        if(btn) btn.style.display = 'block';
+
         const vnNowDate = mGetVNDate();
         if (vnNowDate) {
             const mSelect = document.getElementById('mHistMonthSelect');
