@@ -13,7 +13,8 @@ var _tlcg = {
     },
     isGD: false,
     activeMaterial: null,
-    expandedMonths: new Set()
+    expandedMonths: new Set(),
+    sizeSegments: []
 };
 
 async function renderTilecatgocPage(content) {
@@ -848,6 +849,20 @@ async function _tlcgLoadData() {
         _tlcg.ranges = res.ranges || [];
         _tlcg.stats = res.stats || [];
 
+        // Fetch size segments
+        try {
+            const segRes = await apiCall('/api/cutting/size-segments', 'GET');
+            _tlcg.sizeSegments = segRes.segments || [];
+        } catch (e) {
+            console.error('Failed to load size segments:', e);
+            _tlcg.sizeSegments = [
+                { name: 'Người Lớn' },
+                { name: 'Tiểu Học' },
+                { name: 'Mầm Non' },
+                { name: 'Oversize' }
+            ];
+        }
+
         _tlcgRenderPage();
     } catch (err) {
         console.error('[TLCG load error]', err);
@@ -894,6 +909,9 @@ function _tlcgRenderPage() {
                         ⚙️ Cấu Hình Phân Loại
                     </button>
                     ${_tlcg.isGD ? `
+                        <button class="tlcg-btn" onclick="_tlcgOpenSizeSegmentsModal()">
+                            ⚙️ Cấu Hình Phân Khúc
+                        </button>
                         <button class="tlcg-btn" onclick="_tlcgOpenRangeModal()">
                             ⚙️ Cấu Hình Khung Số Lượng
                         </button>
@@ -1021,11 +1039,30 @@ function _tlcgGetSegmentBadge(segment) {
     return `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background-color: ${bg}; color: ${color}; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">${icon} ${cleanSegment}</span>`;
 }
 
-function _tlcgGetMaterialStats(matName) {
+function _tlcgGetActiveSegmentsForMaterial(mat) {
+    if (mat && mat.active_segments) {
+        try {
+            const parsed = JSON.parse(mat.active_segments);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
+            }
+        } catch(e) {
+            console.error('Error parsing active segments:', e);
+        }
+    }
+    // Fallback to all size segments
+    return (_tlcg.sizeSegments || []).map(s => s.name);
+}
+
+function _tlcgGetMaterialStats(matName, mat) {
     const mStats = _tlcg.stats.filter(s => s.material_name.trim().toLowerCase() === matName.trim().toLowerCase());
+    const activeSegs = _tlcgGetActiveSegmentsForMaterial(mat);
     
-    // Group stats by size segment
-    const segments = { 'Người Lớn': { qty: 0, kg: 0 }, 'Mầm Non': { qty: 0, kg: 0 }, 'Tiểu Học': { qty: 0, kg: 0 }, 'Oversize': { qty: 0, kg: 0 } };
+    const segments = {};
+    activeSegs.forEach(seg => {
+        segments[seg] = { qty: 0, kg: 0 };
+    });
+    
     mStats.forEach(s => {
         if (segments[s.size_segment]) {
             segments[s.size_segment].qty += Number(s.total_qty);
@@ -1033,19 +1070,24 @@ function _tlcgGetMaterialStats(matName) {
         }
     });
 
-    const formatRatio = (seg, mat) => {
+    return activeSegs.map(seg => {
         const data = segments[seg];
-        if (data.kg > 0) {
-            return `${(data.qty / data.kg).toFixed(2)} sp/${mat.unit || 'kg'}`;
+        let ratioText = '---';
+        if (data && data.kg > 0) {
+            ratioText = `${(data.qty / data.kg).toFixed(2)} sp/${mat.unit || 'kg'}`;
         }
-        return '---';
-    };
-
-    return (mat) => ({
-        adult: formatRatio('Người Lớn', mat),
-        mamnon: formatRatio('Mầm Non', mat),
-        tieuhoc: formatRatio('Tiểu Học', mat),
-        oversize: formatRatio('Oversize', mat)
+        
+        let icon = '👔';
+        if (seg.includes('Mầm Non') || seg.includes('MN') || seg === 'Mầm Non') icon = '👶';
+        else if (seg.includes('Tiểu Học') || seg.includes('TH') || seg === 'Tiểu Học') icon = '🎒';
+        else if (seg.includes('Oversize') || seg.includes('Over') || seg === 'Oversize') icon = '👕';
+        
+        return {
+            name: seg,
+            icon,
+            ratioText,
+            isActive: ratioText !== '---'
+        };
     });
 }
 
@@ -1087,28 +1129,19 @@ function _tlcgRenderGrid() {
     }
 
     return filtered.map(m => {
-        const statsBuilder = _tlcgGetMaterialStats(m.name);
-        const s = statsBuilder(m);
+        const segStats = _tlcgGetMaterialStats(m.name, m);
+        const segmentsHtml = segStats.map(s => `
+            <div class="tlcg-segment-row">
+                <span class="tlcg-segment-name">${s.icon} ${s.name}</span>
+                <span class="tlcg-segment-val ${s.isActive ? 'val-active' : ''}">${s.ratioText}</span>
+            </div>
+        `).join('');
+
         return `
             <div class="tlcg-mat-card" onclick="_tlcgOpenMaterialDrawer(${m.id})">
                 <span class="tlcg-mat-badge">${m.unit || 'kg'}</span>
                 <h4 class="tlcg-mat-name">${m.name}</h4>
-                <div class="tlcg-segment-row">
-                    <span class="tlcg-segment-name">👔 Người Lớn</span>
-                    <span class="tlcg-segment-val ${s.adult !== '---' ? 'val-active' : ''}">${s.adult}</span>
-                </div>
-                <div class="tlcg-segment-row">
-                    <span class="tlcg-segment-name">🎒 Tiểu Học</span>
-                    <span class="tlcg-segment-val ${s.tieuhoc !== '---' ? 'val-active' : ''}">${s.tieuhoc}</span>
-                </div>
-                <div class="tlcg-segment-row">
-                    <span class="tlcg-segment-name">👶 Mầm Non</span>
-                    <span class="tlcg-segment-val ${s.mamnon !== '---' ? 'val-active' : ''}">${s.mamnon}</span>
-                </div>
-                <div class="tlcg-segment-row">
-                    <span class="tlcg-segment-name">👕 Oversize</span>
-                    <span class="tlcg-segment-val ${s.oversize !== '---' ? 'val-active' : ''}">${s.oversize}</span>
-                </div>
+                ${segmentsHtml}
             </div>
         `;
     }).join('');
@@ -1298,28 +1331,44 @@ async function _tlcgLoadDrawerContent(mat) {
         let html = '';
 
         // 1. Overall stats panel in drawer
-        const statsBuilder = _tlcgGetMaterialStats(mat.name);
-        const sOverall = statsBuilder(mat);
+        const segStatsOverall = _tlcgGetMaterialStats(mat.name, mat);
+        const overallHtml = segStatsOverall.map(s => `
+            <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 11px; color: #64748b; font-weight: 600;">${s.name}</div>
+                <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${s.ratioText}</div>
+            </div>
+        `).join('');
+        
         html += `
-            <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.01);">
-                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Người Lớn</div>
-                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.adult}</div>
-                </div>
-                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Tiểu Học</div>
-                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.tieuhoc}</div>
-                </div>
-                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Mầm Non</div>
-                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.mamnon}</div>
-                </div>
-                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 11px; color: #64748b; font-weight: 600;">Oversize</div>
-                    <div style="font-size: 14px; font-weight: 800; color: #4f46e5; margin-top: 4px;">${sOverall.oversize}</div>
-                </div>
+            <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(${segStatsOverall.length || 4}, 1fr); gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.01);">
+                ${overallHtml}
             </div>
         `;
+
+        if (_tlcg.isGD) {
+            // Segment Selection checkboxes
+            const activeSegmentsList = _tlcgGetActiveSegmentsForMaterial(mat);
+            const checkboxesHtml = (_tlcg.sizeSegments || []).map(seg => {
+                const checked = activeSegmentsList.includes(seg.name) ? 'checked' : '';
+                return `
+                    <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer;">
+                        <input type="checkbox" class="material-segment-checkbox" value="${seg.name}" ${checked} onchange="_tlcgUpdateMaterialSegments(${mat.id})" style="accent-color: #4f46e5; width: 16px; height: 16px;">
+                        ${seg.name}
+                    </label>
+                `;
+            }).join(' ');
+
+            html += `
+                <div style="background: #eef2ff; border: 1px dashed #c7d2fe; border-radius: 12px; padding: 12px; margin-bottom: 20px;">
+                    <div style="font-size: 12px; font-weight: 800; color: #4f46e5; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+                        ⚙️ Cấu Hình Phân Khúc Cho Chất Liệu Này:
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 14px;">
+                        ${checkboxesHtml}
+                    </div>
+                </div>
+            `;
+        }
 
         // 2. Month Accordions
         html += `<h4 style="margin: 0 0 12px 0; color: #334155; font-size: 14.5px; font-weight: 800;">📅 Danh sách phiếu cắt theo tháng</h4>`;
@@ -1597,15 +1646,20 @@ function _tlcgRenderModalProducts() {
 
     listDiv.innerHTML = filtered.map(p => {
         const seg = p.size_segment || '';
+        const optionsHtml = (_tlcg.sizeSegments || []).map(s => {
+            let icon = '👔';
+            if (s.name.includes('Mầm Non') || s.name.includes('MN') || s.name === 'Mầm Non') icon = '👶';
+            else if (s.name.includes('Tiểu Học') || s.name.includes('TH') || s.name === 'Tiểu Học') icon = '🎒';
+            else if (s.name.includes('Oversize') || s.name.includes('Over') || s.name === 'Oversize') icon = '👕';
+            return `<option value="${s.name}" ${seg === s.name ? 'selected' : ''}>${icon} ${s.name}</option>`;
+        }).join('');
+
         return `
             <div class="tlcg-prod-row" data-id="${p.id}">
                 <span class="tlcg-prod-name">${p.name}</span>
                 <select class="tlcg-prod-select" data-id="${p.id}">
                     <option value="" ${seg === '' ? 'selected' : ''}>-- Chưa phân loại --</option>
-                    <option value="Người Lớn" ${seg === 'Người Lớn' ? 'selected' : ''}>👔 Người Lớn</option>
-                    <option value="Tiểu Học" ${seg === 'Tiểu Học' ? 'selected' : ''}>🎒 Tiểu Học</option>
-                    <option value="Mầm Non" ${seg === 'Mầm Non' ? 'selected' : ''}>👶 Mầm Non</option>
-                    <option value="Oversize" ${seg === 'Oversize' ? 'selected' : ''}>👕 Oversize</option>
+                    ${optionsHtml}
                 </select>
             </div>
         `;
@@ -1996,10 +2050,13 @@ async function _tlcgOpenPricingCalculatorModal() {
                         <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">Phân khúc</label>
                         <select id="calc_segment" class="tlcg-search-input" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px;">
                             <option value="">-- Tất cả phân khúc --</option>
-                            <option value="Người Lớn">👔 Người Lớn</option>
-                            <option value="Tiểu Học">🎒 Tiểu Học</option>
-                            <option value="Mầm Non">👶 Mầm Non</option>
-                            <option value="Oversize">👕 Oversize</option>
+                            ${(_tlcg.sizeSegments || []).map(s => {
+                                let icon = '👔';
+                                if (s.name.includes('Mầm Non') || s.name.includes('MN') || s.name === 'Mầm Non') icon = '👶';
+                                else if (s.name.includes('Tiểu Học') || s.name.includes('TH') || s.name === 'Tiểu Học') icon = '🎒';
+                                else if (s.name.includes('Oversize') || s.name.includes('Over') || s.name === 'Oversize') icon = '👕';
+                                return `<option value="${s.name}">${icon} ${s.name}</option>`;
+                            }).join('')}
                         </select>
                     </div>
                     <div>
@@ -2024,10 +2081,24 @@ async function _tlcgOpenPricingCalculatorModal() {
 
 function _tlcgCalcHandleMaterialChange(matId) {
     const colorSelect = document.getElementById('calc_color_id');
-    if (!colorSelect) return;
+    const segmentSelect = document.getElementById('calc_segment');
+    if (!colorSelect || !segmentSelect) return;
     
     colorSelect.innerHTML = '<option value="">-- Chọn màu sắc --</option>';
-    if (!matId) return;
+    
+    if (!matId) {
+        segmentSelect.innerHTML = `
+            <option value="">-- Tất cả phân khúc --</option>
+            ${(_tlcg.sizeSegments || []).map(s => {
+                let icon = '👔';
+                if (s.name.includes('Mầm Non') || s.name.includes('MN') || s.name === 'Mầm Non') icon = '👶';
+                else if (s.name.includes('Tiểu Học') || s.name.includes('TH') || s.name === 'Tiểu Học') icon = '🎒';
+                else if (s.name.includes('Oversize') || s.name.includes('Over') || s.name === 'Oversize') icon = '👕';
+                return `<option value="${s.name}">${icon} ${s.name}</option>`;
+            }).join('')}
+        `;
+        return;
+    }
 
     // Filter colors by material_id
     const filteredColors = _tlcg.colors.filter(c => String(c.material_id) === String(matId));
@@ -2037,6 +2108,20 @@ function _tlcgCalcHandleMaterialChange(matId) {
         opt.textContent = c.color_name;
         colorSelect.appendChild(opt);
     });
+
+    // Populate active segments for this material
+    const mat = _tlcg.materials.find(m => m.id === Number(matId));
+    const activeSegs = _tlcgGetActiveSegmentsForMaterial(mat);
+    segmentSelect.innerHTML = `
+        <option value="">-- Tất cả phân khúc --</option>
+        ${activeSegs.map(seg => {
+            let icon = '👔';
+            if (seg.includes('Mầm Non') || seg.includes('MN') || seg === 'Mầm Non') icon = '👶';
+            else if (seg.includes('Tiểu Học') || seg.includes('TH') || seg === 'Tiểu Học') icon = '🎒';
+            else if (seg.includes('Oversize') || seg.includes('Over') || seg === 'Oversize') icon = '👕';
+            return `<option value="${seg}">${icon} ${seg}</option>`;
+        }).join('')}
+    `;
 }
 
 async function _tlcgRunCalculation() {
@@ -2378,5 +2463,139 @@ async function _tlcgRunCalculation() {
     } catch (err) {
         console.error('[Run calculation error]', err);
         resultsDiv.innerHTML = `<div style="padding: 16px; background: #fee2e2; color: #b91c1c; border-radius: 8px; font-weight: 600;">❌ Lỗi: ${err.message}</div>`;
+    }
+}
+
+async function _tlcgOpenSizeSegmentsModal() {
+    if (!document.getElementById('tlcgModalOverlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'tlcgModalOverlay';
+        overlay.className = 'tlcg-modal-overlay';
+        document.body.appendChild(overlay);
+    }
+    const overlay = document.getElementById('tlcgModalOverlay');
+    
+    overlay.innerHTML = `
+        <div class="tlcg-modal" style="max-width: 500px; width: 90%;">
+            <div class="tlcg-modal-header">
+                <h4 class="tlcg-modal-title">⚙️ Cấu Hình Phân Khúc</h4>
+                <button class="tlcg-drawer-close" onclick="_tlcgCloseModal()">×</button>
+            </div>
+            <div class="tlcg-modal-body">
+                <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                    <input type="text" class="tlcg-search-input" id="newSizeSegmentName" placeholder="Tên phân khúc mới..." style="flex: 1;">
+                    <button class="tlcg-btn tlcg-btn-primary" onclick="_tlcgAddSizeSegmentRow()">Thêm</button>
+                </div>
+                <div class="tlcg-segment-list-area" id="tlcgSegmentList" style="max-height: 50vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; background: #f8fafc;">
+                    <!-- Rows will be rendered here -->
+                </div>
+            </div>
+            <div class="tlcg-modal-footer">
+                <button class="tlcg-btn" onclick="_tlcgCloseModal()">Hủy</button>
+                <button class="tlcg-btn tlcg-btn-primary" onclick="_tlcgSaveSizeSegments()">Lưu Cấu Hình</button>
+            </div>
+        </div>
+    `;
+    overlay.classList.add('active');
+    _tlcgRenderSizeSegmentsRows();
+}
+
+function _tlcgRenderSizeSegmentsRows() {
+    const listDiv = document.getElementById('tlcgSegmentList');
+    if (!listDiv) return;
+
+    if (!_tlcg.sizeSegments || _tlcg.sizeSegments.length === 0) {
+        listDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #64748b;">Chưa có phân khúc nào. Vui lòng thêm phân khúc mới.</div>';
+        return;
+    }
+
+    listDiv.innerHTML = _tlcg.sizeSegments.map((s, idx) => `
+        <div class="tlcg-segment-config-row" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;" data-idx="${idx}">
+            <span style="font-weight: 700; color: #64748b; font-size: 14px;">☰</span>
+            <input type="text" class="tlcg-segment-name-input tlcg-search-input" value="${s.name}" style="flex: 1; padding: 4px 8px; font-size: 13px;" placeholder="Tên phân khúc..." data-id="${s.id || ''}">
+            <button class="tlcg-btn" onclick="_tlcgRemoveSizeSegmentRow(${idx})" style="padding: 4px 8px; font-size: 11px; background: #fee2e2; color: #ef4444; border: none;">Xóa</button>
+        </div>
+    `).join('');
+}
+
+function _tlcgAddSizeSegmentRow() {
+    const input = document.getElementById('newSizeSegmentName');
+    if (!input || !input.value.trim()) return;
+    
+    if (!_tlcg.sizeSegments) _tlcg.sizeSegments = [];
+    _tlcg.sizeSegments.push({
+        name: input.value.trim()
+    });
+    input.value = '';
+    _tlcgRenderSizeSegmentsRows();
+}
+
+function _tlcgRemoveSizeSegmentRow(idx) {
+    if (!_tlcg.sizeSegments) return;
+    _tlcg.sizeSegments.splice(idx, 1);
+    _tlcgRenderSizeSegmentsRows();
+}
+
+async function _tlcgSaveSizeSegments() {
+    const rows = document.querySelectorAll('.tlcg-segment-config-row');
+    const segments = [];
+    rows.forEach(row => {
+        const input = row.querySelector('.tlcg-segment-name-input');
+        if (input && input.value.trim()) {
+            segments.push({
+                id: input.dataset.id ? Number(input.dataset.id) : null,
+                name: input.value.trim()
+            });
+        }
+    });
+
+    try {
+        const res = await apiCall('/api/cutting/size-segments/update-bulk', 'POST', { segments });
+        if (res.success) {
+            if (typeof showToast === 'function') showToast('Lưu cấu hình phân khúc thành công!', 'success');
+            _tlcgCloseModal();
+            await _tlcgLoadData();
+        } else {
+            if (typeof showToast === 'function') showToast(res.error || 'Có lỗi xảy ra', 'error');
+        }
+    } catch (err) {
+        console.error('[Save size segments error]', err);
+        if (typeof showToast === 'function') showToast(err.message, 'error');
+    }
+}
+
+async function _tlcgUpdateMaterialSegments(matId) {
+    const checkboxes = document.querySelectorAll('.material-segment-checkbox');
+    const checkedValues = [];
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            checkedValues.push(cb.value);
+        }
+    });
+
+    try {
+        const res = await apiCall(`/api/cutting/materials/${matId}/active-segments`, 'POST', { active_segments: checkedValues });
+        if (res.success) {
+            if (typeof showToast === 'function') showToast('Cập nhật phân khúc chất liệu thành công!', 'success');
+            // Update in local memory
+            const mat = _tlcg.materials.find(m => m.id === matId);
+            if (mat) {
+                mat.active_segments = JSON.stringify(checkedValues);
+            }
+            // Re-render grid
+            const grid = document.getElementById('tlcgGrid');
+            if (grid) {
+                grid.innerHTML = _tlcgRenderGrid();
+            }
+            // Re-render drawer content
+            if (mat) {
+                await _tlcgLoadDrawerContent(mat);
+            }
+        } else {
+            if (typeof showToast === 'function') showToast(res.error || 'Có lỗi xảy ra', 'error');
+        }
+    } catch (err) {
+        console.error('[Update material segments error]', err);
+        if (typeof showToast === 'function') showToast(err.message, 'error');
     }
 }

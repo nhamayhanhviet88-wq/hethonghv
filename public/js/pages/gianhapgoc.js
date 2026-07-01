@@ -14,7 +14,9 @@ var _gng = {
         fabric: true,
         material: true
     },
-    isDuyetUser: false
+    isDuyetUser: false,
+    targets: [],
+    sizeSegments: []
 };
 
 function _gngSaveState() {
@@ -29,56 +31,101 @@ function _gngSaveState() {
     }
 }
 
-function _gngFormatRatioAndPriceHtml(p) {
-    const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
-    const ratioMamNon = Number(p.fabric_cut_ratio_mamnon) || 0;
-    const ratioTieuHoc = Number(p.fabric_cut_ratio_tieuhoc) || 0;
-    const ratioOversize = Number(p.fabric_cut_ratio_oversize) || 0;
+function _gngGetActiveSegments(p) {
+    if (p && p.material_active_segments) {
+        try {
+            const parsed = JSON.parse(p.material_active_segments);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
+            }
+        } catch(e) {
+            console.error('Error parsing material active segments:', e);
+        }
+    }
+    return (_gng.sizeSegments || []).map(s => s.name);
+}
 
-    const priceAdult = ratioAdult > 0 ? Math.round(Number(p.price) / ratioAdult) : 0;
-    const priceMamNon = ratioMamNon > 0 ? Math.round(Number(p.price) / ratioMamNon) : 0;
-    const priceTieuHoc = ratioTieuHoc > 0 ? Math.round(Number(p.price) / ratioTieuHoc) : 0;
-    const priceOversize = ratioOversize > 0 ? Math.round(Number(p.price) / ratioOversize) : 0;
+function _gngGetTargetRatioForSegment(p, segmentName) {
+    const materialId = p.material_id || p.fabric_material_id || p.id;
+    if (materialId && _gng.targets) {
+        const categoryMappings = [
+            segmentName,
+            `Áo ${segmentName}`,
+            segmentName === 'Người Lớn' ? 'Áo' : ''
+        ].filter(Boolean);
+        
+        const matchedTarget = _gng.targets.find(t => 
+            t.material_id === materialId && 
+            categoryMappings.includes(t.cutting_category)
+        );
+        if (matchedTarget) {
+            return Number(matchedTarget.target_ratio) || 0;
+        }
+    }
+
+    if (segmentName === 'Người Lớn') return Number(p.fabric_cut_ratio_adult) || Number(p.target_cut_ratio) || 0;
+    if (segmentName === 'Mầm Non') return Number(p.fabric_cut_ratio_mamnon) || 0;
+    if (segmentName === 'Tiểu Học') return Number(p.fabric_cut_ratio_tieuhoc) || 0;
+    if (segmentName === 'Oversize') return Number(p.fabric_cut_ratio_oversize) || 0;
+    
+    return 0;
+}
+
+function _gngFormatRatioAndPriceHtml(p) {
+    const activeSegs = _gngGetActiveSegments(p);
+    
+    const segmentRatios = activeSegs.map(segName => {
+        const ratio = _gngGetTargetRatioForSegment(p, segName);
+        const price = ratio > 0 ? Math.round(Number(p.price) / ratio) : 0;
+        
+        let label = 'Lớn';
+        let color = '#2563eb';
+        let icon = '🧑';
+        if (segName.includes('Mầm Non') || segName.includes('MN') || segName === 'Mầm Non') {
+            label = 'MN';
+            color = '#059669';
+            icon = '👶';
+        } else if (segName.includes('Tiểu Học') || segName.includes('TH') || segName === 'Tiểu Học') {
+            label = 'TH';
+            color = '#0d9488';
+            icon = '🎒';
+        } else if (segName.includes('Oversize') || segName.includes('Over') || segName === 'Oversize') {
+            label = 'Over';
+            color = '#ea580c';
+            icon = '👕';
+        } else {
+            label = segName.substring(0, 5);
+        }
+        
+        return {
+            name: segName,
+            label,
+            color,
+            icon,
+            ratio,
+            price
+        };
+    });
 
     const cutRatioHtml = `
         <div style="line-height: 1.5; text-align: left; font-size: 11px; font-family: inherit; display: inline-block;">
-            <div style="display: flex; gap: 8px; justify-content: space-between;">
-                <span style="color: #64748b; font-weight: 500;">🧑 Lớn:</span>
-                <span style="font-weight: 700; color: #2563eb;">${ratioAdult > 0 ? (ratioAdult + ' sp/kg') : '---'}</span>
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500;">🎒 TH:</span>
-                <span style="font-weight: 700; color: #0d9488;">${ratioTieuHoc > 0 ? (ratioTieuHoc + ' sp/kg') : '---'}</span>
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500;">👶 MN:</span>
-                <span style="font-weight: 700; color: #059669;">${ratioMamNon > 0 ? (ratioMamNon + ' sp/kg') : '---'}</span>
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500;">👕 Over:</span>
-                <span style="font-weight: 700; color: #ea580c;">${ratioOversize > 0 ? (ratioOversize + ' sp/kg') : '---'}</span>
-            </div>
+            ${segmentRatios.map(sr => `
+                <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
+                    <span style="color: #64748b; font-weight: 500;">${sr.icon} ${sr.label}:</span>
+                    <span style="font-weight: 700; color: ${sr.color};">${sr.ratio > 0 ? (sr.ratio + ' sp/kg') : '---'}</span>
+                </div>
+            `).join('')}
         </div>
     `;
 
     const finishedPriceHtml = `
         <div style="line-height: 1.5; text-align: right; font-size: 11px; font-family: inherit; display: inline-block;">
-            <div>
-                <span style="color: #64748b; font-weight: 500; font-size: 10px;">🧑 Lớn:</span>
-                <span style="font-weight: 700; color: #2563eb; margin-left: 4px;">${priceAdult > 0 ? (priceAdult.toLocaleString('vi-VN') + ' đ') : '---'}</span>
-            </div>
-            <div style="margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 10px;">🎒 TH:</span>
-                <span style="font-weight: 700; color: #0d9488; margin-left: 4px;">${priceTieuHoc > 0 ? (priceTieuHoc.toLocaleString('vi-VN') + ' đ') : '---'}</span>
-            </div>
-            <div style="margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 10px;">👶 MN:</span>
-                <span style="font-weight: 700; color: #059669; margin-left: 4px;">${priceMamNon > 0 ? (priceMamNon.toLocaleString('vi-VN') + ' đ') : '---'}</span>
-            </div>
-            <div style="margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 10px;">👕 Over:</span>
-                <span style="font-weight: 700; color: #ea580c; margin-left: 4px;">${priceOversize > 0 ? (priceOversize.toLocaleString('vi-VN') + ' đ') : '---'}</span>
-            </div>
+            ${segmentRatios.map(sr => `
+                <div style="margin-top: 1px;">
+                    <span style="color: #64748b; font-weight: 500; font-size: 10px;">${sr.icon} ${sr.label}:</span>
+                    <span style="font-weight: 700; color: ${sr.color}; margin-left: 4px;">${sr.price > 0 ? (sr.price.toLocaleString('vi-VN') + ' đ') : '---'}</span>
+                </div>
+            `).join('')}
         </div>
     `;
 
@@ -86,10 +133,39 @@ function _gngFormatRatioAndPriceHtml(p) {
 }
 
 function _gngFormatRatioAndPriceRangeHtml(g, minBasePrice, maxBasePrice) {
-    const ratioAdult = Number(g.items[0]?.fabric_cut_ratio_adult) || 0;
-    const ratioMamNon = Number(g.items[0]?.fabric_cut_ratio_mamnon) || 0;
-    const ratioTieuHoc = Number(g.items[0]?.fabric_cut_ratio_tieuhoc) || 0;
-    const ratioOversize = Number(g.items[0]?.fabric_cut_ratio_oversize) || 0;
+    const firstItem = g.items[0] || {};
+    const activeSegs = _gngGetActiveSegments(firstItem);
+
+    const segmentRatios = activeSegs.map(segName => {
+        const ratio = _gngGetTargetRatioForSegment(firstItem, segName);
+        
+        let label = 'Lớn';
+        let color = '#2563eb';
+        let icon = '🧑';
+        if (segName.includes('Mầm Non') || segName.includes('MN') || segName === 'Mầm Non') {
+            label = 'MN';
+            color = '#059669';
+            icon = '👶';
+        } else if (segName.includes('Tiểu Học') || segName.includes('TH') || segName === 'Tiểu Học') {
+            label = 'TH';
+            color = '#0d9488';
+            icon = '🎒';
+        } else if (segName.includes('Oversize') || segName.includes('Over') || segName === 'Oversize') {
+            label = 'Over';
+            color = '#ea580c';
+            icon = '👕';
+        } else {
+            label = segName.substring(0, 5);
+        }
+        
+        return {
+            name: segName,
+            label,
+            color,
+            icon,
+            ratio
+        };
+    });
 
     function getRangeText(ratio, color) {
         if (ratio <= 0) return '---';
@@ -103,43 +179,23 @@ function _gngFormatRatioAndPriceRangeHtml(g, minBasePrice, maxBasePrice) {
 
     const cutRatioHtml = `
         <div style="line-height: 1.5; text-align: left; font-size: 11px; font-family: inherit; display: inline-block;">
-            <div style="display: flex; gap: 8px; justify-content: space-between;">
-                <span style="color: #64748b; font-weight: 500;">🧑 Lớn:</span>
-                <span style="font-weight: 700; color: #2563eb;">${ratioAdult > 0 ? (ratioAdult + ' sp/kg') : '---'}</span>
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500;">🎒 TH:</span>
-                <span style="font-weight: 700; color: #0d9488;">${ratioTieuHoc > 0 ? (ratioTieuHoc + ' sp/kg') : '---'}</span>
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500;">👶 MN:</span>
-                <span style="font-weight: 700; color: #059669;">${ratioMamNon > 0 ? (ratioMamNon + ' sp/kg') : '---'}</span>
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500;">👕 Over:</span>
-                <span style="font-weight: 700; color: #ea580c;">${ratioOversize > 0 ? (ratioOversize + ' sp/kg') : '---'}</span>
-            </div>
+            ${segmentRatios.map(sr => `
+                <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 1px;">
+                    <span style="color: #64748b; font-weight: 500;">${sr.icon} ${sr.label}:</span>
+                    <span style="font-weight: 700; color: ${sr.color};">${sr.ratio > 0 ? (sr.ratio + ' sp/kg') : '---'}</span>
+                </div>
+            `).join('')}
         </div>
     `;
 
     const finishedPriceHtml = `
         <div style="line-height: 1.5; text-align: right; font-size: 11px; font-family: inherit; display: inline-block;">
-            <div>
-                <span style="color: #64748b; font-weight: 500; font-size: 10px;">🧑 Lớn:</span>
-                <span style="margin-left: 4px;">${getRangeText(ratioAdult, '#2563eb')}</span>
-            </div>
-            <div style="margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 10px;">🎒 TH:</span>
-                <span style="margin-left: 4px;">${getRangeText(ratioTieuHoc, '#0d9488')}</span>
-            </div>
-            <div style="margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 10px;">👶 MN:</span>
-                <span style="margin-left: 4px;">${getRangeText(ratioMamNon, '#059669')}</span>
-            </div>
-            <div style="margin-top: 1px;">
-                <span style="color: #64748b; font-weight: 500; font-size: 10px;">👕 Over:</span>
-                <span style="margin-left: 4px;">${getRangeText(ratioOversize, '#ea580c')}</span>
-            </div>
+            ${segmentRatios.map(sr => `
+                <div style="margin-top: 1px;">
+                    <span style="color: #64748b; font-weight: 500; font-size: 10px;">${sr.icon} ${sr.label}:</span>
+                    <span style="margin-left: 4px;">${getRangeText(sr.ratio, sr.color)}</span>
+                </div>
+            `).join('')}
         </div>
     `;
 
@@ -797,13 +853,19 @@ async function _gngLoadData() {
         document.head.appendChild(style);
     }
     try {
-        const [pricesRes, historyRes, pendingRes] = await Promise.all([
+        const [pricesRes, historyRes, pendingRes, segRes] = await Promise.all([
             apiCall('/api/gianhapgoc/prices', 'GET'),
             apiCall('/api/gianhapgoc/history', 'GET'),
-            apiCall('/api/gianhapgoc/pending', 'GET')
+            apiCall('/api/gianhapgoc/pending', 'GET'),
+            apiCall('/api/cutting/size-segments', 'GET').catch(e => {
+                console.error(e);
+                return { segments: [{ name: 'Người Lớn' }, { name: 'Tiểu Học' }, { name: 'Mầm Non' }, { name: 'Oversize' }] };
+            })
         ]);
 
         _gng.prices = pricesRes.prices || [];
+        _gng.targets = pricesRes.targets || [];
+        _gng.sizeSegments = segRes.segments || [];
         _gng.history = historyRes.history || [];
         _gng.pending = pendingRes.pending || [];
 

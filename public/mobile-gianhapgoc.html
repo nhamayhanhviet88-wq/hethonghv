@@ -427,6 +427,8 @@
         let prices = [];
         let history = [];
         let pending = [];
+        let sizeSegments = [];
+        let targets = [];
         
         // Navigation states
         let selectedSupplierId = null; // null means on Supplier List view, 'all' or specific number
@@ -468,6 +470,107 @@
             return prices.some(p => p.source_id == supplierId && p.item_type === 'fabric');
         }
 
+        function _gngGetActiveSegments(p) {
+            if (p && p.material_active_segments) {
+                try {
+                    const parsed = JSON.parse(p.material_active_segments);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        return parsed;
+                    }
+                } catch(e) {
+                    console.error('Error parsing material active segments:', e);
+                }
+            }
+            return (sizeSegments || []).map(s => s.name);
+        }
+
+        function _gngGetTargetRatioForSegment(p, segmentName) {
+            const materialId = p.material_id || p.fabric_material_id || p.id;
+            if (materialId && targets) {
+                const categoryMappings = [
+                    segmentName,
+                    `Áo ${segmentName}`,
+                    segmentName === 'Người Lớn' ? 'Áo' : ''
+                ].filter(Boolean);
+                
+                const matchedTarget = targets.find(t => 
+                    t.material_id === materialId && 
+                    categoryMappings.includes(t.cutting_category)
+                );
+                if (matchedTarget) {
+                    return Number(matchedTarget.target_ratio) || 0;
+                }
+            }
+
+            if (segmentName === 'Người Lớn') return Number(p.fabric_cut_ratio_adult) || Number(p.target_cut_ratio) || 0;
+            if (segmentName === 'Mầm Non') return Number(p.fabric_cut_ratio_mamnon) || 0;
+            if (segmentName === 'Tiểu Học') return Number(p.fabric_cut_ratio_tieuhoc) || 0;
+            if (segmentName === 'Oversize') return Number(p.fabric_cut_ratio_oversize) || 0;
+            return 0;
+        }
+
+        function _gngCheckMissingRatio(p) {
+            if (p.item_type !== 'fabric') return false;
+            const activeSegments = _gngGetActiveSegments(p);
+            if (activeSegments.length === 0) return true;
+            return activeSegments.some(segName => _gngGetTargetRatioForSegment(p, segName) === 0);
+        }
+
+        function _gngGetFabricDetailsHtml(p) {
+            if (p.item_type !== 'fabric') return '';
+            
+            const activeSegments = _gngGetActiveSegments(p);
+            const basePrice = Number(p.price) || 0;
+            
+            const rows = activeSegments.map(segName => {
+                const ratio = _gngGetTargetRatioForSegment(p, segName);
+                const itemPrice = ratio > 0 ? Math.round(basePrice / ratio) : 0;
+                
+                let label = segName;
+                let icon = '👔';
+                let color = '#2563eb';
+                
+                if (segName.includes('Mầm Non') || segName.includes('MN') || segName === 'Mầm Non') {
+                    label = 'MN';
+                    icon = '👶';
+                    color = '#059669';
+                } else if (segName.includes('Tiểu Học') || segName.includes('TH') || segName === 'Tiểu Học') {
+                    label = 'TH';
+                    icon = '🎒';
+                    color = '#0d9488';
+                } else if (segName.includes('Oversize') || segName.includes('Over') || segName === 'Oversize') {
+                    label = 'Over';
+                    icon = '👕';
+                    color = '#ea580c';
+                } else if (segName === 'Người Lớn') {
+                    label = 'Lớn';
+                    icon = '👔';
+                    color = '#2563eb';
+                }
+
+                const ratioText = ratio > 0 ? `${ratio} sp/kg` : '---';
+                const priceText = itemPrice > 0 ? `${itemPrice.toLocaleString('vi-VN')} đ` : '---';
+                const lightRedStyle = ratio === 0 ? 'background-color: #fee2e2; color: #b91c1c; font-weight: bold; padding: 2px 4px; border-radius: 4px;' : '';
+                
+                return `
+                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                        <span style="color: #64748b;">${icon} ${label}:</span>
+                        <span>
+                            <b style="color: ${color}; ${lightRedStyle}">${ratioText}</b>
+                            <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
+                            <b style="color: ${color}; ${lightRedStyle}">${priceText}</b>
+                        </span>
+                    </div>
+                `;
+            }).join('');
+            
+            return `
+                <div style="margin-top: 6px; padding: 6px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
+                    ${rows}
+                </div>
+            `;
+        }
+
         async function apiCall(url, method = 'GET', body = null) {
             const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
             if (body) opts.body = JSON.stringify(body);
@@ -505,15 +608,21 @@
 
         async function loadData() {
             try {
-                const [pricesRes, historyRes, pendingRes] = await Promise.all([
+                const [pricesRes, historyRes, pendingRes, segRes] = await Promise.all([
                     apiCall('/api/gianhapgoc/prices'),
                     apiCall('/api/gianhapgoc/history'),
-                    apiCall('/api/gianhapgoc/pending')
+                    apiCall('/api/gianhapgoc/pending'),
+                    apiCall('/api/cutting/size-segments').catch(e => {
+                        console.error(e);
+                        return { segments: [{ name: 'Người Lớn' }, { name: 'Tiểu Học' }, { name: 'Mầm Non' }, { name: 'Oversize' }] };
+                    })
                 ]);
 
                 prices = pricesRes.prices || [];
+                targets = pricesRes.targets || [];
                 history = historyRes.history || [];
                 pending = pendingRes.pending || [];
+                sizeSegments = segRes.segments || [];
 
                 // Update header stats
                 document.getElementById('mStatTotal').textContent = prices.length;
@@ -648,58 +757,12 @@
                     const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
                     const supBadge = _gngGetSupplierBadgeHtml(p.source_name);
 
-                    const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
-                    const ratioMamNon = Number(p.fabric_cut_ratio_mamnon) || 0;
-                    const ratioTieuHoc = Number(p.fabric_cut_ratio_tieuhoc) || 0;
-                    const ratioOversize = Number(p.fabric_cut_ratio_oversize) || 0;
-
-                    const priceAdult = ratioAdult > 0 ? Math.round(Number(p.price) / ratioAdult) : 0;
-                    const priceMamNon = ratioMamNon > 0 ? Math.round(Number(p.price) / ratioMamNon) : 0;
-                    const priceTieuHoc = ratioTieuHoc > 0 ? Math.round(Number(p.price) / ratioTieuHoc) : 0;
-                    const priceOversize = ratioOversize > 0 ? Math.round(Number(p.price) / ratioOversize) : 0;
-
-                    let fabricDetailsHtml = '';
-                    if (isFabric) {
-                        fabricDetailsHtml = `
-                            <div style="margin-top: 6px; padding: 6px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
-                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">🧑 Lớn:</span>
-                                    <span>
-                                        <b style="color: #2563eb;">${ratioAdult > 0 ? ratioAdult + ' sp/kg' : '---'}</b>
-                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #2563eb;">${priceAdult > 0 ? priceAdult.toLocaleString('vi-VN') + ' đ' : '---'}</b>
-                                    </span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">🎒 TH:</span>
-                                    <span>
-                                        <b style="color: #0d9488;">${ratioTieuHoc > 0 ? ratioTieuHoc + ' sp/kg' : '---'}</b>
-                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #0d9488;">${priceTieuHoc > 0 ? priceTieuHoc.toLocaleString('vi-VN') + ' đ' : '---'}</b>
-                                    </span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">👶 MN:</span>
-                                    <span>
-                                        <b style="color: #059669;">${ratioMamNon > 0 ? ratioMamNon + ' sp/kg' : '---'}</b>
-                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #059669;">${priceMamNon > 0 ? priceMamNon.toLocaleString('vi-VN') + ' đ' : '---'}</b>
-                                    </span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">👕 Over:</span>
-                                    <span>
-                                        <b style="color: #ea580c;">${ratioOversize > 0 ? ratioOversize + ' sp/kg' : '---'}</b>
-                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #ea580c;">${priceOversize > 0 ? priceOversize.toLocaleString('vi-VN') + ' đ' : '---'}</b>
-                                    </span>
-                                </div>
-                            </div>
-                        `;
-                    }
+                    const hasMissing = _gngCheckMissingRatio(p);
+                    const cardStyle = hasMissing ? 'background-color: #fee2e2;' : '';
+                    let fabricDetailsHtml = _gngGetFabricDetailsHtml(p);
 
                     html += `
-                        <div class="m-card" style="padding: 12px; margin-bottom: 0;">
+                        <div class="m-card" style="padding: 12px; margin-bottom: 0; ${cardStyle}">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                                 <div style="font-size: 13px; font-weight: 700; color: #0f172a; text-align: left;">
                                     <span class="m-badge-type ${isFabric ? 'm-badge-fabric' : 'm-badge-material'}" style="padding: 2px 6px; font-size: 10px; margin-right: 4px;">
@@ -977,58 +1040,12 @@
                 g.items.forEach(p => {
                     const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
                     
-                    const ratioAdult = Number(p.fabric_cut_ratio_adult) || 0;
-                    const ratioMamNon = Number(p.fabric_cut_ratio_mamnon) || 0;
-                    const ratioTieuHoc = Number(p.fabric_cut_ratio_tieuhoc) || 0;
-                    const ratioOversize = Number(p.fabric_cut_ratio_oversize) || 0;
-
-                    const priceAdult = ratioAdult > 0 ? Math.round(Number(p.price) / ratioAdult) : 0;
-                    const priceMamNon = ratioMamNon > 0 ? Math.round(Number(p.price) / ratioMamNon) : 0;
-                    const priceTieuHoc = ratioTieuHoc > 0 ? Math.round(Number(p.price) / ratioTieuHoc) : 0;
-                    const priceOversize = ratioOversize > 0 ? Math.round(Number(p.price) / ratioOversize) : 0;
-
-                    let fabricDetailsHtml = '';
-                    if (isFabric) {
-                        fabricDetailsHtml = `
-                            <div style="margin-top: 6px; padding: 6px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
-                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">🧑 Lớn:</span>
-                                    <span>
-                                        <b style="color: #2563eb;">${ratioAdult > 0 ? ratioAdult + ' sp/kg' : '---'}</b>
-                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #2563eb;">${priceAdult > 0 ? priceAdult.toLocaleString('vi-VN') + ' đ' : '---'}</b>
-                                    </span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">🎒 TH:</span>
-                                    <span>
-                                        <b style="color: #0d9488;">${ratioTieuHoc > 0 ? ratioTieuHoc + ' sp/kg' : '---'}</b>
-                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #0d9488;">${priceTieuHoc > 0 ? priceTieuHoc.toLocaleString('vi-VN') + ' đ' : '---'}</b>
-                                    </span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">👶 MN:</span>
-                                    <span>
-                                        <b style="color: #059669;">${ratioMamNon > 0 ? ratioMamNon + ' sp/kg' : '---'}</b>
-                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #059669;">${priceMamNon > 0 ? priceMamNon.toLocaleString('vi-VN') + ' đ' : '---'}</b>
-                                    </span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: #64748b;">👕 Over:</span>
-                                    <span>
-                                        <b style="color: #ea580c;">${ratioOversize > 0 ? ratioOversize + ' sp/kg' : '---'}</b>
-                                        <span style="color: #cbd5e1; margin: 0 4px;">➔</span>
-                                        <b style="color: #ea580c;">${priceOversize > 0 ? priceOversize.toLocaleString('vi-VN') + ' đ' : '---'}</b>
-                                    </span>
-                                </div>
-                            </div>
-                        `;
-                    }
+                    const hasMissing = _gngCheckMissingRatio(p);
+                    const subrowBgStyle = hasMissing ? 'background-color: #fee2e2; border-radius: 8px; padding: 10px; margin-top: 4px;' : '';
+                    let fabricDetailsHtml = _gngGetFabricDetailsHtml(p);
 
                     subRowsHtml += `
-                        <div style="display:flex; flex-direction:column; padding: 10px 0; border-bottom:1px dashed #e2e8f0;">
+                        <div style="display:flex; flex-direction:column; padding: 10px; border-bottom:1px dashed #e2e8f0; ${subrowBgStyle}">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div style="font-size:13px; font-weight:600; color:#334155; text-align:left;">
                                     ${isFabric ? `🎨 ${p.fabric_color_name}` : `🏢 ${p.warehouse_name || '---'}`}

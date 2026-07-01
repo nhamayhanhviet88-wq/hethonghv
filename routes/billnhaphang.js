@@ -100,6 +100,23 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BNH] seed cutting categories:', e.message); }
 
     try {
+        const existingSegments = await db.all(`SELECT name FROM dht_settings_options WHERE category = 'size_segment'`);
+        const existingNames = (existingSegments || []).map(c => c.name);
+        if (!existingNames.includes('Người Lớn')) {
+            await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('size_segment', 'Người Lớn', 1)`);
+        }
+        if (!existingNames.includes('Tiểu Học')) {
+            await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('size_segment', 'Tiểu Học', 2)`);
+        }
+        if (!existingNames.includes('Mầm Non')) {
+            await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('size_segment', 'Mầm Non', 3)`);
+        }
+        if (!existingNames.includes('Oversize')) {
+            await db.run(`INSERT INTO dht_settings_options (category, name, display_order) VALUES ('size_segment', 'Oversize', 4)`);
+        }
+    } catch(e) { console.error('[BNH] seed size segments:', e.message); }
+
+    try {
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS requires_price_approval BOOLEAN DEFAULT FALSE`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS price_approved_by INTEGER REFERENCES users(id)`);
         await db.exec(`ALTER TABLE import_records ADD COLUMN IF NOT EXISTS price_approved_at TIMESTAMPTZ`);
@@ -3006,6 +3023,7 @@ module.exports = async function(fastify) {
                 kfm.name AS fabric_material_name,
                 kfc.color_name AS fabric_color_name,
                 wh.name AS warehouse_name,
+                kfm.active_segments AS material_active_segments,
                 COALESCE(
                     (SELECT target_ratio FROM kv_material_cutting_targets WHERE material_id = kfm.id AND cutting_category = 'Áo'),
                     kfm.target_cut_ratio,
@@ -3031,7 +3049,11 @@ module.exports = async function(fastify) {
             LEFT JOIN material_warehouses wh ON mi.warehouse_id = wh.id
             ORDER BY ap.item_type, s.name, ap.id
         `);
-        return { prices };
+        const targets = await db.all(`
+            SELECT material_id, cutting_category, target_ratio 
+            FROM kv_material_cutting_targets
+        `);
+        return { prices, targets };
     });
 
     // pricing calculator v5

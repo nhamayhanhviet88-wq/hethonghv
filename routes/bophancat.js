@@ -4006,6 +4006,109 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
+    // ========== GET SIZE SEGMENTS FOR SETTINGS ==========
+    fastify.get('/api/cutting/size-segments', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const segments = await db.all(`
+                SELECT id, name, display_order 
+                FROM dht_settings_options 
+                WHERE category = 'size_segment' AND is_active = true 
+                ORDER BY display_order ASC, id ASC
+            `);
+            return { segments };
+        } catch (e) {
+            console.error('[API size-segments] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== POST SIZE SEGMENTS (Director Only) ==========
+    fastify.post('/api/cutting/size-segments', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền cấu hình phân khúc!' });
+        }
+        const { name } = request.body || {};
+        if (!name || !name.trim()) {
+            return reply.code(400).send({ error: 'Tên phân khúc không được để trống!' });
+        }
+        try {
+            const mx = await db.get("SELECT COALESCE(MAX(display_order), 0) AS max_order FROM dht_settings_options WHERE category = 'size_segment'");
+            const nextOrder = (mx ? Number(mx.max_order) : 0) + 1;
+            const r = await db.get(`
+                INSERT INTO dht_settings_options (category, name, display_order, is_active)
+                VALUES ('size_segment', $1, $2, true)
+                RETURNING *
+            `, [name.trim(), nextOrder]);
+            return { success: true, segment: r };
+        } catch (e) {
+            console.error('[API create size-segment] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== POST SIZE SEGMENTS BULK UPDATE (Director Only) ==========
+    fastify.post('/api/cutting/size-segments/update-bulk', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền cấu hình phân khúc!' });
+        }
+        const { segments } = request.body || {};
+        if (!segments || !Array.isArray(segments)) {
+            return reply.code(400).send({ error: 'Dữ liệu không hợp lệ!' });
+        }
+        try {
+            // First mark all size segments as inactive
+            await db.run("UPDATE dht_settings_options SET is_active = false WHERE category = 'size_segment'");
+            
+            // Loop through sent segments to update or insert
+            for (let i = 0; i < segments.length; i++) {
+                const s = segments[i];
+                if (!s.name || !s.name.trim()) continue;
+                if (s.id) {
+                    await db.run(`
+                        UPDATE dht_settings_options 
+                        SET name = $1, display_order = $2, is_active = true 
+                        WHERE id = $3 AND category = 'size_segment'
+                    `, [s.name.trim(), i + 1, Number(s.id)]);
+                } else {
+                    await db.run(`
+                        INSERT INTO dht_settings_options (category, name, display_order, is_active)
+                        VALUES ('size_segment', $1, $2, true)
+                    `, [s.name.trim(), i + 1]);
+                }
+            }
+            return { success: true };
+        } catch (e) {
+            console.error('[API update-bulk size-segment] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== POST UPDATE MATERIAL ACTIVE SEGMENTS (Director Only) ==========
+    fastify.post('/api/cutting/materials/:id/active-segments', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền cấu hình chất liệu!' });
+        }
+        const materialId = Number(request.params.id);
+        const { active_segments } = request.body || {};
+        
+        let segmentsVal = null;
+        if (active_segments && Array.isArray(active_segments)) {
+            segmentsVal = JSON.stringify(active_segments);
+        }
+        
+        try {
+            await db.run(`
+                UPDATE kv_materials 
+                SET active_segments = $1 
+                WHERE id = $2
+            `, [segmentsVal, materialId]);
+            return { success: true };
+        } catch (e) {
+            console.error('[API material active-segments] Error:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     // ========== GET CUTTING RATIO STATS ==========
     fastify.get('/api/cutting/ratio-stats', { preHandler: [authenticate] }, async (request, reply) => {
         try {
@@ -4057,7 +4160,7 @@ module.exports = async function(fastify) {
 
             // 3. Get materials and colors
             const materials = await db.all(`
-                SELECT m.id, m.name, w.name as warehouse_name, w.unit
+                SELECT m.id, m.name, w.name as warehouse_name, w.unit, m.active_segments
                 FROM kv_materials m
                 JOIN kv_warehouses w ON m.warehouse_id = w.id
                 WHERE m.is_active = true
