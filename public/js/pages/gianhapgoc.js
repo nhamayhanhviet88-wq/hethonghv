@@ -78,23 +78,20 @@ function _gngFormatRatioAndPriceHtml(p) {
         const ratio = _gngGetTargetRatioForSegment(p, segName);
         const price = ratio > 0 ? Math.round(Number(p.price) / ratio) : 0;
         
-        let label = 'Lớn';
+        const segObj = (_gng.sizeSegments || []).find(s => s.name === segName);
+        let label = segObj && segObj.abbreviation ? segObj.abbreviation : segName.substring(0, 5);
+        let icon = segObj && segObj.icon ? segObj.icon : '🧑';
         let color = '#2563eb';
-        let icon = '🧑';
         if (segName.includes('Mầm Non') || segName.includes('MN') || segName === 'Mầm Non') {
-            label = 'MN';
             color = '#059669';
-            icon = '👶';
         } else if (segName.includes('Tiểu Học') || segName.includes('TH') || segName === 'Tiểu Học') {
-            label = 'TH';
             color = '#0d9488';
-            icon = '🎒';
         } else if (segName.includes('Oversize') || segName.includes('Over') || segName === 'Oversize') {
-            label = 'Over';
             color = '#ea580c';
-            icon = '👕';
         } else {
-            label = segName.substring(0, 5);
+            const hash = segName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const colors = ['#2563eb', '#0d9488', '#059669', '#ea580c', '#4f46e5', '#a855f7', '#ec4899', '#db2777'];
+            color = colors[hash % colors.length];
         }
         
         return {
@@ -139,23 +136,20 @@ function _gngFormatRatioAndPriceRangeHtml(g, minBasePrice, maxBasePrice) {
     const segmentRatios = activeSegs.map(segName => {
         const ratio = _gngGetTargetRatioForSegment(firstItem, segName);
         
-        let label = 'Lớn';
+        const segObj = (_gng.sizeSegments || []).find(s => s.name === segName);
+        let label = segObj && segObj.abbreviation ? segObj.abbreviation : segName.substring(0, 5);
+        let icon = segObj && segObj.icon ? segObj.icon : '🧑';
         let color = '#2563eb';
-        let icon = '🧑';
         if (segName.includes('Mầm Non') || segName.includes('MN') || segName === 'Mầm Non') {
-            label = 'MN';
             color = '#059669';
-            icon = '👶';
         } else if (segName.includes('Tiểu Học') || segName.includes('TH') || segName === 'Tiểu Học') {
-            label = 'TH';
             color = '#0d9488';
-            icon = '🎒';
         } else if (segName.includes('Oversize') || segName.includes('Over') || segName === 'Oversize') {
-            label = 'Over';
             color = '#ea580c';
-            icon = '👕';
         } else {
-            label = segName.substring(0, 5);
+            const hash = segName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const colors = ['#2563eb', '#0d9488', '#059669', '#ea580c', '#4f46e5', '#a855f7', '#ec4899', '#db2777'];
+            color = colors[hash % colors.length];
         }
         
         return {

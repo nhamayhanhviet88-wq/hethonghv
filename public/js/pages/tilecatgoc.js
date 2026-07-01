@@ -2482,8 +2482,10 @@ async function _tlcgOpenSizeSegmentsModal() {
                 <button class="tlcg-drawer-close" onclick="_tlcgCloseModal()">×</button>
             </div>
             <div class="tlcg-modal-body">
-                <div style="margin-bottom: 16px; display: flex; gap: 8px;">
-                    <input type="text" class="tlcg-search-input" id="newSizeSegmentName" placeholder="Tên phân khúc mới..." style="flex: 1;">
+                <div style="margin-bottom: 16px; display: flex; gap: 8px; align-items: center;">
+                    <input type="text" class="tlcg-search-input" id="newSizeSegmentIcon" placeholder="Icon (vd: 👦)" style="width: 80px; text-align: center;">
+                    <input type="text" class="tlcg-search-input" id="newSizeSegmentName" placeholder="Tên phân khúc mới..." style="flex: 2;">
+                    <input type="text" class="tlcg-search-input" id="newSizeSegmentAbbr" placeholder="Viết tắt..." style="width: 100px;">
                     <button class="tlcg-btn tlcg-btn-primary" onclick="_tlcgAddSizeSegmentRow()">Thêm</button>
                 </div>
                 <div class="tlcg-segment-list-area" id="tlcgSegmentList" style="max-height: 50vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; background: #f8fafc;">
@@ -2510,23 +2512,36 @@ function _tlcgRenderSizeSegmentsRows() {
     }
 
     listDiv.innerHTML = _tlcg.sizeSegments.map((s, idx) => `
-        <div class="tlcg-segment-config-row" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;" data-idx="${idx}">
-            <span style="font-weight: 700; color: #64748b; font-size: 14px;">☰</span>
-            <input type="text" class="tlcg-segment-name-input tlcg-search-input" value="${s.name}" style="flex: 1; padding: 4px 8px; font-size: 13px;" placeholder="Tên phân khúc..." data-id="${s.id || ''}">
+        <div class="tlcg-segment-config-row" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;" data-idx="${idx}">
+            <span style="font-weight: 700; color: #64748b; font-size: 14px; cursor: grab;">☰</span>
+            <input type="text" class="tlcg-segment-icon-input tlcg-search-input" value="${s.icon || '🧑'}" style="width: 50px; padding: 4px; font-size: 13px; text-align: center;" placeholder="Icon" data-id="${s.id || ''}">
+            <input type="text" class="tlcg-segment-name-input tlcg-search-input" value="${s.name}" style="flex: 2; padding: 4px 8px; font-size: 13px;" placeholder="Tên phân khúc..." data-id="${s.id || ''}">
+            <input type="text" class="tlcg-segment-abbr-input tlcg-search-input" value="${s.abbreviation || s.name.substring(0, 5)}" style="width: 90px; padding: 4px 8px; font-size: 13px;" placeholder="Viết tắt" data-id="${s.id || ''}">
             <button class="tlcg-btn" onclick="_tlcgRemoveSizeSegmentRow(${idx})" style="padding: 4px 8px; font-size: 11px; background: #fee2e2; color: #ef4444; border: none;">Xóa</button>
         </div>
     `).join('');
 }
 
 function _tlcgAddSizeSegmentRow() {
-    const input = document.getElementById('newSizeSegmentName');
-    if (!input || !input.value.trim()) return;
+    const inputIcon = document.getElementById('newSizeSegmentIcon');
+    const inputName = document.getElementById('newSizeSegmentName');
+    const inputAbbr = document.getElementById('newSizeSegmentAbbr');
+    if (!inputName || !inputName.value.trim()) return;
+    
+    const name = inputName.value.trim();
+    const icon = inputIcon && inputIcon.value.trim() ? inputIcon.value.trim() : '🧑';
+    const abbreviation = inputAbbr && inputAbbr.value.trim() ? inputAbbr.value.trim() : name.substring(0, 5);
     
     if (!_tlcg.sizeSegments) _tlcg.sizeSegments = [];
     _tlcg.sizeSegments.push({
-        name: input.value.trim()
+        name,
+        icon,
+        abbreviation
     });
-    input.value = '';
+    
+    if (inputIcon) inputIcon.value = '';
+    if (inputName) inputName.value = '';
+    if (inputAbbr) inputAbbr.value = '';
     _tlcgRenderSizeSegmentsRows();
 }
 
@@ -2540,11 +2555,15 @@ async function _tlcgSaveSizeSegments() {
     const rows = document.querySelectorAll('.tlcg-segment-config-row');
     const segments = [];
     rows.forEach(row => {
-        const input = row.querySelector('.tlcg-segment-name-input');
-        if (input && input.value.trim()) {
+        const inputIcon = row.querySelector('.tlcg-segment-icon-input');
+        const inputName = row.querySelector('.tlcg-segment-name-input');
+        const inputAbbr = row.querySelector('.tlcg-segment-abbr-input');
+        if (inputName && inputName.value.trim()) {
             segments.push({
-                id: input.dataset.id ? Number(input.dataset.id) : null,
-                name: input.value.trim()
+                id: inputName.dataset.id ? Number(inputName.dataset.id) : null,
+                name: inputName.value.trim(),
+                abbreviation: inputAbbr ? inputAbbr.value.trim() : inputName.value.trim().substring(0, 5),
+                icon: inputIcon ? inputIcon.value.trim() : '🧑'
             });
         }
     });

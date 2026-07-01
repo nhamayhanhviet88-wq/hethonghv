@@ -709,24 +709,21 @@
             const cleanSegment = segment.trim();
             let bg = '#e2e8f0';
             let color = '#475569';
-            let icon = '❓';
+            const segObj = (_mobileTlcg.sizeSegments || []).find(s => s.name === cleanSegment);
+            let icon = segObj && segObj.icon ? segObj.icon : '🧑';
             
             if (cleanSegment === 'Người Lớn') {
                 bg = '#dbeafe';
                 color = '#1e40af';
-                icon = '👔';
             } else if (cleanSegment === 'Mầm Non') {
                 bg = '#fce7f3';
                 color = '#9d174d';
-                icon = '👶';
             } else if (cleanSegment === 'Tiểu Học') {
                 bg = '#dcfce7';
                 color = '#166534';
-                icon = '🎒';
             } else if (cleanSegment === 'Oversize') {
                 bg = '#f3e8ff';
                 color = '#6b21a8';
-                icon = '👕';
             }
             
             return `<span style="display:inline-flex; align-items:center; gap:2px; padding:2px 6px; border-radius:4px; font-size:9.5px; font-weight:700; background-color:${bg}; color:${color};">${icon} ${cleanSegment}</span>`;
@@ -769,23 +766,16 @@
                 const d = segments[segName] || { qty: 0, kg: 0 };
                 const ratioVal = d.kg > 0 ? (d.qty / d.kg).toFixed(2) : null;
                 
-                let label = 'Lớn';
-                let icon = '👔';
+                const segObj = (_mobileTlcg.sizeSegments || []).find(s => s.name === segName);
+                let label = segObj && segObj.abbreviation ? segObj.abbreviation : segName.substring(0, 5);
+                let icon = segObj && segObj.icon ? segObj.icon : '🧑';
                 let cls = 'm-ratio-ao';
                 if (segName.includes('Mầm Non') || segName.includes('MN') || segName === 'Mầm Non') {
-                    label = 'MN';
-                    icon = '👶';
                     cls = 'm-ratio-tre';
                 } else if (segName.includes('Tiểu Học') || segName.includes('TH') || segName === 'Tiểu Học') {
-                    label = 'TH';
-                    icon = '🎒';
                     cls = 'm-ratio-tre';
                 } else if (segName.includes('Oversize') || segName.includes('Over') || segName === 'Oversize') {
-                    label = 'Over';
-                    icon = '👕';
                     cls = 'm-ratio-over';
-                } else {
-                    label = segName.substring(0, 5);
                 }
                 
                 return {
@@ -1488,11 +1478,7 @@
                                 <select id="m_calc_segment" class="m-calc-select">
                                     <option value="">-- Tất cả phân khúc --</option>
                                     ${(_mobileTlcg.sizeSegments || []).map(s => {
-                                        let icon = '👔';
-                                        if (s.name.includes('Mầm Non') || s.name.includes('MN') || s.name === 'Mầm Non') icon = '👶';
-                                        else if (s.name.includes('Tiểu Học') || s.name.includes('TH') || s.name === 'Tiểu Học') icon = '🎒';
-                                        else if (s.name.includes('Oversize') || s.name.includes('Over') || s.name === 'Oversize') icon = '👕';
-                                        return `<option value="${s.name}">${icon} ${s.name}</option>`;
+                                        return `<option value="${s.name}">${s.icon || '🧑'} ${s.name}</option>`;
                                     }).join('')}
                                 </select>
                             </div>
@@ -1540,11 +1526,7 @@
                 segmentSelect.innerHTML = `
                     <option value="">-- Tất cả phân khúc --</option>
                     ${(_mobileTlcg.sizeSegments || []).map(s => {
-                        let icon = '👔';
-                        if (s.name.includes('Mầm Non') || s.name.includes('MN') || s.name === 'Mầm Non') icon = '👶';
-                        else if (s.name.includes('Tiểu Học') || s.name.includes('TH') || s.name === 'Tiểu Học') icon = '🎒';
-                        else if (s.name.includes('Oversize') || s.name.includes('Over') || s.name === 'Oversize') icon = '👕';
-                        return `<option value="${s.name}">${icon} ${s.name}</option>`;
+                        return `<option value="${s.name}">${s.icon || '🧑'} ${s.name}</option>`;
                     }).join('')}
                 `;
                 return;
@@ -1568,10 +1550,8 @@
             segmentSelect.innerHTML = `
                 <option value="">-- Tất cả phân khúc --</option>
                 ${activeSegs.map(seg => {
-                    let icon = '👔';
-                    if (seg.includes('Mầm Non') || seg.includes('MN') || seg === 'Mầm Non') icon = '👶';
-                    else if (seg.includes('Tiểu Học') || seg.includes('TH') || seg === 'Tiểu Học') icon = '🎒';
-                    else if (seg.includes('Oversize') || seg.includes('Over') || seg === 'Oversize') icon = '👕';
+                    const segObj = (_mobileTlcg.sizeSegments || []).find(s => s.name === seg);
+                    const icon = segObj && segObj.icon ? segObj.icon : '🧑';
                     return `<option value="${seg}">${icon} ${seg}</option>`;
                 }).join('')}
             `;

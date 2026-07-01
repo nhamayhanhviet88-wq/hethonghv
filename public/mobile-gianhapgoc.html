@@ -526,26 +526,21 @@
                 const ratio = _gngGetTargetRatioForSegment(p, segName);
                 const itemPrice = ratio > 0 ? Math.round(basePrice / ratio) : 0;
                 
-                let label = segName;
-                let icon = '👔';
+                const segObj = (sizeSegments || []).find(s => s.name === segName);
+                let label = segObj && segObj.abbreviation ? segObj.abbreviation : segName.substring(0, 5);
+                let icon = segObj && segObj.icon ? segObj.icon : '🧑';
                 let color = '#2563eb';
                 
                 if (segName.includes('Mầm Non') || segName.includes('MN') || segName === 'Mầm Non') {
-                    label = 'MN';
-                    icon = '👶';
                     color = '#059669';
                 } else if (segName.includes('Tiểu Học') || segName.includes('TH') || segName === 'Tiểu Học') {
-                    label = 'TH';
-                    icon = '🎒';
                     color = '#0d9488';
                 } else if (segName.includes('Oversize') || segName.includes('Over') || segName === 'Oversize') {
-                    label = 'Over';
-                    icon = '👕';
                     color = '#ea580c';
-                } else if (segName === 'Người Lớn') {
-                    label = 'Lớn';
-                    icon = '👔';
-                    color = '#2563eb';
+                } else {
+                    const hash = segName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                    const colors = ['#2563eb', '#0d9488', '#059669', '#ea580c', '#4f46e5', '#a855f7', '#ec4899', '#db2777'];
+                    color = colors[hash % colors.length];
                 }
 
                 const ratioText = ratio > 0 ? `${ratio} sp/kg` : '---';

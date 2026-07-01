@@ -4,6 +4,8 @@ const { authenticate } = require('../middleware/auth');
 const { vnNow, vnFormat } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
+    try { await db.run(`ALTER TABLE dht_settings_options ADD COLUMN IF NOT EXISTS abbreviation VARCHAR`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_settings_options ADD COLUMN IF NOT EXISTS icon VARCHAR`); } catch(e) {}
 
     async function get3DCuttingContractor(dhtOrderId, orderItemId) {
         if (!dhtOrderId) return null;
@@ -4010,7 +4012,7 @@ module.exports = async function(fastify) {
     fastify.get('/api/cutting/size-segments', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             const segments = await db.all(`
-                SELECT id, name, display_order 
+                SELECT id, name, display_order, abbreviation, icon 
                 FROM dht_settings_options 
                 WHERE category = 'size_segment' AND is_active = true 
                 ORDER BY display_order ASC, id ASC
@@ -4027,7 +4029,7 @@ module.exports = async function(fastify) {
         if (request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền cấu hình phân khúc!' });
         }
-        const { name } = request.body || {};
+        const { name, abbreviation, icon } = request.body || {};
         if (!name || !name.trim()) {
             return reply.code(400).send({ error: 'Tên phân khúc không được để trống!' });
         }
@@ -4035,10 +4037,10 @@ module.exports = async function(fastify) {
             const mx = await db.get("SELECT COALESCE(MAX(display_order), 0) AS max_order FROM dht_settings_options WHERE category = 'size_segment'");
             const nextOrder = (mx ? Number(mx.max_order) : 0) + 1;
             const r = await db.get(`
-                INSERT INTO dht_settings_options (category, name, display_order, is_active)
-                VALUES ('size_segment', $1, $2, true)
+                INSERT INTO dht_settings_options (category, name, display_order, is_active, abbreviation, icon)
+                VALUES ('size_segment', $1, $2, true, $3, $4)
                 RETURNING *
-            `, [name.trim(), nextOrder]);
+            `, [name.trim(), nextOrder, abbreviation ? abbreviation.trim() : name.trim().substring(0, 5), icon ? icon.trim() : '🧑']);
             return { success: true, segment: r };
         } catch (e) {
             console.error('[API create size-segment] Error:', e.message);
@@ -4066,14 +4068,14 @@ module.exports = async function(fastify) {
                 if (s.id) {
                     await db.run(`
                         UPDATE dht_settings_options 
-                        SET name = $1, display_order = $2, is_active = true 
-                        WHERE id = $3 AND category = 'size_segment'
-                    `, [s.name.trim(), i + 1, Number(s.id)]);
+                        SET name = $1, display_order = $2, abbreviation = $3, icon = $4, is_active = true 
+                        WHERE id = $5 AND category = 'size_segment'
+                    `, [s.name.trim(), i + 1, s.abbreviation ? s.abbreviation.trim() : s.name.trim().substring(0, 5), s.icon ? s.icon.trim() : '🧑', Number(s.id)]);
                 } else {
                     await db.run(`
-                        INSERT INTO dht_settings_options (category, name, display_order, is_active)
-                        VALUES ('size_segment', $1, $2, true)
-                    `, [s.name.trim(), i + 1]);
+                        INSERT INTO dht_settings_options (category, name, display_order, abbreviation, icon, is_active)
+                        VALUES ('size_segment', $1, $2, $3, $4, true)
+                    `, [s.name.trim(), i + 1, s.abbreviation ? s.abbreviation.trim() : s.name.trim().substring(0, 5), s.icon ? s.icon.trim() : '🧑']);
                 }
             }
             return { success: true };
