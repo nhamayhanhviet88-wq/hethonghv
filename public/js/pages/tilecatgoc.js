@@ -2080,9 +2080,9 @@ async function _tlcgRunCalculation() {
                 <div style="overflow-x: auto; border: 1.5px solid #e2e8f0; border-radius: 10px;">
                     <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
                         <thead>
-                            <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                                <th style="padding: 10px 12px; font-weight: 700; color: #475569;">Nhà cung cấp (Nguồn nhập)</th>
-                                <th style="padding: 10px 12px; font-weight: 700; color: #475569; text-align: right;">Đơn giá gốc đã duyệt</th>
+                            <tr>
+                                <th style="padding: 10px 12px; font-weight: 700; background: #0f172a !important; color: #ffffff !important;">Nhà cung cấp (Nguồn nhập)</th>
+                                <th style="padding: 10px 12px; font-weight: 700; background: #0f172a !important; color: #ffffff !important; text-align: right;">Đơn giá gốc đã duyệt</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2190,11 +2190,11 @@ async function _tlcgRunCalculation() {
                             <div style="display: none; margin-top: 8px; border: 1.5px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
                                 <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
                                     <thead>
-                                        <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                                            <th style="padding: 8px 10px; font-weight: 700; color: #475569;">Nguồn nhập</th>
-                                            <th style="padding: 8px 10px; font-weight: 700; color: #475569; text-align: right;">Giá vải gốc</th>
-                                            <th style="padding: 8px 10px; font-weight: 700; color: #475569; text-align: right;">Giá theo Mục Tiêu</th>
-                                            <th style="padding: 8px 10px; font-weight: 700; color: #475569; text-align: right;">Giá theo Thực Tế</th>
+                                        <tr>
+                                            <th style="padding: 8px 10px; font-weight: 700; background: #0f172a !important; color: #ffffff !important;">Nguồn nhập</th>
+                                            <th style="padding: 8px 10px; font-weight: 700; background: #0f172a !important; color: #ffffff !important; text-align: right;">Giá vải gốc</th>
+                                            <th style="padding: 8px 10px; font-weight: 700; background: #0f172a !important; color: #ffffff !important; text-align: right;">Giá theo Mục Tiêu</th>
+                                            <th style="padding: 8px 10px; font-weight: 700; background: #0f172a !important; color: #ffffff !important; text-align: right;">Giá theo Thực Tế</th>
                                         </tr>
                                     </thead>
                                     <tbody>
