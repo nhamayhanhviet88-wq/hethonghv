@@ -2016,7 +2016,7 @@ function _tlcgLoadPetConfigs() {
     _tlcg.petEnabled = localStorage.getItem('tlcg_pet_enabled') === 'true';
     _tlcg.petSheetPrice = Number(localStorage.getItem('tlcg_pet_sheet_price')) || 40000;
     const storedSpacing = localStorage.getItem('tlcg_pet_spacing');
-    if (storedSpacing === null || storedSpacing === '0.3') {
+    if (storedSpacing === null || storedSpacing === '0.3' || storedSpacing === '3' || storedSpacing === '03') {
         _tlcg.petSpacing = 0.4;
         localStorage.setItem('tlcg_pet_spacing', '0.4');
     } else {
