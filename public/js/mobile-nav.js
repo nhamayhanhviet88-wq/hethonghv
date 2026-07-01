@@ -8,6 +8,7 @@ const MOBILE_MENU_CONFIG = [
     { id: 'hub', label: 'Trang chủ Mobile', icon: '🏠', href: '/m', permKey: null },
     { id: 'quanlynhapkho', label: 'Quản Lý Nhập Kho Vải', icon: '🗺️', href: '/m/quanlykhovai', permKey: 'quan_ly_nhap_kho_vai' },
     { id: 'xuatvaicat', label: 'Xuất Vải Để Cắt', icon: '✂️', href: '/m/xuatvaicat', permKey: 'xuat_vai_cat' },
+    { id: 'baogiagoc', label: 'Báo Giá Gốc', icon: '🧮', href: '/m/baogiagoc', permKey: 'gia_nhap_goc' },
     { id: 'gianhapgoc', label: 'Giá Nhập Gốc', icon: '🏷️', href: '/m/gianhapgoc', permKey: 'gia_nhap_goc' },
     { id: 'tilecatgoc', label: 'Tỉ Lệ Cắt Gốc', icon: '📏', href: '/m/tilecatgoc', permKey: 'ti_le_cat_goc' },
     { id: 'bophancat', label: 'Bộ Phận Cắt', icon: '✂️', href: '/m/bophancathv', permKey: 'bo_phan_cat' },
@@ -40,7 +41,7 @@ const ROLE_MAP = {
     tkaffiliate: 'TK Affiliate'
 };
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function initMobileNavigation() {
     try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
         if (res.status === 401 || res.status === 403) {
@@ -175,25 +176,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.appendChild(drawer);
 
         // 6. Navigation Event Listeners
-        const toggleBtn = document.getElementById('mobileMenuToggle');
-        const closeBtn = document.getElementById('mobileDrawerClose');
-        const overlayEl = document.getElementById('mobileDrawerOverlay');
         const desktopBtn = document.getElementById('switchToDesktopBtn');
         const logoutBtn = document.getElementById('logoutMobileBtn');
 
         const openDrawer = () => {
-            overlayEl.classList.add('active');
+            overlay.classList.add('active');
             drawer.classList.add('active');
         };
 
         const closeDrawer = () => {
-            overlayEl.classList.remove('active');
+            overlay.classList.remove('active');
             drawer.classList.remove('active');
         };
 
-        toggleBtn.addEventListener('click', openDrawer);
-        closeBtn.addEventListener('click', closeDrawer);
-        overlayEl.addEventListener('click', closeDrawer);
+        // Resilient Event Delegation for Drawer Open/Close Toggles
+        document.addEventListener('click', (e) => {
+            const target = e.target;
+            if (target.closest('#mobileMenuToggle, .menu-toggle')) {
+                e.preventDefault();
+                openDrawer();
+            } else if (target.closest('#mobileDrawerClose, .mobile-drawer-close') || target === overlay) {
+                e.preventDefault();
+                closeDrawer();
+            }
+        });
 
         // Switch to desktop site
         desktopBtn.addEventListener('click', (e) => {
@@ -216,4 +222,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
         console.error('Error initializing mobile navigation:', err);
     }
-});
+}
+
+// Resilient DOM ready checker
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMobileNavigation);
+} else {
+    initMobileNavigation();
+}

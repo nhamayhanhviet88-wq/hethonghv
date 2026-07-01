@@ -174,6 +174,7 @@ const MENU_CONFIG = [
     { id: 'loi-thuong-gap', label: 'Lỗi Thường Gặp \u0026 Xử Lý', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/loithuonggap', permKey: 'don_loi_noi_bo' },
 
     // ========== BỘ PHẬN XƯỞNG SX ==========
+    { id: 'bao-gia-goc', label: 'Báo Giá Gốc', icon: '🧮', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/baogiagoc', permKey: 'gia_nhap_goc' },
     { id: 'gia-nhap-goc', label: 'Giá Nhập Gốc', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/gianhapgoc', permKey: 'gia_nhap_goc' },
     { id: 'ti-le-cat-goc', label: 'Tỉ Lệ Cắt Gốc', icon: '📏', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/tilecatgoc', permKey: 'ti_le_cat_goc' },
     { id: 'luong-san-xuat', label: 'Lương Sản Xuất', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/luongsanxuat', permKey: 'luong_san_xuat' },
@@ -1740,6 +1741,7 @@ function findMenuItemForPage(pageId) {
             'chamsockockol': 'cham-soc-koc-kol',
             'luongsanxuat': 'luong-san-xuat',
             'tilecatgoc': 'ti-le-cat-goc',
+            'baogiagoc': 'bao-gia-goc',
             'donkhachsll': 'don-khach-sll',
             'donkhachnhieulan': 'don-khach-nhieu-lan',
             'donkhachmoi': 'don-khach-moi',
@@ -2270,6 +2272,12 @@ async function renderDashboardPage(container) {
 var _PAGE_INIT_REGISTRY = {
     'gia-nhap-goc': 'renderGiaNhapGocPage',
     'gianhapgoc': 'renderGiaNhapGocPage',
+    'bao-gia-goc': 'renderBaogiagocPage',
+    'baogiagoc': 'renderBaogiagocPage',
+    'm/baogiagoc': 'renderBaogiagocPage',
+    'm-baogiagoc': 'renderBaogiagocPage',
+    'm/bao-gia-goc': 'renderBaogiagocPage',
+    'm-bao-gia-goc': 'renderBaogiagocPage',
     'luong-san-xuat': 'renderLuongSanXuatPage',
     'luongsanxuat': 'renderLuongSanXuatPage',
     'nhantintimdoitackh': '_poInit',
@@ -2653,6 +2661,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const AFFILIATE_ROLES_BD = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
     if (!currentUser || !AFFILIATE_ROLES_BD.includes(currentUser.role)) {
         setTimeout(checkBirthdayToday, 2000);
+    }
+});
+
+// Global Event Delegation for Sidebar / Mobile Menu Toggles
+document.addEventListener('click', function(e) {
+    var target = e.target;
+    var toggleBtn = target.closest('#menuToggle, .menu-toggle, #sidebarToggleBtn, .sidebar-toggle-btn');
+    if (toggleBtn) {
+        e.preventDefault();
+        if (typeof toggleSidebar === 'function') {
+            toggleSidebar();
+        }
     }
 });
 

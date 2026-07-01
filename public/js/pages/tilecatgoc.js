@@ -902,8 +902,8 @@ function _tlcgRenderPage() {
                     <p>Số liệu sản phẩm cắt được trên mỗi kg/mét/cái từ các đơn cắt thành công</p>
                 </div>
                 <div class="tlcg-header-actions">
-                    <button class="tlcg-btn tlcg-btn-primary" onclick="_tlcgOpenPricingCalculatorModal()">
-                        🧮 Tra Cứu Giá Vải
+                    <button class="tlcg-btn tlcg-btn-primary" onclick="navigate('baogiagoc')">
+                        🧮 Tra Cứu & So Sánh Giá
                     </button>
                     <button class="tlcg-btn" onclick="_tlcgOpenProductSegmentModal()">
                         ⚙️ Cấu Hình Phân Loại

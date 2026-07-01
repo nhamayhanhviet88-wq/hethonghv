@@ -1530,6 +1530,11 @@ async function start() {
         return reply.sendFile('mobile-xuatvaicat.html');
     });
 
+    // Mobile Báo Giá Gốc — standalone touch-optimized page
+    fastify.get('/m/baogiagoc', async (request, reply) => {
+        return reply.sendFile('mobile-baogiagoc.html');
+    });
+
     // Mobile Giá Nhập Gốc — standalone touch-optimized page
     fastify.get('/m/gianhapgoc', async (request, reply) => {
         return reply.sendFile('mobile-gianhapgoc.html');

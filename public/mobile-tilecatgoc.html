@@ -444,7 +444,7 @@
 
         <!-- Controls -->
         <div class="m-controls">
-            <button onclick="openMobilePricingModal()" style="width: 100%; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: white; border: none; font-weight: 800; font-size: 14px; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2); display: flex; align-items: center; justify-content: center; gap: 8px; outline: none; margin-bottom: 2px;">
+            <button onclick="window.location.href = '/m/baogiagoc'" style="width: 100%; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: white; border: none; font-weight: 800; font-size: 14px; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2); display: flex; align-items: center; justify-content: center; gap: 8px; outline: none; margin-bottom: 2px;">
                 🧮 Tra Cứu & So Sánh Giá Vải
             </button>
             <input type="text" class="m-search-input" id="mSearchInput" placeholder="🔍 Tìm kiếm loại vải...">
@@ -1046,7 +1046,7 @@
 
                 // Add shortcut button to calculator
                 html += `
-                    <button onclick="openMobilePricingModal('${encodeURIComponent(mat.name)}')" style="width: 100%; padding: 11px; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 16px; outline: none; box-shadow: 0 4px 8px rgba(16, 185, 129, 0.15);">
+                    <button onclick="window.location.href = '/m/baogiagoc?material=' + ${mat.id}" style="width: 100%; padding: 11px; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 16px; outline: none; box-shadow: 0 4px 8px rgba(16, 185, 129, 0.15);">
                         🧮 So Sánh Giá Vải Chất Liệu Này
                     </button>
                 `;
@@ -2445,6 +2445,6 @@
         }
     </script>
     <!-- Unified Mobile Navigation Script -->
-    <script src="/js/mobile-nav.js?v=20260624_menu_move"></script>
+    <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
 </body>
 </html>

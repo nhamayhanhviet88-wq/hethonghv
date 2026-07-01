@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🧮 Báo Giá Gốc — Đồng Phục HV</title>
+    <meta name="description" content="Tra cứu & So sánh giá vải thành phẩm tối ưu cho Mobile">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260702_bgg_v1">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            color: #1e293b;
+            padding-bottom: 80px;
+        }
+
+        .m-content {
+            padding: 14px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .m-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            border: 1px solid #e2e8f0;
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+
+        .m-card-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .m-form-group {
+            margin-bottom: 12px;
+        }
+
+        .m-form-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .m-input {
+            width: 100%;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 13.5px;
+            font-weight: 600;
+            transition: all 0.2s;
+            background-color: #fff;
+            color: #334155;
+            outline: none;
+        }
+
+        .m-input:focus {
+            border-color: #4f46e5;
+        }
+
+        .m-pet-box {
+            background: #f0fdf4;
+            border: 1.5px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 14px;
+        }
+
+        .m-pet-title {
+            font-weight: 800;
+            font-size: 13px;
+            color: #166534;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+        }
+
+        .pet-shape-row-mobile {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 8px;
+        }
+
+        .m-btn-calc {
+            width: 100%;
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 8px rgba(79, 70, 229, 0.15);
+            margin-top: 10px;
+            outline: none;
+        }
+
+        .m-btn-calc:active {
+            transform: scale(0.98);
+        }
+
+        /* Results table & styling */
+        .results-supplier-card {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        /* Unified mobile nav header styling support */
+        .mobile-nav-header {
+            background: linear-gradient(135deg, #0f172a, #1e293b) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="m-content" style="margin-top: 55px;"> <!-- space below fixed header -->
+        
+        <!-- Input panel card -->
+        <div class="m-card">
+            <h3 class="m-card-title">⚙️ Cấu hình báo giá nhanh</h3>
+            
+            <div class="m-form-group">
+                <label>Chất liệu *</label>
+                <select id="m_material_id" class="m-input" onchange="handleMaterialChangeMobile(this.value)">
+                    <option value="">-- Chọn chất liệu --</option>
+                </select>
+            </div>
+            
+            <div class="m-form-group">
+                <label>Màu sắc *</label>
+                <select id="m_color_id" class="m-input">
+                    <option value="">-- Chọn màu sắc --</option>
+                </select>
+            </div>
+            
+            <div class="m-form-group">
+                <label>Phân khúc</label>
+                <select id="m_segment" class="m-input">
+                    <option value="">-- Tất cả phân khúc --</option>
+                </select>
+            </div>
+            
+            <div class="m-form-group">
+                <label>Số lượng áo</label>
+                <input type="number" id="m_quantity" class="m-input" placeholder="Nhập số lượng (tùy chọn)">
+            </div>
+
+            <!-- PET Printing Section -->
+            <div class="m-pet-box">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                    <label class="m-pet-title">
+                        <input type="checkbox" id="m_enable_pet" style="width: 16px; height: 16px; cursor: pointer;" onchange="togglePetSectionMobile(this.checked)">
+                        🖨️ Chi phí in PET
+                    </label>
+                    
+                    <div id="m_pet_global_settings" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <span style="font-size: 10.5px; font-weight: 700; color: #166534;">Khổ:</span>
+                            <input type="number" id="m_pet_sheet_price" class="m-input" style="width: 65px; padding: 4px 6px; font-size: 11px;" oninput="savePetConfigsMobile()">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <span style="font-size: 10.5px; font-weight: 700; color: #166534;">K.Cách:</span>
+                            <input type="text" id="m_pet_spacing" class="m-input" style="width: 45px; padding: 4px 6px; font-size: 11px;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); savePetConfigsMobile()">
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="m_pet_shapes_container" style="display: none; border-top: 1px dashed #bbf7d0; padding-top: 10px;">
+                    <div id="m_pet_shapes_rows"></div>
+                    <button class="m-input" style="background: #166534; color: white; border: none; font-weight: 700; font-size: 11.5px; padding: 6px 12px; width: auto; cursor: pointer; border-radius: 6px;" onclick="addPetShapeRowMobile()">
+                        ➕ Thêm hình in
+                    </button>
+                </div>
+            </div>
+
+            <button class="m-btn-calc" onclick="runMobileCalculation()">🧮 Tính toán & So sánh</button>
+        </div>
+
+        <!-- Results panel card -->
+        <div class="m-card" id="m_results_card" style="min-height: 200px;">
+            <div style="text-align: center; padding: 40px 10px; color: #94a3b8;">
+                <span style="font-size: 36px; display: block; margin-bottom: 8px;">📊</span>
+                <h4 style="margin: 0; color: #64748b; font-weight: 700; font-size: 13.5px;">Chưa có kết quả tra cứu</h4>
+                <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">Vui lòng điền thông tin và bấm nút tính toán ở trên</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast container -->
+    <div id="toastContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
+
+    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_bgg_v1"></script>
+    <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
+</body>
+</html>
