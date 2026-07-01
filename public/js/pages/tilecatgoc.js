@@ -1048,8 +1048,10 @@ function _tlcgGetActiveSegmentsForMaterial(mat) {
             console.error('Error parsing active segments:', e);
         }
     }
-    // Fallback to all size segments
-    return (_tlcg.sizeSegments || []).map(s => s.name);
+    // Fallback to ONLY the default base segments that exist globally
+    const defaultBase = ['Người Lớn', 'Tiểu Học', 'Mầm Non', 'Oversize'];
+    const globalNames = (_tlcg.sizeSegments || []).map(s => s.name);
+    return defaultBase.filter(name => globalNames.includes(name));
 }
 
 function _tlcgGetMaterialStats(matName, mat) {

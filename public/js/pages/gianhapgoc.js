@@ -43,7 +43,10 @@ function _gngGetActiveSegments(p) {
             console.error('Error parsing material active segments:', e);
         }
     }
-    return (_gng.sizeSegments || []).map(s => s.name);
+    // Fallback to ONLY the default base segments that exist globally
+    const defaultBase = ['Người Lớn', 'Tiểu Học', 'Mầm Non', 'Oversize'];
+    const globalNames = (_gng.sizeSegments || []).map(s => s.name);
+    return defaultBase.filter(name => globalNames.includes(name));
 }
 
 function _gngGetActualRatioForSegment(materialName, segmentName) {
