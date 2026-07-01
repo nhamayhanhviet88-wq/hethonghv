@@ -2547,37 +2547,8 @@ function _tlcgRenderCalcResults() {
     }
 
     resultsDiv.innerHTML = html;
-}splay: inline-flex; align-items: center; gap: 4px;" onclick="const t = this.nextElementSibling; t.style.display = t.style.display === 'none' ? 'block' : 'none'">
-                                🔍 Xem chi tiết bảng so sánh các nguồn ▾
-                            </span>
-                            <div style="display: none; margin-top: 8px; border: 1.5px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                                <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
-                                    <thead>
-                                        ${tableHeaderHtml}
-                                    </thead>
-                                    <tbody>
-                                        ${tableBodyHtml}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            html += `
-                <div style="text-align: center; padding: 20px; color: #64748b; font-style: italic;">
-                    Không tìm thấy dữ liệu tính toán phù hợp.
-                </div>
-            `;
-        }
-
-        resultsDiv.innerHTML = html;
-    } catch (err) {
-        console.error('[Run calculation error]', err);
-        resultsDiv.innerHTML = `<div style="padding: 16px; background: #fee2e2; color: #b91c1c; border-radius: 8px; font-weight: 600;">❌ Lỗi: ${err.message}</div>`;
-    }
 }
+
 
 async function _tlcgOpenSizeSegmentsModal() {
     if (!document.getElementById('tlcgModalOverlay')) {
