@@ -1499,11 +1499,16 @@
                 const storedShapes = localStorage.getItem('tlcg_pet_shapes');
                 if (storedShapes) {
                     const parsed = JSON.parse(storedShapes);
-                    if (Array.isArray(parsed) && parsed.length === 1 && parsed[0] && parsed[0].name === 'Logo ngực' && parsed[0].width === 10 && parsed[0].height === 5) {
+                    if (Array.isArray(parsed)) {
+                        if (parsed.length === 1 && parsed[0] && parsed[0].name === 'Logo ngực' && parsed[0].width === 10 && parsed[0].height === 5) {
+                            _mobileTlcg.petShapes = [];
+                            localStorage.setItem('tlcg_pet_shapes', JSON.stringify([]));
+                        } else {
+                            _mobileTlcg.petShapes = parsed;
+                        }
+                    } else {
                         _mobileTlcg.petShapes = [];
                         localStorage.setItem('tlcg_pet_shapes', JSON.stringify([]));
-                    } else {
-                        _mobileTlcg.petShapes = parsed;
                     }
                 } else {
                     _mobileTlcg.petShapes = [];
@@ -1526,7 +1531,7 @@
             if (spacingInput) {
                 localStorage.setItem('tlcg_pet_spacing', spacingInput.value);
             }
-            if (_mobileTlcg.petShapes) {
+            if (Array.isArray(_mobileTlcg.petShapes)) {
                 localStorage.setItem('tlcg_pet_shapes', JSON.stringify(_mobileTlcg.petShapes));
             }
         }
@@ -1546,8 +1551,8 @@
             const list = document.getElementById('m_pet_shapes_list');
             if (!list) return;
             
-            const shapes = _mobileTlcg.petShapes || [];
-            if (shapes.length === 0) {
+            const shapes = _mobileTlcg.petShapes;
+            if (!Array.isArray(shapes) || shapes.length === 0) {
                 list.innerHTML = `<div style="font-size: 11.5px; color: #166534; font-style: italic;">Chưa có hình in nào.</div>`;
                 return;
             }
@@ -1567,7 +1572,7 @@
         }
 
         function mPetAddShapeRow() {
-            if (!_mobileTlcg.petShapes) _mobileTlcg.petShapes = [];
+            if (!Array.isArray(_mobileTlcg.petShapes)) _mobileTlcg.petShapes = [];
             _mobileTlcg.petShapes.push({ name: '', width: '', height: '' });
             mPetRenderShapeRows();
             mPetSaveConfigs();
@@ -1575,7 +1580,7 @@
         }
 
         function mPetRemoveShapeRow(idx) {
-            if (_mobileTlcg.petShapes) {
+            if (Array.isArray(_mobileTlcg.petShapes)) {
                 _mobileTlcg.petShapes.splice(idx, 1);
                 mPetRenderShapeRows();
                 mPetSaveConfigs();
@@ -1584,7 +1589,7 @@
         }
 
         function mPetUpdateShape(idx, field, val) {
-            if (_mobileTlcg.petShapes && _mobileTlcg.petShapes[idx]) {
+            if (Array.isArray(_mobileTlcg.petShapes) && _mobileTlcg.petShapes[idx]) {
                 if (field === 'width' || field === 'height') {
                     _mobileTlcg.petShapes[idx][field] = val !== '' ? Number(val) : '';
                 } else {
