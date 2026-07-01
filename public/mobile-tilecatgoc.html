@@ -1532,7 +1532,8 @@
                 localStorage.setItem('tlcg_pet_spacing', spacingInput.value);
             }
             if (Array.isArray(_mobileTlcg.petShapes)) {
-                localStorage.setItem('tlcg_pet_shapes', JSON.stringify(_mobileTlcg.petShapes));
+                const cleanShapes = _mobileTlcg.petShapes.filter(s => s && typeof s === 'object');
+                localStorage.setItem('tlcg_pet_shapes', JSON.stringify(cleanShapes));
             }
         }
 
@@ -1544,6 +1545,7 @@
                 containerDiv.style.display = enabled ? 'block' : 'none';
             }
             mPetSaveConfigs();
+            mPetRenderShapeRows();
             renderMobileCalcResults();
         }
 
@@ -1551,8 +1553,11 @@
             const list = document.getElementById('m_pet_shapes_list');
             if (!list) return;
             
-            const shapes = _mobileTlcg.petShapes;
-            if (!Array.isArray(shapes) || shapes.length === 0) {
+            if (!Array.isArray(_mobileTlcg.petShapes)) {
+                _mobileTlcg.petShapes = [];
+            }
+            const shapes = _mobileTlcg.petShapes.filter(s => s && typeof s === 'object');
+            if (shapes.length === 0) {
                 list.innerHTML = `<div style="font-size: 11.5px; color: #166534; font-style: italic;">Chưa có hình in nào.</div>`;
                 return;
             }
@@ -1572,7 +1577,10 @@
         }
 
         function mPetAddShapeRow() {
-            if (!Array.isArray(_mobileTlcg.petShapes)) _mobileTlcg.petShapes = [];
+            if (!Array.isArray(_mobileTlcg.petShapes)) {
+                _mobileTlcg.petShapes = [];
+            }
+            _mobileTlcg.petShapes = _mobileTlcg.petShapes.filter(s => s && typeof s === 'object');
             _mobileTlcg.petShapes.push({ name: '', width: '', height: '' });
             mPetRenderShapeRows();
             mPetSaveConfigs();
@@ -1581,6 +1589,7 @@
 
         function mPetRemoveShapeRow(idx) {
             if (Array.isArray(_mobileTlcg.petShapes)) {
+                _mobileTlcg.petShapes = _mobileTlcg.petShapes.filter(s => s && typeof s === 'object');
                 _mobileTlcg.petShapes.splice(idx, 1);
                 mPetRenderShapeRows();
                 mPetSaveConfigs();
@@ -1589,14 +1598,17 @@
         }
 
         function mPetUpdateShape(idx, field, val) {
-            if (Array.isArray(_mobileTlcg.petShapes) && _mobileTlcg.petShapes[idx]) {
-                if (field === 'width' || field === 'height') {
-                    _mobileTlcg.petShapes[idx][field] = val !== '' ? Number(val) : '';
-                } else {
-                    _mobileTlcg.petShapes[idx][field] = val;
+            if (Array.isArray(_mobileTlcg.petShapes)) {
+                _mobileTlcg.petShapes = _mobileTlcg.petShapes.filter(s => s && typeof s === 'object');
+                if (_mobileTlcg.petShapes[idx]) {
+                    if (field === 'width' || field === 'height') {
+                        _mobileTlcg.petShapes[idx][field] = val !== '' ? Number(val) : '';
+                    } else {
+                        _mobileTlcg.petShapes[idx][field] = val;
+                    }
+                    mPetSaveConfigs();
+                    renderMobileCalcResults();
                 }
-                mPetSaveConfigs();
-                renderMobileCalcResults();
             }
         }
 
