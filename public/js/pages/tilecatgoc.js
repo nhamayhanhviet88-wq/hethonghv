@@ -2186,26 +2186,6 @@ function _tlcgRenderCalcResults() {
     `;
 
     if (res.suppliers && res.suppliers.length > 0) {
-        // Option for All (Cheapest)
-        let cheapestTexts = [];
-        if (res.calculations && res.calculations.length > 0) {
-            res.calculations.forEach(calc => {
-                const rangeCalc = calc.range_calcs && calc.range_calcs.length > 0 ? calc.range_calcs[0] : null;
-                const hasQty = res.quantity !== null && res.quantity > 0;
-                const cheapestObj = (hasQty && rangeCalc && rangeCalc.cheapest_range)
-                    ? rangeCalc.cheapest_range
-                    : calc.cheapest_overall;
-                if (cheapestObj) {
-                    if (res.calculations.length > 1) {
-                        cheapestTexts.push(`${calc.segment}: ${Number(cheapestObj.price).toLocaleString('vi-VN')} đ (${cheapestObj.source_name})`);
-                    } else {
-                        cheapestTexts.push(`${Number(cheapestObj.price).toLocaleString('vi-VN')} đ (${cheapestObj.source_name})`);
-                    }
-                }
-            });
-        }
-        const cheapestDisplay = cheapestTexts.length > 0 ? cheapestTexts.join('<br>') : 'So sánh tối ưu';
-
         html += `
             <tr style="border-bottom: 1px solid #f1f5f9; background: ${selectedId === 'all' ? '#f0f9ff' : 'transparent'}; cursor: pointer;" onclick="_tlcgSelectCalcSupplier('all')">
                 <td style="padding: 10px 12px; text-align: center;">
@@ -2213,7 +2193,7 @@ function _tlcgRenderCalcResults() {
                 </td>
                 <td style="padding: 10px 12px; font-weight: 700; color: #4f46e5;">🏆 Tất cả (Tự động so sánh rẻ nhất)</td>
                 <td style="padding: 10px 12px; text-align: right; font-weight: 600; color: #64748b; font-style: italic;">So sánh tối ưu</td>
-                <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #059669; font-size: 13.5px;">${cheapestDisplay}</td>
+                <td style="padding: 10px 12px; text-align: right; font-weight: 500; color: #94a3b8;">—</td>
             </tr>
         `;
 
@@ -2229,10 +2209,22 @@ function _tlcgRenderCalcResults() {
                         ? rangeCalc.range_prices[s.source_id]
                         : calc.overall_prices[s.source_id];
                     if (price) {
+                        const cleanSeg = (calc.segment || '').trim();
+                        let color = '#2563eb'; // Default royal blue
+                        if (cleanSeg === 'Người Lớn') color = '#2563eb'; // Blue
+                        else if (cleanSeg === 'Mầm Non') color = '#db2777'; // Pink
+                        else if (cleanSeg === 'Tiểu Học') color = '#059669'; // Green
+                        else if (cleanSeg === 'Oversize') color = '#ea580c'; // Orange
+                        else {
+                            const hash = cleanSeg.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                            const colors = ['#2563eb', '#059669', '#db2777', '#ea580c', '#4f46e5', '#a855f7', '#06b6d4'];
+                            color = colors[hash % colors.length];
+                        }
+
                         if (res.calculations.length > 1) {
-                            priceTexts.push(`${calc.segment}: ${Number(price).toLocaleString('vi-VN')} đ`);
+                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${calc.segment}: ${Number(price).toLocaleString('vi-VN')} đ</span>`);
                         } else {
-                            priceTexts.push(`${Number(price).toLocaleString('vi-VN')} đ`);
+                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${Number(price).toLocaleString('vi-VN')} đ</span>`);
                         }
                     }
                 });
