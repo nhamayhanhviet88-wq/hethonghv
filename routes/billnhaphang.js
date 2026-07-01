@@ -3071,13 +3071,34 @@ module.exports = async function(fastify) {
                 segmentsToCalc = [size_segment];
             }
 
-            // 5. Fetch actual cutting stats for the material (globally, ignoring color and quantity range)
+            // 5. Fetch all defined ranges
+            const definedRanges = await db.all('SELECT id, min_qty, max_qty FROM kv_ratio_quantity_ranges ORDER BY min_qty ASC');
+            definedRanges.forEach(r => {
+                if (r.max_qty >= 999999) {
+                    r.label = `Từ ${Number(r.min_qty).toLocaleString('vi-VN')} sp trở lên`;
+                } else {
+                    r.label = `${Number(r.min_qty).toLocaleString('vi-VN')} - ${Number(r.max_qty).toLocaleString('vi-VN')} sp`;
+                }
+            });
+
+            let activeRanges = [];
+            if (quantity !== undefined && quantity !== null && quantity !== '') {
+                const targetQty = Number(quantity);
+                const matchedRange = definedRanges.find(r => targetQty >= r.min_qty && (r.max_qty === null || r.max_qty === undefined || targetQty <= r.max_qty));
+                if (matchedRange) {
+                    activeRanges = [matchedRange];
+                }
+            } else {
+                activeRanges = definedRanges;
+            }
+
+            // 6. Fetch raw cutting records (globally, ignoring color and quantity range, we will filter in JS)
             const materialNameUpper = mat.name.trim().toUpperCase();
-            const statsQuery = `
+            const rawRecords = await db.all(`
                 SELECT 
                     p.size_segment,
-                    SUM(cr.cut_quantity)::numeric AS total_qty,
-                    SUM(cr.kg_cut)::numeric AS total_kg
+                    cr.cut_quantity,
+                    cr.kg_cut
                 FROM cutting_records cr
                 JOIN dht_order_items oi ON cr.order_item_id = oi.id
                 JOIN dht_orders o ON oi.dht_order_id = o.id
@@ -3092,48 +3113,88 @@ module.exports = async function(fastify) {
                         AND COALESCE(jsonb_array_length(sub_oi.material_pairs::jsonb), 0) > 1
                   )
                   AND UPPER(TRIM(cr.material_name)) = $1
-                GROUP BY p.size_segment
-            `;
-            const statsRows = await db.all(statsQuery, [materialNameUpper]);
-            const actualRatioMap = {};
-            statsRows.forEach(row => {
-                const qty = Number(row.total_qty);
-                const kg = Number(row.total_kg);
-                if (kg > 0) {
-                    actualRatioMap[row.size_segment] = qty / kg;
-                }
-            });
+            `, [materialNameUpper]);
 
-            // 6. Perform calculation per segment
+            // 7. Perform calculations for each segment
             const calculations = [];
             for (const seg of segmentsToCalc) {
-                const actualRatio = actualRatioMap[seg] || 0;
-                const actualPrices = {};
-                let cheapestActual = null;
+                const segRecords = rawRecords.filter(r => r.size_segment === seg);
 
-                prices.forEach(p => {
-                    const basePrice = Number(p.price);
-                    
-                    // Actual price calculation
-                    if (actualRatio > 0) {
-                        const actPrice = Math.round(basePrice / actualRatio);
-                        actualPrices[p.source_id] = actPrice;
-                        if (!cheapestActual || actPrice < cheapestActual.price) {
-                            cheapestActual = { 
+                // A. Overall Stats
+                const overallQty = segRecords.reduce((sum, r) => sum + Number(r.cut_quantity || 0), 0);
+                const overallKg = segRecords.reduce((sum, r) => sum + Number(r.kg_cut || 0), 0);
+                const overall_ratio = overallKg > 0 ? (overallQty / overallKg) : 0;
+
+                const overall_prices = {};
+                let cheapest_overall = null;
+
+                if (overall_ratio > 0) {
+                    prices.forEach(p => {
+                        const basePrice = Number(p.price);
+                        const actPrice = Math.round(basePrice / overall_ratio);
+                        overall_prices[p.source_id] = actPrice;
+                        if (!cheapest_overall || actPrice < cheapest_overall.price) {
+                            cheapest_overall = { 
                                 source_id: p.source_id, 
                                 source_name: p.source_name, 
                                 price: actPrice, 
                                 base_price: basePrice 
                             };
                         }
+                    });
+                }
+
+                // B. Range-Specific Stats
+                const range_calcs = [];
+                activeRanges.forEach(range => {
+                    const rangeMin = Number(range.min_qty || 0);
+                    const rangeMax = range.max_qty !== null && range.max_qty !== undefined ? Number(range.max_qty) : 999999999;
+
+                    const rangeRecords = segRecords.filter(r => {
+                        const q = Number(r.cut_quantity || 0);
+                        return q >= rangeMin && q <= rangeMax;
+                    });
+
+                    const rangeQty = rangeRecords.reduce((sum, r) => sum + Number(r.cut_quantity || 0), 0);
+                    const rangeKg = rangeRecords.reduce((sum, r) => sum + Number(r.kg_cut || 0), 0);
+                    const range_ratio = rangeKg > 0 ? (rangeQty / rangeKg) : 0;
+
+                    const range_prices = {};
+                    let cheapest_range = null;
+
+                    if (range_ratio > 0) {
+                        prices.forEach(p => {
+                            const basePrice = Number(p.price);
+                            const actPrice = Math.round(basePrice / range_ratio);
+                            range_prices[p.source_id] = actPrice;
+                            if (!cheapest_range || actPrice < cheapest_range.price) {
+                                cheapest_range = { 
+                                    source_id: p.source_id, 
+                                    source_name: p.source_name, 
+                                    price: actPrice, 
+                                    base_price: basePrice 
+                                };
+                            }
+                        });
                     }
+
+                    range_calcs.push({
+                        range_id: range.id,
+                        range_label: range.label,
+                        min_qty: range.min_qty,
+                        max_qty: range.max_qty,
+                        range_ratio,
+                        range_prices,
+                        cheapest_range
+                    });
                 });
 
                 calculations.push({
                     segment: seg,
-                    actual_ratio: actualRatio,
-                    actual_prices: actualPrices,
-                    cheapest_actual: cheapestActual
+                    overall_ratio,
+                    overall_prices,
+                    cheapest_overall,
+                    range_calcs
                 });
             }
 
