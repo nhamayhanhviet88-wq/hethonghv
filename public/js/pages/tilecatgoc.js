@@ -2302,18 +2302,50 @@ function _tlcgRenderCalcResults() {
                 }
             }
 
+            // Collect all supplier overall prices
+            const overallSupplierPrices = [];
+            res.suppliers.forEach(s => {
+                const oPrice = calc.overall_prices[s.source_id];
+                if (oPrice) {
+                    overallSupplierPrices.push({
+                        source_id: s.source_id,
+                        source_name: s.source_name,
+                        price: oPrice,
+                        base_price: s.price
+                    });
+                }
+            });
+            overallSupplierPrices.sort((a, b) => a.price - b.price);
+
+            // Collect all supplier range prices if rangeCalc exists
+            const rangeSupplierPrices = [];
+            if (rangeCalc) {
+                res.suppliers.forEach(s => {
+                    const rPrice = rangeCalc.range_prices[s.source_id];
+                    if (rPrice) {
+                        rangeSupplierPrices.push({
+                            source_id: s.source_id,
+                            source_name: s.source_name,
+                            price: rPrice,
+                            base_price: s.price
+                        });
+                    }
+                });
+                rangeSupplierPrices.sort((a, b) => a.price - b.price);
+            }
+
             let subCardsHtml = '';
             if (hasQty && rangeCalc) {
                 const rangeKgNeeded = rangeCalc.range_ratio > 0 ? (res.quantity / rangeCalc.range_ratio).toFixed(2) : null;
                 const overallKgNeeded = calc.overall_ratio > 0 ? (res.quantity / calc.overall_ratio).toFixed(2) : null;
                 
-                const rangeHasData = rangeCalc.range_ratio > 0 && activeCheapestRange;
+                const rangeHasData = rangeCalc.range_ratio > 0 && rangeSupplierPrices.length > 0;
                 const rangeBg = rangeHasData ? '#eff6ff' : '#fef2f2';
                 const rangeBorder = rangeHasData ? '#bfdbfe' : '#fca5a5';
                 const rangeText = rangeHasData ? '#1d4ed8' : '#991b1b';
                 const rangeSub = rangeHasData ? '#1e40af' : '#b91c1c';
 
-                const overallHasData = calc.overall_ratio > 0 && activeCheapestOverall;
+                const overallHasData = calc.overall_ratio > 0 && overallSupplierPrices.length > 0;
                 const overallBg = overallHasData ? '#ecfdf5' : '#fef2f2';
                 const overallBorder = overallHasData ? '#a7f3d0' : '#fca5a5';
                 const overallText = overallHasData ? '#047857' : '#991b1b';
@@ -2337,17 +2369,28 @@ function _tlcgRenderCalcResults() {
                                 ` : ''}
                             </div>
                             ${rangeHasData ? `
-                                <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 8px;">
-                                    <div>${selectedId === 'all' ? '🏆 Rẻ nhất: ' : 'Nguồn: '} <strong style="color: ${rangeSub};">${activeCheapestRange.source_name}</strong></div>
-                                    <div style="font-size: 17px; font-weight: 900; color: ${rangeText}; margin-top: 4px;">
-                                        ${Number(activeCheapestRange.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo</span>
-                                    </div>
-                                    <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
-                                        (Giá gốc: ${Number(activeCheapestRange.base_price).toLocaleString('vi-VN')}đ)
-                                    </div>
-                                    <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                        💰 Tổng tiền: ${Math.round(activeCheapestRange.price * res.quantity).toLocaleString('vi-VN')} đ
-                                    </div>
+                                <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 8px; line-height: 1.5;">
+                                    ${rangeSupplierPrices.map((sp, idx) => {
+                                        const isCheapest = idx === 0;
+                                        const isSelected = selectedId === 'all' || selectedId === String(sp.source_id);
+                                        const textWeight = isSelected ? '700' : 'normal';
+                                        const textColor = isSelected ? '#1e293b' : '#64748b';
+                                        return `
+                                            <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${textWeight}; color: ${textColor}; padding: 2px 0;">
+                                                <span>${isCheapest ? '🏆 ' : ''}${sp.source_name}</span>
+                                                <span>${Number(sp.price).toLocaleString('vi-VN')} đ</span>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                    ${selectedId !== 'all' && activeCheapestRange ? `
+                                        <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                            💰 Tổng tiền: ${Math.round(activeCheapestRange.price * res.quantity).toLocaleString('vi-VN')} đ
+                                        </div>
+                                    ` : selectedId === 'all' && rangeSupplierPrices.length > 0 ? `
+                                        <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                            💰 Tổng tiền (tối ưu): ${Math.round(rangeSupplierPrices[0].price * res.quantity).toLocaleString('vi-VN')} đ
+                                        </div>
+                                    ` : ''}
                                 </div>
                             ` : `<div style="font-size: 12px; color: ${rangeSub}; font-style: italic; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 8px;">Không có thực tế cho khung này hoặc chưa có giá</div>`}
                         </div>
@@ -2368,24 +2411,35 @@ function _tlcgRenderCalcResults() {
                                 ` : ''}
                             </div>
                             ${overallHasData ? `
-                                <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 8px;">
-                                    <div>${selectedId === 'all' ? '🏆 Rẻ nhất: ' : 'Nguồn: '} <strong style="color: ${overallSub};">${activeCheapestOverall.source_name}</strong></div>
-                                    <div style="font-size: 17px; font-weight: 900; color: ${overallText}; margin-top: 4px;">
-                                        ${Number(activeCheapestOverall.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo</span>
-                                    </div>
-                                    <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
-                                        (Giá gốc: ${Number(activeCheapestOverall.base_price).toLocaleString('vi-VN')}đ)
-                                    </div>
-                                    <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                        💰 Tổng tiền: ${Math.round(activeCheapestOverall.price * res.quantity).toLocaleString('vi-VN')} đ
-                                    </div>
+                                <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 8px; line-height: 1.5;">
+                                    ${overallSupplierPrices.map((sp, idx) => {
+                                        const isCheapest = idx === 0;
+                                        const isSelected = selectedId === 'all' || selectedId === String(sp.source_id);
+                                        const textWeight = isSelected ? '700' : 'normal';
+                                        const textColor = isSelected ? '#1e293b' : '#64748b';
+                                        return `
+                                            <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${textWeight}; color: ${textColor}; padding: 2px 0;">
+                                                <span>${isCheapest ? '🏆 ' : ''}${sp.source_name}</span>
+                                                <span>${Number(sp.price).toLocaleString('vi-VN')} đ / áo</span>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                    ${selectedId !== 'all' && activeCheapestOverall ? `
+                                        <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                            💰 Tổng tiền: ${Math.round(activeCheapestOverall.price * res.quantity).toLocaleString('vi-VN')} đ
+                                        </div>
+                                    ` : selectedId === 'all' && overallSupplierPrices.length > 0 ? `
+                                        <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                            💰 Tổng tiền (tối ưu): ${Math.round(overallSupplierPrices[0].price * res.quantity).toLocaleString('vi-VN')} đ
+                                        </div>
+                                    ` : ''}
                                 </div>
                             ` : `<div style="font-size: 12px; color: ${overallSub}; font-style: italic; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 8px;">Không có thực tế toàn chất liệu hoặc chưa có giá</div>`}
                         </div>
                     </div>
                 `;
             } else {
-                const overallHasData = calc.overall_ratio > 0 && activeCheapestOverall;
+                const overallHasData = calc.overall_ratio > 0 && overallSupplierPrices.length > 0;
                 const ovBg = overallHasData ? '#f8fafc' : '#fef2f2';
                 const ovBorder = overallHasData ? '#e2e8f0' : '#fca5a5';
                 const ovText = overallHasData ? '#334155' : '#991b1b';
@@ -2402,11 +2456,18 @@ function _tlcgRenderCalcResults() {
                                 </div>
                             </div>
                             ${overallHasData ? `
-                                <div style="text-align: right;">
-                                    <div style="font-size: 11px; color: #64748b;">${selectedId === 'all' ? 'Rẻ nhất: ' : 'Nguồn: '} <strong style="color: #334155;">${activeCheapestOverall.source_name}</strong></div>
-                                    <div style="font-size: 15px; font-weight: 800; color: #059669;">
-                                        ${Number(activeCheapestOverall.price).toLocaleString('vi-VN')} đ / áo
-                                    </div>
+                                <div style="text-align: right; line-height: 1.5; font-size: 12px;">
+                                    ${overallSupplierPrices.map((sp, idx) => {
+                                        const isCheapest = idx === 0;
+                                        const isSelected = selectedId === 'all' || selectedId === String(sp.source_id);
+                                        const textWeight = isSelected ? '700' : 'normal';
+                                        const textColor = isSelected ? '#1e293b' : '#64748b';
+                                        return `
+                                            <div style="font-weight: ${textWeight}; color: ${textColor};">
+                                                ${isCheapest ? '🏆 ' : ''}${sp.source_name}: ${Number(sp.price).toLocaleString('vi-VN')} đ / áo
+                                            </div>
+                                        `;
+                                    }).join('')}
                                 </div>
                             ` : ''}
                         </div>
@@ -2417,26 +2478,21 @@ function _tlcgRenderCalcResults() {
 
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
                             ${calc.range_calcs.map(rc => {
-                                // Resolve range cheapest for selected supplier
-                                let activeRcCheapest = null;
-                                if (selectedId === 'all') {
-                                    activeRcCheapest = rc.cheapest_range;
-                                } else {
-                                    const selSupplier = res.suppliers.find(s => String(s.source_id) === selectedId);
-                                    if (selSupplier) {
-                                        const rPrice = rc.range_prices[selSupplier.source_id];
-                                        if (rPrice) {
-                                            activeRcCheapest = {
-                                                source_id: selSupplier.source_id,
-                                                source_name: selSupplier.source_name,
-                                                price: rPrice,
-                                                base_price: selSupplier.price
-                                            };
-                                        }
+                                const rcSupplierPrices = [];
+                                res.suppliers.forEach(s => {
+                                    const rPrice = rc.range_prices[s.source_id];
+                                    if (rPrice) {
+                                        rcSupplierPrices.push({
+                                            source_id: s.source_id,
+                                            source_name: s.source_name,
+                                            price: rPrice,
+                                            base_price: s.price
+                                        });
                                     }
-                                }
+                                });
+                                rcSupplierPrices.sort((a, b) => a.price - b.price);
 
-                                const rcHasData = rc.range_ratio > 0 && activeRcCheapest;
+                                const rcHasData = rc.range_ratio > 0 && rcSupplierPrices.length > 0;
                                 const rcBg = rcHasData ? '#eff6ff' : '#fef2f2';
                                 const rcBorder = rcHasData ? '#bfdbfe' : '#fca5a5';
                                 const rcText = rcHasData ? '#1d4ed8' : '#991b1b';
@@ -2453,9 +2509,19 @@ function _tlcgRenderCalcResults() {
                                             </div>
                                         </div>
                                         ${rcHasData ? `
-                                            <div style="border-top: 1px dashed ${rcBorder}; padding-top: 6px; margin-top: 6px; display: flex; justify-content: space-between; align-items: flex-end;">
-                                                <span style="font-size: 11px; color: #475569;">${selectedId === 'all' ? '🏆 ' : ''}${activeRcCheapest.source_name}</span>
-                                                <span style="font-size: 13.5px; font-weight: 900; color: ${rcText};">${Number(activeRcCheapest.price).toLocaleString('vi-VN')} đ</span>
+                                            <div style="border-top: 1px dashed ${rcBorder}; padding-top: 6px; margin-top: 6px; font-size: 11.5px; line-height: 1.5;">
+                                                ${rcSupplierPrices.map((sp, idx) => {
+                                                    const isCheapest = idx === 0;
+                                                    const isSelected = selectedId === 'all' || selectedId === String(sp.source_id);
+                                                    const textWeight = isSelected ? '700' : 'normal';
+                                                    const textColor = isSelected ? '#1e293b' : '#64748b';
+                                                    return `
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${textWeight}; color: ${textColor}; padding: 1px 0;">
+                                                            <span>${isCheapest ? '🏆 ' : ''}${sp.source_name}</span>
+                                                            <span style="font-weight: 700; color: ${isSelected ? rcText : '#64748b'};">${Number(sp.price).toLocaleString('vi-VN')} đ</span>
+                                                        </div>
+                                                    `;
+                                                }).join('')}
                                             </div>
                                         ` : `<div style="font-size: 11px; color: ${rcSub}; font-style: italic; border-top: 1px dashed ${rcBorder}; padding-top: 6px; margin-top: 6px;">Chưa có dữ liệu thực tế</div>`}
                                     </div>
