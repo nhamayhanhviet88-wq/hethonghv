@@ -1492,12 +1492,14 @@
             resultsDiv.style.display = 'block';
 
             try {
-                const res = await apiCall('/api/pricing/calculate', 'POST', {
-                    material_id: matId,
-                    color_id: colorId,
-                    segment: segment || null,
-                    quantity: quantity || null
-                });
+                const payload = {
+                    material_id: Number(matId),
+                    fabric_color_id: Number(colorId)
+                };
+                if (segment) payload.size_segment = segment;
+                if (quantity !== '') payload.quantity = Number(quantity);
+
+                const res = await apiCall('/api/pricing/calculate', 'POST', payload);
 
                 if (!res.success) {
                     resultsDiv.innerHTML = `<div style="color: #ef4444; font-size: 13px; font-weight: 600; text-align: center; padding: 12px;">❌ Lỗi: ${res.error || 'Không thể thực hiện tính toán'}</div>`;
@@ -1514,10 +1516,10 @@
                             🏭 Giá Nhập Gốc Các Nguồn (Đã Duyệt)
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 6px;">
-                            ${res.approved_prices.length > 0 ? res.approved_prices.map(ap => `
+                            ${res.suppliers && res.suppliers.length > 0 ? res.suppliers.map(ap => `
                                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12.5px;">
                                     <span style="font-weight: 700; color: #334155;">${ap.source_name}</span>
-                                    <span style="font-weight: 800; color: #1e293b;">${Number(ap.base_price).toLocaleString('vi-VN')} đ / ${res.unit}</span>
+                                    <span style="font-weight: 800; color: #1e293b;">${Number(ap.price).toLocaleString('vi-VN')} đ / ${res.unit}</span>
                                 </div>
                             `).join('') : '<div style="font-size: 11.5px; color: #64748b; font-style: italic;">Chưa cấu hình giá nhập gốc cho màu vải này</div>'}
                         </div>
