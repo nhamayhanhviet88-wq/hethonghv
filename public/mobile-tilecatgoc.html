@@ -377,6 +377,33 @@
         .mm-actions{display:flex;gap:10px;padding:16px 20px;border-top:1px solid rgba(255,255,255,0.06)}
         .mm-btn{flex:1;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
         .mm-btn-no{background:rgba(255,255,255,0.08);color:#94a3b8}
+
+        /* Mobile Pricing Calculator Modal Styles */
+        .m-calc-input-group {
+            margin-bottom: 12px;
+        }
+        .m-calc-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .m-calc-select, .m-calc-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #334155;
+            background-color: white;
+            outline: none;
+        }
+        .m-calc-input:focus, .m-calc-select:focus {
+            border-color: #4f46e5;
+        }
     </style>
     <!-- Unified Mobile Style -->
     <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
@@ -417,6 +444,9 @@
 
         <!-- Controls -->
         <div class="m-controls">
+            <button onclick="openMobilePricingModal()" style="width: 100%; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: white; border: none; font-weight: 800; font-size: 14px; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2); display: flex; align-items: center; justify-content: center; gap: 8px; outline: none; margin-bottom: 2px;">
+                🧮 Tra Cứu & So Sánh Giá Vải
+            </button>
             <input type="text" class="m-search-input" id="mSearchInput" placeholder="🔍 Tìm kiếm loại vải...">
             
             <div class="m-range-select-wrapper">
@@ -925,7 +955,7 @@
                 // Overall Stats Summary
                 const s = getMaterialRatios(mat);
                 html += `
-                    <div style="background: #f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px; margin-bottom:16px; display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                    <div style="background: #f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px; margin-bottom:12px; display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
                         <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
                             <div style="font-size:8.5px; font-weight:700; color:#64748b;">Lớn</div>
                             <div style="font-size:12px; font-weight:800; color:#4f46e5; margin-top:2px;">${s.adult}</div>
@@ -943,6 +973,13 @@
                             <div style="font-size:12px; font-weight:800; color:#4f46e5; margin-top:2px;">${s.oversize}</div>
                         </div>
                     </div>
+                `;
+
+                // Add shortcut button to calculator
+                html += `
+                    <button onclick="openMobilePricingModal('${encodeURIComponent(mat.name)}')" style="width: 100%; padding: 11px; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 16px; outline: none; box-shadow: 0 4px 8px rgba(16, 185, 129, 0.15);">
+                        🧮 So Sánh Giá Vải Chất Liệu Này
+                    </button>
                 `;
 
                 // Add status filter tabs on mobile
@@ -1331,6 +1368,335 @@
             } catch (err) {
                 console.error(err);
                 toast(err.message, 'error');
+            }
+        }
+
+        // ========== MOBILE PRICING CALCULATOR IMPLEMENTATION ==========
+
+        function openMobilePricingModal(preselectedMatName) {
+            // Close details sheet if open
+            const detailsSheet = document.getElementById('mDetailsSheet');
+            if (detailsSheet) {
+                closeModalSheet();
+            }
+
+            const materialsList = _mobileTlcg.materials || [];
+            
+            // Build the modal HTML
+            const modalHtml = `
+                <div class="m-modal-backdrop" id="mPricingModal" onclick="closePricingModal(event)">
+                    <div class="m-modal-card" onclick="event.stopPropagation()">
+                        <div class="m-modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); padding: 16px 20px; border-radius: 20px 20px 0 0; border-bottom: none;">
+                            <h3 style="color: white; font-weight: 800; font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                🧮 Tra Cứu & So Sánh Giá Vải
+                            </h3>
+                            <button class="m-modal-close" style="background: rgba(255,255,255,0.2); color: white;" onclick="closePricingModal()">&times;</button>
+                        </div>
+                        
+                        <div class="m-modal-body" style="padding: 16px 0;">
+                            <div class="m-calc-input-group">
+                                <label class="m-calc-label">Chất liệu *</label>
+                                <select id="m_calc_material_id" class="m-calc-select" onchange="handleMobileCalcMaterialChange(this.value)">
+                                    <option value="">-- Chọn chất liệu --</option>
+                                    ${materialsList.map(m => {
+                                        const selected = (preselectedMatName && decodeURIComponent(preselectedMatName) === m.name) ? 'selected' : '';
+                                        return `<option value="${m.id}" ${selected}>${m.name}</option>`;
+                                    }).join('')}
+                                </select>
+                            </div>
+                            
+                            <div class="m-calc-input-group">
+                                <label class="m-calc-label">Màu sắc *</label>
+                                <select id="m_calc_color_id" class="m-calc-select">
+                                    <option value="">-- Chọn màu sắc --</option>
+                                </select>
+                            </div>
+
+                            <div class="m-calc-input-group">
+                                <label class="m-calc-label">Phân khúc</label>
+                                <select id="m_calc_segment" class="m-calc-select">
+                                    <option value="">-- Tất cả phân khúc --</option>
+                                    <option value="Người Lớn">👔 Người Lớn</option>
+                                    <option value="Mầm Non">👶 Mầm Non</option>
+                                    <option value="Tiểu Học">🎒 Tiểu Học</option>
+                                    <option value="Oversize">👕 Oversize</option>
+                                </select>
+                            </div>
+
+                            <div class="m-calc-input-group">
+                                <label class="m-calc-label">Số lượng áo</label>
+                                <input type="number" id="m_calc_quantity" class="m-calc-input" placeholder="Tự điền (tùy chọn)">
+                            </div>
+
+                            <div style="display: flex; gap: 10px; margin-top: 18px; margin-bottom: 16px;">
+                                <button class="mm-btn mm-btn-no" style="padding: 12px; font-size: 13.5px;" onclick="closePricingModal()">Hủy</button>
+                                <button class="mm-btn" style="padding: 12px; font-size: 13.5px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: white;" onclick="runMobileCalculation()">🧮 Tính toán & So sánh</button>
+                            </div>
+
+                            <div id="m_calc_results" style="display: none; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 16px;">
+                                <!-- Results rendered here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('mModalWrapper').innerHTML = modalHtml;
+
+            // If material is pre-selected, trigger the change handler to load colors
+            const matSelect = document.getElementById('m_calc_material_id');
+            if (matSelect && matSelect.value) {
+                handleMobileCalcMaterialChange(matSelect.value);
+            }
+        }
+
+        function closePricingModal(e) {
+            if (e && e.target !== document.getElementById('mPricingModal')) return;
+            document.getElementById('mModalWrapper').innerHTML = '';
+        }
+
+        function handleMobileCalcMaterialChange(matId) {
+            const colorSelect = document.getElementById('m_calc_color_id');
+            if (!colorSelect) return;
+            
+            colorSelect.innerHTML = '<option value="">-- Chọn màu sắc --</option>';
+            if (!matId) return;
+
+            const mat = _mobileTlcg.materials.find(m => String(m.id) === String(matId));
+            if (!mat) return;
+
+            const materialNameUpper = mat.name.trim().toUpperCase();
+            
+            // Filter colors for this material from colors list
+            const matchedColors = _mobileTlcg.colors.filter(c => c.material_name.trim().toUpperCase() === materialNameUpper);
+            
+            // Populate select dropdown
+            matchedColors.forEach((c, idx) => {
+                // Auto-select the first color
+                const selected = idx === 0 ? 'selected' : '';
+                colorSelect.insertAdjacentHTML('beforeend', `<option value="${c.color_id}" ${selected}>${c.color_name}</option>`);
+            });
+        }
+
+        async function runMobileCalculation() {
+            const matId = document.getElementById('m_calc_material_id').value;
+            const colorId = document.getElementById('m_calc_color_id').value;
+            const segment = document.getElementById('m_calc_segment').value;
+            const quantity = document.getElementById('m_calc_quantity').value;
+            const resultsDiv = document.getElementById('m_calc_results');
+
+            if (!matId || !colorId) {
+                toast('Vui lòng chọn Chất liệu và Màu sắc', 'error');
+                return;
+            }
+
+            resultsDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #64748b;">⏳ Đang tính toán giá vải...</div>';
+            resultsDiv.style.display = 'block';
+
+            try {
+                const res = await apiCall('/api/pricing/calculate', 'POST', {
+                    material_id: matId,
+                    color_id: colorId,
+                    segment: segment || null,
+                    quantity: quantity || null
+                });
+
+                if (!res.success) {
+                    resultsDiv.innerHTML = `<div style="color: #ef4444; font-size: 13px; font-weight: 600; text-align: center; padding: 12px;">❌ Lỗi: ${res.error || 'Không thể thực hiện tính toán'}</div>`;
+                    return;
+                }
+
+                // Render calculations in touch-optimized mobile layout
+                let html = '';
+
+                // 1. Raw pricing from suppliers list
+                html += `
+                    <div style="background: #f1f5f9; border-radius: 12px; padding: 12px; margin-bottom: 16px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px;">
+                            🏭 Giá Nhập Gốc Các Nguồn (Đã Duyệt)
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            ${res.approved_prices.length > 0 ? res.approved_prices.map(ap => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12.5px;">
+                                    <span style="font-weight: 700; color: #334155;">${ap.source_name}</span>
+                                    <span style="font-weight: 800; color: #1e293b;">${Number(ap.base_price).toLocaleString('vi-VN')} đ / ${res.unit}</span>
+                                </div>
+                            `).join('') : '<div style="font-size: 11.5px; color: #64748b; font-style: italic;">Chưa cấu hình giá nhập gốc cho màu vải này</div>'}
+                        </div>
+                    </div>
+                `;
+
+                // 2. Calculations Details
+                html += `
+                    <div style="font-size: 12.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 4px;">
+                        📊 Kết quả so sánh chi tiết
+                    </div>
+                `;
+
+                if (res.calculations && res.calculations.length > 0) {
+                    res.calculations.forEach(calc => {
+                        const hasQty = res.quantity !== null && res.quantity > 0;
+                        const rangeCalc = calc.range_calcs && calc.range_calcs.length > 0 ? calc.range_calcs[0] : null;
+
+                        let subCardsHtml = '';
+                        if (hasQty && rangeCalc) {
+                            const rangeKgNeeded = rangeCalc.range_ratio > 0 ? (res.quantity / rangeCalc.range_ratio).toFixed(2) : null;
+                            const overallKgNeeded = calc.overall_ratio > 0 ? (res.quantity / calc.overall_ratio).toFixed(2) : null;
+
+                            const rangeHasData = rangeCalc.range_ratio > 0 && rangeCalc.cheapest_range;
+                            const rangeBg = rangeHasData ? '#eff6ff' : '#fef2f2';
+                            const rangeBorder = rangeHasData ? '#bfdbfe' : '#fca5a5';
+                            const rangeText = rangeHasData ? '#1d4ed8' : '#991b1b';
+                            const rangeSub = rangeHasData ? '#1e40af' : '#b91c1c';
+
+                            const overallHasData = calc.overall_ratio > 0 && calc.cheapest_overall;
+                            const overallBg = overallHasData ? '#ecfdf5' : '#fef2f2';
+                            const overallBorder = overallHasData ? '#a7f3d0' : '#fca5a5';
+                            const overallText = overallHasData ? '#047857' : '#991b1b';
+                            const overallSub = overallHasData ? '#065f46' : '#b91c1c';
+
+                            subCardsHtml = `
+                                <div style="display: flex; flex-direction: column; gap: 12px;">
+                                    <!-- Card 1: Range Specific -->
+                                    <div style="background: ${rangeBg}; border: 1.5px solid ${rangeBorder}; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+                                        <div>
+                                            <div style="font-size: 11px; font-weight: 800; color: ${rangeText}; text-transform: uppercase;">
+                                                📦 Theo Khung Số Lượng [${rangeCalc.range_label}]
+                                            </div>
+                                            <div style="font-size: 16px; font-weight: 950; color: ${rangeSub}; margin-top: 4px;">
+                                                ${rangeCalc.range_ratio ? rangeCalc.range_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
+                                            </div>
+                                            ${rangeKgNeeded ? `
+                                                <div style="font-size: 12px; color: ${rangeSub}; font-weight: 600; margin-top: 2px;">
+                                                    ⚖️ Số kg vải dự kiến: <strong style="font-size: 13px; color: ${rangeText};">${rangeKgNeeded} kg</strong>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                        ${rangeHasData ? `
+                                            <div style="font-size: 12px; color: #334155; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 4px;">
+                                                <div>🏆 Rẻ nhất: <strong style="color: ${rangeSub};">${rangeCalc.cheapest_range.source_name}</strong></div>
+                                                <div style="font-size: 15px; font-weight: 900; color: ${rangeText}; margin-top: 2px;">
+                                                    ${Number(rangeCalc.cheapest_range.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo</span>
+                                                </div>
+                                                <div style="font-size: 10px; color: #64748b;">
+                                                    (Giá gốc: ${Number(rangeCalc.cheapest_range.base_price).toLocaleString('vi-VN')}đ)
+                                                </div>
+                                                <div style="font-size: 12.5px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                                    💰 Tổng tiền: ${Math.round(rangeCalc.cheapest_range.price * res.quantity).toLocaleString('vi-VN')} đ
+                                                </div>
+                                            </div>
+                                        ` : `<div style="font-size: 11.5px; color: ${rangeSub}; font-style: italic; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 4px;">Không có thực tế cho khung này hoặc chưa có giá</div>`}
+                                    </div>
+
+                                    <!-- Card 2: Overall -->
+                                    <div style="background: ${overallBg}; border: 1.5px solid ${overallBorder}; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+                                        <div>
+                                            <div style="font-size: 11px; font-weight: 800; color: ${overallText}; text-transform: uppercase;">
+                                                📊 Trung Bình Toàn Chất Liệu
+                                            </div>
+                                            <div style="font-size: 16px; font-weight: 950; color: ${overallSub}; margin-top: 4px;">
+                                                ${calc.overall_ratio ? calc.overall_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
+                                            </div>
+                                            ${overallKgNeeded ? `
+                                                <div style="font-size: 12px; color: ${overallSub}; font-weight: 600; margin-top: 2px;">
+                                                    ⚖️ Số kg vải dự kiến: <strong style="font-size: 13px; color: ${overallText};">${overallKgNeeded} kg</strong>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                        ${overallHasData ? `
+                                            <div style="font-size: 12px; color: #334155; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 4px;">
+                                                <div>🏆 Rẻ nhất: <strong style="color: ${overallSub};">${calc.cheapest_overall.source_name}</strong></div>
+                                                <div style="font-size: 15px; font-weight: 900; color: ${overallText}; margin-top: 2px;">
+                                                    ${Number(calc.cheapest_overall.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo</span>
+                                                </div>
+                                                <div style="font-size: 10px; color: #64748b;">
+                                                    (Giá gốc: ${Number(calc.cheapest_overall.base_price).toLocaleString('vi-VN')}đ)
+                                                </div>
+                                                <div style="font-size: 12.5px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                                    💰 Tổng tiền: ${Math.round(calc.cheapest_overall.price * res.quantity).toLocaleString('vi-VN')} đ
+                                                </div>
+                                            </div>
+                                        ` : `<div style="font-size: 11.5px; color: ${overallSub}; font-style: italic; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 4px;">Không có thực tế toàn chất liệu hoặc chưa có giá</div>`}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            const overallHasData = calc.overall_ratio > 0 && calc.cheapest_overall;
+                            const ovBg = overallHasData ? '#f8fafc' : '#fef2f2';
+                            const ovBorder = overallHasData ? '#e2e8f0' : '#fca5a5';
+                            const ovText = overallHasData ? '#334155' : '#991b1b';
+                            const ovLabelText = overallHasData ? '#64748b' : '#b91c1c';
+
+                            subCardsHtml = `
+                                <div style="display: flex; flex-direction: column; gap: 12px;">
+                                    <!-- Overall Summary Card -->
+                                    <div style="background: ${ovBg}; border: 1px solid ${ovBorder}; border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                        <div>
+                                            <div style="font-size: 11px; font-weight: 800; color: ${ovLabelText}; text-transform: uppercase;">📊 Trung Bình Toàn Chất Liệu</div>
+                                            <div style="font-size: 15px; font-weight: 900; color: ${ovText}; margin-top: 2px;">
+                                                ${calc.overall_ratio ? calc.overall_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
+                                            </div>
+                                        </div>
+                                        ${overallHasData ? `
+                                            <div style="text-align: right;">
+                                                <div style="font-size: 10.5px; color: #64748b;">Rẻ nhất: <strong style="color: #334155;">${calc.cheapest_overall.source_name}</strong></div>
+                                                <div style="font-size: 14px; font-weight: 800; color: #059669; margin-top: 2px;">
+                                                    ${Number(calc.cheapest_overall.price).toLocaleString('vi-VN')} đ / áo
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+
+                                    <div style="font-size: 11.5px; font-weight: 800; color: #475569; margin-top: 6px; text-transform: uppercase;">
+                                        📦 Chi tiết các khung số lượng:
+                                    </div>
+
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        ${calc.range_calcs.map(rc => {
+                                            const rcHasData = rc.range_ratio > 0 && rc.cheapest_range;
+                                            const rcBg = rcHasData ? '#eff6ff' : '#fef2f2';
+                                            const rcBorder = rcHasData ? '#bfdbfe' : '#fca5a5';
+                                            const rcText = rcHasData ? '#1d4ed8' : '#991b1b';
+                                            const rcSub = rcHasData ? '#1e40af' : '#b91c1c';
+
+                                            return `
+                                                <div style="background: ${rcBg}; border: 1.5px solid ${rcBorder}; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 4px;">
+                                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span style="font-size: 11px; font-weight: 800; color: ${rcText}; text-transform: uppercase;">Khung: ${rc.range_label}</span>
+                                                        <span style="font-size: 13.5px; font-weight: 900; color: ${rcSub};">Tỉ lệ: ${rc.range_ratio ? rc.range_ratio.toFixed(2) + ' sp' : 'Chưa có'}</span>
+                                                    </div>
+                                                    ${rcHasData ? `
+                                                        <div style="border-top: 1px dashed ${rcBorder}; padding-top: 6px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                                                            <span style="color: #475569;">🏆 ${rc.cheapest_range.source_name}</span>
+                                                            <span style="font-weight: 900; color: ${rcText};">${Number(rc.cheapest_range.price).toLocaleString('vi-VN')} đ/áo</span>
+                                                        </div>
+                                                    ` : `<div style="font-size: 11px; color: ${rcSub}; font-style: italic; border-top: 1px dashed ${rcBorder}; padding-top: 4px; margin-top: 4px;">Chưa có dữ liệu thực tế</div>`}
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        html += `
+                            <div style="background: white; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                                <div style="font-weight: 800; font-size: 13.5px; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                                    ${getSegmentBadgeMobile(calc.segment)} Phân khúc
+                                </div>
+                                ${subCardsHtml}
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<div style="text-align: center; color: #64748b; font-style: italic; padding: 20px;">Không tìm thấy dữ liệu tính toán</div>';
+                }
+
+                resultsDiv.innerHTML = html;
+
+            } catch (err) {
+                console.error(err);
+                resultsDiv.innerHTML = `<div style="color: #ef4444; font-size: 13px; font-weight: 600; text-align: center; padding: 12px;">❌ Lỗi kết nối máy chủ</div>`;
             }
         }
     </script>
