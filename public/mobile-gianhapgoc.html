@@ -508,28 +508,6 @@
                 const actual = _gngGetActualRatioForSegment(matName, segmentName);
                 if (actual > 0) return actual;
             }
-
-            const materialId = p.material_id || p.fabric_material_id || p.id;
-            if (materialId && targets) {
-                const categoryMappings = [
-                    segmentName,
-                    `Áo ${segmentName}`,
-                    segmentName === 'Người Lớn' ? 'Áo' : ''
-                ].filter(Boolean);
-                
-                const matchedTarget = targets.find(t => 
-                    t.material_id === materialId && 
-                    categoryMappings.includes(t.cutting_category)
-                );
-                if (matchedTarget) {
-                    return Number(matchedTarget.target_ratio) || 0;
-                }
-            }
-
-            if (segmentName === 'Người Lớn') return Number(p.fabric_cut_ratio_adult) || Number(p.target_cut_ratio) || 0;
-            if (segmentName === 'Mầm Non') return Number(p.fabric_cut_ratio_mamnon) || 0;
-            if (segmentName === 'Tiểu Học') return Number(p.fabric_cut_ratio_tieuhoc) || 0;
-            if (segmentName === 'Oversize') return Number(p.fabric_cut_ratio_oversize) || 0;
             return 0;
         }
 
