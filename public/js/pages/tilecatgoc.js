@@ -2119,8 +2119,14 @@ async function _tlcgRunCalculation() {
 
         if (res.calculations && res.calculations.length > 0) {
             res.calculations.forEach(calc => {
-                const targetCheapest = calc.cheapest_target;
                 const actualCheapest = calc.cheapest_actual;
+                const hasQty = res.quantity !== null && res.quantity > 0;
+                
+                let kgNeededText = '';
+                if (hasQty && calc.actual_ratio > 0) {
+                    const kgNeeded = (res.quantity / calc.actual_ratio).toFixed(2);
+                    kgNeededText = `<div style="font-size: 12px; color: #047857; margin-top: 4px; font-weight: 600;">⚖️ Số kg vải dự kiến: <strong style="font-size: 13.5px; color: #065f46;">${kgNeeded} kg</strong></div>`;
+                }
 
                 html += `
                     <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
@@ -2128,60 +2134,43 @@ async function _tlcgRunCalculation() {
                             <span style="font-weight: 800; font-size: 14.5px; color: #1e293b; display: flex; align-items: center; gap: 6px;">
                                 ${calc.segment === 'Người Lớn' ? '👔' : calc.segment === 'Mầm Non' ? '👶' : calc.segment === 'Tiểu Học' ? '🎒' : '👕'} 
                                 Phân khúc: ${calc.segment} 
-                                <span style="font-size: 11px; font-weight: 700; background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 6px; margin-left: 6px;">
-                                    📦 Khung: ${calc.range_label}
-                                </span>
                             </span>
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 12px;">
-                            <!-- Target Ratio Column -->
-                            <div style="background: #faf5ff; border: 1px solid #f3e8ff; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
-                                <div>
-                                    <div style="font-size: 11.5px; font-weight: 700; color: #7e22ce; margin-bottom: 6px;">
-                                        🎯 Tỉ Lệ Cắt Mục Tiêu
-                                    </div>
-                                    <div style="font-size: 16px; font-weight: 800; color: #6b21a8; margin-bottom: 8px;">
-                                        ${calc.target_ratio ? calc.target_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa cấu hình'}
-                                    </div>
-                                </div>
-                                ${calc.target_ratio > 0 && targetCheapest ? `
-                                    <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed #e9d5ff; padding-top: 8px; margin-top: 8px;">
-                                        <div>🏆 Nguồn rẻ nhất: <strong style="color: #6b21a8;">${targetCheapest.source_name}</strong></div>
-                                        <div style="font-size: 16px; font-weight: 900; color: #10b981; margin-top: 4px;">
-                                            ${Number(targetCheapest.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo thành phẩm</span>
-                                        </div>
-                                        <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
-                                            (Đơn giá gốc: ${Number(targetCheapest.base_price).toLocaleString('vi-VN')}đ / ${res.unit})
-                                        </div>
-                                    </div>
-                                ` : '<div style="font-size: 12px; color: #64748b; font-style: italic; border-top: 1px dashed #e9d5ff; padding-top: 8px; margin-top: 8px;">Không thể tính giá (tỉ lệ = 0 hoặc chưa có giá)</div>'}
-                            </div>
-
+                        <div style="margin-bottom: 12px;">
                             <!-- Actual Ratio Column -->
-                            <div style="background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
-                                <div>
-                                    <div style="font-size: 11.5px; font-weight: 700; color: #047857; margin-bottom: 6px;">
-                                        📊 Tỉ Lệ Cắt Thực Tế
+                            <div style="background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 10px; padding: 14px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                                    <div>
+                                        <div style="font-size: 12px; font-weight: 800; color: #047857; margin-bottom: 4px;">
+                                            📊 Tỉ Lệ Cắt Thực Tế (Toàn Bộ Chất Liệu)
+                                        </div>
+                                        <div style="font-size: 18px; font-weight: 900; color: #065f46;">
+                                            ${calc.actual_ratio ? calc.actual_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
+                                        </div>
+                                        ${kgNeededText}
                                     </div>
-                                    <div style="font-size: 16px; font-weight: 800; color: #065f46; margin-bottom: 8px;">
-                                        ${calc.actual_ratio ? calc.actual_ratio.toFixed(2) + ' sp/' + res.unit : 'Chưa có dữ liệu'}
-                                    </div>
+                                    
+                                    ${calc.actual_ratio > 0 && actualCheapest ? `
+                                        <div style="text-align: right; min-width: 180px;">
+                                            <div style="font-size: 12px; color: #1e293b;">🏆 Nguồn rẻ nhất: <strong style="color: #065f46;">${actualCheapest.source_name}</strong></div>
+                                            <div style="font-size: 18px; font-weight: 900; color: #059669; margin-top: 2px;">
+                                                ${Number(actualCheapest.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo</span>
+                                            </div>
+                                            <div style="font-size: 11px; color: #64748b; margin-top: 1px;">
+                                                (Giá gốc: ${Number(actualCheapest.base_price).toLocaleString('vi-VN')}đ / ${res.unit})
+                                            </div>
+                                            ${hasQty ? `
+                                                <div style="font-size: 13px; font-weight: 800; color: #059669; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                                    💰 Tổng tiền vải: ${Math.round(actualCheapest.price * res.quantity).toLocaleString('vi-VN')} đ
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    ` : '<div style="font-size: 12px; color: #64748b; font-style: italic;">Không có dữ liệu thực tế để tính toán giá.</div>'}
                                 </div>
-                                ${calc.actual_ratio > 0 && actualCheapest ? `
-                                    <div style="font-size: 12px; color: #1e293b; border-top: 1px dashed #a7f3d0; padding-top: 8px; margin-top: 8px;">
-                                        <div>🏆 Nguồn rẻ nhất: <strong style="color: #065f46;">${actualCheapest.source_name}</strong></div>
-                                        <div style="font-size: 16px; font-weight: 900; color: #059669; margin-top: 4px;">
-                                            ${Number(actualCheapest.price).toLocaleString('vi-VN')} đ <span style="font-size: 11px; font-weight: normal; color: #64748b;">/ áo thành phẩm</span>
-                                        </div>
-                                        <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
-                                            (Đơn giá gốc: ${Number(actualCheapest.base_price).toLocaleString('vi-VN')}đ / ${res.unit})
-                                        </div>
-                                    </div>
-                                ` : '<div style="font-size: 12px; color: #64748b; font-style: italic; border-top: 1px dashed #a7f3d0; padding-top: 8px; margin-top: 8px;">Không có thực tế (chưa có đơn cắt thực tế hoặc chưa có giá)</div>'}
                             </div>
                         </div>
-
+ 
                         <!-- Full comparison table for this range -->
                         <div style="margin-top: 10px;">
                             <span style="font-size: 11.5px; font-weight: 700; color: #4f46e5; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" onclick="const t = this.nextElementSibling; t.style.display = t.style.display === 'none' ? 'block' : 'none'">
@@ -2193,29 +2182,31 @@ async function _tlcgRunCalculation() {
                                         <tr>
                                             <th style="padding: 8px 10px; font-weight: 700; background: #0f172a !important; color: #ffffff !important;">Nguồn nhập</th>
                                             <th style="padding: 8px 10px; font-weight: 700; background: #0f172a !important; color: #ffffff !important; text-align: right;">Giá vải gốc</th>
-                                            <th style="padding: 8px 10px; font-weight: 700; background: #0f172a !important; color: #ffffff !important; text-align: right;">Giá theo Mục Tiêu</th>
                                             <th style="padding: 8px 10px; font-weight: 700; background: #0f172a !important; color: #ffffff !important; text-align: right;">Giá theo Thực Tế</th>
+                                            ${hasQty ? `<th style="padding: 8px 10px; font-weight: 700; background: #0f172a !important; color: #ffffff !important; text-align: right;">Tổng chi phí vải</th>` : ''}
                                         </tr>
                                     </thead>
                                     <tbody>
                 `;
                 res.suppliers.forEach(s => {
-                    const tgtP = calc.target_prices[s.source_id] ? Number(calc.target_prices[s.source_id]).toLocaleString('vi-VN') + ' đ' : '—';
-                    const actP = calc.actual_prices[s.source_id] ? Number(calc.actual_prices[s.source_id]).toLocaleString('vi-VN') + ' đ' : '—';
+                    const actPriceRaw = calc.actual_prices[s.source_id];
+                    const actP = actPriceRaw ? Number(actPriceRaw).toLocaleString('vi-VN') + ' đ' : '—';
+                    const totP = actPriceRaw && hasQty ? Math.round(actPriceRaw * res.quantity).toLocaleString('vi-VN') + ' đ' : '—';
                     
-                    const isTgtBest = targetCheapest && String(targetCheapest.source_id) === String(s.source_id);
                     const isActBest = actualCheapest && String(actualCheapest.source_id) === String(s.source_id);
 
                     html += `
                         <tr style="border-bottom: 1px solid #f1f5f9;">
                             <td style="padding: 8px 10px; font-weight: 600; color: #1e293b;">${s.source_name}</td>
-                            <td style="padding: 8px 10px; text-align: right; color: #64748b;">${Number(s.price).toLocaleString('vi-VN')} đ</td>
-                            <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: ${isTgtBest ? '#10b981' : '#475569'}; background: ${isTgtBest ? 'rgba(245,243,255,0.6)' : 'transparent'};">
-                                ${tgtP} ${isTgtBest ? '🏆' : ''}
-                            </td>
+                            <td style="padding: 8px 10px; text-align: right; color: #64748b;">${Number(s.price).toLocaleString('vi-VN')} đ / ${res.unit}</td>
                             <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: ${isActBest ? '#059669' : '#475569'}; background: ${isActBest ? 'rgba(236,253,245,0.6)' : 'transparent'};">
                                 ${actP} ${isActBest ? '🏆' : ''}
                             </td>
+                            ${hasQty ? `
+                                <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: ${isActBest ? '#059669' : '#475569'}; background: ${isActBest ? 'rgba(236,253,245,0.6)' : 'transparent'};">
+                                    ${totP}
+                                </td>
+                            ` : ''}
                         </tr>
                     `;
                 });
