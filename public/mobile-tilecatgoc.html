@@ -1574,9 +1574,9 @@
                 <div class="pet-shape-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;" data-idx="${idx}">
                     <input type="text" class="m-calc-input p-name" placeholder="Tên hình (vd: Logo ngực...)" style="flex: 2; min-width: 110px; padding: 6px 8px; font-size: 11.5px; margin: 0; background: white;" value="${s.name || ''}" onchange="mPetUpdateShape(${idx}, 'name', this.value)">
                     <div style="display: flex; align-items: center; gap: 4px;">
-                        <input type="number" class="m-calc-input p-width" placeholder="Rộng" style="width: 55px; padding: 6px; font-size: 11.5px; margin: 0; background: white;" value="${s.width || ''}" onchange="mPetUpdateShape(${idx}, 'width', this.value)">
+                        <input type="text" class="m-calc-input p-width" placeholder="Rộng" style="width: 55px; padding: 6px; font-size: 11.5px; margin: 0; background: white;" value="${s.width || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')" onchange="mPetUpdateShape(${idx}, 'width', this.value)">
                         <span style="font-size: 11.5px; color: #64748b;">x</span>
-                        <input type="number" class="m-calc-input p-height" placeholder="Cao" style="width: 55px; padding: 6px; font-size: 11.5px; margin: 0; background: white;" value="${s.height || ''}" onchange="mPetUpdateShape(${idx}, 'height', this.value)">
+                        <input type="text" class="m-calc-input p-height" placeholder="Cao" style="width: 55px; padding: 6px; font-size: 11.5px; margin: 0; background: white;" value="${s.height || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')" onchange="mPetUpdateShape(${idx}, 'height', this.value)">
                         <span style="font-size: 11px; color: #166534; font-weight: 600;">cm</span>
                     </div>
                     <button class="mm-btn" style="background: #fee2e2; color: #ef4444; border: none; padding: 6px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600;" onclick="mPetRemoveShapeRow(${idx})">Xóa</button>
@@ -1610,7 +1610,8 @@
                 _mobileTlcg.petShapes = _mobileTlcg.petShapes.filter(s => s && typeof s === 'object');
                 if (_mobileTlcg.petShapes[idx]) {
                     if (field === 'width' || field === 'height') {
-                        _mobileTlcg.petShapes[idx][field] = val !== '' ? Number(val) : '';
+                        const cleanVal = String(val).replace(/,/g, '.');
+                        _mobileTlcg.petShapes[idx][field] = cleanVal !== '' ? Number(cleanVal) : '';
                     } else {
                         _mobileTlcg.petShapes[idx][field] = val;
                     }
@@ -1784,7 +1785,7 @@
                                         <div style="flex: 1;">
                                             <span style="font-size: 10.5px; font-weight: 700; color: #166534; display: block; margin-bottom: 2px;">Khoảng cách:</span>
                                             <div style="display: flex; align-items: center; gap: 4px;">
-                                                <input type="number" id="m_pet_spacing" class="m-calc-input" style="width: 100%; padding: 6px; font-size: 12px; background: white;" value="${_mobileTlcg.petSpacing}" step="0.1" oninput="mPetSaveConfigs()">
+                                                <input type="text" id="m_pet_spacing" class="m-calc-input" style="width: 100%; padding: 6px; font-size: 12px; background: white;" value="${_mobileTlcg.petSpacing}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); mPetSaveConfigs()">
                                                 <span style="font-size: 11px; color: #166534; font-weight: 600;">cm</span>
                                             </div>
                                         </div>

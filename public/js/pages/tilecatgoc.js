@@ -2105,9 +2105,9 @@ function _tlcgRenderPetShapeRows() {
         <div class="pet-shape-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;" data-idx="${idx}">
             <input type="text" class="tlcg-search-input p-name" placeholder="Tên hình (vd: Logo ngực...)" style="flex: 2; min-width: 140px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; font-size: 12px; background: white;" value="${s.name || ''}" onchange="_tlcgUpdatePetShape(${idx}, 'name', this.value)">
             <div style="display: flex; align-items: center; gap: 4px;">
-                <input type="number" class="tlcg-search-input p-width" placeholder="Rộng" style="width: 70px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-size: 12px; background: white;" value="${s.width || ''}" onchange="_tlcgUpdatePetShape(${idx}, 'width', this.value)">
+                <input type="text" class="tlcg-search-input p-width" placeholder="Rộng" style="width: 70px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-size: 12px; background: white;" value="${s.width || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')" onchange="_tlcgUpdatePetShape(${idx}, 'width', this.value)">
                 <span style="font-size: 12px; color: #64748b;">x</span>
-                <input type="number" class="tlcg-search-input p-height" placeholder="Cao" style="width: 70px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-size: 12px; background: white;" value="${s.height || ''}" onchange="_tlcgUpdatePetShape(${idx}, 'height', this.value)">
+                <input type="text" class="tlcg-search-input p-height" placeholder="Cao" style="width: 70px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-size: 12px; background: white;" value="${s.height || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')" onchange="_tlcgUpdatePetShape(${idx}, 'height', this.value)">
                 <span style="font-size: 12px; color: #166534; font-weight: 600;">cm</span>
             </div>
             <button class="tlcg-btn" style="background: #fee2e2; color: #ef4444; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;" onclick="_tlcgRemovePetShapeRow(${idx})">Xóa</button>
@@ -2143,7 +2143,8 @@ function _tlcgUpdatePetShape(idx, field, val) {
         _tlcg.petShapes = _tlcg.petShapes.filter(s => s && typeof s === 'object');
         if (_tlcg.petShapes[idx]) {
             if (field === 'width' || field === 'height') {
-                _tlcg.petShapes[idx][field] = val !== '' ? Number(val) : '';
+                const cleanVal = String(val).replace(/,/g, '.');
+                _tlcg.petShapes[idx][field] = cleanVal !== '' ? Number(cleanVal) : '';
             } else {
                 _tlcg.petShapes[idx][field] = val;
             }
@@ -2327,7 +2328,7 @@ async function _tlcgOpenPricingCalculatorModal() {
                             </div>
                             <div style="display: flex; align-items: center; gap: 6px;">
                                 <span style="font-size: 11px; font-weight: 700; color: #166534;">Khoảng cách:</span>
-                                <input type="number" id="pet_spacing" class="tlcg-search-input" style="width: 60px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 12px; background: white;" value="${_tlcg.petSpacing}" step="0.1" oninput="_tlcgSavePetConfigs()">
+                                <input type="text" id="pet_spacing" class="tlcg-search-input" style="width: 60px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 12px; background: white;" value="${_tlcg.petSpacing}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _tlcgSavePetConfigs()">
                                 <span style="font-size: 11px; color: #166534; font-weight: 600;">cm</span>
                             </div>
                         </div>
