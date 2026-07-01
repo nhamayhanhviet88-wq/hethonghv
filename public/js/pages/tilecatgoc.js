@@ -2011,6 +2011,205 @@ async function _tlcgShowTicketDetail(recordId) {
 
 // ========== CUSTOMER PRICE INQUIRY CALCULATOR ==========
 
+// ========== PET PRINTING UTILITIES ==========
+function _tlcgLoadPetConfigs() {
+    _tlcg.petEnabled = localStorage.getItem('tlcg_pet_enabled') === 'true';
+    _tlcg.petSheetPrice = Number(localStorage.getItem('tlcg_pet_sheet_price')) || 40000;
+    _tlcg.petSpacing = localStorage.getItem('tlcg_pet_spacing') !== null ? Number(localStorage.getItem('tlcg_pet_spacing')) : 0.3;
+    _tlcg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
+    try {
+        _tlcg.petShapes = JSON.parse(localStorage.getItem('tlcg_pet_shapes')) || [{ name: 'Logo ngực', width: 10, height: 5 }];
+    } catch(e) {
+        _tlcg.petShapes = [{ name: 'Logo ngực', width: 10, height: 5 }];
+    }
+}
+
+function _tlcgSavePetConfigs() {
+    const enableCb = document.getElementById('calc_enable_pet');
+    if (enableCb) {
+        localStorage.setItem('tlcg_pet_enabled', enableCb.checked ? 'true' : 'false');
+    }
+    const priceInput = document.getElementById('pet_sheet_price');
+    if (priceInput) {
+        localStorage.setItem('tlcg_pet_sheet_price', priceInput.value);
+    }
+    const spacingInput = document.getElementById('pet_spacing');
+    if (spacingInput) {
+        localStorage.setItem('tlcg_pet_spacing', spacingInput.value);
+    }
+    if (_tlcg.petShapes) {
+        localStorage.setItem('tlcg_pet_shapes', JSON.stringify(_tlcg.petShapes));
+    }
+}
+
+function _tlcgTogglePetSection(enabled) {
+    const globalDiv = document.getElementById('pet_global_settings');
+    const containerDiv = document.getElementById('pet_shapes_container');
+    if (globalDiv && containerDiv) {
+        globalDiv.style.display = enabled ? 'flex' : 'none';
+        containerDiv.style.display = enabled ? 'block' : 'none';
+    }
+    _tlcgSavePetConfigs();
+    _tlcgRenderCalcResults();
+}
+
+function _tlcgRenderPetShapeRows() {
+    const list = document.getElementById('pet_shapes_list');
+    if (!list) return;
+    
+    const shapes = _tlcg.petShapes || [];
+    if (shapes.length === 0) {
+        list.innerHTML = `<div style="font-size: 12px; color: #166534; font-style: italic;">Chưa có hình in nào. Vui lòng bấm nút Thêm hình in ở dưới.</div>`;
+        return;
+    }
+    
+    list.innerHTML = shapes.map((s, idx) => `
+        <div class="pet-shape-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;" data-idx="${idx}">
+            <input type="text" class="tlcg-search-input p-name" placeholder="Tên hình (vd: Logo ngực...)" style="flex: 2; min-width: 140px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; font-size: 12px; background: white;" value="${s.name || ''}" onchange="_tlcgUpdatePetShape(${idx}, 'name', this.value)">
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <input type="number" class="tlcg-search-input p-width" placeholder="Rộng" style="width: 70px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-size: 12px; background: white;" value="${s.width || ''}" onchange="_tlcgUpdatePetShape(${idx}, 'width', this.value)">
+                <span style="font-size: 12px; color: #64748b;">x</span>
+                <input type="number" class="tlcg-search-input p-height" placeholder="Cao" style="width: 70px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-size: 12px; background: white;" value="${s.height || ''}" onchange="_tlcgUpdatePetShape(${idx}, 'height', this.value)">
+                <span style="font-size: 12px; color: #166534; font-weight: 600;">cm</span>
+            </div>
+            <button class="tlcg-btn" style="background: #fee2e2; color: #ef4444; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;" onclick="_tlcgRemovePetShapeRow(${idx})">Xóa</button>
+        </div>
+    `).join('');
+}
+
+function _tlcgAddPetShapeRow() {
+    if (!_tlcg.petShapes) _tlcg.petShapes = [];
+    _tlcg.petShapes.push({ name: '', width: '', height: '' });
+    _tlcgRenderPetShapeRows();
+    _tlcgSavePetConfigs();
+    _tlcgRenderCalcResults();
+}
+
+function _tlcgRemovePetShapeRow(idx) {
+    if (_tlcg.petShapes) {
+        _tlcg.petShapes.splice(idx, 1);
+        _tlcgRenderPetShapeRows();
+        _tlcgSavePetConfigs();
+        _tlcgRenderCalcResults();
+    }
+}
+
+function _tlcgUpdatePetShape(idx, field, val) {
+    if (_tlcg.petShapes && _tlcg.petShapes[idx]) {
+        if (field === 'width' || field === 'height') {
+            _tlcg.petShapes[idx][field] = val !== '' ? Number(val) : '';
+        } else {
+            _tlcg.petShapes[idx][field] = val;
+        }
+        _tlcgSavePetConfigs();
+        _tlcgRenderCalcResults();
+    }
+}
+
+function _tlcgUpdatePetMode(val) {
+    localStorage.setItem('tlcg_pet_calc_mode', val);
+    _tlcgRenderCalcResults();
+}
+
+function _tlcgCalculatePacking(W_sheet, H_sheet, w, h, s) {
+    if (w <= 0 || h <= 0 || W_sheet <= 0 || H_sheet <= 0) return { aligned: 0, optimized: 0 };
+    
+    s = Number(s) || 0;
+    
+    // Option 1: Horizontal packing (all items w wide, h high)
+    const nw_horiz = Math.floor((W_sheet + s) / (w + s));
+    const nh_horiz = Math.floor((H_sheet + s) / (h + s));
+    const countHoriz = (nw_horiz > 0 && nh_horiz > 0) ? nw_horiz * nh_horiz : 0;
+    
+    // Option 2: Vertical packing (all items h wide, w high)
+    const nw_vert = Math.floor((W_sheet + s) / (h + s));
+    const nh_vert = Math.floor((H_sheet + s) / (w + s));
+    const countVert = (nw_vert > 0 && nh_vert > 0) ? nw_vert * nh_vert : 0;
+    
+    const aligned = Math.max(countHoriz, countVert);
+    
+    let optimized = aligned;
+    
+    // Helper to calculate count for a horizontal split
+    function checkHorizontalSplit(wA, hA, wB, hB) {
+        const maxA = Math.floor((H_sheet + s) / (hA + s));
+        for (let rA = 0; rA <= maxA; rA++) {
+            const heightA = rA > 0 ? (rA * (hA + s) - s) : 0;
+            const remainH = H_sheet - heightA - (rA > 0 ? s : 0);
+            const rB = remainH >= hB ? Math.floor((remainH + s) / (hB + s)) : 0;
+            
+            const cA = Math.floor((W_sheet + s) / (wA + s));
+            const cB = Math.floor((W_sheet + s) / (wB + s));
+            
+            const total = (rA * cA) + (rB * cB);
+            if (total > optimized) optimized = total;
+        }
+    }
+    
+    // Helper to calculate count for a vertical split
+    function checkVerticalSplit(wA, hA, wB, hB) {
+        const maxA = Math.floor((W_sheet + s) / (wA + s));
+        for (let cA = 0; cA <= maxA; cA++) {
+            const widthA = cA > 0 ? (cA * (wA + s) - s) : 0;
+            const remainW = W_sheet - widthA - (cA > 0 ? s : 0);
+            const cB = remainW >= wB ? Math.floor((remainW + s) / (wB + s)) : 0;
+            
+            const rA = Math.floor((H_sheet + s) / (hA + s));
+            const rB = Math.floor((H_sheet + s) / (hB + s));
+            
+            const total = (cA * rA) + (cB * rB);
+            if (total > optimized) optimized = total;
+        }
+    }
+    
+    checkHorizontalSplit(w, h, h, w);
+    checkHorizontalSplit(h, w, w, h);
+    checkVerticalSplit(w, h, h, w);
+    checkVerticalSplit(h, w, w, h);
+    
+    return { aligned, optimized };
+}
+
+function _tlcgGetPetCosts() {
+    const enabled = document.getElementById('calc_enable_pet')?.checked;
+    if (!enabled) return { enabled: false, alignedCost: 0, optimizedCost: 0, details: [] };
+    
+    const price = Number(document.getElementById('pet_sheet_price')?.value) || 0;
+    const spacing = Number(document.getElementById('pet_spacing')?.value) || 0;
+    const shapes = _tlcg.petShapes || [];
+    
+    let alignedCost = 0;
+    let optimizedCost = 0;
+    const details = [];
+    
+    shapes.forEach(s => {
+        const w = Number(s.width);
+        const h = Number(s.height);
+        if (w > 0 && h > 0) {
+            const packing = _tlcgCalculatePacking(58, 100, w, h, spacing);
+            const aCost = packing.aligned > 0 ? (price / packing.aligned) : 0;
+            const oCost = packing.optimized > 0 ? (price / packing.optimized) : 0;
+            alignedCost += aCost;
+            optimizedCost += oCost;
+            details.push({
+                name: s.name || 'Hình in',
+                width: w,
+                height: h,
+                packing,
+                aCost,
+                oCost
+            });
+        }
+    });
+    
+    return {
+        enabled: true,
+        alignedCost: Math.round(alignedCost),
+        optimizedCost: Math.round(optimizedCost),
+        details
+    };
+}
+
 async function _tlcgOpenPricingCalculatorModal() {
     if (!document.getElementById('tlcgModalOverlay')) {
         const overlay = document.createElement('div');
@@ -2019,6 +2218,8 @@ async function _tlcgOpenPricingCalculatorModal() {
         document.body.appendChild(overlay);
     }
     const overlay = document.getElementById('tlcgModalOverlay');
+
+    _tlcgLoadPetConfigs();
 
     overlay.innerHTML = `
         <div class="tlcg-modal" style="max-width: 800px; width: 90%;">
@@ -2057,6 +2258,38 @@ async function _tlcgOpenPricingCalculatorModal() {
                         <input type="number" id="calc_quantity" class="tlcg-search-input" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px;" placeholder="Tự điền (tùy chọn)">
                     </div>
                 </div>
+
+                <!-- PET Printing Setup Section -->
+                <div class="pet-setup-section" style="margin-bottom: 20px; background: #f0fdf4; padding: 16px; border-radius: 12px; border: 1px solid #bbf7d0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <label style="font-weight: 800; font-size: 13.5px; color: #166534; display: flex; align-items: center; gap: 6px; cursor: pointer; margin: 0;">
+                            <input type="checkbox" id="calc_enable_pet" style="width: 16px; height: 16px; cursor: pointer;" onchange="_tlcgTogglePetSection(this.checked)" ${_tlcg.petEnabled ? 'checked' : ''}>
+                            🖨️ Tính thêm chi phí in PET
+                        </label>
+                        
+                        <div id="pet_global_settings" style="display: ${_tlcg.petEnabled ? 'flex' : 'none'}; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 11px; font-weight: 700; color: #166534;">Giá khổ 58x100:</span>
+                                <input type="number" id="pet_sheet_price" class="tlcg-search-input" style="width: 90px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 12px; background: white;" value="${_tlcg.petSheetPrice}" oninput="_tlcgSavePetConfigs()">
+                                <span style="font-size: 11px; color: #166534; font-weight: 600;">đ</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 11px; font-weight: 700; color: #166534;">Khoảng cách:</span>
+                                <input type="number" id="pet_spacing" class="tlcg-search-input" style="width: 60px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 12px; background: white;" value="${_tlcg.petSpacing}" step="0.1" oninput="_tlcgSavePetConfigs()">
+                                <span style="font-size: 11px; color: #166534; font-weight: 600;">cm</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="pet_shapes_container" style="display: ${_tlcg.petEnabled ? 'block' : 'none'}; border-top: 1px dashed #bbf7d0; padding-top: 12px;">
+                        <div id="pet_shapes_list" style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Shape rows rendered here -->
+                        </div>
+                        <button class="tlcg-btn" style="margin-top: 10px; font-size: 12px; padding: 6px 12px; background: #166534; color: white; border: none; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" onclick="_tlcgAddPetShapeRow()">
+                            ➕ Thêm hình in
+                        </button>
+                    </div>
+                </div>
                 
                 <div style="display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 20px;">
                     <button class="tlcg-btn" style="border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 8px; font-weight: 600;" onclick="_tlcgCloseModal()">Hủy</button>
@@ -2070,6 +2303,7 @@ async function _tlcgOpenPricingCalculatorModal() {
         </div>
     `;
     overlay.classList.add('active');
+    _tlcgRenderPetShapeRows();
 }
 
 function _tlcgCalcHandleMaterialChange(matId) {
@@ -2164,6 +2398,10 @@ function _tlcgRenderCalcResults() {
 
     const selectedId = _tlcg.selectedCalcSupplierId || 'all';
 
+    // Get PET cost details
+    const petInfo = _tlcgGetPetCosts();
+    const petCost = petInfo.enabled ? (localStorage.getItem('tlcg_pet_calc_mode') === 'optimized' ? petInfo.optimizedCost : petInfo.alignedCost) : 0;
+
     const getRankStyles = (idx) => {
         const icons = ['🏆 ', '🥈 ', '🥉 ', '• '];
         const icon = icons[Math.min(idx, 3)];
@@ -2194,6 +2432,43 @@ function _tlcgRenderCalcResults() {
     };
 
     let html = '';
+
+    // Render PET Print summary at top if enabled
+    if (petInfo.enabled) {
+        const selectedMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
+        html += `
+            <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 14px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="font-size: 13px; font-weight: 800; color: #166534; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    🖨️ Chi phí in PET dự kiến (cho 1 áo)
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                    <label style="background: white; border: 1.5px solid ${selectedMode === 'aligned' ? '#166534' : '#e2e8f0'}; border-radius: 8px; padding: 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); margin: 0;">
+                        <input type="radio" name="pet_calc_mode" value="aligned" ${selectedMode === 'aligned' ? 'checked' : ''} onchange="_tlcgUpdatePetMode(this.value)">
+                        <div>
+                            <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Xếp Thẳng Hàng (Dễ Cắt)</div>
+                            <div style="font-size: 15px; font-weight: 800; color: #166534;">${Number(petInfo.alignedCost).toLocaleString('vi-VN')} đ / áo</div>
+                        </div>
+                    </label>
+                    <label style="background: white; border: 1.5px solid ${selectedMode === 'optimized' ? '#166534' : '#e2e8f0'}; border-radius: 8px; padding: 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); margin: 0;">
+                        <input type="radio" name="pet_calc_mode" value="optimized" ${selectedMode === 'optimized' ? 'checked' : ''} onchange="_tlcgUpdatePetMode(this.value)">
+                        <div>
+                            <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Xếp Tối Ưu (Tiết Kiệm)</div>
+                            <div style="font-size: 15px; font-weight: 800; color: #166534;">${Number(petInfo.optimizedCost).toLocaleString('vi-VN')} đ / áo</div>
+                        </div>
+                    </label>
+                </div>
+                <div style="font-size: 11.5px; color: #166534; font-weight: 500; margin-top: 12px; border-top: 1px dashed #bbf7d0; padding-top: 8px; line-height: 1.6;">
+                    ${petInfo.details.map((d, i) => `
+                        <div>
+                            <strong>• ${d.name || `Hình in ${i+1}`}</strong> (${d.width}x${d.height}cm): 
+                            Thẳng hàng: <strong>${d.packing.aligned}</strong> hình/khổ (${Math.round(d.aCost).toLocaleString('vi-VN')}đ) | 
+                            Tối ưu: <strong>${d.packing.optimized}</strong> hình/khổ (${Math.round(d.oCost).toLocaleString('vi-VN')}đ)
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
 
     // 1. Supplier Base Prices Table
     html += `
@@ -2238,6 +2513,7 @@ function _tlcgRenderCalcResults() {
                         ? rangeCalc.range_prices[s.source_id]
                         : calc.overall_prices[s.source_id];
                     if (price) {
+                        const finalPrice = Number(price) + petCost;
                         const cleanSeg = (calc.segment || '').trim();
                         let color = '#2563eb'; // Default royal blue
                         if (cleanSeg === 'Người Lớn') color = '#2563eb'; // Blue
@@ -2251,9 +2527,9 @@ function _tlcgRenderCalcResults() {
                         }
 
                         if (res.calculations.length > 1) {
-                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${calc.segment}: ${Number(price).toLocaleString('vi-VN')} đ</span>`);
+                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${calc.segment}: ${Number(finalPrice).toLocaleString('vi-VN')} đ</span>`);
                         } else {
-                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${Number(price).toLocaleString('vi-VN')} đ</span>`);
+                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${Number(finalPrice).toLocaleString('vi-VN')} đ</span>`);
                         }
                     }
                 });
@@ -2408,17 +2684,20 @@ function _tlcgRenderCalcResults() {
                                         return `
                                             <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 2px 0;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
-                                                <span style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price).toLocaleString('vi-VN')} đ</span>
+                                                <span style="color: ${finalPriceColor}; font-weight: 800;">
+                                                    ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo
+                                                    ${petInfo.enabled ? `<span style="font-size: 10.5px; font-weight: normal; color: #64748b;">(Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + In: ${Number(petCost).toLocaleString('vi-VN')}đ)</span>` : ''}
+                                                </span>
                                             </div>
                                         `;
                                     }).join('')}
                                     ${selectedId !== 'all' && activeCheapestRange ? `
                                         <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền: ${Math.round(activeCheapestRange.price * res.quantity).toLocaleString('vi-VN')} đ
+                                            💰 Tổng tiền: ${Math.round((activeCheapestRange.price + petCost) * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     ` : selectedId === 'all' && rangeSupplierPrices.length > 0 ? `
                                         <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền (tối ưu): ${Math.round(rangeSupplierPrices[0].price * res.quantity).toLocaleString('vi-VN')} đ
+                                            💰 Tổng tiền (tối ưu): ${Math.round((rangeSupplierPrices[0].price + petCost) * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     ` : ''}
                                 </div>
@@ -2451,17 +2730,20 @@ function _tlcgRenderCalcResults() {
                                         return `
                                             <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 2px 0;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
-                                                <span style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price).toLocaleString('vi-VN')} đ / áo</span>
+                                                <span style="color: ${finalPriceColor}; font-weight: 800;">
+                                                    ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo
+                                                    ${petInfo.enabled ? `<span style="font-size: 10.5px; font-weight: normal; color: #64748b;">(Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + In: ${Number(petCost).toLocaleString('vi-VN')}đ)</span>` : ''}
+                                                </span>
                                             </div>
                                         `;
                                     }).join('')}
                                     ${selectedId !== 'all' && activeCheapestOverall ? `
                                         <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền: ${Math.round(activeCheapestOverall.price * res.quantity).toLocaleString('vi-VN')} đ
+                                            💰 Tổng tiền: ${Math.round((activeCheapestOverall.price + petCost) * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     ` : selectedId === 'all' && overallSupplierPrices.length > 0 ? `
                                         <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền (tối ưu): ${Math.round(overallSupplierPrices[0].price * res.quantity).toLocaleString('vi-VN')} đ
+                                            💰 Tổng tiền (tối ưu): ${Math.round((overallSupplierPrices[0].price + petCost) * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     ` : ''}
                                 </div>
@@ -2496,7 +2778,10 @@ function _tlcgRenderCalcResults() {
                                         const finalWeight = isSelected ? styles.fontWeight : 'normal';
                                         return `
                                             <div style="font-weight: ${finalWeight}; color: ${finalNameColor};">
-                                                ${styles.icon}${sp.source_name}: <span style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price).toLocaleString('vi-VN')} đ / áo</span>
+                                                ${styles.icon}${sp.source_name}: <span style="color: ${finalPriceColor}; font-weight: 800;">
+                                                    ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo
+                                                    ${petInfo.enabled ? `<span style="font-size: 10.5px; font-weight: normal; color: #64748b;">(Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + In: ${Number(petCost).toLocaleString('vi-VN')}đ)</span>` : ''}
+                                                </span>
                                             </div>
                                         `;
                                     }).join('')}
@@ -2558,7 +2843,10 @@ function _tlcgRenderCalcResults() {
                                                     return `
                                                         <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 1px 0;">
                                                             <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
-                                                            <span style="font-weight: 800; color: ${finalPriceColor};">${Number(sp.price).toLocaleString('vi-VN')} đ</span>
+                                                            <span style="font-weight: 800; color: ${finalPriceColor};">
+                                                                ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ
+                                                                ${petInfo.enabled ? `<span style="font-size: 10.5px; font-weight: normal; color: #64748b;">(Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + In: ${Number(petCost).toLocaleString('vi-VN')}đ)</span>` : ''}
+                                                            </span>
                                                         </div>
                                                     `;
                                                 }).join('')}
@@ -2590,11 +2878,11 @@ function _tlcgRenderCalcResults() {
                     const overallPriceRaw = calc.overall_prices[s.source_id];
 
                     const rangePriceText = rangePriceRaw 
-                        ? `<span style="font-weight: 800; color: #1d4ed8;">${Number(rangePriceRaw).toLocaleString('vi-VN')} đ</span><br><span style="font-size: 10px; color: #64748b;">Tổng: ${Math.round(rangePriceRaw * res.quantity).toLocaleString('vi-VN')}đ</span>` 
+                        ? `<span style="font-weight: 800; color: #1d4ed8;">${Number(rangePriceRaw + petCost).toLocaleString('vi-VN')} đ</span><br><span style="font-size: 10px; color: #64748b;">Tổng: ${Math.round((rangePriceRaw + petCost) * res.quantity).toLocaleString('vi-VN')}đ</span>` 
                         : '—';
                     
                     const overallPriceText = overallPriceRaw 
-                        ? `<span style="font-weight: 800; color: #059669;">${Number(overallPriceRaw).toLocaleString('vi-VN')} đ</span><br><span style="font-size: 10px; color: #64748b;">Tổng: ${Math.round(overallPriceRaw * res.quantity).toLocaleString('vi-VN')}đ</span>` 
+                        ? `<span style="font-weight: 800; color: #059669;">${Number(overallPriceRaw + petCost).toLocaleString('vi-VN')} đ</span><br><span style="font-size: 10px; color: #64748b;">Tổng: ${Math.round((overallPriceRaw + petCost) * res.quantity).toLocaleString('vi-VN')}đ</span>` 
                         : '—';
 
                     const isRangeBest = rangeCalc.cheapest_range && String(rangeCalc.cheapest_range.source_id) === String(s.source_id);
@@ -2626,7 +2914,7 @@ function _tlcgRenderCalcResults() {
 
                 res.suppliers.forEach(s => {
                     const overallPriceRaw = calc.overall_prices[s.source_id];
-                    const overallPriceText = overallPriceRaw ? `${Number(overallPriceRaw).toLocaleString('vi-VN')} đ` : '—';
+                    const overallPriceText = overallPriceRaw ? `${Number(overallPriceRaw + petCost).toLocaleString('vi-VN')} đ` : '—';
                     const isOverallBest = calc.cheapest_overall && String(calc.cheapest_overall.source_id) === String(s.source_id);
 
                     const isRowSelected = selectedId === String(s.source_id);
