@@ -976,8 +976,15 @@
                                                 ${group.pendingCount > 0 ? `${group.pendingCount} đơn chờ` : 'Xong'}
                                             </span>
                                         </div>
-                                        <div class="m-month-subtitle">
-                                            Duyệt: ${approvedRatio} (${group.approvedQty} áo / ${group.approvedKg.toFixed(1)} ${mat.unit || 'kg'})
+                                        <div class="m-month-subtitle" style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 4px; font-size: 10px;">
+                                            <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
+                                                ✅ Duyệt: ${approvedRatio} ${approvedRatio !== '---' ? 'sp/' + (mat.unit || 'kg') : ''} (${group.approvedQty} sp)
+                                            </span>
+                                            ${group.pendingCount > 0 ? `
+                                            <span style="background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
+                                                📊 Toàn bộ: ${totalRatio} ${totalRatio !== '---' ? 'sp/' + (mat.unit || 'kg') : ''}
+                                            </span>
+                                            ` : ''}
                                         </div>
                                     </div>
                                     <div style="display:flex; align-items:center;" onclick="event.stopPropagation()">
@@ -1311,6 +1318,7 @@
 
         async function approveBatch(ids) {
             if (!ids || ids.length === 0) return;
+            if (!confirm(`Bạn có chắc chắn muốn DUYỆT TẤT CẢ ${ids.length} đơn cắt chờ xử lý này không?`)) return;
             try {
                 const res = await apiCall('/api/cutting/approve-ratio-batch', 'POST', { ids });
                 if (res.success) {

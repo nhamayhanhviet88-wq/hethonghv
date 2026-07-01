@@ -1266,9 +1266,16 @@ async function _tlcgLoadDrawerContent(mat) {
                                         ${group.pendingCount > 0 ? `${group.pendingCount} chờ duyệt` : 'Đã duyệt hết'}
                                     </span>
                                 </div>
-                                <div class="tlcg-accordion-stats">
-                                    Đã duyệt: ${approvedRatio} ${approvedRatio !== '---' ? 'sp/' + (mat.unit || 'kg') : ''} (${group.approvedQty} sp / ${group.approvedKg.toFixed(1)} ${mat.unit || 'kg'})
-                                    ${group.pendingCount > 0 ? `| Toàn bộ: ${totalRatio} sp` : ''}
+                                <div class="tlcg-accordion-stats" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; font-size: 11.5px; color: #475569;">
+                                    <span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                                        ✅ Đã duyệt: <strong style="font-size: 12.5px; color: #02507d;">${approvedRatio} ${approvedRatio !== '---' ? 'sp/' + (mat.unit || 'kg') : ''}</strong>
+                                        <span style="font-weight: 500; font-size: 10.5px; opacity: 0.85;">(${group.approvedQty} sp / ${group.approvedKg.toFixed(1)} ${mat.unit || 'kg'})</span>
+                                    </span>
+                                    ${group.pendingCount > 0 ? `
+                                    <span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                                        📊 Toàn bộ: <strong style="font-size: 12.5px; color: #1e293b;">${totalRatio} ${totalRatio !== '---' ? 'sp/' + (mat.unit || 'kg') : ''}</strong>
+                                    </span>
+                                    ` : ''}
                                 </div>
                             </div>
                             
@@ -1423,6 +1430,7 @@ function _tlcgSetFilter(val) {
 
 async function _tlcgApproveBatch(ids) {
     if (!ids || ids.length === 0) return;
+    if (!confirm(`Bạn có chắc chắn muốn DUYỆT TẤT CẢ ${ids.length} đơn cắt chờ xử lý này không?`)) return;
     try {
         const res = await apiCall('/api/cutting/approve-ratio-batch', 'POST', { ids });
         if (res.success) {
