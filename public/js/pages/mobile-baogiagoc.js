@@ -59,6 +59,9 @@ async function initMobileBaogiagocPage() {
         if (setupBtn) setupBtn.style.display = 'block';
         if (priceTemBtn) priceTemBtn.style.display = 'block';
         if (pricePetBtn) pricePetBtn.style.display = 'block';
+        if (typeof _mUpdateHeaderPriceButtons === 'function') {
+            _mUpdateHeaderPriceButtons();
+        }
     }
     const priceInput = document.getElementById('m_pet_sheet_price');
     if (priceInput) {
@@ -188,6 +191,9 @@ async function loadInitialDataMobile() {
             if (configsRes) {
                 _mobileBgg.priceTem = Number(configsRes.bgg_original_price_tem) || 40000;
                 _mobileBgg.pricePet = Number(configsRes.bgg_original_price_pet) || 40000;
+                if (typeof _mUpdateHeaderPriceButtons === 'function') {
+                    _mUpdateHeaderPriceButtons();
+                }
             }
         } catch (e) {
             console.error('Failed to load base print prices:', e);
@@ -2635,6 +2641,19 @@ window._mCloseFormulaModal = function() {
     if (existing) existing.remove();
 };
 
+window._mUpdateHeaderPriceButtons = function() {
+    const temBtn = document.getElementById('m_btn_price_tem');
+    if (temBtn) {
+        const priceVal = (_mobileBgg.priceTem || 0).toLocaleString('vi-VN');
+        temBtn.innerHTML = `🏷️ GIÁ GỐC TEM: <span style="background: rgba(255,255,255,0.25); padding: 2px 6px; border-radius: 6px; margin-left: 2px; font-weight: 800;">${priceVal} đ/m</span>`;
+    }
+    const petBtn = document.getElementById('m_btn_price_pet');
+    if (petBtn) {
+        const priceVal = (_mobileBgg.pricePet || 0).toLocaleString('vi-VN');
+        petBtn.innerHTML = `🏷️ GIÁ GỐC PET: <span style="background: rgba(255,255,255,0.25); padding: 2px 6px; border-radius: 6px; margin-left: 2px; font-weight: 800;">${priceVal} đ/m</span>`;
+    }
+};
+
 window._mFormulaAddRow = function() {
     if (!Array.isArray(_mobileBgg.currentFormulaRows)) {
         _mobileBgg.currentFormulaRows = [];
@@ -2844,6 +2863,9 @@ window._mSaveFormulaModal = async function() {
             _mobileBgg.priceTem = calculatedPrice;
         } else {
             _mobileBgg.pricePet = calculatedPrice;
+        }
+        if (typeof _mUpdateHeaderPriceButtons === 'function') {
+            _mUpdateHeaderPriceButtons();
         }
         
         // Update sheet price if the currently selected print type is this one
