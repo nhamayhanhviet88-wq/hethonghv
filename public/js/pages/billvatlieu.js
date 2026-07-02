@@ -1217,7 +1217,6 @@ function _bvlRenderAddedMats() {
             + '</div>'
             + '</div>';
     });
-    });
 
     listContainer.innerHTML = html;
     if (countBadge) countBadge.textContent = _bvl.addedMaterials.length + ' mặt hàng';
