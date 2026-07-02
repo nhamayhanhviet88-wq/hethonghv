@@ -20,11 +20,7 @@ var _bgg = {
     screenColors: ''
 };
 
-var _BGG_3D_SUPPLIERS = [
-    { key: 'thien_linh', name: 'In 3D Thiện Linh', icon: '🏭' },
-    { key: 'phuong_tc', name: 'In 3D Phượng TC', icon: '🏭' },
-    { key: 'chi_hang', name: 'In 3D Chi Hằng', icon: '🏭' }
-];
+var _BGG_3D_SUPPLIERS = [];
 
 var _BGG_SCREEN_SUPPLIERS = [
     { key: 'thien_linh_screen', name: 'In Lưới Thiện Linh', icon: '🎨' },
@@ -380,6 +376,10 @@ async function _bggLoadData() {
         // Load dynamic screen suppliers from print areas & staff configuration
         await _bggLoadDynamicScreenSuppliers();
         _bggRenderScreenSupplierDisplay();
+
+        // Load dynamic 3D suppliers from print areas & staff configuration
+        await _bggLoadDynamic3DSuppliers();
+        _bggRender3dSupplierDisplay();
         
     } catch(err) {
         console.error('Failed to load bgg data:', err);
@@ -429,6 +429,64 @@ async function _bggLoadDynamicScreenSuppliers() {
         }
     } catch (e) {
         console.error('Failed to load dynamic screen suppliers:', e);
+    }
+}
+
+async function _bggLoadDynamic3DSuppliers() {
+    try {
+        const fieldsRes = await apiCall('/api/printing/fields');
+        const fields = fieldsRes.fields || [];
+        const fields3D = fields.filter(f => {
+            const name = (f.name || '').toLowerCase();
+            return name.includes('3d');
+        });
+        
+        if (fields3D.length > 0) {
+            const dynamicSuppliers = [];
+            const seenKeys = new Set();
+            
+            // Fetch operators for all 3D fields
+            const opsPromises = fields3D.map(f => apiCall(`/api/printing/fields/${f.id}/operators`));
+            const opsResponses = await Promise.all(opsPromises);
+            
+            opsResponses.forEach(opsRes => {
+                const staff = opsRes.staff || [];
+                const contractors = opsRes.contractors || [];
+                const assigned = opsRes.assigned || [];
+                
+                assigned.forEach(ass => {
+                    let supplier = null;
+                    if (ass.operator_type === 'user') {
+                        const u = staff.find(s => s.id === ass.operator_id);
+                        if (u) {
+                            supplier = {
+                                key: 'user_' + u.id,
+                                name: u.full_name,
+                                icon: '👤'
+                            };
+                        }
+                    } else if (ass.operator_type === 'contractor') {
+                        const c = contractors.find(con => con.id === ass.operator_id);
+                        if (c) {
+                            supplier = {
+                                key: 'contractor_' + c.id,
+                                name: c.name,
+                                icon: '🏭'
+                            };
+                        }
+                    }
+                    if (supplier && !seenKeys.has(supplier.key)) {
+                        seenKeys.add(supplier.key);
+                        dynamicSuppliers.push(supplier);
+                    }
+                });
+            });
+            _BGG_3D_SUPPLIERS = dynamicSuppliers;
+        } else {
+            _BGG_3D_SUPPLIERS = [];
+        }
+    } catch (e) {
+        console.error('Failed to load dynamic 3D suppliers:', e);
     }
 }
 
@@ -513,30 +571,26 @@ function _bggGet3dConfig(supplierKey) {
     if (stored) {
         try { return JSON.parse(stored); } catch(e) { /* ignore */ }
     }
-    // Default config for Thien Linh
-    if (supplierKey === 'thien_linh') {
-        const def = {
-            meters_per_shirt: 0.8,
-            print_tiers: [
-                { min: 3000, max: null, price: 11000 },
-                { min: 1000, max: 3000, price: 12000 },
-                { min: 500, max: 1000, price: 13000 },
-                { min: 200, max: 500, price: 14000 },
-                { min: 100, max: 200, price: 16000 },
-                { min: 50, max: 100, price: 18000 },
-                { min: 30, max: 50, price: 22000 },
-                { min: 10, max: 30, price: 25000 },
-                { min: 0, max: 10, price: 35000 }
-            ],
-            laser_tiers: [
-                { min: 500, max: null, price: 3500 },
-                { min: 0, max: 500, price: 4000 }
-            ]
-        };
-        localStorage.setItem('bgg_3d_config_thien_linh', JSON.stringify(def));
-        return def;
-    }
-    return { meters_per_shirt: 0.8, print_tiers: [], laser_tiers: [] };
+    // Default config for all 3D suppliers
+    const def = {
+        meters_per_shirt: 0.8,
+        print_tiers: [
+            { min: 3000, max: null, price: 11000 },
+            { min: 1000, max: 3000, price: 12000 },
+            { min: 500, max: 1000, price: 13000 },
+            { min: 200, max: 500, price: 14000 },
+            { min: 100, max: 200, price: 16000 },
+            { min: 50, max: 100, price: 18000 },
+            { min: 30, max: 50, price: 22000 },
+            { min: 10, max: 30, price: 25000 },
+            { min: 0, max: 10, price: 35000 }
+        ],
+        laser_tiers: [
+            { min: 500, max: null, price: 3500 },
+            { min: 0, max: 500, price: 4000 }
+        ]
+    };
+    return def;
 }
 
 function _bggSave3dSupplierConfig(supplierKey, config) {
@@ -717,6 +771,13 @@ function _bggToggle3dSection(enabled) {
 function _bggRender3dSupplierDisplay() {
     const el = document.getElementById('bgg_3d_supplier_display');
     if (!el) return;
+
+    // Auto default to first if invalid/empty
+    if ((!_bgg.print3dSupplier || !_BGG_3D_SUPPLIERS.some(s => s.key === _bgg.print3dSupplier)) && _BGG_3D_SUPPLIERS.length > 0) {
+        _bgg.print3dSupplier = _BGG_3D_SUPPLIERS[0].key;
+        _bggSave3dConfigs();
+    }
+
     const supplier = _BGG_3D_SUPPLIERS.find(s => s.key === _bgg.print3dSupplier);
     if (!supplier) {
         el.innerHTML = '<div style="font-size: 12px; color: #94a3b8; cursor: pointer;" onclick="_bggOpen3dPicker()">⚠️ Chưa chọn NCC — <strong style="color:#3b82f6;">bấm để chọn</strong></div>';
@@ -1902,20 +1963,23 @@ window._bggOpenSetup3dModal = function() {
     const existing = document.getElementById('bgg_setup_3d_modal');
     if (existing) existing.remove();
 
-    const currentSupplier = _bgg.print3dSupplier || '';
+    let currentSupplier = _bgg.print3dSupplier || '';
+    if ((!currentSupplier || !_BGG_3D_SUPPLIERS.some(s => s.key === currentSupplier)) && _BGG_3D_SUPPLIERS.length > 0) {
+        currentSupplier = _BGG_3D_SUPPLIERS[0].key;
+    }
 
     const modal = document.createElement('div');
     modal.id = 'bgg_setup_3d_modal';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
 
     // Supplier tabs
-    const tabsHtml = _BGG_3D_SUPPLIERS.map(s => `
+    const tabsHtml = _BGG_3D_SUPPLIERS.length > 0 ? _BGG_3D_SUPPLIERS.map(s => `
         <button onclick="_bggSelect3dSupplier('${s.key}')" style="padding: 8px 14px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 8px; font-size: 12px; font-weight: 700; color: ${currentSupplier === s.key ? '#1e40af' : '#64748b'}; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'}; cursor: pointer; transition: all 0.2s; white-space: nowrap;">${s.icon} ${s.name}</button>
-    `).join('');
+    `).join('') : '<div style="color: #64748b; font-size: 13px; font-style: italic;">Chưa cấu hình nhà in 3D nào. Vui lòng vào Quản Lý Lĩnh Vực In để thêm.</div>';
 
     // Pricing tables for selected supplier
     let pricingHtml = '';
-    if (currentSupplier) {
+    if (currentSupplier && _BGG_3D_SUPPLIERS.some(s => s.key === currentSupplier)) {
         const config = _bggGet3dConfig(currentSupplier);
         const mps = config?.meters_per_shirt || 0.8;
         const printTiers = config?.print_tiers || [];
@@ -1981,10 +2045,7 @@ window._bggOpenSetup3dModal = function() {
                 </div>
             </div>
         `;
-    } else {
-        pricingHtml = '<div style="margin-top: 16px; padding: 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; text-align: center; font-size: 12px; color: #64748b;">Chọn nhà cung cấp ở trên để xem và chỉnh sửa bảng giá</div>';
-    }
-
+    const hasSupplier = currentSupplier && _BGG_3D_SUPPLIERS.some(s => s.key === currentSupplier);
     modal.innerHTML = `
         <div style="background: white; border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
             <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: white; z-index: 1; border-radius: 16px 16px 0 0;">
@@ -1997,7 +2058,7 @@ window._bggOpenSetup3dModal = function() {
             </div>
             <div style="padding: 14px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-radius: 0 0 16px 16px; position: sticky; bottom: 0;">
                 <button onclick="_bggCloseSetup3dModal()" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
-                ${currentSupplier ? '<button onclick="_bgg3dSaveConfig()" style="padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; color: white; background: linear-gradient(135deg, #3b82f6, #1d4ed8); cursor: pointer;">💾 Lưu bảng giá</button>' : ''}
+                ${hasSupplier ? '<button onclick="_bgg3dSaveConfig()" style="padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; color: white; background: linear-gradient(135deg, #3b82f6, #1d4ed8); cursor: pointer;">💾 Lưu bảng giá</button>' : ''}
             </div>
         </div>
     `;

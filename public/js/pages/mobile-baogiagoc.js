@@ -19,11 +19,7 @@ var _mobileBgg = {
     screenColors: ''
 };
 
-var _M_BGG_3D_SUPPLIERS = [
-    { key: 'thien_linh', name: 'In 3D Thiện Linh', icon: '🏭' },
-    { key: 'phuong_tc', name: 'In 3D Phượng TC', icon: '🏭' },
-    { key: 'chi_hang', name: 'In 3D Chi Hằng', icon: '🏭' }
-];
+var _M_BGG_3D_SUPPLIERS = [];
 
 var _M_BGG_SCREEN_SUPPLIERS = [
     { key: 'thien_linh_screen', name: 'In Lưới Thiện Linh', icon: '🎨' },
@@ -169,6 +165,10 @@ async function loadInitialDataMobile() {
         // Load dynamic screen suppliers from print areas & staff configuration
         await loadDynamicScreenSuppliersMobile();
         renderScreenSupplierDisplayMobile();
+
+        // Load dynamic 3D suppliers from print areas & staff configuration
+        await loadDynamic3DSuppliersMobile();
+        render3dSupplierDisplayMobile();
         
     } catch(err) {
         console.error('Failed to load data:', err);
@@ -218,6 +218,63 @@ async function loadDynamicScreenSuppliersMobile() {
         }
     } catch (e) {
         console.error('Failed to load dynamic screen suppliers:', e);
+    }
+}
+
+async function loadDynamic3DSuppliersMobile() {
+    try {
+        const fieldsRes = await apiCall('/api/printing/fields');
+        const fields = fieldsRes.fields || [];
+        const fields3D = fields.filter(f => {
+            const name = (f.name || '').toLowerCase();
+            return name.includes('3d');
+        });
+        
+        if (fields3D.length > 0) {
+            const dynamicSuppliers = [];
+            const seenKeys = new Set();
+            
+            const opsPromises = fields3D.map(f => apiCall(`/api/printing/fields/${f.id}/operators`));
+            const opsResponses = await Promise.all(opsPromises);
+            
+            opsResponses.forEach(opsRes => {
+                const staff = opsRes.staff || [];
+                const contractors = opsRes.contractors || [];
+                const assigned = opsRes.assigned || [];
+                
+                assigned.forEach(ass => {
+                    let supplier = null;
+                    if (ass.operator_type === 'user') {
+                        const u = staff.find(s => s.id === ass.operator_id);
+                        if (u) {
+                            supplier = {
+                                key: 'user_' + u.id,
+                                name: u.full_name,
+                                icon: '👤'
+                            };
+                        }
+                    } else if (ass.operator_type === 'contractor') {
+                        const c = contractors.find(con => con.id === ass.operator_id);
+                        if (c) {
+                            supplier = {
+                                key: 'contractor_' + c.id,
+                                name: c.name,
+                                icon: '🏭'
+                            };
+                        }
+                    }
+                    if (supplier && !seenKeys.has(supplier.key)) {
+                        seenKeys.add(supplier.key);
+                        dynamicSuppliers.push(supplier);
+                    }
+                });
+            });
+            _M_BGG_3D_SUPPLIERS = dynamicSuppliers;
+        } else {
+            _M_BGG_3D_SUPPLIERS = [];
+        }
+    } catch (e) {
+        console.error('Failed to load dynamic 3D suppliers:', e);
     }
 }
 
@@ -300,12 +357,8 @@ function _mGet3dConfig(supplierKey) {
     if (!supplierKey) return null;
     const stored = localStorage.getItem('bgg_3d_config_' + supplierKey);
     if (stored) { try { return JSON.parse(stored); } catch(e) {} }
-    if (supplierKey === 'thien_linh') {
-        const def = { meters_per_shirt: 0.8, print_tiers: [{min:3000,max:null,price:11000},{min:1000,max:3000,price:12000},{min:500,max:1000,price:13000},{min:200,max:500,price:14000},{min:100,max:200,price:16000},{min:50,max:100,price:18000},{min:30,max:50,price:22000},{min:10,max:30,price:25000},{min:0,max:10,price:35000}], laser_tiers: [{min:500,max:null,price:3500},{min:0,max:500,price:4000}] };
-        localStorage.setItem('bgg_3d_config_thien_linh', JSON.stringify(def));
-        return def;
-    }
-    return { meters_per_shirt: 0.8, print_tiers: [], laser_tiers: [] };
+    const def = { meters_per_shirt: 0.8, print_tiers: [{min:3000,max:null,price:11000},{min:1000,max:3000,price:12000},{min:500,max:1000,price:13000},{min:200,max:500,price:14000},{min:100,max:200,price:16000},{min:50,max:100,price:18000},{min:30,max:50,price:22000},{min:10,max:30,price:25000},{min:0,max:10,price:35000}], laser_tiers: [{min:500,max:null,price:3500},{min:0,max:500,price:4000}] };
+    return def;
 }
 
 function _mCalc3dCost(qty) {
@@ -441,6 +494,13 @@ function toggle3dSectionMobile(enabled) {
 function render3dSupplierDisplayMobile() {
     const el = document.getElementById('m_3d_supplier_display');
     if (!el) return;
+
+    // Auto default to first if invalid/empty
+    if ((!_mobileBgg.print3dSupplier || !_M_BGG_3D_SUPPLIERS.some(s => s.key === _mobileBgg.print3dSupplier)) && _M_BGG_3D_SUPPLIERS.length > 0) {
+        _mobileBgg.print3dSupplier = _M_BGG_3D_SUPPLIERS[0].key;
+        save3dConfigsMobile();
+    }
+
     const supplier = _M_BGG_3D_SUPPLIERS.find(s => s.key === _mobileBgg.print3dSupplier);
     if (!supplier) {
         el.innerHTML = '<div style="font-size: 11px; color: #94a3b8; cursor: pointer;" onclick="open3dPickerMobile()">⚠️ Chưa chọn NCC — <strong style="color:#3b82f6;">bấm để chọn</strong></div>';
@@ -512,44 +572,113 @@ function select3dSupplierFromPickerMobile(key) {
     render3dSupplierDisplayMobile();
     renderMobileCalcResults();
     close3dPickerMobile();
-    toast(`Đã chọn bên in: ${key === 'thien_linh' ? 'Thiện Linh' : key === 'phuong_tc' ? 'Phượng TC' : 'Chi Hằng'}`, 'success');
+    const supplier = _M_BGG_3D_SUPPLIERS.find(s => s.key === key);
+    toast(`Đã chọn bên in: ${supplier ? supplier.name : key}`, 'success');
 }
 
 function openSetup3dMobile() {
     const existing = document.getElementById('m_setup_3d_modal');
     if (existing) existing.remove();
-    const currentSupplier = _mobileBgg.print3dSupplier || '';
+
+    let currentSupplier = _mobileBgg.print3dSupplier || '';
+    if ((!currentSupplier || !_M_BGG_3D_SUPPLIERS.some(s => s.key === currentSupplier)) && _M_BGG_3D_SUPPLIERS.length > 0) {
+        currentSupplier = _M_BGG_3D_SUPPLIERS[0].key;
+    }
+
     const modal = document.createElement('div');
     modal.id = 'm_setup_3d_modal';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+
+    // Supplier tabs/buttons
+    const tabsHtml = _M_BGG_3D_SUPPLIERS.length > 0 ? _M_BGG_3D_SUPPLIERS.map(s => `
+        <button onclick="select3dSupplierMobile('${s.key}')" style="padding: 8px 12px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 8px; font-size: 11px; font-weight: 700; color: ${currentSupplier === s.key ? '#1e40af' : '#64748b'}; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'}; cursor: pointer; transition: all 0.2s; white-space: nowrap;">${s.icon} ${s.name}</button>
+    `).join('') : '<div style="color: #64748b; font-size: 12px; font-style: italic;">Chưa cấu hình nhà in 3D nào. Vui lòng vào Quản Lý Lĩnh Vực In để thêm.</div>';
+
+    let pricingHtml = '';
+    if (currentSupplier && _M_BGG_3D_SUPPLIERS.some(s => s.key === currentSupplier)) {
+        const config = _mGet3dConfig(currentSupplier);
+        const mps = config?.meters_per_shirt || 0.8;
+        const printTiers = config?.print_tiers || [];
+        const laserTiers = config?.laser_tiers || [];
+
+        const printRowsHtml = printTiers.map((t, i) => `
+            <tr>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.min}" data-idx="${i}" data-field="print_min" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="print_max" placeholder="∞" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.price}" data-idx="${i}" data-field="print_price" style="width: 65px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: right;"></td>
+                <td style="padding: 5px 2px; border-bottom: 1px solid #f1f5f9; text-align: center;"><button onclick="remove3dTierMobile('print', ${i})" style="background: #fee2e2; border: none; color: #dc2626; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px;">✕</button></td>
+            </tr>
+        `).join('');
+
+        const laserRowsHtml = laserTiers.map((t, i) => `
+            <tr>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.min}" data-idx="${i}" data-field="laser_min" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="laser_max" placeholder="∞" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.price}" data-idx="${i}" data-field="laser_price" style="width: 65px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: right;"></td>
+                <td style="padding: 5px 2px; border-bottom: 1px solid #f1f5f9; text-align: center;"><button onclick="remove3dTierMobile('laser', ${i})" style="background: #fee2e2; border: none; color: #dc2626; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px;">✕</button></td>
+            </tr>
+        `).join('');
+
+        pricingHtml = `
+            <div style="margin-top: 12px;">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px; background: #f8fafc; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <span style="font-size: 11px; font-weight: 700; color: #475569;">1 áo =</span>
+                    <input type="text" id="m_setup_3d_mps" value="${mps}" style="width: 50px; padding: 4px; border: 1.5px solid #3b82f6; border-radius: 6px; font-size: 12px; font-weight: 700; text-align: center; color: #1e40af;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')">
+                    <span style="font-size: 11px; font-weight: 700; color: #475569;">mét</span>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <h5 style="margin: 0; font-size: 11px; font-weight: 800; color: #1e40af;">📋 BẢNG GIÁ IN (đ/mét)</h5>
+                        <button onclick="add3dTierMobile('print')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm</button>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                        <thead><tr style="background: #f1f5f9;">
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: #64748b; font-weight: 700;">Từ (m)</th>
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: #64748b; font-weight: 700;">Đến (m)</th>
+                            <th style="padding: 4px; text-align: right; font-size: 9px; color: #64748b; font-weight: 700;">Giá/m</th>
+                            <th style="padding: 4px; width: 26px;"></th>
+                        </tr></thead>
+                        <tbody>${printRowsHtml}</tbody>
+                    </table>
+                </div>
+
+                <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <h5 style="margin: 0; font-size: 11px; font-weight: 800; color: #1e40af;">✂️ BẢNG GIÁ CẮT LAZE (đ/áo)</h5>
+                        <button onclick="add3dTierMobile('laser')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm</button>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                        <thead><tr style="background: #f1f5f9;">
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: #64748b; font-weight: 700;">Từ (áo)</th>
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: #64748b; font-weight: 700;">Đến (áo)</th>
+                            <th style="padding: 4px; text-align: right; font-size: 9px; color: #64748b; font-weight: 700;">Giá/áo</th>
+                            <th style="padding: 4px; width: 26px;"></th>
+                        </tr></thead>
+                        <tbody>${laserRowsHtml}</tbody>
+                    </table>
+                    ${laserTiers.length === 0 ? '<div style="font-size: 10px; color: #94a3b8; text-align: center; padding: 6px; font-style: italic;">Không có cắt laze — chỉ tính phí in 3D</div>' : ''}
+                </div>
+            </div>
+        `;
+    } else {
+        pricingHtml = '<div style="margin-top: 12px; padding: 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; font-size: 11px; color: #64748b;">Chọn nhà cung cấp ở trên để xem và chỉnh sửa bảng giá</div>';
+    }
+
+    const hasSupplier = currentSupplier && _M_BGG_3D_SUPPLIERS.some(s => s.key === currentSupplier);
     modal.innerHTML = `
-        <div style="background: white; border-radius: 16px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
-            <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
-                <h3 style="margin: 0; font-size: 14px; font-weight: 800; color: #0f172a;">🎨 Setup In 3D</h3>
-                <button onclick="closeSetup3dMobile()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer;">&times;</button>
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; font-family: system-ui, -apple-system, sans-serif;">
+            <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: white; z-index: 1; border-radius: 16px 16px 0 0;">
+                <h3 style="margin: 0; font-size: 14px; font-weight: 800; color: #0f172a;">🎨 Setup Chi Phí In 3D</h3>
+                <button onclick="closeSetup3dMobile()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
             </div>
             <div style="padding: 16px;">
-                <h4 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase;">Chọn nhà cung cấp:</h4>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    ${_M_BGG_3D_SUPPLIERS.map(s => `
-                        <div onclick="select3dSupplierMobile('${s.key}')" style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 10px; cursor: pointer; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'};">
-                            <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                ${currentSupplier === s.key ? '<div style="width: 9px; height: 9px; border-radius: 50%; background: #3b82f6;"></div>' : ''}
-                            </div>
-                            <div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
-                                <div style="font-size: 10px; color: #94a3b8; margin-top: 1px;">Bảng giá sẽ cập nhật sau</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div style="margin-top: 14px; padding: 14px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center;">
-                    <span style="font-size: 20px; display: block; margin-bottom: 4px;">📋</span>
-                    <div style="font-size: 11px; font-weight: 600; color: #64748b;">Bảng giá chi tiết sẽ hiển thị ở đây</div>
-                </div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; overflow-x: auto; padding-bottom: 4px;">${tabsHtml}</div>
+                ${pricingHtml}
             </div>
-            <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
-                <button onclick="closeSetup3dMobile()" style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
+            <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; border-radius: 0 0 16px 16px; position: sticky; bottom: 0;">
+                <button onclick="closeSetup3dMobile()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
+                ${hasSupplier ? '<button onclick="save3dSupplierConfigMobile()" style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; color: white; background: linear-gradient(135deg, #3b82f6, #1d4ed8); cursor: pointer;">💾 Lưu bảng giá</button>' : ''}
             </div>
         </div>
     `;
@@ -568,6 +697,87 @@ function select3dSupplierMobile(key) {
     renderMobileCalcResults();
     closeSetup3dMobile();
     openSetup3dMobile();
+}
+
+function add3dTierMobile(type) {
+    const supplierKey = _mobileBgg.print3dSupplier;
+    if (!supplierKey) return;
+    const config = _mGet3dConfig(supplierKey);
+    if (type === 'print') {
+        config.print_tiers.push({ min: 0, max: null, price: 0 });
+    } else {
+        config.laser_tiers.push({ min: 0, max: null, price: 0 });
+    }
+    localStorage.setItem('bgg_3d_config_' + supplierKey, JSON.stringify(config));
+    closeSetup3dMobile();
+    openSetup3dMobile();
+}
+
+function remove3dTierMobile(type, idx) {
+    const supplierKey = _mobileBgg.print3dSupplier;
+    if (!supplierKey) return;
+    const config = _mGet3dConfig(supplierKey);
+    if (type === 'print') {
+        config.print_tiers.splice(idx, 1);
+    } else {
+        config.laser_tiers.splice(idx, 1);
+    }
+    localStorage.setItem('bgg_3d_config_' + supplierKey, JSON.stringify(config));
+    closeSetup3dMobile();
+    openSetup3dMobile();
+}
+
+function save3dSupplierConfigMobile() {
+    const supplierKey = _mobileBgg.print3dSupplier;
+    if (!supplierKey) return;
+    const mpsInput = document.getElementById('m_setup_3d_mps');
+    const mps = Number(mpsInput?.value?.replace(',', '.')) || 0.8;
+    
+    const printTiers = [];
+    const modal = document.getElementById('m_setup_3d_modal');
+    if (!modal) return;
+    
+    modal.querySelectorAll('[data-field="print_min"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!printTiers[idx]) printTiers[idx] = {};
+        printTiers[idx].min = Number(el.value) || 0;
+    });
+    modal.querySelectorAll('[data-field="print_max"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!printTiers[idx]) printTiers[idx] = {};
+        const v = el.value.trim();
+        printTiers[idx].max = (v === '' || v === '∞') ? null : Number(v);
+    });
+    modal.querySelectorAll('[data-field="print_price"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!printTiers[idx]) printTiers[idx] = {};
+        printTiers[idx].price = Number(el.value) || 0;
+    });
+
+    const laserTiers = [];
+    modal.querySelectorAll('[data-field="laser_min"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!laserTiers[idx]) laserTiers[idx] = {};
+        laserTiers[idx].min = Number(el.value) || 0;
+    });
+    modal.querySelectorAll('[data-field="laser_max"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!laserTiers[idx]) laserTiers[idx] = {};
+        const v = el.value.trim();
+        laserTiers[idx].max = (v === '' || v === '∞') ? null : Number(v);
+    });
+    modal.querySelectorAll('[data-field="laser_price"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!laserTiers[idx]) laserTiers[idx] = {};
+        laserTiers[idx].price = Number(el.value) || 0;
+    });
+
+    const config = { meters_per_shirt: mps, print_tiers: printTiers.filter(Boolean), laser_tiers: laserTiers.filter(Boolean) };
+    localStorage.setItem('bgg_3d_config_' + supplierKey, JSON.stringify(config));
+    render3dSupplierDisplayMobile();
+    renderMobileCalcResults();
+    toast('Đã lưu bảng giá in 3D!', 'success');
+    closeSetup3dMobile();
 }
 
 function togglePetSectionMobile(enabled) {
@@ -1635,6 +1845,12 @@ window.toggle3dSectionMobile = toggle3dSectionMobile;
 window.openSetup3dMobile = openSetup3dMobile;
 window.closeSetup3dMobile = closeSetup3dMobile;
 window.select3dSupplierMobile = select3dSupplierMobile;
+window.add3dTierMobile = add3dTierMobile;
+window.remove3dTierMobile = remove3dTierMobile;
+window.save3dSupplierConfigMobile = save3dSupplierConfigMobile;
+window.open3dPickerMobile = open3dPickerMobile;
+window.close3dPickerMobile = close3dPickerMobile;
+window.select3dSupplierFromPickerMobile = select3dSupplierFromPickerMobile;
 
 // Autocomplete helpers for mobile Chất liệu
 function showMaterialDropdownMobile() {
