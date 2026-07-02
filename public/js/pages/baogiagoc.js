@@ -336,7 +336,6 @@ function _bggRenderPetShapeRows() {
     
     list.innerHTML = shapes.map((s, idx) => `
         <div class="pet-shape-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;" data-idx="${idx}">
-            <input type="text" class="bgg-input p-name" placeholder="Tên hình (vd: Logo ngực...)" style="flex: 2; min-width: 140px; padding: 6px 10px; font-size: 12px;" value="${s.name || ''}" onchange="_bggUpdatePetShape(${idx}, 'name', this.value)">
             <div style="display: flex; align-items: center; gap: 4px;">
                 <input type="text" class="bgg-input p-width" placeholder="Rộng" style="width: 70px; padding: 6px 8px; font-size: 12px;" value="${s.width || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')" onchange="_bggUpdatePetShape(${idx}, 'width', this.value)">
                 <span style="font-size: 12px; color: #64748b;">x</span>

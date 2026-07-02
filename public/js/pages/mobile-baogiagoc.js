@@ -179,7 +179,6 @@ function renderPetShapeRowsMobile() {
     
     list.innerHTML = shapes.map((s, idx) => `
         <div class="pet-shape-row-mobile" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;" data-idx="${idx}">
-            <input type="text" class="m-input p-name" placeholder="Tên hình (vd: Ngực...)" style="flex: 2; min-width: 100px; padding: 5px 8px; font-size: 11.5px;" value="${s.name || ''}" onchange="updatePetShapeMobile(${idx}, 'name', this.value)">
             <div style="display: flex; align-items: center; gap: 2px;">
                 <input type="text" class="m-input p-width" placeholder="Rộng" style="width: 50px; padding: 5px 6px; font-size: 11.5px; text-align: center;" value="${s.width || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')" onchange="updatePetShapeMobile(${idx}, 'width', this.value)">
                 <span style="font-size: 11px; color: #64748b;">x</span>
