@@ -889,7 +889,6 @@ function _bvlOpenMatDialogHTML(r) {
         + '</div>'
         + '</div>'
         + '</div>'
-        + '</div>'
         + '</div>' // close Column 1
         + '<div>' // open Column 2
 
