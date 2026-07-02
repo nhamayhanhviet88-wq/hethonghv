@@ -621,7 +621,7 @@ function _bggLoadPetConfigs() {
 
     // Load 3D printing configs (always disabled on page load/F5)
     _bgg.print3dEnabled = false;
-    _bgg.print3dSupplier = localStorage.getItem('bgg_3d_supplier') || '';
+    _bgg.print3dSupplier = '';
 
     // Load screen printing configs (always disabled on page load/F5)
     _bgg.screenEnabled = false;
@@ -888,11 +888,7 @@ function _bggRender3dSupplierDisplay() {
         _bgg.lastQty = qty;
     }
 
-    // Auto default to first if invalid/empty
-    if ((!_bgg.print3dSupplier || !_BGG_3D_SUPPLIERS.some(s => s.key === _bgg.print3dSupplier)) && _BGG_3D_SUPPLIERS.length > 0) {
-        _bgg.print3dSupplier = _BGG_3D_SUPPLIERS[0].key;
-        _bggSave3dConfigs();
-    }
+
 
     const supplier = _BGG_3D_SUPPLIERS.find(s => s.key === _bgg.print3dSupplier);
     if (!supplier) {
