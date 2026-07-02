@@ -22,16 +22,15 @@ async function initMobileBaogiagocPage() {
     
     // Populate checkboxes
     m_enable_pet.checked = _mobileBgg.petEnabled;
-    const isDirector = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
     const priceInput = document.getElementById('m_pet_sheet_price');
     if (priceInput) {
         priceInput.value = _mobileBgg.petSheetPrice;
-        if (!isDirector) priceInput.disabled = true;
+        priceInput.disabled = true;
     }
     const spacingInput = document.getElementById('m_pet_spacing');
     if (spacingInput) {
         spacingInput.value = _mobileBgg.petSpacing;
-        if (!isDirector) spacingInput.disabled = true;
+        spacingInput.disabled = true;
     }
     togglePetSectionMobile(_mobileBgg.petEnabled);
 

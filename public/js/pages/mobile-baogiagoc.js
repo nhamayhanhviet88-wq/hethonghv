@@ -66,12 +66,12 @@ async function initMobileBaogiagocPage() {
     const priceInput = document.getElementById('m_pet_sheet_price');
     if (priceInput) {
         priceInput.value = _mobileBgg.petSheetPrice;
-        if (!isDirector) priceInput.disabled = true;
+        priceInput.disabled = true;
     }
     const spacingInput = document.getElementById('m_pet_spacing');
     if (spacingInput) {
         spacingInput.value = _mobileBgg.petSpacing;
-        if (!isDirector) spacingInput.disabled = true;
+        spacingInput.disabled = true;
     }
     togglePetSectionMobile(_mobileBgg.petEnabled);
     const m3dCb = document.getElementById('m_enable_3d');
@@ -200,16 +200,17 @@ async function loadInitialDataMobile() {
         }
         
         // Restore print type and price
-        const savedPrintType = localStorage.getItem('bgg_print_type') || 'pet';
         const printTypeSelect = document.getElementById('m_print_type');
         if (printTypeSelect) {
-            printTypeSelect.value = savedPrintType;
+            printTypeSelect.value = 'pet';
+            printTypeSelect.disabled = true;
         }
         
         const sheetPriceInput = document.getElementById('m_pet_sheet_price');
         if (sheetPriceInput) {
-            const currentPrice = savedPrintType === 'tem' ? (_mobileBgg.priceTem || 40000) : (_mobileBgg.pricePet || 40000);
+            const currentPrice = _mobileBgg.pricePet || 40000;
             sheetPriceInput.value = currentPrice;
+            sheetPriceInput.disabled = true;
         }
 
         // Load dynamic screen suppliers from print areas & staff configuration

@@ -269,24 +269,23 @@ async function renderBaogiagocPage(content) {
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                             <label class="bgg-pet-title">
                                 <input type="checkbox" id="bgg_enable_pet" style="width: 16px; height: 16px; cursor: pointer;" onchange="_bggTogglePetSection(this.checked)">
-                                🖨️ Chi phí in PET/TEM
+                                🖨️ Chi phí in PET
                             </label>
                             
                             <div id="bgg_pet_global_settings" style="display: none; align-items: center; gap: 12px; flex-wrap: wrap;">
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #166534;">Loại in:</span>
-                                    <select id="bgg_print_type" class="bgg-input" style="width: 90px; padding: 4px 8px; font-size: 12px; height: auto;" onchange="_bggHandlePrintTypeChange(this.value)">
+                                    <select id="bgg_print_type" class="bgg-input" style="width: 90px; padding: 4px 8px; font-size: 12px; height: auto;" disabled>
                                         <option value="pet">In PET</option>
-                                        <option value="tem">In Tem</option>
                                     </select>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #166534;">Giá 58x100:</span>
-                                    <input type="number" id="bgg_pet_sheet_price" class="bgg-input" style="width: 85px; padding: 4px 8px; font-size: 12px;" oninput="_bggSavePetConfigs()" ${isDirector ? '' : 'disabled'}>
+                                    <input type="number" id="bgg_pet_sheet_price" class="bgg-input" style="width: 85px; padding: 4px 8px; font-size: 12px;" oninput="_bggSavePetConfigs()" disabled>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #166534;">K.Cách:</span>
-                                    <input type="text" id="bgg_pet_spacing" class="bgg-input" style="width: 55px; padding: 4px 8px; font-size: 12px;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _bggSavePetConfigs()" ${isDirector ? '' : 'disabled'}>
+                                    <input type="text" id="bgg_pet_spacing" class="bgg-input" style="width: 55px; padding: 4px 8px; font-size: 12px;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _bggSavePetConfigs()" disabled>
                                 </div>
                             </div>
                         </div>
@@ -364,13 +363,21 @@ async function renderBaogiagocPage(content) {
 
     // Populate initial inputs
     document.getElementById('bgg_enable_pet').checked = _bgg.petEnabled;
-    const savedPrintType = localStorage.getItem('bgg_print_type') || 'pet';
     const printTypeSelect = document.getElementById('bgg_print_type');
     if (printTypeSelect) {
-        printTypeSelect.value = savedPrintType;
+        printTypeSelect.value = 'pet';
+        printTypeSelect.disabled = true;
     }
-    document.getElementById('bgg_pet_sheet_price').value = _bgg.petSheetPrice;
-    document.getElementById('bgg_pet_spacing').value = _bgg.petSpacing;
+    const petSheetPriceInput = document.getElementById('bgg_pet_sheet_price');
+    if (petSheetPriceInput) {
+        petSheetPriceInput.value = _bgg.petSheetPrice;
+        petSheetPriceInput.disabled = true;
+    }
+    const petSpacingInput = document.getElementById('bgg_pet_spacing');
+    if (petSpacingInput) {
+        petSpacingInput.value = _bgg.petSpacing;
+        petSpacingInput.disabled = true;
+    }
     _bggTogglePetSection(_bgg.petEnabled);
     const enable3dCb = document.getElementById('bgg_enable_3d');
     if (enable3dCb) enable3dCb.checked = _bgg.print3dEnabled;
@@ -440,16 +447,17 @@ async function _bggLoadData() {
         }
         
         // Restore print type and price
-        const savedPrintType = localStorage.getItem('bgg_print_type') || 'pet';
         const printTypeSelect = document.getElementById('bgg_print_type');
         if (printTypeSelect) {
-            printTypeSelect.value = savedPrintType;
+            printTypeSelect.value = 'pet';
+            printTypeSelect.disabled = true;
         }
         
         const sheetPriceInput = document.getElementById('bgg_pet_sheet_price');
         if (sheetPriceInput) {
-            const currentPrice = savedPrintType === 'tem' ? (_bgg.priceTem || 40000) : (_bgg.pricePet || 40000);
+            const currentPrice = _bgg.pricePet || 40000;
             sheetPriceInput.value = currentPrice;
+            sheetPriceInput.disabled = true;
             _bgg.petSheetPrice = currentPrice;
         }
 
