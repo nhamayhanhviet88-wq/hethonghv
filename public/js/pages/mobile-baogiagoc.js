@@ -338,6 +338,48 @@ function loadPetConfigsMobile() {
         localStorage.setItem('bgg_collar_presets', JSON.stringify(_mobileBgg.collarPresets));
     }
 
+    // Sync "In 3D Thiện Linh" (contractor_1) config with "In 3D Phượng TC" (contractor_2) if Thiện Linh has default single tier config
+    const thienLinhConfigStr = localStorage.getItem('bgg_3d_config_contractor_1');
+    let thienLinhNeedsReset = false;
+    if (!thienLinhConfigStr) {
+        thienLinhNeedsReset = true;
+    } else {
+        try {
+            const parsed = JSON.parse(thienLinhConfigStr);
+            if (parsed.print_tiers && parsed.print_tiers.length === 1 && parsed.print_tiers[0].price === 15000) {
+                thienLinhNeedsReset = true;
+            }
+        } catch(e) {
+            thienLinhNeedsReset = true;
+        }
+    }
+    if (thienLinhNeedsReset) {
+        const phuongConfigStr = localStorage.getItem('bgg_3d_config_contractor_2');
+        if (phuongConfigStr) {
+            localStorage.setItem('bgg_3d_config_contractor_1', phuongConfigStr);
+        } else {
+            const def = {
+                meters_per_shirt: 0.8,
+                print_tiers: [
+                    { min: 3000, max: null, price: 11000 },
+                    { min: 1000, max: 3000, price: 12000 },
+                    { min: 500, max: 1000, price: 13000 },
+                    { min: 200, max: 500, price: 14000 },
+                    { min: 100, max: 200, price: 16000 },
+                    { min: 50, max: 100, price: 18000 },
+                    { min: 30, max: 50, price: 22000 },
+                    { min: 10, max: 30, price: 25000 },
+                    { min: 0, max: 10, price: 35000 }
+                ],
+                laser_tiers: [
+                    { min: 500, max: null, price: 3500 },
+                    { min: 0, max: 500, price: 4000 }
+                ]
+            };
+            localStorage.setItem('bgg_3d_config_contractor_1', JSON.stringify(def));
+        }
+    }
+
     // Load 3D printing configs (always disabled on page load/F5)
     _mobileBgg.print3dEnabled = false;
     _mobileBgg.print3dSupplier = localStorage.getItem('bgg_3d_supplier') || '';
