@@ -172,7 +172,6 @@ function loadPetConfigsMobile() {
     }
     _mobileBgg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
     _mobileBgg.petShapes = []; // Always empty on page load/F5
-}
 
     // Load sewing presets
     const sewingCached = localStorage.getItem('bgg_sewing_presets');
