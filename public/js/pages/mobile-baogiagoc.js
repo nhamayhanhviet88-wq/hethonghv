@@ -155,6 +155,43 @@ function toast(msg, type = 'success') {
     }, 3000);
 }
 
+function _mobileBggCalculateDynamicPrice(formula, approvedPrices) {
+    if (!Array.isArray(formula) || formula.length === 0) return null;
+    
+    // Group approved prices by material_item_id
+    const priceMap = {};
+    approvedPrices.forEach(p => {
+        const matId = p.material_item_id;
+        if (matId) {
+            if (!priceMap[matId]) {
+                priceMap[matId] = [];
+            }
+            priceMap[matId].push(p);
+        }
+    });
+    
+    // Sort by price ascending
+    Object.keys(priceMap).forEach(matId => {
+        priceMap[matId].sort((a, b) => Number(a.price) - Number(b.price));
+    });
+    
+    let totalCost = 0;
+    formula.forEach(row => {
+        if (!row.material_id || Number(row.quantity) <= 0) return;
+        const prices = priceMap[row.material_id] || [];
+        if (prices.length > 0) {
+            let cheapest = prices[0];
+            if (row.source_id) {
+                const found = prices.find(p => String(p.source_id) === String(row.source_id));
+                if (found) cheapest = found;
+            }
+            totalCost += (Number(cheapest.price) || 0) * (Number(row.quantity) || 0);
+        }
+    });
+    
+    return Math.round(totalCost / 100);
+}
+
 async function loadInitialDataMobile() {
     try {
         const [ratioRes, segRes] = await Promise.all([
@@ -187,10 +224,38 @@ async function loadInitialDataMobile() {
 
         // Fetch original prices for TEM and PET
         try {
-            const configsRes = await apiCall('/api/app-configs/batch', 'POST', { keys: ['bgg_original_price_tem', 'bgg_original_price_pet'] });
+            const configsRes = await apiCall('/api/app-configs/batch', 'POST', { keys: ['bgg_original_price_tem', 'bgg_original_price_pet', 'bgg_formula_tem', 'bgg_formula_pet'] });
+            let calculatedPriceTem = null;
+            let calculatedPricePet = null;
             if (configsRes) {
-                _mobileBgg.priceTem = Number(configsRes.bgg_original_price_tem) || 40000;
-                _mobileBgg.pricePet = Number(configsRes.bgg_original_price_pet) || 40000;
+                // Fetch latest approved import prices
+                const priceRes = await apiCall('/api/gianhapgoc/prices', 'GET');
+                const approvedPrices = priceRes.prices || [];
+                
+                if (configsRes.bgg_formula_tem) {
+                    try {
+                        const formulaTem = JSON.parse(configsRes.bgg_formula_tem);
+                        calculatedPriceTem = _mobileBggCalculateDynamicPrice(formulaTem, approvedPrices);
+                    } catch(e) { console.error('Error parsing TEM formula:', e); }
+                }
+                if (configsRes.bgg_formula_pet) {
+                    try {
+                        const formulaPet = JSON.parse(configsRes.bgg_formula_pet);
+                        calculatedPricePet = _mobileBggCalculateDynamicPrice(formulaPet, approvedPrices);
+                    } catch(e) { console.error('Error parsing PET formula:', e); }
+                }
+                
+                _mobileBgg.priceTem = calculatedPriceTem !== null ? calculatedPriceTem : (Number(configsRes.bgg_original_price_tem) || 40000);
+                _mobileBgg.pricePet = calculatedPricePet !== null ? calculatedPricePet : (Number(configsRes.bgg_original_price_pet) || 40000);
+                
+                // Self-healing database update
+                if (calculatedPriceTem !== null && calculatedPriceTem !== Number(configsRes.bgg_original_price_tem)) {
+                    apiCall('/api/app-config/bgg_original_price_tem', 'PUT', { value: calculatedPriceTem }).catch(console.error);
+                }
+                if (calculatedPricePet !== null && calculatedPricePet !== Number(configsRes.bgg_original_price_pet)) {
+                    apiCall('/api/app-config/bgg_original_price_pet', 'PUT', { value: calculatedPricePet }).catch(console.error);
+                }
+
                 if (typeof _mUpdateHeaderPriceButtons === 'function') {
                     _mUpdateHeaderPriceButtons();
                 }
