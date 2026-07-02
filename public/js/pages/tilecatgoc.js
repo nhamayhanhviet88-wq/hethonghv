@@ -7,6 +7,7 @@ var _tlcg = {
     products: [],
     selectedRangeId: '',
     drawerRangeFilterId: '',
+    drawerSegmentFilter: '',
     selectedGroup: 'ALL', // 'ALL', 'KG', 'MET', 'SAN'
     statsFilter: 'ALL', // 'ALL', 'CONFIGURED', 'UNCONFIGURED'
     filter: {
@@ -1312,6 +1313,7 @@ async function _tlcgOpenMaterialDrawer(matId) {
     _tlcg.expandedMonths.clear();
     _tlcg.activeFilter = 'all';
     _tlcg.drawerRangeFilterId = _tlcg.selectedRangeId || '';
+    _tlcg.drawerSegmentFilter = '';
     _tlcg.initialOrderMap = null;
 
     // Inject drawer overlay and drawer if not present
@@ -1374,7 +1376,8 @@ async function _tlcgLoadDrawerContent(mat) {
         
         // Fetch tickets matching the material
         const rangeId = _tlcg.drawerRangeFilterId || '';
-        const queryParams = `?material_name=${encodeURIComponent(mat.name)}${rangeId ? `&range_id=${rangeId}` : ''}`;
+        const segment = _tlcg.drawerSegmentFilter || '';
+        const queryParams = `?material_name=${encodeURIComponent(mat.name)}${rangeId ? `&range_id=${rangeId}` : ''}${segment ? `&size_segment=${encodeURIComponent(segment)}` : ''}`;
         const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
         const tickets = res.tickets || [];
         const activeSegmentsList = _tlcgGetActiveSegmentsForMaterial(mat);
@@ -1528,8 +1531,17 @@ async function _tlcgLoadDrawerContent(mat) {
                     <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('approved')" style="border: 1px solid #dcfce7; background: ${activeFilter === 'approved' ? '#dcfce7' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #15803d; outline: none; transition: all 0.2s;">Đã duyệt</button>
                     <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('rejected')" style="border: 1px solid #fee2e2; background: ${activeFilter === 'rejected' ? '#fee2e2' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ef4444; outline: none; transition: all 0.2s;">Không duyệt</button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 11px; font-weight: 700; color: #475569;">Số lượng:</span>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-size: 11px; font-weight: 700; color: #475569;">Phân khúc:</span>
+                    <select style="padding: 6px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #334155; border: 1px solid #cbd5e1; outline: none; background: white; cursor: pointer;" onchange="_tlcgSetDrawerSegmentFilter(this.value)">
+                        <option value="">-- Tất cả phân khúc --</option>
+                        ${activeSegmentsList.map(seg => {
+                            const selected = String(_tlcg.drawerSegmentFilter || '') === String(seg) ? 'selected' : '';
+                            return `<option value="${seg}" ${selected}>${seg}</option>`;
+                        }).join('')}
+                    </select>
+
+                    <span style="font-size: 11px; font-weight: 700; color: #475569; margin-left: 8px;">Số lượng:</span>
                     <select style="padding: 6px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #334155; border: 1px solid #cbd5e1; outline: none; background: white; cursor: pointer;" onchange="_tlcgSetDrawerRangeFilter(this.value)">
                         <option value="">-- Tất cả số lượng --</option>
                         ${_tlcg.ranges.map(r => {
@@ -1728,6 +1740,12 @@ function _tlcgSetFilter(val) {
 
 function _tlcgSetDrawerRangeFilter(val) {
     _tlcg.drawerRangeFilterId = val;
+    _tlcg.initialOrderMap = null;
+    _tlcgLoadDrawerContent(_tlcg.activeMaterial);
+}
+
+function _tlcgSetDrawerSegmentFilter(val) {
+    _tlcg.drawerSegmentFilter = val;
     _tlcg.initialOrderMap = null;
     _tlcgLoadDrawerContent(_tlcg.activeMaterial);
 }

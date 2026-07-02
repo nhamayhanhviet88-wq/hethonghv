@@ -478,6 +478,7 @@
             filter: { search: '' },
             selectedRangeId: '',
             drawerRangeFilterId: '',
+            drawerSegmentFilter: '',
             selectedGroup: 'ALL',
             isGD: false,
             currentUser: null,
@@ -864,6 +865,7 @@
             _mobileTlcg.expandedMonths.clear();
             _mobileTlcg.activeFilter = 'all';
             _mobileTlcg.drawerRangeFilterId = _mobileTlcg.selectedRangeId || '';
+            _mobileTlcg.drawerSegmentFilter = '';
             _mobileTlcg.initialOrderMap = null;
 
             const html = `
@@ -902,7 +904,8 @@
                 
                 // Fetch tickets matching the material
                 const rangeId = _mobileTlcg.drawerRangeFilterId || '';
-                const queryParams = `?material_name=${encodeURIComponent(mat.name)}${rangeId ? `&range_id=${rangeId}` : ''}`;
+                const segment = _mobileTlcg.drawerSegmentFilter || '';
+                const queryParams = `?material_name=${encodeURIComponent(mat.name)}${rangeId ? `&range_id=${rangeId}` : ''}${segment ? `&size_segment=${encodeURIComponent(segment)}` : ''}`;
                 const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
                 const tickets = res.tickets || [];
                 const activeSegmentsList = _mobileTlcgGetActiveSegmentsForMaterial(mat);
@@ -1063,16 +1066,28 @@
                             <button onclick="setMobileFilter('approved')" style="border: 1px solid #dcfce7; background: ${activeFilter === 'approved' ? '#dcfce7' : 'white'}; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; cursor: pointer; color: #15803d; white-space: nowrap; outline: none; transition: all 0.2s;">Đã duyệt</button>
                             <button onclick="setMobileFilter('rejected')" style="border: 1px solid #fee2e2; background: ${activeFilter === 'rejected' ? '#fee2e2' : 'white'}; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ef4444; white-space: nowrap; outline: none; transition: all 0.2s;">Không duyệt</button>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Số lượng:</span>
-                            <select style="flex: 1; padding: 6px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; color: #334155; border: 1px solid #cbd5e1; outline: none; background: white; cursor: pointer;" onchange="setMobileDrawerRangeFilter(this.value)">
-                                <option value="">-- Tất cả số lượng --</option>
-                                ${_mobileTlcg.ranges.map(r => {
-                                    const label = r.max_qty >= 999999 ? `Từ ${r.min_qty} sp trở lên` : `${r.min_qty} - ${r.max_qty} sp`;
-                                    const selected = String(_mobileTlcg.drawerRangeFilterId || '') === String(r.id) ? 'selected' : '';
-                                    return `<option value="${r.id}" ${selected}>${label}</option>`;
-                                }).join('')}
-                            </select>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 120px; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 11px; font-weight: 700; color: #475569; white-space: nowrap;">Phân khúc:</span>
+                                <select style="width: 100%; padding: 6px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; color: #334155; border: 1px solid #cbd5e1; outline: none; background: white; cursor: pointer;" onchange="setMobileDrawerSegmentFilter(this.value)">
+                                    <option value="">-- Tất cả --</option>
+                                    ${activeSegmentsList.map(seg => {
+                                        const selected = String(_mobileTlcg.drawerSegmentFilter || '') === String(seg) ? 'selected' : '';
+                                        return `<option value="${seg}" ${selected}>${seg}</option>`;
+                                    }).join('')}
+                                </select>
+                            </div>
+                            <div style="flex: 1; min-width: 120px; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 11px; font-weight: 700; color: #475569; white-space: nowrap;">Số lượng:</span>
+                                <select style="width: 100%; padding: 6px 10px; border-radius: 15px; font-size: 11px; font-weight: 700; color: #334155; border: 1px solid #cbd5e1; outline: none; background: white; cursor: pointer;" onchange="setMobileDrawerRangeFilter(this.value)">
+                                    <option value="">-- Tất cả --</option>
+                                    ${_mobileTlcg.ranges.map(r => {
+                                        const label = r.max_qty >= 999999 ? `Từ ${r.min_qty} sp` : `${r.min_qty} - ${r.max_qty} sp`;
+                                        const selected = String(_mobileTlcg.drawerRangeFilterId || '') === String(r.id) ? 'selected' : '';
+                                        return `<option value="${r.id}" ${selected}>${label}</option>`;
+                                    }).join('')}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1503,6 +1518,12 @@
 
         function setMobileDrawerRangeFilter(val) {
             _mobileTlcg.drawerRangeFilterId = val;
+            _mobileTlcg.initialOrderMap = null;
+            loadSheetContent(_mobileTlcg.activeMat);
+        }
+
+        function setMobileDrawerSegmentFilter(val) {
+            _mobileTlcg.drawerSegmentFilter = val;
             _mobileTlcg.initialOrderMap = null;
             loadSheetContent(_mobileTlcg.activeMat);
         }
