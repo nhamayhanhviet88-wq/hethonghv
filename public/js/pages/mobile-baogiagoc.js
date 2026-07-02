@@ -680,18 +680,18 @@ function openSetup3dMobile() {
 
         const printRowsHtml = printTiers.map((t, i) => `
             <tr>
-                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.min}" data-idx="${i}" data-field="print_min" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;"></td>
-                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="print_max" placeholder="∞" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;"></td>
-                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.price}" data-idx="${i}" data-field="print_price" style="width: 65px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: right;"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.min}" data-idx="${i}" data-field="print_min" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="print_max" placeholder="∞" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.price}" data-idx="${i}" data-field="print_price" style="width: 65px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: right;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
                 <td style="padding: 5px 2px; border-bottom: 1px solid #f1f5f9; text-align: center;"><button onclick="remove3dTierMobile('print', ${i})" style="background: #fee2e2; border: none; color: #dc2626; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px;">✕</button></td>
             </tr>
         `).join('');
 
         const laserRowsHtml = laserTiers.map((t, i) => `
             <tr>
-                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.min}" data-idx="${i}" data-field="laser_min" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;"></td>
-                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="laser_max" placeholder="∞" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;"></td>
-                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.price}" data-idx="${i}" data-field="laser_price" style="width: 65px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: right;"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.min}" data-idx="${i}" data-field="laser_min" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="laser_max" placeholder="∞" style="width: 55px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: center;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
+                <td style="padding: 5px 4px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.price}" data-idx="${i}" data-field="laser_price" style="width: 65px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; text-align: right;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
                 <td style="padding: 5px 2px; border-bottom: 1px solid #f1f5f9; text-align: center;"><button onclick="remove3dTierMobile('laser', ${i})" style="background: #fee2e2; border: none; color: #dc2626; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px;">✕</button></td>
             </tr>
         `).join('');
@@ -710,11 +710,11 @@ function openSetup3dMobile() {
                         <button onclick="add3dTierMobile('print')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm</button>
                     </div>
                     <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
-                        <thead><tr style="background: #f1f5f9;">
-                            <th style="padding: 4px; text-align: center; font-size: 9px; color: #64748b; font-weight: 700;">Từ (m)</th>
-                            <th style="padding: 4px; text-align: center; font-size: 9px; color: #64748b; font-weight: 700;">Đến (m)</th>
-                            <th style="padding: 4px; text-align: right; font-size: 9px; color: #64748b; font-weight: 700;">Giá/m</th>
-                            <th style="padding: 4px; width: 26px;"></th>
+                        <thead><tr style="background: #0f172a; color: white;">
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Từ (m)</th>
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Đến (m)</th>
+                            <th style="padding: 4px; text-align: right; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Giá/m</th>
+                            <th style="padding: 4px; width: 26px; background: #0f172a;"></th>
                         </tr></thead>
                         <tbody>${printRowsHtml}</tbody>
                     </table>
@@ -726,11 +726,11 @@ function openSetup3dMobile() {
                         <button onclick="add3dTierMobile('laser')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm</button>
                     </div>
                     <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
-                        <thead><tr style="background: #f1f5f9;">
-                            <th style="padding: 4px; text-align: center; font-size: 9px; color: #64748b; font-weight: 700;">Từ (áo)</th>
-                            <th style="padding: 4px; text-align: center; font-size: 9px; color: #64748b; font-weight: 700;">Đến (áo)</th>
-                            <th style="padding: 4px; text-align: right; font-size: 9px; color: #64748b; font-weight: 700;">Giá/áo</th>
-                            <th style="padding: 4px; width: 26px;"></th>
+                        <thead><tr style="background: #0f172a; color: white;">
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Từ (áo)</th>
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Đến (áo)</th>
+                            <th style="padding: 4px; text-align: right; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Giá/áo</th>
+                            <th style="padding: 4px; width: 26px; background: #0f172a;"></th>
                         </tr></thead>
                         <tbody>${laserRowsHtml}</tbody>
                     </table>
@@ -808,7 +808,7 @@ function save3dSupplierConfigMobile() {
     const supplierKey = _mobileBgg.print3dSupplier;
     if (!supplierKey) return;
     const mpsInput = document.getElementById('m_setup_3d_mps');
-    const mps = Number(mpsInput?.value?.replace(',', '.')) || 0.8;
+    const mps = parseFloat(mpsInput?.value?.replace(',', '.')) || 0.8;
     
     const printTiers = [];
     const modal = document.getElementById('m_setup_3d_modal');
@@ -817,36 +817,36 @@ function save3dSupplierConfigMobile() {
     modal.querySelectorAll('[data-field="print_min"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!printTiers[idx]) printTiers[idx] = {};
-        printTiers[idx].min = Number(el.value) || 0;
+        printTiers[idx].min = parseFloat(el.value.replace(',', '.')) || 0;
     });
     modal.querySelectorAll('[data-field="print_max"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!printTiers[idx]) printTiers[idx] = {};
         const v = el.value.trim();
-        printTiers[idx].max = (v === '' || v === '∞') ? null : Number(v);
+        printTiers[idx].max = (v === '' || v === '∞') ? null : parseFloat(v.replace(',', '.'));
     });
     modal.querySelectorAll('[data-field="print_price"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!printTiers[idx]) printTiers[idx] = {};
-        printTiers[idx].price = Number(el.value) || 0;
+        printTiers[idx].price = parseFloat(el.value.replace(',', '.')) || 0;
     });
 
     const laserTiers = [];
     modal.querySelectorAll('[data-field="laser_min"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!laserTiers[idx]) laserTiers[idx] = {};
-        laserTiers[idx].min = Number(el.value) || 0;
+        laserTiers[idx].min = parseFloat(el.value.replace(',', '.')) || 0;
     });
     modal.querySelectorAll('[data-field="laser_max"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!laserTiers[idx]) laserTiers[idx] = {};
         const v = el.value.trim();
-        laserTiers[idx].max = (v === '' || v === '∞') ? null : Number(v);
+        laserTiers[idx].max = (v === '' || v === '∞') ? null : parseFloat(v.replace(',', '.'));
     });
     modal.querySelectorAll('[data-field="laser_price"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!laserTiers[idx]) laserTiers[idx] = {};
-        laserTiers[idx].price = Number(el.value) || 0;
+        laserTiers[idx].price = parseFloat(el.value.replace(',', '.')) || 0;
     });
 
     const config = { meters_per_shirt: mps, print_tiers: printTiers.filter(Boolean), laser_tiers: laserTiers.filter(Boolean) };

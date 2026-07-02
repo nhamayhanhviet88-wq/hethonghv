@@ -2111,18 +2111,18 @@ window._bggOpenSetup3dModal = function() {
 
         const printRowsHtml = printTiers.map((t, i) => `
             <tr>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.min}" data-idx="${i}" data-field="print_min" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" onchange="_bgg3dTierChanged()"></td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="print_max" placeholder="∞" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" onchange="_bgg3dTierChanged()"></td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.price}" data-idx="${i}" data-field="print_price" style="width: 80px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: right;" onchange="_bgg3dTierChanged()"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.min}" data-idx="${i}" data-field="print_min" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="print_max" placeholder="∞" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.price}" data-idx="${i}" data-field="print_price" style="width: 80px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: right;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
                 <td style="padding: 6px 4px; border-bottom: 1px solid #f1f5f9; text-align: center;"><button onclick="_bgg3dRemoveTier('print', ${i})" style="background: #fee2e2; border: none; color: #dc2626; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">✕</button></td>
             </tr>
         `).join('');
 
         const laserRowsHtml = laserTiers.map((t, i) => `
             <tr>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.min}" data-idx="${i}" data-field="laser_min" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" onchange="_bgg3dTierChanged()"></td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="laser_max" placeholder="∞" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" onchange="_bgg3dTierChanged()"></td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.price}" data-idx="${i}" data-field="laser_price" style="width: 80px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: right;" onchange="_bgg3dTierChanged()"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.min}" data-idx="${i}" data-field="laser_min" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="laser_max" placeholder="∞" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="text" inputmode="decimal" value="${t.price}" data-idx="${i}" data-field="laser_price" style="width: 80px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: right;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')"></td>
                 <td style="padding: 6px 4px; border-bottom: 1px solid #f1f5f9; text-align: center;"><button onclick="_bgg3dRemoveTier('laser', ${i})" style="background: #fee2e2; border: none; color: #dc2626; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">✕</button></td>
             </tr>
         `).join('');
@@ -2131,7 +2131,7 @@ window._bggOpenSetup3dModal = function() {
             <div style="margin-top: 16px;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
                     <span style="font-size: 12px; font-weight: 700; color: #475569;">1 áo =</span>
-                    <input type="text" id="setup_3d_mps" value="${mps}" style="width: 60px; padding: 4px 8px; border: 1.5px solid #3b82f6; border-radius: 6px; font-size: 13px; font-weight: 700; text-align: center; color: #1e40af;" onchange="_bgg3dTierChanged()">
+                    <input type="text" id="setup_3d_mps" value="${mps}" style="width: 60px; padding: 4px 8px; border: 1.5px solid #3b82f6; border-radius: 6px; font-size: 13px; font-weight: 700; text-align: center; color: #1e40af;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')">
                     <span style="font-size: 12px; font-weight: 700; color: #475569;">mét</span>
                 </div>
 
@@ -2141,11 +2141,11 @@ window._bggOpenSetup3dModal = function() {
                         <button onclick="_bgg3dAddTier('print')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm bậc</button>
                     </div>
                     <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                        <thead><tr style="background: #f1f5f9;">
-                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: #64748b; font-weight: 700;">Từ (m)</th>
-                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: #64748b; font-weight: 700;">Đến (m)</th>
-                            <th style="padding: 6px 8px; text-align: right; font-size: 10px; color: #64748b; font-weight: 700;">Giá/mét</th>
-                            <th style="padding: 6px 4px; width: 32px;"></th>
+                        <thead><tr style="background: #0f172a; color: white;">
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Từ (m)</th>
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Đến (m)</th>
+                            <th style="padding: 6px 8px; text-align: right; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Giá/mét</th>
+                            <th style="padding: 6px 4px; width: 32px; background: #0f172a;"></th>
                         </tr></thead>
                         <tbody id="setup_3d_print_rows">${printRowsHtml}</tbody>
                     </table>
@@ -2157,11 +2157,11 @@ window._bggOpenSetup3dModal = function() {
                         <button onclick="_bgg3dAddTier('laser')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm bậc</button>
                     </div>
                     <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                        <thead><tr style="background: #f1f5f9;">
-                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: #64748b; font-weight: 700;">Từ (áo)</th>
-                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: #64748b; font-weight: 700;">Đến (áo)</th>
-                            <th style="padding: 6px 8px; text-align: right; font-size: 10px; color: #64748b; font-weight: 700;">Giá/áo</th>
-                            <th style="padding: 6px 4px; width: 32px;"></th>
+                        <thead><tr style="background: #0f172a; color: white;">
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Từ (áo)</th>
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Đến (áo)</th>
+                            <th style="padding: 6px 8px; text-align: right; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Giá/áo</th>
+                            <th style="padding: 6px 4px; width: 32px; background: #0f172a;"></th>
                         </tr></thead>
                         <tbody id="setup_3d_laser_rows">${laserRowsHtml}</tbody>
                     </table>
@@ -2239,42 +2239,42 @@ window._bgg3dSaveConfig = function() {
     const supplierKey = _bgg.print3dSupplier;
     if (!supplierKey) return;
     const mpsInput = document.getElementById('setup_3d_mps');
-    const mps = Number(mpsInput?.value?.replace(',', '.')) || 0.8;
+    const mps = parseFloat(mpsInput?.value?.replace(',', '.')) || 0.8;
     // Read print tiers from DOM
     const printTiers = [];
     document.querySelectorAll('[data-field="print_min"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!printTiers[idx]) printTiers[idx] = {};
-        printTiers[idx].min = Number(el.value) || 0;
+        printTiers[idx].min = parseFloat(el.value.replace(',', '.')) || 0;
     });
     document.querySelectorAll('[data-field="print_max"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!printTiers[idx]) printTiers[idx] = {};
         const v = el.value.trim();
-        printTiers[idx].max = (v === '' || v === '∞') ? null : Number(v);
+        printTiers[idx].max = (v === '' || v === '∞') ? null : parseFloat(v.replace(',', '.'));
     });
     document.querySelectorAll('[data-field="print_price"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!printTiers[idx]) printTiers[idx] = {};
-        printTiers[idx].price = Number(el.value) || 0;
+        printTiers[idx].price = parseFloat(el.value.replace(',', '.')) || 0;
     });
     // Read laser tiers from DOM
     const laserTiers = [];
     document.querySelectorAll('[data-field="laser_min"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!laserTiers[idx]) laserTiers[idx] = {};
-        laserTiers[idx].min = Number(el.value) || 0;
+        laserTiers[idx].min = parseFloat(el.value.replace(',', '.')) || 0;
     });
     document.querySelectorAll('[data-field="laser_max"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!laserTiers[idx]) laserTiers[idx] = {};
         const v = el.value.trim();
-        laserTiers[idx].max = (v === '' || v === '∞') ? null : Number(v);
+        laserTiers[idx].max = (v === '' || v === '∞') ? null : parseFloat(v.replace(',', '.'));
     });
     document.querySelectorAll('[data-field="laser_price"]').forEach(el => {
         const idx = Number(el.dataset.idx);
         if (!laserTiers[idx]) laserTiers[idx] = {};
-        laserTiers[idx].price = Number(el.value) || 0;
+        laserTiers[idx].price = parseFloat(el.value.replace(',', '.')) || 0;
     });
     const config = { meters_per_shirt: mps, print_tiers: printTiers.filter(Boolean), laser_tiers: laserTiers.filter(Boolean) };
     _bggSave3dSupplierConfig(supplierKey, config);

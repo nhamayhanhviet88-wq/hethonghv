@@ -749,6 +749,150 @@ async function renderTilecatgocPage(content) {
             .bpc-modal-btn.cancel:hover {
                 background: #e2e8f0;
             }
+
+            /* Custom overrides for Dark-Blue/Navy theme modals */
+            #tlcgRangeTicketsOverlay .tlcg-modal {
+                background: #0f172a !important;
+                color: #ffffff !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-modal-header {
+                background: #1e293b !important;
+                border-bottom: 1px solid rgba(255,255,255,0.15) !important;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-modal-title {
+                color: #ffffff !important;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-drawer-close {
+                color: #ffffff !important;
+                opacity: 0.8;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-drawer-close:hover {
+                opacity: 1;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-ticket-table th {
+                background: #1e293b !important;
+                color: #94a3b8 !important;
+                border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-ticket-table td {
+                color: #cbd5e1 !important;
+                border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-ticket-table tr:hover {
+                background: rgba(255,255,255,0.03) !important;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-modal-footer {
+                background: #1e293b !important;
+                border-top: 1px solid rgba(255,255,255,0.1) !important;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-btn {
+                background: rgba(255,255,255,0.1) !important;
+                color: #cbd5e1 !important;
+                border: none !important;
+            }
+            #tlcgRangeTicketsOverlay .tlcg-btn:hover {
+                background: rgba(255,255,255,0.15) !important;
+                color: #ffffff !important;
+            }
+
+            #_bpcDetailModal .bpc-modal {
+                background: #0f172a !important;
+                color: #ffffff !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+            }
+            #_bpcDetailModal .bpc-modal-header {
+                border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+            }
+            #_bpcDetailModal .bpc-modal-row {
+                border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+            }
+            #_bpcDetailModal .bpc-modal-lbl {
+                color: #94a3b8 !important;
+            }
+            #_bpcDetailModal .bpc-modal-val {
+                color: #ffffff !important;
+            }
+            #_bpcDetailModal .bpc-modal-btn.cancel {
+                background: rgba(255,255,255,0.1) !important;
+                color: #cbd5e1 !important;
+                border: none !important;
+            }
+            #_bpcDetailModal .bpc-modal-btn.cancel:hover {
+                background: rgba(255,255,255,0.15) !important;
+                color: #ffffff !important;
+            }
+            #_bpcDetailModal div[style*="border:1.5px solid #f1f5f9"],
+            #_bpcDetailModal div[style*="border: 1.5px solid #f1f5f9"] {
+                border-color: rgba(255,255,255,0.1) !important;
+                color: #ffffff !important;
+                background: rgba(255,255,255,0.03) !important;
+            }
+            #_bpcDetailModal div[style*="border-top:2px solid #e2e8f0"],
+            #_bpcDetailModal div[style*="border-top: 2px solid #e2e8f0"] {
+                border-top: 1px solid rgba(255,255,255,0.1) !important;
+            }
+            #_bpcDetailModal div[style*="background:#fef2f2"],
+            #_bpcDetailModal div[style*="background: #fef2f2"] {
+                background: rgba(220,38,38,0.1) !important;
+                border-color: rgba(220,38,38,0.2) !important;
+            }
+            #_bpcDetailModal span[style*="color:#991b1b"],
+            #_bpcDetailModal span[style*="color: #991b1b"] {
+                color: #f87171 !important;
+            }
+            #_bpcDetailModal div[style*="color:#374151"],
+            #_bpcDetailModal div[style*="color: #374151"] {
+                color: #cbd5e1 !important;
+            }
+            #_bpcDetailModal div[style*="background:#fef3c7"],
+            #_bpcDetailModal div[style*="background: #fef3c7"] {
+                background: rgba(245,158,11,0.15) !important;
+            }
+            #_bpcDetailModal div[style*="color:#92400e"],
+            #_bpcDetailModal div[style*="color: #92400e"] {
+                color: #fbbf24 !important;
+            }
+            #_bpcDetailModal div[style*="color:#b45309"],
+            #_bpcDetailModal div[style*="color: #b45309"] {
+                color: #fbbf24 !important;
+            }
+            #_bpcDetailModal div[style*="background:#dcfce7"],
+            #_bpcDetailModal div[style*="background: #dcfce7"] {
+                background: rgba(16,185,129,0.15) !important;
+            }
+            #_bpcDetailModal div[style*="color:#166534"],
+            #_bpcDetailModal div[style*="color: #166534"] {
+                color: #34d399 !important;
+            }
+            #_bpcDetailModal div[style*="color:#059669"],
+            #_bpcDetailModal div[style*="color: #059669"] {
+                color: #34d399 !important;
+            }
+            #_bpcDetailModal div[style*="background:#fee2e2"],
+            #_bpcDetailModal div[style*="background: #fee2e2"] {
+                background: rgba(239,68,68,0.15) !important;
+            }
+            #_bpcDetailModal div[style*="color:#991b1b"],
+            #_bpcDetailModal div[style*="color: #991b1b"] {
+                color: #f87171 !important;
+            }
+            #_bpcDetailModal div[style*="color:#dc2626"],
+            #_bpcDetailModal div[style*="color: #dc2626"] {
+                color: #f87171 !important;
+            }
+            #_bpcDetailModal div[style*="background:#dbeafe"],
+            #_bpcDetailModal div[style*="background: #dbeafe"] {
+                background: rgba(59,130,246,0.15) !important;
+            }
+            #_bpcDetailModal div[style*="color:#1e40af"],
+            #_bpcDetailModal div[style*="color: #1e40af"] {
+                color: #60a5fa !important;
+            }
+            #_bpcDetailModal div[style*="color:#2563eb"],
+            #_bpcDetailModal div[style*="color: #2563eb"] {
+                color: #60a5fa !important;
+            }
         `;
         document.head.appendChild(style);
     }
