@@ -403,13 +403,13 @@ async function runMobileCalculation() {
         for (const s of shapes) {
             const w = Number(s.width);
             const h = Number(s.height);
-            if (!s.name || isNaN(w) || w <= 0 || isNaN(h) || h <= 0) {
+            if (isNaN(w) || w <= 0 || isNaN(h) || h <= 0) {
                 hasInvalidShape = true;
                 break;
             }
         }
         if (hasInvalidShape) {
-            toast('Điền đầy đủ tên & kích thước (> 0) cho hình in PET!', 'error');
+            toast('Điền đầy đủ kích thước (> 0) cho hình in PET!', 'error');
             return;
         }
     }

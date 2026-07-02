@@ -561,14 +561,14 @@ async function _bggRunCalculation() {
         for (const s of shapes) {
             const w = Number(s.width);
             const h = Number(s.height);
-            if (!s.name || isNaN(w) || w <= 0 || isNaN(h) || h <= 0) {
+            if (isNaN(w) || w <= 0 || isNaN(h) || h <= 0) {
                 hasInvalidShape = true;
                 break;
             }
         }
         
         if (hasInvalidShape) {
-            if (typeof showToast === 'function') showToast('Vui lòng điền đầy đủ tên và kích thước (> 0) cho tất cả hình in PET!', 'error');
+            if (typeof showToast === 'function') showToast('Vui lòng điền đầy đủ kích thước (> 0) cho tất cả hình in PET!', 'error');
             return;
         }
     }
