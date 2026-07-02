@@ -201,10 +201,10 @@ async function renderBaogiagocPage(content) {
                 ${isDirector ? `
                     <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                         <button class="bgg-btn-calc" onclick="_bggNavigateToGiaGoc('Tem')" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #059669 0%, #047857 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(5,150,105,0.2);">
-                            🏷️ GIÁ GỐC TEM
+                            🏷️ Giá Gốc Tem
                         </button>
                         <button class="bgg-btn-calc" onclick="_bggNavigateToGiaGoc('Pet')" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(234,88,12,0.2);">
-                            🏷️ GIÁ GỐC PET
+                            🏷️ Giá Gốc Pet
                         </button>
                         <button class="bgg-btn-calc" onclick="_bggOpenSetupModal()" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(79,70,229,0.2);">
                             ⚙️ Setup Chi Phí & Gợi Ý
