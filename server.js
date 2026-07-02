@@ -1535,6 +1535,11 @@ async function start() {
         return reply.sendFile('mobile-baogiagoc.html');
     });
 
+    // Mobile Báo Giá CTV/HH — standalone touch-optimized page
+    fastify.get('/m/baogiactvhh', async (request, reply) => {
+        return reply.sendFile('mobile-baogiactvhh.html');
+    });
+
     // Mobile Giá Nhập Gốc — standalone touch-optimized page
     fastify.get('/m/gianhapgoc', async (request, reply) => {
         return reply.sendFile('mobile-gianhapgoc.html');

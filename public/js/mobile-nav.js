@@ -9,6 +9,7 @@ const MOBILE_MENU_CONFIG = [
     { id: 'quanlynhapkho', label: 'Quản Lý Nhập Kho Vải', icon: '🗺️', href: '/m/quanlykhovai', permKey: 'quan_ly_nhap_kho_vai' },
     { id: 'xuatvaicat', label: 'Xuất Vải Để Cắt', icon: '✂️', href: '/m/xuatvaicat', permKey: 'xuat_vai_cat' },
     { id: 'baogiagoc', label: 'Báo Giá Gốc', icon: '🧮', href: '/m/baogiagoc', permKey: 'gia_nhap_goc' },
+    { id: 'baogiactvhh', label: 'Báo Giá CTV/HH', icon: '🤝', href: '/m/baogiactvhh', permKey: 'gia_nhap_goc' },
     { id: 'gianhapgoc', label: 'Giá Nhập Gốc', icon: '🏷️', href: '/m/gianhapgoc', permKey: 'gia_nhap_goc' },
     { id: 'tilecatgoc', label: 'Tỉ Lệ Cắt Gốc', icon: '📏', href: '/m/tilecatgoc', permKey: 'ti_le_cat_goc' },
     { id: 'bophancat', label: 'Bộ Phận Cắt', icon: '✂️', href: '/m/bophancathv', permKey: 'bo_phan_cat' },
