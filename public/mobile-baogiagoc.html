@@ -168,13 +168,15 @@
             
             <div class="m-form-group">
                 <label>Chất liệu *</label>
-                <select id="m_material_id" class="m-input" onchange="handleMaterialChangeMobile(this.value)">
-                    <option value="">-- Chọn chất liệu --</option>
-                </select>
+                <div style="position: relative;" id="m_material_autocomplete_container">
+                    <input type="text" id="m_material_search" class="m-input" placeholder="Gõ để tìm chất liệu..." autocomplete="off" onfocus="showMaterialDropdownMobile()" oninput="filterMaterialsMobile(this.value)" onblur="validateMaterialSearchMobile()">
+                    <input type="hidden" id="m_material_id" value="">
+                    <div id="m_material_dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1.5px solid #cbd5e1; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-top: 4px;"></div>
+                </div>
             </div>
             
             <div class="m-form-group">
-                <label>Màu sắc *</label>
+                <label>Màu sắc</label>
                 <select id="m_color_id" class="m-input">
                     <option value="">-- Chọn màu sắc --</option>
                 </select>
@@ -267,7 +269,7 @@
     <!-- Toast container -->
     <div id="toastContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
 
-    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_3d_picker_v4"></script>
+    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_searchable_material_v5"></script>
     <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
 </body>
 </html>

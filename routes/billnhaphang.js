@@ -3059,8 +3059,8 @@ module.exports = async function(fastify) {
     // pricing calculator v5
     fastify.post('/api/pricing/calculate', { preHandler: [authenticate] }, async (req, reply) => {
         const { material_id, fabric_color_id, quantity, size_segment } = req.body || {};
-        if (!material_id || !fabric_color_id) {
-            return reply.code(400).send({ error: 'Chất liệu và màu sắc là bắt buộc.' });
+        if (!material_id) {
+            return reply.code(400).send({ error: 'Chất liệu là bắt buộc.' });
         }
 
         try {
@@ -3069,17 +3069,33 @@ module.exports = async function(fastify) {
             if (!mat) return reply.code(404).send({ error: 'Không tìm thấy chất liệu.' });
 
             // 2. Fetch color info
-            const col = await db.get('SELECT color_name FROM kv_fabric_colors WHERE id = $1 AND material_id = $2', [Number(fabric_color_id), Number(material_id)]);
-            if (!col) return reply.code(404).send({ error: 'Không tìm thấy màu sắc tương ứng.' });
+            let col = { color_name: 'Tất cả màu' };
+            if (fabric_color_id) {
+                const dbCol = await db.get('SELECT color_name FROM kv_fabric_colors WHERE id = $1 AND material_id = $2', [Number(fabric_color_id), Number(material_id)]);
+                if (dbCol) col = dbCol;
+            }
 
             // 3. Fetch approved prices
-            const prices = await db.all(`
-                SELECT ap.source_id, s.name AS source_name, ap.price
-                FROM approved_import_prices ap
-                JOIN import_sources s ON ap.source_id = s.id
-                WHERE ap.item_type = 'fabric' AND ap.fabric_color_id = $1
-                ORDER BY ap.price ASC
-            `, [Number(fabric_color_id)]);
+            let prices = [];
+            if (fabric_color_id) {
+                prices = await db.all(`
+                    SELECT ap.source_id, s.name AS source_name, ap.price
+                    FROM approved_import_prices ap
+                    JOIN import_sources s ON ap.source_id = s.id
+                    WHERE ap.item_type = 'fabric' AND ap.fabric_color_id = $1
+                    ORDER BY ap.price ASC
+                `, [Number(fabric_color_id)]);
+            } else {
+                prices = await db.all(`
+                    SELECT ap.source_id, s.name AS source_name, MIN(ap.price) AS price
+                    FROM approved_import_prices ap
+                    JOIN import_sources s ON ap.source_id = s.id
+                    WHERE ap.item_type = 'fabric' 
+                      AND ap.fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)
+                    GROUP BY ap.source_id, s.name
+                    ORDER BY price ASC
+                `, [Number(material_id)]);
+            }
 
             // 4. Determine which segments to calculate
             const segmentMapping = {

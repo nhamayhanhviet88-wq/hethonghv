@@ -69,10 +69,13 @@ async function initMobileBaogiagocPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const matParam = urlParams.get('material');
     if (matParam) {
-        const matSelect = document.getElementById('m_material_id');
-        if (matSelect) {
-            matSelect.value = matParam;
-            handleMaterialChangeMobile(matParam);
+        const matObj = _mobileBgg.materials.find(m => String(m.id) === String(matParam));
+        if (matObj) {
+            const idInput = document.getElementById('m_material_id');
+            const searchInput = document.getElementById('m_material_search');
+            if (idInput) idInput.value = matObj.id;
+            if (searchInput) searchInput.value = matObj.name;
+            handleMaterialChangeMobile(matObj.id);
         }
     }
 }
@@ -134,12 +137,11 @@ async function loadInitialDataMobile() {
         _mobileBgg.colors = ratioData.colors || [];
         _mobileBgg.sizeSegments = segData.segments || segData.sizeSegments || segRes.segments || [];
         
-        // Populate Materials select
-        const matSelect = document.getElementById('m_material_id');
-        if (matSelect) {
-            matSelect.innerHTML = '<option value="">-- Chọn chất liệu --</option>' + 
-                _mobileBgg.materials.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-        }
+        // Clear autocomplete input on reload
+        const matSearchInput = document.getElementById('m_material_search');
+        const matHiddenInput = document.getElementById('m_material_id');
+        if (matSearchInput) matSearchInput.value = '';
+        if (matHiddenInput) matHiddenInput.value = '';
         
         // Populate segments
         const segSelect = document.getElementById('m_segment');
@@ -657,8 +659,8 @@ async function runMobileCalculation() {
     const segment = document.getElementById('m_segment').value;
     const qty = document.getElementById('m_quantity').value;
 
-    if (!matId || !colorId) {
-        toast('Vui lòng chọn Chất liệu & Màu sắc!', 'error');
+    if (!matId) {
+        toast('Vui lòng chọn Chất liệu!', 'error');
         return;
     }
 
@@ -700,9 +702,11 @@ async function runMobileCalculation() {
 
     try {
         const payload = {
-            material_id: Number(matId),
-            fabric_color_id: Number(colorId)
+            material_id: Number(matId)
         };
+        if (colorId) {
+            payload.fabric_color_id = Number(colorId);
+        }
         if (segment) payload.size_segment = segment;
         if (qty !== '') payload.quantity = Number(qty);
 
@@ -1445,6 +1449,93 @@ window.toggle3dSectionMobile = toggle3dSectionMobile;
 window.openSetup3dMobile = openSetup3dMobile;
 window.closeSetup3dMobile = closeSetup3dMobile;
 window.select3dSupplierMobile = select3dSupplierMobile;
+
+// Autocomplete helpers for mobile Chất liệu
+function showMaterialDropdownMobile() {
+    const dropdown = document.getElementById('m_material_dropdown');
+    if (dropdown) {
+        dropdown.style.display = 'block';
+        renderMaterialDropdownMobile();
+    }
+}
+
+function renderMaterialDropdownMobile(filteredList) {
+    const dropdown = document.getElementById('m_material_dropdown');
+    if (!dropdown) return;
+    
+    const list = filteredList || _mobileBgg.materials || [];
+    if (list.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 10px; color: #94a3b8; font-size: 13px; font-style: italic; text-align: center;">Không tìm thấy chất liệu</div>';
+        return;
+    }
+    
+    dropdown.innerHTML = list.map(m => `
+        <div onmousedown="selectMaterialMobile('${m.id}', '${m.name.replace(/'/g, "\\'")}')" style="padding: 12px 14px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
+            ${m.name}
+        </div>
+    `).join('');
+}
+
+function filterMaterialsMobile(query) {
+    const q = query.trim().toLowerCase();
+    const filtered = _mobileBgg.materials.filter(m => m.name.toLowerCase().includes(q));
+    renderMaterialDropdownMobile(filtered);
+}
+
+function closeMaterialDropdownMobile() {
+    const dropdown = document.getElementById('m_material_dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+function selectMaterialMobile(id, name) {
+    const searchInput = document.getElementById('m_material_search');
+    const idInput = document.getElementById('m_material_id');
+    if (searchInput && idInput) {
+        idInput.value = id;
+        searchInput.value = name;
+        handleMaterialChangeMobile(id);
+    }
+    closeMaterialDropdownMobile();
+}
+
+function validateMaterialSearchMobile() {
+    setTimeout(() => {
+        const searchInput = document.getElementById('m_material_search');
+        if (!searchInput) return;
+        const query = searchInput.value.trim().toLowerCase();
+        if (query === '') {
+            document.getElementById('m_material_id').value = '';
+            handleMaterialChangeMobile('');
+            closeMaterialDropdownMobile();
+            return;
+        }
+        
+        const match = _mobileBgg.materials.find(m => m.name.trim().toLowerCase() === query);
+        if (match) {
+            document.getElementById('m_material_id').value = match.id;
+            searchInput.value = match.name;
+            handleMaterialChangeMobile(match.id);
+        } else {
+            const currentId = document.getElementById('m_material_id').value;
+            const currentMat = _mobileBgg.materials.find(m => String(m.id) === String(currentId));
+            if (currentMat) {
+                searchInput.value = currentMat.name;
+            } else {
+                searchInput.value = '';
+                document.getElementById('m_material_id').value = '';
+                handleMaterialChangeMobile('');
+            }
+        }
+        closeMaterialDropdownMobile();
+    }, 200);
+}
+
+window.showMaterialDropdownMobile = showMaterialDropdownMobile;
+window.renderMaterialDropdownMobile = renderMaterialDropdownMobile;
+window.filterMaterialsMobile = filterMaterialsMobile;
+window.closeMaterialDropdownMobile = closeMaterialDropdownMobile;
+window.selectMaterialMobile = selectMaterialMobile;
+window.validateMaterialSearchMobile = validateMaterialSearchMobile;
 
 // Register initialization on DOM content loaded
 if (document.readyState === 'loading') {

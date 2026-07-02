@@ -203,13 +203,15 @@ async function renderBaogiagocPage(content) {
                     
                     <div class="bgg-form-group">
                         <label>Chất liệu *</label>
-                        <select id="bgg_material_id" class="bgg-input" onchange="_bggHandleMaterialChange(this.value)">
-                            <option value="">-- Chọn chất liệu --</option>
-                        </select>
+                        <div style="position: relative;" id="bgg_material_autocomplete_container">
+                            <input type="text" id="bgg_material_search" class="bgg-input" placeholder="Gõ để tìm chất liệu..." autocomplete="off" onfocus="_bggShowMaterialDropdown()" oninput="_bggFilterMaterials(this.value)" onblur="_bggValidateMaterialSearch()">
+                            <input type="hidden" id="bgg_material_id" value="">
+                            <div id="bgg_material_dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; max-height: 250px; overflow-y: auto; z-index: 1000; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-top: 4px;"></div>
+                        </div>
                     </div>
                     
                     <div class="bgg-form-group">
-                        <label>Màu sắc *</label>
+                        <label>Màu sắc</label>
                         <select id="bgg_color_id" class="bgg-input">
                             <option value="">-- Chọn màu sắc --</option>
                         </select>
@@ -326,12 +328,11 @@ async function _bggLoadData() {
         _bgg.colors = ratioData.colors || [];
         _bgg.sizeSegments = segData.segments || segData.sizeSegments || segRes.segments || [];
         
-        // Populate Materials select
-        const matSelect = document.getElementById('bgg_material_id');
-        if (matSelect) {
-            matSelect.innerHTML = '<option value="">-- Chọn chất liệu --</option>' + 
-                _bgg.materials.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-        }
+        // Clear autocomplete input on reload
+        const matSearchInput = document.getElementById('bgg_material_search');
+        const matHiddenInput = document.getElementById('bgg_material_id');
+        if (matSearchInput) matSearchInput.value = '';
+        if (matHiddenInput) matHiddenInput.value = '';
         
         // Populate segments
         const segSelect = document.getElementById('bgg_segment');
@@ -819,8 +820,8 @@ async function _bggRunCalculation() {
     const segment = document.getElementById('bgg_segment').value;
     const qty = document.getElementById('bgg_quantity').value;
 
-    if (!matId || !colorId) {
-        if (typeof showToast === 'function') showToast('Vui lòng chọn đầy đủ chất liệu và màu sắc!', 'error');
+    if (!matId) {
+        if (typeof showToast === 'function') showToast('Vui lòng chọn chất liệu!', 'error');
         return;
     }
 
@@ -864,9 +865,11 @@ async function _bggRunCalculation() {
 
     try {
         const payload = {
-            material_id: Number(matId),
-            fabric_color_id: Number(colorId)
+            material_id: Number(matId)
         };
+        if (colorId) {
+            payload.fabric_color_id = Number(colorId);
+        }
         if (segment) payload.size_segment = segment;
         if (qty !== '') payload.quantity = Number(qty);
 
@@ -1865,4 +1868,84 @@ window._bgg3dSaveConfig = function() {
     _bggRenderCalcResults();
     if (typeof showToast === 'function') showToast('Đã lưu bảng giá in 3D!', 'success');
     _bggCloseSetup3dModal();
+};
+
+// Autocomplete helpers for Chất liệu
+window._bggRenderMaterialDropdown = function(filteredList) {
+    const dropdown = document.getElementById('bgg_material_dropdown');
+    if (!dropdown) return;
+    
+    const list = filteredList || _bgg.materials || [];
+    if (list.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 10px; color: #94a3b8; font-size: 13px; font-style: italic; text-align: center;">Không tìm thấy chất liệu</div>';
+        return;
+    }
+    
+    dropdown.innerHTML = list.map(m => `
+        <div onmousedown="_bggSelectMaterial('${m.id}', '${m.name.replace(/'/g, "\\'")}')" style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
+            ${m.name}
+        </div>
+    `).join('');
+};
+
+window._bggShowMaterialDropdown = function() {
+    const dropdown = document.getElementById('bgg_material_dropdown');
+    if (dropdown) {
+        dropdown.style.display = 'block';
+        _bggRenderMaterialDropdown();
+    }
+};
+
+window._bggFilterMaterials = function(query) {
+    const q = query.trim().toLowerCase();
+    const filtered = _bgg.materials.filter(m => m.name.toLowerCase().includes(q));
+    _bggRenderMaterialDropdown(filtered);
+};
+
+window._bggCloseMaterialDropdown = function() {
+    const dropdown = document.getElementById('bgg_material_dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+};
+
+window._bggSelectMaterial = function(id, name) {
+    const searchInput = document.getElementById('bgg_material_search');
+    const idInput = document.getElementById('bgg_material_id');
+    if (searchInput && idInput) {
+        idInput.value = id;
+        searchInput.value = name;
+        _bggHandleMaterialChange(id);
+    }
+    _bggCloseMaterialDropdown();
+};
+
+window._bggValidateMaterialSearch = function() {
+    setTimeout(() => {
+        const searchInput = document.getElementById('bgg_material_search');
+        if (!searchInput) return;
+        const query = searchInput.value.trim().toLowerCase();
+        if (query === '') {
+            document.getElementById('bgg_material_id').value = '';
+            _bggHandleMaterialChange('');
+            _bggCloseMaterialDropdown();
+            return;
+        }
+        
+        const match = _bgg.materials.find(m => m.name.trim().toLowerCase() === query);
+        if (match) {
+            document.getElementById('bgg_material_id').value = match.id;
+            searchInput.value = match.name;
+            _bggHandleMaterialChange(match.id);
+        } else {
+            const currentId = document.getElementById('bgg_material_id').value;
+            const currentMat = _bgg.materials.find(m => String(m.id) === String(currentId));
+            if (currentMat) {
+                searchInput.value = currentMat.name;
+            } else {
+                searchInput.value = '';
+                document.getElementById('bgg_material_id').value = '';
+                _bggHandleMaterialChange('');
+            }
+        }
+        _bggCloseMaterialDropdown();
+    }, 200);
 };
