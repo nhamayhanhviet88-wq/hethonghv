@@ -423,8 +423,8 @@ function _bggLoadPetConfigs() {
         localStorage.setItem('bgg_collar_presets', JSON.stringify(_bgg.collarPresets));
     }
 
-    // Load 3D printing configs
-    _bgg.print3dEnabled = localStorage.getItem('bgg_3d_enabled') === 'true';
+    // Load 3D printing configs (always disabled on page load/F5)
+    _bgg.print3dEnabled = false;
     _bgg.print3dSupplier = localStorage.getItem('bgg_3d_supplier') || '';
 }
 
@@ -448,10 +448,7 @@ function _bggSavePetConfigs() {
 }
 
 function _bggSave3dConfigs() {
-    const enableCb = document.getElementById('bgg_enable_3d');
-    if (enableCb) {
-        localStorage.setItem('bgg_3d_enabled', enableCb.checked ? 'true' : 'false');
-    }
+    localStorage.removeItem('bgg_3d_enabled');
     localStorage.setItem('bgg_3d_supplier', _bgg.print3dSupplier || '');
 }
 

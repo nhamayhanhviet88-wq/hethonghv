@@ -230,8 +230,8 @@ function loadPetConfigsMobile() {
         localStorage.setItem('bgg_collar_presets', JSON.stringify(_mobileBgg.collarPresets));
     }
 
-    // Load 3D printing configs
-    _mobileBgg.print3dEnabled = localStorage.getItem('bgg_3d_enabled') === 'true';
+    // Load 3D printing configs (always disabled on page load/F5)
+    _mobileBgg.print3dEnabled = false;
     _mobileBgg.print3dSupplier = localStorage.getItem('bgg_3d_supplier') || '';
 }
 
@@ -255,10 +255,7 @@ function savePetConfigsMobile() {
 }
 
 function save3dConfigsMobile() {
-    const enableCb = document.getElementById('m_enable_3d');
-    if (enableCb) {
-        localStorage.setItem('bgg_3d_enabled', enableCb.checked ? 'true' : 'false');
-    }
+    localStorage.removeItem('bgg_3d_enabled');
     localStorage.setItem('bgg_3d_supplier', _mobileBgg.print3dSupplier || '');
 }
 
