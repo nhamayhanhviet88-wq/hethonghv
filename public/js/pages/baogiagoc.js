@@ -850,13 +850,20 @@ async function _bggRunCalculation() {
         }
     }
 
-    // 3D validation: require quantity when 3D is enabled
+    // 3D validation: require quantity & white color when 3D is enabled
     const print3dOn = document.getElementById('bgg_enable_3d')?.checked;
     if (print3dOn) {
         const q3d = Number(document.getElementById('bgg_quantity').value) || 0;
         if (q3d <= 0) {
             if (typeof showToast === 'function') showToast('Bật Chi phí in 3D → vui lòng nhập Số lượng áo để tính giá!', 'error');
             document.getElementById('bgg_quantity').focus();
+            return;
+        }
+        
+        const colSearch = document.getElementById('bgg_color_search')?.value || '';
+        if (!colSearch.trim().toLowerCase().includes('trắng')) {
+            if (typeof showToast === 'function') showToast('In 3D chỉ hỗ trợ trên vải màu trắng (Trắng, Trắng gạo, ...)! Vui lòng chọn màu trắng.', 'error');
+            document.getElementById('bgg_color_search').focus();
             return;
         }
     }

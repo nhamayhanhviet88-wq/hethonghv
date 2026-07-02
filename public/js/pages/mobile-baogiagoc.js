@@ -685,13 +685,20 @@ async function runMobileCalculation() {
         }
     }
 
-    // 3D validation: require quantity when 3D is enabled
+    // 3D validation: require quantity & white color when 3D is enabled
     const print3dOn = document.getElementById('m_enable_3d')?.checked;
     if (print3dOn) {
         const q3d = Number(document.getElementById('m_quantity').value) || 0;
         if (q3d <= 0) {
             toast('Bật In 3D → vui lòng nhập Số lượng áo!', 'error');
             document.getElementById('m_quantity').focus();
+            return;
+        }
+        
+        const colSearch = document.getElementById('m_color_search')?.value || '';
+        if (!colSearch.trim().toLowerCase().includes('trắng')) {
+            toast('In 3D chỉ hỗ trợ trên vải màu trắng (Trắng, Trắng gạo, ...)! Vui lòng chọn màu trắng.', 'error');
+            document.getElementById('m_color_search').focus();
             return;
         }
     }
