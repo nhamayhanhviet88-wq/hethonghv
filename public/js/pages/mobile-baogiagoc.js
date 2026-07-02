@@ -142,6 +142,10 @@ async function loadInitialDataMobile() {
         const matHiddenInput = document.getElementById('m_material_id');
         if (matSearchInput) matSearchInput.value = '';
         if (matHiddenInput) matHiddenInput.value = '';
+        const colSearchInput = document.getElementById('m_color_search');
+        const colHiddenInput = document.getElementById('m_color_id');
+        if (colSearchInput) colSearchInput.value = '';
+        if (colHiddenInput) colHiddenInput.value = '';
         
         // Populate segments
         const segSelect = document.getElementById('m_segment');
@@ -602,11 +606,14 @@ function getPetCostsMobile() {
 }
 
 function handleMaterialChangeMobile(matId) {
-    const colorSelect = document.getElementById('m_color_id');
     const segmentSelect = document.getElementById('m_segment');
-    if (!colorSelect || !segmentSelect) return;
+    if (!segmentSelect) return;
     
-    colorSelect.innerHTML = '<option value="">-- Chọn màu sắc --</option>';
+    // Clear color selection
+    const colorSearch = document.getElementById('m_color_search');
+    const colorIdInput = document.getElementById('m_color_id');
+    if (colorSearch) colorSearch.value = '';
+    if (colorIdInput) colorIdInput.value = '';
     
     if (!matId) {
         segmentSelect.innerHTML = `
@@ -615,14 +622,6 @@ function handleMaterialChangeMobile(matId) {
         `;
         return;
     }
-
-    const filteredColors = _mobileBgg.colors.filter(c => String(c.material_id) === String(matId));
-    filteredColors.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.color_name;
-        colorSelect.appendChild(opt);
-    });
 
     const mat = _mobileBgg.materials.find(m => m.id === Number(matId));
     const activeSegs = getActiveSegmentsMobile(mat);
@@ -1536,6 +1535,100 @@ window.filterMaterialsMobile = filterMaterialsMobile;
 window.closeMaterialDropdownMobile = closeMaterialDropdownMobile;
 window.selectMaterialMobile = selectMaterialMobile;
 window.validateMaterialSearchMobile = validateMaterialSearchMobile;
+
+// Autocomplete helpers for mobile Màu sắc
+function getActiveColorsMobile() {
+    const matId = document.getElementById('m_material_id')?.value;
+    if (!matId) {
+        return _mobileBgg.colors || [];
+    }
+    return (_mobileBgg.colors || []).filter(c => String(c.material_id) === String(matId));
+}
+
+function showColorDropdownMobile() {
+    const dropdown = document.getElementById('m_color_dropdown');
+    if (dropdown) {
+        dropdown.style.display = 'block';
+        renderColorDropdownMobile();
+    }
+}
+
+function renderColorDropdownMobile(filteredList) {
+    const dropdown = document.getElementById('m_color_dropdown');
+    if (!dropdown) return;
+    
+    const list = filteredList || getActiveColorsMobile();
+    if (list.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 10px; color: #94a3b8; font-size: 13px; font-style: italic; text-align: center;">Không tìm thấy màu sắc</div>';
+        return;
+    }
+    
+    dropdown.innerHTML = list.map(c => `
+        <div onmousedown="selectColorMobile('${c.id}', '${c.color_name.replace(/'/g, "\\'")}')" style="padding: 12px 14px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
+            ${c.color_name}
+        </div>
+    `).join('');
+}
+
+function filterColorsMobile(query) {
+    const q = query.trim().toLowerCase();
+    const activeList = getActiveColorsMobile();
+    const filtered = activeList.filter(c => c.color_name.toLowerCase().includes(q));
+    renderColorDropdownMobile(filtered);
+}
+
+function closeColorDropdownMobile() {
+    const dropdown = document.getElementById('m_color_dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+function selectColorMobile(id, name) {
+    const searchInput = document.getElementById('m_color_search');
+    const idInput = document.getElementById('m_color_id');
+    if (searchInput && idInput) {
+        idInput.value = id;
+        searchInput.value = name;
+    }
+    closeColorDropdownMobile();
+}
+
+function validateColorSearchMobile() {
+    setTimeout(() => {
+        const searchInput = document.getElementById('m_color_search');
+        if (!searchInput) return;
+        const query = searchInput.value.trim().toLowerCase();
+        if (query === '') {
+            document.getElementById('m_color_id').value = '';
+            closeColorDropdownMobile();
+            return;
+        }
+        
+        const activeList = getActiveColorsMobile();
+        const match = activeList.find(c => c.color_name.trim().toLowerCase() === query);
+        if (match) {
+            document.getElementById('m_color_id').value = match.id;
+            searchInput.value = match.color_name;
+        } else {
+            const currentId = document.getElementById('m_color_id').value;
+            const currentCol = activeList.find(c => String(c.id) === String(currentId));
+            if (currentCol) {
+                searchInput.value = currentCol.color_name;
+            } else {
+                searchInput.value = '';
+                document.getElementById('m_color_id').value = '';
+            }
+        }
+        closeColorDropdownMobile();
+    }, 200);
+}
+
+window.getActiveColorsMobile = getActiveColorsMobile;
+window.showColorDropdownMobile = showColorDropdownMobile;
+window.renderColorDropdownMobile = renderColorDropdownMobile;
+window.filterColorsMobile = filterColorsMobile;
+window.closeColorDropdownMobile = closeColorDropdownMobile;
+window.selectColorMobile = selectColorMobile;
+window.validateColorSearchMobile = validateColorSearchMobile;
 
 // Register initialization on DOM content loaded
 if (document.readyState === 'loading') {

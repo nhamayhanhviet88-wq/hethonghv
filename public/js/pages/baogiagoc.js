@@ -212,9 +212,11 @@ async function renderBaogiagocPage(content) {
                     
                     <div class="bgg-form-group">
                         <label>Màu sắc</label>
-                        <select id="bgg_color_id" class="bgg-input">
-                            <option value="">-- Chọn màu sắc --</option>
-                        </select>
+                        <div style="position: relative;" id="bgg_color_autocomplete_container">
+                            <input type="text" id="bgg_color_search" class="bgg-input" placeholder="Gõ để tìm màu sắc..." autocomplete="off" onfocus="_bggShowColorDropdown()" oninput="_bggFilterColors(this.value)" onblur="_bggValidateColorSearch()">
+                            <input type="hidden" id="bgg_color_id" value="">
+                            <div id="bgg_color_dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; max-height: 250px; overflow-y: auto; z-index: 1000; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-top: 4px;"></div>
+                        </div>
                     </div>
                     
                     <div class="bgg-form-group">
@@ -333,6 +335,10 @@ async function _bggLoadData() {
         const matHiddenInput = document.getElementById('bgg_material_id');
         if (matSearchInput) matSearchInput.value = '';
         if (matHiddenInput) matHiddenInput.value = '';
+        const colSearchInput = document.getElementById('bgg_color_search');
+        const colHiddenInput = document.getElementById('bgg_color_id');
+        if (colSearchInput) colSearchInput.value = '';
+        if (colHiddenInput) colHiddenInput.value = '';
         
         // Populate segments
         const segSelect = document.getElementById('bgg_segment');
@@ -763,11 +769,14 @@ function _bggGetPetCosts() {
 }
 
 function _bggHandleMaterialChange(matId) {
-    const colorSelect = document.getElementById('bgg_color_id');
     const segmentSelect = document.getElementById('bgg_segment');
-    if (!colorSelect || !segmentSelect) return;
+    if (!segmentSelect) return;
     
-    colorSelect.innerHTML = '<option value="">-- Chọn màu sắc --</option>';
+    // Clear color selection
+    const colorSearch = document.getElementById('bgg_color_search');
+    const colorIdInput = document.getElementById('bgg_color_id');
+    if (colorSearch) colorSearch.value = '';
+    if (colorIdInput) colorIdInput.value = '';
     
     if (!matId) {
         segmentSelect.innerHTML = `
@@ -776,14 +785,6 @@ function _bggHandleMaterialChange(matId) {
         `;
         return;
     }
-
-    const filteredColors = _bgg.colors.filter(c => String(c.material_id) === String(matId));
-    filteredColors.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.color_name;
-        colorSelect.appendChild(opt);
-    });
 
     const mat = _bgg.materials.find(m => m.id === Number(matId));
     const activeSegs = _bggGetActiveSegmentsForMaterial(mat);
@@ -1947,5 +1948,91 @@ window._bggValidateMaterialSearch = function() {
             }
         }
         _bggCloseMaterialDropdown();
+    }, 200);
+};
+
+// Autocomplete helpers for Màu sắc
+window._bggGetActiveColors = function() {
+    const matId = document.getElementById('bgg_material_id')?.value;
+    if (!matId) {
+        return _bgg.colors || [];
+    }
+    return (_bgg.colors || []).filter(c => String(c.material_id) === String(matId));
+};
+
+window._bggRenderColorDropdown = function(filteredList) {
+    const dropdown = document.getElementById('bgg_color_dropdown');
+    if (!dropdown) return;
+    
+    const list = filteredList || _bggGetActiveColors();
+    if (list.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 10px; color: #94a3b8; font-size: 13px; font-style: italic; text-align: center;">Không tìm thấy màu sắc</div>';
+        return;
+    }
+    
+    dropdown.innerHTML = list.map(c => `
+        <div onmousedown="_bggSelectColor('${c.id}', '${c.color_name.replace(/'/g, "\\'")}')" style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
+            ${c.color_name}
+        </div>
+    `).join('');
+};
+
+window._bggShowColorDropdown = function() {
+    const dropdown = document.getElementById('bgg_color_dropdown');
+    if (dropdown) {
+        dropdown.style.display = 'block';
+        _bggRenderColorDropdown();
+    }
+};
+
+window._bggFilterColors = function(query) {
+    const q = query.trim().toLowerCase();
+    const activeList = _bggGetActiveColors();
+    const filtered = activeList.filter(c => c.color_name.toLowerCase().includes(q));
+    _bggRenderColorDropdown(filtered);
+};
+
+window._bggCloseColorDropdown = function() {
+    const dropdown = document.getElementById('bgg_color_dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+};
+
+window._bggSelectColor = function(id, name) {
+    const searchInput = document.getElementById('bgg_color_search');
+    const idInput = document.getElementById('bgg_color_id');
+    if (searchInput && idInput) {
+        idInput.value = id;
+        searchInput.value = name;
+    }
+    _bggCloseColorDropdown();
+};
+
+window._bggValidateColorSearch = function() {
+    setTimeout(() => {
+        const searchInput = document.getElementById('bgg_color_search');
+        if (!searchInput) return;
+        const query = searchInput.value.trim().toLowerCase();
+        if (query === '') {
+            document.getElementById('bgg_color_id').value = '';
+            _bggCloseColorDropdown();
+            return;
+        }
+        
+        const activeList = _bggGetActiveColors();
+        const match = activeList.find(c => c.color_name.trim().toLowerCase() === query);
+        if (match) {
+            document.getElementById('bgg_color_id').value = match.id;
+            searchInput.value = match.color_name;
+        } else {
+            const currentId = document.getElementById('bgg_color_id').value;
+            const currentCol = activeList.find(c => String(c.id) === String(currentId));
+            if (currentCol) {
+                searchInput.value = currentCol.color_name;
+            } else {
+                searchInput.value = '';
+                document.getElementById('bgg_color_id').value = '';
+            }
+        }
+        _bggCloseColorDropdown();
     }, 200);
 };
