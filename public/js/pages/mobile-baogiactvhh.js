@@ -3,10 +3,1144 @@
  * Path: public/js/pages/mobile-baogiactvhh.js
  */
 
-async function initMobileBaogiactvhhPage() {
-    console.log("Mobile Báo Giá CTV/HH page loaded successfully");
+async function apiFetch(url, options = {}) {
+    const method = options.method || 'GET';
+    const body = options.body || null;
+    const fetchOptions = {
+        method,
+        headers: {},
+        credentials: 'include'
+    };
+    if (body) {
+        fetchOptions.headers['Content-Type'] = 'application/json';
+        fetchOptions.body = JSON.stringify(body);
+    }
+    const res = await fetch(url, fetchOptions);
+    if (res.status === 401 || res.status === 403) {
+        window.location.href = '/';
+        throw new Error('Chưa đăng nhập');
+    }
+    return res.json();
 }
 
+var _mState = {
+    activeTab: 'calculator',
+    activeConfig: null,
+    customers: [],
+    selectedCustomer: null,
+    quantity: 10,
+    selectedMaterialIndex: 0,
+    surcharges: {
+        collar: false,
+        raglan: false,
+        color_block: false,
+        primary_school: false
+    },
+    printType: 'none', // none, pet, print3d, screen, embroidery
+    petShapes: [],
+    screenColors: 1,
+    embroideryCost: 15000,
+    historyLogs: [],
+    configVersions: []
+};
+
+async function initMobileBaogiactvhhPage() {
+    console.log("Mobile Báo Giá CTV/HH page initialized");
+    
+    // Check Giám đốc or Quản lý cấp cao role to show Settings tab
+    const isManager = typeof currentUser !== 'undefined' && currentUser && (currentUser.role === 'giam_doc' || currentUser.role === 'quan_ly_cap_cao');
+    const settingsBtn = document.getElementById('m-tab-btn-settings');
+    if (settingsBtn && isManager) {
+        settingsBtn.style.display = 'flex';
+    }
+    
+    // Load config
+    await _mLoadActiveConfig();
+    
+    // Default switch to calculator
+    _mSwitchTab('calculator');
+}
+
+async function _mLoadActiveConfig() {
+    try {
+        const res = await apiFetch('/api/ctv-quotations/config/active');
+        if (res && res.config) {
+            _mState.activeConfig = res.config;
+        } else {
+            _mState.activeConfig = null;
+        }
+    } catch (e) {
+        console.error('Mobile active config error:', e);
+        _mState.activeConfig = null;
+    }
+}
+
+function _mSwitchTab(tabName) {
+    _mState.activeTab = tabName;
+    
+    document.querySelectorAll('.m-tabs-container .m-tab-btn').forEach(btn => btn.classList.remove('active'));
+    const btn = document.getElementById(`m-tab-btn-${tabName}`);
+    if (btn) btn.classList.add('active');
+    
+    const container = document.getElementById('m-dynamic-content');
+    if (!container) return;
+    
+    if (tabName === 'calculator') {
+        _mRenderCalculator(container);
+    } else if (tabName === 'history') {
+        _mRenderHistory(container);
+    } else if (tabName === 'settings') {
+        _mRenderSettings(container);
+    }
+}
+
+// ==========================================
+// MOBILE TAB 1: CALCULATOR
+// ==========================================
+
+function _mRenderCalculator(container) {
+    if (!_mState.activeConfig) {
+        container.innerHTML = `
+            <div class="m-card text-center" style="padding: 30px;">
+                <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
+                <h4 style="margin-bottom:6px;">Chưa có biểu phí hoạt động</h4>
+                <p style="color:#64748b; font-size:12px; line-height:1.5;">Vui lòng thiết lập cấu hình biểu phí active trên bản PC của Quản lý.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const config = _mState.activeConfig;
+    
+    container.innerHTML = `
+        <!-- Customer & Qty -->
+        <div class="m-card">
+            <div class="m-card-title">👤 Khách Hàng & Số lượng</div>
+            <div class="m-form-group">
+                <label>Tìm kiếm khách hàng chăm sóc</label>
+                <input type="text" class="m-input" id="m_cust_search" placeholder="Gõ tên hoặc số điện thoại..." oninput="_mOnCustomerSearch(this.value)">
+                <div id="m_cust_dropdown" class="m-autocomplete-dropdown" style="display:none;"></div>
+                <div id="m_selected_cust_badge"></div>
+            </div>
+            
+            <div class="m-form-group" style="margin-bottom:0;">
+                <label>Số lượng áo đặt hàng</label>
+                <input type="number" class="m-input" id="m_qty" min="1" value="${_mState.quantity}" oninput="_mOnQuantityChange(this.value)">
+            </div>
+        </div>
+        
+        <!-- Fabric Material & Surcharges -->
+        <div class="m-card">
+            <div class="m-card-title">👕 Phôi Vải & Phụ Phí</div>
+            <div class="m-form-group">
+                <label>Chất liệu vải</label>
+                <select class="m-select" id="m_material" onchange="_mOnMaterialChange(this.value)">
+                    ${config.materials.map((m, idx) => `
+                        <option value="${idx}" ${idx === _mState.selectedMaterialIndex ? 'selected' : ''}>
+                            ${m.name} - ${Number(m.price).toLocaleString('vi-VN')}đ (May cổ tròn)
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            
+            <div class="m-form-group" style="margin-bottom:0;">
+                <label>Phụ phí thêm</label>
+                <div class="m-checkbox-group">
+                    <label class="m-checkbox-label">
+                        <input type="checkbox" id="m_sc_collar" ${_mState.surcharges.collar ? 'checked' : ''} onchange="_mToggleSurcharge('collar', this.checked)">
+                        Cổ bẻ (+${Number(config.surcharges.collar).toLocaleString('vi-VN')}đ)
+                    </label>
+                    <label class="m-checkbox-label">
+                        <input type="checkbox" id="m_sc_raglan" ${_mState.surcharges.raglan ? 'checked' : ''} onchange="_mToggleSurcharge('raglan', this.checked)">
+                        Raglan (+${Number(config.surcharges.raglan).toLocaleString('vi-VN')}đ)
+                    </label>
+                    <label class="m-checkbox-label">
+                        <input type="checkbox" id="m_sc_color_block" ${_mState.surcharges.color_block ? 'checked' : ''} onchange="_mToggleSurcharge('color_block', this.checked)">
+                        Phối (+${Number(config.surcharges.color_block).toLocaleString('vi-VN')}đ)
+                    </label>
+                    <label class="m-checkbox-label">
+                        <input type="checkbox" id="m_sc_primary_school" ${_mState.surcharges.primary_school ? 'checked' : ''} onchange="_mToggleSurcharge('primary_school', this.checked)">
+                        Tiểu học (${Number(config.surcharges.primary_school).toLocaleString('vi-VN')}đ)
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Printing Options -->
+        <div class="m-card">
+            <div class="m-card-title">🎨 Phương Án In / Thêu</div>
+            <div class="m-form-group" style="margin-bottom:0;">
+                <label>Loại hình in/thêu</label>
+                <select class="m-select" id="m_print_type" onchange="_mOnPrintTypeChange(this.value)">
+                    <option value="none" ${_mState.printType === 'none' ? 'selected' : ''}>Không in/thêu</option>
+                    <option value="pet" ${_mState.printType === 'pet' ? 'selected' : ''}>In PET CTV</option>
+                    <option value="print3d" ${_mState.printType === 'print3d' ? 'selected' : ''}>In 3D CTV</option>
+                    <option value="screen" ${_mState.printType === 'screen' ? 'selected' : ''}>In Lưới CTV</option>
+                    <option value="embroidery" ${_mState.printType === 'embroidery' ? 'selected' : ''}>Thêu CTV</option>
+                </select>
+            </div>
+            
+            <div id="m_print_panel"></div>
+        </div>
+        
+        <!-- Calculation Box -->
+        <div class="m-result-box" id="m_result_box"></div>
+    `;
+    
+    _mRenderSelectedCustomer();
+    _mRenderPrintPanel();
+    _mUpdateCalculations();
+}
+
+async function _mOnCustomerSearch(val) {
+    const dropdown = document.getElementById('m_cust_dropdown');
+    if (!dropdown) return;
+    
+    const query = val.trim();
+    if (query.length < 2) {
+        dropdown.style.display = 'none';
+        return;
+    }
+    
+    try {
+        const res = await apiFetch(`/api/ctv-quotations/customers?search=${encodeURIComponent(query)}`);
+        if (res && res.customers) {
+            _mState.customers = res.customers;
+            if (res.customers.length === 0) {
+                dropdown.innerHTML = `<div style="padding:10px; color:#64748b; font-size:12px; text-align:center;">Không tìm thấy khách hàng</div>`;
+            } else {
+                dropdown.innerHTML = res.customers.map(c => `
+                    <div class="m-autocomplete-item" onclick="_mSelectCustomer(${c.id})">
+                        <strong>${c.customer_name}</strong> - ${c.phone}
+                    </div>
+                `).join('');
+            }
+            dropdown.style.display = 'block';
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+function _mSelectCustomer(id) {
+    const customer = _mState.customers.find(c => c.id === id);
+    if (customer) {
+        _mState.selectedCustomer = customer;
+        const searchInput = document.getElementById('m_cust_search');
+        if (searchInput) searchInput.value = '';
+        _mRenderSelectedCustomer();
+        _mUpdateCalculations();
+    }
+    const dropdown = document.getElementById('m_cust_dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+function _mRenderSelectedCustomer() {
+    const container = document.getElementById('m_selected_cust_badge');
+    if (!container) return;
+    
+    if (_mState.selectedCustomer) {
+        container.innerHTML = `
+            <div class="m-selected-badge">
+                👤 ${_mState.selectedCustomer.customer_name} (${_mState.selectedCustomer.phone})
+                <button type="button" onclick="_mClearCustomer()">×</button>
+            </div>
+        `;
+    } else {
+        container.innerHTML = '';
+    }
+}
+
+function _mClearCustomer() {
+    _mState.selectedCustomer = null;
+    _mRenderSelectedCustomer();
+    _mUpdateCalculations();
+}
+
+function _mOnQuantityChange(val) {
+    _mState.quantity = Math.max(1, Number(val) || 1);
+    _mUpdateCalculations();
+}
+
+function _mOnMaterialChange(idx) {
+    _mState.selectedMaterialIndex = Number(idx);
+    _mUpdateCalculations();
+}
+
+function _mToggleSurcharge(key, checked) {
+    _mState.surcharges[key] = !!checked;
+    _mUpdateCalculations();
+}
+
+function _mOnPrintTypeChange(val) {
+    _mState.printType = val;
+    _mRenderPrintPanel();
+    _mUpdateCalculations();
+}
+
+function _mRenderPrintPanel() {
+    const panel = document.getElementById('m_print_panel');
+    if (!panel) return;
+    
+    if (_mState.printType === 'none') {
+        panel.innerHTML = '';
+        return;
+    }
+    
+    const config = _mState.activeConfig;
+    
+    if (_mState.printType === 'pet') {
+        const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
+        panel.innerHTML = `
+            <div style="background:#f0fdfa; border:1px dashed #99f6e4; border-radius:10px; padding:10px; margin-top:12px;">
+                <div style="font-size:11px; font-weight:700; color:#0d9488; margin-bottom:8px;">🧬 CẤU HÌNH PET KHỔ MÉT</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
+                    <div>
+                        <label style="font-size:10px; color:#475569; font-weight:700;">RỘNG (CM)</label>
+                        <input type="number" class="m-input" id="m_pet_w" step="0.1" value="10">
+                    </div>
+                    <div>
+                        <label style="font-size:10px; color:#475569; font-weight:700;">CAO (CM)</label>
+                        <input type="number" class="m-input" id="m_pet_h" step="0.1" value="10">
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:6px;">
+                    <div>
+                        <label style="font-size:10px; color:#475569; font-weight:700;">SỐ HÌNH/ÁO</label>
+                        <input type="number" class="m-input" id="m_pet_qty" value="1" min="1">
+                    </div>
+                    <div style="display:flex; align-items:end;">
+                        <button type="button" class="m-btn" style="padding:10px 0; font-size:12px;" onclick="_mAddPetShape()">Thêm hình</button>
+                    </div>
+                </div>
+                
+                <div id="m_pet_shapes_list" class="m-shapes-list"></div>
+            </div>
+        `;
+        _mRenderPetShapesList();
+    } else if (_mState.printType === 'print3d') {
+        panel.innerHTML = `
+            <div style="background:#f0f9ff; border:1px dashed #bae6fd; border-radius:10px; padding:10px; margin-top:12px; font-size:12px; color:#0369a1; line-height:1.5;">
+                🌀 Tự động áp dụng giá in 3D toàn thân & laser lũy tiến số lượng giống PC.
+            </div>
+        `;
+    } else if (_mState.printType === 'screen') {
+        const screenConfig = config.print_prices.screen || { qty_threshold: 20 };
+        panel.innerHTML = `
+            <div style="background:#faf5ff; border:1px dashed #c084fc; border-radius:10px; padding:10px; margin-top:12px;">
+                <div class="m-form-group" style="margin-bottom:0;">
+                    <label style="color:#7e22ce;">Số màu in lưới</label>
+                    <input type="number" class="m-input" id="m_screen_colors" min="1" value="${_mState.screenColors}" oninput="_mOnScreenColorsChange(this.value)">
+                </div>
+            </div>
+        `;
+    } else if (_mState.printType === 'embroidery') {
+        panel.innerHTML = `
+            <div style="background:#fffbeb; border:1px dashed #fcd34d; border-radius:10px; padding:10px; margin-top:12px;">
+                <div class="m-form-group" style="margin-bottom:0;">
+                    <label style="color:#b45309;">Giá thêu CTV (đ/áo)</label>
+                    <input type="number" class="m-input" id="m_emb_cost" min="0" value="${_mState.embroideryCost}" oninput="_mOnEmbCostChange(this.value)">
+                </div>
+            </div>
+        `;
+    }
+}
+
+function _mOnScreenColorsChange(val) {
+    _mState.screenColors = Math.max(1, Number(val) || 1);
+    _mUpdateCalculations();
+}
+
+function _mOnEmbCostChange(val) {
+    _mState.embroideryCost = Math.max(0, Number(val) || 0);
+    _mUpdateCalculations();
+}
+
+function _mAddPetShape() {
+    const w = parseFloat(document.getElementById('m_pet_w')?.value) || 0;
+    const h = parseFloat(document.getElementById('m_pet_h')?.value) || 0;
+    const qty = parseInt(document.getElementById('m_pet_qty')?.value) || 0;
+    
+    if (w <= 0 || h <= 0 || qty <= 0) {
+        showToast('Kích thước hoặc SL không hợp lệ', 'error');
+        return;
+    }
+    
+    _mState.petShapes.push({ width: w, height: h, qty_per_shirt: qty, mode: 'aligned' });
+    _mRenderPetShapesList();
+    _mUpdateCalculations();
+}
+
+function _mRemovePetShape(idx) {
+    _mState.petShapes.splice(idx, 1);
+    _mRenderPetShapesList();
+    _mUpdateCalculations();
+}
+
+function _mRenderPetShapesList() {
+    const list = document.getElementById('m_pet_shapes_list');
+    if (!list) return;
+    
+    if (_mState.petShapes.length === 0) {
+        list.innerHTML = `<div style="font-size:11px; color:#64748b; font-style:italic; text-align:center; padding:6px 0;">Chưa có hình in nào</div>`;
+        return;
+    }
+    
+    list.innerHTML = _mState.petShapes.map((s, idx) => `
+        <div class="m-shape-card">
+            <div class="m-shape-info">
+                #${idx+1}: ${s.width}x${s.height} cm (${s.qty_per_shirt} hình)
+            </div>
+            <button type="button" style="background:#fee2e2; border:none; color:#ef4444; padding:4px 8px; border-radius:6px; font-weight:700;" onclick="_mRemovePetShape(${idx})">Xóa</button>
+        </div>
+    `).join('');
+}
+
+// 2D PET calculation wrapper helper
+function _mCalcPetPlacement(W_sheet, H_sheet, w, h, s) {
+    if (w <= 0 || h <= 0 || W_sheet <= 0 || H_sheet <= 0) return { aligned: 0, optimized: 0 };
+    s = Number(s) || 0;
+    
+    const nw_horiz = Math.floor((W_sheet + s) / (w + s));
+    const nh_horiz = Math.floor((H_sheet + s) / (h + s));
+    const countHoriz = (nw_horiz > 0 && nh_horiz > 0) ? nw_horiz * nh_horiz : 0;
+    
+    const nw_vert = Math.floor((W_sheet + s) / (h + s));
+    const nh_vert = Math.floor((H_sheet + s) / (w + s));
+    const countVert = (nw_vert > 0 && nh_vert > 0) ? nw_vert * nh_vert : 0;
+    
+    const aligned = Math.max(countHoriz, countVert);
+    let optimized = aligned;
+    
+    function checkHorizontalSplit(wA, hA, wB, hB) {
+        const maxA = Math.floor((H_sheet + s) / (hA + s));
+        for (let rA = 0; rA <= maxA; rA++) {
+            const heightA = rA > 0 ? (rA * (hA + s) - s) : 0;
+            const remainH = H_sheet - heightA - (rA > 0 ? s : 0);
+            const rB = remainH >= hB ? Math.floor((remainH + s) / (hB + s)) : 0;
+            const cA = Math.floor((W_sheet + s) / (wA + s));
+            const cB = Math.floor((W_sheet + s) / (wB + s));
+            const total = (rA * cA) + (rB * cB);
+            if (total > optimized) optimized = total;
+        }
+    }
+    
+    function checkVerticalSplit(wA, hA, wB, hB) {
+        const maxA = Math.floor((W_sheet + s) / (wA + s));
+        for (let cA = 0; cA <= maxA; cA++) {
+            const widthA = cA > 0 ? (cA * (wA + s) - s) : 0;
+            const remainW = W_sheet - widthA - (cA > 0 ? s : 0);
+            const cB = remainW >= wB ? Math.floor((remainW + s) / (wB + s)) : 0;
+            const rA = Math.floor((H_sheet + s) / (hA + s));
+            const rB = Math.floor((H_sheet + s) / (hB + s));
+            const total = (cA * rA) + (cB * rB);
+            if (total > optimized) optimized = total;
+        }
+    }
+    
+    checkHorizontalSplit(w, h, h, w);
+    checkHorizontalSplit(h, w, w, h);
+    checkVerticalSplit(w, h, h, w);
+    checkVerticalSplit(h, w, w, h);
+    
+    return { aligned, optimized };
+}
+
+function _mCalculateAllCosts() {
+    const config = _mState.activeConfig;
+    if (!config) return null;
+    
+    const qty = _mState.quantity;
+    const m = config.materials[_mState.selectedMaterialIndex];
+    const basePrice = m ? Number(m.price) : 0;
+    const materialName = m ? m.name : 'Unknown';
+    
+    let surchargeTotal = 0;
+    const surchargesBreakdown = [];
+    
+    if (_mState.surcharges.collar) {
+        const fee = Number(config.surcharges.collar) || 0;
+        surchargeTotal += fee;
+        surchargesBreakdown.push({ label: 'Cổ bẻ', price: fee });
+    }
+    if (_mState.surcharges.raglan) {
+        const fee = Number(config.surcharges.raglan) || 0;
+        surchargeTotal += fee;
+        surchargesBreakdown.push({ label: 'Raglan', price: fee });
+    }
+    if (_mState.surcharges.color_block) {
+        const fee = Number(config.surcharges.color_block) || 0;
+        surchargeTotal += fee;
+        surchargesBreakdown.push({ label: 'Phối màu', price: fee });
+    }
+    if (_mState.surcharges.primary_school) {
+        const fee = Number(config.surcharges.primary_school) || 0;
+        surchargeTotal += fee;
+        surchargesBreakdown.push({ label: 'Tiểu học', price: fee });
+    }
+    if (qty < 20) {
+        const fee = Number(config.surcharges.qty_under_20) || 0;
+        surchargeTotal += fee;
+        surchargesBreakdown.push({ label: 'Số lượng < 20 áo', price: fee });
+    }
+    
+    let printCost = 0;
+    const printBreakdown = [];
+    const pt = _mState.printType;
+    
+    if (pt === 'pet') {
+        const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
+        const sheetPrice = Number(petConfig.sheet_price) || 60000;
+        const spacing = Number(petConfig.spacing) || 0.4;
+        
+        _mState.petShapes.forEach((s, idx) => {
+            const packed = _mState.activeConfig ? _mCalcPetPlacement(58, 100, s.width, s.height, spacing) : { aligned: 0, optimized: 0 };
+            const perSheetCount = packed.aligned; // Mobile aligned calculation
+            
+            if (perSheetCount > 0) {
+                const sheetFraction = s.qty_per_shirt / perSheetCount;
+                const costPerShirt = Math.round(sheetFraction * sheetPrice);
+                printCost += costPerShirt;
+                printBreakdown.push({ label: `PET #${idx+1}: ${s.width}x${s.height}cm`, price: costPerShirt });
+            }
+        });
+    } else if (pt === 'print3d') {
+        const config3d = config.print_prices.print3d || { meters_per_shirt: 0.8, print_tiers: [], laser_tiers: [] };
+        const mps = config3d.meters_per_shirt || 0.8;
+        const totalMeters = qty * mps;
+        
+        let printPriceRate = 0;
+        if (config3d.print_tiers && config3d.print_tiers.length > 0) {
+            for (const t of config3d.print_tiers) {
+                const tMin = Number(t.min) || 0;
+                const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+                if (totalMeters >= tMin && totalMeters < tMax) { printPriceRate = Number(t.price); break; }
+            }
+        }
+        
+        let laserPriceRate = 0;
+        if (config3d.laser_tiers && config3d.laser_tiers.length > 0) {
+            for (const t of config3d.laser_tiers) {
+                const tMin = Number(t.min) || 0;
+                const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+                if (totalMeters >= tMin && totalMeters < tMax) { laserPriceRate = Number(t.price); break; }
+            }
+        }
+        
+        const singlePrintCost = Math.round(printPriceRate * mps);
+        const singleLaserCost = Math.round(laserPriceRate * mps);
+        printCost = singlePrintCost + singleLaserCost;
+        printBreakdown.push({ label: 'Giá in 3D', price: singlePrintCost });
+        printBreakdown.push({ label: 'Cắt laser 3D', price: singleLaserCost });
+    } else if (pt === 'screen') {
+        const configScreen = config.print_prices.screen || { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 };
+        const colors = _mState.screenColors;
+        const threshold = configScreen.qty_threshold || 20;
+        let singleScreenPrice = 0;
+        
+        if (qty < threshold) {
+            singleScreenPrice = Math.round((configScreen.price_low * colors) / qty);
+        } else {
+            singleScreenPrice = (colors <= 3 ? configScreen.price_high_1_3 : configScreen.price_high_4_plus) * colors;
+        }
+        printCost = singleScreenPrice;
+        printBreakdown.push({ label: `In lưới (${colors} màu)`, price: singleScreenPrice });
+    } else if (pt === 'embroidery') {
+        printCost = _mState.embroideryCost;
+        printBreakdown.push({ label: 'Thêu vi tính', price: printCost });
+    }
+    
+    const finalPricePerShirt = basePrice + surchargeTotal + printCost;
+    const grandTotal = finalPricePerShirt * qty;
+    
+    return {
+        materialName,
+        basePrice,
+        surchargesBreakdown,
+        surchargeTotal,
+        printBreakdown,
+        printCost,
+        finalPricePerShirt,
+        grandTotal
+    };
+}
+
+function _mUpdateCalculations() {
+    const box = document.getElementById('m_result_box');
+    if (!box) return;
+    
+    const calc = _mCalculateAllCosts();
+    if (!calc) {
+        box.innerHTML = `<div style="text-align:center; font-style:italic;">Không thể tính toán chi phí.</div>`;
+        return;
+    }
+    
+    const hasCustomer = !!_mState.selectedCustomer;
+    
+    box.innerHTML = `
+        <div class="m-result-title">📊 Chi tiết đơn hàng</div>
+        
+        <div class="m-result-row">
+            <span>Khách hàng:</span>
+            <strong style="color:white;">${hasCustomer ? _mState.selectedCustomer.customer_name : '<span style="color:#ef4444;">Chưa chọn khách</span>'}</strong>
+        </div>
+        <div class="m-result-row">
+            <span>Số lượng:</span>
+            <strong style="color:white;">${_mState.quantity} áo</strong>
+        </div>
+        <div class="m-result-row">
+            <span>Chất liệu vải:</span>
+            <strong style="color:white;">${calc.materialName}</strong>
+        </div>
+        <div class="m-result-row">
+            <span>Đơn giá phôi:</span>
+            <span>${calc.basePrice.toLocaleString('vi-VN')} đ/áo</span>
+        </div>
+        
+        ${calc.surchargesBreakdown.length > 0 ? `
+            <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
+                <div style="font-size:10px; color:#94a3b8; font-weight:700; margin-bottom:4px;">PHỤ PHÍ:</div>
+                ${calc.surchargesBreakdown.map(s => `
+                    <div class="m-result-row" style="font-size:12px;">
+                        <span>• ${s.label}</span>
+                        <span>${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ</span>
+                    </div>
+                `).join('')}
+            </div>
+        ` : ''}
+        
+        ${calc.printBreakdown.length > 0 ? `
+            <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
+                <div style="font-size:10px; color:#94a3b8; font-weight:700; margin-bottom:4px;">IN / THÊU:</div>
+                ${calc.printBreakdown.map(p => `
+                    <div class="m-result-row" style="font-size:12px;">
+                        <span>• ${p.label}</span>
+                        <span>+${p.price.toLocaleString('vi-VN')} đ</span>
+                    </div>
+                `).join('')}
+            </div>
+        ` : ''}
+        
+        <div class="m-result-row total">
+            <span>Đơn giá/Áo:</span>
+            <span style="color:#38bdf8;">${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo</span>
+        </div>
+        <div class="m-result-row" style="font-size:15px; font-weight:700; margin-top:4px;">
+            <span>Tổng đơn:</span>
+            <span>${calc.grandTotal.toLocaleString('vi-VN')} đ</span>
+        </div>
+        
+        <div style="font-size:11.5px; font-style:italic; color:#38bdf8; text-align:right; margin-top:4px;">
+            Bằng chữ: ${docSoTienVietNam(calc.grandTotal)}
+        </div>
+        
+        <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <button class="m-btn-secondary" style="background:transparent; border-color:rgba(255,255,255,0.3); color:white;" onclick="_mOpenExportModal()">🖨️ Xuất Bản In</button>
+            <button class="m-btn" style="background:#22c55e; box-shadow:none;" onclick="_mSaveQuotation()" ${!hasCustomer ? 'disabled style="opacity:0.5;"' : ''}>💾 Lưu Giá</button>
+        </div>
+    `;
+}
+
+async function _mSaveQuotation() {
+    if (!_mState.selectedCustomer) {
+        showToast('Vui lòng chọn khách hàng', 'error');
+        return;
+    }
+    
+    const calc = _mCalculateAllCosts();
+    if (!calc) return;
+    
+    const body = {
+        customer_id: _mState.selectedCustomer.id,
+        config_version_id: _mState.activeConfig.id,
+        input_details: {
+            quantity: _mState.quantity,
+            selectedMaterialIndex: _mState.selectedMaterialIndex,
+            surcharges: _mState.surcharges,
+            printType: _mState.printType,
+            petShapes: _mState.petShapes,
+            screenColors: _mState.screenColors,
+            embroideryCost: _mState.embroideryCost,
+            materialName: calc.materialName
+        },
+        calculated_price: calc.finalPricePerShirt,
+        total_amount: calc.grandTotal
+    };
+    
+    try {
+        const res = await apiFetch('/api/ctv-quotations', {
+            method: 'POST',
+            body
+        });
+        if (res && res.success) {
+            showToast('Đã lưu báo giá thành công!', 'success');
+            _mState.selectedCustomer = null;
+            _mState.petShapes = [];
+            _mRenderSelectedCustomer();
+            _mRenderPrintPanel();
+            _mUpdateCalculations();
+        } else {
+            showToast(res.error || 'Lỗi lưu báo giá', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối: ' + e.message, 'error');
+    }
+}
+
+function _mOpenExportModal() {
+    const calc = _mCalculateAllCosts();
+    if (!calc) return;
+    
+    const hasCustomer = !!_mState.selectedCustomer;
+    const name = hasCustomer ? _mState.selectedCustomer.customer_name : 'Quý Khách Hàng';
+    const phone = hasCustomer ? _mState.selectedCustomer.phone : 'Chưa có SĐT';
+    const dateStr = vnDateStr(vnNow());
+    const code = 'BGCTV-M' + Math.floor(Math.random()*90000 + 10000);
+    
+    const container = document.getElementById('m_print_area');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.4; font-size:12px;">
+            <div style="border-bottom:2px double #e2e8f0; padding-bottom:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:start;">
+                <div>
+                    <h4 style="margin:0; font-size:14px; font-weight:800; color:#1e3a8a;">ĐỒNG PHỤC HV</h4>
+                    <p style="margin:2px 0 0 0; font-size:10px; color:#64748b;">Xưởng May Đồng Phục HV</p>
+                </div>
+                <div style="text-align:right;">
+                    <h5 style="margin:0; font-size:11px; color:#475569;">BÁO GIÁ CTV</h5>
+                    <p style="margin:2px 0 0 0; font-size:9px; color:#94a3b8;">${code} | ${dateStr}</p>
+                </div>
+            </div>
+            
+            <div style="background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; padding:10px; margin-bottom:14px;">
+                <div style="margin-bottom:4px;">• CTV/Khách hàng: <strong>${name}</strong></div>
+                <div style="margin-bottom:4px;">• Số điện thoại: <strong>${phone}</strong></div>
+                <div>• SL áo: <strong>${_mState.quantity} chiếc</strong> (Áo thun cổ tròn)</div>
+            </div>
+            
+            <table style="width:100%; border-collapse:collapse; font-size:11.5px; border:1px solid #cbd5e1; margin-bottom:14px;">
+                <thead>
+                    <tr style="background:#f1f5f9;">
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:left;">Hạng mục may & in</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:right; width:100px;">Đơn giá</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="border:1px solid #cbd5e1; padding:6px;">Phôi vải ${calc.materialName}</td>
+                        <td style="border:1px solid #cbd5e1; padding:6px; text-align:right;">${calc.basePrice.toLocaleString('vi-VN')} đ</td>
+                    </tr>
+                    ${calc.surchargesBreakdown.map(s => `
+                        <tr>
+                            <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#475569;">+ Phụ phí: ${s.label}</td>
+                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#475569;">${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ</td>
+                        </tr>
+                    `).join('')}
+                    ${calc.printBreakdown.map(p => `
+                        <tr>
+                            <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#0d9488;">+ In: ${p.label}</td>
+                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#0d9488;">+${p.price.toLocaleString('vi-VN')} đ</td>
+                        </tr>
+                    `).join('')}
+                    <tr style="font-weight:700; background:#f8fafc;">
+                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right;">Đơn giá tổng:</td>
+                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#1e3a8a;">${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px; text-align:right;">
+                <div style="font-size:11px; color:#64748b;">Tổng cộng:</div>
+                <div style="font-size:18px; font-weight:900; color:#1e3a8a;">${calc.grandTotal.toLocaleString('vi-VN')} đ</div>
+                <div style="font-size:11.5px; font-style:italic; color:#0369a1; margin-top:4px;">
+                    Bằng chữ: <strong>${docSoTienVietNam(calc.grandTotal)}</strong>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('m_export_modal').style.display = 'flex';
+}
+
+function _mCloseExportModal() {
+    document.getElementById('m_export_modal').style.display = 'none';
+}
+
+function _mCopyTextQuotation() {
+    const calc = _mCalculateAllCosts();
+    if (!calc) return;
+    
+    const hasCustomer = !!_mState.selectedCustomer;
+    const name = hasCustomer ? _mState.selectedCustomer.customer_name : 'Quý Khách Hàng';
+    const phone = hasCustomer ? _mState.selectedCustomer.phone : 'Chưa có SĐT';
+    const dateStr = vnDateStr(vnNow());
+    
+    let text = `🤝 BÁO GIÁ ĐẠI LÝ / CTV (MOBILE) 🤝\n`;
+    text += `Ngày: ${dateStr}\n`;
+    text += `----------------------------------------\n`;
+    text += `• Khách hàng: ${name} (${phone})\n`;
+    text += `• Số lượng: ${_mState.quantity} áo (Cổ tròn)\n`;
+    text += `• Chất liệu: ${calc.materialName}\n`;
+    text += `----------------------------------------\n`;
+    text += `• Giá phôi: ${calc.basePrice.toLocaleString('vi-VN')} đ/áo\n`;
+    
+    calc.surchargesBreakdown.forEach(s => {
+        text += `  + Phụ phí ${s.label}: ${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ\n`;
+    });
+    
+    calc.printBreakdown.forEach(p => {
+        text += `  + In/thêu ${p.label}: +${p.price.toLocaleString('vi-VN')} đ\n`;
+    });
+    
+    text += `----------------------------------------\n`;
+    text += `💰 ĐƠN GIÁ: ${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo\n`;
+    text += `💵 TỔNG CỘNG: ${calc.grandTotal.toLocaleString('vi-VN')} đ\n`;
+    text += `✍️ (Chữ: ${docSoTienVietNam(calc.grandTotal)})\n`;
+    text += `----------------------------------------\n`;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Đã sao chép text báo giá!', 'success');
+    }).catch(err => {
+        showToast('Lỗi copy: ' + err.message, 'error');
+    });
+}
+
+// ==========================================
+// MOBILE TAB 2: HISTORY
+// ==========================================
+
+async function _mRenderHistory(container) {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    
+    container.innerHTML = `
+        <div class="m-card">
+            <div class="m-card-title">📜 Lịch Sử Đã Tạo</div>
+            
+            <div class="m-form-group">
+                <input type="text" id="m_history_search" class="m-input" placeholder="Tìm tên hoặc SĐT khách..." oninput="_mOnHistoryFilter()">
+            </div>
+            
+            <div class="m-filter-row">
+                <select id="m_history_month" class="m-select" onchange="_mOnHistoryFilter()">
+                    <option value="">-- Tất cả tháng --</option>
+                    ${Array.from({length: 12}, (_, i) => `
+                        <option value="${i+1}" ${i+1 === currentMonth ? 'selected' : ''}>Tháng ${i+1}</option>
+                    `).join('')}
+                </select>
+                <select id="m_history_year" class="m-select" onchange="_mOnHistoryFilter()">
+                    <option value="">-- Tất cả năm --</option>
+                    <option value="${currentYear}" selected>${currentYear}</option>
+                    <option value="${currentYear-1}">${currentYear-1}</option>
+                </select>
+            </div>
+            
+            <button class="m-btn-secondary" style="margin-bottom:12px;" onclick="_mLoadHistoryLogs()">🔄 Tải lại danh sách</button>
+            
+            <div id="m_history_list_container">
+                <div style="text-align:center; padding:20px; color:#64748b;">Đang tải lịch sử...</div>
+            </div>
+        </div>
+    `;
+    
+    await _mLoadHistoryLogs();
+}
+
+async function _mLoadHistoryLogs() {
+    const searchVal = document.getElementById('m_history_search')?.value || '';
+    const mVal = document.getElementById('m_history_month')?.value || '';
+    const yVal = document.getElementById('m_history_year')?.value || '';
+    
+    let url = `/api/ctv-quotations?1=1`;
+    if (searchVal) url += `&search=${encodeURIComponent(searchVal)}`;
+    if (mVal) url += `&month=${mVal}`;
+    if (yVal) url += `&year=${yVal}`;
+    
+    try {
+        const res = await apiFetch(url);
+        const container = document.getElementById('m_history_list_container');
+        if (!container) return;
+        
+        if (res && res.quotations) {
+            _mState.historyLogs = res.quotations;
+            _mRenderHistoryList(container, res.quotations);
+        } else {
+            container.innerHTML = `<div style="color:#ef4444; text-align:center; padding:10px;">Lỗi tải dữ liệu</div>`;
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+var _mDebounce = null;
+function _mOnHistoryFilter() {
+    clearTimeout(_mDebounce);
+    _mDebounce = setTimeout(() => {
+        _mLoadHistoryLogs();
+    }, 450);
+}
+
+function _mRenderHistoryList(container, list) {
+    if (list.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:24px; color:#64748b; font-style:italic; font-size:12.5px;">Không tìm thấy lịch sử báo giá</div>`;
+        return;
+    }
+    
+    container.innerHTML = list.map(q => {
+        const dateStr = vnFormat(q.created_at, 'HH:mm DD/MM/YYYY');
+        const details = q.input_details || {};
+        return `
+            <div class="m-history-item">
+                <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                    <div>
+                        <strong style="font-size:13.5px; color:#1e293b;">${q.customer_name || 'N/A'}</strong>
+                        <div style="font-size:11px; color:#64748b; margin-top:2px;">SĐT: ${q.customer_phone || ''}</div>
+                    </div>
+                    <span style="font-size:10.5px; color:#94a3b8; font-weight:700;">${dateStr}</span>
+                </div>
+                
+                <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:8px; color:#475569;">
+                    <span>Vải: <strong>${details.materialName || 'N/A'}</strong> | SL: <strong>${details.quantity || 0} áo</strong></span>
+                    <strong style="color:#1e3a8a; font-size:13px;">${Number(q.total_amount).toLocaleString('vi-VN')} đ</strong>
+                </div>
+                
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:10.5px; color:#94a3b8;">Người tạo: ${q.creator_name || 'N/A'}</span>
+                    <button class="m-btn-secondary" style="padding:4px 10px; width:auto; font-size:11px;" onclick="_mShowHistoryDetail(${q.id})">Xem chi tiết</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function _mShowHistoryDetail(quoteId) {
+    const q = _mState.historyLogs.find(log => log.id === quoteId);
+    if (!q) return;
+    
+    // Preview snapshot inside modal using exact same mechanism
+    const tempState = {
+        activeConfig: q.config_snapshot,
+        selectedCustomer: { customer_name: q.customer_name, phone: q.customer_phone },
+        quantity: q.input_details.quantity,
+        selectedMaterialIndex: q.input_details.selectedMaterialIndex,
+        surcharges: q.input_details.surcharges,
+        printType: q.input_details.printType,
+        petShapes: q.input_details.petShapes || [],
+        screenColors: q.input_details.screenColors || 1,
+        embroideryCost: q.input_details.embroideryCost || 15000
+    };
+    
+    const originalConfig = _mState.activeConfig;
+    const originalCustomer = _mState.selectedCustomer;
+    const originalQty = _mState.quantity;
+    const originalMat = _mState.selectedMaterialIndex;
+    const originalSc = _mState.surcharges;
+    const originalPt = _mState.printType;
+    const originalPet = _mState.petShapes;
+    const originalScr = _mState.screenColors;
+    const originalEmb = _mState.embroideryCost;
+    
+    _mState.activeConfig = tempState.activeConfig;
+    _mState.selectedCustomer = tempState.selectedCustomer;
+    _mState.quantity = tempState.quantity;
+    _mState.selectedMaterialIndex = tempState.selectedMaterialIndex;
+    _mState.surcharges = tempState.surcharges;
+    _mState.printType = tempState.printType;
+    _mState.petShapes = tempState.petShapes;
+    _mState.screenColors = tempState.screenColors;
+    _mState.embroideryCost = tempState.embroideryCost;
+    
+    _mOpenExportModal();
+    
+    // Restore
+    _mState.activeConfig = originalConfig;
+    _mState.selectedCustomer = originalCustomer;
+    _mState.quantity = originalQty;
+    _mState.selectedMaterialIndex = originalMat;
+    _mState.surcharges = originalSc;
+    _mState.printType = originalPt;
+    _mState.petShapes = originalPet;
+    _mState.screenColors = originalScr;
+    _mState.embroideryCost = originalEmb;
+}
+
+// ==========================================
+// MOBILE TAB 3: SETTINGS (ADMINS ONLY)
+// ==========================================
+
+async function _mRenderSettings(container) {
+    container.innerHTML = `
+        <div class="m-card">
+            <div class="m-card-title">⚙️ Thiết Lập Biểu Phí</div>
+            <div style="font-size:12px; color:#64748b; margin-bottom:14px; line-height:1.5;">
+                Bạn đang truy cập menu quản trị di động. Vui lòng sử dụng giao diện PC (Desktop) để tạo/chỉnh sửa hoặc cập nhật các phiên bản biểu phí cấu hình một cách chi tiết và an toàn nhất.
+            </div>
+            
+            <button class="m-btn-secondary" style="margin-bottom:12px;" onclick="_mLoadConfigVersionsList()">🔄 Tải danh sách cấu hình</button>
+            
+            <div id="m_config_list_container">
+                <div style="text-align:center; padding:20px; color:#64748b;">Đang tải...</div>
+            </div>
+        </div>
+    `;
+    
+    await _mLoadConfigVersionsList();
+}
+
+async function _mLoadConfigVersionsList() {
+    try {
+        const res = await apiFetch('/api/ctv-quotations/config/history');
+        const container = document.getElementById('m_config_list_container');
+        if (!container) return;
+        
+        if (res && res.history) {
+            _mState.configVersions = res.history;
+            if (res.history.length === 0) {
+                container.innerHTML = `<div style="text-align:center; font-style:italic; font-size:12px;">Chưa có cấu hình nào</div>`;
+                return;
+            }
+            
+            container.innerHTML = res.history.map(c => {
+                const isActive = c.status === 'active';
+                const dateStr = vnFormat(c.created_at, 'DD/MM/YYYY');
+                return `
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <strong style="font-size:13px; color:#1e293b;">${c.version_name}</strong>
+                            <span style="font-size:9.5px; font-weight:700; padding:2px 6px; border-radius:4px; ${isActive ? 'background:#dcfce7; color:#15803d;' : 'background:#e2e8f0; color:#475569;'}">
+                                ${isActive ? 'ĐANG DÙNG' : 'NHÁP'}
+                            </span>
+                        </div>
+                        <div style="font-size:11.5px; color:#64748b; margin-bottom:8px;">Ngày tạo: ${dateStr} | Người tạo: ${c.creator_name || 'Hệ thống'}</div>
+                        
+                        <div style="display:flex; gap:6px;">
+                            <button class="m-btn-secondary" style="padding:4px; font-size:11px; flex:1;" onclick="_mShowConfigDetailPopup(${c.id})">Chi tiết</button>
+                            ${!isActive ? `
+                                <button class="m-btn" style="padding:4px; font-size:11px; flex:1; background:#22c55e;" onclick="_mApplyConfig(${c.id})">⚡ Áp dụng</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+async function _mApplyConfig(id) {
+    if (!confirm('Kích hoạt bảng giá này cho hệ thống di động & PC?')) return;
+    try {
+        const res = await apiFetch(`/api/ctv-quotations/config/${id}/apply`, { method: 'POST' });
+        if (res && res.success) {
+            showToast('Đã áp dụng bảng giá mới!', 'success');
+            await _mLoadActiveConfig();
+            initMobileBaogiactvhhPage();
+        } else {
+            showToast(res.error || 'Lỗi kích hoạt', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+    }
+}
+
+function _mShowConfigDetailPopup(id) {
+    const c = _mState.configVersions.find(v => v.id === id);
+    if (!c) return;
+    
+    document.getElementById('m_config_modal_title').textContent = `📋 Bảng giá: ${c.version_name}`;
+    
+    const mats = c.materials || [];
+    const sc = c.surcharges || {};
+    const pr = c.print_prices || {};
+    
+    document.getElementById('m_config_modal_body').innerHTML = `
+        <strong style="color:#1e3a8a;">👕 Phôi Vải (May cổ tròn):</strong>
+        <ul style="margin:4px 0 12px 16px;">
+            ${mats.map(m => `<li>${m.name}: ${Number(m.price).toLocaleString('vi-VN')}đ</li>`).join('')}
+        </ul>
+        
+        <strong style="color:#1e3a8a;">➕ Surcharges:</strong>
+        <ul style="margin:4px 0 12px 16px;">
+            <li>Cổ bẻ: +${Number(sc.collar).toLocaleString('vi-VN')}đ</li>
+            <li>Đơn < 20 áo: +${Number(sc.qty_under_20).toLocaleString('vi-VN')}đ</li>
+            <li>Tiểu học: ${Number(sc.primary_school).toLocaleString('vi-VN')}đ</li>
+            <li>Raglan: +${Number(sc.raglan).toLocaleString('vi-VN')}đ</li>
+            <li>Phối: +${Number(sc.color_block).toLocaleString('vi-VN')}đ</li>
+        </ul>
+        
+        <strong style="color:#1e3a8a;">🎨 Giá in CTV:</strong>
+        <ul style="margin:4px 0 0 16px;">
+            <li>In PET: ${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ/m, cách ${pr.pet?.spacing}cm</li>
+            <li>Thêu: Đồng giá ${Number(pr.embroidery?.flat_price).toLocaleString('vi-VN')}đ/áo</li>
+            <li>In 3D: Hao phí ${pr.print3d?.meters_per_shirt}m/áo</li>
+            <li>In lưới: Hạn mức ${pr.screen?.qty_threshold} áo, giá thấp: ${Number(pr.screen?.price_low).toLocaleString('vi-VN')}đ</li>
+        </ul>
+    `;
+    
+    document.getElementById('m_config_modal').style.display = 'flex';
+}
+
+// ==========================================
+// VIETNAMESE MONEY TRANSLATOR
+// ==========================================
+
+function docSoTienVietNam(number) {
+    if (number === 0) return 'Không đồng';
+    const units = ['', ' nghìn', ' triệu', ' tỷ', ' nghìn tỷ', ' triệu tỷ'];
+    const digits = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+    
+    function docGroup3(n, showZeroHundred) {
+        let hundred = Math.floor(n / 100);
+        let remain = n % 100;
+        let ten = Math.floor(remain / 10);
+        let unit = remain % 10;
+        let result = '';
+        
+        if (hundred > 0 || showZeroHundred) {
+            result += digits[hundred] + ' trăm ';
+        }
+        
+        if (ten > 0) {
+            if (ten === 1) result += 'mười ';
+            else result += digits[ten] + ' mươi ';
+        } else if (hundred > 0 && unit > 0) {
+            result += 'lẻ ';
+        }
+        
+        if (unit > 0) {
+            if (unit === 1 && ten > 1) result += 'mốt';
+            else if (unit === 5 && ten > 0) result += 'lăm';
+            else result += digits[unit];
+        }
+        return result.trim();
+    }
+    
+    let strNum = String(Math.floor(number));
+    let groups = [];
+    while (strNum.length > 0) {
+        groups.push(strNum.substring(Math.max(0, strNum.length - 3)));
+        strNum = strNum.substring(0, Math.max(0, strNum.length - 3));
+    }
+    
+    let result = '';
+    let hasValueBefore = false;
+    for (let i = groups.length - 1; i >= 0; i--) {
+        let val = Number(groups[i]);
+        if (val > 0) {
+            let showZeroHundred = hasValueBefore;
+            let groupStr = docGroup3(val, showZeroHundred);
+            result += ' ' + groupStr + units[i];
+            hasValueBefore = true;
+        }
+    }
+    
+    result = result.trim() + ' đồng';
+    return result.charAt(0).toUpperCase() + result.slice(1);
+}
+
+// Auto-boot trigger
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initMobileBaogiactvhhPage);
 } else {

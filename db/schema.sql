@@ -1688,3 +1688,34 @@ SELECT
     can_delete
 FROM permissions
 WHERE target_type = 'department';
+
+-- ========== CTV/HH QUOTATION MODULE ==========
+CREATE TABLE IF NOT EXISTS ctv_price_configs (
+    id SERIAL PRIMARY KEY,
+    version_name VARCHAR(255) NOT NULL,
+    materials JSONB NOT NULL DEFAULT '[]'::jsonb,
+    surcharges JSONB NOT NULL DEFAULT '{}'::jsonb,
+    print_prices JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status VARCHAR(50) DEFAULT 'inactive',
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ctv_price_configs_active ON ctv_price_configs(status) WHERE status = 'active';
+
+CREATE TABLE IF NOT EXISTS ctv_quotations (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+    config_version_id INTEGER REFERENCES ctv_price_configs(id) ON DELETE SET NULL,
+    config_snapshot JSONB NOT NULL,
+    input_details JSONB NOT NULL,
+    calculated_price INTEGER NOT NULL,
+    total_amount INTEGER NOT NULL,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ctv_quotations_created_by ON ctv_quotations(created_by);
+CREATE INDEX IF NOT EXISTS idx_ctv_quotations_customer_id ON ctv_quotations(customer_id);
+

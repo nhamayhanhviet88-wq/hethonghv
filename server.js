@@ -55,6 +55,68 @@ async function start() {
         console.log('✅ Admin account created (admin / admin123)');
     }
 
+    // Seed default CTV pricing configuration if none is active
+    try {
+        const activeConfig = await db.get("SELECT id FROM ctv_price_configs WHERE status = 'active'");
+        if (!activeConfig) {
+            const defaultMaterials = [
+                { name: 'Cotton Lite 100%', price: 75000 },
+                { name: 'Cotton Premium 100%', price: 95000 },
+                { name: 'Thun Cá Sấu', price: 85000 }
+            ];
+            const defaultSurcharges = {
+                collar: 10000,
+                qty_under_20: 10000,
+                primary_school: -5000,
+                raglan: 5000,
+                color_block: 15000
+            };
+            const defaultPrintPrices = {
+                pet: {
+                    sheet_price: 60000,
+                    spacing: 0.4
+                },
+                print3d: {
+                    meters_per_shirt: 0.8,
+                    print_tiers: [
+                        { min: 500, max: null, price: 30000 },
+                        { min: 100, max: 500, price: 35000 },
+                        { min: 10, max: 100, price: 40000 },
+                        { min: 0, max: 10, price: 45000 }
+                    ],
+                    laser_tiers: [
+                        { min: 500, max: null, price: 3000 },
+                        { min: 0, max: 500, price: 4000 }
+                    ]
+                },
+                screen: {
+                    qty_threshold: 20,
+                    price_low: 60000,
+                    price_high_1_3: 4000,
+                    price_high_4_plus: 3500
+                },
+                embroidery: {
+                    flat_price: 15000
+                }
+            };
+
+            await db.run(
+                `INSERT INTO ctv_price_configs (version_name, materials, surcharges, print_prices, status, created_by)
+                 VALUES (?, ?, ?, ?, 'active', ?)`,
+                [
+                    'Bảng Giá CTV Mặc Định',
+                    JSON.stringify(defaultMaterials),
+                    JSON.stringify(defaultSurcharges),
+                    JSON.stringify(defaultPrintPrices),
+                    admin ? admin.id : null
+                ]
+            );
+            console.log('✅ Seeded default active CTV pricing configuration');
+        }
+    } catch (e) {
+        console.error('⚠️ Error seeding CTV pricing configuration:', e.message);
+    }
+
     // One-time: deactivate test affiliate accounts
     await db.run("UPDATE users SET status = 'resigned' WHERE id IN (2, 7) AND role = 'hoa_hong' AND username IN ('nvtest', 'hoahong')");
 
@@ -1131,6 +1193,37 @@ async function start() {
         }
     } catch(e) { console.error('[Migration v14] Cutting Ratio Stats:', e.message); }
 
+    // Migration: CTV/HH Quotation Module
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS ctv_price_configs (
+            id SERIAL PRIMARY KEY,
+            version_name VARCHAR(255) NOT NULL,
+            materials JSONB NOT NULL DEFAULT '[]'::jsonb,
+            surcharges JSONB NOT NULL DEFAULT '{}'::jsonb,
+            print_prices JSONB NOT NULL DEFAULT '{}'::jsonb,
+            status VARCHAR(50) DEFAULT 'inactive',
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ctv_price_configs_active ON ctv_price_configs(status) WHERE status = 'active'`);
+
+        await db.exec(`CREATE TABLE IF NOT EXISTS ctv_quotations (
+            id SERIAL PRIMARY KEY,
+            customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+            config_version_id INTEGER REFERENCES ctv_price_configs(id) ON DELETE SET NULL,
+            config_snapshot JSONB NOT NULL,
+            input_details JSONB NOT NULL,
+            calculated_price INTEGER NOT NULL,
+            total_amount INTEGER NOT NULL,
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_ctv_quotations_created_by ON ctv_quotations(created_by)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_ctv_quotations_customer_id ON ctv_quotations(customer_id)`);
+        console.log('✅ CTV/HH tables checked/created successfully');
+    } catch(e) { console.error('[CTV/HH Migration Error]', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -1384,6 +1477,7 @@ async function start() {
     fastify.register(require('./routes/totalSales'));
     fastify.register(require('./routes/trasoat'));
     fastify.register(require('./routes/donhanghomnayqlx'));
+    fastify.register(require('./routes/ctv-quotations'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login

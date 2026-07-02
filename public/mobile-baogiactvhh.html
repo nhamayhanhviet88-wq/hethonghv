@@ -21,9 +21,63 @@
         }
 
         .m-content {
-            padding: 16px;
+            padding: 14px;
             max-width: 600px;
             margin: 0 auto;
+        }
+
+        .m-header-card {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            border-radius: 16px;
+            padding: 18px;
+            color: white;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.15);
+        }
+        .m-header-card h2 {
+            font-size: 18px;
+            font-weight: 800;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .m-header-card p {
+            font-size: 11.5px;
+            margin-top: 4px;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .m-tabs-container {
+            display: flex;
+            background: #e2e8f0;
+            padding: 4px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            gap: 4px;
+        }
+        .m-tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            padding: 8px 4px;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #475569;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .m-tab-btn.active {
+            background: white;
+            color: #1e3a8a;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
         .m-card {
@@ -31,83 +85,334 @@
             border-radius: 16px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
             border: 1px solid #e2e8f0;
-            padding: 30px 20px;
+            padding: 18px;
             margin-bottom: 16px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
         }
 
-        .m-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-            animation: mobileFloat 3s ease-in-out infinite;
-        }
-
-        .m-title {
-            font-size: 18px;
+        .m-card-title {
+            font-size: 14.5px;
             font-weight: 800;
             color: #0f172a;
-            margin-bottom: 8px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px dashed #e2e8f0;
+            padding-bottom: 8px;
         }
 
-        .m-desc {
-            font-size: 13px;
-            color: #64748b;
-            line-height: 1.6;
-            margin-bottom: 24px;
-            max-width: 320px;
+        .m-form-group {
+            margin-bottom: 14px;
+            position: relative;
+        }
+
+        .m-form-group label {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .m-input, .m-select {
+            width: 100%;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 13.5px;
+            font-weight: 600;
+            transition: all 0.2s;
+            background-color: #fff;
+            color: #334155;
+            outline: none;
+        }
+
+        .m-input:focus, .m-select:focus {
+            border-color: #3b82f6;
+        }
+
+        .m-checkbox-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        .m-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+        }
+        .m-checkbox-label input {
+            width: 16px;
+            height: 16px;
         }
 
         .m-btn {
             width: 100%;
-            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%);
             color: white;
             border: none;
             border-radius: 10px;
             padding: 12px;
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 800;
             cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 8px rgba(79, 70, 229, 0.15);
-            text-decoration: none;
+            transition: all 0.15s;
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);
             outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
-
         .m-btn:active {
             transform: scale(0.98);
         }
 
-        @keyframes mobileFloat {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-8px); }
-            100% { transform: translateY(0px); }
+        .m-btn-secondary {
+            width: 100%;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            outline: none;
         }
 
-        /* Unified mobile nav header styling support */
-        .mobile-nav-header {
-            background: linear-gradient(135deg, #0f172a, #1e293b) !important;
+        /* Autocomplete */
+        .m-autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            max-height: 180px;
+            overflow-y: auto;
+            margin-top: 4px;
+        }
+        .m-autocomplete-item {
+            padding: 10px 12px;
+            font-size: 13px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .m-selected-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            padding: 5px 10px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 6px;
+            gap: 6px;
+        }
+        .m-selected-badge button {
+            background: none;
+            border: none;
+            color: #0369a1;
+            font-weight: 800;
+            font-size: 13px;
+        }
+
+        /* Results Display card */
+        .m-result-box {
+            background: #0f172a;
+            color: white;
+            border-radius: 14px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        .m-result-title {
+            font-size: 14px;
+            font-weight: 800;
+            color: #38bdf8;
+            border-bottom: 1px dashed rgba(255,255,255,0.15);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+        .m-result-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: #cbd5e1;
+        }
+        .m-result-row.total {
+            border-top: 1px solid rgba(255,255,255,0.2);
+            padding-top: 10px;
+            font-size: 16px;
+            font-weight: 850;
+            color: white;
+            margin-top: 10px;
+        }
+
+        /* PET Shapes table mobile styling */
+        .m-shapes-list {
+            margin-top: 10px;
+        }
+        .m-shape-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .m-shape-info {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        /* Filter bar mobile */
+        .m-filter-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        /* History items list mobile */
+        .m-history-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.01);
+        }
+
+        /* Popup Modals */
+        .m-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15,23,42,0.65);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+        }
+        .m-modal-card {
+            background: white;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 480px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15);
+        }
+        .m-modal-body {
+            padding: 16px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #m_print_area, #m_print_area * {
+                visibility: visible;
+            }
+            #m_print_area {
+                position: absolute;
+                left: 0; top: 0; width: 100%;
+                padding: 0; margin: 0;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="m-content" style="margin-top: 65px;"> <!-- space below fixed header -->
-        <div class="m-card">
-            <div class="m-icon">🤝</div>
-            <h3 class="m-title">Đang cấu hình tính năng</h3>
-            <p class="m-desc">Trang Báo Giá CTV/HH đang được thiết lập trên thiết bị di động. Hệ thống sẽ sớm cập nhật các tính năng tại đây.</p>
-            <button class="m-btn" onclick="window.location.href='/m/baogiagoc'">🧮 Quay lại Báo Giá Gốc</button>
+    <!-- Unified mobile header -->
+    <div class="mobile-nav-header" style="position: fixed; top:0; left:0; right:0; z-index: 999; display: flex; align-items: center; padding: 12px 16px; height: 50px; color: white;">
+        <button onclick="window.location.href='/m/'" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; margin-right: 12px; display: flex; align-items: center; justify-content: center;">
+            ←
+        </button>
+        <div style="font-weight: 800; font-size: 15px; letter-spacing: -0.2px;">🤝 BÁO GIÁ CTV/HH</div>
+    </div>
+
+    <div class="m-content" style="margin-top: 55px;"> <!-- space below fixed header -->
+        
+        <!-- Header Banner -->
+        <div class="m-header-card">
+            <h2>🤝 May & In CTV/HH</h2>
+            <p>Hệ thống lập báo giá chuyên nghiệp cho Đại lý & CTV trên di động.</p>
+        </div>
+
+        <!-- Menu Tabs switcher -->
+        <div class="m-tabs-container">
+            <button class="m-tab-btn active" id="m-tab-btn-calculator" onclick="_mSwitchTab('calculator')">🧮 Báo Giá</button>
+            <button class="m-tab-btn" id="m-tab-btn-history" onclick="_mSwitchTab('history')">📜 Lịch Sử</button>
+            <button class="m-tab-btn" id="m-tab-btn-settings" style="display:none;" onclick="_mSwitchTab('settings')">⚙️ Cấu Hình</button>
+        </div>
+
+        <!-- Dynamic content area -->
+        <div id="m-dynamic-content">
+            <!-- Rendered by JS -->
+        </div>
+
+    </div>
+
+    <!-- Export Quote Modal -->
+    <div id="m_export_modal" class="m-modal" style="display:none;">
+        <div class="m-modal-card">
+            <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:14px; color:#1e293b;">🖨️ Xuất Báo Giá CTV</strong>
+                <button onclick="_mCloseExportModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">×</button>
+            </div>
+            
+            <div class="m-modal-body" id="m_print_area">
+                <!-- Printable bill content will go here -->
+            </div>
+            
+            <div style="padding:10px 16px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; gap:8px;">
+                <button class="m-btn-secondary" style="flex:1;" onclick="_mCopyTextQuotation()">📋 Sao chép text</button>
+                <button class="m-btn-secondary" style="flex:1; background:#1e3a8a; color:white; border-color:#1e3a8a;" onclick="window.print()">🖨️ In PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Config Detail Modal -->
+    <div id="m_config_modal" class="m-modal" style="display:none;">
+        <div class="m-modal-card">
+            <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <strong id="m_config_modal_title" style="font-size:14px; color:#1e293b;">📋 Chi tiết bảng giá</strong>
+                <button onclick="document.getElementById('m_config_modal').style.display='none'" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">×</button>
+            </div>
+            <div class="m-modal-body" id="m_config_modal_body" style="font-size:12.5px; line-height:1.6;">
+                <!-- Config values -->
+            </div>
         </div>
     </div>
 
     <!-- Toast container -->
-    <div id="toastContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
+    <div id="toastContainer" style="position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
 
-    <script src="/js/pages/mobile-baogiactvhh.js?v=20260703_v1"></script>
+    <script src="/js/pages/mobile-baogiactvhh.js?v=20260703_v4"></script>
     <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
 </body>
 </html>
