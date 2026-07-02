@@ -1063,25 +1063,31 @@ window._mCloseSetupModal = function() {
 window._mRenderSetupPresets = function() {
     const sewingList = document.getElementById('m_setup_sewing_presets_list');
     if (sewingList) {
-        sewingList.innerHTML = (_mobileBgg.tempSewingPresets || []).map((p, idx) => `
-            <div style="display: flex; align-items: center; gap: 4px;">
-                <input type="text" placeholder="Icon" value="${p.icon || ''}" style="width: 40px; text-align: center; padding: 6px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
-                <input type="text" placeholder="Tên" value="${p.name || ''}" style="flex: 1; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px; min-width: 0;">
-                <input type="number" placeholder="Giá" value="${p.price || ''}" style="width: 70px; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
-                <button onclick="_mRemoveSetupSewingPreset(${idx})" style="background: #fee2e2; border: none; color: #ef4444; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;">Xóa</button>
-            </div>
-        `).join('');
+        sewingList.innerHTML = (_mobileBgg.tempSewingPresets || []).map((p, idx) => {
+            if (!p) return '';
+            return `
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <input type="text" placeholder="Icon" value="${p.icon || ''}" style="width: 40px; text-align: center; padding: 6px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                    <input type="text" placeholder="Tên" value="${p.name || ''}" style="flex: 1; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px; min-width: 0;">
+                    <input type="number" placeholder="Giá" value="${p.price || ''}" style="width: 70px; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                    <button onclick="_mRemoveSetupSewingPreset(${idx})" style="background: #fee2e2; border: none; color: #ef4444; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;">Xóa</button>
+                </div>
+            `;
+        }).join('');
     }
     const collarList = document.getElementById('m_setup_collar_presets_list');
     if (collarList) {
-        collarList.innerHTML = (_mobileBgg.tempCollarPresets || []).map((p, idx) => `
-            <div style="display: flex; align-items: center; gap: 4px;">
-                <input type="text" placeholder="Icon" value="${p.icon || ''}" style="width: 40px; text-align: center; padding: 6px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
-                <input type="text" placeholder="Tên" value="${p.name || ''}" style="flex: 1; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px; min-width: 0;">
-                <input type="number" placeholder="Giá" value="${p.price || ''}" style="width: 70px; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
-                <button onclick="_mRemoveSetupCollarPreset(${idx})" style="background: #fee2e2; border: none; color: #ef4444; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;">Xóa</button>
-            </div>
-        `).join('');
+        collarList.innerHTML = (_mobileBgg.tempCollarPresets || []).map((p, idx) => {
+            if (!p) return '';
+            return `
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <input type="text" placeholder="Icon" value="${p.icon || ''}" style="width: 40px; text-align: center; padding: 6px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                    <input type="text" placeholder="Tên" value="${p.name || ''}" style="flex: 1; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px; min-width: 0;">
+                    <input type="number" placeholder="Giá" value="${p.price || ''}" style="width: 70px; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                    <button onclick="_mRemoveSetupCollarPreset(${idx})" style="background: #fee2e2; border: none; color: #ef4444; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;">Xóa</button>
+                </div>
+            `;
+        }).join('');
     }
 };
 
@@ -1091,11 +1097,14 @@ window._mSyncSetupPresetsFromDOM = function() {
         const rows = sewingList.children;
         _mobileBgg.tempSewingPresets = Array.from(rows).map(row => {
             const inputs = row.querySelectorAll('input');
+            const iconVal = inputs[0] ? inputs[0].value : '';
+            const nameVal = inputs[1] ? inputs[1].value : '';
+            const priceVal = inputs[2] ? Number(inputs[2].value) : 0;
             return {
-                id: (inputs[1].value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '_'),
-                icon: inputs[0].value,
-                name: inputs[1].value,
-                price: Number(inputs[2].value) || 0
+                id: nameVal.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '_'),
+                icon: iconVal,
+                name: nameVal,
+                price: priceVal || 0
             };
         });
     }
@@ -1104,11 +1113,14 @@ window._mSyncSetupPresetsFromDOM = function() {
         const rows = collarList.children;
         _mobileBgg.tempCollarPresets = Array.from(rows).map(row => {
             const inputs = row.querySelectorAll('input');
+            const iconVal = inputs[0] ? inputs[0].value : '';
+            const nameVal = inputs[1] ? inputs[1].value : '';
+            const priceVal = inputs[2] ? Number(inputs[2].value) : 0;
             return {
-                id: (inputs[1].value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '_'),
-                icon: inputs[0].value,
-                name: inputs[1].value,
-                price: Number(inputs[2].value) || 0
+                id: nameVal.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '_'),
+                icon: iconVal,
+                name: nameVal,
+                price: priceVal || 0
             };
         });
     }
