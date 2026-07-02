@@ -199,14 +199,14 @@ async function renderBaogiagocPage(content) {
                     <p>Hệ thống tự động tra cứu, tối ưu so sánh giá gốc các nguồn vải & chi phí in PET</p>
                 </div>
                 ${isDirector ? `
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; flex: 1; justify-content: flex-end;">
                         <button id="bgg_btn_price_tem" class="bgg-btn-calc" onclick="_bggOpenFormulaModal('Tem')" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #059669 0%, #047857 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(5,150,105,0.2);">
                             🏷️ Giá Gốc Tem
                         </button>
                         <button id="bgg_btn_price_pet" class="bgg-btn-calc" onclick="_bggOpenFormulaModal('Pet')" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(234,88,12,0.2);">
                             🏷️ Giá Gốc Pet
                         </button>
-                        <button class="bgg-btn-calc" onclick="_bggOpenSetupModal()" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(79,70,229,0.2);">
+                        <button class="bgg-btn-calc" onclick="_bggOpenSetupModal()" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(79,70,229,0.2); margin-left: auto;">
                             ⚙️ Setup Chi Phí & Gợi Ý
                         </button>
                     </div>
