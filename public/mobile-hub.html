@@ -166,6 +166,7 @@
             color: #eab308;
             opacity: 0.85;
             pointer-events: none;
+            z-index: 10;
             animation: popIn 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
         }
         @keyframes popIn {
@@ -186,6 +187,30 @@
             font-weight: 700;
             color: #334155;
             line-height: 1.3;
+        }
+
+        /* Shake animation during edit mode */
+        @keyframes shake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(-0.8deg); }
+            75% { transform: rotate(0.8deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .is-editing .menu-card {
+            animation: shake 0.2s ease-in-out infinite;
+        }
+        .is-editing .menu-card:nth-child(even) {
+            animation-duration: 0.18s;
+        }
+        .is-editing .menu-card:nth-child(3n) {
+            animation-duration: 0.22s;
+        }
+        .is-editing .pin-badge {
+            display: block !important;
+        }
+        .is-editing .menu-card:not(.is-pinned) .pin-badge {
+            opacity: 0.35;
+            filter: grayscale(1);
         }
 
         /* Access blocked warning */
@@ -280,8 +305,13 @@
             </div>
         </div>
 
-        <!-- Menu Section -->
-        <div class="section-title" id="regularSectionTitle">Danh sách bộ phận</div>
+        <!-- Menu Section Header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div class="section-title" id="regularSectionTitle" style="margin-bottom: 0; padding-left: 4px;">Danh sách bộ phận</div>
+            <button id="btnEditPins" style="background: #e2e8f0; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s; -webkit-tap-highlight-color: transparent;" onclick="toggleEditPinsMode()">
+                <span>📌</span> Ghim nhanh
+            </button>
+        </div>
         
         <div class="no-access-warn" id="noAccessWarn">
             <div style="font-size: 32px; margin-bottom: 8px;">🔒</div>
@@ -344,6 +374,35 @@
                     pinnedIds = [];
                 }
 
+                let isEditingPins = false;
+
+                // Edit mode toggle function
+                window.toggleEditPinsMode = () => {
+                    isEditingPins = !isEditingPins;
+                    const btn = document.getElementById('btnEditPins');
+                    const hubContainer = document.querySelector('.hub-container');
+
+                    if (isEditingPins) {
+                        btn.innerHTML = '<span>✅</span> Hoàn thành';
+                        btn.style.background = '#10b981';
+                        btn.style.color = '#ffffff';
+                        hubContainer.classList.add('is-editing');
+                    } else {
+                        btn.innerHTML = '<span>📌</span> Ghim nhanh';
+                        btn.style.background = '#e2e8f0';
+                        btn.style.color = '#475569';
+                        hubContainer.classList.remove('is-editing');
+                    }
+                };
+
+                // Click handler for menu cards
+                window.handleCardClick = (e, card) => {
+                    if (isEditingPins) {
+                        e.preventDefault(); // Prevent navigating
+                        triggerPinToggle(card);
+                    }
+                };
+
                 // Toast notifier
                 function showHubToast(msg, type = 'success') {
                     const container = document.getElementById('toastContainer');
@@ -381,8 +440,8 @@
                             hasAnyCard = true;
                             const isPinned = pinnedIds.includes(item.id);
                             const cardHtml = `
-                                <a href="${item.href}" class="menu-card ${isPinned ? 'is-pinned' : ''}" data-id="${item.id}" data-label="${item.label.toLowerCase()}">
-                                    ${isPinned ? '<div class="pin-badge">📍</div>' : ''}
+                                <a href="${item.href}" class="menu-card ${isPinned ? 'is-pinned' : ''}" data-id="${item.id}" data-label="${item.label.toLowerCase()}" onclick="handleCardClick(event, this)">
+                                    <div class="pin-badge" style="display: ${isPinned ? 'block' : 'none'}">📍</div>
                                     <div class="menu-card-icon">${item.icon}</div>
                                     <div class="menu-card-label">${item.label}</div>
                                 </a>
@@ -416,71 +475,11 @@
                         document.getElementById('noAccessWarn').style.display = 'block';
                     }
 
-                    // Re-bind touch/longpress events on all newly rendered cards
-                    bindLongPressEvents();
-
                     // Apply current search query if any
                     const query = document.getElementById('searchInput').value.toLowerCase().trim();
                     if (query) {
                         applySearchFilter(query);
                     }
-                }
-
-                // Long Press Event Handlers
-                function bindLongPressEvents() {
-                    const cards = document.querySelectorAll('.menu-card');
-                    cards.forEach(card => {
-                        let pressTimer = null;
-                        let startX = 0;
-                        let startY = 0;
-                        let isLongPress = false;
-
-                        const startPress = (e) => {
-                            isLongPress = false;
-                            const touch = e.touches ? e.touches[0] : e;
-                            startX = touch.clientX;
-                            startY = touch.clientY;
-
-                            pressTimer = setTimeout(() => {
-                                isLongPress = true;
-                                triggerPinToggle(card);
-                            }, 600); // 600ms hold
-                        };
-
-                        const cancelPress = (e) => {
-                            if (pressTimer) {
-                                clearTimeout(pressTimer);
-                                pressTimer = null;
-                            }
-                        };
-
-                        const movePress = (e) => {
-                            const touch = e.touches ? e.touches[0] : e;
-                            const diffX = Math.abs(touch.clientX - startX);
-                            const diffY = Math.abs(touch.clientY - startY);
-                            if (diffX > 10 || diffY > 10) {
-                                cancelPress();
-                            }
-                        };
-
-                        // Touch support
-                        card.addEventListener('touchstart', startPress, { passive: true });
-                        card.addEventListener('touchend', cancelPress, { passive: true });
-                        card.addEventListener('touchmove', movePress, { passive: true });
-
-                        // Pointer/mouse support (compatibility/testing)
-                        card.addEventListener('pointerdown', startPress);
-                        card.addEventListener('pointerup', cancelPress);
-                        card.addEventListener('pointermove', movePress);
-
-                        // Prevent navigating if long-press was active
-                        card.addEventListener('click', (e) => {
-                            if (isLongPress) {
-                                e.preventDefault();
-                                isLongPress = false;
-                            }
-                        });
-                    });
                 }
 
                 function triggerPinToggle(card) {
