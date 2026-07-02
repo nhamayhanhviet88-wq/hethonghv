@@ -2043,8 +2043,10 @@ window._bggOpenSetup3dModal = function() {
                     </table>
                     ${laserTiers.length === 0 ? '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 8px; font-style: italic;">Không có cắt laze — chỉ tính phí in 3D</div>' : ''}
                 </div>
-            </div>
         `;
+    } else {
+        pricingHtml = '<div style="margin-top: 16px; padding: 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; text-align: center; font-size: 12px; color: #64748b;">Chọn nhà cung cấp ở trên để xem và chỉnh sửa bảng giá</div>';
+    }
     const hasSupplier = currentSupplier && _BGG_3D_SUPPLIERS.some(s => s.key === currentSupplier);
     modal.innerHTML = `
         <div style="background: white; border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
