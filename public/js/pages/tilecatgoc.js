@@ -6,6 +6,7 @@ var _tlcg = {
     stats: [],
     products: [],
     selectedRangeId: '',
+    drawerRangeFilterId: '',
     selectedGroup: 'ALL', // 'ALL', 'KG', 'MET', 'SAN'
     statsFilter: 'ALL', // 'ALL', 'CONFIGURED', 'UNCONFIGURED'
     filter: {
@@ -1310,6 +1311,7 @@ async function _tlcgOpenMaterialDrawer(matId) {
     _tlcg.activeMaterial = mat;
     _tlcg.expandedMonths.clear();
     _tlcg.activeFilter = 'all';
+    _tlcg.drawerRangeFilterId = _tlcg.selectedRangeId || '';
     _tlcg.initialOrderMap = null;
 
     // Inject drawer overlay and drawer if not present
@@ -1371,7 +1373,8 @@ async function _tlcgLoadDrawerContent(mat) {
         const loadingDiv = document.getElementById('tlcgDrawerLoading');
         
         // Fetch tickets matching the material
-        const queryParams = `?material_name=${encodeURIComponent(mat.name)}${_tlcg.selectedRangeId ? `&range_id=${_tlcg.selectedRangeId}` : ''}`;
+        const rangeId = _tlcg.drawerRangeFilterId || '';
+        const queryParams = `?material_name=${encodeURIComponent(mat.name)}${rangeId ? `&range_id=${rangeId}` : ''}`;
         const res = await apiCall(`/api/cutting/material-tickets${queryParams}`, 'GET');
         const tickets = res.tickets || [];
         const activeSegmentsList = _tlcgGetActiveSegmentsForMaterial(mat);
@@ -1516,13 +1519,26 @@ async function _tlcgLoadDrawerContent(mat) {
         // 2. Month Accordions
         html += `<h4 style="margin: 0 0 12px 0; color: #334155; font-size: 14.5px; font-weight: 800;">📅 Danh sách phiếu cắt theo tháng</h4>`;
         
-        // Add status filter tabs
+        // Add status filter tabs & quantity range filter
         html += `
-            <div class="tlcg-drawer-filters" style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('all')" style="border: 1px solid #cbd5e1; background: ${activeFilter === 'all' ? '#cbd5e1' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #334155; outline: none; transition: all 0.2s;">Tất cả</button>
-                <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('pending')" style="border: 1px solid #fef3c7; background: ${activeFilter === 'pending' ? '#fef3c7' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #d97706; outline: none; transition: all 0.2s;">Chờ xử lý</button>
-                <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('approved')" style="border: 1px solid #dcfce7; background: ${activeFilter === 'approved' ? '#dcfce7' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #15803d; outline: none; transition: all 0.2s;">Đã duyệt</button>
-                <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('rejected')" style="border: 1px solid #fee2e2; background: ${activeFilter === 'rejected' ? '#fee2e2' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ef4444; outline: none; transition: all 0.2s;">Không duyệt</button>
+            <div class="tlcg-drawer-filters" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 8px;">
+                    <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('all')" style="border: 1px solid #cbd5e1; background: ${activeFilter === 'all' ? '#cbd5e1' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #334155; outline: none; transition: all 0.2s;">Tất cả</button>
+                    <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('pending')" style="border: 1px solid #fef3c7; background: ${activeFilter === 'pending' ? '#fef3c7' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #d97706; outline: none; transition: all 0.2s;">Chờ xử lý</button>
+                    <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('approved')" style="border: 1px solid #dcfce7; background: ${activeFilter === 'approved' ? '#dcfce7' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #15803d; outline: none; transition: all 0.2s;">Đã duyệt</button>
+                    <button class="tlcg-filter-tab" onclick="_tlcgSetFilter('rejected')" style="border: 1px solid #fee2e2; background: ${activeFilter === 'rejected' ? '#fee2e2' : 'white'}; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ef4444; outline: none; transition: all 0.2s;">Không duyệt</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #475569;">Số lượng:</span>
+                    <select style="padding: 6px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #334155; border: 1px solid #cbd5e1; outline: none; background: white; cursor: pointer;" onchange="_tlcgSetDrawerRangeFilter(this.value)">
+                        <option value="">-- Tất cả số lượng --</option>
+                        ${_tlcg.ranges.map(r => {
+                            const label = r.max_qty >= 999999 ? `Từ ${r.min_qty} sp trở lên` : `${r.min_qty} - ${r.max_qty} sp`;
+                            const selected = String(_tlcg.drawerRangeFilterId || '') === String(r.id) ? 'selected' : '';
+                            return `<option value="${r.id}" ${selected}>${label}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
             </div>
         `;
 
@@ -1707,6 +1723,12 @@ async function _tlcgRejectTicket(id) {
 
 function _tlcgSetFilter(val) {
     _tlcg.activeFilter = val;
+    _tlcgLoadDrawerContent(_tlcg.activeMaterial);
+}
+
+function _tlcgSetDrawerRangeFilter(val) {
+    _tlcg.drawerRangeFilterId = val;
+    _tlcg.initialOrderMap = null;
     _tlcgLoadDrawerContent(_tlcg.activeMaterial);
 }
 
