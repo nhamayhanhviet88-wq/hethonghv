@@ -912,9 +912,16 @@ function _bggRenderCalcResults() {
                                         return `
                                             <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 2px 0;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
-                                                <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                    ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo
-                                                </span>
+                                                <div style="text-align: right; line-height: 1.2;">
+                                                    <span style="color: ${finalPriceColor}; font-weight: 800;">
+                                                        ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo
+                                                    </span>
+                                                    ${petCost > 0 ? `
+                                                        <div style="font-size: 10px; color: #64748b; font-weight: normal; margin-top: 1px;">
+                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + PET: ${Number(petCost).toLocaleString('vi-VN')}đ)
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
                                             </div>
                                         `;
                                     }).join('')}
@@ -957,9 +964,16 @@ function _bggRenderCalcResults() {
                                         return `
                                             <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 2px 0;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
-                                                <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                    ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo
-                                                </span>
+                                                <div style="text-align: right; line-height: 1.2;">
+                                                    <span style="color: ${finalPriceColor}; font-weight: 800;">
+                                                        ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo
+                                                    </span>
+                                                    ${petCost > 0 ? `
+                                                        <div style="font-size: 10px; color: #64748b; font-weight: normal; margin-top: 1px;">
+                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + PET: ${Number(petCost).toLocaleString('vi-VN')}đ)
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
                                             </div>
                                         `;
                                     }).join('')}
@@ -1002,9 +1016,14 @@ function _bggRenderCalcResults() {
                                         const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
                                         const finalWeight = isSelected ? styles.fontWeight : 'normal';
                                         return `
-                                            <div style="font-weight: ${finalWeight};">
+                                            <div style="font-weight: ${finalWeight}; line-height: 1.3; margin-bottom: 4px;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}:</span>
                                                 <strong style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo</strong>
+                                                ${petCost > 0 ? `
+                                                    <div style="font-size: 10.5px; color: #64748b; font-weight: normal; margin-top: 1px;">
+                                                        (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + PET: ${Number(petCost).toLocaleString('vi-VN')}đ)
+                                                    </div>
+                                                ` : ''}
                                             </div>
                                         `;
                                     }).join('')}
