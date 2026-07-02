@@ -404,5 +404,7 @@ async function settingsRoutes(fastify, options) {
     });
 }
 
+settingsRoutes.appConfigCache = appConfigCache;
+
 module.exports = settingsRoutes;
 

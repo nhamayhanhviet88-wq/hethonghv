@@ -679,6 +679,7 @@ module.exports = async function(fastify) {
                                 }
                             }
                         } else if (record.record_type === 'general') {
+                            const updatedMaterialIds = [];
                             for (const item of fabricItems) {
                                 if (item.material_item_id) {
                                     if (updateItemIds && !updateItemIds.includes(Number(item.material_item_id))) {
@@ -691,7 +692,11 @@ module.exports = async function(fastify) {
                                          DO UPDATE SET price = EXCLUDED.price, updated_at = NOW()`,
                                         [item.material_item_id, record.source_id, Number(item.price) || 0, req.user.id]
                                     );
+                                    updatedMaterialIds.push(Number(item.material_item_id));
                                 }
+                            }
+                            if (updatedMaterialIds.length > 0) {
+                                await syncBggFormulaPrices(updatedMaterialIds, record.source_id, client);
                             }
                         }
                     }
@@ -3402,6 +3407,157 @@ module.exports = async function(fastify) {
         return { pending: pendingList };
     });
 
+    // Helper: Recalculate base print prices (TEM and PET) based on current formulas and all approved prices
+    async function recalculateAllBggFormulas(dbClient = null) {
+        const queryConn = dbClient || db.pool;
+        try {
+            const formulaKeys = ['bgg_formula_tem', 'bgg_formula_pet'];
+            const configRows = await queryConn.query(
+                `SELECT key, value FROM app_config WHERE key = ANY($1)`,
+                [formulaKeys]
+            ).then(r => r.rows || []);
+
+            const settingsRoutes = require('./settings');
+
+            for (const configRow of configRows) {
+                let formula = [];
+                try {
+                    formula = JSON.parse(configRow.value);
+                } catch(e) {
+                    continue;
+                }
+                if (!Array.isArray(formula)) continue;
+
+                let totalCost = 0;
+                for (const row of formula) {
+                    if (!row.material_id || Number(row.quantity) <= 0) continue;
+
+                    const prices = await queryConn.query(
+                        `SELECT source_id, price FROM approved_import_prices 
+                         WHERE item_type = 'material' AND material_item_id = $1
+                         ORDER BY price ASC`,
+                        [Number(row.material_id)]
+                    ).then(r => r.rows || []);
+
+                    if (prices.length > 0) {
+                        let cheapest = prices[0];
+                        if (row.source_id) {
+                            const found = prices.find(p => Number(p.source_id) === Number(row.source_id));
+                            if (found) cheapest = found;
+                        }
+                        totalCost += (Number(cheapest.price) || 0) * (Number(row.quantity) || 0);
+                    }
+                }
+                const newPrice = Math.round(totalCost / 100);
+                const type = configRow.key === 'bgg_formula_tem' ? 'tem' : 'pet';
+                const priceKey = `bgg_original_price_${type}`;
+
+                // Update price
+                await queryConn.query(
+                    `INSERT INTO app_config (key, value, updated_at) VALUES ($1, $2, NOW())
+                     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+                    [priceKey, String(newPrice)]
+                );
+
+                if (settingsRoutes.appConfigCache) {
+                    settingsRoutes.appConfigCache.delete(priceKey);
+                }
+            }
+        } catch(err) {
+            console.error('[Sync Price] recalculateAllBggFormulas error:', err.message);
+        }
+    }
+
+    // Helper: Update supplier ID in TEM/PET formulas and recalculate their base prices
+    async function syncBggFormulaPrices(materialItemIds, sourceId, dbClient = null) {
+        if (!materialItemIds) return;
+        const ids = Array.isArray(materialItemIds) ? materialItemIds.map(Number) : [Number(materialItemIds)];
+        if (ids.length === 0 || !sourceId) return;
+
+        const queryConn = dbClient || db.pool;
+
+        try {
+            const formulaKeys = ['bgg_formula_tem', 'bgg_formula_pet'];
+            const configRows = await queryConn.query(
+                `SELECT key, value FROM app_config WHERE key = ANY($1)`,
+                [formulaKeys]
+            ).then(r => r.rows || []);
+
+            const settingsRoutes = require('./settings');
+
+            for (const configRow of configRows) {
+                let formula = [];
+                try {
+                    formula = JSON.parse(configRow.value);
+                } catch(e) {
+                    continue;
+                }
+                if (!Array.isArray(formula)) continue;
+
+                let formulaChanged = false;
+                formula.forEach(row => {
+                    if (row.material_id && ids.includes(Number(row.material_id))) {
+                        if (Number(row.source_id) !== Number(sourceId)) {
+                            row.source_id = sourceId;
+                            formulaChanged = true;
+                        }
+                    }
+                });
+
+                const hasAffectedMaterial = formula.some(row => row.material_id && ids.includes(Number(row.material_id)));
+                if (hasAffectedMaterial) {
+                    let totalCost = 0;
+                    for (const row of formula) {
+                        if (!row.material_id || Number(row.quantity) <= 0) continue;
+
+                        const prices = await queryConn.query(
+                            `SELECT source_id, price FROM approved_import_prices 
+                             WHERE item_type = 'material' AND material_item_id = $1
+                             ORDER BY price ASC`,
+                            [Number(row.material_id)]
+                        ).then(r => r.rows || []);
+
+                        if (prices.length > 0) {
+                            let cheapest = prices[0];
+                            if (row.source_id) {
+                                const found = prices.find(p => Number(p.source_id) === Number(row.source_id));
+                                if (found) cheapest = found;
+                            }
+                            totalCost += (Number(cheapest.price) || 0) * (Number(row.quantity) || 0);
+                        }
+                    }
+                    const newPrice = Math.round(totalCost / 100);
+                    const type = configRow.key === 'bgg_formula_tem' ? 'tem' : 'pet';
+                    const priceKey = `bgg_original_price_${type}`;
+                    const formulaKey = configRow.key;
+
+                    if (formulaChanged) {
+                        await queryConn.query(
+                            `INSERT INTO app_config (key, value, updated_at) VALUES ($1, $2, NOW())
+                             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+                            [formulaKey, JSON.stringify(formula)]
+                        );
+                        if (settingsRoutes.appConfigCache) {
+                            settingsRoutes.appConfigCache.delete(formulaKey);
+                        }
+                    }
+
+                    await queryConn.query(
+                        `INSERT INTO app_config (key, value, updated_at) VALUES ($1, $2, NOW())
+                         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+                        [priceKey, String(newPrice)]
+                    );
+                    if (settingsRoutes.appConfigCache) {
+                        settingsRoutes.appConfigCache.delete(priceKey);
+                    }
+                    console.log(`[Sync Price] Automatically updated ${priceKey} to ${newPrice} and synced supplier to ${sourceId}`);
+                }
+            }
+        } catch(err) {
+            console.error('[Sync Price] syncBggFormulaPrices error:', err.message);
+        }
+    }
+
     fastify.post('/api/gianhapgoc/initialize-from-history', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isDuyetUser(req))) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc QLCC mới có quyền khởi tạo giá gốc' });
@@ -3470,6 +3626,7 @@ module.exports = async function(fastify) {
                     }
                 }
 
+                await recalculateAllBggFormulas(client);
                 await client.query('COMMIT');
             } catch (e) {
                 await client.query('ROLLBACK');
@@ -3513,6 +3670,7 @@ module.exports = async function(fastify) {
                     DO UPDATE SET price = EXCLUDED.price, updated_at = NOW()`,
                     [material_item_id, source_id, Number(price), req.user.id]
                 );
+                await syncBggFormulaPrices(material_item_id, source_id);
             } else {
                 return reply.code(400).send({ error: 'item_type không hợp lệ' });
             }
