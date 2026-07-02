@@ -78,6 +78,15 @@ async function initMobileBaogiagocPage() {
     toggleEmbroiderySectionMobile(_mobileBgg.embroideryEnabled);
     _mRenderPresetsOnForm();
 
+    const mSewingInput = document.getElementById('m_sewing_cost');
+    if (mSewingInput) {
+        mSewingInput.addEventListener('input', () => _mCheckAndShowSaveSuggestion('sewing'));
+    }
+    const mCollarInput = document.getElementById('m_collar_cost');
+    if (mCollarInput) {
+        mCollarInput.addEventListener('input', () => _mCheckAndShowSaveSuggestion('collar'));
+    }
+
     await loadInitialDataMobile();
 
     // Parse URL parameters for pre-selected material
@@ -1767,6 +1776,19 @@ window._mSelectSewingPreset = function(id, amount) {
             collarInput.value = '';
         }
     }
+    
+    // Clear save suggestion wrappers
+    const sewingSuggest = document.getElementById('m_sewing_save_suggest_wrapper');
+    if (sewingSuggest) {
+        sewingSuggest.style.display = 'none';
+        sewingSuggest.innerHTML = '';
+    }
+    const collarSuggest = document.getElementById('m_collar_save_suggest_wrapper');
+    if (collarSuggest) {
+        collarSuggest.style.display = 'none';
+        collarSuggest.innerHTML = '';
+    }
+
     renderMobileCalcResults();
 };
 
@@ -1775,7 +1797,85 @@ window._mSelectCollarPreset = function(amount) {
     if (collarInput) {
         collarInput.value = amount;
     }
+    
+    // Clear collar save suggestion wrapper
+    const collarSuggest = document.getElementById('m_collar_save_suggest_wrapper');
+    if (collarSuggest) {
+        collarSuggest.style.display = 'none';
+        collarSuggest.innerHTML = '';
+    }
+
     renderMobileCalcResults();
+};
+
+function _mCheckAndShowSaveSuggestion(type) {
+    const isSewing = type === 'sewing';
+    const inputEl = document.getElementById(isSewing ? 'm_sewing_cost' : 'm_collar_cost');
+    const container = document.getElementById(isSewing ? 'm_sewing_presets_container' : 'm_collar_presets_container');
+    if (!inputEl || !container) return;
+
+    const val = Number(inputEl.value) || 0;
+    
+    let suggestWrapper = document.getElementById(`m_${type}_save_suggest_wrapper`);
+    if (!suggestWrapper) {
+        suggestWrapper = document.createElement('div');
+        suggestWrapper.id = `m_${type}_save_suggest_wrapper`;
+        suggestWrapper.style.cssText = 'margin-bottom: 8px; margin-top: 4px; display: none; width: 100%;';
+        container.parentNode.insertBefore(suggestWrapper, container);
+    }
+
+    if (val > 0) {
+        suggestWrapper.style.display = 'block';
+        suggestWrapper.innerHTML = `
+            <button type="button" class="btn-suggestion" style="background: #e0f2fe; border-color: #7dd3fc; color: #0369a1; font-weight: 700; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 12px;" onclick="_mSaveEnteredPresetPrompt('${type}', ${val})">
+                💾 Lưu ${val.toLocaleString('vi-VN')}đ thành gợi ý ${isSewing ? 'may' : 'cổ bẻ'} mới
+            </button>
+        `;
+    } else {
+        suggestWrapper.style.display = 'none';
+        suggestWrapper.innerHTML = '';
+    }
+}
+
+window._mSaveEnteredPresetPrompt = function(type, price) {
+    const isSewing = type === 'sewing';
+    const presetName = prompt(`Nhập tên gợi ý ${isSewing ? 'may' : 'cổ bẻ'} mới cho giá ${price.toLocaleString('vi-VN')}đ:`);
+    if (!presetName) return;
+    
+    const cleanName = presetName.trim();
+    if (!cleanName) return;
+
+    const id = cleanName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '_');
+
+    const icon = isSewing ? '👕' : '👔';
+    const newPreset = {
+        id: id,
+        name: cleanName,
+        icon: icon,
+        price: price
+    };
+
+    if (isSewing) {
+        if (!_mobileBgg.sewingPresets) _mobileBgg.sewingPresets = [];
+        _mobileBgg.sewingPresets.push(newPreset);
+        localStorage.setItem('bgg_sewing_presets', JSON.stringify(_mobileBgg.sewingPresets));
+    } else {
+        if (!_mobileBgg.collarPresets) _mobileBgg.collarPresets = [];
+        _mobileBgg.collarPresets.push(newPreset);
+        localStorage.setItem('bgg_collar_presets', JSON.stringify(_mobileBgg.collarPresets));
+    }
+
+    _mRenderPresetsOnForm();
+    
+    const suggestWrapper = document.getElementById(`m_${type}_save_suggest_wrapper`);
+    if (suggestWrapper) {
+        suggestWrapper.style.display = 'none';
+        suggestWrapper.innerHTML = '';
+    }
+
+    if (typeof toast === 'function') {
+        toast(`Đã thêm gợi ý mới: ${icon} ${cleanName}: ${price.toLocaleString('vi-VN')}đ`, 'success');
+    }
 };
 
 function _mRenderPresetsOnForm() {
