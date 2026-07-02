@@ -8,12 +8,15 @@ var _gng = {
         search: '',
         supplierId: 'all', // 'all', 'pending_all', or number (source_id)
         supplierSearch: '',
-        type: '' // '', 'fabric', 'material'
+        type: '', // '', 'fabric', 'material'
+        warehouseName: null,
+        materialName: null
     },
     sidebarExpanded: {
         fabric: true,
         material: true
     },
+    expandedWarehouses: {},
     isDuyetUser: false,
     targets: [],
     sizeSegments: []
@@ -23,7 +26,8 @@ function _gngSaveState() {
     try {
         const state = {
             filter: _gng.filter,
-            sidebarExpanded: _gng.sidebarExpanded
+            sidebarExpanded: _gng.sidebarExpanded,
+            expandedWarehouses: _gng.expandedWarehouses
         };
         sessionStorage.setItem('gng_state', JSON.stringify(state));
     } catch (e) {
@@ -271,6 +275,7 @@ async function renderGiaNhapGocPage(content) {
             if (savedState) {
                 if (savedState.filter) _gng.filter = { ..._gng.filter, ...savedState.filter };
                 if (savedState.sidebarExpanded) _gng.sidebarExpanded = { ..._gng.sidebarExpanded, ...savedState.sidebarExpanded };
+                if (savedState.expandedWarehouses) _gng.expandedWarehouses = { ..._gng.expandedWarehouses, ...savedState.expandedWarehouses };
             }
         }
     } catch (e) {
@@ -1046,17 +1051,9 @@ function _gngRenderSidebar() {
     // Helper to render supplier items
     function renderSupplierItem(s) {
         const isActive = _gng.filter.supplierId == s.id;
-        
-        // Find materials for this supplier
-        const materialsSet = new Set();
-        _gng.prices.forEach(p => {
-            if (p.source_id == s.id) {
-                const name = p.item_type === 'fabric' ? p.fabric_material_name : p.item_name;
-                if (name) materialsSet.add(name);
-            }
-        });
-        const materials = Array.from(materialsSet);
-        materials.sort((a, b) => a.localeCompare(b, 'vi'));
+        const isFabric = _gng.prices.some(p => p.source_id == s.id && p.item_type === 'fabric') ||
+                         _gng.history.some(h => h.source_id == s.id && h.item_type === 'fabric') ||
+                         _gng.pending.some(rec => rec.source_id == s.id && rec.record_type === 'fabric');
 
         let itemHtml = `
             <div class="gng-sidebar-item ${isActive ? 'active' : ''}" onclick="_gngSelectSupplier(${s.id})">
@@ -1068,21 +1065,99 @@ function _gngRenderSidebar() {
             </div>
         `;
 
-        if (isActive && materials.length > 0) {
-            let subItemsHtml = '';
-            materials.forEach(m => {
-                const isSubActive = _gng.filter.materialName === m;
-                subItemsHtml += `
-                    <div class="gng-sidebar-sub-item ${isSubActive ? 'active' : ''}" onclick="event.stopPropagation(); _gngSelectMaterial(${s.id}, '${escapeJS(m)}')">
-                        <span class="gng-sidebar-item-name" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;" title="${m}">🧵 ${m}</span>
-                    </div>
-                `;
-            });
-            itemHtml += `
-                <div class="gng-sidebar-sub-list" style="margin-left: 16px; padding-left: 8px; border-left: 1.5px solid #cbd5e1; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; margin-bottom: 4px;">
-                    ${subItemsHtml}
-                </div>
-            `;
+        if (isActive) {
+            if (isFabric) {
+                // Fabric supplier: keep the flat list of materials (colors/fabrics)
+                const materialsSet = new Set();
+                _gng.prices.forEach(p => {
+                    if (p.source_id == s.id) {
+                        const name = p.fabric_material_name;
+                        if (name) materialsSet.add(name);
+                    }
+                });
+                const materials = Array.from(materialsSet);
+                materials.sort((a, b) => a.localeCompare(b, 'vi'));
+
+                if (materials.length > 0) {
+                    let subItemsHtml = '';
+                    materials.forEach(m => {
+                        const isSubActive = _gng.filter.materialName === m;
+                        subItemsHtml += `
+                            <div class="gng-sidebar-sub-item ${isSubActive ? 'active' : ''}" onclick="event.stopPropagation(); _gngSelectMaterial(${s.id}, null, '${escapeJS(m)}')">
+                                <span class="gng-sidebar-item-name" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;" title="${m}">🧵 ${m}</span>
+                            </div>
+                        `;
+                    });
+                    itemHtml += `
+                        <div class="gng-sidebar-sub-list" style="margin-left: 16px; padding-left: 8px; border-left: 1.5px solid #cbd5e1; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; margin-bottom: 4px;">
+                            ${subItemsHtml}
+                        </div>
+                    `;
+                }
+            } else {
+                // Material supplier: group materials by warehouse
+                const warehouseMap = {}; // warehouseName -> Set of materialNames
+                _gng.prices.forEach(p => {
+                    if (p.source_id == s.id) {
+                        const whName = p.warehouse_name || 'Khác';
+                        const matName = p.item_name;
+                        if (matName) {
+                            if (!warehouseMap[whName]) {
+                                warehouseMap[whName] = new Set();
+                            }
+                            warehouseMap[whName].add(matName);
+                        }
+                    }
+                });
+
+                const warehouses = Object.keys(warehouseMap);
+                warehouses.sort((a, b) => a.localeCompare(b, 'vi'));
+
+                if (warehouses.length > 0) {
+                    let warehouseListHtml = '';
+                    warehouses.forEach(wh => {
+                        const isWhActive = _gng.filter.warehouseName === wh;
+                        const cacheKey = s.id + '_' + wh;
+                        _gng.expandedWarehouses = _gng.expandedWarehouses || {};
+                        
+                        // Expand if active or explicitly toggled open
+                        const isWhExpanded = isWhActive || _gng.expandedWarehouses[cacheKey];
+                        
+                        const matNames = Array.from(warehouseMap[wh]);
+                        matNames.sort((a, b) => a.localeCompare(b, 'vi'));
+
+                        let subMaterialsHtml = '';
+                        matNames.forEach(m => {
+                            const isMatActive = _gng.filter.materialName === m;
+                            subMaterialsHtml += `
+                                <div class="gng-sidebar-sub-item ${isMatActive ? 'active' : ''}" style="margin-left: 8px;" onclick="event.stopPropagation(); _gngSelectMaterial(${s.id}, '${escapeJS(wh)}', '${escapeJS(m)}')">
+                                    <span class="gng-sidebar-item-name" style="font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;" title="${m}">🧵 ${m}</span>
+                                </div>
+                            `;
+                        });
+
+                        warehouseListHtml += `
+                            <div class="gng-warehouse-group" style="display: flex; flex-direction: column; gap: 2px; margin-top: 2px;">
+                                <div class="gng-sidebar-sub-item ${isWhActive && !_gng.filter.materialName ? 'active' : ''}" 
+                                     style="font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;" 
+                                     onclick="event.stopPropagation(); _gngToggleWarehouseExpandAndSelect(${s.id}, '${escapeJS(wh)}')">
+                                    <span class="gng-sidebar-item-name" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;" title="${wh}">🏢 ${wh}</span>
+                                    <span style="font-size: 8px; color: inherit;">${isWhExpanded ? '▼' : '▶'}</span>
+                                </div>
+                                <div class="gng-warehouse-sub-list" style="display: ${isWhExpanded ? 'flex' : 'none'}; flex-direction: column; gap: 2px; padding-left: 8px; border-left: 1px dashed #cbd5e1; margin-left: 8px;">
+                                    ${subMaterialsHtml}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    itemHtml += `
+                        <div class="gng-sidebar-sub-list" style="margin-left: 12px; padding-left: 4px; border-left: 1.5px solid #cbd5e1; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; margin-bottom: 4px;">
+                            ${warehouseListHtml}
+                        </div>
+                    `;
+                }
+            }
         }
         return itemHtml;
     }
@@ -1119,27 +1194,39 @@ function _gngSelectSupplier(id) {
     // Auto shift tab if 'pending_all' is selected
     if (id === 'pending_all') {
         _gng.filter.tab = 'pending';
+        _gng.filter.warehouseName = null;
         _gng.filter.materialName = null;
     } else if (id === 'all') {
+        _gng.filter.warehouseName = null;
         _gng.filter.materialName = null;
         _gng.filter.tab = 'approved';
     } else {
-        // Auto select first material for this supplier
-        const materialsSet = new Set();
-        _gng.prices.forEach(p => {
-            if (p.source_id == id) {
-                const name = p.item_type === 'fabric' ? p.fabric_material_name : p.item_name;
-                if (name) materialsSet.add(name);
-            }
-        });
-        const materials = Array.from(materialsSet);
-        materials.sort((a, b) => a.localeCompare(b, 'vi'));
+        const hasFabric = _gng.prices.some(p => p.source_id == id && p.item_type === 'fabric') ||
+                          _gng.history.some(h => h.source_id == id && h.item_type === 'fabric') ||
+                          _gng.pending.some(rec => rec.source_id == id && rec.record_type === 'fabric');
+        
+        if (hasFabric) {
+            _gng.filter.warehouseName = null;
+            const materialsSet = new Set();
+            _gng.prices.forEach(p => {
+                if (p.source_id == id) {
+                    const name = p.fabric_material_name;
+                    if (name) materialsSet.add(name);
+                }
+            });
+            const materials = Array.from(materialsSet);
+            materials.sort((a, b) => a.localeCompare(b, 'vi'));
 
-        if (materials.length > 0) {
-            if (!_gng.filter.materialName || !materials.includes(_gng.filter.materialName)) {
-                _gng.filter.materialName = materials[0];
+            if (materials.length > 0) {
+                if (!_gng.filter.materialName || !materials.includes(_gng.filter.materialName)) {
+                    _gng.filter.materialName = materials[0];
+                }
+            } else {
+                _gng.filter.materialName = null;
             }
         } else {
+            // For material suppliers, display all materials of the supplier initially
+            _gng.filter.warehouseName = null;
             _gng.filter.materialName = null;
         }
 
@@ -1151,13 +1238,31 @@ function _gngSelectSupplier(id) {
     _gngRenderDetailPanel();
 }
 
-function _gngSelectMaterial(supplierId, materialName) {
+function _gngSelectMaterial(supplierId, warehouseName, materialName) {
     _gng.filter.supplierId = supplierId;
+    _gng.filter.warehouseName = warehouseName;
     _gng.filter.materialName = materialName;
     _gng.filter.tab = 'approved';
     _gngSaveState();
     _gngRenderSidebar();
     _gngRenderDetailPanel();
+}
+
+function _gngSelectWarehouse(supplierId, warehouseName) {
+    _gng.filter.supplierId = supplierId;
+    _gng.filter.warehouseName = warehouseName;
+    _gng.filter.materialName = null;
+    _gng.filter.tab = 'approved';
+    _gngSaveState();
+    _gngRenderSidebar();
+    _gngRenderDetailPanel();
+}
+
+function _gngToggleWarehouseExpandAndSelect(supplierId, warehouseName) {
+    const key = supplierId + '_' + warehouseName;
+    _gng.expandedWarehouses = _gng.expandedWarehouses || {};
+    _gng.expandedWarehouses[key] = !_gng.expandedWarehouses[key];
+    _gngSelectWarehouse(supplierId, warehouseName);
 }
 
 function _gngRenderDetailPanel() {
@@ -1174,6 +1279,9 @@ function _gngRenderDetailPanel() {
                       _gng.history.find(h => h.source_id == _gng.filter.supplierId) ||
                       _gng.pending.find(r => r.source_id == _gng.filter.supplierId);
         titleName = match ? match.source_name : `Nhà cung cấp #${_gng.filter.supplierId}`;
+        if (_gng.filter.warehouseName) {
+            titleName += ` &gt; <span style="color: #64748b;">🏢 ${_gng.filter.warehouseName}</span>`;
+        }
         if (_gng.filter.materialName) {
             titleName += ` &gt; <span style="color: #4f46e5;">🧵 ${_gng.filter.materialName}</span>`;
         }
@@ -1267,6 +1375,11 @@ function _gngRenderDetailApproved(target) {
         if (_gng.filter.supplierId !== 'all' && _gng.filter.materialName) {
             const name = p.item_type === 'fabric' ? p.fabric_material_name : p.item_name;
             if (name !== _gng.filter.materialName) return false;
+        }
+        // Warehouse filter
+        if (_gng.filter.supplierId !== 'all' && _gng.filter.warehouseName) {
+            const whName = p.warehouse_name || 'Khác';
+            if (whName !== _gng.filter.warehouseName) return false;
         }
         // Type filter
         if (_gng.filter.type && p.item_type !== _gng.filter.type) return false;
@@ -1514,6 +1627,14 @@ function _gngRenderDetailHistory(target) {
         if (_gng.filter.supplierId !== 'all' && _gng.filter.materialName) {
             const name = h.material_name;
             if (name !== _gng.filter.materialName) return false;
+        }
+        // Warehouse filter
+        if (_gng.filter.supplierId !== 'all' && _gng.filter.warehouseName) {
+            const priceMatch = _gng.prices.find(p => p.source_id == h.source_id && p.item_type === h.item_type && 
+                (h.item_type === 'fabric' ? p.fabric_color_id == h.fabric_color_id : p.material_item_id == h.material_item_id)
+            );
+            const whName = priceMatch ? (priceMatch.warehouse_name || 'Khác') : 'Khác';
+            if (whName !== _gng.filter.warehouseName) return false;
         }
         // Type filter
         if (_gng.filter.type && h.item_type !== _gng.filter.type) return false;
