@@ -354,7 +354,7 @@ async function _bggLoadData() {
 }
 
 function _bggLoadPetConfigs() {
-    _bgg.petEnabled = localStorage.getItem('tlcg_pet_enabled') === 'true';
+    _bgg.petEnabled = false; // Always disabled on page load/F5
     _bgg.petSheetPrice = Number(localStorage.getItem('tlcg_pet_sheet_price')) || 40000;
     const storedSpacing = localStorage.getItem('tlcg_pet_spacing');
     if (storedSpacing === null || storedSpacing === '0.3' || storedSpacing === '3' || storedSpacing === '03') {
@@ -364,31 +364,8 @@ function _bggLoadPetConfigs() {
         _bgg.petSpacing = Number(storedSpacing);
     }
     _bgg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
-    try {
-        const storedShapes = localStorage.getItem('tlcg_pet_shapes');
-        if (storedShapes) {
-            const parsed = JSON.parse(storedShapes);
-            if (Array.isArray(parsed)) {
-                const cleaned = parsed.filter(s => {
-                    if (!s || typeof s !== 'object') return false;
-                    const hasName = s.name && s.name.trim() !== '';
-                    const hasWidth = s.width !== '' && s.width !== undefined && s.width !== null && Number(s.width) > 0;
-                    const hasHeight = s.height !== '' && s.height !== undefined && s.height !== null && Number(s.height) > 0;
-                    return hasName || hasWidth || hasHeight;
-                });
-                _bgg.petShapes = cleaned;
-                if (cleaned.length !== parsed.length) {
-                    localStorage.setItem('tlcg_pet_shapes', JSON.stringify(cleaned));
-                }
-            } else {
-                _bgg.petShapes = [];
-            }
-        } else {
-            _bgg.petShapes = [];
-        }
-    } catch(e) {
-        _bgg.petShapes = [];
-    }
+    _bgg.petShapes = []; // Always empty on page load/F5
+}
 
     // Load sewing presets
     const sewingCached = localStorage.getItem('bgg_sewing_presets');
@@ -429,10 +406,9 @@ function _bggLoadPetConfigs() {
 }
 
 function _bggSavePetConfigs() {
-    const enableCb = document.getElementById('bgg_enable_pet');
-    if (enableCb) {
-        localStorage.setItem('tlcg_pet_enabled', enableCb.checked ? 'true' : 'false');
-    }
+    localStorage.removeItem('tlcg_pet_enabled');
+    localStorage.removeItem('tlcg_pet_shapes');
+    
     const priceInput = document.getElementById('bgg_pet_sheet_price');
     if (priceInput) {
         localStorage.setItem('tlcg_pet_sheet_price', priceInput.value);
@@ -440,10 +416,6 @@ function _bggSavePetConfigs() {
     const spacingInput = document.getElementById('bgg_pet_spacing');
     if (spacingInput) {
         localStorage.setItem('tlcg_pet_spacing', spacingInput.value);
-    }
-    if (Array.isArray(_bgg.petShapes)) {
-        const cleanShapes = _bgg.petShapes.filter(s => s && typeof s === 'object');
-        localStorage.setItem('tlcg_pet_shapes', JSON.stringify(cleanShapes));
     }
 }
 
