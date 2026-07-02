@@ -286,32 +286,8 @@ function _bggLoadPetConfigs() {
         _bgg.petSpacing = Number(storedSpacing);
     }
     _bgg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
-    try {
-        const storedShapes = localStorage.getItem('tlcg_pet_shapes');
-        if (storedShapes) {
-            const parsed = JSON.parse(storedShapes);
-            if (Array.isArray(parsed)) {
-                const cleaned = parsed.filter(s => {
-                    if (!s || typeof s !== 'object') return false;
-                    const hasName = s.name && s.name.trim() !== '';
-                    const hasWidth = s.width !== '' && s.width !== undefined && s.width !== null && Number(s.width) > 0;
-                    const hasHeight = s.height !== '' && s.height !== undefined && s.height !== null && Number(s.height) > 0;
-                    return hasName || hasWidth || hasHeight;
-                });
-                _bgg.petShapes = cleaned;
-                if (cleaned.length !== parsed.length) {
-                    localStorage.setItem('tlcg_pet_shapes', JSON.stringify(cleaned));
-                }
-            } else {
-                _bgg.petShapes = [];
-                localStorage.setItem('tlcg_pet_shapes', JSON.stringify([]));
-            }
-        } else {
-            _bgg.petShapes = [];
-        }
-    } catch(e) {
-        _bgg.petShapes = [];
-    }
+    _bgg.petShapes = [];
+    localStorage.removeItem('tlcg_pet_shapes');
 }
 
 function _bggSavePetConfigs() {
@@ -354,7 +330,7 @@ function _bggRenderPetShapeRows() {
     }
     const shapes = _bgg.petShapes.filter(s => s && typeof s === 'object');
     if (shapes.length === 0) {
-        list.innerHTML = `<div style="font-size: 12px; color: #166534; font-style: italic; padding: 4px 0;">Chưa có hình in nào. Vui lòng bấm nút Thêm hình in.</div>`;
+        list.innerHTML = '';
         return;
     }
     

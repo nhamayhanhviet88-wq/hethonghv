@@ -130,27 +130,8 @@ function loadPetConfigsMobile() {
         _mobileBgg.petSpacing = Number(storedSpacing);
     }
     _mobileBgg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
-    try {
-        const storedShapes = localStorage.getItem('tlcg_pet_shapes');
-        if (storedShapes) {
-            const parsed = JSON.parse(storedShapes);
-            if (Array.isArray(parsed)) {
-                _mobileBgg.petShapes = parsed.filter(s => {
-                    if (!s || typeof s !== 'object') return false;
-                    const hasName = s.name && s.name.trim() !== '';
-                    const hasWidth = s.width !== '' && s.width !== undefined && s.width !== null && Number(s.width) > 0;
-                    const hasHeight = s.height !== '' && s.height !== undefined && s.height !== null && Number(s.height) > 0;
-                    return hasName || hasWidth || hasHeight;
-                });
-            } else {
-                _mobileBgg.petShapes = [];
-            }
-        } else {
-            _mobileBgg.petShapes = [];
-        }
-    } catch(e) {
-        _mobileBgg.petShapes = [];
-    }
+    _mobileBgg.petShapes = [];
+    localStorage.removeItem('tlcg_pet_shapes');
 }
 
 function savePetConfigsMobile() {
@@ -193,7 +174,7 @@ function renderPetShapeRowsMobile() {
     }
     const shapes = _mobileBgg.petShapes.filter(s => s && typeof s === 'object');
     if (shapes.length === 0) {
-        list.innerHTML = `<div style="font-size: 11.5px; color: #166534; font-style: italic; padding: 4px 0;">Chưa cấu hình hình in.</div>`;
+        list.innerHTML = '';
         return;
     }
     
