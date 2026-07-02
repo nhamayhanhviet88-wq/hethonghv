@@ -45,6 +45,8 @@ var _ctvState = {
     screenColors: 1,
     // Embroidery state
     embroideryCost: 15000,
+    // 3D printing cost state
+    print3dCost: 30000,
     
     // History list
     historyLogs: [],
@@ -457,6 +459,7 @@ async function _ctvLoadActiveConfig() {
         const res = await apiFetch('/api/ctv-quotations/config/active');
         if (res && res.config) {
             _ctvState.activeConfig = res.config;
+            _ctvState.print3dCost = res.config.print_prices.print3d?.flat_price || 30000;
         } else {
             _ctvState.activeConfig = null;
         }
@@ -577,22 +580,37 @@ function _ctvRenderCalculator(container) {
                     <div class="ctv-form-group">
                         <label>Các phụ phí tùy chọn</label>
                         <div class="ctv-checkbox-group">
-                            <label class="ctv-checkbox-label">
-                                <input type="checkbox" id="ctv_sc_collar" ${_ctvState.surcharges.collar ? 'checked' : ''} onchange="_ctvToggleSurcharge('collar', this.checked)">
-                                Cổ bẻ (+${Number(config.surcharges.collar).toLocaleString('vi-VN')}đ)
-                            </label>
-                            <label class="ctv-checkbox-label">
-                                <input type="checkbox" id="ctv_sc_raglan" ${_ctvState.surcharges.raglan ? 'checked' : ''} onchange="_ctvToggleSurcharge('raglan', this.checked)">
-                                Raglan (+${Number(config.surcharges.raglan).toLocaleString('vi-VN')}đ)
-                            </label>
-                            <label class="ctv-checkbox-label">
-                                <input type="checkbox" id="ctv_sc_color_block" ${_ctvState.surcharges.color_block ? 'checked' : ''} onchange="_ctvToggleSurcharge('color_block', this.checked)">
-                                Phối màu (+${Number(config.surcharges.color_block).toLocaleString('vi-VN')}đ)
-                            </label>
-                            <label class="ctv-checkbox-label">
-                                <input type="checkbox" id="ctv_sc_primary_school" ${_ctvState.surcharges.primary_school ? 'checked' : ''} onchange="_ctvToggleSurcharge('primary_school', this.checked)">
-                                Tiểu học (${Number(config.surcharges.primary_school).toLocaleString('vi-VN')}đ)
-                            </label>
+                            ${(function() {
+                                let html = `
+                                    <label class="ctv-checkbox-label">
+                                        <input type="checkbox" id="ctv_sc_collar" ${_ctvState.surcharges.collar ? 'checked' : ''} onchange="_ctvToggleSurcharge('collar', this.checked)">
+                                        Cổ bẻ (+${Number(config.surcharges.collar).toLocaleString('vi-VN')}đ)
+                                    </label>
+                                    <label class="ctv-checkbox-label">
+                                        <input type="checkbox" id="ctv_sc_raglan" ${_ctvState.surcharges.raglan ? 'checked' : ''} onchange="_ctvToggleSurcharge('raglan', this.checked)">
+                                        Raglan (+${Number(config.surcharges.raglan).toLocaleString('vi-VN')}đ)
+                                    </label>
+                                    <label class="ctv-checkbox-label">
+                                        <input type="checkbox" id="ctv_sc_color_block" ${_ctvState.surcharges.color_block ? 'checked' : ''} onchange="_ctvToggleSurcharge('color_block', this.checked)">
+                                        Phối màu (+${Number(config.surcharges.color_block).toLocaleString('vi-VN')}đ)
+                                    </label>
+                                    <label class="ctv-checkbox-label">
+                                        <input type="checkbox" id="ctv_sc_primary_school" ${_ctvState.surcharges.primary_school ? 'checked' : ''} onchange="_ctvToggleSurcharge('primary_school', this.checked)">
+                                        Tiểu học (${Number(config.surcharges.primary_school).toLocaleString('vi-VN')}đ)
+                                    </label>
+                                `;
+                                const customList = config.surcharges?.custom || [];
+                                customList.forEach((item) => {
+                                    const safeName = item.name.replace(/\s+/g, '_');
+                                    html += `
+                                        <label class="ctv-checkbox-label">
+                                            <input type="checkbox" id="ctv_sc_${safeName}" ${_ctvState.surcharges[item.name] ? 'checked' : ''} onchange="_ctvToggleSurcharge('${item.name}', this.checked)">
+                                            ${item.name} (${item.value >= 0 ? '+' : ''}${Number(item.value).toLocaleString('vi-VN')}đ)
+                                        </label>
+                                    `;
+                                });
+                                return html;
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -763,13 +781,17 @@ function _ctvRenderPrintPanel() {
         `;
         _ctvRenderPetShapesList();
     } else if (_ctvState.printType === 'print3d') {
-        const config3d = config.print_prices.print3d || { meters_per_shirt: 0.8 };
+        const config3d = config.print_prices.print3d || { flat_price: 30000 };
+        const flatPrice = Number(config3d.flat_price) || 30000;
         panel.innerHTML = `
             <div class="ctv-print-config-box" style="border-color:#38bdf8; background:#f0f9ff; color:#0369a1;">
                 <h4 style="color:#0284c7;">🌀 In 3D Toàn Thân CTV</h4>
-                <div style="font-size:12.5px; line-height:1.5;">
-                    Định lượng hao vải mặc định: <strong>${config3d.meters_per_shirt} mét/áo</strong>.<br>
-                    Giá in & cắt laser được tính tự động theo lũy tiến số lượng đơn hàng giống Báo Giá Gốc của quản lý.
+                <div style="font-size:12.5px; line-height:1.5; margin-bottom:10px;">
+                    Giá in 3D tính theo <strong>đ/áo</strong>. Giá cấu hình mặc định: <strong>${flatPrice.toLocaleString('vi-VN')} đ/áo</strong>.
+                </div>
+                <div class="ctv-form-group" style="margin-bottom:0;">
+                    <label style="color:#0284c7;">Giá in 3D (đ/áo)</label>
+                    <input type="text" class="ctv-input" id="ctv_3d_cost" value="${_ctvState.print3dCost}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _ctvOn3dCostChange(this.value)">
                 </div>
             </div>
         `;
@@ -984,6 +1006,15 @@ function _ctvCalculateAllCosts() {
         surchargeTotal += fee;
         surchargesBreakdown.push({ label: 'Số lượng < 20 áo', price: fee });
     }
+    // Custom surcharges
+    const customSurcharges = config.surcharges?.custom || [];
+    customSurcharges.forEach(item => {
+        if (_ctvState.surcharges[item.name]) {
+            const fee = Number(item.value) || 0;
+            surchargeTotal += fee;
+            surchargesBreakdown.push({ label: item.name, price: fee });
+        }
+    });
     
     // 3. Printing costs
     let printCost = 0;
@@ -1010,50 +1041,10 @@ function _ctvCalculateAllCosts() {
             }
         });
     } else if (pt === 'print3d') {
-        const config3d = config.print_prices.print3d || { meters_per_shirt: 0.8, print_tiers: [], laser_tiers: [] };
-        const mps = config3d.meters_per_shirt || 0.8;
-        const totalMeters = qty * mps;
-        
-        // Find print tier rate
-        let printPriceRate = 0;
-        if (config3d.print_tiers && config3d.print_tiers.length > 0) {
-            for (const t of config3d.print_tiers) {
-                const tMin = Number(t.min) || 0;
-                const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                if (totalMeters >= tMin && totalMeters < tMax) { printPriceRate = Number(t.price); break; }
-            }
-            if (printPriceRate === 0) {
-                for (const t of config3d.print_tiers) {
-                    const tMin = Number(t.min) || 0;
-                    const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                    if (totalMeters >= tMin && totalMeters <= tMax) { printPriceRate = Number(t.price); break; }
-                }
-            }
-        }
-        
-        // Find laser tier rate
-        let laserPriceRate = 0;
-        if (config3d.laser_tiers && config3d.laser_tiers.length > 0) {
-            for (const t of config3d.laser_tiers) {
-                const tMin = Number(t.min) || 0;
-                const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                if (totalMeters >= tMin && totalMeters < tMax) { laserPriceRate = Number(t.price); break; }
-            }
-            if (laserPriceRate === 0) {
-                for (const t of config3d.laser_tiers) {
-                    const tMin = Number(t.min) || 0;
-                    const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                    if (totalMeters >= tMin && totalMeters <= tMax) { laserPriceRate = Number(t.price); break; }
-                }
-            }
-        }
-        
-        const singlePrintCost = Math.round(printPriceRate * mps);
-        const singleLaserCost = Math.round(laserPriceRate * mps);
-        printCost = singlePrintCost + singleLaserCost;
-        
-        printBreakdown.push({ label: `Phí in 3D (${printPriceRate.toLocaleString('vi-VN')}đ/m * ${mps}m)`, price: singlePrintCost });
-        printBreakdown.push({ label: `Phí cắt laser 3D (${laserPriceRate.toLocaleString('vi-VN')}đ/m * ${mps}m)`, price: singleLaserCost });
+        // In 3D CTV: tính đơn giản theo đ/áo (flat_price)
+        const flatPrice = Number(_ctvState.print3dCost) || 0;
+        printCost = flatPrice;
+        printBreakdown.push({ label: `In 3D toàn thân (${flatPrice.toLocaleString('vi-VN')} đ/áo)`, price: flatPrice });
     } else if (pt === 'screen') {
         const configScreen = config.print_prices.screen || { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 };
         const colors = _ctvState.screenColors;
@@ -1196,6 +1187,7 @@ async function _ctvSaveQuotation() {
             petShapes: _ctvState.petShapes,
             screenColors: _ctvState.screenColors,
             embroideryCost: _ctvState.embroideryCost,
+            print3dCost: _ctvState.print3dCost,
             materialName: calc.materialName
         },
         calculated_price: calc.finalPricePerShirt,
@@ -1563,7 +1555,8 @@ function _ctvShowHistoryDetail(quoteId) {
         printType: q.input_details.printType,
         petShapes: q.input_details.petShapes || [],
         screenColors: q.input_details.screenColors || 1,
-        embroideryCost: q.input_details.embroideryCost || 15000
+        embroideryCost: q.input_details.embroideryCost || 15000,
+        print3dCost: q.input_details.print3dCost || 30000
     };
     
     // Save state temporarily, render export modal, then restore state
@@ -1757,14 +1750,15 @@ function _ctvPreviewConfigDetails(id) {
                     ${mats.map(m => `<li>${m.name}: <strong>${Number(m.price).toLocaleString('vi-VN')} đ</strong></li>`).join('')}
                 </ul>
                 
-                <!-- Surcharges -->
-                <h4 style="margin:0 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">➕ Bảng Surcharges (Phụ phí)</h4>
+                <!-- Chi tiết thêm -->
+                <h4 style="margin:0 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">➕ Bảng Chi Tiết Thêm</h4>
                 <ul style="margin:0 0 16px 0; padding-left:20px;">
                     <li>Cổ bẻ: <strong>+${Number(sc.collar).toLocaleString('vi-VN')} đ</strong></li>
                     <li>Sản xuất dưới 20 áo: <strong>+${Number(sc.qty_under_20).toLocaleString('vi-VN')} đ</strong></li>
                     <li>Chiết khấu tiểu học: <strong>${Number(sc.primary_school).toLocaleString('vi-VN')} đ</strong></li>
                     <li>Tay Raglan: <strong>+${Number(sc.raglan).toLocaleString('vi-VN')} đ</strong></li>
                     <li>Phối màu vải: <strong>+${Number(sc.color_block).toLocaleString('vi-VN')} đ</strong></li>
+                    ${(sc.custom || []).map(item => `<li>${item.name}: <strong>${item.value >= 0 ? '+' : ''}${Number(item.value).toLocaleString('vi-VN')} đ</strong></li>`).join('')}
                 </ul>
                 
                 <!-- Printing -->
@@ -1772,13 +1766,7 @@ function _ctvPreviewConfigDetails(id) {
                 <ul style="margin:0; padding-left:20px;">
                     <li><strong>In PET:</strong> Khổ mét ${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')} đ, khoảng cách ${pr.pet?.spacing}cm</li>
                     <li><strong>Thêu vi tính:</strong> Đồng giá ${Number(pr.embroidery?.flat_price).toLocaleString('vi-VN')} đ/áo</li>
-                    <li>
-                        <strong>In 3D Toàn thân:</strong> Hao phí ${pr.print3d?.meters_per_shirt}m/áo
-                        <div style="font-size:11.5px; color:#64748b; margin-top:2px;">
-                            • Tỷ lệ in: ${pr.print3d?.print_tiers?.map(t => `${t.min}-${t.max || '∞'}m: ${t.price}đ`).join(', ')}<br>
-                            • Tỷ lệ laser: ${pr.print3d?.laser_tiers?.map(t => `${t.min}-${t.max || '∞'}m: ${t.price}đ`).join(', ')}
-                        </div>
-                    </li>
+                    <li><strong>In 3D Toàn thân:</strong> ${Number(pr.print3d?.flat_price || 30000).toLocaleString('vi-VN')} đ/áo</li>
                     <li>
                         <strong>In lưới (Screen):</strong> Áo tối thiểu ${pr.screen?.qty_threshold} chiếc, Phí đơn < ${pr.screen?.qty_threshold} áo: ${Number(pr.screen?.price_low).toLocaleString('vi-VN')}đ
                         <div style="font-size:11.5px; color:#64748b; margin-top:2px;">
@@ -1876,29 +1864,41 @@ function _ctvOpenNewConfigForm() {
                     ${matRows}
                 </div>
                 
-                <!-- Surcharges setup -->
-                <h4 style="margin:20px 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">➕ Thiết Lập Surcharges</h4>
+                <!-- Chi tiết thêm setup -->
+                <h4 style="margin:20px 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px; display:flex; justify-content:space-between;">
+                    <span>➕ Thiết Lập Chi Tiết Thêm</span>
+                    <button class="ctv-btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="_ctvAddCustomSurchargeRow()">+ Thêm chi tiết</button>
+                </h4>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                     <div class="ctv-form-group">
-                        <label>Surcharge Cổ Bẻ (đ/áo)</label>
-                        <input type="number" class="ctv-input" id="new_cfg_sc_collar" value="${cfg.surcharges.collar}">
+                        <label>Cổ Bẻ (đ/áo)</label>
+                        <input type="text" class="ctv-input" id="new_cfg_sc_collar" value="${cfg.surcharges.collar}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
                     </div>
                     <div class="ctv-form-group">
-                        <label>Surcharge Đơn Hàng < 20 Áo (đ/áo)</label>
-                        <input type="number" class="ctv-input" id="new_cfg_sc_qty_under_20" value="${cfg.surcharges.qty_under_20}">
+                        <label>Đơn Hàng < 20 Áo (đ/áo)</label>
+                        <input type="text" class="ctv-input" id="new_cfg_sc_qty_under_20" value="${cfg.surcharges.qty_under_20}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
                     </div>
                     <div class="ctv-form-group">
                         <label>Chiết Khấu Tiểu Học (đ/áo, nhập âm để giảm)</label>
-                        <input type="number" class="ctv-input" id="new_cfg_sc_primary_school" value="${cfg.surcharges.primary_school}">
+                        <input type="text" class="ctv-input" id="new_cfg_sc_primary_school" value="${cfg.surcharges.primary_school}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
                     </div>
                     <div class="ctv-form-group">
-                        <label>Surcharge Raglan (đ/áo)</label>
-                        <input type="number" class="ctv-input" id="new_cfg_sc_raglan" value="${cfg.surcharges.raglan}">
+                        <label>Raglan (đ/áo)</label>
+                        <input type="text" class="ctv-input" id="new_cfg_sc_raglan" value="${cfg.surcharges.raglan}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
                     </div>
                     <div class="ctv-form-group" style="grid-column: span 2;">
-                        <label>Surcharge Phối màu vải (đ/áo)</label>
-                        <input type="number" class="ctv-input" id="new_cfg_sc_color_block" value="${cfg.surcharges.color_block}">
+                        <label>Phối màu vải (đ/áo)</label>
+                        <input type="text" class="ctv-input" id="new_cfg_sc_color_block" value="${cfg.surcharges.color_block}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
                     </div>
+                </div>
+                <div id="new_cfg_custom_surcharges_container">
+                    ${(cfg.surcharges?.custom || []).map((item, idx) => `
+                        <div class="ctv-custom-sc-row" style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+                            <input type="text" class="ctv-input" placeholder="Tên chi tiết" value="${item.name}" style="flex-grow:1;">
+                            <input type="text" class="ctv-input" placeholder="Giá (đ/áo)" value="${item.value}" style="width:120px;" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
+                            <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
+                        </div>
+                    `).join('')}
                 </div>
                 
                 <!-- Printing setup -->
@@ -1909,11 +1909,11 @@ function _ctvOpenNewConfigForm() {
                         <strong style="color:#0d9488;">🧬 In PET</strong>
                         <div class="ctv-form-group" style="margin-top:8px; margin-bottom:8px;">
                             <label>Giá mét PET (58x100cm)</label>
-                            <input type="number" class="ctv-input" id="new_cfg_pr_pet_sheet" value="${cfg.print_prices.pet?.sheet_price || 60000}">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_sheet" value="${cfg.print_prices.pet?.sheet_price || 60000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
                         <div class="ctv-form-group" style="margin-bottom:0;">
                             <label>Khoảng cách spacing (cm)</label>
-                            <input type="number" class="ctv-input" id="new_cfg_pr_pet_space" step="0.1" value="${cfg.print_prices.pet?.spacing || 0.4}">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_space" value="${cfg.print_prices.pet?.spacing || 0.4}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')">
                         </div>
                     </div>
                     
@@ -1922,7 +1922,7 @@ function _ctvOpenNewConfigForm() {
                         <strong style="color:#b45309;">🧵 Thêu Vi Tính</strong>
                         <div class="ctv-form-group" style="margin-top:8px; margin-bottom:0;">
                             <label>Giá thêu đồng giá (đ/áo)</label>
-                            <input type="number" class="ctv-input" id="new_cfg_pr_emb_flat" value="${cfg.print_prices.embroidery?.flat_price || 15000}">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_emb_flat" value="${cfg.print_prices.embroidery?.flat_price || 15000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
                     </div>
                     
@@ -1932,19 +1932,19 @@ function _ctvOpenNewConfigForm() {
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
                             <div class="ctv-form-group" style="margin-bottom:0;">
                                 <label>Hạn mức tối thiểu (áo)</label>
-                                <input type="number" class="ctv-input" id="new_cfg_pr_scr_threshold" value="${cfg.print_prices.screen?.qty_threshold || 20}">
+                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_threshold" value="${cfg.print_prices.screen?.qty_threshold || 20}" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                             </div>
                             <div class="ctv-form-group" style="margin-bottom:0;">
                                 <label>Đơn giá thấp cồng kềnh (đ/đơn/màu)</label>
-                                <input type="number" class="ctv-input" id="new_cfg_pr_scr_low" value="${cfg.print_prices.screen?.price_low || 60000}">
+                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_low" value="${cfg.print_prices.screen?.price_low || 60000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                             </div>
                             <div class="ctv-form-group" style="margin-bottom:0;">
                                 <label>Giá in 1-3 màu (đ/áo/màu)</label>
-                                <input type="number" class="ctv-input" id="new_cfg_pr_scr_high_13" value="${cfg.print_prices.screen?.price_high_1_3 || 4000}">
+                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_high_13" value="${cfg.print_prices.screen?.price_high_1_3 || 4000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                             </div>
                             <div class="ctv-form-group" style="margin-bottom:0;">
                                 <label>Giá in 4+ màu (đ/áo/màu)</label>
-                                <input type="number" class="ctv-input" id="new_cfg_pr_scr_high_4" value="${cfg.print_prices.screen?.price_high_4_plus || 3500}">
+                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_high_4" value="${cfg.print_prices.screen?.price_high_4_plus || 3500}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                             </div>
                         </div>
                     </div>
@@ -1953,11 +1953,11 @@ function _ctvOpenNewConfigForm() {
                     <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; grid-column: span 2;">
                         <strong style="color:#0284c7;">🌀 In 3D Toàn Thân</strong>
                         <div class="ctv-form-group" style="margin-top:8px; margin-bottom:8px;">
-                            <label>Hao phí mét vải / áo (m/áo)</label>
-                            <input type="number" class="ctv-input" id="new_cfg_pr_3d_mps" step="0.05" value="${cfg.print_prices.print3d?.meters_per_shirt || 0.8}">
+                            <label>Giá in 3D (đ/áo)</label>
+                            <input type="text" class="ctv-input" id="new_cfg_pr_3d_flat" value="${cfg.print_prices.print3d?.flat_price || 30000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
                         <div style="font-size:11px; color:#64748b; font-style:italic; line-height:1.4;">
-                            * Các tier giá in & cắt laser cho 3D toàn thân được kế thừa nguyên mẫu từ thiết lập của Giám Đốc tại Báo Giá Gốc để giảm thiểu trùng lặp cấu hình tier.
+                            * Giá in 3D được tính trực tiếp theo đ/áo. Ví dụ: 30.000đ × 10 áo = 300.000đ.
                         </div>
                     </div>
                 </div>
@@ -1977,6 +1977,25 @@ function _ctvOpenNewConfigForm() {
         </div>
     `;
     modal.style.display = 'flex';
+}
+
+function _ctvOn3dCostChange(val) {
+    _ctvState.print3dCost = Math.max(0, Number(val) || 0);
+    _ctvUpdateCalculations();
+}
+
+function _ctvAddCustomSurchargeRow(name = '', value = 0) {
+    const container = document.getElementById('new_cfg_custom_surcharges_container');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.className = 'ctv-custom-sc-row';
+    div.style.cssText = 'display:flex; gap:8px; margin-bottom:8px; align-items:center;';
+    div.innerHTML = `
+        <input type="text" class="ctv-input" placeholder="Tên chi tiết" value="${name}" style="flex-grow:1;">
+        <input type="text" class="ctv-input" placeholder="Giá (đ/áo)" value="${value}" style="width:120px;" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
+        <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
+    `;
+    container.appendChild(div);
 }
 
 function _ctvAddMatRowInput(name = '', price = 75000) {
@@ -2020,19 +2039,16 @@ async function _ctvSaveNewConfigVersion() {
         return;
     }
     
-    // Build print_prices structure inheriting the existing print3d tiers to avoid breaking layout
-    const active3dConfig = _ctvState.activeConfig?.print_prices?.print3d || {
-        print_tiers: [
-            { min: 500, max: null, price: 30000 },
-            { min: 100, max: 500, price: 35000 },
-            { min: 10, max: 100, price: 40000 },
-            { min: 0, max: 10, price: 45000 }
-        ],
-        laser_tiers: [
-            { min: 500, max: null, price: 3000 },
-            { min: 0, max: 500, price: 4000 }
-        ]
-    };
+    // Collect custom surcharges from dynamic rows
+    const customSurcharges = [];
+    document.querySelectorAll('#new_cfg_custom_surcharges_container .ctv-custom-sc-row').forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        if (inputs.length >= 2) {
+            const name = inputs[0].value.trim();
+            const value = parseFloat(inputs[1].value) || 0;
+            if (name) customSurcharges.push({ name, value });
+        }
+    });
     
     const body = {
         version_name: vNameInput.value.trim(),
@@ -2042,7 +2058,8 @@ async function _ctvSaveNewConfigVersion() {
             qty_under_20: parseFloat(document.getElementById('new_cfg_sc_qty_under_20').value) || 0,
             primary_school: parseFloat(document.getElementById('new_cfg_sc_primary_school').value) || 0,
             raglan: parseFloat(document.getElementById('new_cfg_sc_raglan').value) || 0,
-            color_block: parseFloat(document.getElementById('new_cfg_sc_color_block').value) || 0
+            color_block: parseFloat(document.getElementById('new_cfg_sc_color_block').value) || 0,
+            custom: customSurcharges
         },
         print_prices: {
             pet: {
@@ -2059,9 +2076,7 @@ async function _ctvSaveNewConfigVersion() {
                 price_high_4_plus: parseFloat(document.getElementById('new_cfg_pr_scr_high_4').value) || 0
             },
             print3d: {
-                meters_per_shirt: parseFloat(document.getElementById('new_cfg_pr_3d_mps').value) || 0.8,
-                print_tiers: active3dConfig.print_tiers,
-                laser_tiers: active3dConfig.laser_tiers
+                flat_price: parseFloat(document.getElementById('new_cfg_pr_3d_flat').value) || 30000
             }
         },
         apply_now: document.getElementById('new_cfg_apply_now').checked

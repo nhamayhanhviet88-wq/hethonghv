@@ -40,6 +40,7 @@ var _mState = {
     petShapes: [],
     screenColors: 1,
     embroideryCost: 15000,
+    print3dCost: 30000,
     historyLogs: [],
     configVersions: []
 };
@@ -66,6 +67,7 @@ async function _mLoadActiveConfig() {
         const res = await apiFetch('/api/ctv-quotations/config/active');
         if (res && res.config) {
             _mState.activeConfig = res.config;
+            _mState.print3dCost = res.config.print_prices.print3d?.flat_price || 30000;
         } else {
             _mState.activeConfig = null;
         }
@@ -162,6 +164,13 @@ function _mRenderCalculator(container) {
                         <input type="checkbox" id="m_sc_primary_school" ${_mState.surcharges.primary_school ? 'checked' : ''} onchange="_mToggleSurcharge('primary_school', this.checked)">
                         Tiểu học (${Number(config.surcharges.primary_school).toLocaleString('vi-VN')}đ)
                     </label>
+                    ${(config.surcharges?.custom || []).map(item => {
+                        const safeName = item.name.replace(/\s+/g, '_');
+                        return `<label class="m-checkbox-label">
+                            <input type="checkbox" id="m_sc_${safeName}" ${_mState.surcharges[item.name] ? 'checked' : ''} onchange="_mToggleSurcharge('${item.name}', this.checked)">
+                            ${item.name} (${item.value >= 0 ? '+' : ''}${Number(item.value).toLocaleString('vi-VN')}đ)
+                        </label>`;
+                    }).join('')}
                 </div>
             </div>
         </div>
@@ -319,9 +328,16 @@ function _mRenderPrintPanel() {
         `;
         _mRenderPetShapesList();
     } else if (_mState.printType === 'print3d') {
+        const config3d = config.print_prices.print3d || { flat_price: 30000 };
+        const flatPrice = Number(config3d.flat_price) || 30000;
         panel.innerHTML = `
-            <div style="background:#f0f9ff; border:1px dashed #bae6fd; border-radius:10px; padding:10px; margin-top:12px; font-size:12px; color:#0369a1; line-height:1.5;">
-                🌀 Tự động áp dụng giá in 3D toàn thân & laser lũy tiến số lượng giống PC.
+            <div style="background:#f0f9ff; border:1px dashed #bae6fd; border-radius:10px; padding:10px; margin-top:12px;">
+                <div style="font-size:11px; font-weight:700; color:#0284c7; margin-bottom:6px;">🌀 IN 3D TOÀN THÂN</div>
+                <div style="font-size:11px; color:#0369a1; margin-bottom:8px;">Giá cấu hình: <strong>${flatPrice.toLocaleString('vi-VN')} đ/áo</strong></div>
+                <div class="m-form-group" style="margin-bottom:0;">
+                    <label style="color:#0284c7;">Giá in 3D (đ/áo)</label>
+                    <input type="text" class="m-input" id="m_3d_cost" value="${_mState.print3dCost}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _mOn3dCostChange(this.value)">
+                </div>
             </div>
         `;
     } else if (_mState.printType === 'screen') {
@@ -348,6 +364,11 @@ function _mRenderPrintPanel() {
 
 function _mOnScreenColorsChange(val) {
     _mState.screenColors = Math.max(1, Number(val) || 1);
+    _mUpdateCalculations();
+}
+
+function _mOn3dCostChange(val) {
+    _mState.print3dCost = Math.max(0, Number(val) || 0);
     _mUpdateCalculations();
 }
 
@@ -483,6 +504,15 @@ function _mCalculateAllCosts() {
         surchargeTotal += fee;
         surchargesBreakdown.push({ label: 'Số lượng < 20 áo', price: fee });
     }
+    // Custom surcharges
+    const customSurcharges = config.surcharges?.custom || [];
+    customSurcharges.forEach(item => {
+        if (_mState.surcharges[item.name]) {
+            const fee = Number(item.value) || 0;
+            surchargeTotal += fee;
+            surchargesBreakdown.push({ label: item.name, price: fee });
+        }
+    });
     
     let printCost = 0;
     const printBreakdown = [];
@@ -505,33 +535,9 @@ function _mCalculateAllCosts() {
             }
         });
     } else if (pt === 'print3d') {
-        const config3d = config.print_prices.print3d || { meters_per_shirt: 0.8, print_tiers: [], laser_tiers: [] };
-        const mps = config3d.meters_per_shirt || 0.8;
-        const totalMeters = qty * mps;
-        
-        let printPriceRate = 0;
-        if (config3d.print_tiers && config3d.print_tiers.length > 0) {
-            for (const t of config3d.print_tiers) {
-                const tMin = Number(t.min) || 0;
-                const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                if (totalMeters >= tMin && totalMeters < tMax) { printPriceRate = Number(t.price); break; }
-            }
-        }
-        
-        let laserPriceRate = 0;
-        if (config3d.laser_tiers && config3d.laser_tiers.length > 0) {
-            for (const t of config3d.laser_tiers) {
-                const tMin = Number(t.min) || 0;
-                const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                if (totalMeters >= tMin && totalMeters < tMax) { laserPriceRate = Number(t.price); break; }
-            }
-        }
-        
-        const singlePrintCost = Math.round(printPriceRate * mps);
-        const singleLaserCost = Math.round(laserPriceRate * mps);
-        printCost = singlePrintCost + singleLaserCost;
-        printBreakdown.push({ label: 'Giá in 3D', price: singlePrintCost });
-        printBreakdown.push({ label: 'Cắt laser 3D', price: singleLaserCost });
+        const flatPrice = Number(_mState.print3dCost) || 0;
+        printCost = flatPrice;
+        printBreakdown.push({ label: `In 3D toàn thân (${flatPrice.toLocaleString('vi-VN')} đ/áo)`, price: flatPrice });
     } else if (pt === 'screen') {
         const configScreen = config.print_prices.screen || { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 };
         const colors = _mState.screenColors;
@@ -661,6 +667,7 @@ async function _mSaveQuotation() {
             petShapes: _mState.petShapes,
             screenColors: _mState.screenColors,
             embroideryCost: _mState.embroideryCost,
+            print3dCost: _mState.print3dCost,
             materialName: calc.materialName
         },
         calculated_price: calc.finalPricePerShirt,
@@ -928,7 +935,8 @@ function _mShowHistoryDetail(quoteId) {
         printType: q.input_details.printType,
         petShapes: q.input_details.petShapes || [],
         screenColors: q.input_details.screenColors || 1,
-        embroideryCost: q.input_details.embroideryCost || 15000
+        embroideryCost: q.input_details.embroideryCost || 15000,
+        print3dCost: q.input_details.print3dCost || 30000
     };
     
     const originalConfig = _mState.activeConfig;
@@ -1061,20 +1069,21 @@ function _mShowConfigDetailPopup(id) {
             ${mats.map(m => `<li>${m.name}: ${Number(m.price).toLocaleString('vi-VN')}đ</li>`).join('')}
         </ul>
         
-        <strong style="color:#1e3a8a;">➕ Surcharges:</strong>
+        <strong style="color:#1e3a8a;">➕ Chi Tiết Thêm:</strong>
         <ul style="margin:4px 0 12px 16px;">
             <li>Cổ bẻ: +${Number(sc.collar).toLocaleString('vi-VN')}đ</li>
             <li>Đơn < 20 áo: +${Number(sc.qty_under_20).toLocaleString('vi-VN')}đ</li>
             <li>Tiểu học: ${Number(sc.primary_school).toLocaleString('vi-VN')}đ</li>
             <li>Raglan: +${Number(sc.raglan).toLocaleString('vi-VN')}đ</li>
             <li>Phối: +${Number(sc.color_block).toLocaleString('vi-VN')}đ</li>
+            ${(sc.custom || []).map(item => `<li>${item.name}: ${item.value >= 0 ? '+' : ''}${Number(item.value).toLocaleString('vi-VN')}đ</li>`).join('')}
         </ul>
         
         <strong style="color:#1e3a8a;">🎨 Giá in CTV:</strong>
         <ul style="margin:4px 0 0 16px;">
             <li>In PET: ${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ/m, cách ${pr.pet?.spacing}cm</li>
             <li>Thêu: Đồng giá ${Number(pr.embroidery?.flat_price).toLocaleString('vi-VN')}đ/áo</li>
-            <li>In 3D: Hao phí ${pr.print3d?.meters_per_shirt}m/áo</li>
+            <li>In 3D: ${Number(pr.print3d?.flat_price || 30000).toLocaleString('vi-VN')}đ/áo</li>
             <li>In lưới: Hạn mức ${pr.screen?.qty_threshold} áo, giá thấp: ${Number(pr.screen?.price_low).toLocaleString('vi-VN')}đ</li>
         </ul>
     `;
