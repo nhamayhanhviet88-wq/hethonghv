@@ -2717,12 +2717,22 @@ window._mUpdateHeaderPriceButtons = function() {
     const temBtn = document.getElementById('m_btn_price_tem');
     if (temBtn) {
         const priceVal = (_mobileBgg.priceTem || 0).toLocaleString('vi-VN');
-        temBtn.innerHTML = `🏷️ GIÁ GỐC TEM: <span style="background: rgba(255,255,255,0.25); padding: 2px 6px; border-radius: 6px; margin-left: 2px; font-weight: 800;">${priceVal} đ/m</span>`;
+        temBtn.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                <span style="font-size: 10px; font-weight: 700; opacity: 0.95; letter-spacing: 0.3px;">🏷️ GIÁ GỐC TEM</span>
+                <span style="background: rgba(255,255,255,0.22); padding: 2px 8px; border-radius: 6px; font-weight: 800; font-size: 12px; display: inline-block;">${priceVal} đ/m</span>
+            </div>
+        `;
     }
     const petBtn = document.getElementById('m_btn_price_pet');
     if (petBtn) {
         const priceVal = (_mobileBgg.pricePet || 0).toLocaleString('vi-VN');
-        petBtn.innerHTML = `🏷️ GIÁ GỐC PET: <span style="background: rgba(255,255,255,0.25); padding: 2px 6px; border-radius: 6px; margin-left: 2px; font-weight: 800;">${priceVal} đ/m</span>`;
+        petBtn.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                <span style="font-size: 10px; font-weight: 700; opacity: 0.95; letter-spacing: 0.3px;">🏷️ GIÁ GỐC PET</span>
+                <span style="background: rgba(255,255,255,0.22); padding: 2px 8px; border-radius: 6px; font-weight: 800; font-size: 12px; display: inline-block;">${priceVal} đ/m</span>
+            </div>
+        `;
     }
 };
 

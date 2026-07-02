@@ -153,6 +153,9 @@
             border-color: #94a3b8;
             color: #1e293b;
         }
+        #m_btn_price_tem:active, #m_btn_price_pet:active, #m_btn_setup:active {
+            transform: scale(0.96);
+        }
     </style>
 </head>
 <body>
@@ -161,13 +164,16 @@
         
         <!-- Input panel card -->
         <div class="m-card">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
-                <h3 class="m-card-title" style="margin: 0;">⚙️ Cấu hình báo giá nhanh</h3>
-                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex: 1; justify-content: flex-end;">
-                    <button id="m_btn_price_tem" style="display: none; padding: 6px 10px; font-size: 11px; font-weight: 700; border-radius: 8px; background: linear-gradient(135deg, #059669 0%, #047857 100%); border: none; color: white; cursor: pointer; box-shadow: 0 2px 6px rgba(5,150,105,0.15);" onclick="_mOpenFormulaModal('tem')">🏷️ GIÁ GỐC TEM</button>
-                    <button id="m_btn_price_pet" style="display: none; padding: 6px 10px; font-size: 11px; font-weight: 700; border-radius: 8px; background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); border: none; color: white; cursor: pointer; box-shadow: 0 2px 6px rgba(234,88,12,0.15);" onclick="_mOpenFormulaModal('pet')">🏷️ GIÁ GỐC PET</button>
-                    <button id="m_btn_setup" style="display: none; padding: 6px 10px; font-size: 11px; font-weight: 700; border-radius: 8px; background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); border: none; color: white; cursor: pointer; box-shadow: 0 2px 6px rgba(79,70,229,0.15); margin-left: auto;" onclick="_mOpenSetupModal()">⚙️ Setup</button>
-                </div>
+            <!-- Header Row: Title & Setup Button -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <h3 class="m-card-title" style="margin: 0; font-size: 15px;">⚙️ Cấu hình báo giá nhanh</h3>
+                <button id="m_btn_setup" style="display: none; padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 8px; background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); border: none; color: white; cursor: pointer; box-shadow: 0 2px 6px rgba(79,70,229,0.15);" onclick="_mOpenSetupModal()">⚙️ Setup</button>
+            </div>
+            
+            <!-- Price Badges Row: Placed below title, split 50/50, balanced & clean -->
+            <div id="m_price_badges_container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;">
+                <button id="m_btn_price_tem" style="display: none; width: 100%; padding: 8px 6px; border-radius: 10px; background: linear-gradient(135deg, #059669 0%, #047857 100%); border: none; color: white; cursor: pointer; box-shadow: 0 3px 8px rgba(5,150,105,0.15); transition: transform 0.1s;" onclick="_mOpenFormulaModal('tem')"></button>
+                <button id="m_btn_price_pet" style="display: none; width: 100%; padding: 8px 6px; border-radius: 10px; background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); border: none; color: white; cursor: pointer; box-shadow: 0 3px 8px rgba(234,88,12,0.15); transition: transform 0.1s;" onclick="_mOpenFormulaModal('pet')"></button>
             </div>
             
             <div class="m-form-group">
@@ -315,7 +321,7 @@
     <!-- Toast container -->
     <div id="toastContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
 
-    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_dynamic_prices"></script>
+    <script src="/js/pages/mobile-baogiagoc.js?v=20260703_layout_update"></script>
     <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
 </body>
 </html>
