@@ -180,6 +180,11 @@ async function renderBaogiagocPage(content) {
                     <h2>🧮 Báo Giá Vải Thành Phẩm</h2>
                     <p>Hệ thống tự động tra cứu, tối ưu so sánh giá gốc các nguồn vải & chi phí in PET</p>
                 </div>
+                ${isDirector ? `
+                    <button class="bgg-btn-calc" onclick="_bggOpenSetupModal()" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(79,70,229,0.2);">
+                        ⚙️ Setup Chi Phí & Gợi Ý
+                    </button>
+                ` : ''}
             </div>
             
             <div class="bgg-grid">
@@ -216,23 +221,16 @@ async function renderBaogiagocPage(content) {
                     <div class="bgg-form-group">
                         <label>Chi phí may (đ)</label>
                         <input type="number" id="bgg_sewing_cost" class="bgg-input" placeholder="Tự điền giá may (đ)" style="margin-bottom: 6px;" oninput="_bggRenderCalcResults()">
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button type="button" class="btn-suggestion" onclick="_bggSelectSewingPreset('co_tron', 9000)">
-                                👕 Cổ tròn: 9.000đ
-                            </button>
-                            <button type="button" class="btn-suggestion" onclick="_bggSelectSewingPreset('co_be', 13000)">
-                                👔 Cổ bẻ: 13.000đ
-                            </button>
+                        <div id="bgg_sewing_presets_container" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <!-- Dynamically populated -->
                         </div>
                     </div>
                     
                     <div class="bgg-form-group">
                         <label>Chi phí cổ bẻ (nếu có) (đ)</label>
                         <input type="number" id="bgg_collar_cost" class="bgg-input" placeholder="Tự điền giá cổ bẻ (đ)" style="margin-bottom: 6px;" oninput="_bggRenderCalcResults()">
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button type="button" class="btn-suggestion" onclick="_bggSelectCollarPreset(6000)">
-                                👔 Gợi ý: 6.000đ
-                            </button>
+                        <div id="bgg_collar_presets_container" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <!-- Dynamically populated -->
                         </div>
                     </div>
 
@@ -284,6 +282,7 @@ async function renderBaogiagocPage(content) {
     document.getElementById('bgg_pet_sheet_price').value = _bgg.petSheetPrice;
     document.getElementById('bgg_pet_spacing').value = _bgg.petSpacing;
     _bggTogglePetSection(_bgg.petEnabled);
+    _bggRenderPresetsOnForm();
 
     await _bggLoadData();
 }
@@ -334,6 +333,39 @@ function _bggLoadPetConfigs() {
     _bgg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
     _bgg.petShapes = [];
     localStorage.removeItem('tlcg_pet_shapes');
+
+    // Load sewing presets
+    const sewingCached = localStorage.getItem('bgg_sewing_presets');
+    if (sewingCached) {
+        try {
+            _bgg.sewingPresets = JSON.parse(sewingCached);
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    if (!_bgg.sewingPresets || _bgg.sewingPresets.length === 0) {
+        _bgg.sewingPresets = [
+            { id: 'co_tron', name: 'Cổ tròn', icon: '👕', price: 9000 },
+            { id: 'co_be', name: 'Cổ bẻ', icon: '👔', price: 13000 }
+        ];
+        localStorage.setItem('bgg_sewing_presets', JSON.stringify(_bgg.sewingPresets));
+    }
+
+    // Load collar presets
+    const collarCached = localStorage.getItem('bgg_collar_presets');
+    if (collarCached) {
+        try {
+            _bgg.collarPresets = JSON.parse(collarCached);
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    if (!_bgg.collarPresets || _bgg.collarPresets.length === 0) {
+        _bgg.collarPresets = [
+            { id: 'co_be_extra', name: 'Gợi ý', icon: '👔', price: 6000 }
+        ];
+        localStorage.setItem('bgg_collar_presets', JSON.stringify(_bgg.collarPresets));
+    }
 }
 
 function _bggSavePetConfigs() {
@@ -1090,15 +1122,16 @@ function _bggRenderCalcResults() {
     resultsCard.innerHTML = html;
 }
 
-window._bggSelectSewingPreset = function(type, amount) {
+window._bggSelectSewingPreset = function(id, amount) {
     const sewingInput = document.getElementById('bgg_sewing_cost');
     if (sewingInput) {
         sewingInput.value = amount;
     }
     const collarInput = document.getElementById('bgg_collar_cost');
     if (collarInput) {
-        if (type === 'co_be') {
-            collarInput.value = 6000;
+        if (id === 'co_be' || id.toLowerCase().includes('co_be') || id.toLowerCase().includes('cổ bẻ')) {
+            const firstCollarPreset = _bgg.collarPresets && _bgg.collarPresets[0];
+            collarInput.value = firstCollarPreset ? firstCollarPreset.price : 6000;
         } else {
             collarInput.value = '';
         }
@@ -1112,4 +1145,207 @@ window._bggSelectCollarPreset = function(amount) {
         collarInput.value = amount;
     }
     _bggRenderCalcResults();
+};
+
+function _bggRenderPresetsOnForm() {
+    const sewingContainer = document.getElementById('bgg_sewing_presets_container');
+    if (sewingContainer) {
+        sewingContainer.innerHTML = (_bgg.sewingPresets || []).map(p => `
+            <button type="button" class="btn-suggestion" onclick="_bggSelectSewingPreset('${p.id}', ${p.price})">
+                ${p.icon || '👕'} ${p.name}: ${Number(p.price).toLocaleString('vi-VN')}đ
+            </button>
+        `).join('');
+    }
+    const collarContainer = document.getElementById('bgg_collar_presets_container');
+    if (collarContainer) {
+        collarContainer.innerHTML = (_bgg.collarPresets || []).map(p => `
+            <button type="button" class="btn-suggestion" onclick="_bggSelectCollarPreset(${p.price})">
+                ${p.icon || '👔'} ${p.name}: ${Number(p.price).toLocaleString('vi-VN')}đ
+            </button>
+        `).join('');
+    }
+}
+
+window._bggOpenSetupModal = function() {
+    // Copy existing presets to temp lists
+    _bgg.tempSewingPresets = JSON.parse(JSON.stringify(_bgg.sewingPresets || []));
+    _bgg.tempCollarPresets = JSON.parse(JSON.stringify(_bgg.collarPresets || []));
+
+    // Remove existing modal if any
+    const existing = document.getElementById('bgg_setup_modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'bgg_setup_modal';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); display: flex; flex-direction: column; border: 1px solid #e2e8f0;">
+            <!-- Header -->
+            <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">⚙️ Setup Chi Phí & Gợi Ý</h3>
+                <button onclick="_bggCloseSetupModal()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
+            </div>
+            <!-- Body -->
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 20px;">
+                <!-- Section 1: PET configs -->
+                <div>
+                    <h4 style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase;">🖨️ Cấu hình PET</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div>
+                            <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px;">Giá khổ in (58x100) (đ)</label>
+                            <input type="number" id="setup_pet_sheet_price" class="bgg-input" style="padding: 8px 10px; font-size: 13px;" value="${_bgg.petSheetPrice}">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px;">Khoảng cách Spacing (cm)</label>
+                            <input type="text" id="setup_pet_spacing" class="bgg-input" style="padding: 8px 10px; font-size: 13px;" value="${_bgg.petSpacing}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 2: Sewing suggestions -->
+                <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase;">👕 Gợi ý Chi phí may</h4>
+                        <button onclick="_bggAddSetupSewingPreset()" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #475569; cursor: pointer;">➕ Thêm</button>
+                    </div>
+                    <div id="setup_sewing_presets_list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+                
+                <!-- Section 3: Collar suggestions -->
+                <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase;">👔 Gợi ý Chi phí cổ bẻ</h4>
+                        <button onclick="_bggAddSetupCollarPreset()" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #475569; cursor: pointer;">➕ Thêm</button>
+                    </div>
+                    <div id="setup_collar_presets_list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+            <!-- Footer -->
+            <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                <button onclick="_bggCloseSetupModal()" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Hủy</button>
+                <button onclick="_bggSaveSetupModal()" style="padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; color: white; background: #4f46e5; cursor: pointer; box-shadow: 0 4px 12px rgba(79,70,229,0.15);">Lưu cấu hình</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    _bggRenderSetupPresets();
+};
+
+window._bggCloseSetupModal = function() {
+    const modal = document.getElementById('bgg_setup_modal');
+    if (modal) modal.remove();
+};
+
+window._bggRenderSetupPresets = function() {
+    const sewingList = document.getElementById('setup_sewing_presets_list');
+    if (sewingList) {
+        sewingList.innerHTML = (_bgg.tempSewingPresets || []).map((p, idx) => `
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="text" placeholder="Icon" value="${p.icon || ''}" style="width: 45px; text-align: center; padding: 6px; font-size: 13px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <input type="text" placeholder="Tên" value="${p.name || ''}" style="flex: 1; padding: 6px 10px; font-size: 13px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <input type="number" placeholder="Giá" value="${p.price || ''}" style="width: 80px; padding: 6px 10px; font-size: 13px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <button onclick="_bggRemoveSetupSewingPreset(${idx})" style="background: #fee2e2; border: none; color: #ef4444; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer;">Xóa</button>
+            </div>
+        `).join('');
+    }
+    const collarList = document.getElementById('setup_collar_presets_list');
+    if (collarList) {
+        collarList.innerHTML = (_bgg.tempCollarPresets || []).map((p, idx) => `
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="text" placeholder="Icon" value="${p.icon || ''}" style="width: 45px; text-align: center; padding: 6px; font-size: 13px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <input type="text" placeholder="Tên" value="${p.name || ''}" style="flex: 1; padding: 6px 10px; font-size: 13px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <input type="number" placeholder="Giá" value="${p.price || ''}" style="width: 80px; padding: 6px 10px; font-size: 13px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <button onclick="_bggRemoveSetupCollarPreset(${idx})" style="background: #fee2e2; border: none; color: #ef4444; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer;">Xóa</button>
+            </div>
+        `).join('');
+    }
+};
+
+window._bggSyncSetupPresetsFromDOM = function() {
+    const sewingList = document.getElementById('setup_sewing_presets_list');
+    if (sewingList) {
+        const rows = sewingList.children;
+        _bgg.tempSewingPresets = Array.from(rows).map(row => {
+            const inputs = row.querySelectorAll('input');
+            return {
+                id: (inputs[1].value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '_'),
+                icon: inputs[0].value,
+                name: inputs[1].value,
+                price: Number(inputs[2].value) || 0
+            };
+        });
+    }
+    const collarList = document.getElementById('setup_collar_presets_list');
+    if (collarList) {
+        const rows = collarList.children;
+        _bgg.tempCollarPresets = Array.from(rows).map(row => {
+            const inputs = row.querySelectorAll('input');
+            return {
+                id: (inputs[1].value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '_'),
+                icon: inputs[0].value,
+                name: inputs[1].value,
+                price: Number(inputs[2].value) || 0
+            };
+        });
+    }
+};
+
+window._bggAddSetupSewingPreset = function() {
+    _bggSyncSetupPresetsFromDOM();
+    _bgg.tempSewingPresets.push({ icon: '👕', name: '', price: 0 });
+    _bggRenderSetupPresets();
+};
+
+window._bggRemoveSetupSewingPreset = function(idx) {
+    _bggSyncSetupPresetsFromDOM();
+    _bgg.tempSewingPresets.splice(idx, 1);
+    _bggRenderSetupPresets();
+};
+
+window._bggAddSetupCollarPreset = function() {
+    _bggSyncSetupPresetsFromDOM();
+    _bgg.tempCollarPresets.push({ icon: '👔', name: '', price: 0 });
+    _bggRenderSetupPresets();
+};
+
+window._bggRemoveSetupCollarPreset = function(idx) {
+    _bggSyncSetupPresetsFromDOM();
+    _bgg.tempCollarPresets.splice(idx, 1);
+    _bggRenderSetupPresets();
+};
+
+window._bggSaveSetupModal = function() {
+    _bggSyncSetupPresetsFromDOM();
+    
+    // Save PET price and spacing
+    const priceVal = Number(document.getElementById('setup_pet_sheet_price')?.value) || 0;
+    const spacingVal = document.getElementById('setup_pet_spacing')?.value || '0.4';
+    
+    const mainPriceInput = document.getElementById('bgg_pet_sheet_price');
+    if (mainPriceInput) mainPriceInput.value = priceVal;
+    
+    const mainSpacingInput = document.getElementById('bgg_pet_spacing');
+    if (mainSpacingInput) mainSpacingInput.value = spacingVal;
+    
+    localStorage.setItem('tlcg_pet_sheet_price', priceVal);
+    localStorage.setItem('tlcg_pet_spacing', spacingVal);
+    _bgg.petSheetPrice = priceVal;
+    _bgg.petSpacing = Number(spacingVal);
+    
+    // Save presets
+    _bgg.sewingPresets = _bgg.tempSewingPresets;
+    _bgg.collarPresets = _bgg.tempCollarPresets;
+    localStorage.setItem('bgg_sewing_presets', JSON.stringify(_bgg.sewingPresets));
+    localStorage.setItem('bgg_collar_presets', JSON.stringify(_bgg.collarPresets));
+    
+    // Refresh main form and trigger recalculation
+    _bggRenderPresetsOnForm();
+    _bggRenderCalcResults();
+    
+    if (typeof showToast === 'function') showToast('Đã lưu cấu hình chi phí và gợi ý!', 'success');
+    _bggCloseSetupModal();
 };

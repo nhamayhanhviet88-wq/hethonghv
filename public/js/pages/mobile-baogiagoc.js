@@ -17,11 +17,27 @@ async function initMobileBaogiagocPage() {
     const m_enable_pet = document.getElementById('m_enable_pet');
     if (!m_enable_pet) return;
 
+    let user = null;
+    try {
+        const auth = await apiCall('/api/auth/me');
+        if (auth && auth.user) {
+            user = auth.user;
+            window.currentUser = user;
+            window._currentUser = user;
+        }
+    } catch(e) {
+        console.error('Failed to fetch user:', e);
+    }
+    const isDirector = user && user.role === 'giam_doc';
+
     loadPetConfigsMobile();
     
     // Populate checkboxes
     m_enable_pet.checked = _mobileBgg.petEnabled;
-    const isDirector = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+    const setupBtn = document.getElementById('m_btn_setup');
+    if (setupBtn && isDirector) {
+        setupBtn.style.display = 'block';
+    }
     const priceInput = document.getElementById('m_pet_sheet_price');
     if (priceInput) {
         priceInput.value = _mobileBgg.petSheetPrice;
@@ -33,6 +49,7 @@ async function initMobileBaogiagocPage() {
         if (!isDirector) spacingInput.disabled = true;
     }
     togglePetSectionMobile(_mobileBgg.petEnabled);
+    _mRenderPresetsOnForm();
 
     await loadInitialDataMobile();
 
@@ -138,6 +155,39 @@ function loadPetConfigsMobile() {
     _mobileBgg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
     _mobileBgg.petShapes = [];
     localStorage.removeItem('tlcg_pet_shapes');
+
+    // Load sewing presets
+    const sewingCached = localStorage.getItem('bgg_sewing_presets');
+    if (sewingCached) {
+        try {
+            _mobileBgg.sewingPresets = JSON.parse(sewingCached);
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    if (!_mobileBgg.sewingPresets || _mobileBgg.sewingPresets.length === 0) {
+        _mobileBgg.sewingPresets = [
+            { id: 'co_tron', name: 'Cổ tròn', icon: '👕', price: 9000 },
+            { id: 'co_be', name: 'Cổ bẻ', icon: '👔', price: 13000 }
+        ];
+        localStorage.setItem('bgg_sewing_presets', JSON.stringify(_mobileBgg.sewingPresets));
+    }
+
+    // Load collar presets
+    const collarCached = localStorage.getItem('bgg_collar_presets');
+    if (collarCached) {
+        try {
+            _mobileBgg.collarPresets = JSON.parse(collarCached);
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    if (!_mobileBgg.collarPresets || _mobileBgg.collarPresets.length === 0) {
+        _mobileBgg.collarPresets = [
+            { id: 'co_be_extra', name: 'Gợi ý', icon: '👔', price: 6000 }
+        ];
+        localStorage.setItem('bgg_collar_presets', JSON.stringify(_mobileBgg.collarPresets));
+    }
 }
 
 function savePetConfigsMobile() {
@@ -869,15 +919,16 @@ function renderMobileCalcResults() {
     resultsCard.innerHTML = html;
 }
 
-window._mSelectSewingPreset = function(type, amount) {
+window._mSelectSewingPreset = function(id, amount) {
     const sewingInput = document.getElementById('m_sewing_cost');
     if (sewingInput) {
         sewingInput.value = amount;
     }
     const collarInput = document.getElementById('m_collar_cost');
     if (collarInput) {
-        if (type === 'co_be') {
-            collarInput.value = 6000;
+        if (id === 'co_be' || id.toLowerCase().includes('co_be') || id.toLowerCase().includes('cổ bẻ')) {
+            const firstCollarPreset = _mobileBgg.collarPresets && _mobileBgg.collarPresets[0];
+            collarInput.value = firstCollarPreset ? firstCollarPreset.price : 6000;
         } else {
             collarInput.value = '';
         }
@@ -891,6 +942,209 @@ window._mSelectCollarPreset = function(amount) {
         collarInput.value = amount;
     }
     renderMobileCalcResults();
+};
+
+function _mRenderPresetsOnForm() {
+    const sewingContainer = document.getElementById('m_sewing_presets_container');
+    if (sewingContainer) {
+        sewingContainer.innerHTML = (_mobileBgg.sewingPresets || []).map(p => `
+            <button type="button" class="btn-suggestion" onclick="_mSelectSewingPreset('${p.id}', ${p.price})">
+                ${p.icon || '👕'} ${p.name}: ${Number(p.price).toLocaleString('vi-VN')}đ
+            </button>
+        `).join('');
+    }
+    const collarContainer = document.getElementById('m_collar_presets_container');
+    if (collarContainer) {
+        collarContainer.innerHTML = (_mobileBgg.collarPresets || []).map(p => `
+            <button type="button" class="btn-suggestion" onclick="_mSelectCollarPreset(${p.price})">
+                ${p.icon || '👔'} ${p.name}: ${Number(p.price).toLocaleString('vi-VN')}đ
+            </button>
+        `).join('');
+    }
+}
+
+window._mOpenSetupModal = function() {
+    // Copy existing presets to temp lists
+    _mobileBgg.tempSewingPresets = JSON.parse(JSON.stringify(_mobileBgg.sewingPresets || []));
+    _mobileBgg.tempCollarPresets = JSON.parse(JSON.stringify(_mobileBgg.collarPresets || []));
+
+    // Remove existing modal if any
+    const existing = document.getElementById('m_setup_modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'm_setup_modal';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); display: flex; flex-direction: column; border: 1px solid #e2e8f0;">
+            <!-- Header -->
+            <div style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">⚙️ Setup Chi Phí & Gợi Ý</h3>
+                <button onclick="_mCloseSetupModal()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
+            </div>
+            <!-- Body -->
+            <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                <!-- Section 1: PET configs -->
+                <div>
+                    <h4 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase;">🖨️ Cấu hình PET</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label style="display: block; font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 4px;">Giá khổ in (58x100) (đ)</label>
+                            <input type="number" id="m_setup_pet_sheet_price" class="m-input" style="padding: 6px 8px; font-size: 12.5px; width: 100%; border: 1.5px solid #cbd5e1; border-radius: 8px;" value="${_mobileBgg.petSheetPrice}">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 4px;">Khoảng cách Spacing (cm)</label>
+                            <input type="text" id="m_setup_pet_spacing" class="m-input" style="padding: 6px 8px; font-size: 12.5px; width: 100%; border: 1.5px solid #cbd5e1; border-radius: 8px;" value="${_mobileBgg.petSpacing}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 2: Sewing suggestions -->
+                <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <h4 style="margin: 0; font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase;">👕 Gợi ý Chi phí may</h4>
+                        <button onclick="_mAddSetupSewingPreset()" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 700; color: #475569; cursor: pointer;">➕ Thêm</button>
+                    </div>
+                    <div id="m_setup_sewing_presets_list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+                
+                <!-- Section 3: Collar suggestions -->
+                <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <h4 style="margin: 0; font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase;">👔 Gợi ý Chi phí cổ bẻ</h4>
+                        <button onclick="_mAddSetupCollarPreset()" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 700; color: #475569; cursor: pointer;">➕ Thêm</button>
+                    </div>
+                    <div id="m_setup_collar_presets_list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+            <!-- Footer -->
+            <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; background: #f8fafc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                <button onclick="_mCloseSetupModal()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Hủy</button>
+                <button onclick="_mSaveSetupModal()" style="padding: 6px 12px; border: none; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: white; background: #166534; cursor: pointer; box-shadow: 0 4px 12px rgba(22,101,52,0.15);">Lưu</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    _mRenderSetupPresets();
+};
+
+window._mCloseSetupModal = function() {
+    const modal = document.getElementById('m_setup_modal');
+    if (modal) modal.remove();
+};
+
+window._mRenderSetupPresets = function() {
+    const sewingList = document.getElementById('m_setup_sewing_presets_list');
+    if (sewingList) {
+        sewingList.innerHTML = (_mobileBgg.tempSewingPresets || []).map((p, idx) => `
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <input type="text" placeholder="Icon" value="${p.icon || ''}" style="width: 40px; text-align: center; padding: 6px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <input type="text" placeholder="Tên" value="${p.name || ''}" style="flex: 1; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px; min-width: 0;">
+                <input type="number" placeholder="Giá" value="${p.price || ''}" style="width: 70px; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <button onclick="_mRemoveSetupSewingPreset(${idx})" style="background: #fee2e2; border: none; color: #ef4444; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;">Xóa</button>
+            </div>
+        `).join('');
+    }
+    const collarList = document.getElementById('m_setup_collar_presets_list');
+    if (collarList) {
+        collarList.innerHTML = (_mobileBgg.tempCollarPresets || []).map((p, idx) => `
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <input type="text" placeholder="Icon" value="${p.icon || ''}" style="width: 40px; text-align: center; padding: 6px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <input type="text" placeholder="Tên" value="${p.name || ''}" style="flex: 1; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px; min-width: 0;">
+                <input type="number" placeholder="Giá" value="${p.price || ''}" style="width: 70px; padding: 6px 8px; font-size: 12.5px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <button onclick="_mRemoveSetupCollarPreset(${idx})" style="background: #fee2e2; border: none; color: #ef4444; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;">Xóa</button>
+            </div>
+        `).join('');
+    }
+};
+
+window._mSyncSetupPresetsFromDOM = function() {
+    const sewingList = document.getElementById('m_setup_sewing_presets_list');
+    if (sewingList) {
+        const rows = sewingList.children;
+        _mobileBgg.tempSewingPresets = Array.from(rows).map(row => {
+            const inputs = row.querySelectorAll('input');
+            return {
+                id: (inputs[1].value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '_'),
+                icon: inputs[0].value,
+                name: inputs[1].value,
+                price: Number(inputs[2].value) || 0
+            };
+        });
+    }
+    const collarList = document.getElementById('m_setup_collar_presets_list');
+    if (collarList) {
+        const rows = collarList.children;
+        _mobileBgg.tempCollarPresets = Array.from(rows).map(row => {
+            const inputs = row.querySelectorAll('input');
+            return {
+                id: (inputs[1].value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '_'),
+                icon: inputs[0].value,
+                name: inputs[1].value,
+                price: Number(inputs[2].value) || 0
+            };
+        });
+    }
+};
+
+window._mAddSetupSewingPreset = function() {
+    _mSyncSetupPresetsFromDOM();
+    _mobileBgg.tempSewingPresets.push({ icon: '👕', name: '', price: 0 });
+    _mRenderSetupPresets();
+};
+
+window._mRemoveSetupSewingPreset = function(idx) {
+    _mSyncSetupPresetsFromDOM();
+    _mobileBgg.tempSewingPresets.splice(idx, 1);
+    _mRenderSetupPresets();
+};
+
+window._mAddSetupCollarPreset = function() {
+    _mSyncSetupPresetsFromDOM();
+    _mobileBgg.tempCollarPresets.push({ icon: '👔', name: '', price: 0 });
+    _mRenderSetupPresets();
+};
+
+window._mRemoveSetupCollarPreset = function(idx) {
+    _mSyncSetupPresetsFromDOM();
+    _mobileBgg.tempCollarPresets.splice(idx, 1);
+    _mRenderSetupPresets();
+};
+
+window._mSaveSetupModal = function() {
+    _mSyncSetupPresetsFromDOM();
+    
+    // Save PET price and spacing
+    const priceVal = Number(document.getElementById('m_setup_pet_sheet_price')?.value) || 0;
+    const spacingVal = document.getElementById('m_setup_pet_spacing')?.value || '0.4';
+    
+    const mainPriceInput = document.getElementById('m_pet_sheet_price');
+    if (mainPriceInput) mainPriceInput.value = priceVal;
+    
+    const mainSpacingInput = document.getElementById('m_pet_spacing');
+    if (mainSpacingInput) mainSpacingInput.value = spacingVal;
+    
+    localStorage.setItem('tlcg_pet_sheet_price', priceVal);
+    localStorage.setItem('tlcg_pet_spacing', spacingVal);
+    _mobileBgg.petSheetPrice = priceVal;
+    _mobileBgg.petSpacing = Number(spacingVal);
+    
+    // Save presets
+    _mobileBgg.sewingPresets = _mobileBgg.tempSewingPresets;
+    _mobileBgg.collarPresets = _mobileBgg.tempCollarPresets;
+    localStorage.setItem('bgg_sewing_presets', JSON.stringify(_mobileBgg.sewingPresets));
+    localStorage.setItem('bgg_collar_presets', JSON.stringify(_mobileBgg.collarPresets));
+    
+    // Refresh main form and trigger recalculation
+    _mRenderPresetsOnForm();
+    renderMobileCalcResults();
+    
+    toast('Đã lưu cấu hình chi phí và gợi ý!');
+    _mCloseSetupModal();
 };
 
 // Bind all to window
