@@ -704,20 +704,21 @@ function _bggCalc3dCost(qty) {
         for (const t of config.laser_tiers) {
             const tMin = Number(t.min) || 0;
             const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-            if (qty >= tMin && qty < tMax) { laserPrice = Number(t.price) || 0; break; }
+            if (totalMeters >= tMin && totalMeters < tMax) { laserPrice = Number(t.price) || 0; break; }
         }
         if (laserPrice === 0) {
             for (const t of config.laser_tiers) {
                 const tMin = Number(t.min) || 0;
                 const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                if (qty >= tMin && qty <= tMax) { laserPrice = Number(t.price) || 0; break; }
+                if (totalMeters >= tMin && totalMeters <= tMax) { laserPrice = Number(t.price) || 0; break; }
             }
         }
     }
+    const laserCostPerShirt = Math.round(laserPrice * mps);
     return {
-        total: printCostPerShirt + laserPrice,
+        total: printCostPerShirt + laserCostPerShirt,
         printCost: printCostPerShirt,
-        laserCost: laserPrice,
+        laserCost: laserCostPerShirt,
         metersPerShirt: mps,
         totalMeters: totalMeters,
         printPricePerMeter: printPrice,
@@ -902,18 +903,19 @@ function _bggAutoSelectCheapest3dSupplier(qty) {
             for (const t of config.laser_tiers) {
                 const tMin = Number(t.min) || 0;
                 const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                if (qty >= tMin && qty < tMax) { laserPrice = Number(t.price) || 0; break; }
+                if (totalMeters >= tMin && totalMeters < tMax) { laserPrice = Number(t.price) || 0; break; }
             }
             if (laserPrice === 0) {
                 for (const t of config.laser_tiers) {
                     const tMin = Number(t.min) || 0;
                     const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                    if (qty >= tMin && qty <= tMax) { laserPrice = Number(t.price) || 0; break; }
+                    if (totalMeters >= tMin && totalMeters <= tMax) { laserPrice = Number(t.price) || 0; break; }
                 }
             }
         }
 
-        const totalCost = printCostPerShirt + laserPrice;
+        const laserCostPerShirt = Math.round(laserPrice * mps);
+        const totalCost = printCostPerShirt + laserCostPerShirt;
         if (totalCost > 0 && totalCost < minCost) {
             minCost = totalCost;
             cheapestSupplier = supplier.key;
@@ -970,7 +972,7 @@ function _bggRender3dSupplierDisplay() {
             <div style="font-size: 11px; color: #1e40af; margin-top: 6px; font-weight: 600;">
                 In: ${Number(calc.printCost).toLocaleString('vi-VN')}đ${calc.laserCost > 0 ? ' + Cắt: ' + Number(calc.laserCost).toLocaleString('vi-VN') + 'đ' : ''} = <strong>${Number(calc.total).toLocaleString('vi-VN')}đ / áo</strong>
             </div>
-            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${qty} áo × ${calc.metersPerShirt}m = ${calc.totalMeters.toFixed(1)}m → ${Number(calc.printPricePerMeter).toLocaleString('vi-VN')}đ/m</div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${qty} áo × ${calc.metersPerShirt}m = ${calc.totalMeters.toFixed(1)}m → In: ${Number(calc.printPricePerMeter).toLocaleString('vi-VN')}đ/m${calc.laserCost > 0 ? ' | Cắt: ' + Number(calc.laserPricePerShirt).toLocaleString('vi-VN') + 'đ/m' : ''}</div>
         `;
     } else {
         el.innerHTML = `
@@ -1447,7 +1449,7 @@ function _bggRenderCalcResults() {
                     </div>
                 </div>
                 <div style="font-size: 11px; color: #475569; margin-top: 8px; border-top: 1px dashed #bfdbfe; padding-top: 6px;">
-                    ${qty3d} áo × ${calc3d.metersPerShirt}m = <strong>${calc3d.totalMeters.toFixed(1)}m</strong> → Bậc giá in: <strong>${Number(calc3d.printPricePerMeter).toLocaleString('vi-VN')}đ/m</strong> × ${calc3d.metersPerShirt}m = <strong>${Number(calc3d.printCost).toLocaleString('vi-VN')}đ/áo</strong>${calc3d.laserCost > 0 ? ' + cắt laze: <strong>' + Number(calc3d.laserCost).toLocaleString('vi-VN') + 'đ/áo</strong>' : ''}
+                    ${qty3d} áo × ${calc3d.metersPerShirt}m = <strong>${calc3d.totalMeters.toFixed(1)}m</strong> → Bậc giá in: <strong>${Number(calc3d.printPricePerMeter).toLocaleString('vi-VN')}đ/m</strong> × ${calc3d.metersPerShirt}m = <strong>${Number(calc3d.printCost).toLocaleString('vi-VN')}đ/áo</strong>${calc3d.laserCost > 0 ? ' + Bậc cắt: <strong>' + Number(calc3d.laserPricePerShirt).toLocaleString('vi-VN') + 'đ/m</strong> × ' + calc3d.metersPerShirt + 'm = <strong>' + Number(calc3d.laserCost).toLocaleString('vi-VN') + 'đ/áo</strong>' : ''}
                 </div>
             </div>
         `;
@@ -2228,14 +2230,14 @@ window._bggOpenSetup3dModal = function() {
 
                 <div>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                        <h5 style="margin: 0; font-size: 12px; font-weight: 800; color: #1e40af;">✂️ BẢNG GIÁ CẮT LAZE (đ/áo)</h5>
+                        <h5 style="margin: 0; font-size: 12px; font-weight: 800; color: #1e40af;">✂️ BẢNG GIÁ CẮT LAZE (đ/mét)</h5>
                         <button onclick="_bgg3dAddTier('laser')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm bậc</button>
                     </div>
                     <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                         <thead><tr style="background: #0f172a; color: white;">
-                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Từ (áo)</th>
-                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Đến (áo)</th>
-                            <th style="padding: 6px 8px; text-align: right; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Giá/áo</th>
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Từ (m)</th>
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Đến (m)</th>
+                            <th style="padding: 6px 8px; text-align: right; font-size: 10px; color: white; font-weight: 700; background: #0f172a;">Giá/mét</th>
                             <th style="padding: 6px 4px; width: 32px; background: #0f172a;"></th>
                         </tr></thead>
                         <tbody id="setup_3d_laser_rows">${laserRowsHtml}</tbody>

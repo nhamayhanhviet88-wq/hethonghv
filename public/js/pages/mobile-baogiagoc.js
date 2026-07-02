@@ -436,10 +436,11 @@ function _mCalc3dCost(qty) {
     const printCostPS = Math.round(printPrice * mps);
     let laserPrice = 0;
     if (config.laser_tiers && config.laser_tiers.length > 0) {
-        for (const t of config.laser_tiers) { const mn=Number(t.min)||0, mx=t.max!==null&&t.max!==''?Number(t.max):Infinity; if(qty>=mn&&qty<mx){laserPrice=Number(t.price)||0;break;} }
-        if (!laserPrice) { for (const t of config.laser_tiers) { const mn=Number(t.min)||0, mx=t.max!==null&&t.max!==''?Number(t.max):Infinity; if(qty>=mn&&qty<=mx){laserPrice=Number(t.price)||0;break;} } }
+        for (const t of config.laser_tiers) { const mn=Number(t.min)||0, mx=t.max!==null&&t.max!==''?Number(t.max):Infinity; if(totalMeters>=mn&&totalMeters<mx){laserPrice=Number(t.price)||0;break;} }
+        if (!laserPrice) { for (const t of config.laser_tiers) { const mn=Number(t.min)||0, mx=t.max!==null&&t.max!==''?Number(t.max):Infinity; if(totalMeters>=mn&&totalMeters<=mx){laserPrice=Number(t.price)||0;break;} } }
     }
-    return { total:printCostPS+laserPrice, printCost:printCostPS, laserCost:laserPrice, metersPerShirt:mps, totalMeters, printPricePerMeter:printPrice, laserPricePerShirt:laserPrice };
+    const laserCostPS = Math.round(laserPrice * mps);
+    return { total:printCostPS+laserCostPS, printCost:printCostPS, laserCost:laserCostPS, metersPerShirt:mps, totalMeters, printPricePerMeter:printPrice, laserPricePerShirt:laserPrice };
 }
 
 function getScreenConfigMobile(supplierKey) {
@@ -609,18 +610,19 @@ function autoSelectCheapest3dSupplierMobile(qty) {
             for (const t of config.laser_tiers) {
                 const mn = Number(t.min) || 0;
                 const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                if (qty >= mn && qty < mx) { laserPrice = Number(t.price) || 0; break; }
+                if (totalMeters >= mn && totalMeters < mx) { laserPrice = Number(t.price) || 0; break; }
             }
             if (!laserPrice) {
                 for (const t of config.laser_tiers) {
                     const mn = Number(t.min) || 0;
                     const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                    if (qty >= mn && qty <= mx) { laserPrice = Number(t.price) || 0; break; }
+                    if (totalMeters >= mn && totalMeters <= mx) { laserPrice = Number(t.price) || 0; break; }
                 }
             }
         }
 
-        const totalCost = printCostPS + laserPrice;
+        const laserCostPS = Math.round(laserPrice * mps);
+        const totalCost = printCostPS + laserCostPS;
         if (totalCost > 0 && totalCost < minCost) {
             minCost = totalCost;
             cheapestSupplier = supplier.key;
@@ -669,7 +671,7 @@ function render3dSupplierDisplayMobile() {
         el.innerHTML = `
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span>${nccBadge}</div>
             <div style="font-size:10px;color:#1e40af;margin-top:4px;font-weight:600;">In: ${Number(calc.printCost).toLocaleString('vi-VN')}đ${calc.laserCost>0?' + Cắt: '+Number(calc.laserCost).toLocaleString('vi-VN')+'đ':''} = <strong>${Number(calc.total).toLocaleString('vi-VN')}đ/áo</strong></div>
-            <div style="font-size:9px;color:#64748b;margin-top:1px;">${qty}áo × ${calc.metersPerShirt}m = ${calc.totalMeters.toFixed(1)}m → ${Number(calc.printPricePerMeter).toLocaleString('vi-VN')}đ/m</div>
+            <div style="font-size:9px;color:#64748b;margin-top:1px;">${qty}áo × ${calc.metersPerShirt}m = ${calc.totalMeters.toFixed(1)}m → In: ${Number(calc.printPricePerMeter).toLocaleString('vi-VN')}đ/m${calc.laserCost>0?' | Cắt: '+Number(calc.laserPricePerShirt).toLocaleString('vi-VN')+'đ/m':''}</div>
         `;
     } else {
         el.innerHTML = `
@@ -797,14 +799,14 @@ function openSetup3dMobile() {
 
                 <div>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                        <h5 style="margin: 0; font-size: 11px; font-weight: 800; color: #1e40af;">✂️ BẢNG GIÁ CẮT LAZE (đ/áo)</h5>
+                        <h5 style="margin: 0; font-size: 11px; font-weight: 800; color: #1e40af;">✂️ BẢNG GIÁ CẮT LAZE (đ/mét)</h5>
                         <button onclick="add3dTierMobile('laser')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm</button>
                     </div>
                     <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                         <thead><tr style="background: #0f172a; color: white;">
-                            <th style="padding: 4px; text-align: center; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Từ (áo)</th>
-                            <th style="padding: 4px; text-align: center; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Đến (áo)</th>
-                            <th style="padding: 4px; text-align: right; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Giá/áo</th>
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Từ (m)</th>
+                            <th style="padding: 4px; text-align: center; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Đến (m)</th>
+                            <th style="padding: 4px; text-align: right; font-size: 9px; color: white; font-weight: 700; background: #0f172a;">Giá/m</th>
                             <th style="padding: 4px; width: 26px; background: #0f172a;"></th>
                         </tr></thead>
                         <tbody>${laserRowsHtml}</tbody>
@@ -1401,7 +1403,7 @@ function renderMobileCalcResults() {
                     ${calc3d.laserCost>0?'<div style="background:white;border:1.5px solid #93c5fd;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#64748b;font-weight:700;">Cắt</div><div style="font-size:12px;font-weight:800;color:#1e40af;">'+Number(calc3d.laserCost).toLocaleString('vi-VN')+'đ</div></div>':''}
                     <div style="background:#1e40af;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#93c5fd;font-weight:700;">Tổng</div><div style="font-size:13px;font-weight:800;color:white;">${Number(calc3d.total).toLocaleString('vi-VN')}đ</div></div>
                 </div>
-                <div style="font-size:9px;color:#475569;margin-top:6px;border-top:1px dashed #bfdbfe;padding-top:4px;">${qty3d}áo × ${calc3d.metersPerShirt}m = ${calc3d.totalMeters.toFixed(1)}m → ${Number(calc3d.printPricePerMeter).toLocaleString('vi-VN')}đ/m</div>
+                <div style="font-size:9px;color:#475569;margin-top:6px;border-top:1px dashed #bfdbfe;padding-top:4px;">${qty3d}áo × ${calc3d.metersPerShirt}m = ${calc3d.totalMeters.toFixed(1)}m → In: ${Number(calc3d.printPricePerMeter).toLocaleString('vi-VN')}đ/m${calc3d.laserCost>0?' | Cắt: '+Number(calc3d.laserPricePerShirt).toLocaleString('vi-VN')+'đ/m':''}</div>
             </div>
         `;
     }
