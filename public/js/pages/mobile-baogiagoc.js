@@ -53,8 +53,12 @@ async function initMobileBaogiagocPage() {
     // Populate checkboxes
     m_enable_pet.checked = _mobileBgg.petEnabled;
     const setupBtn = document.getElementById('m_btn_setup');
-    if (setupBtn && isDirector) {
-        setupBtn.style.display = 'block';
+    const priceTemBtn = document.getElementById('m_btn_price_tem');
+    const pricePetBtn = document.getElementById('m_btn_price_pet');
+    if (isDirector) {
+        if (setupBtn) setupBtn.style.display = 'block';
+        if (priceTemBtn) priceTemBtn.style.display = 'block';
+        if (pricePetBtn) pricePetBtn.style.display = 'block';
     }
     const priceInput = document.getElementById('m_pet_sheet_price');
     if (priceInput) {
@@ -176,6 +180,30 @@ async function loadInitialDataMobile() {
         if (segSelect) {
             segSelect.innerHTML = '<option value="">-- Tất cả phân khúc --</option>' +
                 (_mobileBgg.sizeSegments || []).map(s => `<option value="${s.name}">${s.icon || '🧑'} ${s.name}</option>`).join('');
+        }
+
+        // Fetch original prices for TEM and PET
+        try {
+            const configsRes = await apiCall('/api/app-configs/batch', 'POST', { keys: ['bgg_original_price_tem', 'bgg_original_price_pet'] });
+            if (configsRes) {
+                _mobileBgg.priceTem = Number(configsRes.bgg_original_price_tem) || 40000;
+                _mobileBgg.pricePet = Number(configsRes.bgg_original_price_pet) || 40000;
+            }
+        } catch (e) {
+            console.error('Failed to load base print prices:', e);
+        }
+        
+        // Restore print type and price
+        const savedPrintType = localStorage.getItem('bgg_print_type') || 'pet';
+        const printTypeSelect = document.getElementById('m_print_type');
+        if (printTypeSelect) {
+            printTypeSelect.value = savedPrintType;
+        }
+        
+        const sheetPriceInput = document.getElementById('m_pet_sheet_price');
+        if (sheetPriceInput) {
+            const currentPrice = savedPrintType === 'tem' ? (_mobileBgg.priceTem || 40000) : (_mobileBgg.pricePet || 40000);
+            sheetPriceInput.value = currentPrice;
         }
 
         // Load dynamic screen suppliers from print areas & staff configuration
@@ -416,6 +444,10 @@ function savePetConfigsMobile() {
     const spacingInput = document.getElementById('m_pet_spacing');
     if (spacingInput) {
         localStorage.setItem('tlcg_pet_spacing', spacingInput.value);
+    }
+    const printTypeSelect = document.getElementById('m_print_type');
+    if (printTypeSelect) {
+        localStorage.setItem('bgg_print_type', printTypeSelect.value);
     }
 }
 
@@ -907,6 +939,7 @@ function save3dSupplierConfigMobile() {
 }
 
 function togglePetSectionMobile(enabled) {
+    _mobileBgg.petEnabled = enabled;
     const globalDiv = document.getElementById('m_pet_global_settings');
     const containerDiv = document.getElementById('m_pet_shapes_container');
     if (globalDiv && containerDiv) {
@@ -1288,7 +1321,9 @@ function renderMobileCalcResults() {
     const extraCost = petCost + sewingCost + collarCost + print3dCost + screenCost + embroideryCost;
 
     const breakdownParts = [];
-    if (petCost > 0) breakdownParts.push(`PET: ${Number(petCost).toLocaleString('vi-VN')}đ`);
+    const printTypeSelect = document.getElementById('m_print_type');
+    const printTypeLabel = printTypeSelect && printTypeSelect.value === 'tem' ? 'TEM' : 'PET';
+    if (petCost > 0) breakdownParts.push(`${printTypeLabel}: ${Number(petCost).toLocaleString('vi-VN')}đ`);
     if (sewingCost > 0) breakdownParts.push(`May: ${Number(sewingCost).toLocaleString('vi-VN')}đ`);
     if (collarCost > 0) breakdownParts.push(`Cổ: ${Number(collarCost).toLocaleString('vi-VN')}đ`);
     if (print3dCost > 0) breakdownParts.push(`3D: ${Number(print3dCost).toLocaleString('vi-VN')}đ`);
@@ -2094,6 +2129,7 @@ window.save3dSupplierConfigMobile = save3dSupplierConfigMobile;
 window.open3dPickerMobile = open3dPickerMobile;
 window.close3dPickerMobile = close3dPickerMobile;
 window.select3dSupplierFromPickerMobile = select3dSupplierFromPickerMobile;
+window.handlePrintTypeChangeMobile = handlePrintTypeChangeMobile;
 
 // Autocomplete helpers for mobile Chất liệu
 function showMaterialDropdownMobile() {
@@ -2482,6 +2518,279 @@ function screenSaveConfigMobile() {
     renderScreenSupplierDisplayMobile();
     renderMobileCalcResults();
 }
+
+function handlePrintTypeChangeMobile(val) {
+    const sheetPriceInput = document.getElementById('m_pet_sheet_price');
+    if (sheetPriceInput) {
+        const price = val === 'tem' ? (_mobileBgg.priceTem || 40000) : (_mobileBgg.pricePet || 40000);
+        sheetPriceInput.value = price;
+        _mobileBgg.petSheetPrice = price;
+        savePetConfigsMobile();
+        renderMobileCalcResults();
+    }
+}
+
+window._mOpenFormulaModal = async function(type) {
+    const formattedType = type === 'tem' ? 'Tem' : 'Pet';
+    const key = `bgg_formula_${formattedType.toLowerCase()}`;
+    try {
+        // Fetch existing formula from app_config
+        const res = await apiCall(`/api/app-config/${key}`, 'GET');
+        let formula = [];
+        if (res && res.value) {
+            try {
+                formula = JSON.parse(res.value);
+            } catch(e) {
+                console.error(e);
+            }
+        }
+        
+        // Fetch all raw materials
+        const matRes = await apiCall('/api/material-setup/data', 'GET');
+        const allMaterials = matRes.materials || [];
+        
+        // Fetch latest approved import prices (to display cost & suppliers)
+        const priceRes = await apiCall('/api/gianhapgoc/prices', 'GET');
+        const approvedPrices = priceRes.prices || [];
+        
+        // Group approved prices by material_item_id
+        const priceMap = {};
+        approvedPrices.forEach(p => {
+            const matId = p.material_item_id;
+            if (matId) {
+                if (!priceMap[matId]) {
+                    priceMap[matId] = [];
+                }
+                priceMap[matId].push(p);
+            }
+        });
+        
+        // Sort each material's sources by price ascending
+        Object.keys(priceMap).forEach(matId => {
+            priceMap[matId].sort((a, b) => Number(a.price) - Number(b.price));
+        });
+        
+        _mobileBgg.formulaType = formattedType;
+        _mobileBgg.formulaMaterials = allMaterials;
+        _mobileBgg.formulaPrices = priceMap;
+        _mobileBgg.currentFormulaRows = formula;
+        
+        // Remove existing modal if any
+        const existing = document.getElementById('m_formula_modal');
+        if (existing) existing.remove();
+        
+        const modal = document.createElement('div');
+        modal.id = 'm_formula_modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; border: 1px solid #e2e8f0; font-family: system-ui, -apple-system, sans-serif;">
+                <!-- Header -->
+                <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: white; z-index: 1; border-radius: 16px 16px 0 0;">
+                    <h3 style="margin: 0; font-size: 14px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">🏷️ Giá Gốc ${formattedType.toUpperCase()} (100m)</h3>
+                    <button onclick="_mCloseFormulaModal()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
+                </div>
+                <!-- Body -->
+                <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; max-height: calc(90vh - 130px);">
+                    <p style="margin: 0; font-size: 11.5px; color: #64748b; font-weight: 500; line-height: 1.4;">
+                        Định nghĩa vật tư để in <strong>100 mét</strong> ${formattedType.toUpperCase()}. Giá tự động lấy từ nguồn rẻ nhất.
+                    </p>
+                    
+                    <div id="m_formula_rows_list" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Rendered rows -->
+                    </div>
+                    
+                    <button onclick="_mFormulaAddRow()" style="align-self: flex-start; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 12px; font-size: 11.5px; font-weight: 700; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 4px; outline: none; margin-top: 4px;">
+                        ➕ Thêm vật tư
+                    </button>
+                    
+                    <!-- Summary block -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 11px; font-weight: 600; color: #64748b;">Tổng chi phí (100m):</span>
+                            <strong id="m_formula_total_cost" style="font-size: 14px; color: #0f172a;">0 đ</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #cbd5e1; padding-top: 6px; margin-top: 2px;">
+                            <span style="font-size: 11px; font-weight: 600; color: #64748b;">Giá gốc / 1 mét:</span>
+                            <strong id="m_formula_per_meter" style="font-size: 14px; color: #10b981;">0 đ / mét</strong>
+                        </div>
+                    </div>
+                </div>
+                <!-- Footer -->
+                <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; border-radius: 0 0 16px 16px; position: sticky; bottom: 0;">
+                    <button onclick="_mCloseFormulaModal()" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: #475569; cursor: pointer; outline: none;">Hủy</button>
+                    <button onclick="_mSaveFormulaModal()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 700; color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(16,185,129,0.15); outline: none;">Lưu</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        _mRenderFormulaRows();
+    } catch(err) {
+        console.error('Failed to open formula modal:', err);
+        toast('Không thể tải dữ liệu cấu hình công thức!', 'error');
+    }
+};
+
+window._mCloseFormulaModal = function() {
+    const existing = document.getElementById('m_formula_modal');
+    if (existing) existing.remove();
+};
+
+window._mFormulaAddRow = function() {
+    if (!Array.isArray(_mobileBgg.currentFormulaRows)) {
+        _mobileBgg.currentFormulaRows = [];
+    }
+    _mobileBgg.currentFormulaRows.push({ material_id: '', quantity: 1 });
+    _mRenderFormulaRows();
+};
+
+window._mFormulaRemoveRow = function(index) {
+    if (Array.isArray(_mobileBgg.currentFormulaRows)) {
+        _mobileBgg.currentFormulaRows.splice(index, 1);
+        _mRenderFormulaRows();
+    }
+};
+
+window._mFormulaUpdateRow = function(index, field, value) {
+    if (Array.isArray(_mobileBgg.currentFormulaRows) && _mobileBgg.currentFormulaRows[index]) {
+        _mobileBgg.currentFormulaRows[index][field] = value;
+        _mRenderFormulaRows();
+    }
+};
+
+window._mRenderFormulaRows = function() {
+    const container = document.getElementById('m_formula_rows_list');
+    if (!container) return;
+    
+    const rows = _mobileBgg.currentFormulaRows || [];
+    if (rows.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 24px 10px; border: 2px dashed #cbd5e1; border-radius: 12px; color: #64748b; font-size: 12px; font-weight: 500;">
+                Chưa có vật tư nào được chọn. Nhấp "Thêm vật tư" để bắt đầu thiết lập.
+            </div>
+        `;
+        document.getElementById('m_formula_total_cost').textContent = '0 đ';
+        document.getElementById('m_formula_per_meter').textContent = '0 đ / mét';
+        return;
+    }
+    
+    let html = '';
+    let totalCost = 0;
+    
+    rows.forEach((row, index) => {
+        const selectedMat = _mobileBgg.formulaMaterials.find(m => Number(m.id) === Number(row.material_id));
+        const unit = selectedMat ? (selectedMat.unit || 'đơn vị') : '';
+        
+        let sourceHtml = '';
+        let rowCost = 0;
+        
+        if (row.material_id) {
+            const prices = _mobileBgg.formulaPrices[row.material_id] || [];
+            if (prices.length === 0) {
+                sourceHtml = `<span style="color: #ef4444; font-weight: 700;">⚠️ Chưa có giá gốc</span>`;
+            } else {
+                const cheapest = prices[0];
+                const priceVal = Number(cheapest.price) || 0;
+                rowCost = priceVal * (Number(row.quantity) || 0);
+                totalCost += rowCost;
+                
+                sourceHtml = `
+                    <span style="font-weight: 700; color: #15803d; font-size: 11.5px;">💰 ${Number(cheapest.price).toLocaleString('vi-VN')} đ / ${unit}</span>
+                    <span style="font-size: 9.5px; color: #64748b; margin-top: 1px;">Nguồn: <strong>${cheapest.source_name || 'N/A'}</strong></span>
+                `;
+            }
+        } else {
+            sourceHtml = `<span style="color: #94a3b8; font-style: italic;">Chọn vật tư...</span>`;
+        }
+        
+        html += `
+            <div style="display: flex; flex-direction: column; gap: 8px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <!-- Material select -->
+                    <div style="flex: 1;">
+                        <select onchange="_mFormulaUpdateRow(${index}, 'material_id', this.value)" class="m-input" style="padding: 6px 8px; font-size: 12px; font-weight: 600; outline: none; background: white; height: auto;">
+                            <option value="">-- Chọn vật tư --</option>
+                            ${_mobileBgg.formulaMaterials.map(m => `<option value="${m.id}" ${Number(m.id) === Number(row.material_id) ? 'selected' : ''}>${m.name} (${m.unit || 'đơn vị'})</option>`).join('')}
+                        </select>
+                    </div>
+                    <!-- Delete button -->
+                    <button onclick="_mFormulaRemoveRow(${index})" style="background: #fee2e2; border: none; border-radius: 6px; padding: 6px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 32px; width: 32px; flex-shrink: 0;" title="Xóa">🗑️</button>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-left: 2px;">
+                    <!-- Quantity input -->
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <span style="font-size: 10.5px; font-weight: 700; color: #475569;">Cần dùng:</span>
+                        <input type="text" value="${row.quantity || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _mFormulaUpdateRow(${index}, 'quantity', this.value)" class="m-input" style="width: 55px; padding: 4px 6px; font-size: 11px; text-align: center; height: auto;" placeholder="SL">
+                        <span style="font-size: 10.5px; font-weight: 700; color: #475569; white-space: nowrap; max-width: 45px; overflow: hidden; text-overflow: ellipsis;" title="${unit}">${unit}</span>
+                    </div>
+                    <!-- Cost display -->
+                    <div style="text-align: right; font-size: 10.5px; color: #475569; display: flex; flex-direction: column;">
+                        ${sourceHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    const perMeter = Math.round(totalCost / 100);
+    document.getElementById('m_formula_total_cost').textContent = Math.round(totalCost).toLocaleString('vi-VN') + ' đ';
+    document.getElementById('m_formula_per_meter').textContent = perMeter.toLocaleString('vi-VN') + ' đ / mét';
+};
+
+window._mSaveFormulaModal = async function() {
+    const type = _mobileBgg.formulaType; // 'Tem' or 'Pet'
+    const key = `bgg_formula_${type.toLowerCase()}`;
+    const priceKey = `bgg_original_price_${type.toLowerCase()}`;
+    
+    // Filter out invalid rows (missing material selection)
+    const validRows = (_mobileBgg.currentFormulaRows || []).filter(r => r.material_id && Number(r.quantity) > 0);
+    
+    // Calculate total cost
+    let totalCost = 0;
+    validRows.forEach(row => {
+        const prices = _mobileBgg.formulaPrices[row.material_id] || [];
+        if (prices.length > 0) {
+            const cheapest = prices[0];
+            totalCost += (Number(cheapest.price) || 0) * (Number(row.quantity) || 0);
+        }
+    });
+    
+    const calculatedPrice = Math.round(totalCost / 100);
+    
+    try {
+        // Save formula config
+        await apiCall(`/api/app-config/${key}`, 'PUT', { value: JSON.stringify(validRows) });
+        // Save price config
+        await apiCall(`/api/app-config/${priceKey}`, 'PUT', { value: calculatedPrice });
+        
+        // Update memory
+        if (type === 'Tem') {
+            _mobileBgg.priceTem = calculatedPrice;
+        } else {
+            _mobileBgg.pricePet = calculatedPrice;
+        }
+        
+        // Update sheet price if the currently selected print type is this one
+        const printTypeSelect = document.getElementById('m_print_type');
+        if (printTypeSelect && printTypeSelect.value === type.toLowerCase()) {
+            const sheetPriceInput = document.getElementById('m_pet_sheet_price');
+            if (sheetPriceInput) {
+                sheetPriceInput.value = calculatedPrice;
+                _mobileBgg.petSheetPrice = calculatedPrice;
+            }
+        }
+        
+        _mCloseFormulaModal();
+        savePetConfigsMobile();
+        renderMobileCalcResults();
+        
+        toast(`Đã lưu công thức và cập nhật giá gốc ${type}: ${calculatedPrice.toLocaleString('vi-VN')} đ/mét!`, 'success');
+    } catch(err) {
+        console.error('Failed to save formula configs:', err);
+        toast('Lỗi khi lưu cấu hình công thức!', 'error');
+    }
+};
 
 // Register initialization on DOM content loaded
 if (document.readyState === 'loading') {

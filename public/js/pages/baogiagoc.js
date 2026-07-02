@@ -200,10 +200,10 @@ async function renderBaogiagocPage(content) {
                 </div>
                 ${isDirector ? `
                     <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-                        <button class="bgg-btn-calc" onclick="_bggNavigateToGiaGoc('Tem')" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #059669 0%, #047857 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(5,150,105,0.2);">
+                        <button class="bgg-btn-calc" onclick="_bggOpenFormulaModal('Tem')" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #059669 0%, #047857 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(5,150,105,0.2);">
                             🏷️ Giá Gốc Tem
                         </button>
-                        <button class="bgg-btn-calc" onclick="_bggNavigateToGiaGoc('Pet')" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(234,88,12,0.2);">
+                        <button class="bgg-btn-calc" onclick="_bggOpenFormulaModal('Pet')" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(234,88,12,0.2);">
                             🏷️ Giá Gốc Pet
                         </button>
                         <button class="bgg-btn-calc" onclick="_bggOpenSetupModal()" style="width: auto; margin-top: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); border: none; color: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(79,70,229,0.2);">
@@ -269,10 +269,17 @@ async function renderBaogiagocPage(content) {
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                             <label class="bgg-pet-title">
                                 <input type="checkbox" id="bgg_enable_pet" style="width: 16px; height: 16px; cursor: pointer;" onchange="_bggTogglePetSection(this.checked)">
-                                🖨️ Chi phí in PET
+                                🖨️ Chi phí in PET/TEM
                             </label>
                             
                             <div id="bgg_pet_global_settings" style="display: none; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 11px; font-weight: 700; color: #166534;">Loại in:</span>
+                                    <select id="bgg_print_type" class="bgg-input" style="width: 90px; padding: 4px 8px; font-size: 12px; height: auto;" onchange="_bggHandlePrintTypeChange(this.value)">
+                                        <option value="pet">In PET</option>
+                                        <option value="tem">In Tem</option>
+                                    </select>
+                                </div>
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #166534;">Giá 58x100:</span>
                                     <input type="number" id="bgg_pet_sheet_price" class="bgg-input" style="width: 85px; padding: 4px 8px; font-size: 12px;" oninput="_bggSavePetConfigs()" ${isDirector ? '' : 'disabled'}>
@@ -357,6 +364,11 @@ async function renderBaogiagocPage(content) {
 
     // Populate initial inputs
     document.getElementById('bgg_enable_pet').checked = _bgg.petEnabled;
+    const savedPrintType = localStorage.getItem('bgg_print_type') || 'pet';
+    const printTypeSelect = document.getElementById('bgg_print_type');
+    if (printTypeSelect) {
+        printTypeSelect.value = savedPrintType;
+    }
     document.getElementById('bgg_pet_sheet_price').value = _bgg.petSheetPrice;
     document.getElementById('bgg_pet_spacing').value = _bgg.petSpacing;
     _bggTogglePetSection(_bgg.petEnabled);
@@ -413,6 +425,31 @@ async function _bggLoadData() {
                 (_bgg.sizeSegments || []).map(s => `<option value="${s.name}">${s.icon || '🧑'} ${s.name}</option>`).join('');
         }
 
+        // Fetch original prices for TEM and PET
+        try {
+            const configsRes = await apiCall('/api/app-configs/batch', 'POST', { keys: ['bgg_original_price_tem', 'bgg_original_price_pet'] });
+            if (configsRes) {
+                _bgg.priceTem = Number(configsRes.bgg_original_price_tem) || 40000;
+                _bgg.pricePet = Number(configsRes.bgg_original_price_pet) || 40000;
+            }
+        } catch (e) {
+            console.error('Failed to load base print prices:', e);
+        }
+        
+        // Restore print type and price
+        const savedPrintType = localStorage.getItem('bgg_print_type') || 'pet';
+        const printTypeSelect = document.getElementById('bgg_print_type');
+        if (printTypeSelect) {
+            printTypeSelect.value = savedPrintType;
+        }
+        
+        const sheetPriceInput = document.getElementById('bgg_pet_sheet_price');
+        if (sheetPriceInput) {
+            const currentPrice = savedPrintType === 'tem' ? (_bgg.priceTem || 40000) : (_bgg.pricePet || 40000);
+            sheetPriceInput.value = currentPrice;
+            _bgg.petSheetPrice = currentPrice;
+        }
+
         // Load dynamic screen suppliers from print areas & staff configuration
         await _bggLoadDynamicScreenSuppliers();
         _bggRenderScreenSupplierDisplay();
@@ -420,6 +457,8 @@ async function _bggLoadData() {
         // Load dynamic 3D suppliers from print areas & staff configuration
         await _bggLoadDynamic3DSuppliers();
         _bggRender3dSupplierDisplay();
+        
+        _bggRenderCalcResults();
         
     } catch(err) {
         console.error('Failed to load bgg data:', err);
@@ -652,6 +691,10 @@ function _bggSavePetConfigs() {
     const spacingInput = document.getElementById('bgg_pet_spacing');
     if (spacingInput) {
         localStorage.setItem('tlcg_pet_spacing', spacingInput.value);
+    }
+    const printTypeSelect = document.getElementById('bgg_print_type');
+    if (printTypeSelect) {
+        localStorage.setItem('bgg_print_type', printTypeSelect.value);
     }
 }
 
@@ -2805,3 +2848,267 @@ window._bggNavigateToGiaGoc = function(searchQuery) {
         navigate('gia-nhap-goc');
     }
 };
+
+window._bggOpenFormulaModal = async function(type) {
+    const key = type === 'Tem' ? 'bgg_formula_tem' : 'bgg_formula_pet';
+    try {
+        // Fetch existing formula from app_config
+        const res = await apiCall(`/api/app-config/${key}`, 'GET');
+        let formula = [];
+        if (res && res.value) {
+            try {
+                formula = JSON.parse(res.value);
+            } catch(e) {
+                console.error(e);
+            }
+        }
+        
+        // Fetch all raw materials
+        const matRes = await apiCall('/api/material-setup/data', 'GET');
+        const allMaterials = matRes.materials || [];
+        
+        // Fetch latest approved import prices (to display cost & suppliers)
+        const priceRes = await apiCall('/api/gianhapgoc/prices', 'GET');
+        const approvedPrices = priceRes.prices || [];
+        
+        // Group approved prices by material_item_id to quickly find the lowest price and list options
+        const priceMap = {};
+        approvedPrices.forEach(p => {
+            const matId = p.material_item_id;
+            if (matId) {
+                if (!priceMap[matId]) {
+                    priceMap[matId] = [];
+                }
+                priceMap[matId].push(p);
+            }
+        });
+        
+        // Sort each material's sources by price ascending, so index 0 is always the cheapest source
+        Object.keys(priceMap).forEach(matId => {
+            priceMap[matId].sort((a, b) => Number(a.price) - Number(b.price));
+        });
+
+        _bgg.formulaType = type;
+        _bgg.formulaMaterials = allMaterials;
+        _bgg.formulaPrices = priceMap;
+        _bgg.currentFormulaRows = formula;
+
+        // Remove existing modal if any
+        const existing = document.getElementById('bgg_formula_modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'bgg_formula_modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 16px; width: 100%; max-width: 750px; max-height: 90vh; overflow: y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; border: 1px solid #e2e8f0;">
+                <!-- Header -->
+                <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">🏷️ Cấu Hình Công Thức Tính Giá Gốc ${type}</h3>
+                    <button onclick="_bggCloseFormulaModal()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
+                </div>
+                <!-- Body -->
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: calc(90vh - 130px);">
+                    <p style="margin: 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">
+                        Định nghĩa các vật tư cần tiêu thụ để hoàn thành <strong>100 mét</strong> đầu ra. Giá gốc của từng vật tư sẽ tự động lấy từ nguồn có giá rẻ nhất trong hệ thống nhập hàng.
+                    </p>
+                    
+                    <div id="bgg_formula_rows_list" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Rendered rows -->
+                    </div>
+                    
+                    <button onclick="_bggFormulaAddRow()" style="align-self: flex-start; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 12px; font-size: 12.5px; font-weight: 700; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 4px; outline: none; margin-top: 6px;">
+                        ➕ Thêm vật tư
+                    </button>
+                    
+                    <!-- Summary block -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b;">Tổng chi phí (cho 100m)</span>
+                            <strong id="bgg_formula_total_cost" style="font-size: 18px; color: #0f172a;">0 đ</strong>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b;">Giá gốc / 1 mét đầu ra</span>
+                            <strong id="bgg_formula_per_meter" style="font-size: 18px; color: #10b981;">0 đ / mét</strong>
+                        </div>
+                    </div>
+                </div>
+                <!-- Footer -->
+                <div style="padding: 14px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; background: #f8fafc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                    <button onclick="_bggCloseFormulaModal()" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 16px; font-size: 13.5px; font-weight: 600; color: #475569; cursor: pointer; outline: none;">Hủy</button>
+                    <button onclick="_bggSaveFormulaModal()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 8px; padding: 8px 20px; font-size: 13.5px; font-weight: 700; color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(16,185,129,0.15); outline: none;">Lưu cấu hình</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        _bggRenderFormulaRows();
+    } catch(err) {
+        console.error('Failed to open formula modal:', err);
+        if (typeof showToast === 'function') showToast('Không thể tải dữ liệu cấu hình công thức!', 'error');
+    }
+};
+
+window._bggCloseFormulaModal = function() {
+    const existing = document.getElementById('bgg_formula_modal');
+    if (existing) existing.remove();
+};
+
+window._bggFormulaAddRow = function() {
+    if (!Array.isArray(_bgg.currentFormulaRows)) {
+        _bgg.currentFormulaRows = [];
+    }
+    _bgg.currentFormulaRows.push({ material_id: '', quantity: 1 });
+    _bggRenderFormulaRows();
+};
+
+window._bggFormulaRemoveRow = function(index) {
+    if (Array.isArray(_bgg.currentFormulaRows)) {
+        _bgg.currentFormulaRows.splice(index, 1);
+        _bggRenderFormulaRows();
+    }
+};
+
+window._bggFormulaUpdateRow = function(index, field, value) {
+    if (Array.isArray(_bgg.currentFormulaRows) && _bgg.currentFormulaRows[index]) {
+        _bgg.currentFormulaRows[index][field] = value;
+        _bggRenderFormulaRows();
+    }
+};
+
+window._bggRenderFormulaRows = function() {
+    const container = document.getElementById('bgg_formula_rows_list');
+    if (!container) return;
+    
+    const rows = _bgg.currentFormulaRows || [];
+    if (rows.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 30px; border: 2px dashed #cbd5e1; border-radius: 12px; color: #64748b; font-size: 13px; font-weight: 500;">
+                Chưa có vật tư nào được chọn. Nhấp "Thêm vật tư" để bắt đầu thiết lập.
+            </div>
+        `;
+        document.getElementById('bgg_formula_total_cost').textContent = '0 đ';
+        document.getElementById('bgg_formula_per_meter').textContent = '0 đ / mét';
+        return;
+    }
+    
+    let html = '';
+    let totalCost = 0;
+    
+    rows.forEach((row, index) => {
+        const selectedMat = _bgg.formulaMaterials.find(m => Number(m.id) === Number(row.material_id));
+        const unit = selectedMat ? (selectedMat.unit || 'đơn vị') : '';
+        
+        let sourceHtml = '';
+        let rowCost = 0;
+        
+        if (row.material_id) {
+            const prices = _bgg.formulaPrices[row.material_id] || [];
+            if (prices.length === 0) {
+                sourceHtml = `<span style="color: #ef4444; font-weight: 700; display: flex; align-items: center; gap: 4px;">⚠️ Chưa có giá nhập gốc</span>`;
+            } else {
+                const cheapest = prices[0];
+                const priceVal = Number(cheapest.price) || 0;
+                rowCost = priceVal * (Number(row.quantity) || 0);
+                totalCost += rowCost;
+                
+                const otherSourcesText = prices.length > 1 ? ` (và ${prices.length - 1} nguồn khác)` : '';
+                sourceHtml = `
+                    <span style="font-weight: 700; color: #15803d; font-size: 13px;">💰 ${Number(cheapest.price).toLocaleString('vi-VN')} đ / ${unit}</span>
+                    <span style="font-size: 10.5px; color: #64748b; margin-top: 1px;">Nguồn rẻ nhất: <strong>${cheapest.source_name || 'N/A'}</strong>${otherSourcesText}</span>
+                `;
+            }
+        } else {
+            sourceHtml = `<span style="color: #94a3b8; font-style: italic;">Chọn vật tư để tra cứu giá...</span>`;
+        }
+        
+        html += `
+            <div style="display: flex; gap: 12px; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; flex-wrap: wrap;">
+                <!-- Material select -->
+                <div style="flex: 1.5; min-width: 200px;">
+                    <select onchange="_bggFormulaUpdateRow(${index}, 'material_id', this.value)" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; background: white; height: auto;">
+                        <option value="">-- Chọn vật tư --</option>
+                        ${_bgg.formulaMaterials.map(m => `<option value="${m.id}" ${Number(m.id) === Number(row.material_id) ? 'selected' : ''}>${m.name} (${m.unit || 'đơn vị'})</option>`).join('')}
+                    </select>
+                </div>
+                <!-- Quantity input -->
+                <div style="width: 130px; display: flex; align-items: center; gap: 6px;">
+                    <input type="text" value="${row.quantity || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _bggFormulaUpdateRow(${index}, 'quantity', this.value)" style="width: 75px; padding: 8px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; text-align: center;" placeholder="Số lượng">
+                    <span style="font-size: 12px; font-weight: 700; color: #475569; white-space: nowrap; max-width: 45px; overflow: hidden; text-overflow: ellipsis;" title="${unit}">${unit}</span>
+                </div>
+                <!-- Source info -->
+                <div style="flex: 1.8; min-width: 240px; font-size: 12px; color: #475569; display: flex; flex-direction: column; justify-content: center; border-left: 1.5px dashed #cbd5e1; padding-left: 12px;">
+                    ${sourceHtml}
+                </div>
+                <!-- Delete action -->
+                <div>
+                    <button onclick="_bggFormulaRemoveRow(${index})" style="background: #fee2e2; border: none; border-radius: 6px; padding: 8px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'" title="Xóa">🗑️</button>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    const perMeter = Math.round(totalCost / 100);
+    document.getElementById('bgg_formula_total_cost').textContent = Math.round(totalCost).toLocaleString('vi-VN') + ' đ';
+    document.getElementById('bgg_formula_per_meter').textContent = perMeter.toLocaleString('vi-VN') + ' đ / mét';
+};
+
+window._bggSaveFormulaModal = async function() {
+    const type = _bgg.formulaType;
+    const key = type === 'Tem' ? 'bgg_formula_tem' : 'bgg_formula_pet';
+    const priceKey = type === 'Tem' ? 'bgg_original_price_tem' : 'bgg_original_price_pet';
+    
+    // Filter out invalid rows (missing material selection)
+    const validRows = (_bgg.currentFormulaRows || []).filter(r => r.material_id && Number(r.quantity) > 0);
+    
+    // Calculate total cost
+    let totalCost = 0;
+    validRows.forEach(row => {
+        const prices = _bgg.formulaPrices[row.material_id] || [];
+        if (prices.length > 0) {
+            const cheapest = prices[0];
+            totalCost += (Number(cheapest.price) || 0) * (Number(row.quantity) || 0);
+        }
+    });
+    
+    const calculatedPrice = Math.round(totalCost / 100);
+    
+    try {
+        // Save formula config
+        await apiCall(`/api/app-config/${key}`, 'PUT', { value: JSON.stringify(validRows) });
+        // Save price config
+        await apiCall(`/api/app-config/${priceKey}`, 'PUT', { value: calculatedPrice });
+        
+        // Update memory
+        if (type === 'Tem') {
+            _bgg.priceTem = calculatedPrice;
+        } else {
+            _bgg.pricePet = calculatedPrice;
+        }
+        
+        // Update sheet price if the currently selected print type is this one
+        const printTypeSelect = document.getElementById('bgg_print_type');
+        if (printTypeSelect && printTypeSelect.value === type.toLowerCase()) {
+            const sheetPriceInput = document.getElementById('bgg_pet_sheet_price');
+            if (sheetPriceInput) {
+                sheetPriceInput.value = calculatedPrice;
+                _bgg.petSheetPrice = calculatedPrice;
+            }
+        }
+        
+        _bggCloseFormulaModal();
+        _bggSavePetConfigs();
+        _bggRenderCalcResults();
+        
+        if (typeof showToast === 'function') {
+            showToast(`Đã lưu công thức và cập nhật giá gốc ${type}: ${calculatedPrice.toLocaleString('vi-VN')} đ/mét!`, 'success');
+        }
+    } catch(err) {
+        console.error('Failed to save formula configs:', err);
+        if (typeof showToast === 'function') {
+            showToast('Lỗi khi lưu cấu hình công thức!', 'error');
+        }
+    }
+};
+
