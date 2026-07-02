@@ -848,7 +848,7 @@ function _bvlOpenMatDialogHTML(r) {
 
     // 3. Nguồn NCC
     h += '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Nguồn NCC *</label>'
-        + '<select id="_bvlSrc" onchange="_bvlUpdatePriceSuggestions()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none" disabled>'
+        + '<select id="_bvlSrc" onchange="_bvlSrcChange()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none" disabled>'
         + '<option value="">— Chọn Kho trước —</option>'
         + '</select></div>';
 
@@ -960,7 +960,10 @@ function _bvlOpenMatDialogHTML(r) {
     if (r) {
         _bvlMatWhChange(r.warehouse_id);
         var srcSelect = document.getElementById('_bvlSrc');
-        if (srcSelect) srcSelect.value = r.source_id || '';
+        if (srcSelect) {
+            srcSelect.value = r.source_id || '';
+            _bvlSrcChange();
+        }
     }
 
     _bvlRenderAddedMats();
@@ -1042,7 +1045,7 @@ function _bvlMatWhChange(whId) {
         srcSelect.disabled = false;
     }
 
-    // 2. Filter linked materials
+    // 2. Filter linked materials (fall back to show all materials in this warehouse first)
     var matHtml = '<option value="">— Chọn vật liệu —</option>';
     var countMat = 0;
     _bvl.materials.forEach(function (m) {
@@ -1060,6 +1063,82 @@ function _bvlMatWhChange(whId) {
     }
     _bvlUpdatePriceSuggestions();
 }
+
+function _bvlSrcChange() {
+    var srcSelect = document.getElementById('_bvlSrc');
+    var matSelect = document.getElementById('_bvlMatItemSelect');
+    var whSelect = document.getElementById('_bvlMatWh');
+    var unitInput = document.getElementById('_bvlMatUnit');
+    if (unitInput) unitInput.value = '';
+
+    if (!matSelect) return;
+
+    var srcId = srcSelect ? srcSelect.value : '';
+    var whId = whSelect ? Number(whSelect.value) : 0;
+
+    if (!srcId) {
+        // Fallback to displaying only materials belonging to the selected warehouse
+        var matHtml = '<option value="">— Chọn vật liệu —</option>';
+        var countMat = 0;
+        _bvl.materials.forEach(function (m) {
+            if (m.warehouse_id === whId && m.is_active) {
+                matHtml += '<option value="' + m.id + '">' + m.name + '</option>';
+                countMat++;
+            }
+        });
+        if (countMat === 0) {
+            matSelect.innerHTML = whId ? '<option value="">⚠️ Kho này chưa có Loại vật liệu</option>' : '<option value="">— Chọn Kho trước —</option>';
+            matSelect.disabled = true;
+        } else {
+            matSelect.innerHTML = matHtml;
+            matSelect.disabled = false;
+        }
+        _bvlUpdatePriceSuggestions();
+        return;
+    }
+
+    srcId = Number(srcId);
+
+    // Find all warehouses linked to this source
+    var linkedWhIds = _bvl.warehouse_sources
+        .filter(function (ws) { return ws.source_id === srcId; })
+        .map(function (ws) { return ws.warehouse_id; });
+
+    // Show all active materials of any warehouse linked to this source, grouped by warehouse
+    var countMat = 0;
+    var groupedMats = {};
+    _bvl.materials.forEach(function (m) {
+        if (m.is_active && linkedWhIds.includes(m.warehouse_id)) {
+            if (!groupedMats[m.warehouse_id]) {
+                groupedMats[m.warehouse_id] = [];
+            }
+            groupedMats[m.warehouse_id].push(m);
+            countMat++;
+        }
+    });
+
+    if (countMat === 0) {
+        matSelect.innerHTML = '<option value="">⚠️ Nhà cung cấp này chưa có Loại vật liệu</option>';
+        matSelect.disabled = true;
+    } else {
+        var optHtml = '<option value="">— Chọn vật liệu —</option>';
+        _bvl.warehouses.forEach(function (wh) {
+            var whMats = groupedMats[wh.id];
+            if (whMats && whMats.length > 0) {
+                optHtml += '<optgroup label="🏢 ' + wh.name + '">';
+                whMats.forEach(function (m) {
+                    optHtml += '<option value="' + m.id + '">' + m.name + '</option>';
+                });
+                optHtml += '</optgroup>';
+            }
+        });
+        matSelect.innerHTML = optHtml;
+        matSelect.disabled = false;
+    }
+
+    _bvlUpdatePriceSuggestions();
+}
+window._bvlSrcChange = _bvlSrcChange;
 
 function _bvlMatItemSelectChanged() {
     var select = document.getElementById('_bvlMatItemSelect');
@@ -1196,10 +1275,18 @@ function _bvlRenderAddedMats() {
 
     var html = '';
     _bvl.addedMaterials.forEach(function (item, index) {
+        var matItem = _bvl.materials.find(function (m) { return m.id === item.id; });
+        var whName = '';
+        if (matItem) {
+            var wh = _bvl.warehouses.find(function (w) { return w.id === matItem.warehouse_id; });
+            if (wh) whName = wh.name;
+        }
+        var whTag = whName ? ' <span style="font-size:9px;color:#0d9488;background:#ccfbf1;padding:1px 4.5px;border-radius:4px;font-weight:700;margin-left:4px">🏢 ' + whName + '</span>' : '';
+
         var unitStr = item.unit ? ' ' + item.unit : '';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:5px;box-shadow:0 1px 2px rgba(0,0,0,0.05)">'
             + '<div style="flex:1.2;display:flex;flex-direction:column;gap:1px">'
-            + '<b style="color:#1e293b;font-size:12px">' + item.name + '</b>'
+            + '<b style="color:#1e293b;font-size:12px">' + item.name + whTag + '</b>'
             + '<span style="color:#94a3b8;font-size:9px">' + (item.unit ? 'Đơn vị: ' + item.unit : '') + '</span>'
             + '</div>'
             + '<div style="flex:2.8;display:flex;align-items:center;gap:6px;justify-content:flex-end">'
