@@ -16,7 +16,9 @@ var _mobileBgg = {
     print3dCost: 0,
     screenEnabled: false,
     screenSupplier: '',
-    screenColors: ''
+    screenColors: '',
+    embroideryEnabled: false,
+    embroideryCost: ''
 };
 
 var _M_BGG_3D_SUPPLIERS = [];
@@ -69,6 +71,9 @@ async function initMobileBaogiagocPage() {
     const mScreenCb = document.getElementById('m_enable_screen');
     if (mScreenCb) mScreenCb.checked = _mobileBgg.screenEnabled;
     toggleScreenSectionMobile(_mobileBgg.screenEnabled);
+    const mEmbroideryCb = document.getElementById('m_enable_embroidery');
+    if (mEmbroideryCb) mEmbroideryCb.checked = _mobileBgg.embroideryEnabled;
+    toggleEmbroiderySectionMobile(_mobileBgg.embroideryEnabled);
     _mRenderPresetsOnForm();
 
     await loadInitialDataMobile();
@@ -332,6 +337,10 @@ function loadPetConfigsMobile() {
     _mobileBgg.screenEnabled = false;
     _mobileBgg.screenColors = '';
     _mobileBgg.screenSupplier = localStorage.getItem('bgg_screen_supplier') || '';
+
+    // Load embroidery configs (always disabled on page load/F5)
+    _mobileBgg.embroideryEnabled = false;
+    _mobileBgg.embroideryCost = '';
 }
 
 function savePetConfigsMobile() {
@@ -428,6 +437,21 @@ function calcScreenCostMobile(qty) {
         } else {
             return priceHigh4Plus * colors;
         }
+    }
+}
+
+function toggleEmbroiderySectionMobile(enabled) {
+    _mobileBgg.embroideryEnabled = enabled;
+    const infoDiv = document.getElementById('m_embroidery_info');
+    if (infoDiv) infoDiv.style.display = enabled ? 'block' : 'none';
+    saveEmbroideryConfigsMobile();
+    renderMobileCalcResults();
+}
+
+function saveEmbroideryConfigsMobile() {
+    const costInput = document.getElementById('m_embroidery_cost');
+    if (costInput) {
+        _mobileBgg.embroideryCost = costInput.value;
     }
 }
 
@@ -1071,6 +1095,17 @@ async function runMobileCalculation() {
         }
     }
 
+    // Embroidery validation: require price when enabled
+    const embroideryOn = document.getElementById('m_enable_embroidery')?.checked;
+    if (embroideryOn) {
+        const embroideryPrice = Number(document.getElementById('m_embroidery_cost')?.value) || 0;
+        if (embroideryPrice <= 0) {
+            toast('Vui lòng nhập Giá tiền thêu (> 0)!', 'error');
+            document.getElementById('m_embroidery_cost').focus();
+            return;
+        }
+    }
+
     const resultsCard = document.getElementById('m_results_card');
     resultsCard.innerHTML = '<div style="text-align: center; padding: 40px 10px; color: #64748b; font-weight: 700; font-size: 13px;">⏳ Đang tính toán tối ưu...</div>';
 
@@ -1148,7 +1183,9 @@ function renderMobileCalcResults() {
     const calc3d = _mCalc3dCost(qty3d);
     const print3dCost = calc3d.total;
     const screenCost = calcScreenCostMobile(qty3d);
-    const extraCost = petCost + sewingCost + collarCost + print3dCost + screenCost;
+    const embroideryEnabled = document.getElementById('m_enable_embroidery')?.checked;
+    const embroideryCost = embroideryEnabled ? (Number(document.getElementById('m_embroidery_cost')?.value) || 0) : 0;
+    const extraCost = petCost + sewingCost + collarCost + print3dCost + screenCost + embroideryCost;
 
     const breakdownParts = [];
     if (petCost > 0) breakdownParts.push(`PET: ${Number(petCost).toLocaleString('vi-VN')}đ`);
@@ -1156,6 +1193,7 @@ function renderMobileCalcResults() {
     if (collarCost > 0) breakdownParts.push(`Cổ: ${Number(collarCost).toLocaleString('vi-VN')}đ`);
     if (print3dCost > 0) breakdownParts.push(`3D: ${Number(print3dCost).toLocaleString('vi-VN')}đ`);
     if (screenCost > 0) breakdownParts.push(`Lưới: ${Number(screenCost).toLocaleString('vi-VN')}đ`);
+    if (embroideryCost > 0) breakdownParts.push(`Thêu: ${Number(embroideryCost).toLocaleString('vi-VN')}đ`);
     const extraDetailStr = breakdownParts.length > 0 ? ` + ${breakdownParts.join(' + ')}` : '';
 
     const getRankStyles = (idx) => {
@@ -1257,6 +1295,18 @@ function renderMobileCalcResults() {
                 <div style="font-size:9px;color:#475569;margin-top:6px;border-top:1px dashed #fbcfe8;padding-top:4px;">
                     Q = ${qty3d} áo | Màu = ${_mobileBgg.screenColors} màu | 
                     ${qty3d < 20 ? `Tổng gộp: ${Math.round(screenCost * qty3d).toLocaleString('vi-VN')}đ / đơn` : `Đơn giá: ${Math.round(screenCost).toLocaleString('vi-VN')}đ / áo`}
+                </div>
+            </div>
+        `;
+    }
+
+    // 1d. Embroidery summary
+    if (embroideryEnabled && embroideryCost > 0) {
+        html += `
+            <div style="background:#faf5ff;border:1.5px solid #e9d5ff;border-radius:12px;padding:10px;margin-bottom:14px;">
+                <div style="font-size:11px;font-weight:800;color:#6b21a8;text-transform:uppercase;margin-bottom:6px;">🪡 Chi phí thêu (cho 1 áo)</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <div style="background:#6b21a8;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#e9d5ff;font-weight:700;">Tổng</div><div style="font-size:13px;font-weight:800;color:white;">${Number(embroideryCost).toLocaleString('vi-VN')}đ</div></div>
                 </div>
             </div>
         `;

@@ -17,7 +17,9 @@ var _bgg = {
     print3dCost: 0,
     screenEnabled: false,
     screenSupplier: '',
-    screenColors: ''
+    screenColors: '',
+    embroideryEnabled: false,
+    embroideryCost: ''
 };
 
 var _BGG_3D_SUPPLIERS = [];
@@ -312,6 +314,22 @@ async function renderBaogiagocPage(content) {
                         </div>
                     </div>
 
+                    <!-- Embroidery Section -->
+                    <div style="background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 12px; padding: 16px; margin-top: 12px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                            <label style="font-weight: 800; font-size: 13.5px; color: #6b21a8; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
+                                <input type="checkbox" id="bgg_enable_embroidery" style="width: 16px; height: 16px; cursor: pointer;" onchange="_bggToggleEmbroiderySection(this.checked)">
+                                🪡 Chi phí thêu
+                            </label>
+                        </div>
+                        <div id="bgg_embroidery_info" style="display: none; margin-top: 10px; border-top: 1px dashed #e9d5ff; padding-top: 10px;">
+                            <div>
+                                <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 4px;">Giá tiền thêu (đ/áo)</label>
+                                <input type="number" id="bgg_embroidery_cost" class="bgg-input" placeholder="Nhập giá tiền thêu" oninput="_bggSaveEmbroideryConfigs(); _bggRenderCalcResults();" min="0" style="width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+
                     <button class="bgg-btn-calc" onclick="_bggRunCalculation()">🧮 Tính toán & So sánh</button>
                 </div>
 
@@ -338,6 +356,9 @@ async function renderBaogiagocPage(content) {
     const enableScreenCb = document.getElementById('bgg_enable_screen');
     if (enableScreenCb) enableScreenCb.checked = _bgg.screenEnabled;
     _bggToggleScreenSection(_bgg.screenEnabled);
+    const enableEmbroideryCb = document.getElementById('bgg_enable_embroidery');
+    if (enableEmbroideryCb) enableEmbroideryCb.checked = _bgg.embroideryEnabled;
+    _bggToggleEmbroiderySection(_bgg.embroideryEnabled);
     _bggRenderPresetsOnForm();
 
     await _bggLoadData();
@@ -544,6 +565,10 @@ function _bggLoadPetConfigs() {
     _bgg.screenEnabled = false;
     _bgg.screenColors = '';
     _bgg.screenSupplier = localStorage.getItem('bgg_screen_supplier') || '';
+
+    // Load embroidery configs (always disabled on page load/F5)
+    _bgg.embroideryEnabled = false;
+    _bgg.embroideryCost = '';
 }
 
 function _bggSavePetConfigs() {
@@ -756,6 +781,21 @@ function _bggRenderScreenSupplierDisplay() {
                 ${qty < threshold ? `(Tổng đơn: ${Number(cost * qty).toLocaleString('vi-VN')}đ)` : ''}
             </div>
         `;
+    }
+}
+
+function _bggToggleEmbroiderySection(enabled) {
+    _bgg.embroideryEnabled = enabled;
+    const infoDiv = document.getElementById('bgg_embroidery_info');
+    if (infoDiv) infoDiv.style.display = enabled ? 'block' : 'none';
+    _bggSaveEmbroideryConfigs();
+    _bggRenderCalcResults();
+}
+
+function _bggSaveEmbroideryConfigs() {
+    const costInput = document.getElementById('bgg_embroidery_cost');
+    if (costInput) {
+        _bgg.embroideryCost = costInput.value;
     }
 }
 
@@ -1115,6 +1155,17 @@ async function _bggRunCalculation() {
         }
     }
 
+    // Embroidery validation: require price when enabled
+    const embroideryOn = document.getElementById('bgg_enable_embroidery')?.checked;
+    if (embroideryOn) {
+        const embroideryPrice = Number(document.getElementById('bgg_embroidery_cost')?.value) || 0;
+        if (embroideryPrice <= 0) {
+            if (typeof showToast === 'function') showToast('Vui lòng nhập Giá tiền thêu (> 0)!', 'error');
+            document.getElementById('bgg_embroidery_cost').focus();
+            return;
+        }
+    }
+
     const resultsCard = document.getElementById('bgg_results_card');
     resultsCard.innerHTML = '<div style="text-align: center; padding: 80px 20px; color: #64748b; font-weight: 600; font-size: 14px;">⏳ Đang tính toán và tối ưu so sánh dữ liệu...</div>';
 
@@ -1163,7 +1214,9 @@ function _bggRenderCalcResults() {
     const calc3d = _bggCalc3dCost(qty3d);
     const print3dCost = calc3d.total;
     const screenCost = _bggCalcScreenCost(qty3d);
-    const extraCost = petCost + sewingCost + collarCost + print3dCost + screenCost;
+    const embroideryEnabled = document.getElementById('bgg_enable_embroidery')?.checked;
+    const embroideryCost = embroideryEnabled ? (Number(document.getElementById('bgg_embroidery_cost')?.value) || 0) : 0;
+    const extraCost = petCost + sewingCost + collarCost + print3dCost + screenCost + embroideryCost;
     
     const breakdownParts = [];
     if (petCost > 0) breakdownParts.push(`PET: ${Number(petCost).toLocaleString('vi-VN')}đ`);
@@ -1171,6 +1224,7 @@ function _bggRenderCalcResults() {
     if (collarCost > 0) breakdownParts.push(`Cổ: ${Number(collarCost).toLocaleString('vi-VN')}đ`);
     if (print3dCost > 0) breakdownParts.push(`3D: ${Number(print3dCost).toLocaleString('vi-VN')}đ`);
     if (screenCost > 0) breakdownParts.push(`Lưới: ${Number(screenCost).toLocaleString('vi-VN')}đ`);
+    if (embroideryCost > 0) breakdownParts.push(`Thêu: ${Number(embroideryCost).toLocaleString('vi-VN')}đ`);
     const extraDetailStr = breakdownParts.length > 0 ? ` + ${breakdownParts.join(' + ')}` : '';
 
     const getRankStyles = (idx) => {
@@ -1300,6 +1354,23 @@ function _bggRenderCalcResults() {
                 <div style="font-size: 11px; color: #475569; margin-top: 8px; border-top: 1px dashed #fbcfe8; padding-top: 6px;">
                     Cấu hình tính toán: Q = ${qty3d} áo | Màu = ${_bgg.screenColors} màu | 
                     ${qty3d < 20 ? `Dưới 20 áo (gộp): <strong>${Math.round(screenCost * qty3d).toLocaleString('vi-VN')}đ / đơn</strong>` : `Từ 20 áo trở lên: Đơn giá <strong>${Math.round(screenCost).toLocaleString('vi-VN')}đ / áo</strong>`}
+                </div>
+            </div>
+        `;
+    }
+
+    // Render Embroidery summary
+    if (embroideryEnabled && embroideryCost > 0) {
+        html += `
+            <div style="background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 12px; padding: 14px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="font-size: 13px; font-weight: 800; color: #6b21a8; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    🪡 Chi phí thêu dự kiến (cho 1 áo)
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <div style="background: #6b21a8; border-radius: 8px; padding: 10px 14px;">
+                        <div style="font-size: 10px; color: #e9d5ff; font-weight: 700; text-transform: uppercase;">Tổng / áo</div>
+                        <div style="font-size: 15px; font-weight: 800; color: white;">${Number(embroideryCost).toLocaleString('vi-VN')} đ</div>
+                    </div>
                 </div>
             </div>
         `;
