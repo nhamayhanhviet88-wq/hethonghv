@@ -55,13 +55,13 @@ async function initMobileBaogiagocPage() {
     const setupBtn = document.getElementById('m_btn_setup');
     const priceTemBtn = document.getElementById('m_btn_price_tem');
     const pricePetBtn = document.getElementById('m_btn_price_pet');
+    if (priceTemBtn) priceTemBtn.style.display = 'block';
+    if (pricePetBtn) pricePetBtn.style.display = 'block';
+    if (typeof _mUpdateHeaderPriceButtons === 'function') {
+        _mUpdateHeaderPriceButtons();
+    }
     if (isDirector) {
         if (setupBtn) setupBtn.style.display = 'block';
-        if (priceTemBtn) priceTemBtn.style.display = 'block';
-        if (pricePetBtn) pricePetBtn.style.display = 'block';
-        if (typeof _mUpdateHeaderPriceButtons === 'function') {
-            _mUpdateHeaderPriceButtons();
-        }
     }
     const priceInput = document.getElementById('m_pet_sheet_price');
     if (priceInput) {
@@ -2580,6 +2580,8 @@ window._mOpenFormulaModal = async function(type) {
         _mobileBgg.formulaMaterials = allMaterials;
         _mobileBgg.formulaPrices = priceMap;
         _mobileBgg.currentFormulaRows = formula;
+
+        const isDirector = typeof window.currentUser !== 'undefined' && window.currentUser && window.currentUser.role === 'giam_doc';
         
         // Remove existing modal if any
         const existing = document.getElementById('m_formula_modal');
@@ -2605,9 +2607,11 @@ window._mOpenFormulaModal = async function(type) {
                         <!-- Rendered rows -->
                     </div>
                     
-                    <button onclick="_mFormulaAddRow()" style="align-self: flex-start; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 12px; font-size: 11.5px; font-weight: 700; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 4px; outline: none; margin-top: 4px;">
-                        ➕ Thêm vật tư
-                    </button>
+                    ${isDirector ? `
+                        <button onclick="_mFormulaAddRow()" style="align-self: flex-start; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 12px; font-size: 11.5px; font-weight: 700; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 4px; outline: none; margin-top: 4px;">
+                            ➕ Thêm vật tư
+                        </button>
+                    ` : ''}
                     
                     <!-- Summary block -->
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
@@ -2623,8 +2627,10 @@ window._mOpenFormulaModal = async function(type) {
                 </div>
                 <!-- Footer -->
                 <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; border-radius: 0 0 16px 16px; position: sticky; bottom: 0;">
-                    <button onclick="_mCloseFormulaModal()" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: #475569; cursor: pointer; outline: none;">Hủy</button>
-                    <button onclick="_mSaveFormulaModal()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 700; color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(16,185,129,0.15); outline: none;">Lưu</button>
+                    <button onclick="_mCloseFormulaModal()" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: #475569; cursor: pointer; outline: none;">${isDirector ? 'Hủy' : 'Đóng'}</button>
+                    ${isDirector ? `
+                        <button onclick="_mSaveFormulaModal()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 700; color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(16,185,129,0.15); outline: none;">Lưu</button>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -2716,6 +2722,7 @@ window._mRenderFormulaRows = function() {
     const container = document.getElementById('m_formula_rows_list');
     if (!container) return;
     
+    const isDirector = typeof window.currentUser !== 'undefined' && window.currentUser && window.currentUser.role === 'giam_doc';
     const rows = _mobileBgg.currentFormulaRows || [];
     if (rows.length === 0) {
         container.innerHTML = `
@@ -2745,7 +2752,7 @@ window._mRenderFormulaRows = function() {
             // Build source dropdown options
             selectSourceHtml = `
                 <div style="flex: 1;">
-                    <select onchange="_mFormulaUpdateRow(${index}, 'source_id', this.value)" class="m-input" style="padding: 6px 8px; font-size: 11px; font-weight: 600; outline: none; background: white; height: auto;">
+                    <select ${isDirector ? '' : 'disabled'} onchange="_mFormulaUpdateRow(${index}, 'source_id', this.value)" class="m-input" style="padding: 6px 8px; font-size: 11px; font-weight: 600; outline: none; background: ${isDirector ? 'white' : '#f1f5f9'}; height: auto;">
                         <option value="">-- Nguồn rẻ nhất --</option>
                         ${prices.map(p => `<option value="${p.source_id}" ${String(p.source_id) === String(row.source_id) ? 'selected' : ''}>${p.source_name}</option>`).join('')}
                     </select>
@@ -2792,13 +2799,15 @@ window._mRenderFormulaRows = function() {
                 <div style="display: flex; gap: 6px; align-items: center;">
                     <!-- Material select -->
                     <div style="flex: 1;">
-                        <select onchange="_mFormulaUpdateRow(${index}, 'material_id', this.value)" class="m-input" style="padding: 6px 8px; font-size: 12px; font-weight: 600; outline: none; background: white; height: auto;">
+                        <select ${isDirector ? '' : 'disabled'} onchange="_mFormulaUpdateRow(${index}, 'material_id', this.value)" class="m-input" style="padding: 6px 8px; font-size: 12px; font-weight: 600; outline: none; background: ${isDirector ? 'white' : '#f1f5f9'}; height: auto;">
                             <option value="">-- Chọn vật tư --</option>
                             ${_mobileBgg.formulaMaterials.map(m => `<option value="${m.id}" ${Number(m.id) === Number(row.material_id) ? 'selected' : ''}>${m.name} (${m.unit || 'đơn vị'})</option>`).join('')}
                         </select>
                     </div>
                     <!-- Delete button -->
+                    ${isDirector ? `
                     <button onclick="_mFormulaRemoveRow(${index})" style="background: #fee2e2; border: none; border-radius: 6px; padding: 6px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 32px; width: 32px; flex-shrink: 0;" title="Xóa">🗑️</button>
+                    ` : ''}
                 </div>
                 <!-- Source Select -->
                 <div style="display: flex; gap: 6px; align-items: center;">
@@ -2809,7 +2818,7 @@ window._mRenderFormulaRows = function() {
                     <!-- Quantity input -->
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10.5px; font-weight: 700; color: #475569; width: 55px; flex-shrink: 0;">Cần dùng:</span>
-                        <input type="text" value="${row.quantity || ''}" oninput="_mFormulaUpdateQtyMemory(${index}, this.value)" class="m-input" style="width: 55px; padding: 4px 6px; font-size: 11px; text-align: center; height: auto;" placeholder="SL">
+                        <input type="text" value="${row.quantity || ''}" ${isDirector ? '' : 'disabled'} oninput="_mFormulaUpdateQtyMemory(${index}, this.value)" class="m-input" style="width: 55px; padding: 4px 6px; font-size: 11px; text-align: center; height: auto; background: ${isDirector ? 'white' : '#f1f5f9'};" placeholder="SL">
                         <span style="font-size: 10.5px; font-weight: 700; color: #475569; white-space: nowrap; max-width: 45px; overflow: hidden; text-overflow: ellipsis;" title="${unit}">${unit}</span>
                     </div>
                     <!-- Cost display -->

@@ -3031,6 +3031,7 @@ window._bggRenderFormulaRows = function() {
     const container = document.getElementById('bgg_formula_rows_list');
     if (!container) return;
     
+    const isDirector = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
     const rows = _bgg.currentFormulaRows || [];
     if (rows.length === 0) {
         container.innerHTML = `
@@ -3060,7 +3061,7 @@ window._bggRenderFormulaRows = function() {
             // Build source dropdown options
             selectSourceHtml = `
                 <div style="flex: 1.2; min-width: 160px;">
-                    <select onchange="_bggFormulaUpdateRow(${index}, 'source_id', this.value)" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; background: white; height: auto;">
+                    <select ${isDirector ? '' : 'disabled'} onchange="_bggFormulaUpdateRow(${index}, 'source_id', this.value)" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; background: ${isDirector ? 'white' : '#f1f5f9'}; height: auto;">
                         <option value="">-- Nguồn rẻ nhất --</option>
                         ${prices.map(p => `<option value="${p.source_id}" ${String(p.source_id) === String(row.source_id) ? 'selected' : ''}>${p.source_name}</option>`).join('')}
                     </select>
@@ -3106,14 +3107,14 @@ window._bggRenderFormulaRows = function() {
             <div style="display: flex; gap: 12px; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; flex-wrap: wrap;">
                 <!-- Material select -->
                 <div style="flex: 1.5; min-width: 180px;">
-                    <select onchange="_bggFormulaUpdateRow(${index}, 'material_id', this.value)" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; background: white; height: auto;">
+                    <select ${isDirector ? '' : 'disabled'} onchange="_bggFormulaUpdateRow(${index}, 'material_id', this.value)" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; background: ${isDirector ? 'white' : '#f1f5f9'}; height: auto;">
                         <option value="">-- Chọn vật tư --</option>
                         ${_bgg.formulaMaterials.map(m => `<option value="${m.id}" ${Number(m.id) === Number(row.material_id) ? 'selected' : ''}>${m.name} (${m.unit || 'đơn vị'})</option>`).join('')}
                     </select>
                 </div>
                 <!-- Quantity input -->
                 <div style="width: 120px; display: flex; align-items: center; gap: 6px;">
-                    <input type="text" value="${row.quantity || ''}" oninput="_bggFormulaUpdateQtyMemory(${index}, this.value)" style="width: 75px; padding: 8px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; text-align: center;" placeholder="SL">
+                    <input type="text" value="${row.quantity || ''}" ${isDirector ? '' : 'disabled'} oninput="_bggFormulaUpdateQtyMemory(${index}, this.value)" style="width: 75px; padding: 8px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; text-align: center; background: ${isDirector ? 'white' : '#f1f5f9'};" placeholder="SL">
                     <span style="font-size: 12px; font-weight: 700; color: #475569; white-space: nowrap; max-width: 40px; overflow: hidden; text-overflow: ellipsis;" title="${unit}">${unit}</span>
                 </div>
                 <!-- Source selection select -->
@@ -3123,9 +3124,11 @@ window._bggRenderFormulaRows = function() {
                     ${sourceHtml}
                 </div>
                 <!-- Delete action -->
+                ${isDirector ? `
                 <div>
                     <button onclick="_bggFormulaRemoveRow(${index})" style="background: #fee2e2; border: none; border-radius: 6px; padding: 8px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'" title="Xóa">🗑️</button>
                 </div>
+                ` : ''}
             </div>
         `;
     });
