@@ -1610,11 +1610,13 @@ function _bggRenderCalcResults() {
                 res.calculations.forEach(calc => {
                     const rangeCalc = calc.range_calcs && calc.range_calcs.length > 0 ? calc.range_calcs[0] : null;
                     const hasQty = res.quantity !== null && res.quantity > 0;
-                    const price = (hasQty && rangeCalc && rangeCalc.range_prices[s.source_id])
-                        ? rangeCalc.range_prices[s.source_id]
-                        : calc.overall_prices[s.source_id];
-                    if (price) {
-                        const finalPrice = Number(price) + extraCost;
+                    const ratio = (hasQty && rangeCalc && rangeCalc.range_ratio)
+                        ? rangeCalc.range_ratio
+                        : calc.overall_ratio;
+
+                    if (ratio && ratio > 0) {
+                        const priceMin = Math.round(Number(s.min_price) / ratio) + extraCost;
+                        const priceMax = Math.round(Number(s.max_price) / ratio) + extraCost;
                         const cleanSeg = (calc.segment || '').trim();
                         let color = '#2563eb';
                         if (cleanSeg === 'Người Lớn') color = '#2563eb';
@@ -1627,10 +1629,17 @@ function _bggRenderCalcResults() {
                             color = colors[hash % colors.length];
                         }
 
-                        if (res.calculations.length > 1) {
-                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${calc.segment}: ${Number(finalPrice).toLocaleString('vi-VN')} đ</span>`);
+                        let displayVal = '';
+                        if (s.min_price === s.max_price) {
+                            displayVal = `${priceMin.toLocaleString('vi-VN')} đ`;
                         } else {
-                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${Number(finalPrice).toLocaleString('vi-VN')} đ</span>`);
+                            displayVal = `${priceMin.toLocaleString('vi-VN')} - ${priceMax.toLocaleString('vi-VN')} đ`;
+                        }
+
+                        if (res.calculations.length > 1) {
+                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${calc.segment}: ${displayVal}</span>`);
+                        } else {
+                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${displayVal}</span>`);
                         }
                     }
                 });
@@ -1643,7 +1652,12 @@ function _bggRenderCalcResults() {
                         <input type="radio" name="bgg_supplier_radio" value="${s.source_id}" ${isChecked ? 'checked' : ''} style="cursor: pointer;" onclick="event.stopPropagation(); _bggSelectCalcSupplier('${s.source_id}')">
                     </td>
                     <td style="padding: 10px 12px; font-weight: 600; color: #1e293b;">${s.source_name}</td>
-                    <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: #4f46e5;">${Number(s.price).toLocaleString('vi-VN')} đ / ${res.unit}</td>
+                    <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: #4f46e5; line-height: 1.4;">
+                        ${s.min_price !== s.max_price ? `
+                            <span style="font-size: 11px; color: #64748b; font-weight: 600;">Thấp nhất:</span> ${Number(s.min_price).toLocaleString('vi-VN')} đ<br>
+                            <span style="font-size: 11px; color: #b91c1c; font-weight: 600;">Cao nhất:</span> ${Number(s.max_price).toLocaleString('vi-VN')} đ
+                        ` : `${Number(s.min_price).toLocaleString('vi-VN')} đ`} / ${res.unit}
+                    </td>
                     <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: #1e293b; font-size: 13px;">${priceDisplay}</td>
                 </tr>
             `;
@@ -1778,31 +1792,63 @@ function _bggRenderCalcResults() {
                                         const finalNameColor = isSelected ? styles.nameColor : '#64748b';
                                         const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
                                         const finalWeight = isSelected ? styles.fontWeight : 'normal';
+
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(sp.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / rangeCalc.range_ratio) + extraCost : sp.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / rangeCalc.range_ratio) + extraCost : sp.price + extraCost;
+                                        const minBasePrice = origSupplier ? Number(origSupplier.min_price) : sp.base_price;
+                                        const maxBasePrice = origSupplier ? Number(origSupplier.max_price) : sp.base_price;
+
+                                        const displayFinalPrice = minPriceFinal === maxPriceFinal 
+                                            ? `${minPriceFinal.toLocaleString('vi-VN')} đ / áo`
+                                            : `${minPriceFinal.toLocaleString('vi-VN')} - ${maxPriceFinal.toLocaleString('vi-VN')} đ / áo`;
+                                            
+                                        const displayBasePrice = minBasePrice === maxBasePrice
+                                            ? `${minBasePrice.toLocaleString('vi-VN')}đ`
+                                            : `Gốc: ${minBasePrice.toLocaleString('vi-VN')}đ - ${maxBasePrice.toLocaleString('vi-VN')}đ`;
+
                                         return `
                                             <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 2px 0;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
                                                 <div style="text-align: right; line-height: 1.2;">
                                                     <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                        ${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ / áo
+                                                        ${displayFinalPrice}
                                                     </span>
-                                                    ${extraCost > 0 ? `
+                                                    ${extraCost > 0 || minBasePrice !== maxBasePrice ? `
                                                         <div style="font-size: 10px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
+                                                            (${displayBasePrice}${extraCost > 0 ? extraDetailStr : ''})
                                                         </div>
                                                     ` : ''}
                                                 </div>
                                             </div>
                                         `;
                                     }).join('')}
-                                    ${selectedId !== 'all' && activeCheapestRange ? `
-                                        <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền: ${Math.round((activeCheapestRange.price + extraCost) * res.quantity).toLocaleString('vi-VN')} đ
-                                        </div>
-                                    ` : selectedId === 'all' && rangeSupplierPrices.length > 0 ? `
-                                        <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền (tối ưu): ${Math.round((rangeSupplierPrices[0].price + extraCost) * res.quantity).toLocaleString('vi-VN')} đ
-                                        </div>
-                                    ` : ''}
+                                    ${selectedId !== 'all' && activeCheapestRange ? (() => {
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(activeCheapestRange.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / rangeCalc.range_ratio) + extraCost : activeCheapestRange.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / rangeCalc.range_ratio) + extraCost : activeCheapestRange.price + extraCost;
+                                        const displayTotal = minPriceFinal === maxPriceFinal
+                                            ? `${Math.round(minPriceFinal * res.quantity).toLocaleString('vi-VN')} đ`
+                                            : `${Math.round(minPriceFinal * res.quantity).toLocaleString('vi-VN')} - ${Math.round(maxPriceFinal * res.quantity).toLocaleString('vi-VN')} đ`;
+                                        return `
+                                            <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                                💰 Tổng tiền: ${displayTotal}
+                                            </div>
+                                        `;
+                                    })() : selectedId === 'all' && rangeSupplierPrices.length > 0 ? (() => {
+                                        const cheapestSp = rangeSupplierPrices[0];
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(cheapestSp.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / rangeCalc.range_ratio) + extraCost : cheapestSp.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / rangeCalc.range_ratio) + extraCost : cheapestSp.price + extraCost;
+                                        const displayTotal = minPriceFinal === maxPriceFinal
+                                            ? `${Math.round(minPriceFinal * res.quantity).toLocaleString('vi-VN')} đ`
+                                            : `${Math.round(minPriceFinal * res.quantity).toLocaleString('vi-VN')} - ${Math.round(maxPriceFinal * res.quantity).toLocaleString('vi-VN')} đ`;
+                                        return `
+                                            <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                                💰 Tổng tiền (tối ưu): ${displayTotal}
+                                            </div>
+                                        `;
+                                    })() : ''}
                                 </div>
                             ` : `<div style="font-size: 12px; color: ${rangeSub}; font-style: italic; border-top: 1px dashed ${rangeBorder}; padding-top: 8px; margin-top: 8px;">Không có thực tế cho khung này</div>`}
                         </div>
@@ -1830,31 +1876,63 @@ function _bggRenderCalcResults() {
                                         const finalNameColor = isSelected ? styles.nameColor : '#64748b';
                                         const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
                                         const finalWeight = isSelected ? styles.fontWeight : 'normal';
+
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(sp.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / calc.overall_ratio) + extraCost : sp.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / calc.overall_ratio) + extraCost : sp.price + extraCost;
+                                        const minBasePrice = origSupplier ? Number(origSupplier.min_price) : sp.base_price;
+                                        const maxBasePrice = origSupplier ? Number(origSupplier.max_price) : sp.base_price;
+
+                                        const displayFinalPrice = minPriceFinal === maxPriceFinal 
+                                            ? `${minPriceFinal.toLocaleString('vi-VN')} đ / áo`
+                                            : `${minPriceFinal.toLocaleString('vi-VN')} - ${maxPriceFinal.toLocaleString('vi-VN')} đ / áo`;
+                                            
+                                        const displayBasePrice = minBasePrice === maxBasePrice
+                                            ? `${minBasePrice.toLocaleString('vi-VN')}đ`
+                                            : `Gốc: ${minBasePrice.toLocaleString('vi-VN')}đ - ${maxBasePrice.toLocaleString('vi-VN')}đ`;
+
                                         return `
                                             <div style="display: flex; justify-content: space-between; align-items: center; font-weight: ${finalWeight}; padding: 2px 0;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
                                                 <div style="text-align: right; line-height: 1.2;">
                                                     <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                        ${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ / áo
+                                                        ${displayFinalPrice}
                                                     </span>
-                                                    ${extraCost > 0 ? `
+                                                    ${extraCost > 0 || minBasePrice !== maxBasePrice ? `
                                                         <div style="font-size: 10px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
+                                                            (${displayBasePrice}${extraCost > 0 ? extraDetailStr : ''})
                                                         </div>
                                                     ` : ''}
                                                 </div>
                                             </div>
                                         `;
                                     }).join('')}
-                                    ${selectedId !== 'all' && activeCheapestOverall ? `
-                                        <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền: ${Math.round((activeCheapestOverall.price + extraCost) * res.quantity).toLocaleString('vi-VN')} đ
-                                        </div>
-                                    ` : selectedId === 'all' && overallSupplierPrices.length > 0 ? `
-                                        <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền (tối ưu): ${Math.round((overallSupplierPrices[0].price + extraCost) * res.quantity).toLocaleString('vi-VN')} đ
-                                        </div>
-                                    ` : ''}
+                                    ${selectedId !== 'all' && activeCheapestOverall ? (() => {
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(activeCheapestOverall.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / calc.overall_ratio) + extraCost : activeCheapestOverall.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / calc.overall_ratio) + extraCost : activeCheapestOverall.price + extraCost;
+                                        const displayTotal = minPriceFinal === maxPriceFinal
+                                            ? `${Math.round(minPriceFinal * res.quantity).toLocaleString('vi-VN')} đ`
+                                            : `${Math.round(minPriceFinal * res.quantity).toLocaleString('vi-VN')} - ${Math.round(maxPriceFinal * res.quantity).toLocaleString('vi-VN')} đ`;
+                                        return `
+                                            <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                                💰 Tổng tiền: ${displayTotal}
+                                            </div>
+                                        `;
+                                    })() : selectedId === 'all' && overallSupplierPrices.length > 0 ? (() => {
+                                        const cheapestSp = overallSupplierPrices[0];
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(cheapestSp.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / calc.overall_ratio) + extraCost : cheapestSp.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / calc.overall_ratio) + extraCost : cheapestSp.price + extraCost;
+                                        const displayTotal = minPriceFinal === maxPriceFinal
+                                            ? `${Math.round(minPriceFinal * res.quantity).toLocaleString('vi-VN')} đ`
+                                            : `${Math.round(minPriceFinal * res.quantity).toLocaleString('vi-VN')} - ${Math.round(maxPriceFinal * res.quantity).toLocaleString('vi-VN')} đ`;
+                                        return `
+                                            <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+                                                💰 Tổng tiền (tối ưu): ${displayTotal}
+                                            </div>
+                                        `;
+                                    })() : ''}
                                 </div>
                             ` : `<div style="font-size: 12px; color: ${overallSub}; font-style: italic; border-top: 1px dashed ${overallBorder}; padding-top: 8px; margin-top: 8px;">Không có thực tế toàn chất liệu</div>`}
                         </div>
@@ -1884,13 +1962,28 @@ function _bggRenderCalcResults() {
                                         const finalNameColor = isSelected ? styles.nameColor : '#64748b';
                                         const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
                                         const finalWeight = isSelected ? styles.fontWeight : 'normal';
+
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(sp.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / calc.overall_ratio) + extraCost : sp.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / calc.overall_ratio) + extraCost : sp.price + extraCost;
+                                        const minBasePrice = origSupplier ? Number(origSupplier.min_price) : sp.base_price;
+                                        const maxBasePrice = origSupplier ? Number(origSupplier.max_price) : sp.base_price;
+
+                                        const displayFinalPrice = minPriceFinal === maxPriceFinal 
+                                            ? `${minPriceFinal.toLocaleString('vi-VN')} đ / áo`
+                                            : `${minPriceFinal.toLocaleString('vi-VN')} - ${maxPriceFinal.toLocaleString('vi-VN')} đ / áo`;
+                                            
+                                        const displayBasePrice = minBasePrice === maxBasePrice
+                                            ? `${minBasePrice.toLocaleString('vi-VN')}đ`
+                                            : `Gốc: ${minBasePrice.toLocaleString('vi-VN')}đ - ${maxBasePrice.toLocaleString('vi-VN')}đ`;
+
                                         return `
                                             <div style="font-weight: ${finalWeight}; line-height: 1.3; margin-bottom: 4px;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}:</span>
-                                                <strong style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ / áo</strong>
-                                                ${extraCost > 0 ? `
+                                                <strong style="color: ${finalPriceColor}; font-weight: 800;">${displayFinalPrice}</strong>
+                                                ${extraCost > 0 || minBasePrice !== maxBasePrice ? `
                                                     <div style="font-size: 10.5px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                        (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
+                                                        (${displayBasePrice}${extraCost > 0 ? extraDetailStr : ''})
                                                     </div>
                                                 ` : ''}
                                             </div>

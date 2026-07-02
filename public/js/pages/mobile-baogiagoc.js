@@ -1551,11 +1551,13 @@ function renderMobileCalcResults() {
                 res.calculations.forEach(calc => {
                     const rangeCalc = calc.range_calcs && calc.range_calcs.length > 0 ? calc.range_calcs[0] : null;
                     const hasQty = res.quantity !== null && res.quantity > 0;
-                    const price = (hasQty && rangeCalc && rangeCalc.range_prices[ap.source_id])
-                        ? rangeCalc.range_prices[ap.source_id]
-                        : calc.overall_prices[ap.source_id];
-                    if (price) {
-                        const finalPrice = Number(price) + extraCost;
+                    const ratio = (hasQty && rangeCalc && rangeCalc.range_ratio)
+                        ? rangeCalc.range_ratio
+                        : calc.overall_ratio;
+
+                    if (ratio && ratio > 0) {
+                        const priceMin = Math.round(Number(ap.min_price) / ratio) + extraCost;
+                        const priceMax = Math.round(Number(ap.max_price) / ratio) + extraCost;
                         const cleanSeg = (calc.segment || '').trim();
                         let color = '#2563eb';
                         if (cleanSeg === 'Người Lớn') color = '#2563eb';
@@ -1563,25 +1565,36 @@ function renderMobileCalcResults() {
                         else if (cleanSeg === 'Tiểu Học') color = '#059669';
                         else if (cleanSeg === 'Oversize') color = '#ea580c';
 
-                        if (res.calculations.length > 1) {
-                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${calc.segment}: ${Number(finalPrice).toLocaleString('vi-VN')}đ</span>`);
+                        let displayVal = '';
+                        if (ap.min_price === ap.max_price) {
+                            displayVal = `${priceMin.toLocaleString('vi-VN')}đ`;
                         } else {
-                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${Number(finalPrice).toLocaleString('vi-VN')}đ</span>`);
+                            displayVal = `${priceMin.toLocaleString('vi-VN')} - ${priceMax.toLocaleString('vi-VN')}đ`;
+                        }
+
+                        if (res.calculations.length > 1) {
+                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${calc.segment}: ${displayVal}</span>`);
+                        } else {
+                            priceTexts.push(`<span style="color: ${color}; font-weight: 700;">${displayVal}</span>`);
                         }
                     }
                 });
             }
             const priceDisplay = priceTexts.length > 0 ? priceTexts.join('<br>') : '—';
 
+            const displayBasePrice = ap.min_price === ap.max_price
+                ? `${Number(ap.min_price).toLocaleString('vi-VN')} đ`
+                : `Thấp nhất: ${Number(ap.min_price).toLocaleString('vi-VN')}đ<br>Cao nhất: ${Number(ap.max_price).toLocaleString('vi-VN')}đ`;
+
             html += `
-                <div class="results-supplier-card" style="background: ${isChecked ? '#e0f2fe' : 'transparent'}; border: 1px solid ${isChecked ? '#bae6fd' : 'transparent'};" onclick="selectMobileCalcSupplier('${ap.source_id}')">
-                    <input type="radio" name="m_supplier_radio" value="${ap.source_id}" ${isChecked ? 'checked' : ''} style="margin: 0; width: 15px; height: 15px;" onclick="event.stopPropagation(); selectMobileCalcSupplier('${ap.source_id}')">
-                    <div style="flex: 1; font-size: 11.5px; font-weight: 700; color: #334155; line-height: 1.2;">
+                <div class="results-supplier-card" style="background: ${isChecked ? '#e0f2fe' : 'transparent'}; border: 1px solid ${isChecked ? '#bae6fd' : 'transparent'}; align-items: flex-start; padding: 8px 10px;" onclick="selectMobileCalcSupplier('${ap.source_id}')">
+                    <input type="radio" name="m_supplier_radio" value="${ap.source_id}" ${isChecked ? 'checked' : ''} style="margin: 3px 0 0 0; width: 15px; height: 15px;" onclick="event.stopPropagation(); selectMobileCalcSupplier('${ap.source_id}')">
+                    <div style="flex: 1; font-size: 11.5px; font-weight: 700; color: #334155; line-height: 1.3; margin-left: 6px;">
                         <div>${ap.source_name}</div>
-                        <div style="font-size: 10.5px; color: #64748b; font-weight: normal;">Gốc: ${Number(ap.price).toLocaleString('vi-VN')} đ / ${res.unit}</div>
+                        <div style="font-size: 10px; color: #64748b; font-weight: normal; margin-top: 2px; line-height: 1.2;">${displayBasePrice} / ${res.unit}</div>
                     </div>
-                    <div style="text-align: right; font-size: 11.5px; font-weight: 800; color: #1e293b; line-height: 1.2;">
-                        <div style="font-size: 9.5px; color: #64748b; font-weight: normal;">Thành phẩm:</div>
+                    <div style="text-align: right; font-size: 11.5px; font-weight: 800; color: #1e293b; line-height: 1.3;">
+                        <div style="font-size: 9.5px; color: #64748b; font-weight: normal; margin-bottom: 2px;">Thành phẩm:</div>
                         <div>${priceDisplay}</div>
                     </div>
                 </div>
@@ -1709,16 +1722,31 @@ function renderMobileCalcResults() {
                                         const styles = getRankStyles(idx);
                                         const finalNameColor = isSelected ? styles.nameColor : '#64748b';
                                         const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
+
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(sp.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / rangeCalc.range_ratio) + extraCost : sp.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / rangeCalc.range_ratio) + extraCost : sp.price + extraCost;
+                                        const minBasePrice = origSupplier ? Number(origSupplier.min_price) : sp.base_price;
+                                        const maxBasePrice = origSupplier ? Number(origSupplier.max_price) : sp.base_price;
+
+                                        const displayFinalPrice = minPriceFinal === maxPriceFinal 
+                                            ? `${minPriceFinal.toLocaleString('vi-VN')} đ`
+                                            : `${minPriceFinal.toLocaleString('vi-VN')} - ${maxPriceFinal.toLocaleString('vi-VN')} đ`;
+                                            
+                                        const displayBasePrice = minBasePrice === maxBasePrice
+                                            ? `${minBasePrice.toLocaleString('vi-VN')}đ`
+                                            : `Gốc: ${minBasePrice.toLocaleString('vi-VN')}đ - ${maxBasePrice.toLocaleString('vi-VN')}đ`;
+
                                         return `
                                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 1px 0;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
                                                 <div style="text-align: right; line-height: 1.2;">
                                                     <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                        ${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ
+                                                        ${displayFinalPrice}
                                                     </span>
-                                                    ${extraCost > 0 ? `
+                                                    ${extraCost > 0 || minBasePrice !== maxBasePrice ? `
                                                         <div style="font-size: 9.5px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
+                                                            (${displayBasePrice}${extraCost > 0 ? extraDetailStr : ''})
                                                         </div>
                                                     ` : ''}
                                                 </div>
@@ -1751,16 +1779,31 @@ function renderMobileCalcResults() {
                                         const styles = getRankStyles(idx);
                                         const finalNameColor = isSelected ? styles.nameColor : '#64748b';
                                         const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
+
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(sp.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / calc.overall_ratio) + extraCost : sp.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / calc.overall_ratio) + extraCost : sp.price + extraCost;
+                                        const minBasePrice = origSupplier ? Number(origSupplier.min_price) : sp.base_price;
+                                        const maxBasePrice = origSupplier ? Number(origSupplier.max_price) : sp.base_price;
+
+                                        const displayFinalPrice = minPriceFinal === maxPriceFinal 
+                                            ? `${minPriceFinal.toLocaleString('vi-VN')} đ`
+                                            : `${minPriceFinal.toLocaleString('vi-VN')} - ${maxPriceFinal.toLocaleString('vi-VN')} đ`;
+                                            
+                                        const displayBasePrice = minBasePrice === maxBasePrice
+                                            ? `${minBasePrice.toLocaleString('vi-VN')}đ`
+                                            : `Gốc: ${minBasePrice.toLocaleString('vi-VN')}đ - ${maxBasePrice.toLocaleString('vi-VN')}đ`;
+
                                         return `
                                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 1px 0;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
                                                 <div style="text-align: right; line-height: 1.2;">
                                                     <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                        ${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ
+                                                        ${displayFinalPrice}
                                                     </span>
-                                                    ${extraCost > 0 ? `
+                                                    ${extraCost > 0 || minBasePrice !== maxBasePrice ? `
                                                         <div style="font-size: 9.5px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
+                                                            (${displayBasePrice}${extraCost > 0 ? extraDetailStr : ''})
                                                         </div>
                                                     ` : ''}
                                                 </div>
@@ -1795,12 +1838,27 @@ function renderMobileCalcResults() {
                                         const styles = getRankStyles(idx);
                                         const finalNameColor = isSelected ? styles.nameColor : '#64748b';
                                         const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
+
+                                        const origSupplier = res.suppliers.find(sup => String(sup.source_id) === String(sp.source_id));
+                                        const minPriceFinal = origSupplier ? Math.round(Number(origSupplier.min_price) / calc.overall_ratio) + extraCost : sp.price + extraCost;
+                                        const maxPriceFinal = origSupplier ? Math.round(Number(origSupplier.max_price) / calc.overall_ratio) + extraCost : sp.price + extraCost;
+                                        const minBasePrice = origSupplier ? Number(origSupplier.min_price) : sp.base_price;
+                                        const maxBasePrice = origSupplier ? Number(origSupplier.max_price) : sp.base_price;
+
+                                        const displayFinalPrice = minPriceFinal === maxPriceFinal 
+                                            ? `${minPriceFinal.toLocaleString('vi-VN')} đ`
+                                            : `${minPriceFinal.toLocaleString('vi-VN')} - ${maxPriceFinal.toLocaleString('vi-VN')} đ`;
+                                            
+                                        const displayBasePrice = minBasePrice === maxBasePrice
+                                            ? `${minBasePrice.toLocaleString('vi-VN')}đ`
+                                            : `Gốc: ${minBasePrice.toLocaleString('vi-VN')}đ - ${maxBasePrice.toLocaleString('vi-VN')}đ`;
+
                                         return `
                                             <div style="font-weight: 600; color: ${finalNameColor}; font-size: 11.5px; line-height: 1.3; margin-bottom: 4px;">
-                                                ${styles.icon}${sp.source_name}: <span style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ</span>
-                                                ${extraCost > 0 ? `
+                                                ${styles.icon}${sp.source_name}: <span style="color: ${finalPriceColor}; font-weight: 800;">${displayFinalPrice}</span>
+                                                ${extraCost > 0 || minBasePrice !== maxBasePrice ? `
                                                     <div style="font-size: 9.5px; color: #64748b; font-weight: normal; margin-top: 1px; padding-left: 14px;">
-                                                        (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
+                                                        (${displayBasePrice}${extraCost > 0 ? extraDetailStr : ''})
                                                     </div>
                                                 ` : ''}
                                             </div>

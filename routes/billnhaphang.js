@@ -3090,16 +3090,23 @@ module.exports = async function(fastify) {
                     WHERE ap.item_type = 'fabric' AND ap.fabric_color_id = $1
                     ORDER BY ap.price ASC
                 `, [Number(fabric_color_id)]);
+                prices.forEach(p => {
+                    p.min_price = p.price;
+                    p.max_price = p.price;
+                });
             } else {
                 prices = await db.all(`
-                    SELECT ap.source_id, s.name AS source_name, MIN(ap.price) AS price
+                    SELECT ap.source_id, s.name AS source_name, MIN(ap.price) AS min_price, MAX(ap.price) AS max_price
                     FROM approved_import_prices ap
                     JOIN import_sources s ON ap.source_id = s.id
                     WHERE ap.item_type = 'fabric' 
                       AND ap.fabric_color_id IN (SELECT id FROM kv_fabric_colors WHERE material_id = $1)
                     GROUP BY ap.source_id, s.name
-                    ORDER BY price ASC
+                    ORDER BY min_price ASC
                 `, [Number(material_id)]);
+                prices.forEach(p => {
+                    p.price = p.min_price;
+                });
             }
 
             // 4. Determine which segments to calculate
