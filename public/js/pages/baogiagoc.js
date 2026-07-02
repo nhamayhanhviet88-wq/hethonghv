@@ -19,7 +19,9 @@ var _bgg = {
     screenSupplier: '',
     screenColors: '',
     embroideryEnabled: false,
-    embroideryCost: ''
+    embroideryCost: '',
+    manuallySelected3dSupplier: false,
+    lastQty: 0
 };
 
 var _BGG_3D_SUPPLIERS = [];
@@ -856,14 +858,87 @@ function _bggToggle3dSection(enabled) {
     const setupBtn = document.getElementById('bgg_setup_3d_btn');
     if (infoDiv) infoDiv.style.display = enabled ? 'block' : 'none';
     if (setupBtn) setupBtn.style.display = enabled ? 'inline-block' : 'none';
+    if (enabled) {
+        _bgg.manuallySelected3dSupplier = false;
+        const qty = Number(document.getElementById('bgg_quantity')?.value) || 0;
+        if (qty > 0) {
+            _bggAutoSelectCheapest3dSupplier(qty);
+        }
+    }
     _bggSave3dConfigs();
     _bggRender3dSupplierDisplay();
     _bggRenderCalcResults();
 }
 
+function _bggAutoSelectCheapest3dSupplier(qty) {
+    if (_BGG_3D_SUPPLIERS.length === 0) return;
+    let cheapestSupplier = null;
+    let minCost = Infinity;
+
+    for (const supplier of _BGG_3D_SUPPLIERS) {
+        const config = _bggGet3dConfig(supplier.key);
+        if (!config || !config.print_tiers || config.print_tiers.length === 0) continue;
+
+        const mps = config.meters_per_shirt || 0.8;
+        const totalMeters = qty * mps;
+
+        let printPrice = 0;
+        for (const t of config.print_tiers) {
+            const tMin = Number(t.min) || 0;
+            const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+            if (totalMeters >= tMin && totalMeters < tMax) { printPrice = Number(t.price) || 0; break; }
+        }
+        if (printPrice === 0) {
+            for (const t of config.print_tiers) {
+                const tMin = Number(t.min) || 0;
+                const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+                if (totalMeters >= tMin && totalMeters <= tMax) { printPrice = Number(t.price) || 0; break; }
+            }
+        }
+        const printCostPerShirt = Math.round(printPrice * mps);
+
+        let laserPrice = 0;
+        if (config.laser_tiers && config.laser_tiers.length > 0) {
+            for (const t of config.laser_tiers) {
+                const tMin = Number(t.min) || 0;
+                const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+                if (qty >= tMin && qty < tMax) { laserPrice = Number(t.price) || 0; break; }
+            }
+            if (laserPrice === 0) {
+                for (const t of config.laser_tiers) {
+                    const tMin = Number(t.min) || 0;
+                    const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+                    if (qty >= tMin && qty <= tMax) { laserPrice = Number(t.price) || 0; break; }
+                }
+            }
+        }
+
+        const totalCost = printCostPerShirt + laserPrice;
+        if (totalCost > 0 && totalCost < minCost) {
+            minCost = totalCost;
+            cheapestSupplier = supplier.key;
+        }
+    }
+
+    if (cheapestSupplier) {
+        _bgg.print3dSupplier = cheapestSupplier;
+        _bggSave3dConfigs();
+    }
+}
+
 function _bggRender3dSupplierDisplay() {
     const el = document.getElementById('bgg_3d_supplier_display');
     if (!el) return;
+
+    const qty = Number(document.getElementById('bgg_quantity')?.value) || 0;
+    if (qty !== _bgg.lastQty) {
+        _bgg.manuallySelected3dSupplier = false;
+        _bgg.lastQty = qty;
+    }
+
+    if (_bgg.print3dEnabled && qty > 0 && !_bgg.manuallySelected3dSupplier && _BGG_3D_SUPPLIERS.length > 0) {
+        _bggAutoSelectCheapest3dSupplier(qty);
+    }
 
     // Auto default to first if invalid/empty
     if ((!_bgg.print3dSupplier || !_BGG_3D_SUPPLIERS.some(s => s.key === _bgg.print3dSupplier)) && _BGG_3D_SUPPLIERS.length > 0) {
@@ -877,7 +952,6 @@ function _bggRender3dSupplierDisplay() {
         return;
     }
     const nccBadge = `<span onclick="_bggOpen3dPicker()" style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #1e40af; cursor: pointer; border: 1px solid #93c5fd; transition: background 0.2s;" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">${supplier.icon} ${supplier.name} ▾</span>`;
-    const qty = Number(document.getElementById('bgg_quantity')?.value) || 0;
     const calc = _bggCalc3dCost(qty);
     if (calc.needQty) {
         el.innerHTML = `
@@ -2071,6 +2145,7 @@ window._bggClose3dPicker = function() {
 
 window._bggSelect3dSupplierFromPicker = function(key) {
     _bgg.print3dSupplier = key;
+    _bgg.manuallySelected3dSupplier = true;
     _bggSave3dConfigs();
     _bggRender3dSupplierDisplay();
     _bggRenderCalcResults();

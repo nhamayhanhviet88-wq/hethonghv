@@ -18,7 +18,9 @@ var _mobileBgg = {
     screenSupplier: '',
     screenColors: '',
     embroideryEnabled: false,
-    embroideryCost: ''
+    embroideryCost: '',
+    manuallySelected3dSupplier: false,
+    lastQty: 0
 };
 
 var _M_BGG_3D_SUPPLIERS = [];
@@ -563,14 +565,87 @@ function toggle3dSectionMobile(enabled) {
     const setupBtn = document.getElementById('m_setup_3d_btn');
     if (infoDiv) infoDiv.style.display = enabled ? 'block' : 'none';
     if (setupBtn) setupBtn.style.display = enabled ? 'inline-block' : 'none';
+    if (enabled) {
+        _mobileBgg.manuallySelected3dSupplier = false;
+        const qty = Number(document.getElementById('m_quantity')?.value) || 0;
+        if (qty > 0) {
+            autoSelectCheapest3dSupplierMobile(qty);
+        }
+    }
     save3dConfigsMobile();
     render3dSupplierDisplayMobile();
     renderMobileCalcResults();
 }
 
+function autoSelectCheapest3dSupplierMobile(qty) {
+    if (_M_BGG_3D_SUPPLIERS.length === 0) return;
+    let cheapestSupplier = null;
+    let minCost = Infinity;
+
+    for (const supplier of _M_BGG_3D_SUPPLIERS) {
+        const config = _mGet3dConfig(supplier.key);
+        if (!config || !config.print_tiers || config.print_tiers.length === 0) continue;
+
+        const mps = config.meters_per_shirt || 0.8;
+        const totalMeters = qty * mps;
+
+        let printPrice = 0;
+        for (const t of config.print_tiers) {
+            const mn = Number(t.min) || 0;
+            const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+            if (totalMeters >= mn && totalMeters < mx) { printPrice = Number(t.price) || 0; break; }
+        }
+        if (!printPrice) {
+            for (const t of config.print_tiers) {
+                const mn = Number(t.min) || 0;
+                const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+                if (totalMeters >= mn && totalMeters <= mx) { printPrice = Number(t.price) || 0; break; }
+            }
+        }
+        const printCostPS = Math.round(printPrice * mps);
+
+        let laserPrice = 0;
+        if (config.laser_tiers && config.laser_tiers.length > 0) {
+            for (const t of config.laser_tiers) {
+                const mn = Number(t.min) || 0;
+                const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+                if (qty >= mn && qty < mx) { laserPrice = Number(t.price) || 0; break; }
+            }
+            if (!laserPrice) {
+                for (const t of config.laser_tiers) {
+                    const mn = Number(t.min) || 0;
+                    const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+                    if (qty >= mn && qty <= mx) { laserPrice = Number(t.price) || 0; break; }
+                }
+            }
+        }
+
+        const totalCost = printCostPS + laserPrice;
+        if (totalCost > 0 && totalCost < minCost) {
+            minCost = totalCost;
+            cheapestSupplier = supplier.key;
+        }
+    }
+
+    if (cheapestSupplier) {
+        _mobileBgg.print3dSupplier = cheapestSupplier;
+        save3dConfigsMobile();
+    }
+}
+
 function render3dSupplierDisplayMobile() {
     const el = document.getElementById('m_3d_supplier_display');
     if (!el) return;
+
+    const qty = Number(document.getElementById('m_quantity')?.value) || 0;
+    if (qty !== _mobileBgg.lastQty) {
+        _mobileBgg.manuallySelected3dSupplier = false;
+        _mobileBgg.lastQty = qty;
+    }
+
+    if (_mobileBgg.print3dEnabled && qty > 0 && !_mobileBgg.manuallySelected3dSupplier && _M_BGG_3D_SUPPLIERS.length > 0) {
+        autoSelectCheapest3dSupplierMobile(qty);
+    }
 
     // Auto default to first if invalid/empty
     if ((!_mobileBgg.print3dSupplier || !_M_BGG_3D_SUPPLIERS.some(s => s.key === _mobileBgg.print3dSupplier)) && _M_BGG_3D_SUPPLIERS.length > 0) {
@@ -584,7 +659,6 @@ function render3dSupplierDisplayMobile() {
         return;
     }
     const nccBadge = `<span onclick="open3dPickerMobile()" style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;cursor:pointer;border:1px solid #93c5fd;">${supplier.icon} ${supplier.name} ▾</span>`;
-    const qty = Number(document.getElementById('m_quantity')?.value) || 0;
     const calc = _mCalc3dCost(qty);
     if (calc.needQty) {
         el.innerHTML = `
@@ -645,6 +719,7 @@ function close3dPickerMobile() {
 
 function select3dSupplierFromPickerMobile(key) {
     _mobileBgg.print3dSupplier = key;
+    _mobileBgg.manuallySelected3dSupplier = true;
     save3dConfigsMobile();
     render3dSupplierDisplayMobile();
     renderMobileCalcResults();
