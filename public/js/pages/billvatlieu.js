@@ -816,11 +816,19 @@ function _bvlOpenMatDialogHTML(r) {
     var titleText = _bvl.isEdit ? '✏️ Sửa Phiếu Nhập Vật Liệu' : '📦 Nhập Vật Liệu Mới';
     var saveBtnText = _bvl.isEdit ? '💾 CẬP NHẬT PHIẾU NHẬP' : '💾 LƯU PHIẾU NHẬP';
 
-    var h = '<div style="background:#fff;border-radius:16px;width:100%;max-width:550px;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
+    var h = '<div id="_bvlMatDialogContainer" style="background:#fff;border-radius:16px;width:100%;max-width:980px;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
         + '<div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:16px 16px 0 0;color:#fff;display:flex;justify-content:space-between;align-items:center">'
         + '<div style="font-size:16px;font-weight:800">' + titleText + '</div>'
         + '<button onclick="document.getElementById(\'_bvlMatOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button></div>'
-        + '<div style="padding:20px;max-height:80vh;overflow-y:auto;">'
+        + '<div style="padding:20px;max-height:85vh;overflow-y:auto;">'
+        + '<style>'
+        + '  #_bvlMatDialogContainer { max-width: 980px !important; }'
+        + '  ._bvl-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }'
+        + '  @media (min-width: 768px) { ._bvl-grid { grid-template-columns: 1fr 1.25fr; } }'
+        + '  @media (max-width: 767px) { #_bvlMatDialogContainer { max-width: 550px !important; } }'
+        + '</style>'
+        + '<div class="_bvl-grid">'
+        + '<div>' // Column 1 starts here
         
         // 1. Ngày Nhập (locked/disabled and placed above Kho)
         + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ngày Nhập</label>'
@@ -842,15 +850,56 @@ function _bvlOpenMatDialogHTML(r) {
     h += '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Nguồn NCC *</label>'
         + '<select id="_bvlSrc" onchange="_bvlUpdatePriceSuggestions()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none" disabled>'
         + '<option value="">— Chọn Kho trước —</option>'
-        + '</select></div>'
+        + '</select></div>';
 
-    // 4. Multiple materials list and input
-    h += '<div style="border:1.5px solid #ccfbf1;border-radius:12px;padding:14px;background:#f0fdfa;margin-bottom:12px">'
+    // 7. Ảnh Bill
+    var pasteHtml = (r && r.bill_image_url) 
+        ? '<img src="' + r.bill_image_url + '" style="max-height:120px;border-radius:8px"><div style="font-size:10px;color:#0d9488;margin-top:4px;font-weight:600">✅ Đã tải lên hóa đơn</div>'
+        : '📋 Click vào đây rồi Ctrl+V để dán ảnh hóa đơn';
+    var pasteBorder = (r && r.bill_image_url) ? '2px solid #0d9488' : '2px dashed #0d9488';
+    
+    h += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ảnh Bill (Ctrl+V) *</label>'
+        + '<div id="_bvlPasteArea" style="border:' + pasteBorder + ';border-radius:10px;padding:25px;text-align:center;color:#9ca3af;cursor:pointer;font-size:12px" tabindex="0">' + pasteHtml + '</div></div>';
+
+    // 6. Ghi chú (Moved below Bill Image)
+    h += '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ghi Chú</label>'
+        + '<textarea id="_bvlNotes" placeholder="Ghi chú chi phí..." rows="2" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;resize:none">' + (r && r.cost_notes ? r.cost_notes : '') + '</textarea></div>';
+
+    // Phí Ship
+    var shipDisplay = (r && Number(r.ship_cost) > 0) ? 'block' : 'none';
+    var shipPasteHtml = (r && r.ship_image_url)
+        ? '<img src="' + r.ship_image_url + '" style="max-height:100px;border-radius:8px"><div style="font-size:10px;color:#3b82f6;margin-top:4px;font-weight:600">✅ Đã tải lên ảnh ship</div>'
+        : '📋 Click vào đây rồi Ctrl+V để dán ảnh hóa đơn ship';
+    var shipPasteBorder = (r && r.ship_image_url) ? '2px solid #3b82f6' : '2px dashed #3b82f6';
+
+    h += '<div style="border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px; background: #eff6ff; margin-bottom: 12px">'
+        + '<div style="font-size: 12px; font-weight: 800; color: #1e3a8a; margin-bottom: 8px">🚚 CÔNG TY MẤT PHÍ SHIP</div>'
+        + '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">'
+        + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Số tiền ship (Bỏ trống = không)</label>'
+        + '<input id="_bvlShipCost" type="number" placeholder="Số tiền..." value="' + (r && r.ship_cost ? r.ship_cost : '') + '" oninput="_bvlToggleShipFields()" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:700; color:#1e293b"></div>'
+        + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Bên trả ship *</label>'
+        + '<select id="_bvlShipPayer" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:600; color:#1e293b">'
+        + '<option value="">— Chọn bên trả ship —</option>'
+        + '<option value="congty"' + (r && r.ship_payer === 'congty' ? ' selected' : '') + '>🏢 Công Ty Mất Ship</option>'
+        + '<option value="cophanmay"' + (r && r.ship_payer === 'cophanmay' ? ' selected' : '') + '>🧵 Cổ Phần May Mất Ship</option>'
+        + '</select></div>'
+        + '<div id="_bvlShipImgGroup" style="display:' + shipDisplay + '; margin-top:12px; grid-column: span 2">'
+        + '<label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Ảnh Hóa Đơn Ship (Ctrl+V) *</label>'
+        + '<div id="_bvlShipPasteArea" style="border:' + shipPasteBorder + ';border-radius:10px;padding:20px;text-align:center;color:#9ca3af;cursor:pointer;font-size:11px;background:#fff" tabindex="0">' + shipPasteHtml + '</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>' // close Column 1
+        + '<div>' // open Column 2
+
+        // 4. Multiple materials list and input
+        + '<div style="border:1.5px solid #ccfbf1;border-radius:12px;padding:14px;background:#f0fdfa;margin-bottom:12px">'
         + '<div style="font-size:12px;font-weight:800;color:#0d9488;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
         + '<span>📦 DANH SÁCH VẬT LIỆU CỦA BILL</span>'
         + '<span id="_bvlTotalItemsCount" style="background:#0d9488;color:#fff;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:800">0 mặt hàng</span>'
         + '</div>'
-        + '<div id="_bvlMatAddedList" style="margin-bottom:12px;font-size:12px;max-height:150px;overflow-y:auto">'
+        + '<div id="_bvlMatAddedList" style="margin-bottom:12px;font-size:12px;max-height:280px;overflow-y:auto">'
         + '<div style="text-align:center;color:#9ca3af;padding:10px;font-style:italic">Chưa chọn vật liệu nào</div>'
         + '</div>'
         + '<div style="display:grid;grid-template-columns:1.8fr 0.8fr 0.6fr 1.2fr 1fr 0.8fr;gap:8px;align-items:end;border-top:1px dashed #0d9488;padding-top:12px">'
@@ -871,77 +920,40 @@ function _bvlOpenMatDialogHTML(r) {
         + '<div id="_bvlPriceSuggest" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center"></div>'
         + '</div>'
 
-    // CHI PHÍ KHÁC
-    + '<div style="border: 1.5px solid #fef08a; border-radius: 12px; padding: 14px; background: #fefce8; margin-bottom: 12px">'
-    + '<div style="font-size:12px;font-weight:800;color:#a16207;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
-    + '<span>📋 CHI PHÍ KHÁC</span>'
-    + '<button type="button" class="bvl-fab-btn" style="background:#eab308;box-shadow:none;padding:2px 8px;font-size:10px" onclick="_bvlAddExtraCostRow()">➕ Thêm Chi Phí</button>'
-    + '</div>'
-    + '<div id="_bvlExtraCostsContainer"></div>'
-    + '</div>'
+        // CHI PHÍ KHÁC
+        + '<div style="border: 1.5px solid #fef08a; border-radius: 12px; padding: 14px; background: #fefce8; margin-bottom: 12px">'
+        + '<div style="font-size:12px;font-weight:800;color:#a16207;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
+        + '<span>📋 CHI PHÍ KHÁC</span>'
+        + '<button type="button" class="bvl-fab-btn" style="background:#eab308;box-shadow:none;padding:2px 8px;font-size:10px" onclick="_bvlAddExtraCostRow()">➕ Thêm Chi Phí</button>'
+        + '</div>'
+        + '<div id="_bvlExtraCostsContainer"></div>'
+        + '</div>'
 
-    // VAT Amount
-    + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Tiền VAT</label>'
-    + '<input id="_bvlVatAmount" type="number" placeholder="Tự điền số tiền VAT..." value="' + (r && r.vat_amount ? r.vat_amount : '') + '" oninput="_bvlCalculateTotal()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;font-weight:700;color:#1e293b"></div>'
+        // VAT Amount
+        + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Tiền VAT</label>'
+        + '<input id="_bvlVatAmount" type="number" placeholder="Tự điền số tiền VAT..." value="' + (r && r.vat_amount ? r.vat_amount : '') + '" oninput="_bvlCalculateTotal()" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;font-weight:700;color:#1e293b"></div>'
 
-    // 5. Total bill cost
-    + '<style>'
-    + '@keyframes bvlGlow {'
-    + '  0% { box-shadow: 0 4px 10px rgba(217, 119, 6, 0.25), 0 0 4px rgba(217, 119, 6, 0.15); }'
-    + '  50% { box-shadow: 0 8px 25px rgba(245, 158, 11, 0.65), 0 0 15px rgba(245, 158, 11, 0.35); }'
-    + '  100% { box-shadow: 0 4px 10px rgba(217, 119, 6, 0.25), 0 0 4px rgba(217, 119, 6, 0.15); }'
-    + '}'
-    + '</style>'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;'
-    + 'background:linear-gradient(135deg, #d97706, #f59e0b, #b45309);'
-    + 'color:#fff;padding:12px 18px;border-radius:12px;margin-bottom:12px;'
-    + 'font-weight:900;font-size:14px;border:1px solid rgba(255,255,255,0.2);'
-    + 'animation: bvlGlow 2.5s infinite ease-in-out">'
-    + '<span>💰 TỔNG CỘNG TIỀN BILL:</span>'
-    + '<span id="_bvlTotalBillCost" style="font-size:18px;text-shadow:0 1px 3px rgba(0,0,0,0.35)">0₫</span>'
-    + '</div>'
+        // 5. Total bill cost
+        + '<style>'
+        + '@keyframes bvlGlow {'
+        + '  0% { box-shadow: 0 4px 10px rgba(217, 119, 6, 0.25), 0 0 4px rgba(217, 119, 6, 0.15); }'
+        + '  50% { box-shadow: 0 8px 25px rgba(245, 158, 11, 0.65), 0 0 15px rgba(245, 158, 11, 0.35); }'
+        + '  100% { box-shadow: 0 4px 10px rgba(217, 119, 6, 0.25), 0 0 4px rgba(217, 119, 6, 0.15); }'
+        + '}'
+        + '</style>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;'
+        + 'background:linear-gradient(135deg, #d97706, #f59e0b, #b45309);'
+        + 'color:#fff;padding:12px 18px;border-radius:12px;margin-bottom:12px;'
+        + 'font-weight:900;font-size:14px;border:1px solid rgba(255,255,255,0.2);'
+        + 'animation: bvlGlow 2.5s infinite ease-in-out">'
+        + '<span>💰 TỔNG CỘNG TIỀN BILL:</span>'
+        + '<span id="_bvlTotalBillCost" style="font-size:18px;text-shadow:0 1px 3px rgba(0,0,0,0.35)">0₫</span>'
+        + '</div>'
 
-    // 7. Ảnh Bill
-    var pasteHtml = (r && r.bill_image_url) 
-        ? '<img src="' + r.bill_image_url + '" style="max-height:120px;border-radius:8px"><div style="font-size:10px;color:#0d9488;margin-top:4px;font-weight:600">✅ Đã tải lên hóa đơn</div>'
-        : '📋 Click vào đây rồi Ctrl+V để dán ảnh hóa đơn';
-    var pasteBorder = (r && r.bill_image_url) ? '2px solid #0d9488' : '2px dashed #0d9488';
-    
-    h += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ảnh Bill (Ctrl+V) *</label>'
-    + '<div id="_bvlPasteArea" style="border:' + pasteBorder + ';border-radius:10px;padding:25px;text-align:center;color:#9ca3af;cursor:pointer;font-size:12px" tabindex="0">' + pasteHtml + '</div></div>'
-
-    // 6. Ghi chú (Moved below Bill Image)
-    h += '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Ghi Chú</label>'
-    + '<textarea id="_bvlNotes" placeholder="Ghi chú chi phí..." rows="2" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;resize:none">' + (r && r.cost_notes ? r.cost_notes : '') + '</textarea></div>'
-
-    // Phí Ship
-    var shipDisplay = (r && Number(r.ship_cost) > 0) ? 'block' : 'none';
-    var shipPasteHtml = (r && r.ship_image_url)
-        ? '<img src="' + r.ship_image_url + '" style="max-height:100px;border-radius:8px"><div style="font-size:10px;color:#3b82f6;margin-top:4px;font-weight:600">✅ Đã tải lên ảnh ship</div>'
-        : '📋 Click vào đây rồi Ctrl+V để dán ảnh hóa đơn ship';
-    var shipPasteBorder = (r && r.ship_image_url) ? '2px solid #3b82f6' : '2px dashed #3b82f6';
-
-    h += '<div style="border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px; background: #eff6ff; margin-bottom: 12px">'
-    + '<div style="font-size: 12px; font-weight: 800; color: #1e3a8a; margin-bottom: 8px">🚚 CÔNG TY MẤT PHÍ SHIP</div>'
-    + '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">'
-    + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Số tiền ship (Bỏ trống = không)</label>'
-    + '<input id="_bvlShipCost" type="number" placeholder="Số tiền..." value="' + (r && r.ship_cost ? r.ship_cost : '') + '" oninput="_bvlToggleShipFields()" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:700; color:#1e293b"></div>'
-    + '<div><label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Bên trả ship *</label>'
-    + '<select id="_bvlShipPayer" style="width:100%; padding:8px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:12px; outline:none; font-weight:600; color:#1e293b">'
-    + '<option value="">— Chọn bên trả ship —</option>'
-    + '<option value="congty"' + (r && r.ship_payer === 'congty' ? ' selected' : '') + '>🏢 Công Ty Mất Ship</option>'
-    + '<option value="cophanmay"' + (r && r.ship_payer === 'cophanmay' ? ' selected' : '') + '>🧵 Cổ Phần May Mất Ship</option>'
-    + '</select></div>'
-    + '<div id="_bvlShipImgGroup" style="display:' + shipDisplay + '; margin-top:12px; grid-column: span 2">'
-    + '<label style="font-size: 10px; font-weight: 700; color: #374151; display: block; margin-bottom: 4px">Ảnh Hóa Đơn Ship (Ctrl+V) *</label>'
-    + '<div id="_bvlShipPasteArea" style="border:' + shipPasteBorder + ';border-radius:10px;padding:20px;text-align:center;color:#9ca3af;cursor:pointer;font-size:11px;background:#fff" tabindex="0">' + shipPasteHtml + '</div>'
-    + '</div>'
-    + '</div>'
-    + '</div>'
-    + '</div>'
-
-    + '<button id="_bvlSubmitBtn" onclick="_bvlSubmitMat()" style="width:100%;padding:12px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s">' + saveBtnText + '</button>'
-    + '</div></div>';
+        + '<button id="_bvlSubmitBtn" onclick="_bvlSubmitMat()" style="width:100%;padding:12px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s">' + saveBtnText + '</button>'
+        + '</div>' // close Column 2
+        + '</div>' // close _bvl-grid
+        + '</div></div>';
 
     ov.innerHTML = h;
     document.body.appendChild(ov);
@@ -1186,24 +1198,25 @@ function _bvlRenderAddedMats() {
     var html = '';
     _bvl.addedMaterials.forEach(function (item, index) {
         var unitStr = item.unit ? ' ' + item.unit : '';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05)">'
-            + '<div style="flex:1.5;display:flex;flex-direction:column;gap:2px">'
-            + '<b style="color:#1e293b;font-size:13px">' + item.name + '</b>'
-            + '<span style="color:#94a3b8;font-size:10px">' + (item.unit ? 'Đơn vị: ' + item.unit : '') + '</span>'
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:5px;box-shadow:0 1px 2px rgba(0,0,0,0.05)">'
+            + '<div style="flex:1.2;display:flex;flex-direction:column;gap:1px">'
+            + '<b style="color:#1e293b;font-size:12px">' + item.name + '</b>'
+            + '<span style="color:#94a3b8;font-size:9px">' + (item.unit ? 'Đơn vị: ' + item.unit : '') + '</span>'
             + '</div>'
-            + '<div style="flex:2.5;display:flex;align-items:center;gap:8px;justify-content:flex-end">'
-            + '<div style="display:flex;align-items:center;gap:4px">'
-            + '<span style="font-size:11px;color:#64748b">SL:</span>'
-            + '<input type="number" class="_bvlRowQtyInput" data-index="' + index + '" value="' + item.qty + '" oninput="_bvlUpdateAddedMatQty(' + index + ', this.value)" style="width:65px;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px;font-weight:700;text-align:center;outline:none;color:#1e293b"> '
+            + '<div style="flex:2.8;display:flex;align-items:center;gap:6px;justify-content:flex-end">'
+            + '<div style="display:flex;align-items:center;gap:3px">'
+            + '<span style="font-size:10px;color:#64748b">SL:</span>'
+            + '<input type="number" class="_bvlRowQtyInput" data-index="' + index + '" value="' + item.qty + '" oninput="_bvlUpdateAddedMatQty(' + index + ', this.value)" style="width:55px;padding:3px 5px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;text-align:center;outline:none;color:#1e293b"> '
             + '</div>'
-            + '<div style="display:flex;align-items:center;gap:4px">'
-            + '<span style="font-size:11px;color:#64748b">Giá:</span>'
-            + '<input type="text" class="_bvlRowPriceInput" data-index="' + index + '" value="' + _bvlFM(item.price) + '" oninput="_bvlFormatRowInput(this, ' + index + ', \'price\')" style="width:85px;padding:4px 6px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px;font-weight:700;text-align:right;outline:none;color:#1e293b"> '
+            + '<div style="display:flex;align-items:center;gap:3px">'
+            + '<span style="font-size:10px;color:#64748b">Giá:</span>'
+            + '<input type="text" class="_bvlRowPriceInput" data-index="' + index + '" value="' + _bvlFM(item.price) + '" oninput="_bvlFormatRowInput(this, ' + index + ', \'price\')" style="width:75px;padding:3px 5px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;text-align:right;outline:none;color:#1e293b"> '
             + '</div>'
-            + '<div style="min-width:90px;text-align:right"><b id="_bvlRowCostText_' + index + '" style="color:#0d9488;font-size:13px">' + _bvlFM(item.cost) + '₫</b></div>'
-            + '<button type="button" onclick="_bvlRemoveMatRow(' + index + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-weight:700;font-size:14px;padding:2px;margin-left:4px" title="Xóa">🗑️</button>'
+            + '<div style="min-width:80px;text-align:right"><b id="_bvlRowCostText_' + index + '" style="color:#0d9488;font-size:12px">' + _bvlFM(item.cost) + '₫</b></div>'
+            + '<button type="button" onclick="_bvlRemoveMatRow(' + index + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-weight:700;font-size:13px;padding:2px;margin-left:2px" title="Xóa">🗑️</button>'
             + '</div>'
             + '</div>';
+    });
     });
 
     listContainer.innerHTML = html;
