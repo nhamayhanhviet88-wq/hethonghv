@@ -533,10 +533,17 @@ function _bggLoadPetConfigs() {
             console.error(e);
         }
     }
-    if (!_bgg.sewingPresets || _bgg.sewingPresets.length === 0) {
+    if (!_bgg.sewingPresets || _bgg.sewingPresets.length === 0 || _bgg.sewingPresets.length === 2) {
         _bgg.sewingPresets = [
-            { id: 'co_tron', name: 'Cổ tròn', icon: '👕', price: 9000 },
-            { id: 'co_be', name: 'Cổ bẻ', icon: '👔', price: 13000 }
+            { id: 'co_tron_tim', name: 'Cổ tròn/tim', icon: '👕', price: 9000 },
+            { id: 'co_be_det', name: 'Cổ bẻ dệt', icon: '👕', price: 13000 },
+            { id: 'co_be_vai', name: 'Cổ bẻ vải', icon: '👕', price: 14000 },
+            { id: 'quan_mn', name: 'Quần MN', icon: '👕', price: 15000 },
+            { id: 'vay_mn', name: 'Váy MN', icon: '👕', price: 13000 },
+            { id: 'ao_gio_xuong_tron', name: 'Áo Gió Xuông Trơn', icon: '👕', price: 40000 },
+            { id: 'tap_de_ngan', name: 'Tạp Dề Ngắn', icon: '👕', price: 10000 },
+            { id: 'tap_de_dai', name: 'Tạp Dề Dài', icon: '👕', price: 11000 },
+            { id: 'tap_de_dai_co_khoa', name: 'Tạp Dề Dài Có Khóa', icon: '👕', price: 14000 }
         ];
         localStorage.setItem('bgg_sewing_presets', JSON.stringify(_bgg.sewingPresets));
     }
@@ -550,9 +557,11 @@ function _bggLoadPetConfigs() {
             console.error(e);
         }
     }
-    if (!_bgg.collarPresets || _bgg.collarPresets.length === 0) {
+    if (!_bgg.collarPresets || _bgg.collarPresets.length === 0 || _bgg.collarPresets.length === 1) {
         _bgg.collarPresets = [
-            { id: 'co_be_extra', name: 'Gợi ý', icon: '👔', price: 6000 }
+            { id: 'co_tron_col', name: 'Cổ Trơn', icon: '👔', price: 6000 },
+            { id: 'co_vach_col', name: 'Cổ Vạch', icon: '👔', price: 7500 },
+            { id: 'co_thoi_trang_col', name: 'Cổ Thời Trang', icon: '👔', price: 9000 }
         ];
         localStorage.setItem('bgg_collar_presets', JSON.stringify(_bgg.collarPresets));
     }
