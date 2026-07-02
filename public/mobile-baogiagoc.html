@@ -236,6 +236,20 @@
                 </div>
             </div>
 
+            <!-- 3D Printing Section -->
+            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 12px; margin-top: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                    <label style="font-weight: 800; font-size: 13px; color: #1e40af; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
+                        <input type="checkbox" id="m_enable_3d" style="width: 16px; height: 16px; cursor: pointer;" onchange="toggle3dSectionMobile(this.checked)">
+                        🎨 Chi phí in 3D
+                    </label>
+                    <button id="m_setup_3d_btn" style="display: none; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 6px; padding: 4px 10px; font-size: 10px; font-weight: 700; color: #1e40af; cursor: pointer;" onclick="openSetup3dMobile()">⚙️ Setup in 3D</button>
+                </div>
+                <div id="m_3d_info" style="display: none; margin-top: 8px; border-top: 1px dashed #bfdbfe; padding-top: 8px;">
+                    <div id="m_3d_supplier_display"></div>
+                </div>
+            </div>
+
             <button class="m-btn-calc" onclick="runMobileCalculation()">🧮 Tính toán & So sánh</button>
         </div>
 
@@ -253,7 +267,7 @@
     <!-- Toast container -->
     <div id="toastContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
 
-    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_fix_preset_display"></script>
+    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_add_3d_print"></script>
     <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
 </body>
 </html>

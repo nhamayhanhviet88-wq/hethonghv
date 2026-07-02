@@ -10,8 +10,17 @@ var _mobileBgg = {
     petCalcMode: 'aligned',
     petShapes: [],
     lastCalcResponse: null,
-    selectedCalcSupplierId: 'all'
+    selectedCalcSupplierId: 'all',
+    print3dEnabled: false,
+    print3dSupplier: '',
+    print3dCost: 0
 };
+
+var _M_BGG_3D_SUPPLIERS = [
+    { key: 'thien_linh', name: 'In 3D Thiện Linh', icon: '🏭' },
+    { key: 'phuong_tc', name: 'In 3D Phượng TC', icon: '🏭' },
+    { key: 'chi_hang', name: 'In 3D Chi Hằng', icon: '🏭' }
+];
 
 async function initMobileBaogiagocPage() {
     const m_enable_pet = document.getElementById('m_enable_pet');
@@ -49,6 +58,9 @@ async function initMobileBaogiagocPage() {
         if (!isDirector) spacingInput.disabled = true;
     }
     togglePetSectionMobile(_mobileBgg.petEnabled);
+    const m3dCb = document.getElementById('m_enable_3d');
+    if (m3dCb) m3dCb.checked = _mobileBgg.print3dEnabled;
+    toggle3dSectionMobile(_mobileBgg.print3dEnabled);
     _mRenderPresetsOnForm();
 
     await loadInitialDataMobile();
@@ -211,6 +223,11 @@ function loadPetConfigsMobile() {
         ];
         localStorage.setItem('bgg_collar_presets', JSON.stringify(_mobileBgg.collarPresets));
     }
+
+    // Load 3D printing configs
+    _mobileBgg.print3dEnabled = localStorage.getItem('bgg_3d_enabled') === 'true';
+    _mobileBgg.print3dSupplier = localStorage.getItem('bgg_3d_supplier') || '';
+    _mobileBgg.print3dCost = Number(localStorage.getItem('bgg_3d_cost')) || 0;
 }
 
 function savePetConfigsMobile() {
@@ -230,6 +247,102 @@ function savePetConfigsMobile() {
         const cleanShapes = _mobileBgg.petShapes.filter(s => s && typeof s === 'object');
         localStorage.setItem('tlcg_pet_shapes', JSON.stringify(cleanShapes));
     }
+}
+
+function save3dConfigsMobile() {
+    const enableCb = document.getElementById('m_enable_3d');
+    if (enableCb) {
+        localStorage.setItem('bgg_3d_enabled', enableCb.checked ? 'true' : 'false');
+    }
+    localStorage.setItem('bgg_3d_supplier', _mobileBgg.print3dSupplier || '');
+    localStorage.setItem('bgg_3d_cost', String(_mobileBgg.print3dCost || 0));
+}
+
+function toggle3dSectionMobile(enabled) {
+    _mobileBgg.print3dEnabled = enabled;
+    const infoDiv = document.getElementById('m_3d_info');
+    const setupBtn = document.getElementById('m_setup_3d_btn');
+    if (infoDiv) infoDiv.style.display = enabled ? 'block' : 'none';
+    if (setupBtn) setupBtn.style.display = enabled ? 'inline-block' : 'none';
+    save3dConfigsMobile();
+    render3dSupplierDisplayMobile();
+    renderMobileCalcResults();
+}
+
+function render3dSupplierDisplayMobile() {
+    const el = document.getElementById('m_3d_supplier_display');
+    if (!el) return;
+    const supplier = _M_BGG_3D_SUPPLIERS.find(s => s.key === _mobileBgg.print3dSupplier);
+    if (!supplier) {
+        el.innerHTML = '<div style="font-size: 11px; color: #94a3b8; font-style: italic;">⚠️ Chưa chọn NCC. Bấm "⚙️ Setup in 3D"</div>';
+        return;
+    }
+    el.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span style="font-size: 11px; font-weight: 700; color: #1e40af;">NCC:</span>
+            <span style="background: #dbeafe; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #1e40af;">${supplier.icon} ${supplier.name}</span>
+        </div>
+        <div style="font-size: 10px; color: #64748b; margin-top: 4px;">
+            Giá: <strong style="color: #1e40af;">${_mobileBgg.print3dCost > 0 ? Number(_mobileBgg.print3dCost).toLocaleString('vi-VN') + ' đ/áo' : 'Chưa cài đặt'}</strong>
+        </div>
+    `;
+}
+
+function openSetup3dMobile() {
+    const existing = document.getElementById('m_setup_3d_modal');
+    if (existing) existing.remove();
+    const currentSupplier = _mobileBgg.print3dSupplier || '';
+    const modal = document.createElement('div');
+    modal.id = 'm_setup_3d_modal';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+            <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <h3 style="margin: 0; font-size: 14px; font-weight: 800; color: #0f172a;">🎨 Setup In 3D</h3>
+                <button onclick="closeSetup3dMobile()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer;">&times;</button>
+            </div>
+            <div style="padding: 16px;">
+                <h4 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase;">Chọn nhà cung cấp:</h4>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    ${_M_BGG_3D_SUPPLIERS.map(s => `
+                        <div onclick="select3dSupplierMobile('${s.key}')" style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 10px; cursor: pointer; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'};">
+                            <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                ${currentSupplier === s.key ? '<div style="width: 9px; height: 9px; border-radius: 50%; background: #3b82f6;"></div>' : ''}
+                            </div>
+                            <div>
+                                <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
+                                <div style="font-size: 10px; color: #94a3b8; margin-top: 1px;">Bảng giá sẽ cập nhật sau</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="margin-top: 14px; padding: 14px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center;">
+                    <span style="font-size: 20px; display: block; margin-bottom: 4px;">📋</span>
+                    <div style="font-size: 11px; font-weight: 600; color: #64748b;">Bảng giá chi tiết sẽ hiển thị ở đây</div>
+                </div>
+            </div>
+            <div style="padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                <button onclick="closeSetup3dMobile()" style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function closeSetup3dMobile() {
+    const modal = document.getElementById('m_setup_3d_modal');
+    if (modal) modal.remove();
+}
+
+function select3dSupplierMobile(key) {
+    _mobileBgg.print3dSupplier = key;
+    save3dConfigsMobile();
+    render3dSupplierDisplayMobile();
+    renderMobileCalcResults();
+    closeSetup3dMobile();
+    openSetup3dMobile();
+    const supplier = _M_BGG_3D_SUPPLIERS.find(s => s.key === key);
+    toast(`Đã chọn ${supplier ? supplier.name : key}`, 'success');
 }
 
 function togglePetSectionMobile(enabled) {
@@ -557,12 +670,14 @@ function renderMobileCalcResults() {
     const petCost = petInfo.enabled ? (localStorage.getItem('tlcg_pet_calc_mode') === 'optimized' ? petInfo.optimizedCost : petInfo.alignedCost) : 0;
     const sewingCost = Number(document.getElementById('m_sewing_cost')?.value) || 0;
     const collarCost = Number(document.getElementById('m_collar_cost')?.value) || 0;
-    const extraCost = petCost + sewingCost + collarCost;
+    const print3dCost = (_mobileBgg.print3dEnabled && _mobileBgg.print3dCost > 0) ? _mobileBgg.print3dCost : 0;
+    const extraCost = petCost + sewingCost + collarCost + print3dCost;
 
     const breakdownParts = [];
     if (petCost > 0) breakdownParts.push(`PET: ${Number(petCost).toLocaleString('vi-VN')}đ`);
     if (sewingCost > 0) breakdownParts.push(`May: ${Number(sewingCost).toLocaleString('vi-VN')}đ`);
     if (collarCost > 0) breakdownParts.push(`Cổ: ${Number(collarCost).toLocaleString('vi-VN')}đ`);
+    if (print3dCost > 0) breakdownParts.push(`3D: ${Number(print3dCost).toLocaleString('vi-VN')}đ`);
     const extraDetailStr = breakdownParts.length > 0 ? ` + ${breakdownParts.join(' + ')}` : '';
 
     const getRankStyles = (idx) => {
@@ -626,6 +741,29 @@ function renderMobileCalcResults() {
                             Tối ưu: <strong>${d.packing.optimized}</strong> hình (${Math.round(d.oCost).toLocaleString('vi-VN')}đ)
                         </div>
                     `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // 1b. 3D Print summary
+    if (_mobileBgg.print3dEnabled && _mobileBgg.print3dSupplier) {
+        const supplier3d = _M_BGG_3D_SUPPLIERS.find(s => s.key === _mobileBgg.print3dSupplier);
+        const supplierName = supplier3d ? `${supplier3d.icon} ${supplier3d.name}` : 'Chưa chọn';
+        html += `
+            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 10px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="font-size: 11px; font-weight: 800; color: #1e40af; text-transform: uppercase; margin-bottom: 6px;">
+                    🎨 Chi phí in 3D (cho 1 áo)
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <div style="background: white; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 6px 10px;">
+                        <div style="font-size: 8px; color: #64748b; font-weight: 700; text-transform: uppercase;">NCC</div>
+                        <div style="font-size: 11px; font-weight: 800; color: #1e40af;">${supplierName}</div>
+                    </div>
+                    <div style="background: white; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 6px 10px;">
+                        <div style="font-size: 8px; color: #64748b; font-weight: 700; text-transform: uppercase;">Giá</div>
+                        <div style="font-size: 13px; font-weight: 800; color: #1e40af;">${print3dCost > 0 ? Number(print3dCost).toLocaleString('vi-VN') + ' đ' : 'Chưa cài đặt'}</div>
+                    </div>
                 </div>
             </div>
         `;
@@ -1210,6 +1348,10 @@ window.getSegmentBadgeMobile = getSegmentBadgeMobile;
 window.renderMobileCalcResults = renderMobileCalcResults;
 window._mSelectSewingPreset = window._mSelectSewingPreset;
 window._mSelectCollarPreset = window._mSelectCollarPreset;
+window.toggle3dSectionMobile = toggle3dSectionMobile;
+window.openSetup3dMobile = openSetup3dMobile;
+window.closeSetup3dMobile = closeSetup3dMobile;
+window.select3dSupplierMobile = select3dSupplierMobile;
 
 // Register initialization on DOM content loaded
 if (document.readyState === 'loading') {

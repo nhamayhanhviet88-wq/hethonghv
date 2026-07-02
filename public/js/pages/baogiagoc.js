@@ -11,8 +11,17 @@ var _bgg = {
     petCalcMode: 'aligned',
     petShapes: [],
     lastCalcResponse: null,
-    selectedCalcSupplierId: 'all'
+    selectedCalcSupplierId: 'all',
+    print3dEnabled: false,
+    print3dSupplier: '',
+    print3dCost: 0
 };
+
+var _BGG_3D_SUPPLIERS = [
+    { key: 'thien_linh', name: 'In 3D Thiện Linh', icon: '🏭' },
+    { key: 'phuong_tc', name: 'In 3D Phượng TC', icon: '🏭' },
+    { key: 'chi_hang', name: 'In 3D Chi Hằng', icon: '🏭' }
+];
 
 async function renderBaogiagocPage(content) {
     _bgg.content = content;
@@ -262,6 +271,20 @@ async function renderBaogiagocPage(content) {
                         </div>
                     </div>
 
+                    <!-- 3D Printing Section -->
+                    <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 16px; margin-top: 12px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                            <label style="font-weight: 800; font-size: 13.5px; color: #1e40af; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
+                                <input type="checkbox" id="bgg_enable_3d" style="width: 16px; height: 16px; cursor: pointer;" onchange="_bggToggle3dSection(this.checked)">
+                                🎨 Chi phí in 3D
+                            </label>
+                            <button id="bgg_setup_3d_btn" style="display: none; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: #1e40af; cursor: pointer; transition: all 0.2s;" onclick="_bggOpenSetup3dModal()">⚙️ Setup in 3D</button>
+                        </div>
+                        <div id="bgg_3d_info" style="display: none; margin-top: 10px; border-top: 1px dashed #bfdbfe; padding-top: 10px;">
+                            <div id="bgg_3d_supplier_display"></div>
+                        </div>
+                    </div>
+
                     <button class="bgg-btn-calc" onclick="_bggRunCalculation()">🧮 Tính toán & So sánh</button>
                 </div>
 
@@ -282,6 +305,9 @@ async function renderBaogiagocPage(content) {
     document.getElementById('bgg_pet_sheet_price').value = _bgg.petSheetPrice;
     document.getElementById('bgg_pet_spacing').value = _bgg.petSpacing;
     _bggTogglePetSection(_bgg.petEnabled);
+    const enable3dCb = document.getElementById('bgg_enable_3d');
+    if (enable3dCb) enable3dCb.checked = _bgg.print3dEnabled;
+    _bggToggle3dSection(_bgg.print3dEnabled);
     _bggRenderPresetsOnForm();
 
     await _bggLoadData();
@@ -389,6 +415,11 @@ function _bggLoadPetConfigs() {
         ];
         localStorage.setItem('bgg_collar_presets', JSON.stringify(_bgg.collarPresets));
     }
+
+    // Load 3D printing configs
+    _bgg.print3dEnabled = localStorage.getItem('bgg_3d_enabled') === 'true';
+    _bgg.print3dSupplier = localStorage.getItem('bgg_3d_supplier') || '';
+    _bgg.print3dCost = Number(localStorage.getItem('bgg_3d_cost')) || 0;
 }
 
 function _bggSavePetConfigs() {
@@ -408,6 +439,45 @@ function _bggSavePetConfigs() {
         const cleanShapes = _bgg.petShapes.filter(s => s && typeof s === 'object');
         localStorage.setItem('tlcg_pet_shapes', JSON.stringify(cleanShapes));
     }
+}
+
+function _bggSave3dConfigs() {
+    const enableCb = document.getElementById('bgg_enable_3d');
+    if (enableCb) {
+        localStorage.setItem('bgg_3d_enabled', enableCb.checked ? 'true' : 'false');
+    }
+    localStorage.setItem('bgg_3d_supplier', _bgg.print3dSupplier || '');
+    localStorage.setItem('bgg_3d_cost', String(_bgg.print3dCost || 0));
+}
+
+function _bggToggle3dSection(enabled) {
+    _bgg.print3dEnabled = enabled;
+    const infoDiv = document.getElementById('bgg_3d_info');
+    const setupBtn = document.getElementById('bgg_setup_3d_btn');
+    if (infoDiv) infoDiv.style.display = enabled ? 'block' : 'none';
+    if (setupBtn) setupBtn.style.display = enabled ? 'inline-block' : 'none';
+    _bggSave3dConfigs();
+    _bggRender3dSupplierDisplay();
+    _bggRenderCalcResults();
+}
+
+function _bggRender3dSupplierDisplay() {
+    const el = document.getElementById('bgg_3d_supplier_display');
+    if (!el) return;
+    const supplier = _BGG_3D_SUPPLIERS.find(s => s.key === _bgg.print3dSupplier);
+    if (!supplier) {
+        el.innerHTML = '<div style="font-size: 12px; color: #94a3b8; font-style: italic;">⚠️ Chưa chọn nhà cung cấp in 3D. Bấm "⚙️ Setup in 3D" để chọn.</div>';
+        return;
+    }
+    el.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 12px; font-weight: 700; color: #1e40af;">Nhà cung cấp:</span>
+            <span style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #1e40af;">${supplier.icon} ${supplier.name}</span>
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
+            Giá: <strong style="color: #1e40af;">${_bgg.print3dCost > 0 ? Number(_bgg.print3dCost).toLocaleString('vi-VN') + ' đ / áo' : 'Chưa cài đặt bảng giá'}</strong>
+        </div>
+    `;
 }
 
 function _bggTogglePetSection(enabled) {
@@ -714,12 +784,14 @@ function _bggRenderCalcResults() {
     const petCost = petInfo.enabled ? (localStorage.getItem('tlcg_pet_calc_mode') === 'optimized' ? petInfo.optimizedCost : petInfo.alignedCost) : 0;
     const sewingCost = Number(document.getElementById('bgg_sewing_cost')?.value) || 0;
     const collarCost = Number(document.getElementById('bgg_collar_cost')?.value) || 0;
-    const extraCost = petCost + sewingCost + collarCost;
+    const print3dCost = (_bgg.print3dEnabled && _bgg.print3dCost > 0) ? _bgg.print3dCost : 0;
+    const extraCost = petCost + sewingCost + collarCost + print3dCost;
     
     const breakdownParts = [];
     if (petCost > 0) breakdownParts.push(`PET: ${Number(petCost).toLocaleString('vi-VN')}đ`);
     if (sewingCost > 0) breakdownParts.push(`May: ${Number(sewingCost).toLocaleString('vi-VN')}đ`);
     if (collarCost > 0) breakdownParts.push(`Cổ: ${Number(collarCost).toLocaleString('vi-VN')}đ`);
+    if (print3dCost > 0) breakdownParts.push(`3D: ${Number(print3dCost).toLocaleString('vi-VN')}đ`);
     const extraDetailStr = breakdownParts.length > 0 ? ` + ${breakdownParts.join(' + ')}` : '';
 
     const getRankStyles = (idx) => {
@@ -783,6 +855,29 @@ function _bggRenderCalcResults() {
                             Tối ưu: <strong>${d.packing.optimized}</strong> hình/khổ (${Math.round(d.oCost).toLocaleString('vi-VN')}đ)
                         </div>
                     `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // Render 3D Print summary
+    if (_bgg.print3dEnabled && _bgg.print3dSupplier) {
+        const supplier3d = _BGG_3D_SUPPLIERS.find(s => s.key === _bgg.print3dSupplier);
+        const supplierName = supplier3d ? `${supplier3d.icon} ${supplier3d.name}` : 'Chưa chọn';
+        html += `
+            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="font-size: 13px; font-weight: 800; color: #1e40af; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    🎨 Chi phí in 3D dự kiến (cho 1 áo)
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div style="background: white; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 10px 14px;">
+                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Nhà cung cấp</div>
+                        <div style="font-size: 13px; font-weight: 800; color: #1e40af;">${supplierName}</div>
+                    </div>
+                    <div style="background: white; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 10px 14px;">
+                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Giá / áo</div>
+                        <div style="font-size: 15px; font-weight: 800; color: #1e40af;">${print3dCost > 0 ? Number(print3dCost).toLocaleString('vi-VN') + ' đ' : 'Chưa cài đặt'}</div>
+                    </div>
                 </div>
             </div>
         `;
@@ -1387,4 +1482,70 @@ window._bggSaveSetupModal = function() {
     
     if (typeof showToast === 'function') showToast('Đã lưu cấu hình chi phí và gợi ý!', 'success');
     _bggCloseSetupModal();
+};
+
+// ========== 3D PRINTING SETUP MODAL ==========
+
+window._bggOpenSetup3dModal = function() {
+    const existing = document.getElementById('bgg_setup_3d_modal');
+    if (existing) existing.remove();
+
+    const currentSupplier = _bgg.print3dSupplier || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'bgg_setup_3d_modal';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; border: 1px solid #e2e8f0;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">🎨 Setup Chi Phí In 3D</h3>
+                <button onclick="_bggCloseSetup3dModal()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; color: #475569; text-transform: uppercase;">Chọn nhà cung cấp in 3D:</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;" id="setup_3d_supplier_list">
+                    ${_BGG_3D_SUPPLIERS.map(s => `
+                        <div onclick="_bggSelect3dSupplier('${s.key}')" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'};" onmouseover="this.style.borderColor='#93c5fd'; this.style.background='#f8fafc'" onmouseout="this.style.borderColor='${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}'; this.style.background='${currentSupplier === s.key ? '#eff6ff' : 'white'}'">
+                            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                ${currentSupplier === s.key ? '<div style="width: 10px; height: 10px; border-radius: 50%; background: #3b82f6;"></div>' : ''}
+                            </div>
+                            <div>
+                                <div style="font-size: 14px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
+                                <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Bảng giá sẽ cập nhật sau</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div id="setup_3d_pricing_placeholder" style="margin-top: 16px; padding: 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; text-align: center;">
+                    <span style="font-size: 24px; display: block; margin-bottom: 6px;">📋</span>
+                    <div style="font-size: 12px; font-weight: 600; color: #64748b;">Bảng giá chi tiết cho nhà cung cấp đã chọn sẽ hiển thị ở đây</div>
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">(Tính năng đang phát triển)</div>
+                </div>
+            </div>
+            <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                <button onclick="_bggCloseSetup3dModal()" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+};
+
+window._bggCloseSetup3dModal = function() {
+    const modal = document.getElementById('bgg_setup_3d_modal');
+    if (modal) modal.remove();
+};
+
+window._bggSelect3dSupplier = function(key) {
+    _bgg.print3dSupplier = key;
+    _bggSave3dConfigs();
+    _bggRender3dSupplierDisplay();
+    _bggRenderCalcResults();
+    // Re-open modal to refresh selection UI
+    _bggCloseSetup3dModal();
+    _bggOpenSetup3dModal();
+    if (typeof showToast === 'function') {
+        const supplier = _BGG_3D_SUPPLIERS.find(s => s.key === key);
+        showToast(`Đã chọn ${supplier ? supplier.name : key}`, 'success');
+    }
 };
