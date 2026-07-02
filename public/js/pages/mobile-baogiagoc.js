@@ -306,22 +306,23 @@ function render3dSupplierDisplayMobile() {
         el.innerHTML = '<div style="font-size: 11px; color: #94a3b8; font-style: italic;">⚠️ Chưa chọn NCC. Bấm "⚙️ Setup in 3D"</div>';
         return;
     }
+    const nccBadge = `<span onclick="openSetup3dMobile()" style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;cursor:pointer;border:1px solid #93c5fd;">${supplier.icon} ${supplier.name} ▾</span>`;
     const qty = Number(document.getElementById('m_quantity')?.value) || 0;
     const calc = _mCalc3dCost(qty);
     if (calc.needQty) {
         el.innerHTML = `
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span><span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;">${supplier.icon} ${supplier.name}</span></div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span>${nccBadge}</div>
             <div style="font-size:10px;color:#f59e0b;margin-top:4px;font-weight:600;">⚠️ Nhập số lượng áo để tính chi phí 3D</div>
         `;
     } else if (calc.total > 0) {
         el.innerHTML = `
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span><span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;">${supplier.icon} ${supplier.name}</span></div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span>${nccBadge}</div>
             <div style="font-size:10px;color:#1e40af;margin-top:4px;font-weight:600;">In: ${Number(calc.printCost).toLocaleString('vi-VN')}đ${calc.laserCost>0?' + Cắt: '+Number(calc.laserCost).toLocaleString('vi-VN')+'đ':''} = <strong>${Number(calc.total).toLocaleString('vi-VN')}đ/áo</strong></div>
             <div style="font-size:9px;color:#64748b;margin-top:1px;">${qty}áo × ${calc.metersPerShirt}m = ${calc.totalMeters.toFixed(1)}m → ${Number(calc.printPricePerMeter).toLocaleString('vi-VN')}đ/m</div>
         `;
     } else {
         el.innerHTML = `
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span><span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;">${supplier.icon} ${supplier.name}</span></div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span>${nccBadge}</div>
             <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-style:italic;">Chưa có bảng giá — bấm Setup</div>
         `;
     }
@@ -632,6 +633,17 @@ async function runMobileCalculation() {
         }
         if (hasInvalidShape) {
             toast('Điền đầy đủ kích thước (> 0) cho hình in PET!', 'error');
+            return;
+        }
+    }
+
+    // 3D validation: require quantity when 3D is enabled
+    const print3dOn = document.getElementById('m_enable_3d')?.checked;
+    if (print3dOn) {
+        const q3d = Number(document.getElementById('m_quantity').value) || 0;
+        if (q3d <= 0) {
+            toast('Bật In 3D → vui lòng nhập Số lượng áo!', 'error');
+            document.getElementById('m_quantity').focus();
             return;
         }
     }
