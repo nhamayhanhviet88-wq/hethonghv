@@ -1481,7 +1481,9 @@
         }
 
         function setMobileFilter(val) {
-            _mobileTlcg.a        // ========== MOBILE PRICING CALCULATOR IMPLEMENTATION ==========
+            _mobileTlcg.activeFilter = val;
+            loadSheetContent(_mobileTlcg.activeMat);
+        }
 
         // ========== MOBILE PET PRINTING UTILITIES ==========
         function mPetLoadConfigs() {

@@ -331,8 +331,31 @@ function _bggLoadPetConfigs() {
         _bgg.petSpacing = Number(storedSpacing);
     }
     _bgg.petCalcMode = localStorage.getItem('tlcg_pet_calc_mode') || 'aligned';
-    _bgg.petShapes = [];
-    localStorage.removeItem('tlcg_pet_shapes');
+    try {
+        const storedShapes = localStorage.getItem('tlcg_pet_shapes');
+        if (storedShapes) {
+            const parsed = JSON.parse(storedShapes);
+            if (Array.isArray(parsed)) {
+                const cleaned = parsed.filter(s => {
+                    if (!s || typeof s !== 'object') return false;
+                    const hasName = s.name && s.name.trim() !== '';
+                    const hasWidth = s.width !== '' && s.width !== undefined && s.width !== null && Number(s.width) > 0;
+                    const hasHeight = s.height !== '' && s.height !== undefined && s.height !== null && Number(s.height) > 0;
+                    return hasName || hasWidth || hasHeight;
+                });
+                _bgg.petShapes = cleaned;
+                if (cleaned.length !== parsed.length) {
+                    localStorage.setItem('tlcg_pet_shapes', JSON.stringify(cleaned));
+                }
+            } else {
+                _bgg.petShapes = [];
+            }
+        } else {
+            _bgg.petShapes = [];
+        }
+    } catch(e) {
+        _bgg.petShapes = [];
+    }
 
     // Load sewing presets
     const sewingCached = localStorage.getItem('bgg_sewing_presets');

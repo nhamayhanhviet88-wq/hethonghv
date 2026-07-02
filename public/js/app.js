@@ -3856,6 +3856,9 @@ async function _abCheckUnblock() {
         if (el.dataset && el.dataset.noDebounce) return true;
         // Copy buttons — safe to click multiple times
         if (txt.indexOf('Copy') >= 0 || txt.indexOf('📋') >= 0) return true;
+        // Setup modals and pricing preset buttons — safe to click rapidly
+        if (el.closest && el.closest('#bgg_setup_modal, .setup-modal, [id*="setup_modal"]')) return true;
+        if (el.closest && el.closest('.bgg-btn-calc, .preset-btn, [onclick*="Preset"], [onclick*="Setup"]')) return true;
         return false;
     }
 
@@ -3905,10 +3908,10 @@ async function _abCheckUnblock() {
             var origOpacity = target.style.opacity;
             var origPointer = target.style.pointerEvents;
             target.style.opacity = '0.6';
-            target.style.pointerEvents = 'none';
+            // target.style.pointerEvents = 'none'; // Commented out to prevent canceling inline onclicks in Chrome
             setTimeout(function() {
                 target.style.opacity = origOpacity || '';
-                target.style.pointerEvents = origPointer || '';
+                // target.style.pointerEvents = origPointer || ''; // Commented out to prevent canceling inline onclicks in Chrome
                 target._antiDblActive = false;
             }, DEBOUNCE_MS);
         }
