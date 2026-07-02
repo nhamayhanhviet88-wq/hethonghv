@@ -1386,7 +1386,9 @@ window._bggSelectSewingPreset = function(id, amount) {
     }
     const collarInput = document.getElementById('bgg_collar_cost');
     if (collarInput) {
-        if (id === 'co_be' || id.toLowerCase().includes('co_be') || id.toLowerCase().includes('cổ bẻ')) {
+        const isCoBe = id === 'co_be' || id.toLowerCase().includes('co_be') || id.toLowerCase().includes('cổ bẻ');
+        const isCoBeVai = id.toLowerCase().includes('vai') || id.toLowerCase().includes('vải');
+        if (isCoBe && !isCoBeVai) {
             const firstCollarPreset = _bgg.collarPresets && _bgg.collarPresets[0];
             collarInput.value = firstCollarPreset ? firstCollarPreset.price : 6000;
         } else {
