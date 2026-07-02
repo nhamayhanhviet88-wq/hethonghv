@@ -193,7 +193,7 @@
             
             <div class="m-form-group">
                 <label>Số lượng áo</label>
-                <input type="number" id="m_quantity" class="m-input" placeholder="Nhập số lượng (tùy chọn)" oninput="render3dSupplierDisplayMobile()">
+                <input type="number" id="m_quantity" class="m-input" placeholder="Nhập số lượng (tùy chọn)" oninput="render3dSupplierDisplayMobile(); renderScreenSupplierDisplayMobile();">
             </div>
 
             <div class="m-form-group">
@@ -254,6 +254,24 @@
                 </div>
             </div>
 
+            <!-- Screen Printing Section -->
+            <div style="background: #fdf2f8; border: 1.5px solid #fbcfe8; border-radius: 12px; padding: 12px; margin-top: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                    <label style="font-weight: 800; font-size: 13px; color: #9d174d; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
+                        <input type="checkbox" id="m_enable_screen" style="width: 16px; height: 16px; cursor: pointer;" onchange="toggleScreenSectionMobile(this.checked)">
+                        🎨 Chi phí in Lưới
+                    </label>
+                    <button id="m_setup_screen_btn" style="display: none; background: #fce7f3; border: 1px solid #fbcfe8; border-radius: 6px; padding: 4px 10px; font-size: 10px; font-weight: 700; color: #9d174d; cursor: pointer;" onclick="openSetupScreenMobile()">⚙️ Setup in Lưới</button>
+                </div>
+                <div id="m_screen_info" style="display: none; margin-top: 8px; border-top: 1px dashed #fbcfe8; padding-top: 8px;">
+                    <div id="m_screen_supplier_display" style="margin-bottom: 8px;"></div>
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">Số màu in</label>
+                        <input type="number" id="m_screen_colors" class="m-input" placeholder="Nhập số màu" oninput="saveScreenConfigsMobile(); renderScreenSupplierDisplayMobile(); renderMobileCalcResults();" min="1" style="width: 100%;">
+                    </div>
+                </div>
+            </div>
+
             <button class="m-btn-calc" onclick="runMobileCalculation()">🧮 Tính toán & So sánh</button>
         </div>
 
@@ -271,7 +289,7 @@
     <!-- Toast container -->
     <div id="toastContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
 
-    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_searchable_color_v11"></script>
+    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_screen_printing_v12"></script>
     <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
 </body>
 </html>

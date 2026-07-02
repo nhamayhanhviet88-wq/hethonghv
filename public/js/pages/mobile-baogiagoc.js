@@ -13,13 +13,22 @@ var _mobileBgg = {
     selectedCalcSupplierId: 'all',
     print3dEnabled: false,
     print3dSupplier: '',
-    print3dCost: 0
+    print3dCost: 0,
+    screenEnabled: false,
+    screenSupplier: '',
+    screenColors: ''
 };
 
 var _M_BGG_3D_SUPPLIERS = [
     { key: 'thien_linh', name: 'In 3D Thiện Linh', icon: '🏭' },
     { key: 'phuong_tc', name: 'In 3D Phượng TC', icon: '🏭' },
     { key: 'chi_hang', name: 'In 3D Chi Hằng', icon: '🏭' }
+];
+
+var _M_BGG_SCREEN_SUPPLIERS = [
+    { key: 'thien_linh_screen', name: 'In Lưới Thiện Linh', icon: '🎨' },
+    { key: 'phuong_tc_screen', name: 'In Lưới Phượng TC', icon: '🎨' },
+    { key: 'truong_thinh_screen', name: 'In Lưới Trường Thịnh', icon: '🎨' }
 ];
 
 async function initMobileBaogiagocPage() {
@@ -61,6 +70,9 @@ async function initMobileBaogiagocPage() {
     const m3dCb = document.getElementById('m_enable_3d');
     if (m3dCb) m3dCb.checked = _mobileBgg.print3dEnabled;
     toggle3dSectionMobile(_mobileBgg.print3dEnabled);
+    const mScreenCb = document.getElementById('m_enable_screen');
+    if (mScreenCb) mScreenCb.checked = _mobileBgg.screenEnabled;
+    toggleScreenSectionMobile(_mobileBgg.screenEnabled);
     _mRenderPresetsOnForm();
 
     await loadInitialDataMobile();
@@ -209,6 +221,11 @@ function loadPetConfigsMobile() {
     // Load 3D printing configs (always disabled on page load/F5)
     _mobileBgg.print3dEnabled = false;
     _mobileBgg.print3dSupplier = localStorage.getItem('bgg_3d_supplier') || '';
+
+    // Load screen printing configs (always disabled on page load/F5)
+    _mobileBgg.screenEnabled = false;
+    _mobileBgg.screenColors = '';
+    _mobileBgg.screenSupplier = localStorage.getItem('bgg_screen_supplier') || '';
 }
 
 function savePetConfigsMobile() {
@@ -259,6 +276,106 @@ function _mCalc3dCost(qty) {
         if (!laserPrice) { for (const t of config.laser_tiers) { const mn=Number(t.min)||0, mx=t.max!==null&&t.max!==''?Number(t.max):Infinity; if(qty>=mn&&qty<=mx){laserPrice=Number(t.price)||0;break;} } }
     }
     return { total:printCostPS+laserPrice, printCost:printCostPS, laserCost:laserPrice, metersPerShirt:mps, totalMeters, printPricePerMeter:printPrice, laserPricePerShirt:laserPrice };
+}
+
+function getScreenConfigMobile(supplierKey) {
+    if (!supplierKey) return null;
+    const stored = localStorage.getItem('bgg_screen_config_' + supplierKey);
+    if (stored) {
+        try { return JSON.parse(stored); } catch(e) { /* ignore */ }
+    }
+    const def = {
+        qty_threshold: 20,
+        price_low: 50000,
+        price_high_1_3: 3000,
+        price_high_4_plus: 2500
+    };
+    localStorage.setItem('bgg_screen_config_' + supplierKey, JSON.stringify(def));
+    return def;
+}
+
+function saveScreenConfigsMobile() {
+    localStorage.removeItem('bgg_screen_enabled'); // Don't persist enabled state
+    localStorage.setItem('bgg_screen_supplier', _mobileBgg.screenSupplier || '');
+    const colorsInput = document.getElementById('m_screen_colors');
+    if (colorsInput) {
+        _mobileBgg.screenColors = colorsInput.value;
+    }
+}
+
+function calcScreenCostMobile(qty) {
+    if (!_mobileBgg.screenEnabled || !_mobileBgg.screenSupplier) return 0;
+    const colors = Number(_mobileBgg.screenColors) || 0;
+    if (colors <= 0) return 0;
+    const config = getScreenConfigMobile(_mobileBgg.screenSupplier);
+    if (!config) return 0;
+
+    const threshold = Number(config.qty_threshold) || 20;
+    const priceLow = Number(config.price_low) || 50000;
+    const priceHigh13 = Number(config.price_high_1_3) || 3000;
+    const priceHigh4Plus = Number(config.price_high_4_plus) || 2500;
+
+    if (!qty || qty <= 0) return 0;
+
+    if (qty < threshold) {
+        const totalOrderCost = priceLow * colors;
+        return totalOrderCost / qty;
+    } else {
+        if (colors <= 3) {
+            return priceHigh13 * colors;
+        } else {
+            return priceHigh4Plus * colors;
+        }
+    }
+}
+
+function toggleScreenSectionMobile(enabled) {
+    _mobileBgg.screenEnabled = enabled;
+    const infoDiv = document.getElementById('m_screen_info');
+    const setupBtn = document.getElementById('m_setup_screen_btn');
+    if (infoDiv) infoDiv.style.display = enabled ? 'block' : 'none';
+    
+    const isDirector = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+    if (setupBtn) setupBtn.style.display = (enabled && isDirector) ? 'inline-block' : 'none';
+    
+    saveScreenConfigsMobile();
+    renderScreenSupplierDisplayMobile();
+    renderMobileCalcResults();
+}
+
+function renderScreenSupplierDisplayMobile() {
+    const el = document.getElementById('m_screen_supplier_display');
+    if (!el) return;
+    const supplier = _M_BGG_SCREEN_SUPPLIERS.find(s => s.key === _mobileBgg.screenSupplier);
+    if (!supplier) {
+        el.innerHTML = '<div style="font-size: 11px; color: #94a3b8; cursor: pointer;" onclick="openScreenPickerMobile()">⚠️ Chưa chọn NCC in lưới — <strong style="color:#db2777;">bấm để chọn</strong></div>';
+        return;
+    }
+    const nccBadge = `<span onclick="openScreenPickerMobile()" style="background:#fce7f3;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#9d174d;cursor:pointer;border:1px solid #fbcfe8;">${supplier.icon} ${supplier.name} ▾</span>`;
+    
+    const qty = Number(document.getElementById('m_quantity')?.value) || 0;
+    const colors = Number(document.getElementById('m_screen_colors')?.value) || 0;
+    
+    if (qty <= 0) {
+        el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#9d174d;">NCC:</span>${nccBadge}</div>
+            <div style="font-size:10px;color:#f59e0b;margin-top:4px;font-weight:600;">⚠️ Nhập số lượng áo để tính chi phí in Lưới</div>
+        `;
+    } else if (colors <= 0) {
+        el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#9d174d;">NCC:</span>${nccBadge}</div>
+            <div style="font-size:10px;color:#f59e0b;margin-top:4px;font-weight:600;">⚠️ Nhập số màu in để tính chi phí in Lưới</div>
+        `;
+    } else {
+        const cost = calcScreenCostMobile(qty);
+        el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#9d174d;">NCC:</span>${nccBadge}</div>
+            <div style="font-size:10px;color:#9d174d;margin-top:4px;font-weight:600;">
+                In Lưới: <strong>${Math.round(cost).toLocaleString('vi-VN')}đ / áo</strong> 
+                ${qty < 20 ? `(Tổng: ${Number(cost * qty).toLocaleString('vi-VN')}đ)` : ''}
+            </div>
+        `;
+    }
 }
 
 function toggle3dSectionMobile(enabled) {
@@ -671,6 +788,28 @@ async function runMobileCalculation() {
         }
     }
 
+    // Screen printing validation: require quantity, supplier, and number of colors when enabled
+    const screenOn = document.getElementById('m_enable_screen')?.checked;
+    if (screenOn) {
+        const qScreen = Number(document.getElementById('m_quantity').value) || 0;
+        if (qScreen <= 0) {
+            toast('Bật Chi phí in Lưới → vui lòng nhập Số lượng áo để tính giá!', 'error');
+            document.getElementById('m_quantity').focus();
+            return;
+        }
+        if (!_mobileBgg.screenSupplier) {
+            toast('Vui lòng chọn nhà in lưới!', 'error');
+            openScreenPickerMobile();
+            return;
+        }
+        const colors = Number(document.getElementById('m_screen_colors')?.value) || 0;
+        if (colors <= 0) {
+            toast('Vui lòng nhập Số màu in Lưới (> 0)!', 'error');
+            document.getElementById('m_screen_colors').focus();
+            return;
+        }
+    }
+
     const resultsCard = document.getElementById('m_results_card');
     resultsCard.innerHTML = '<div style="text-align: center; padding: 40px 10px; color: #64748b; font-weight: 700; font-size: 13px;">⏳ Đang tính toán tối ưu...</div>';
 
@@ -747,13 +886,15 @@ function renderMobileCalcResults() {
     const qty3d = Number(document.getElementById('m_quantity')?.value) || 0;
     const calc3d = _mCalc3dCost(qty3d);
     const print3dCost = calc3d.total;
-    const extraCost = petCost + sewingCost + collarCost + print3dCost;
+    const screenCost = calcScreenCostMobile(qty3d);
+    const extraCost = petCost + sewingCost + collarCost + print3dCost + screenCost;
 
     const breakdownParts = [];
     if (petCost > 0) breakdownParts.push(`PET: ${Number(petCost).toLocaleString('vi-VN')}đ`);
     if (sewingCost > 0) breakdownParts.push(`May: ${Number(sewingCost).toLocaleString('vi-VN')}đ`);
     if (collarCost > 0) breakdownParts.push(`Cổ: ${Number(collarCost).toLocaleString('vi-VN')}đ`);
     if (print3dCost > 0) breakdownParts.push(`3D: ${Number(print3dCost).toLocaleString('vi-VN')}đ`);
+    if (screenCost > 0) breakdownParts.push(`Lưới: ${Number(screenCost).toLocaleString('vi-VN')}đ`);
     const extraDetailStr = breakdownParts.length > 0 ? ` + ${breakdownParts.join(' + ')}` : '';
 
     const getRankStyles = (idx) => {
@@ -836,6 +977,26 @@ function renderMobileCalcResults() {
                     <div style="background:#1e40af;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#93c5fd;font-weight:700;">Tổng</div><div style="font-size:13px;font-weight:800;color:white;">${Number(calc3d.total).toLocaleString('vi-VN')}đ</div></div>
                 </div>
                 <div style="font-size:9px;color:#475569;margin-top:6px;border-top:1px dashed #bfdbfe;padding-top:4px;">${qty3d}áo × ${calc3d.metersPerShirt}m = ${calc3d.totalMeters.toFixed(1)}m → ${Number(calc3d.printPricePerMeter).toLocaleString('vi-VN')}đ/m</div>
+            </div>
+        `;
+    }
+
+    // 1c. Screen Print summary
+    if (_mobileBgg.screenEnabled && _mobileBgg.screenSupplier && screenCost > 0) {
+        const supplierScreen = _M_BGG_SCREEN_SUPPLIERS.find(s => s.key === _mobileBgg.screenSupplier);
+        const sName = supplierScreen ? `${supplierScreen.icon} ${supplierScreen.name}` : 'Chưa chọn';
+        html += `
+            <div style="background:#fdf2f8;border:1.5px solid #fbcfe8;border-radius:12px;padding:10px;margin-bottom:14px;">
+                <div style="font-size:11px;font-weight:800;color:#9d174d;text-transform:uppercase;margin-bottom:6px;">🎨 Chi phí in Lưới (cho 1 áo)</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <div style="background:white;border:1.5px solid #fbcfe8;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#64748b;font-weight:700;">NCC</div><div style="font-size:11px;font-weight:800;color:#9d174d;">${sName}</div></div>
+                    <div style="background:white;border:1.5px solid #fbcfe8;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#64748b;font-weight:700;">Số màu</div><div style="font-size:12px;font-weight:800;color:#9d174d;">${_mobileBgg.screenColors} màu</div></div>
+                    <div style="background:#9d174d;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#fbcfe8;font-weight:700;">Tổng</div><div style="font-size:13px;font-weight:800;color:white;">${Math.round(screenCost).toLocaleString('vi-VN')}đ</div></div>
+                </div>
+                <div style="font-size:9px;color:#475569;margin-top:6px;border-top:1px dashed #fbcfe8;padding-top:4px;">
+                    Q = ${qty3d} áo | Màu = ${_mobileBgg.screenColors} màu | 
+                    ${qty3d < 20 ? `Tổng gộp: ${Math.round(screenCost * qty3d).toLocaleString('vi-VN')}đ / đơn` : `Đơn giá: ${Math.round(screenCost).toLocaleString('vi-VN')}đ / áo`}
+                </div>
             </div>
         `;
     }
@@ -1606,6 +1767,197 @@ window.filterColorsMobile = filterColorsMobile;
 window.closeColorDropdownMobile = closeColorDropdownMobile;
 window.selectColorMobile = selectColorMobile;
 window.validateColorSearchMobile = validateColorSearchMobile;
+
+// Screen printing registrations
+window.toggleScreenSectionMobile = toggleScreenSectionMobile;
+window.renderScreenSupplierDisplayMobile = renderScreenSupplierDisplayMobile;
+window.saveScreenConfigsMobile = saveScreenConfigsMobile;
+window.openScreenPickerMobile = openScreenPickerMobile;
+window.closeScreenPickerMobile = closeScreenPickerMobile;
+window.selectScreenSupplierFromPickerMobile = selectScreenSupplierFromPickerMobile;
+window.openSetupScreenMobile = openSetupScreenMobile;
+window.closeSetupScreenMobile = closeSetupScreenMobile;
+window.selectScreenSupplierMobile = selectScreenSupplierMobile;
+window.screenSaveConfigMobile = screenSaveConfigMobile;
+
+// ========== MOBILE SCREEN PRINTING MODALS ==========
+
+function openScreenPickerMobile() {
+    const existing = document.getElementById('m_screen_picker_modal');
+    if (existing) existing.remove();
+
+    const currentSupplier = _mobileBgg.screenSupplier || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'm_screen_picker_modal';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 360px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif;">
+            <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <h3 style="margin: 0; font-size: 14px; font-weight: 800; color: #0f172a;">🎨 Chọn Nhà Cung Cấp In Lưới</h3>
+                <button onclick="closeScreenPickerMobile()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
+            </div>
+            <div style="padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+                ${_M_BGG_SCREEN_SUPPLIERS.map(s => `
+                    <div onclick="selectScreenSupplierFromPickerMobile('${s.key}')" style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#e2e8f0'}; border-radius: 10px; cursor: pointer; transition: all 0.2s; background: ${currentSupplier === s.key ? '#fdf2f8' : 'white'};">
+                        <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            ${currentSupplier === s.key ? '<div style="width: 8px; height: 8px; border-radius: 50%; background: #db2777;"></div>' : ''}
+                        </div>
+                        <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
+                <button onclick="closeScreenPickerMobile()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function closeScreenPickerMobile() {
+    const modal = document.getElementById('m_screen_picker_modal');
+    if (modal) modal.remove();
+}
+
+function selectScreenSupplierFromPickerMobile(key) {
+    _mobileBgg.screenSupplier = key;
+    saveScreenConfigsMobile();
+    renderScreenSupplierDisplayMobile();
+    renderMobileCalcResults();
+    closeScreenPickerMobile();
+    if (typeof toast === 'function') {
+        const supplier = _M_BGG_SCREEN_SUPPLIERS.find(s => s.key === key);
+        toast(`Đã chọn ${supplier ? supplier.name : key}`, 'success');
+    }
+}
+
+function openSetupScreenMobile() {
+    const existing = document.getElementById('m_setup_screen_modal');
+    if (existing) existing.remove();
+
+    const currentSupplier = _mobileBgg.screenSupplier || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'm_setup_screen_modal';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+
+    // Supplier tabs
+    const tabsHtml = _M_BGG_SCREEN_SUPPLIERS.map(s => `
+        <button onclick="selectScreenSupplierMobile('${s.key}')" style="padding: 6px 10px; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#e2e8f0'}; border-radius: 6px; font-size: 11px; font-weight: 700; color: ${currentSupplier === s.key ? '#9d174d' : '#64748b'}; background: ${currentSupplier === s.key ? '#fdf2f8' : 'white'}; cursor: pointer; transition: all 0.2s; white-space: nowrap;">${s.icon} ${s.name}</button>
+    `).join('');
+
+    let pricingHtml = '';
+    if (currentSupplier) {
+        const config = getScreenConfigMobile(currentSupplier);
+        const threshold = config.qty_threshold;
+        const priceLow = config.price_low;
+        const priceHigh13 = config.price_high_1_3;
+        const priceHigh4Plus = config.price_high_4_plus;
+
+        pricingHtml = `
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px; font-family: system-ui, -apple-system, sans-serif;">
+                <div style="background: #fdf2f8; padding: 10px; border-radius: 8px; border: 1px solid #fbcfe8;">
+                    <div style="font-weight: 800; font-size: 10px; color: #9d174d; text-transform: uppercase; margin-bottom: 6px;">⚙️ Thiết lập ngưỡng số lượng & Giá in</div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Ngưỡng áo ít:</span>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <input type="number" id="m_setup_screen_threshold" value="${threshold}" style="width: 60px; padding: 4px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 700; text-align: center;">
+                                <span style="font-size: 10px; color: #64748b; font-weight: 600;">áo</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Dưới ngưỡng:</span>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <input type="number" id="m_setup_screen_price_low" value="${priceLow}" style="width: 80px; padding: 4px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 700; text-align: right;">
+                                <span style="font-size: 10px; color: #64748b; font-weight: 600;">đ/màu/đơn</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; border-top: 1px dashed #fbcfe8; padding-top: 8px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Trên/bằng (1-3 màu):</span>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <input type="number" id="m_setup_screen_price_high_1_3" value="${priceHigh13}" style="width: 80px; padding: 4px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 700; text-align: right;">
+                                <span style="font-size: 10px; color: #64748b; font-weight: 600;">đ/màu/áo</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Trên/bằng (≥ 4 màu):</span>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <input type="number" id="m_setup_screen_price_high_4_plus" value="${priceHigh4Plus}" style="width: 80px; padding: 4px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 700; text-align: right;">
+                                <span style="font-size: 10px; color: #64748b; font-weight: 600;">đ/màu/áo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        pricingHtml = '<div style="margin-top: 12px; padding: 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; font-size: 11px; color: #64748b; font-family: system-ui, sans-serif;">Chọn nhà cung cấp ở trên để xem và chỉnh sửa bảng giá</div>';
+    }
+
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; font-family: system-ui, -apple-system, sans-serif;">
+            <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: white; z-index: 1; border-radius: 16px 16px 0 0;">
+                <h3 style="margin: 0; font-size: 14px; font-weight: 800; color: #0f172a;">🎨 Setup Chi Phí In Lưới</h3>
+                <button onclick="closeSetupScreenMobile()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
+            </div>
+            <div style="padding: 16px;">
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px;">${tabsHtml}</div>
+                ${pricingHtml}
+            </div>
+            <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; border-radius: 0 0 16px 16px; position: sticky; bottom: 0;">
+                <button onclick="closeSetupScreenMobile()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
+                ${currentSupplier ? '<button onclick="screenSaveConfigMobile()" style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; color: white; background: linear-gradient(135deg, #db2777, #be185d); cursor: pointer;">💾 Lưu bảng giá</button>' : ''}
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function closeSetupScreenMobile() {
+    const modal = document.getElementById('m_setup_screen_modal');
+    if (modal) modal.remove();
+}
+
+function selectScreenSupplierMobile(key) {
+    _mobileBgg.screenSupplier = key;
+    saveScreenConfigsMobile();
+    renderScreenSupplierDisplayMobile();
+    renderMobileCalcResults();
+    closeSetupScreenMobile();
+    openSetupScreenMobile();
+}
+
+function screenSaveConfigMobile() {
+    const supplierKey = _mobileBgg.screenSupplier;
+    if (!supplierKey) return;
+    
+    const threshold = Number(document.getElementById('m_setup_screen_threshold')?.value) || 20;
+    const priceLow = Number(document.getElementById('m_setup_screen_price_low')?.value) || 50000;
+    const priceHigh13 = Number(document.getElementById('m_setup_screen_price_high_1_3')?.value) || 3000;
+    const priceHigh4Plus = Number(document.getElementById('m_setup_screen_price_high_4_plus')?.value) || 2500;
+
+    const config = {
+        qty_threshold: threshold,
+        price_low: priceLow,
+        price_high_1_3: priceHigh13,
+        price_high_4_plus: priceHigh4Plus
+    };
+    
+    localStorage.setItem('bgg_screen_config_' + supplierKey, JSON.stringify(config));
+    
+    if (typeof toast === 'function') {
+        toast('Đã lưu cấu hình in Lưới!', 'success');
+    }
+    closeSetupScreenMobile();
+    renderScreenSupplierDisplayMobile();
+    renderMobileCalcResults();
+}
 
 // Register initialization on DOM content loaded
 if (document.readyState === 'loading') {
