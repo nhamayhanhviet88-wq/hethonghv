@@ -782,7 +782,10 @@
                                     ${isFabric ? `🎨 Màu: <b>${p.fabric_color_name}</b>` : `🏢 Kho: <b>${p.warehouse_name || '---'}</b>`}
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 6px;">
-                                    <span style="font-size: 13px; font-weight: 800; color: #059669; margin-right: 4px;">${formattedPrice}</span>
+                                    <span style="font-size: 13px; font-weight: 800; color: #059669; margin-right: 4px; cursor: ${isDuyetUser ? 'pointer' : 'default'};"
+                                        ${isDuyetUser ? `onclick="event.stopPropagation(); openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}');"` : ''}>
+                                        ${formattedPrice} ${isDuyetUser ? '✏️' : ''}
+                                    </span>
                                     <button class="m-btn-secondary" style="padding: 3px 6px; font-size: 10px; background: #f1f5f9; color: #475569; border-radius: 4px;" onclick="event.stopPropagation(); openHistorySheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
                                         Lịch sử
                                     </button>
@@ -1056,7 +1059,10 @@
                                     ${isFabric ? `🎨 ${p.fabric_color_name}` : `🏢 ${p.warehouse_name || '---'}`}
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px;">
-                                    <span style="font-size:12.5px; font-weight:700; color:#059669;">${formattedPrice}</span>
+                                    <span style="font-size:12.5px; font-weight:700; color:#059669; cursor: ${isDuyetUser ? 'pointer' : 'default'};"
+                                        ${isDuyetUser ? `onclick="event.stopPropagation(); openEditSheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}', '${escapeJS(p.source_name)}');"` : ''}>
+                                        ${formattedPrice} ${isDuyetUser ? '✏️' : ''}
+                                    </span>
                                     <button class="m-btn-secondary" style="padding: 2px 6px; font-size: 10px; background:#f1f5f9; color:#475569; border-radius:4px;" onclick="event.stopPropagation(); openHistorySheet('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name || p.fabric_material_name)}')">
                                         Lịch sử
                                     </button>

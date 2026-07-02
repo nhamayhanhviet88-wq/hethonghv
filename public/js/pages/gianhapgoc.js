@@ -1322,7 +1322,10 @@ function _gngRenderDetailApproved(target) {
                     <td style="color: #0f172a; font-weight: 700;">
                         ${isFabric ? `🎨 ${p.fabric_color_name || 'Màu sắc'}` : `🏢 ${p.warehouse_name || '---'}`}
                     </td>
-                    <td style="text-align: right; font-weight: 700; color: #059669;">${formattedPrice}</td>
+                    <td style="text-align: right; font-weight: 700; color: #059669; cursor: ${_gng.isDuyetUser ? 'pointer' : 'default'};"
+                        ${_gng.isDuyetUser ? `onclick="event.stopPropagation(); _gngOpenEditPriceModal('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}');"` : ''}>
+                        ${formattedPrice} ${_gng.isDuyetUser ? ' ✏️' : ''}
+                    </td>
                     ${isFabricSupplier ? `
                         <td style="vertical-align: middle;">${cutRatioHtml}</td>
                         <td style="vertical-align: middle; text-align: right;">${finishedPriceHtml}</td>
@@ -1457,7 +1460,10 @@ function _gngRenderDetailApproved(target) {
                         ${isFabric ? `🎨 ${p.fabric_color_name || 'Màu sắc'}` : `🏢 ${p.warehouse_name || '---'}`}
                     </td>
                     ${_gng.filter.supplierId === 'all' ? `<td></td>` : ''}
-                    <td style="text-align: right; font-weight: 700; color: #059669;">${formattedPrice}</td>
+                    <td style="text-align: right; font-weight: 700; color: #059669; cursor: ${_gng.isDuyetUser ? 'pointer' : 'default'};"
+                        ${_gng.isDuyetUser ? `onclick="event.stopPropagation(); _gngOpenEditPriceModal('${p.item_type}', ${isFabric ? p.fabric_color_id : p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name || p.fabric_material_name)}');"` : ''}>
+                        ${formattedPrice} ${_gng.isDuyetUser ? ' ✏️' : ''}
+                    </td>
                     ${isFabricSupplier ? `
                         <td style="vertical-align: middle;">${cutRatioHtml}</td>
                         <td style="vertical-align: middle; text-align: right;">${finishedPriceHtml}</td>
