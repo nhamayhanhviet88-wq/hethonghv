@@ -20,6 +20,8 @@ async function renderBaogiagocPage(content) {
     // Read cached configs from localstorage
     _bggLoadPetConfigs();
     
+    const isDirector = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+    
     // Inject stylesheet
     if (!document.getElementById('_bgg_styles')) {
         const style = document.createElement('style');
@@ -201,11 +203,11 @@ async function renderBaogiagocPage(content) {
                             <div id="bgg_pet_global_settings" style="display: none; align-items: center; gap: 12px; flex-wrap: wrap;">
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #166534;">Giá 58x100:</span>
-                                    <input type="number" id="bgg_pet_sheet_price" class="bgg-input" style="width: 85px; padding: 4px 8px; font-size: 12px;" oninput="_bggSavePetConfigs()">
+                                    <input type="number" id="bgg_pet_sheet_price" class="bgg-input" style="width: 85px; padding: 4px 8px; font-size: 12px;" oninput="_bggSavePetConfigs()" ${isDirector ? '' : 'disabled'}>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #166534;">K.Cách:</span>
-                                    <input type="text" id="bgg_pet_spacing" class="bgg-input" style="width: 55px; padding: 4px 8px; font-size: 12px;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _bggSavePetConfigs()">
+                                    <input type="text" id="bgg_pet_spacing" class="bgg-input" style="width: 55px; padding: 4px 8px; font-size: 12px;" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _bggSavePetConfigs()" ${isDirector ? '' : 'disabled'}>
                                 </div>
                             </div>
                         </div>
