@@ -3558,6 +3558,69 @@ module.exports = async function(fastify) {
         }
     }
 
+    // Helper: Automatically sync all formula supplier IDs to the latest approved import prices on server startup
+    async function autoSyncAllBggFormulasToLatestApproved(queryConn = db.pool) {
+        try {
+            const formulaKeys = ['bgg_formula_tem', 'bgg_formula_pet'];
+            const configRows = await queryConn.query(
+                `SELECT key, value FROM app_config WHERE key = ANY($1)`,
+                [formulaKeys]
+            ).then(r => r.rows || []);
+
+            const settingsRoutes = require('./settings');
+
+            for (const configRow of configRows) {
+                let formula = [];
+                try {
+                    formula = JSON.parse(configRow.value);
+                } catch(e) {
+                    continue;
+                }
+                if (!Array.isArray(formula)) continue;
+
+                let formulaChanged = false;
+                for (const row of formula) {
+                    if (!row.material_id) continue;
+
+                    // Find the source_id with the latest updated_at in approved_import_prices
+                    const latestPriceRow = await queryConn.query(
+                        `SELECT source_id FROM approved_import_prices 
+                         WHERE item_type = 'material' AND material_item_id = $1
+                         ORDER BY updated_at DESC, id DESC LIMIT 1`,
+                        [Number(row.material_id)]
+                    ).then(r => r.rows[0] || null);
+
+                    if (latestPriceRow) {
+                        const latestSourceId = Number(latestPriceRow.source_id);
+                        if (row.source_id === undefined || row.source_id === null || Number(row.source_id) !== latestSourceId) {
+                            row.source_id = latestSourceId;
+                            formulaChanged = true;
+                        }
+                    }
+                }
+
+                if (formulaChanged) {
+                    const formulaKey = configRow.key;
+                    await queryConn.query(
+                        `INSERT INTO app_config (key, value, updated_at) VALUES ($1, $2, NOW())
+                         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+                        [formulaKey, JSON.stringify(formula)]
+                    );
+                    if (settingsRoutes.appConfigCache) {
+                        settingsRoutes.appConfigCache.delete(formulaKey);
+                    }
+                }
+            }
+
+            // Always recalculate all formulas to make sure prices are 100% synchronized
+            await recalculateAllBggFormulas(queryConn);
+            console.log('[Auto Sync Startup] Successfully checked and synchronized all TEM/PET pricing formulas.');
+        } catch(err) {
+            console.error('[Auto Sync Startup] Error:', err.message);
+        }
+    }
+
+
     fastify.post('/api/gianhapgoc/initialize-from-history', { preHandler: [authenticate] }, async (req, reply) => {
         if (!(await isDuyetUser(req))) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc QLCC mới có quyền khởi tạo giá gốc' });
@@ -3678,6 +3741,11 @@ module.exports = async function(fastify) {
         } catch(e) {
             return reply.code(500).send({ error: 'Lỗi cập nhật giá gốc: ' + e.message });
         }
+    });
+
+    // Auto-sync formulas to the latest approved prices at server start
+    autoSyncAllBggFormulasToLatestApproved().catch(err => {
+        console.error('[BNH Startup Sync] Error during startup sync:', err.message);
     });
 };
 
