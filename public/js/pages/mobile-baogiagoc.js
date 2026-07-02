@@ -303,10 +303,10 @@ function render3dSupplierDisplayMobile() {
     if (!el) return;
     const supplier = _M_BGG_3D_SUPPLIERS.find(s => s.key === _mobileBgg.print3dSupplier);
     if (!supplier) {
-        el.innerHTML = '<div style="font-size: 11px; color: #94a3b8; font-style: italic;">⚠️ Chưa chọn NCC. Bấm "⚙️ Setup in 3D"</div>';
+        el.innerHTML = '<div style="font-size: 11px; color: #94a3b8; cursor: pointer;" onclick="open3dPickerMobile()">⚠️ Chưa chọn NCC — <strong style="color:#3b82f6;">bấm để chọn</strong></div>';
         return;
     }
-    const nccBadge = `<span onclick="openSetup3dMobile()" style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;cursor:pointer;border:1px solid #93c5fd;">${supplier.icon} ${supplier.name} ▾</span>`;
+    const nccBadge = `<span onclick="open3dPickerMobile()" style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;cursor:pointer;border:1px solid #93c5fd;">${supplier.icon} ${supplier.name} ▾</span>`;
     const qty = Number(document.getElementById('m_quantity')?.value) || 0;
     const calc = _mCalc3dCost(qty);
     if (calc.needQty) {
@@ -326,6 +326,53 @@ function render3dSupplierDisplayMobile() {
             <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-style:italic;">Chưa có bảng giá — bấm Setup</div>
         `;
     }
+}
+
+function open3dPickerMobile() {
+    const existing = document.getElementById('m_3d_picker_modal');
+    if (existing) existing.remove();
+
+    const currentSupplier = _mobileBgg.print3dSupplier || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'm_3d_picker_modal';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 320px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; overflow: hidden;">
+            <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <h3 style="margin: 0; font-size: 13px; font-weight: 800; color: #0f172a;">🏭 Chọn Nhà In 3D</h3>
+                <button onclick="close3dPickerMobile()" style="background: none; border: none; font-size: 18px; color: #64748b; cursor: pointer;">&times;</button>
+            </div>
+            <div style="padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+                ${_M_BGG_3D_SUPPLIERS.map(s => `
+                    <div onclick="select3dSupplierFromPickerMobile('${s.key}')" style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 10px; cursor: pointer; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'};">
+                        <div style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center;">
+                            ${currentSupplier === s.key ? '<div style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;"></div>' : ''}
+                        </div>
+                        <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
+                <button onclick="close3dPickerMobile()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; background: white;">Đóng</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function close3dPickerMobile() {
+    const modal = document.getElementById('m_3d_picker_modal');
+    if (modal) modal.remove();
+}
+
+function select3dSupplierFromPickerMobile(key) {
+    _mobileBgg.print3dSupplier = key;
+    save3dConfigsMobile();
+    render3dSupplierDisplayMobile();
+    renderMobileCalcResults();
+    close3dPickerMobile();
+    toast(`Đã chọn bên in: ${key === 'thien_linh' ? 'Thiện Linh' : key === 'phuong_tc' ? 'Phượng TC' : 'Chi Hằng'}`, 'success');
 }
 
 function openSetup3dMobile() {

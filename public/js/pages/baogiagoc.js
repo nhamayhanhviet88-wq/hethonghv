@@ -550,10 +550,10 @@ function _bggRender3dSupplierDisplay() {
     if (!el) return;
     const supplier = _BGG_3D_SUPPLIERS.find(s => s.key === _bgg.print3dSupplier);
     if (!supplier) {
-        el.innerHTML = '<div style="font-size: 12px; color: #94a3b8; font-style: italic;">⚠️ Chưa chọn nhà cung cấp in 3D. Bấm "⚙️ Setup in 3D" để chọn.</div>';
+        el.innerHTML = '<div style="font-size: 12px; color: #94a3b8; cursor: pointer;" onclick="_bggOpen3dPicker()">⚠️ Chưa chọn NCC — <strong style="color:#3b82f6;">bấm để chọn</strong></div>';
         return;
     }
-    const nccBadge = `<span onclick="_bggOpenSetup3dModal()" style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #1e40af; cursor: pointer; border: 1px solid #93c5fd; transition: background 0.2s;" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">${supplier.icon} ${supplier.name} ▾</span>`;
+    const nccBadge = `<span onclick="_bggOpen3dPicker()" style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #1e40af; cursor: pointer; border: 1px solid #93c5fd; transition: background 0.2s;" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">${supplier.icon} ${supplier.name} ▾</span>`;
     const qty = Number(document.getElementById('bgg_quantity')?.value) || 0;
     const calc = _bggCalc3dCost(qty);
     if (calc.needQty) {
@@ -1613,6 +1613,57 @@ window._bggSaveSetupModal = function() {
     
     if (typeof showToast === 'function') showToast('Đã lưu cấu hình chi phí và gợi ý!', 'success');
     _bggCloseSetupModal();
+};
+
+// ========== 3D PRINTING SUPPLIER PICKER (FOR STAFF) ==========
+window._bggOpen3dPicker = function() {
+    const existing = document.getElementById('bgg_3d_picker_modal');
+    if (existing) existing.remove();
+
+    const currentSupplier = _bgg.print3dSupplier || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'bgg_3d_picker_modal';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; overflow: hidden;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #0f172a;">🏭 Chọn Nhà Cung Cấp In 3D</h3>
+                <button onclick="_bggClose3dPicker()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
+            </div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+                ${_BGG_3D_SUPPLIERS.map(s => `
+                    <div onclick="_bggSelect3dSupplierFromPicker('${s.key}')" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'};" onmouseover="this.style.borderColor='#93c5fd'; this.style.background='#f8fafc'" onmouseout="this.style.borderColor='${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}'; this.style.background='${currentSupplier === s.key ? '#eff6ff' : 'white'}'">
+                        <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            ${currentSupplier === s.key ? '<div style="width: 10px; height: 10px; border-radius: 50%; background: #3b82f6;"></div>' : ''}
+                        </div>
+                        <div style="font-size: 14px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
+                <button onclick="_bggClose3dPicker()" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+};
+
+window._bggClose3dPicker = function() {
+    const modal = document.getElementById('bgg_3d_picker_modal');
+    if (modal) modal.remove();
+};
+
+window._bggSelect3dSupplierFromPicker = function(key) {
+    _bgg.print3dSupplier = key;
+    _bggSave3dConfigs();
+    _bggRender3dSupplierDisplay();
+    _bggRenderCalcResults();
+    _bggClose3dPicker();
+    if (typeof showToast === 'function') {
+        const supplier = _BGG_3D_SUPPLIERS.find(s => s.key === key);
+        showToast(`Đã chọn ${supplier ? supplier.name : key}`, 'success');
+    }
 };
 
 // ========== 3D PRINTING SETUP MODAL ==========
