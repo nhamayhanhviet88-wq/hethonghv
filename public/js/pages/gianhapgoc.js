@@ -1514,6 +1514,45 @@ function _gngRenderDetailApproved(target) {
     groups.forEach(g => {
         const isFabric = g.item_type === 'fabric';
         
+        if (!isFabric) {
+            // Render directly as a flat row (no toggle arrow, no sub-row)
+            const p = g.items[0]; // Materials only have 1 item per group
+            const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
+            const formattedDate = _gngFormatDateTime(p.updated_at);
+            
+            rowsHtml += `
+                <tr class="gng-flat-row">
+                    <td>
+                        <span class="gng-badge-type gng-badge-material">
+                            📦 Phụ liệu
+                        </span>
+                    </td>
+                    <td style="font-weight: 700; color: #1e293b;">
+                        ${_gngCleanMaterialName(p.item_name)}
+                    </td>
+                    <td style="color: #0f172a; font-weight: 600;">
+                        🏢 ${p.warehouse_name || '---'}
+                    </td>
+                    ${_gng.filter.supplierId === 'all' ? `<td>${_gngGetSupplierBadgeHtml(p.source_name)}</td>` : ''}
+                    <td style="text-align: right; font-weight: 700; color: #059669; cursor: ${_gng.isDuyetUser ? 'pointer' : 'default'};"
+                        ${_gng.isDuyetUser ? `onclick="event.stopPropagation(); _gngOpenEditPriceModal('${p.item_type}', ${p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name)}');"` : ''}>
+                        ${formattedPrice} ${_gng.isDuyetUser ? ' ✏️' : ''}
+                    </td>
+                    ${isFabricSupplier ? `
+                        <td></td>
+                        <td></td>
+                    ` : ''}
+                    <td>${formattedDate}</td>
+                    <td>
+                        <button class="gng-btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); _gngShowItemHistory('${p.item_type}', ${p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name)}')">
+                            📈 Lịch sử
+                        </button>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
         // Calculate price range
         const pricesList = g.items.map(it => Number(it.price) || 0);
         const minPrice = Math.min(...pricesList);

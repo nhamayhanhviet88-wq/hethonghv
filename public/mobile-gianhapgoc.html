@@ -1032,6 +1032,40 @@
             groups.forEach(g => {
                 const isFabric = g.item_type === 'fabric';
                 
+                if (!isFabric) {
+                    const p = g.items[0]; // Materials only have 1 item per group
+                    const formattedPrice = Number(p.price).toLocaleString('vi-VN') + ' đ';
+                    
+                    html += `
+                        <div class="m-card" style="padding: 14px; margin-bottom: 12px; background: white; border-radius: 12px; border: 1px solid #e2e8f0;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                                <div class="m-card-title" style="margin-bottom:0; font-size:14px; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                                    <span class="m-badge-type m-badge-material" style="padding:2px 6px; font-size:10px;">
+                                        Phụ liệu
+                                    </span>
+                                    ${p.item_name}
+                                </div>
+                                ${selectedSupplierId === 'all' ? `<div>${_gngGetSupplierBadgeHtml(p.source_name)}</div>` : ''}
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px dashed #f1f5f9;">
+                                <div style="font-size:12px; font-weight:600; color:#475569;">
+                                    🏢 Kho: <b>${p.warehouse_name || '---'}</b>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:13.5px; font-weight:800; color:#059669; cursor: ${isDuyetUser ? 'pointer' : 'default'};"
+                                        ${isDuyetUser ? `onclick="event.stopPropagation(); openEditSheet('${p.item_type}', ${p.material_item_id}, ${p.source_id}, ${p.price}, '${escapeJS(p.item_name)}', '${escapeJS(p.source_name)}');"` : ''}>
+                                        ${formattedPrice} ${isDuyetUser ? '✏️' : ''}
+                                    </span>
+                                    <button class="m-btn-secondary" style="padding: 3px 6px; font-size: 10px; background:#f1f5f9; color:#475569; border-radius:4px;" onclick="event.stopPropagation(); openHistorySheet('${p.item_type}', ${p.material_item_id}, ${p.source_id}, '${escapeJS(p.item_name)}')">
+                                        Lịch sử
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
                 // Calculate price range
                 const pricesList = g.items.map(it => Number(it.price) || 0);
                 const minPrice = Math.min(...pricesList);
