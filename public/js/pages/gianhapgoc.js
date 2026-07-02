@@ -1885,7 +1885,7 @@ function _gngOpenHistoryBill(itemType, importId) {
             runDetail();
         } else {
             var s = document.createElement('script');
-            s.src = '/js/pages/billvatlieu.js?v=20260702_multi_material_v1';
+            s.src = '/js/pages/billvatlieu.js?v=20260702_multi_material_v2';
             s.onload = runDetail;
             document.head.appendChild(s);
         }

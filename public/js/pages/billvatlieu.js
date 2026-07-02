@@ -816,13 +816,13 @@ function _bvlOpenMatDialogHTML(r) {
     var titleText = _bvl.isEdit ? '✏️ Sửa Phiếu Nhập Vật Liệu' : '📦 Nhập Vật Liệu Mới';
     var saveBtnText = _bvl.isEdit ? '💾 CẬP NHẬT PHIẾU NHẬP' : '💾 LƯU PHIẾU NHẬP';
 
-    var h = '<div id="_bvlMatDialogContainer" style="background:#fff;border-radius:16px;width:100%;max-width:980px;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
+    var h = '<div id="_bvlMatDialogContainer" style="background:#fff;border-radius:16px;width:100%;max-width:1100px;box-shadow:0 25px 50px rgba(0,0,0,.25)" onclick="event.stopPropagation()">'
         + '<div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:16px 16px 0 0;color:#fff;display:flex;justify-content:space-between;align-items:center">'
         + '<div style="font-size:16px;font-weight:800">' + titleText + '</div>'
         + '<button onclick="document.getElementById(\'_bvlMatOv\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">✕ Đóng</button></div>'
         + '<div style="padding:20px;max-height:85vh;overflow-y:auto;">'
         + '<style>'
-        + '  #_bvlMatDialogContainer { max-width: 980px !important; }'
+        + '  #_bvlMatDialogContainer { max-width: 1100px !important; }'
         + '  ._bvl-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }'
         + '  @media (min-width: 768px) { ._bvl-grid { grid-template-columns: 1fr 1.25fr; } }'
         + '  @media (max-width: 767px) { #_bvlMatDialogContainer { max-width: 550px !important; } }'
