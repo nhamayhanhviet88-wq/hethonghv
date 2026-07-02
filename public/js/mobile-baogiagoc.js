@@ -483,6 +483,15 @@ function renderMobileCalcResults() {
     const selectedId = _mobileBgg.selectedCalcSupplierId || 'all';
     const petInfo = getPetCostsMobile();
     const petCost = petInfo.enabled ? (localStorage.getItem('tlcg_pet_calc_mode') === 'optimized' ? petInfo.optimizedCost : petInfo.alignedCost) : 0;
+    const sewingCost = Number(document.getElementById('m_sewing_cost')?.value) || 0;
+    const collarCost = Number(document.getElementById('m_collar_cost')?.value) || 0;
+    const extraCost = petCost + sewingCost + collarCost;
+
+    const breakdownParts = [];
+    if (petCost > 0) breakdownParts.push(`PET: ${Number(petCost).toLocaleString('vi-VN')}đ`);
+    if (sewingCost > 0) breakdownParts.push(`May: ${Number(sewingCost).toLocaleString('vi-VN')}đ`);
+    if (collarCost > 0) breakdownParts.push(`Cổ: ${Number(collarCost).toLocaleString('vi-VN')}đ`);
+    const extraDetailStr = breakdownParts.length > 0 ? ` + ${breakdownParts.join(' + ')}` : '';
 
     const getRankStyles = (idx) => {
         const icons = ['🏆 ', '🥈 ', '🥉 ', '• '];
@@ -586,7 +595,7 @@ function renderMobileCalcResults() {
                         ? rangeCalc.range_prices[ap.source_id]
                         : calc.overall_prices[ap.source_id];
                     if (price) {
-                        const finalPrice = Number(price) + petCost;
+                        const finalPrice = Number(price) + extraCost;
                         const cleanSeg = (calc.segment || '').trim();
                         let color = '#2563eb';
                         if (cleanSeg === 'Người Lớn') color = '#2563eb';
@@ -745,11 +754,11 @@ function renderMobileCalcResults() {
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
                                                 <div style="text-align: right; line-height: 1.2;">
                                                     <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                        ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ
+                                                        ${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ
                                                     </span>
-                                                    ${petCost > 0 ? `
+                                                    ${extraCost > 0 ? `
                                                         <div style="font-size: 9.5px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + PET: ${Number(petCost).toLocaleString('vi-VN')}đ)
+                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
                                                         </div>
                                                     ` : ''}
                                                 </div>
@@ -787,11 +796,11 @@ function renderMobileCalcResults() {
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
                                                 <div style="text-align: right; line-height: 1.2;">
                                                     <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                        ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ
+                                                        ${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ
                                                     </span>
-                                                    ${petCost > 0 ? `
+                                                    ${extraCost > 0 ? `
                                                         <div style="font-size: 9.5px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + PET: ${Number(petCost).toLocaleString('vi-VN')}đ)
+                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
                                                         </div>
                                                     ` : ''}
                                                 </div>
@@ -828,10 +837,10 @@ function renderMobileCalcResults() {
                                         const finalPriceColor = isSelected ? styles.priceColor : '#64748b';
                                         return `
                                             <div style="font-weight: 600; color: ${finalNameColor}; font-size: 11.5px; line-height: 1.3; margin-bottom: 4px;">
-                                                ${styles.icon}${sp.source_name}: <span style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price + petCost).toLocaleString('vi-VN')} đ</span>
-                                                ${petCost > 0 ? `
+                                                ${styles.icon}${sp.source_name}: <span style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ</span>
+                                                ${extraCost > 0 ? `
                                                     <div style="font-size: 9.5px; color: #64748b; font-weight: normal; margin-top: 1px; padding-left: 14px;">
-                                                        (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + PET: ${Number(petCost).toLocaleString('vi-VN')}đ)
+                                                        (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
                                                     </div>
                                                 ` : ''}
                                             </div>
@@ -861,6 +870,30 @@ function renderMobileCalcResults() {
     resultsCard.innerHTML = html;
 }
 
+window._mSelectSewingPreset = function(type, amount) {
+    const sewingInput = document.getElementById('m_sewing_cost');
+    if (sewingInput) {
+        sewingInput.value = amount;
+    }
+    const collarInput = document.getElementById('m_collar_cost');
+    if (collarInput) {
+        if (type === 'co_be') {
+            collarInput.value = 6000;
+        } else {
+            collarInput.value = '';
+        }
+    }
+    renderMobileCalcResults();
+};
+
+window._mSelectCollarPreset = function(amount) {
+    const collarInput = document.getElementById('m_collar_cost');
+    if (collarInput) {
+        collarInput.value = amount;
+    }
+    renderMobileCalcResults();
+};
+
 // Bind all to window
 window._mobileBgg = _mobileBgg;
 window.initMobileBaogiagocPage = initMobileBaogiagocPage;
@@ -883,6 +916,8 @@ window.runMobileCalculation = runMobileCalculation;
 window.selectMobileCalcSupplier = selectMobileCalcSupplier;
 window.getSegmentBadgeMobile = getSegmentBadgeMobile;
 window.renderMobileCalcResults = renderMobileCalcResults;
+window._mSelectSewingPreset = window._mSelectSewingPreset;
+window._mSelectCollarPreset = window._mSelectCollarPreset;
 
 // Register initialization on DOM content loaded
 if (document.readyState === 'loading') {

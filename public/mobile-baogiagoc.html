@@ -137,6 +137,22 @@
         .mobile-nav-header {
             background: linear-gradient(135deg, #0f172a, #1e293b) !important;
         }
+        .btn-suggestion {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-suggestion:active {
+            background: #e2e8f0;
+            border-color: #94a3b8;
+            color: #1e293b;
+        }
     </style>
 </head>
 <body>
@@ -171,6 +187,29 @@
             <div class="m-form-group">
                 <label>Số lượng áo</label>
                 <input type="number" id="m_quantity" class="m-input" placeholder="Nhập số lượng (tùy chọn)">
+            </div>
+
+            <div class="m-form-group">
+                <label>Chi phí may (đ)</label>
+                <input type="number" id="m_sewing_cost" class="m-input" placeholder="Tự điền giá may (đ)" style="margin-bottom: 6px;" oninput="renderMobileCalcResults()">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn-suggestion" onclick="_mSelectSewingPreset('co_tron', 9000)">
+                        👕 Cổ tròn: 9k
+                    </button>
+                    <button type="button" class="btn-suggestion" onclick="_mSelectSewingPreset('co_be', 13000)">
+                        👔 Cổ bẻ: 13k
+                    </button>
+                </div>
+            </div>
+            
+            <div class="m-form-group">
+                <label>Chi phí cổ bẻ (nếu có) (đ)</label>
+                <input type="number" id="m_collar_cost" class="m-input" placeholder="Tự điền giá cổ bẻ (đ)" style="margin-bottom: 6px;" oninput="renderMobileCalcResults()">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn-suggestion" onclick="_mSelectCollarPreset(6000)">
+                        👔 Gợi ý: 6k
+                    </button>
+                </div>
             </div>
 
             <!-- PET Printing Section -->
@@ -218,7 +257,7 @@
     <!-- Toast container -->
     <div id="toastContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
 
-    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_m_validation_fix_v1"></script>
+    <script src="/js/pages/mobile-baogiagoc.js?v=20260702_m_sewing_collar_cost_v1"></script>
     <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
 </body>
 </html>

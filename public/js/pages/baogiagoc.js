@@ -148,6 +148,27 @@ async function renderBaogiagocPage(content) {
                 margin-bottom: 8px;
                 box-shadow: 0 1px 2px rgba(0,0,0,0.02);
             }
+            .btn-suggestion {
+                background: #f1f5f9;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 4px 8px;
+                font-size: 11.5px;
+                font-weight: 600;
+                color: #475569;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .btn-suggestion:hover {
+                background: #e2e8f0;
+                border-color: #94a3b8;
+                color: #1e293b;
+            }
+            .btn-suggestion.active {
+                background: #e0e7ff;
+                border-color: #6366f1;
+                color: #4f46e5;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -190,6 +211,29 @@ async function renderBaogiagocPage(content) {
                     <div class="bgg-form-group">
                         <label>Số lượng áo</label>
                         <input type="number" id="bgg_quantity" class="bgg-input" placeholder="Tự điền (tùy chọn)">
+                    </div>
+                    
+                    <div class="bgg-form-group">
+                        <label>Chi phí may (đ)</label>
+                        <input type="number" id="bgg_sewing_cost" class="bgg-input" placeholder="Tự điền giá may (đ)" style="margin-bottom: 6px;" oninput="_bggRenderCalcResults()">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="btn-suggestion" onclick="_bggSelectSewingPreset('co_tron', 9000)">
+                                👕 Cổ tròn: 9.000đ
+                            </button>
+                            <button type="button" class="btn-suggestion" onclick="_bggSelectSewingPreset('co_be', 13000)">
+                                👔 Cổ bẻ: 13.000đ
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bgg-form-group">
+                        <label>Chi phí cổ bẻ (nếu có) (đ)</label>
+                        <input type="number" id="bgg_collar_cost" class="bgg-input" placeholder="Tự điền giá cổ bẻ (đ)" style="margin-bottom: 6px;" oninput="_bggRenderCalcResults()">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="btn-suggestion" onclick="_bggSelectCollarPreset(6000)">
+                                👔 Gợi ý: 6.000đ
+                            </button>
+                        </div>
                     </div>
 
                     <!-- PET Section -->
@@ -613,6 +657,15 @@ function _bggRenderCalcResults() {
     const selectedId = _bgg.selectedCalcSupplierId || 'all';
     const petInfo = _bggGetPetCosts();
     const petCost = petInfo.enabled ? (localStorage.getItem('tlcg_pet_calc_mode') === 'optimized' ? petInfo.optimizedCost : petInfo.alignedCost) : 0;
+    const sewingCost = Number(document.getElementById('bgg_sewing_cost')?.value) || 0;
+    const collarCost = Number(document.getElementById('bgg_collar_cost')?.value) || 0;
+    const extraCost = petCost + sewingCost + collarCost;
+    
+    const breakdownParts = [];
+    if (petCost > 0) breakdownParts.push(`PET: ${Number(petCost).toLocaleString('vi-VN')}đ`);
+    if (sewingCost > 0) breakdownParts.push(`May: ${Number(sewingCost).toLocaleString('vi-VN')}đ`);
+    if (collarCost > 0) breakdownParts.push(`Cổ: ${Number(collarCost).toLocaleString('vi-VN')}đ`);
+    const extraDetailStr = breakdownParts.length > 0 ? ` + ${breakdownParts.join(' + ')}` : '';
 
     const getRankStyles = (idx) => {
         const icons = ['🏆 ', '🥈 ', '🥉 ', '• '];
@@ -722,7 +775,7 @@ function _bggRenderCalcResults() {
                         ? rangeCalc.range_prices[s.source_id]
                         : calc.overall_prices[s.source_id];
                     if (price) {
-                        const finalPrice = Number(price) + petCost;
+                        const finalPrice = Number(price) + extraCost;
                         const cleanSeg = (calc.segment || '').trim();
                         let color = '#2563eb';
                         if (cleanSeg === 'Người Lớn') color = '#2563eb';
@@ -891,11 +944,11 @@ function _bggRenderCalcResults() {
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
                                                 <div style="text-align: right; line-height: 1.2;">
                                                     <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                        ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo
+                                                        ${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ / áo
                                                     </span>
-                                                    ${petCost > 0 ? `
+                                                    ${extraCost > 0 ? `
                                                         <div style="font-size: 10px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + PET: ${Number(petCost).toLocaleString('vi-VN')}đ)
+                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
                                                         </div>
                                                     ` : ''}
                                                 </div>
@@ -904,11 +957,11 @@ function _bggRenderCalcResults() {
                                     }).join('')}
                                     ${selectedId !== 'all' && activeCheapestRange ? `
                                         <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền: ${Math.round((activeCheapestRange.price + petCost) * res.quantity).toLocaleString('vi-VN')} đ
+                                            💰 Tổng tiền: ${Math.round((activeCheapestRange.price + extraCost) * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     ` : selectedId === 'all' && rangeSupplierPrices.length > 0 ? `
                                         <div style="font-size: 13px; font-weight: 800; color: ${rangeText}; margin-top: 6px; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền (tối ưu): ${Math.round((rangeSupplierPrices[0].price + petCost) * res.quantity).toLocaleString('vi-VN')} đ
+                                            💰 Tổng tiền (tối ưu): ${Math.round((rangeSupplierPrices[0].price + extraCost) * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     ` : ''}
                                 </div>
@@ -943,11 +996,11 @@ function _bggRenderCalcResults() {
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}</span>
                                                 <div style="text-align: right; line-height: 1.2;">
                                                     <span style="color: ${finalPriceColor}; font-weight: 800;">
-                                                        ${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo
+                                                        ${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ / áo
                                                     </span>
-                                                    ${petCost > 0 ? `
+                                                    ${extraCost > 0 ? `
                                                         <div style="font-size: 10px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + PET: ${Number(petCost).toLocaleString('vi-VN')}đ)
+                                                            (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
                                                         </div>
                                                     ` : ''}
                                                 </div>
@@ -956,11 +1009,11 @@ function _bggRenderCalcResults() {
                                     }).join('')}
                                     ${selectedId !== 'all' && activeCheapestOverall ? `
                                         <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền: ${Math.round((activeCheapestOverall.price + petCost) * res.quantity).toLocaleString('vi-VN')} đ
+                                            💰 Tổng tiền: ${Math.round((activeCheapestOverall.price + extraCost) * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     ` : selectedId === 'all' && overallSupplierPrices.length > 0 ? `
                                         <div style="font-size: 13px; font-weight: 800; color: ${overallText}; margin-top: 6px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">
-                                            💰 Tổng tiền (tối ưu): ${Math.round((overallSupplierPrices[0].price + petCost) * res.quantity).toLocaleString('vi-VN')} đ
+                                            💰 Tổng tiền (tối ưu): ${Math.round((overallSupplierPrices[0].price + extraCost) * res.quantity).toLocaleString('vi-VN')} đ
                                         </div>
                                     ` : ''}
                                 </div>
@@ -995,10 +1048,10 @@ function _bggRenderCalcResults() {
                                         return `
                                             <div style="font-weight: ${finalWeight}; line-height: 1.3; margin-bottom: 4px;">
                                                 <span style="color: ${finalNameColor}; font-weight: 600;">${styles.icon}${sp.source_name}:</span>
-                                                <strong style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price + petCost).toLocaleString('vi-VN')} đ / áo</strong>
-                                                ${petCost > 0 ? `
+                                                <strong style="color: ${finalPriceColor}; font-weight: 800;">${Number(sp.price + extraCost).toLocaleString('vi-VN')} đ / áo</strong>
+                                                ${extraCost > 0 ? `
                                                     <div style="font-size: 10.5px; color: #64748b; font-weight: normal; margin-top: 1px;">
-                                                        (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ + PET: ${Number(petCost).toLocaleString('vi-VN')}đ)
+                                                        (Vải: ${Number(sp.price).toLocaleString('vi-VN')}đ${extraDetailStr})
                                                     </div>
                                                 ` : ''}
                                             </div>
@@ -1036,3 +1089,27 @@ function _bggRenderCalcResults() {
 
     resultsCard.innerHTML = html;
 }
+
+window._bggSelectSewingPreset = function(type, amount) {
+    const sewingInput = document.getElementById('bgg_sewing_cost');
+    if (sewingInput) {
+        sewingInput.value = amount;
+    }
+    const collarInput = document.getElementById('bgg_collar_cost');
+    if (collarInput) {
+        if (type === 'co_be') {
+            collarInput.value = 6000;
+        } else {
+            collarInput.value = '';
+        }
+    }
+    _bggRenderCalcResults();
+};
+
+window._bggSelectCollarPreset = function(amount) {
+    const collarInput = document.getElementById('bgg_collar_cost');
+    if (collarInput) {
+        collarInput.value = amount;
+    }
+    _bggRenderCalcResults();
+};
