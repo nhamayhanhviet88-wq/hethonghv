@@ -146,11 +146,31 @@
             justify-content: center;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
+            position: relative;
         }
         .menu-card:active {
             transform: scale(0.96);
             background: #f8fafc;
             border-color: #cbd5e1;
+        }
+        .menu-card.is-pinned {
+            border-color: #fde047;
+            background: linear-gradient(to bottom right, #ffffff, #fefce8);
+            box-shadow: 0 4px 10px rgba(253, 224, 71, 0.12);
+        }
+        .pin-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 14px;
+            color: #eab308;
+            opacity: 0.85;
+            pointer-events: none;
+            animation: popIn 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+        @keyframes popIn {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 0.85; }
         }
         .menu-card-icon {
             font-size: 32px;
@@ -200,6 +220,10 @@
             animation: slideInDown 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
             pointer-events: auto;
         }
+        .toast-msg.toast-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 10px 25px rgba(5, 150, 105, 0.2);
+        }
 
         /* Animations */
         @keyframes fadeIn {
@@ -217,6 +241,10 @@
         @keyframes slideInDown {
             from { transform: translateY(-100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.9); }
         }
     </style>
 </head>
@@ -242,8 +270,18 @@
             <input type="search" id="searchInput" class="search-box" placeholder="Tìm bộ phận, công việc..." inputmode="search" enterkeyhint="search">
         </div>
 
+        <!-- Pinned Menu Section -->
+        <div id="pinnedSection" style="display: none; margin-bottom: 24px;">
+            <div class="section-title" style="display: flex; align-items: center; gap: 6px; color: #b45309;">
+                <span>📍</span> Mục đã ghim
+            </div>
+            <div class="menu-grid" id="pinnedMenuGrid">
+                <!-- Dynamically Rendered Pinned Cards -->
+            </div>
+        </div>
+
         <!-- Menu Section -->
-        <div class="section-title">Danh sách bộ phận</div>
+        <div class="section-title" id="regularSectionTitle">Danh sách bộ phận</div>
         
         <div class="no-access-warn" id="noAccessWarn">
             <div style="font-size: 32px; margin-bottom: 8px;">🔒</div>
@@ -296,48 +334,180 @@
                 roleBadge.textContent = ROLE_MAP[user.role] || user.role;
                 roleBadge.className = `welcome-role profile-role-${user.role}`;
 
-                // Build permitted grid
-                const grid = document.getElementById('menuGrid');
-                let cardsHtml = '';
-                let hasAnyCard = false;
-
-                // Loop through items in MOBILE_MENU_CONFIG (skip 'hub' itself)
-                MOBILE_MENU_CONFIG.forEach(item => {
-                    if (item.id === 'hub') return; // Skip home card
-
-                    let isPermitted = false;
-                    if (user.role === 'giam_doc') {
-                        isPermitted = true;
-                    } else {
-                        const userPerm = perms[item.permKey];
-                        if (userPerm && userPerm.can_view) {
-                            isPermitted = true;
-                        }
-                    }
-
-                    if (isPermitted) {
-                        hasAnyCard = true;
-                        cardsHtml += `
-                            <a href="${item.href}" class="menu-card" data-label="${item.label.toLowerCase()}">
-                                <div class="menu-card-icon">${item.icon}</div>
-                                <div class="menu-card-label">${item.label}</div>
-                            </a>
-                        `;
-                    }
-                });
-
-                if (hasAnyCard) {
-                    grid.innerHTML = cardsHtml;
-                    document.getElementById('noAccessWarn').style.display = 'none';
-                } else {
-                    document.getElementById('noAccessWarn').style.display = 'block';
+                // Setup Pin/Unpin data structures & dynamic render
+                const userId = user.id;
+                const storageKey = `bgg_pinned_menu_${userId}`;
+                let pinnedIds = [];
+                try {
+                    pinnedIds = JSON.parse(localStorage.getItem(storageKey)) || [];
+                } catch(e) {
+                    pinnedIds = [];
                 }
 
-                // Add Real-time search inside hub grid
-                const searchInput = document.getElementById('searchInput');
-                searchInput.addEventListener('input', (e) => {
-                    const query = e.target.value.toLowerCase().trim();
-                    const cards = grid.querySelectorAll('.menu-card');
+                // Toast notifier
+                function showHubToast(msg, type = 'success') {
+                    const container = document.getElementById('toastContainer');
+                    const toast = document.createElement('div');
+                    toast.className = `toast-msg ${type === 'success' ? 'toast-success' : ''}`;
+                    toast.textContent = msg;
+                    container.appendChild(toast);
+                    setTimeout(() => {
+                        toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3000);
+                }
+
+                // Rendering Function for Pinned & Unpinned Grids
+                function renderMenuHub() {
+                    let pinnedCardsHtml = '';
+                    let normalCardsHtml = '';
+                    let hasAnyCard = false;
+                    let hasAnyPinned = false;
+
+                    MOBILE_MENU_CONFIG.forEach(item => {
+                        if (item.id === 'hub') return; // Skip home card
+
+                        let isPermitted = false;
+                        if (user.role === 'giam_doc') {
+                            isPermitted = true;
+                        } else {
+                            const userPerm = perms[item.permKey];
+                            if (userPerm && userPerm.can_view) {
+                                isPermitted = true;
+                            }
+                        }
+
+                        if (isPermitted) {
+                            hasAnyCard = true;
+                            const isPinned = pinnedIds.includes(item.id);
+                            const cardHtml = `
+                                <a href="${item.href}" class="menu-card ${isPinned ? 'is-pinned' : ''}" data-id="${item.id}" data-label="${item.label.toLowerCase()}">
+                                    ${isPinned ? '<div class="pin-badge">📍</div>' : ''}
+                                    <div class="menu-card-icon">${item.icon}</div>
+                                    <div class="menu-card-label">${item.label}</div>
+                                </a>
+                            `;
+                            if (isPinned) {
+                                hasAnyPinned = true;
+                                pinnedCardsHtml += cardHtml;
+                            } else {
+                                normalCardsHtml += cardHtml;
+                            }
+                        }
+                    });
+
+                    const pinnedSection = document.getElementById('pinnedSection');
+                    const pinnedGrid = document.getElementById('pinnedMenuGrid');
+                    const normalGrid = document.getElementById('menuGrid');
+
+                    if (hasAnyPinned) {
+                        pinnedGrid.innerHTML = pinnedCardsHtml;
+                        pinnedSection.style.display = 'block';
+                    } else {
+                        pinnedGrid.innerHTML = '';
+                        pinnedSection.style.display = 'none';
+                    }
+
+                    if (hasAnyCard) {
+                        normalGrid.innerHTML = normalCardsHtml;
+                        document.getElementById('noAccessWarn').style.display = 'none';
+                    } else {
+                        normalGrid.innerHTML = '';
+                        document.getElementById('noAccessWarn').style.display = 'block';
+                    }
+
+                    // Re-bind touch/longpress events on all newly rendered cards
+                    bindLongPressEvents();
+
+                    // Apply current search query if any
+                    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+                    if (query) {
+                        applySearchFilter(query);
+                    }
+                }
+
+                // Long Press Event Handlers
+                function bindLongPressEvents() {
+                    const cards = document.querySelectorAll('.menu-card');
+                    cards.forEach(card => {
+                        let pressTimer = null;
+                        let startX = 0;
+                        let startY = 0;
+                        let isLongPress = false;
+
+                        const startPress = (e) => {
+                            isLongPress = false;
+                            const touch = e.touches ? e.touches[0] : e;
+                            startX = touch.clientX;
+                            startY = touch.clientY;
+
+                            pressTimer = setTimeout(() => {
+                                isLongPress = true;
+                                triggerPinToggle(card);
+                            }, 600); // 600ms hold
+                        };
+
+                        const cancelPress = (e) => {
+                            if (pressTimer) {
+                                clearTimeout(pressTimer);
+                                pressTimer = null;
+                            }
+                        };
+
+                        const movePress = (e) => {
+                            const touch = e.touches ? e.touches[0] : e;
+                            const diffX = Math.abs(touch.clientX - startX);
+                            const diffY = Math.abs(touch.clientY - startY);
+                            if (diffX > 10 || diffY > 10) {
+                                cancelPress();
+                            }
+                        };
+
+                        // Touch support
+                        card.addEventListener('touchstart', startPress, { passive: true });
+                        card.addEventListener('touchend', cancelPress, { passive: true });
+                        card.addEventListener('touchmove', movePress, { passive: true });
+
+                        // Pointer/mouse support (compatibility/testing)
+                        card.addEventListener('pointerdown', startPress);
+                        card.addEventListener('pointerup', cancelPress);
+                        card.addEventListener('pointermove', movePress);
+
+                        // Prevent navigating if long-press was active
+                        card.addEventListener('click', (e) => {
+                            if (isLongPress) {
+                                e.preventDefault();
+                                isLongPress = false;
+                            }
+                        });
+                    });
+                }
+
+                function triggerPinToggle(card) {
+                    const id = card.getAttribute('data-id');
+                    const label = card.querySelector('.menu-card-label').textContent;
+                    const index = pinnedIds.indexOf(id);
+                    let msg = '';
+                    if (index === -1) {
+                        pinnedIds.push(id);
+                        msg = `📌 Đã ghim "${label}" lên đầu`;
+                    } else {
+                        pinnedIds.splice(index, 1);
+                        msg = `📍 Đã bỏ ghim "${label}"`;
+                    }
+
+                    localStorage.setItem(storageKey, JSON.stringify(pinnedIds));
+
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50);
+                    }
+
+                    showHubToast(msg);
+                    renderMenuHub();
+                }
+
+                function applySearchFilter(query) {
+                    const cards = document.querySelectorAll('.menu-card');
                     cards.forEach(card => {
                         const label = card.getAttribute('data-label');
                         if (label.includes(query)) {
@@ -346,6 +516,16 @@
                             card.style.display = 'none';
                         }
                     });
+                }
+
+                // Initial render call
+                renderMenuHub();
+
+                // Add Real-time search across both grids
+                const searchInput = document.getElementById('searchInput');
+                searchInput.addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase().trim();
+                    applySearchFilter(query);
                 });
 
                 searchInput.addEventListener('keydown', (e) => {
