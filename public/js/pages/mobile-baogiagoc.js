@@ -1063,7 +1063,9 @@ window._mCloseSetupModal = function() {
 window._mRenderSetupPresets = function() {
     const sewingList = document.getElementById('m_setup_sewing_presets_list');
     if (sewingList) {
-        sewingList.innerHTML = (_mobileBgg.tempSewingPresets || []).map((p, idx) => {
+        const presets = _mobileBgg.tempSewingPresets || [];
+        sewingList.style.display = presets.length > 0 ? 'flex' : 'none';
+        sewingList.innerHTML = presets.map((p, idx) => {
             if (!p) return '';
             return `
                 <div style="display: flex; align-items: center; gap: 4px;">
@@ -1077,7 +1079,9 @@ window._mRenderSetupPresets = function() {
     }
     const collarList = document.getElementById('m_setup_collar_presets_list');
     if (collarList) {
-        collarList.innerHTML = (_mobileBgg.tempCollarPresets || []).map((p, idx) => {
+        const presets = _mobileBgg.tempCollarPresets || [];
+        collarList.style.display = presets.length > 0 ? 'flex' : 'none';
+        collarList.innerHTML = presets.map((p, idx) => {
             if (!p) return '';
             return `
                 <div style="display: flex; align-items: center; gap: 4px;">

@@ -1262,10 +1262,10 @@ function _ppRevertAllSearchFields() {
 
 document.addEventListener('click', function(e) {
     if (!e.target.classList.contains('_ppSF') && 
-        !e.target.closest('[id$="_list"]') && 
+        !e.target.closest('[id^="_pp_"][id$="_list"]') && 
         !e.target.closest('[id^="_ppMatList"]') && 
         !e.target.closest('[id^="_ppColorList"]')) {
-        document.querySelectorAll('[id$="_list"], [id^="_ppMatList"], [id^="_ppColorList"]').forEach(function(l) {
+        document.querySelectorAll('[id^="_pp_"][id$="_list"], [id^="_ppMatList"], [id^="_ppColorList"]').forEach(function(l) {
             l.style.display = 'none';
         });
         _ppRevertAllSearchFields();
