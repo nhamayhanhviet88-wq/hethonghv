@@ -165,10 +165,59 @@ async function loadInitialDataMobile() {
             segSelect.innerHTML = '<option value="">-- Tất cả phân khúc --</option>' +
                 (_mobileBgg.sizeSegments || []).map(s => `<option value="${s.name}">${s.icon || '🧑'} ${s.name}</option>`).join('');
         }
+
+        // Load dynamic screen suppliers from print areas & staff configuration
+        await loadDynamicScreenSuppliersMobile();
+        renderScreenSupplierDisplayMobile();
         
     } catch(err) {
         console.error('Failed to load data:', err);
         toast('Không thể kết nối máy chủ!', 'error');
+    }
+}
+
+async function loadDynamicScreenSuppliersMobile() {
+    try {
+        const fieldsRes = await apiCall('/api/printing/fields');
+        const fields = fieldsRes.fields || [];
+        const screenField = fields.find(f => {
+            const name = (f.name || '').toLowerCase();
+            return name.includes('lưới') || name.includes('luoi');
+        });
+        if (screenField) {
+            const opsRes = await apiCall(`/api/printing/fields/${screenField.id}/operators`);
+            const staff = opsRes.staff || [];
+            const contractors = opsRes.contractors || [];
+            const assigned = opsRes.assigned || [];
+            
+            const dynamicSuppliers = [];
+            assigned.forEach(ass => {
+                if (ass.operator_type === 'user') {
+                    const u = staff.find(s => s.id === ass.operator_id);
+                    if (u) {
+                        dynamicSuppliers.push({
+                            key: 'user_' + u.id,
+                            name: u.full_name,
+                            icon: '👤'
+                        });
+                    }
+                } else if (ass.operator_type === 'contractor') {
+                    const c = contractors.find(con => con.id === ass.operator_id);
+                    if (c) {
+                        dynamicSuppliers.push({
+                            key: 'contractor_' + c.id,
+                            name: c.name,
+                            icon: '🎨'
+                        });
+                    }
+                }
+            });
+            _M_BGG_SCREEN_SUPPLIERS = dynamicSuppliers;
+        } else {
+            _M_BGG_SCREEN_SUPPLIERS = [];
+        }
+    } catch (e) {
+        console.error('Failed to load dynamic screen suppliers:', e);
     }
 }
 
@@ -1791,6 +1840,26 @@ function openScreenPickerMobile() {
     const modal = document.createElement('div');
     modal.id = 'm_screen_picker_modal';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+    
+    let optionsHtml = '';
+    if (_M_BGG_SCREEN_SUPPLIERS.length > 0) {
+        optionsHtml = _M_BGG_SCREEN_SUPPLIERS.map(s => `
+            <div onclick="selectScreenSupplierFromPickerMobile('${s.key}')" style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#e2e8f0'}; border-radius: 10px; cursor: pointer; transition: all 0.2s; background: ${currentSupplier === s.key ? '#fdf2f8' : 'white'};">
+                <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    ${currentSupplier === s.key ? '<div style="width: 8px; height: 8px; border-radius: 50%; background: #db2777;"></div>' : ''}
+                </div>
+                <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
+            </div>
+        `).join('');
+    } else {
+        optionsHtml = `
+            <div style="text-align: center; padding: 20px 10px; border: 2px dashed #fca5a5; border-radius: 12px; background: #fef2f2; color: #b91c1c; font-size: 12px; font-weight: 600; line-height: 1.5;">
+                ⚠️ Chưa cấu hình nhà in lưới nào!<br>
+                Vui lòng vào <strong>⚙️ Quản Lý Lĩnh Vực In & Nhân Sự</strong> để cấu hình (tích chọn In Lưới Viên).
+            </div>
+        `;
+    }
+
     modal.innerHTML = `
         <div style="background: white; border-radius: 16px; width: 100%; max-width: 360px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif;">
             <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
@@ -1798,14 +1867,7 @@ function openScreenPickerMobile() {
                 <button onclick="closeScreenPickerMobile()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
             </div>
             <div style="padding: 16px; display: flex; flex-direction: column; gap: 8px;">
-                ${_M_BGG_SCREEN_SUPPLIERS.map(s => `
-                    <div onclick="selectScreenSupplierFromPickerMobile('${s.key}')" style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#e2e8f0'}; border-radius: 10px; cursor: pointer; transition: all 0.2s; background: ${currentSupplier === s.key ? '#fdf2f8' : 'white'};">
-                        <div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            ${currentSupplier === s.key ? '<div style="width: 8px; height: 8px; border-radius: 50%; background: #db2777;"></div>' : ''}
-                        </div>
-                        <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
-                    </div>
-                `).join('')}
+                ${optionsHtml}
             </div>
             <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
                 <button onclick="closeScreenPickerMobile()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
@@ -1836,19 +1898,22 @@ function openSetupScreenMobile() {
     const existing = document.getElementById('m_setup_screen_modal');
     if (existing) existing.remove();
 
-    const currentSupplier = _mobileBgg.screenSupplier || '';
+    let currentSupplier = _mobileBgg.screenSupplier || '';
+    if (!currentSupplier && _M_BGG_SCREEN_SUPPLIERS.length > 0) {
+        currentSupplier = _M_BGG_SCREEN_SUPPLIERS[0].key;
+    }
 
     const modal = document.createElement('div');
     modal.id = 'm_setup_screen_modal';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
 
     // Supplier tabs
-    const tabsHtml = _M_BGG_SCREEN_SUPPLIERS.map(s => `
+    const tabsHtml = _M_BGG_SCREEN_SUPPLIERS.length > 0 ? _M_BGG_SCREEN_SUPPLIERS.map(s => `
         <button onclick="selectScreenSupplierMobile('${s.key}')" style="padding: 6px 10px; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#e2e8f0'}; border-radius: 6px; font-size: 11px; font-weight: 700; color: ${currentSupplier === s.key ? '#9d174d' : '#64748b'}; background: ${currentSupplier === s.key ? '#fdf2f8' : 'white'}; cursor: pointer; transition: all 0.2s; white-space: nowrap;">${s.icon} ${s.name}</button>
-    `).join('');
+    `).join('') : '<div style="color: #64748b; font-size: 11px; font-style: italic;">Chưa cấu hình nhà in lưới nào. Vui lòng vào Quản Lý Lĩnh Vực In để thêm.</div>';
 
     let pricingHtml = '';
-    if (currentSupplier) {
+    if (currentSupplier && _M_BGG_SCREEN_SUPPLIERS.some(s => s.key === currentSupplier)) {
         const config = getScreenConfigMobile(currentSupplier);
         const threshold = config.qty_threshold;
         const priceLow = config.price_low;
@@ -1912,7 +1977,7 @@ function openSetupScreenMobile() {
             </div>
             <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; border-radius: 0 0 16px 16px; position: sticky; bottom: 0;">
                 <button onclick="closeSetupScreenMobile()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
-                ${currentSupplier ? '<button onclick="screenSaveConfigMobile()" style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; color: white; background: linear-gradient(135deg, #db2777, #be185d); cursor: pointer;">💾 Lưu bảng giá</button>' : ''}
+                ${(currentSupplier && _M_BGG_SCREEN_SUPPLIERS.some(s => s.key === currentSupplier)) ? '<button onclick="screenSaveConfigMobile()" style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; color: white; background: linear-gradient(135deg, #db2777, #be185d); cursor: pointer;">💾 Lưu bảng giá</button>' : ''}
             </div>
         </div>
     `;

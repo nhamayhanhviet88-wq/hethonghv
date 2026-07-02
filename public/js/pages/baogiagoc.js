@@ -376,10 +376,59 @@ async function _bggLoadData() {
             segSelect.innerHTML = '<option value="">-- Tất cả phân khúc --</option>' +
                 (_bgg.sizeSegments || []).map(s => `<option value="${s.name}">${s.icon || '🧑'} ${s.name}</option>`).join('');
         }
+
+        // Load dynamic screen suppliers from print areas & staff configuration
+        await _bggLoadDynamicScreenSuppliers();
+        _bggRenderScreenSupplierDisplay();
         
     } catch(err) {
         console.error('Failed to load bgg data:', err);
         if (typeof showToast === 'function') showToast('Không thể tải danh sách chất liệu và màu sắc!', 'error');
+    }
+}
+
+async function _bggLoadDynamicScreenSuppliers() {
+    try {
+        const fieldsRes = await apiCall('/api/printing/fields');
+        const fields = fieldsRes.fields || [];
+        const screenField = fields.find(f => {
+            const name = (f.name || '').toLowerCase();
+            return name.includes('lưới') || name.includes('luoi');
+        });
+        if (screenField) {
+            const opsRes = await apiCall(`/api/printing/fields/${screenField.id}/operators`);
+            const staff = opsRes.staff || [];
+            const contractors = opsRes.contractors || [];
+            const assigned = opsRes.assigned || [];
+            
+            const dynamicSuppliers = [];
+            assigned.forEach(ass => {
+                if (ass.operator_type === 'user') {
+                    const u = staff.find(s => s.id === ass.operator_id);
+                    if (u) {
+                        dynamicSuppliers.push({
+                            key: 'user_' + u.id,
+                            name: u.full_name,
+                            icon: '👤'
+                        });
+                    }
+                } else if (ass.operator_type === 'contractor') {
+                    const c = contractors.find(con => con.id === ass.operator_id);
+                    if (c) {
+                        dynamicSuppliers.push({
+                            key: 'contractor_' + c.id,
+                            name: c.name,
+                            icon: '🎨'
+                        });
+                    }
+                }
+            });
+            _BGG_SCREEN_SUPPLIERS = dynamicSuppliers;
+        } else {
+            _BGG_SCREEN_SUPPLIERS = [];
+        }
+    } catch (e) {
+        console.error('Failed to load dynamic screen suppliers:', e);
     }
 }
 
@@ -2232,14 +2281,19 @@ window._bggOpenScreenPicker = function() {
                 <button onclick="_bggCloseScreenPicker()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
             </div>
             <div style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
-                ${_BGG_SCREEN_SUPPLIERS.map(s => `
+                ${_BGG_SCREEN_SUPPLIERS.length > 0 ? _BGG_SCREEN_SUPPLIERS.map(s => `
                     <div onclick="_bggSelectScreenSupplierFromPicker('${s.key}')" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#e2e8f0'}; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: ${currentSupplier === s.key ? '#fdf2f8' : 'white'};" onmouseover="this.style.borderColor='#fbcfe8'; this.style.background='#f8fafc'" onmouseout="this.style.borderColor='${currentSupplier === s.key ? '#db2777' : '#e2e8f0'}'; this.style.background='${currentSupplier === s.key ? '#fdf2f8' : 'white'}'">
                         <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                             ${currentSupplier === s.key ? '<div style="width: 10px; height: 10px; border-radius: 50%; background: #db2777;"></div>' : ''}
                         </div>
                         <div style="font-size: 14px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
                     </div>
-                `).join('')}
+                `).join('') : `
+                    <div style="text-align: center; padding: 20px 10px; border: 2px dashed #fca5a5; border-radius: 12px; background: #fef2f2; color: #b91c1c; font-size: 13px; font-weight: 600; line-height: 1.5;">
+                        ⚠️ Chưa cấu hình nhà in lưới nào!<br>
+                        Vui lòng vào <strong>⚙️ Quản Lý Lĩnh Vực In & Nhân Sự</strong> để cấu hình (tích chọn In Lưới Viên).
+                    </div>
+                `}
             </div>
             <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
                 <button onclick="_bggCloseScreenPicker()" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
@@ -2270,19 +2324,22 @@ window._bggOpenSetupScreenModal = function() {
     const existing = document.getElementById('bgg_setup_screen_modal');
     if (existing) existing.remove();
 
-    const currentSupplier = _bgg.screenSupplier || '';
+    let currentSupplier = _bgg.screenSupplier || '';
+    if (!currentSupplier && _BGG_SCREEN_SUPPLIERS.length > 0) {
+        currentSupplier = _BGG_SCREEN_SUPPLIERS[0].key;
+    }
 
     const modal = document.createElement('div');
     modal.id = 'bgg_setup_screen_modal';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
 
     // Supplier tabs
-    const tabsHtml = _BGG_SCREEN_SUPPLIERS.map(s => `
+    const tabsHtml = _BGG_SCREEN_SUPPLIERS.length > 0 ? _BGG_SCREEN_SUPPLIERS.map(s => `
         <button onclick="_bggSelectScreenSupplier('${s.key}')" style="padding: 8px 14px; border: 2px solid ${currentSupplier === s.key ? '#db2777' : '#e2e8f0'}; border-radius: 8px; font-size: 12px; font-weight: 700; color: ${currentSupplier === s.key ? '#9d174d' : '#64748b'}; background: ${currentSupplier === s.key ? '#fdf2f8' : 'white'}; cursor: pointer; transition: all 0.2s; white-space: nowrap;">${s.icon} ${s.name}</button>
-    `).join('');
+    `).join('') : '<div style="color: #64748b; font-size: 13px; font-style: italic;">Chưa cấu hình nhà in lưới nào. Vui lòng vào Quản Lý Lĩnh Vực In để thêm.</div>';
 
     let pricingHtml = '';
-    if (currentSupplier) {
+    if (currentSupplier && _BGG_SCREEN_SUPPLIERS.some(s => s.key === currentSupplier)) {
         const config = _bggGetScreenConfig(currentSupplier);
         const threshold = config.qty_threshold;
         const priceLow = config.price_low;
