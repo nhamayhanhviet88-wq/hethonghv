@@ -470,11 +470,13 @@ function renderScreenSupplierDisplayMobile() {
         `;
     } else {
         const cost = calcScreenCostMobile(qty);
+        const config = getScreenConfigMobile(_mobileBgg.screenSupplier);
+        const threshold = config ? (Number(config.qty_threshold) || 20) : 20;
         el.innerHTML = `
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#9d174d;">NCC:</span>${nccBadge}</div>
             <div style="font-size:10px;color:#9d174d;margin-top:4px;font-weight:600;">
                 In Lưới: <strong>${Math.round(cost).toLocaleString('vi-VN')}đ / áo</strong> 
-                ${qty < 20 ? `(Tổng: ${Number(cost * qty).toLocaleString('vi-VN')}đ)` : ''}
+                ${qty < threshold ? `(Tổng: ${Number(cost * qty).toLocaleString('vi-VN')}đ)` : ''}
             </div>
         `;
     }

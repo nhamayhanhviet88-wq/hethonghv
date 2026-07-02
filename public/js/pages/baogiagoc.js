@@ -233,7 +233,7 @@ async function renderBaogiagocPage(content) {
                     
                     <div class="bgg-form-group">
                         <label>Số lượng áo</label>
-                        <input type="number" id="bgg_quantity" class="bgg-input" placeholder="Tự điền (tùy chọn)" oninput="_bggRender3dSupplierDisplay()">
+                        <input type="number" id="bgg_quantity" class="bgg-input" placeholder="Tự điền (tùy chọn)" oninput="_bggRender3dSupplierDisplay(); _bggRenderScreenSupplierDisplay(); _bggRenderCalcResults();">
                     </div>
                     
                     <div class="bgg-form-group">
@@ -744,6 +744,8 @@ function _bggRenderScreenSupplierDisplay() {
         `;
     } else {
         const cost = _bggCalcScreenCost(qty);
+        const config = _bggGetScreenConfig(_bgg.screenSupplier);
+        const threshold = config ? (Number(config.qty_threshold) || 20) : 20;
         el.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                 <span style="font-size: 12px; font-weight: 700; color: #9d174d;">NCC:</span>
@@ -751,7 +753,7 @@ function _bggRenderScreenSupplierDisplay() {
             </div>
             <div style="font-size: 11px; color: #9d174d; margin-top: 6px; font-weight: 600;">
                 In Lưới: <strong>${Math.round(cost).toLocaleString('vi-VN')}đ / áo</strong> 
-                ${qty < 20 ? `(Tổng đơn: ${Number(cost * qty).toLocaleString('vi-VN')}đ)` : ''}
+                ${qty < threshold ? `(Tổng đơn: ${Number(cost * qty).toLocaleString('vi-VN')}đ)` : ''}
             </div>
         `;
     }
