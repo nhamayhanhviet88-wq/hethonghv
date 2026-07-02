@@ -227,7 +227,6 @@ function loadPetConfigsMobile() {
     // Load 3D printing configs
     _mobileBgg.print3dEnabled = localStorage.getItem('bgg_3d_enabled') === 'true';
     _mobileBgg.print3dSupplier = localStorage.getItem('bgg_3d_supplier') || '';
-    _mobileBgg.print3dCost = Number(localStorage.getItem('bgg_3d_cost')) || 0;
 }
 
 function savePetConfigsMobile() {
@@ -255,7 +254,37 @@ function save3dConfigsMobile() {
         localStorage.setItem('bgg_3d_enabled', enableCb.checked ? 'true' : 'false');
     }
     localStorage.setItem('bgg_3d_supplier', _mobileBgg.print3dSupplier || '');
-    localStorage.setItem('bgg_3d_cost', String(_mobileBgg.print3dCost || 0));
+}
+
+function _mGet3dConfig(supplierKey) {
+    if (!supplierKey) return null;
+    const stored = localStorage.getItem('bgg_3d_config_' + supplierKey);
+    if (stored) { try { return JSON.parse(stored); } catch(e) {} }
+    if (supplierKey === 'thien_linh') {
+        const def = { meters_per_shirt: 0.8, print_tiers: [{min:3000,max:null,price:11000},{min:1000,max:3000,price:12000},{min:500,max:1000,price:13000},{min:200,max:500,price:14000},{min:100,max:200,price:16000},{min:50,max:100,price:18000},{min:30,max:50,price:22000},{min:10,max:30,price:25000},{min:0,max:10,price:35000}], laser_tiers: [{min:500,max:null,price:3500},{min:0,max:500,price:4000}] };
+        localStorage.setItem('bgg_3d_config_thien_linh', JSON.stringify(def));
+        return def;
+    }
+    return { meters_per_shirt: 0.8, print_tiers: [], laser_tiers: [] };
+}
+
+function _mCalc3dCost(qty) {
+    if (!_mobileBgg.print3dEnabled || !_mobileBgg.print3dSupplier) return { total:0, printCost:0, laserCost:0, metersPerShirt:0, totalMeters:0, printPricePerMeter:0, laserPricePerShirt:0 };
+    const config = _mGet3dConfig(_mobileBgg.print3dSupplier);
+    if (!config || !config.print_tiers || config.print_tiers.length === 0) return { total:0, printCost:0, laserCost:0, metersPerShirt:0, totalMeters:0, printPricePerMeter:0, laserPricePerShirt:0 };
+    const mps = config.meters_per_shirt || 0.8;
+    if (!qty || qty <= 0) return { total:0, printCost:0, laserCost:0, metersPerShirt:mps, totalMeters:0, printPricePerMeter:0, laserPricePerShirt:0, needQty:true };
+    const totalMeters = qty * mps;
+    let printPrice = 0;
+    for (const t of config.print_tiers) { const mn=Number(t.min)||0, mx=t.max!==null&&t.max!==''?Number(t.max):Infinity; if(totalMeters>=mn&&totalMeters<mx){printPrice=Number(t.price)||0;break;} }
+    if (!printPrice) { for (const t of config.print_tiers) { const mn=Number(t.min)||0, mx=t.max!==null&&t.max!==''?Number(t.max):Infinity; if(totalMeters>=mn&&totalMeters<=mx){printPrice=Number(t.price)||0;break;} } }
+    const printCostPS = Math.round(printPrice * mps);
+    let laserPrice = 0;
+    if (config.laser_tiers && config.laser_tiers.length > 0) {
+        for (const t of config.laser_tiers) { const mn=Number(t.min)||0, mx=t.max!==null&&t.max!==''?Number(t.max):Infinity; if(qty>=mn&&qty<mx){laserPrice=Number(t.price)||0;break;} }
+        if (!laserPrice) { for (const t of config.laser_tiers) { const mn=Number(t.min)||0, mx=t.max!==null&&t.max!==''?Number(t.max):Infinity; if(qty>=mn&&qty<=mx){laserPrice=Number(t.price)||0;break;} } }
+    }
+    return { total:printCostPS+laserPrice, printCost:printCostPS, laserCost:laserPrice, metersPerShirt:mps, totalMeters, printPricePerMeter:printPrice, laserPricePerShirt:laserPrice };
 }
 
 function toggle3dSectionMobile(enabled) {
@@ -277,15 +306,25 @@ function render3dSupplierDisplayMobile() {
         el.innerHTML = '<div style="font-size: 11px; color: #94a3b8; font-style: italic;">⚠️ Chưa chọn NCC. Bấm "⚙️ Setup in 3D"</div>';
         return;
     }
-    el.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            <span style="font-size: 11px; font-weight: 700; color: #1e40af;">NCC:</span>
-            <span style="background: #dbeafe; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #1e40af;">${supplier.icon} ${supplier.name}</span>
-        </div>
-        <div style="font-size: 10px; color: #64748b; margin-top: 4px;">
-            Giá: <strong style="color: #1e40af;">${_mobileBgg.print3dCost > 0 ? Number(_mobileBgg.print3dCost).toLocaleString('vi-VN') + ' đ/áo' : 'Chưa cài đặt'}</strong>
-        </div>
-    `;
+    const qty = Number(document.getElementById('m_quantity')?.value) || 0;
+    const calc = _mCalc3dCost(qty);
+    if (calc.needQty) {
+        el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span><span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;">${supplier.icon} ${supplier.name}</span></div>
+            <div style="font-size:10px;color:#f59e0b;margin-top:4px;font-weight:600;">⚠️ Nhập số lượng áo để tính chi phí 3D</div>
+        `;
+    } else if (calc.total > 0) {
+        el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span><span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;">${supplier.icon} ${supplier.name}</span></div>
+            <div style="font-size:10px;color:#1e40af;margin-top:4px;font-weight:600;">In: ${Number(calc.printCost).toLocaleString('vi-VN')}đ${calc.laserCost>0?' + Cắt: '+Number(calc.laserCost).toLocaleString('vi-VN')+'đ':''} = <strong>${Number(calc.total).toLocaleString('vi-VN')}đ/áo</strong></div>
+            <div style="font-size:9px;color:#64748b;margin-top:1px;">${qty}áo × ${calc.metersPerShirt}m = ${calc.totalMeters.toFixed(1)}m → ${Number(calc.printPricePerMeter).toLocaleString('vi-VN')}đ/m</div>
+        `;
+    } else {
+        el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#1e40af;">NCC:</span><span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;color:#1e40af;">${supplier.icon} ${supplier.name}</span></div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-style:italic;">Chưa có bảng giá — bấm Setup</div>
+        `;
+    }
 }
 
 function openSetup3dMobile() {
@@ -341,8 +380,6 @@ function select3dSupplierMobile(key) {
     renderMobileCalcResults();
     closeSetup3dMobile();
     openSetup3dMobile();
-    const supplier = _M_BGG_3D_SUPPLIERS.find(s => s.key === key);
-    toast(`Đã chọn ${supplier ? supplier.name : key}`, 'success');
 }
 
 function togglePetSectionMobile(enabled) {
@@ -670,7 +707,9 @@ function renderMobileCalcResults() {
     const petCost = petInfo.enabled ? (localStorage.getItem('tlcg_pet_calc_mode') === 'optimized' ? petInfo.optimizedCost : petInfo.alignedCost) : 0;
     const sewingCost = Number(document.getElementById('m_sewing_cost')?.value) || 0;
     const collarCost = Number(document.getElementById('m_collar_cost')?.value) || 0;
-    const print3dCost = (_mobileBgg.print3dEnabled && _mobileBgg.print3dCost > 0) ? _mobileBgg.print3dCost : 0;
+    const qty3d = Number(document.getElementById('m_quantity')?.value) || 0;
+    const calc3d = _mCalc3dCost(qty3d);
+    const print3dCost = calc3d.total;
     const extraCost = petCost + sewingCost + collarCost + print3dCost;
 
     const breakdownParts = [];
@@ -747,24 +786,19 @@ function renderMobileCalcResults() {
     }
 
     // 1b. 3D Print summary
-    if (_mobileBgg.print3dEnabled && _mobileBgg.print3dSupplier) {
+    if (_mobileBgg.print3dEnabled && _mobileBgg.print3dSupplier && calc3d.total > 0) {
         const supplier3d = _M_BGG_3D_SUPPLIERS.find(s => s.key === _mobileBgg.print3dSupplier);
-        const supplierName = supplier3d ? `${supplier3d.icon} ${supplier3d.name}` : 'Chưa chọn';
+        const sName = supplier3d ? `${supplier3d.icon} ${supplier3d.name}` : 'Chưa chọn';
         html += `
-            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 10px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                <div style="font-size: 11px; font-weight: 800; color: #1e40af; text-transform: uppercase; margin-bottom: 6px;">
-                    🎨 Chi phí in 3D (cho 1 áo)
+            <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:10px;margin-bottom:14px;">
+                <div style="font-size:11px;font-weight:800;color:#1e40af;text-transform:uppercase;margin-bottom:6px;">🎨 Chi phí in 3D (cho 1 áo)</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <div style="background:white;border:1.5px solid #93c5fd;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#64748b;font-weight:700;">NCC</div><div style="font-size:11px;font-weight:800;color:#1e40af;">${sName}</div></div>
+                    <div style="background:white;border:1.5px solid #93c5fd;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#64748b;font-weight:700;">In</div><div style="font-size:12px;font-weight:800;color:#1e40af;">${Number(calc3d.printCost).toLocaleString('vi-VN')}đ</div></div>
+                    ${calc3d.laserCost>0?'<div style="background:white;border:1.5px solid #93c5fd;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#64748b;font-weight:700;">Cắt</div><div style="font-size:12px;font-weight:800;color:#1e40af;">'+Number(calc3d.laserCost).toLocaleString('vi-VN')+'đ</div></div>':''}
+                    <div style="background:#1e40af;border-radius:8px;padding:6px 10px;"><div style="font-size:8px;color:#93c5fd;font-weight:700;">Tổng</div><div style="font-size:13px;font-weight:800;color:white;">${Number(calc3d.total).toLocaleString('vi-VN')}đ</div></div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <div style="background: white; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 6px 10px;">
-                        <div style="font-size: 8px; color: #64748b; font-weight: 700; text-transform: uppercase;">NCC</div>
-                        <div style="font-size: 11px; font-weight: 800; color: #1e40af;">${supplierName}</div>
-                    </div>
-                    <div style="background: white; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 6px 10px;">
-                        <div style="font-size: 8px; color: #64748b; font-weight: 700; text-transform: uppercase;">Giá</div>
-                        <div style="font-size: 13px; font-weight: 800; color: #1e40af;">${print3dCost > 0 ? Number(print3dCost).toLocaleString('vi-VN') + ' đ' : 'Chưa cài đặt'}</div>
-                    </div>
-                </div>
+                <div style="font-size:9px;color:#475569;margin-top:6px;border-top:1px dashed #bfdbfe;padding-top:4px;">${qty3d}áo × ${calc3d.metersPerShirt}m = ${calc3d.totalMeters.toFixed(1)}m → ${Number(calc3d.printPricePerMeter).toLocaleString('vi-VN')}đ/m</div>
             </div>
         `;
     }

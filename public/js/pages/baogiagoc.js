@@ -224,7 +224,7 @@ async function renderBaogiagocPage(content) {
                     
                     <div class="bgg-form-group">
                         <label>Số lượng áo</label>
-                        <input type="number" id="bgg_quantity" class="bgg-input" placeholder="Tự điền (tùy chọn)">
+                        <input type="number" id="bgg_quantity" class="bgg-input" placeholder="Tự điền (tùy chọn)" oninput="_bggRender3dSupplierDisplay()">
                     </div>
                     
                     <div class="bgg-form-group">
@@ -419,7 +419,6 @@ function _bggLoadPetConfigs() {
     // Load 3D printing configs
     _bgg.print3dEnabled = localStorage.getItem('bgg_3d_enabled') === 'true';
     _bgg.print3dSupplier = localStorage.getItem('bgg_3d_supplier') || '';
-    _bgg.print3dCost = Number(localStorage.getItem('bgg_3d_cost')) || 0;
 }
 
 function _bggSavePetConfigs() {
@@ -447,7 +446,92 @@ function _bggSave3dConfigs() {
         localStorage.setItem('bgg_3d_enabled', enableCb.checked ? 'true' : 'false');
     }
     localStorage.setItem('bgg_3d_supplier', _bgg.print3dSupplier || '');
-    localStorage.setItem('bgg_3d_cost', String(_bgg.print3dCost || 0));
+}
+
+function _bggGet3dConfig(supplierKey) {
+    if (!supplierKey) return null;
+    const stored = localStorage.getItem('bgg_3d_config_' + supplierKey);
+    if (stored) {
+        try { return JSON.parse(stored); } catch(e) { /* ignore */ }
+    }
+    // Default config for Thien Linh
+    if (supplierKey === 'thien_linh') {
+        const def = {
+            meters_per_shirt: 0.8,
+            print_tiers: [
+                { min: 3000, max: null, price: 11000 },
+                { min: 1000, max: 3000, price: 12000 },
+                { min: 500, max: 1000, price: 13000 },
+                { min: 200, max: 500, price: 14000 },
+                { min: 100, max: 200, price: 16000 },
+                { min: 50, max: 100, price: 18000 },
+                { min: 30, max: 50, price: 22000 },
+                { min: 10, max: 30, price: 25000 },
+                { min: 0, max: 10, price: 35000 }
+            ],
+            laser_tiers: [
+                { min: 500, max: null, price: 3500 },
+                { min: 0, max: 500, price: 4000 }
+            ]
+        };
+        localStorage.setItem('bgg_3d_config_thien_linh', JSON.stringify(def));
+        return def;
+    }
+    return { meters_per_shirt: 0.8, print_tiers: [], laser_tiers: [] };
+}
+
+function _bggSave3dSupplierConfig(supplierKey, config) {
+    localStorage.setItem('bgg_3d_config_' + supplierKey, JSON.stringify(config));
+}
+
+function _bggCalc3dCost(qty) {
+    if (!_bgg.print3dEnabled || !_bgg.print3dSupplier) return { total: 0, printCost: 0, laserCost: 0, metersPerShirt: 0, totalMeters: 0, printPricePerMeter: 0, laserPricePerShirt: 0 };
+    const config = _bggGet3dConfig(_bgg.print3dSupplier);
+    if (!config || !config.print_tiers || config.print_tiers.length === 0) return { total: 0, printCost: 0, laserCost: 0, metersPerShirt: 0, totalMeters: 0, printPricePerMeter: 0, laserPricePerShirt: 0 };
+    const mps = config.meters_per_shirt || 0.8;
+    if (!qty || qty <= 0) return { total: 0, printCost: 0, laserCost: 0, metersPerShirt: mps, totalMeters: 0, printPricePerMeter: 0, laserPricePerShirt: 0, needQty: true };
+    const totalMeters = qty * mps;
+    // Find print tier
+    let printPrice = 0;
+    for (const t of config.print_tiers) {
+        const tMin = Number(t.min) || 0;
+        const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+        if (totalMeters >= tMin && totalMeters < tMax) { printPrice = Number(t.price) || 0; break; }
+    }
+    // Handle edge: if totalMeters equals a max boundary, check the next tier
+    if (printPrice === 0) {
+        for (const t of config.print_tiers) {
+            const tMin = Number(t.min) || 0;
+            const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+            if (totalMeters >= tMin && totalMeters <= tMax) { printPrice = Number(t.price) || 0; break; }
+        }
+    }
+    const printCostPerShirt = Math.round(printPrice * mps);
+    // Find laser tier
+    let laserPrice = 0;
+    if (config.laser_tiers && config.laser_tiers.length > 0) {
+        for (const t of config.laser_tiers) {
+            const tMin = Number(t.min) || 0;
+            const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+            if (qty >= tMin && qty < tMax) { laserPrice = Number(t.price) || 0; break; }
+        }
+        if (laserPrice === 0) {
+            for (const t of config.laser_tiers) {
+                const tMin = Number(t.min) || 0;
+                const tMax = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
+                if (qty >= tMin && qty <= tMax) { laserPrice = Number(t.price) || 0; break; }
+            }
+        }
+    }
+    return {
+        total: printCostPerShirt + laserPrice,
+        printCost: printCostPerShirt,
+        laserCost: laserPrice,
+        metersPerShirt: mps,
+        totalMeters: totalMeters,
+        printPricePerMeter: printPrice,
+        laserPricePerShirt: laserPrice
+    };
 }
 
 function _bggToggle3dSection(enabled) {
@@ -469,15 +553,36 @@ function _bggRender3dSupplierDisplay() {
         el.innerHTML = '<div style="font-size: 12px; color: #94a3b8; font-style: italic;">⚠️ Chưa chọn nhà cung cấp in 3D. Bấm "⚙️ Setup in 3D" để chọn.</div>';
         return;
     }
-    el.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 12px; font-weight: 700; color: #1e40af;">Nhà cung cấp:</span>
-            <span style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #1e40af;">${supplier.icon} ${supplier.name}</span>
-        </div>
-        <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
-            Giá: <strong style="color: #1e40af;">${_bgg.print3dCost > 0 ? Number(_bgg.print3dCost).toLocaleString('vi-VN') + ' đ / áo' : 'Chưa cài đặt bảng giá'}</strong>
-        </div>
-    `;
+    const qty = Number(document.getElementById('bgg_quantity')?.value) || 0;
+    const calc = _bggCalc3dCost(qty);
+    if (calc.needQty) {
+        el.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-size: 12px; font-weight: 700; color: #1e40af;">NCC:</span>
+                <span style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #1e40af;">${supplier.icon} ${supplier.name}</span>
+            </div>
+            <div style="font-size: 11px; color: #f59e0b; margin-top: 6px; font-weight: 600;">⚠️ Nhập số lượng áo để tính chi phí 3D</div>
+        `;
+    } else if (calc.total > 0) {
+        el.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-size: 12px; font-weight: 700; color: #1e40af;">NCC:</span>
+                <span style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #1e40af;">${supplier.icon} ${supplier.name}</span>
+            </div>
+            <div style="font-size: 11px; color: #1e40af; margin-top: 6px; font-weight: 600;">
+                In: ${Number(calc.printCost).toLocaleString('vi-VN')}đ${calc.laserCost > 0 ? ' + Cắt: ' + Number(calc.laserCost).toLocaleString('vi-VN') + 'đ' : ''} = <strong>${Number(calc.total).toLocaleString('vi-VN')}đ / áo</strong>
+            </div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${qty} áo × ${calc.metersPerShirt}m = ${calc.totalMeters.toFixed(1)}m → ${Number(calc.printPricePerMeter).toLocaleString('vi-VN')}đ/m</div>
+        `;
+    } else {
+        el.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-size: 12px; font-weight: 700; color: #1e40af;">NCC:</span>
+                <span style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #1e40af;">${supplier.icon} ${supplier.name}</span>
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top: 6px; font-style: italic;">Chưa có bảng giá — bấm ⚙️ Setup để cài đặt</div>
+        `;
+    }
 }
 
 function _bggTogglePetSection(enabled) {
@@ -784,7 +889,9 @@ function _bggRenderCalcResults() {
     const petCost = petInfo.enabled ? (localStorage.getItem('tlcg_pet_calc_mode') === 'optimized' ? petInfo.optimizedCost : petInfo.alignedCost) : 0;
     const sewingCost = Number(document.getElementById('bgg_sewing_cost')?.value) || 0;
     const collarCost = Number(document.getElementById('bgg_collar_cost')?.value) || 0;
-    const print3dCost = (_bgg.print3dEnabled && _bgg.print3dCost > 0) ? _bgg.print3dCost : 0;
+    const qty3d = Number(document.getElementById('bgg_quantity')?.value) || 0;
+    const calc3d = _bggCalc3dCost(qty3d);
+    const print3dCost = calc3d.total;
     const extraCost = petCost + sewingCost + collarCost + print3dCost;
     
     const breakdownParts = [];
@@ -861,23 +968,35 @@ function _bggRenderCalcResults() {
     }
 
     // Render 3D Print summary
-    if (_bgg.print3dEnabled && _bgg.print3dSupplier) {
+    if (_bgg.print3dEnabled && _bgg.print3dSupplier && calc3d.total > 0) {
         const supplier3d = _BGG_3D_SUPPLIERS.find(s => s.key === _bgg.print3dSupplier);
         const supplierName = supplier3d ? `${supplier3d.icon} ${supplier3d.name}` : 'Chưa chọn';
         html += `
             <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                <div style="font-size: 13px; font-weight: 800; color: #1e40af; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                <div style="font-size: 13px; font-weight: 800; color: #1e40af; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
                     🎨 Chi phí in 3D dự kiến (cho 1 áo)
                 </div>
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <div style="background: white; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 10px 14px;">
-                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Nhà cung cấp</div>
+                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">NCC</div>
                         <div style="font-size: 13px; font-weight: 800; color: #1e40af;">${supplierName}</div>
                     </div>
                     <div style="background: white; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 10px 14px;">
-                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Giá / áo</div>
-                        <div style="font-size: 15px; font-weight: 800; color: #1e40af;">${print3dCost > 0 ? Number(print3dCost).toLocaleString('vi-VN') + ' đ' : 'Chưa cài đặt'}</div>
+                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">In 3D</div>
+                        <div style="font-size: 14px; font-weight: 800; color: #1e40af;">${Number(calc3d.printCost).toLocaleString('vi-VN')} đ</div>
                     </div>
+                    ${calc3d.laserCost > 0 ? `
+                    <div style="background: white; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 10px 14px;">
+                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Cắt Laze</div>
+                        <div style="font-size: 14px; font-weight: 800; color: #1e40af;">${Number(calc3d.laserCost).toLocaleString('vi-VN')} đ</div>
+                    </div>` : ''}
+                    <div style="background: #1e40af; border-radius: 8px; padding: 10px 14px;">
+                        <div style="font-size: 10px; color: #93c5fd; font-weight: 700; text-transform: uppercase;">Tổng / áo</div>
+                        <div style="font-size: 15px; font-weight: 800; color: white;">${Number(calc3d.total).toLocaleString('vi-VN')} đ</div>
+                    </div>
+                </div>
+                <div style="font-size: 11px; color: #475569; margin-top: 8px; border-top: 1px dashed #bfdbfe; padding-top: 6px;">
+                    ${qty3d} áo × ${calc3d.metersPerShirt}m = <strong>${calc3d.totalMeters.toFixed(1)}m</strong> → Bậc giá in: <strong>${Number(calc3d.printPricePerMeter).toLocaleString('vi-VN')}đ/m</strong> × ${calc3d.metersPerShirt}m = <strong>${Number(calc3d.printCost).toLocaleString('vi-VN')}đ/áo</strong>${calc3d.laserCost > 0 ? ' + cắt laze: <strong>' + Number(calc3d.laserCost).toLocaleString('vi-VN') + 'đ/áo</strong>' : ''}
                 </div>
             </div>
         `;
@@ -1495,36 +1614,97 @@ window._bggOpenSetup3dModal = function() {
     const modal = document.createElement('div');
     modal.id = 'bgg_setup_3d_modal';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
+
+    // Supplier tabs
+    const tabsHtml = _BGG_3D_SUPPLIERS.map(s => `
+        <button onclick="_bggSelect3dSupplier('${s.key}')" style="padding: 8px 14px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 8px; font-size: 12px; font-weight: 700; color: ${currentSupplier === s.key ? '#1e40af' : '#64748b'}; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'}; cursor: pointer; transition: all 0.2s; white-space: nowrap;">${s.icon} ${s.name}</button>
+    `).join('');
+
+    // Pricing tables for selected supplier
+    let pricingHtml = '';
+    if (currentSupplier) {
+        const config = _bggGet3dConfig(currentSupplier);
+        const mps = config?.meters_per_shirt || 0.8;
+        const printTiers = config?.print_tiers || [];
+        const laserTiers = config?.laser_tiers || [];
+
+        const printRowsHtml = printTiers.map((t, i) => `
+            <tr>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.min}" data-idx="${i}" data-field="print_min" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" onchange="_bgg3dTierChanged()"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="print_max" placeholder="∞" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" onchange="_bgg3dTierChanged()"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.price}" data-idx="${i}" data-field="print_price" style="width: 80px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: right;" onchange="_bgg3dTierChanged()"></td>
+                <td style="padding: 6px 4px; border-bottom: 1px solid #f1f5f9; text-align: center;"><button onclick="_bgg3dRemoveTier('print', ${i})" style="background: #fee2e2; border: none; color: #dc2626; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">✕</button></td>
+            </tr>
+        `).join('');
+
+        const laserRowsHtml = laserTiers.map((t, i) => `
+            <tr>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.min}" data-idx="${i}" data-field="laser_min" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" onchange="_bgg3dTierChanged()"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.max !== null && t.max !== '' ? t.max : ''}" data-idx="${i}" data-field="laser_max" placeholder="∞" style="width: 70px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: center;" onchange="_bgg3dTierChanged()"></td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f5f9;"><input type="number" value="${t.price}" data-idx="${i}" data-field="laser_price" style="width: 80px; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; text-align: right;" onchange="_bgg3dTierChanged()"></td>
+                <td style="padding: 6px 4px; border-bottom: 1px solid #f1f5f9; text-align: center;"><button onclick="_bgg3dRemoveTier('laser', ${i})" style="background: #fee2e2; border: none; color: #dc2626; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px;">✕</button></td>
+            </tr>
+        `).join('');
+
+        pricingHtml = `
+            <div style="margin-top: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <span style="font-size: 12px; font-weight: 700; color: #475569;">1 áo =</span>
+                    <input type="text" id="setup_3d_mps" value="${mps}" style="width: 60px; padding: 4px 8px; border: 1.5px solid #3b82f6; border-radius: 6px; font-size: 13px; font-weight: 700; text-align: center; color: #1e40af;" onchange="_bgg3dTierChanged()">
+                    <span style="font-size: 12px; font-weight: 700; color: #475569;">mét</span>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <h5 style="margin: 0; font-size: 12px; font-weight: 800; color: #1e40af;">📋 BẢNG GIÁ IN (đ/mét)</h5>
+                        <button onclick="_bgg3dAddTier('print')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm bậc</button>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                        <thead><tr style="background: #f1f5f9;">
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: #64748b; font-weight: 700;">Từ (m)</th>
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: #64748b; font-weight: 700;">Đến (m)</th>
+                            <th style="padding: 6px 8px; text-align: right; font-size: 10px; color: #64748b; font-weight: 700;">Giá/mét</th>
+                            <th style="padding: 6px 4px; width: 32px;"></th>
+                        </tr></thead>
+                        <tbody id="setup_3d_print_rows">${printRowsHtml}</tbody>
+                    </table>
+                </div>
+
+                <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <h5 style="margin: 0; font-size: 12px; font-weight: 800; color: #1e40af;">✂️ BẢNG GIÁ CẮT LAZE (đ/áo)</h5>
+                        <button onclick="_bgg3dAddTier('laser')" style="background: #dbeafe; border: 1px solid #93c5fd; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; color: #1e40af; cursor: pointer;">➕ Thêm bậc</button>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                        <thead><tr style="background: #f1f5f9;">
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: #64748b; font-weight: 700;">Từ (áo)</th>
+                            <th style="padding: 6px 8px; text-align: center; font-size: 10px; color: #64748b; font-weight: 700;">Đến (áo)</th>
+                            <th style="padding: 6px 8px; text-align: right; font-size: 10px; color: #64748b; font-weight: 700;">Giá/áo</th>
+                            <th style="padding: 6px 4px; width: 32px;"></th>
+                        </tr></thead>
+                        <tbody id="setup_3d_laser_rows">${laserRowsHtml}</tbody>
+                    </table>
+                    ${laserTiers.length === 0 ? '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 8px; font-style: italic;">Không có cắt laze — chỉ tính phí in 3D</div>' : ''}
+                </div>
+            </div>
+        `;
+    } else {
+        pricingHtml = '<div style="margin-top: 16px; padding: 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; text-align: center; font-size: 12px; color: #64748b;">Chọn nhà cung cấp ở trên để xem và chỉnh sửa bảng giá</div>';
+    }
+
     modal.innerHTML = `
-        <div style="background: white; border-radius: 16px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; border: 1px solid #e2e8f0;">
-            <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
-                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">🎨 Setup Chi Phí In 3D</h3>
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: white; z-index: 1; border-radius: 16px 16px 0 0;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;">🎨 Setup Chi Phí In 3D</h3>
                 <button onclick="_bggCloseSetup3dModal()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;">&times;</button>
             </div>
             <div style="padding: 20px;">
-                <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; color: #475569; text-transform: uppercase;">Chọn nhà cung cấp in 3D:</h4>
-                <div style="display: flex; flex-direction: column; gap: 10px;" id="setup_3d_supplier_list">
-                    ${_BGG_3D_SUPPLIERS.map(s => `
-                        <div onclick="_bggSelect3dSupplier('${s.key}')" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'};" onmouseover="this.style.borderColor='#93c5fd'; this.style.background='#f8fafc'" onmouseout="this.style.borderColor='${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}'; this.style.background='${currentSupplier === s.key ? '#eff6ff' : 'white'}'">
-                            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                ${currentSupplier === s.key ? '<div style="width: 10px; height: 10px; border-radius: 50%; background: #3b82f6;"></div>' : ''}
-                            </div>
-                            <div>
-                                <div style="font-size: 14px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
-                                <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Bảng giá sẽ cập nhật sau</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-
-                <div id="setup_3d_pricing_placeholder" style="margin-top: 16px; padding: 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; text-align: center;">
-                    <span style="font-size: 24px; display: block; margin-bottom: 6px;">📋</span>
-                    <div style="font-size: 12px; font-weight: 600; color: #64748b;">Bảng giá chi tiết cho nhà cung cấp đã chọn sẽ hiển thị ở đây</div>
-                    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">(Tính năng đang phát triển)</div>
-                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">${tabsHtml}</div>
+                ${pricingHtml}
             </div>
-            <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+            <div style="padding: 14px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-radius: 0 0 16px 16px; position: sticky; bottom: 0;">
                 <button onclick="_bggCloseSetup3dModal()" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; color: #475569; background: white; cursor: pointer;">Đóng</button>
+                ${currentSupplier ? '<button onclick="_bgg3dSaveConfig()" style="padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; color: white; background: linear-gradient(135deg, #3b82f6, #1d4ed8); cursor: pointer;">💾 Lưu bảng giá</button>' : ''}
             </div>
         </div>
     `;
@@ -1541,11 +1721,85 @@ window._bggSelect3dSupplier = function(key) {
     _bggSave3dConfigs();
     _bggRender3dSupplierDisplay();
     _bggRenderCalcResults();
-    // Re-open modal to refresh selection UI
     _bggCloseSetup3dModal();
     _bggOpenSetup3dModal();
-    if (typeof showToast === 'function') {
-        const supplier = _BGG_3D_SUPPLIERS.find(s => s.key === key);
-        showToast(`Đã chọn ${supplier ? supplier.name : key}`, 'success');
+};
+
+window._bgg3dTierChanged = function() { /* live edit — saved on button click */ };
+
+window._bgg3dAddTier = function(type) {
+    const supplierKey = _bgg.print3dSupplier;
+    if (!supplierKey) return;
+    const config = _bggGet3dConfig(supplierKey);
+    if (type === 'print') {
+        config.print_tiers.push({ min: 0, max: null, price: 0 });
+    } else {
+        config.laser_tiers.push({ min: 0, max: null, price: 0 });
     }
+    _bggSave3dSupplierConfig(supplierKey, config);
+    _bggCloseSetup3dModal();
+    _bggOpenSetup3dModal();
+};
+
+window._bgg3dRemoveTier = function(type, idx) {
+    const supplierKey = _bgg.print3dSupplier;
+    if (!supplierKey) return;
+    const config = _bggGet3dConfig(supplierKey);
+    if (type === 'print') {
+        config.print_tiers.splice(idx, 1);
+    } else {
+        config.laser_tiers.splice(idx, 1);
+    }
+    _bggSave3dSupplierConfig(supplierKey, config);
+    _bggCloseSetup3dModal();
+    _bggOpenSetup3dModal();
+};
+
+window._bgg3dSaveConfig = function() {
+    const supplierKey = _bgg.print3dSupplier;
+    if (!supplierKey) return;
+    const mpsInput = document.getElementById('setup_3d_mps');
+    const mps = Number(mpsInput?.value?.replace(',', '.')) || 0.8;
+    // Read print tiers from DOM
+    const printTiers = [];
+    document.querySelectorAll('[data-field="print_min"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!printTiers[idx]) printTiers[idx] = {};
+        printTiers[idx].min = Number(el.value) || 0;
+    });
+    document.querySelectorAll('[data-field="print_max"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!printTiers[idx]) printTiers[idx] = {};
+        const v = el.value.trim();
+        printTiers[idx].max = (v === '' || v === '∞') ? null : Number(v);
+    });
+    document.querySelectorAll('[data-field="print_price"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!printTiers[idx]) printTiers[idx] = {};
+        printTiers[idx].price = Number(el.value) || 0;
+    });
+    // Read laser tiers from DOM
+    const laserTiers = [];
+    document.querySelectorAll('[data-field="laser_min"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!laserTiers[idx]) laserTiers[idx] = {};
+        laserTiers[idx].min = Number(el.value) || 0;
+    });
+    document.querySelectorAll('[data-field="laser_max"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!laserTiers[idx]) laserTiers[idx] = {};
+        const v = el.value.trim();
+        laserTiers[idx].max = (v === '' || v === '∞') ? null : Number(v);
+    });
+    document.querySelectorAll('[data-field="laser_price"]').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        if (!laserTiers[idx]) laserTiers[idx] = {};
+        laserTiers[idx].price = Number(el.value) || 0;
+    });
+    const config = { meters_per_shirt: mps, print_tiers: printTiers.filter(Boolean), laser_tiers: laserTiers.filter(Boolean) };
+    _bggSave3dSupplierConfig(supplierKey, config);
+    _bggRender3dSupplierDisplay();
+    _bggRenderCalcResults();
+    if (typeof showToast === 'function') showToast('Đã lưu bảng giá in 3D!', 'success');
+    _bggCloseSetup3dModal();
 };
