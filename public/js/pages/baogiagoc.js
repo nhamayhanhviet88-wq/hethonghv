@@ -2971,8 +2971,44 @@ window._bggFormulaRemoveRow = function(index) {
 window._bggFormulaUpdateRow = function(index, field, value) {
     if (Array.isArray(_bgg.currentFormulaRows) && _bgg.currentFormulaRows[index]) {
         _bgg.currentFormulaRows[index][field] = value;
+        // If material changed, clear source_id selection
+        if (field === 'material_id') {
+            _bgg.currentFormulaRows[index].source_id = '';
+        }
         _bggRenderFormulaRows();
     }
+};
+
+window._bggFormulaUpdateQtyMemory = function(index, value) {
+    const cleaned = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    if (Array.isArray(_bgg.currentFormulaRows) && _bgg.currentFormulaRows[index]) {
+        _bgg.currentFormulaRows[index].quantity = cleaned;
+    }
+    _bggFormulaRecalculateTotals();
+};
+
+window._bggFormulaRecalculateTotals = function() {
+    let totalCost = 0;
+    const rows = _bgg.currentFormulaRows || [];
+    rows.forEach(row => {
+        if (row.material_id) {
+            const prices = _bgg.formulaPrices[row.material_id] || [];
+            if (prices.length > 0) {
+                let cheapest = prices[0];
+                if (row.source_id) {
+                    const found = prices.find(p => String(p.source_id) === String(row.source_id));
+                    if (found) cheapest = found;
+                }
+                totalCost += (Number(cheapest.price) || 0) * (Number(row.quantity) || 0);
+            }
+        }
+    });
+    
+    const perMeter = Math.round(totalCost / 100);
+    const totalCostEl = document.getElementById('bgg_formula_total_cost');
+    const perMeterEl = document.getElementById('bgg_formula_per_meter');
+    if (totalCostEl) totalCostEl.textContent = Math.round(totalCost).toLocaleString('vi-VN') + ' đ';
+    if (perMeterEl) perMeterEl.textContent = perMeter.toLocaleString('vi-VN') + ' đ / mét';
 };
 
 window._bggRenderFormulaRows = function() {
@@ -3000,43 +3036,74 @@ window._bggRenderFormulaRows = function() {
         
         let sourceHtml = '';
         let rowCost = 0;
+        let selectSourceHtml = '';
         
         if (row.material_id) {
             const prices = _bgg.formulaPrices[row.material_id] || [];
+            
+            // Build source dropdown options
+            selectSourceHtml = `
+                <div style="flex: 1.2; min-width: 160px;">
+                    <select onchange="_bggFormulaUpdateRow(${index}, 'source_id', this.value)" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; background: white; height: auto;">
+                        <option value="">-- Nguồn rẻ nhất --</option>
+                        ${prices.map(p => `<option value="${p.source_id}" ${String(p.source_id) === String(row.source_id) ? 'selected' : ''}>${p.source_name}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+            
             if (prices.length === 0) {
                 sourceHtml = `<span style="color: #ef4444; font-weight: 700; display: flex; align-items: center; gap: 4px;">⚠️ Chưa có giá nhập gốc</span>`;
             } else {
-                const cheapest = prices[0];
+                let cheapest = prices[0];
+                let isDefaultCheapest = true;
+                if (row.source_id) {
+                    const found = prices.find(p => String(p.source_id) === String(row.source_id));
+                    if (found) {
+                        cheapest = found;
+                        isDefaultCheapest = false;
+                    }
+                }
+                
                 const priceVal = Number(cheapest.price) || 0;
                 rowCost = priceVal * (Number(row.quantity) || 0);
                 totalCost += rowCost;
                 
-                const otherSourcesText = prices.length > 1 ? ` (và ${prices.length - 1} nguồn khác)` : '';
+                const otherSourcesText = prices.length > 1 && isDefaultCheapest ? ` (và ${prices.length - 1} nguồn khác)` : '';
+                const labelCheapest = isDefaultCheapest ? 'Nguồn rẻ nhất: ' : 'Nguồn đã chọn: ';
                 sourceHtml = `
                     <span style="font-weight: 700; color: #15803d; font-size: 13px;">💰 ${Number(cheapest.price).toLocaleString('vi-VN')} đ / ${unit}</span>
-                    <span style="font-size: 10.5px; color: #64748b; margin-top: 1px;">Nguồn rẻ nhất: <strong>${cheapest.source_name || 'N/A'}</strong>${otherSourcesText}</span>
+                    <span style="font-size: 10.5px; color: #64748b; margin-top: 1px;">${labelCheapest}<strong>${cheapest.source_name || 'N/A'}</strong>${otherSourcesText}</span>
                 `;
             }
         } else {
+            selectSourceHtml = `
+                <div style="flex: 1.2; min-width: 160px;">
+                    <select disabled style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; background: #f1f5f9; height: auto;">
+                        <option value="">-- Chọn vật tư trước --</option>
+                    </select>
+                </div>
+            `;
             sourceHtml = `<span style="color: #94a3b8; font-style: italic;">Chọn vật tư để tra cứu giá...</span>`;
         }
         
         html += `
             <div style="display: flex; gap: 12px; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; flex-wrap: wrap;">
                 <!-- Material select -->
-                <div style="flex: 1.5; min-width: 200px;">
+                <div style="flex: 1.5; min-width: 180px;">
                     <select onchange="_bggFormulaUpdateRow(${index}, 'material_id', this.value)" style="width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; background: white; height: auto;">
                         <option value="">-- Chọn vật tư --</option>
                         ${_bgg.formulaMaterials.map(m => `<option value="${m.id}" ${Number(m.id) === Number(row.material_id) ? 'selected' : ''}>${m.name} (${m.unit || 'đơn vị'})</option>`).join('')}
                     </select>
                 </div>
                 <!-- Quantity input -->
-                <div style="width: 130px; display: flex; align-items: center; gap: 6px;">
-                    <input type="text" value="${row.quantity || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _bggFormulaUpdateRow(${index}, 'quantity', this.value)" style="width: 75px; padding: 8px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; text-align: center;" placeholder="Số lượng">
-                    <span style="font-size: 12px; font-weight: 700; color: #475569; white-space: nowrap; max-width: 45px; overflow: hidden; text-overflow: ellipsis;" title="${unit}">${unit}</span>
+                <div style="width: 120px; display: flex; align-items: center; gap: 6px;">
+                    <input type="text" value="${row.quantity || ''}" oninput="_bggFormulaUpdateQtyMemory(${index}, this.value)" style="width: 75px; padding: 8px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; text-align: center;" placeholder="SL">
+                    <span style="font-size: 12px; font-weight: 700; color: #475569; white-space: nowrap; max-width: 40px; overflow: hidden; text-overflow: ellipsis;" title="${unit}">${unit}</span>
                 </div>
+                <!-- Source selection select -->
+                ${selectSourceHtml}
                 <!-- Source info -->
-                <div style="flex: 1.8; min-width: 240px; font-size: 12px; color: #475569; display: flex; flex-direction: column; justify-content: center; border-left: 1.5px dashed #cbd5e1; padding-left: 12px;">
+                <div style="flex: 1.8; min-width: 220px; font-size: 12px; color: #475569; display: flex; flex-direction: column; justify-content: center; border-left: 1.5px dashed #cbd5e1; padding-left: 12px;">
                     ${sourceHtml}
                 </div>
                 <!-- Delete action -->
@@ -3067,7 +3134,11 @@ window._bggSaveFormulaModal = async function() {
     validRows.forEach(row => {
         const prices = _bgg.formulaPrices[row.material_id] || [];
         if (prices.length > 0) {
-            const cheapest = prices[0];
+            let cheapest = prices[0];
+            if (row.source_id) {
+                const found = prices.find(p => String(p.source_id) === String(row.source_id));
+                if (found) cheapest = found;
+            }
             totalCost += (Number(cheapest.price) || 0) * (Number(row.quantity) || 0);
         }
     });

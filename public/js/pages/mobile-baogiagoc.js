@@ -2653,8 +2653,44 @@ window._mFormulaRemoveRow = function(index) {
 window._mFormulaUpdateRow = function(index, field, value) {
     if (Array.isArray(_mobileBgg.currentFormulaRows) && _mobileBgg.currentFormulaRows[index]) {
         _mobileBgg.currentFormulaRows[index][field] = value;
+        // If material changed, clear source_id selection
+        if (field === 'material_id') {
+            _mobileBgg.currentFormulaRows[index].source_id = '';
+        }
         _mRenderFormulaRows();
     }
+};
+
+window._mFormulaUpdateQtyMemory = function(index, value) {
+    const cleaned = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    if (Array.isArray(_mobileBgg.currentFormulaRows) && _mobileBgg.currentFormulaRows[index]) {
+        _mobileBgg.currentFormulaRows[index].quantity = cleaned;
+    }
+    _mFormulaRecalculateTotals();
+};
+
+window._mFormulaRecalculateTotals = function() {
+    let totalCost = 0;
+    const rows = _mobileBgg.currentFormulaRows || [];
+    rows.forEach(row => {
+        if (row.material_id) {
+            const prices = _mobileBgg.formulaPrices[row.material_id] || [];
+            if (prices.length > 0) {
+                let cheapest = prices[0];
+                if (row.source_id) {
+                    const found = prices.find(p => String(p.source_id) === String(row.source_id));
+                    if (found) cheapest = found;
+                }
+                totalCost += (Number(cheapest.price) || 0) * (Number(row.quantity) || 0);
+            }
+        }
+    });
+    
+    const perMeter = Math.round(totalCost / 100);
+    const totalCostEl = document.getElementById('m_formula_total_cost');
+    const perMeterEl = document.getElementById('m_formula_per_meter');
+    if (totalCostEl) totalCostEl.textContent = Math.round(totalCost).toLocaleString('vi-VN') + ' đ';
+    if (perMeterEl) perMeterEl.textContent = perMeter.toLocaleString('vi-VN') + ' đ / mét';
 };
 
 window._mRenderFormulaRows = function() {
@@ -2682,23 +2718,53 @@ window._mRenderFormulaRows = function() {
         
         let sourceHtml = '';
         let rowCost = 0;
+        let selectSourceHtml = '';
         
         if (row.material_id) {
             const prices = _mobileBgg.formulaPrices[row.material_id] || [];
+            
+            // Build source dropdown options
+            selectSourceHtml = `
+                <div style="flex: 1;">
+                    <select onchange="_mFormulaUpdateRow(${index}, 'source_id', this.value)" class="m-input" style="padding: 6px 8px; font-size: 11px; font-weight: 600; outline: none; background: white; height: auto;">
+                        <option value="">-- Nguồn rẻ nhất --</option>
+                        ${prices.map(p => `<option value="${p.source_id}" ${String(p.source_id) === String(row.source_id) ? 'selected' : ''}>${p.source_name}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+            
             if (prices.length === 0) {
                 sourceHtml = `<span style="color: #ef4444; font-weight: 700;">⚠️ Chưa có giá gốc</span>`;
             } else {
-                const cheapest = prices[0];
+                let cheapest = prices[0];
+                let isDefaultCheapest = true;
+                if (row.source_id) {
+                    const found = prices.find(p => String(p.source_id) === String(row.source_id));
+                    if (found) {
+                        cheapest = found;
+                        isDefaultCheapest = false;
+                    }
+                }
+                
                 const priceVal = Number(cheapest.price) || 0;
                 rowCost = priceVal * (Number(row.quantity) || 0);
                 totalCost += rowCost;
                 
+                const otherSourcesText = prices.length > 1 && isDefaultCheapest ? ` (và ${prices.length - 1} nguồn khác)` : '';
+                const labelCheapest = isDefaultCheapest ? 'Rẻ nhất: ' : 'Đã chọn: ';
                 sourceHtml = `
                     <span style="font-weight: 700; color: #15803d; font-size: 11.5px;">💰 ${Number(cheapest.price).toLocaleString('vi-VN')} đ / ${unit}</span>
-                    <span style="font-size: 9.5px; color: #64748b; margin-top: 1px;">Nguồn: <strong>${cheapest.source_name || 'N/A'}</strong></span>
+                    <span style="font-size: 9.5px; color: #64748b; margin-top: 1px;">${labelCheapest}<strong>${cheapest.source_name || 'N/A'}</strong>${otherSourcesText}</span>
                 `;
             }
         } else {
+            selectSourceHtml = `
+                <div style="flex: 1;">
+                    <select disabled class="m-input" style="padding: 6px 8px; font-size: 11px; font-weight: 600; outline: none; background: #f1f5f9; height: auto;">
+                        <option value="">-- Chọn vật tư trước --</option>
+                    </select>
+                </div>
+            `;
             sourceHtml = `<span style="color: #94a3b8; font-style: italic;">Chọn vật tư...</span>`;
         }
         
@@ -2715,11 +2781,16 @@ window._mRenderFormulaRows = function() {
                     <!-- Delete button -->
                     <button onclick="_mFormulaRemoveRow(${index})" style="background: #fee2e2; border: none; border-radius: 6px; padding: 6px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 32px; width: 32px; flex-shrink: 0;" title="Xóa">🗑️</button>
                 </div>
+                <!-- Source Select -->
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <span style="font-size: 10.5px; font-weight: 700; color: #475569; width: 55px; flex-shrink: 0;">Nguồn:</span>
+                    ${selectSourceHtml}
+                </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-left: 2px;">
                     <!-- Quantity input -->
                     <div style="display: flex; align-items: center; gap: 4px;">
-                        <span style="font-size: 10.5px; font-weight: 700; color: #475569;">Cần dùng:</span>
-                        <input type="text" value="${row.quantity || ''}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _mFormulaUpdateRow(${index}, 'quantity', this.value)" class="m-input" style="width: 55px; padding: 4px 6px; font-size: 11px; text-align: center; height: auto;" placeholder="SL">
+                        <span style="font-size: 10.5px; font-weight: 700; color: #475569; width: 55px; flex-shrink: 0;">Cần dùng:</span>
+                        <input type="text" value="${row.quantity || ''}" oninput="_mFormulaUpdateQtyMemory(${index}, this.value)" class="m-input" style="width: 55px; padding: 4px 6px; font-size: 11px; text-align: center; height: auto;" placeholder="SL">
                         <span style="font-size: 10.5px; font-weight: 700; color: #475569; white-space: nowrap; max-width: 45px; overflow: hidden; text-overflow: ellipsis;" title="${unit}">${unit}</span>
                     </div>
                     <!-- Cost display -->
@@ -2751,7 +2822,11 @@ window._mSaveFormulaModal = async function() {
     validRows.forEach(row => {
         const prices = _mobileBgg.formulaPrices[row.material_id] || [];
         if (prices.length > 0) {
-            const cheapest = prices[0];
+            let cheapest = prices[0];
+            if (row.source_id) {
+                const found = prices.find(p => String(p.source_id) === String(row.source_id));
+                if (found) cheapest = found;
+            }
             totalCost += (Number(cheapest.price) || 0) * (Number(row.quantity) || 0);
         }
     });
