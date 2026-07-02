@@ -432,9 +432,11 @@ function _mGet3dConfig(supplierKey) {
     return def;
 }
 
-function _mCalc3dCost(qty) {
-    if (!_mobileBgg.print3dEnabled || !_mobileBgg.print3dSupplier) return { total:0, printCost:0, laserCost:0, metersPerShirt:0, totalMeters:0, printPricePerMeter:0, laserPricePerShirt:0 };
-    const config = _mGet3dConfig(_mobileBgg.print3dSupplier);
+function _mCalc3dCost(qty, supplierKey) {
+    const activeSupplier = supplierKey || _mobileBgg.print3dSupplier;
+    const isEnabled = supplierKey ? true : _mobileBgg.print3dEnabled;
+    if (!isEnabled || !activeSupplier) return { total:0, printCost:0, laserCost:0, metersPerShirt:0, totalMeters:0, printPricePerMeter:0, laserPricePerShirt:0 };
+    const config = _mGet3dConfig(activeSupplier);
     if (!config || !config.print_tiers || config.print_tiers.length === 0) return { total:0, printCost:0, laserCost:0, metersPerShirt:0, totalMeters:0, printPricePerMeter:0, laserPricePerShirt:0 };
     const mps = config.meters_per_shirt || 0.8;
     if (!qty || qty <= 0) return { total:0, printCost:0, laserCost:0, metersPerShirt:mps, totalMeters:0, printPricePerMeter:0, laserPricePerShirt:0, needQty:true };
@@ -575,73 +577,13 @@ function toggle3dSectionMobile(enabled) {
     const setupBtn = document.getElementById('m_setup_3d_btn');
     if (infoDiv) infoDiv.style.display = enabled ? 'block' : 'none';
     if (setupBtn) setupBtn.style.display = enabled ? 'inline-block' : 'none';
-    if (enabled) {
-        _mobileBgg.manuallySelected3dSupplier = false;
-        const qty = Number(document.getElementById('m_quantity')?.value) || 0;
-        if (qty > 0) {
-            autoSelectCheapest3dSupplierMobile(qty);
-        }
-    }
     save3dConfigsMobile();
     render3dSupplierDisplayMobile();
     renderMobileCalcResults();
 }
 
 function autoSelectCheapest3dSupplierMobile(qty) {
-    if (_M_BGG_3D_SUPPLIERS.length === 0) return;
-    let cheapestSupplier = null;
-    let minCost = Infinity;
-
-    for (const supplier of _M_BGG_3D_SUPPLIERS) {
-        const config = _mGet3dConfig(supplier.key);
-        if (!config || !config.print_tiers || config.print_tiers.length === 0) continue;
-
-        const mps = config.meters_per_shirt || 0.8;
-        const totalMeters = qty * mps;
-
-        let printPrice = 0;
-        for (const t of config.print_tiers) {
-            const mn = Number(t.min) || 0;
-            const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-            if (totalMeters >= mn && totalMeters < mx) { printPrice = Number(t.price) || 0; break; }
-        }
-        if (!printPrice) {
-            for (const t of config.print_tiers) {
-                const mn = Number(t.min) || 0;
-                const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                if (totalMeters >= mn && totalMeters <= mx) { printPrice = Number(t.price) || 0; break; }
-            }
-        }
-        const printCostPS = Math.round(printPrice * mps);
-
-        let laserPrice = 0;
-        if (config.laser_tiers && config.laser_tiers.length > 0) {
-            for (const t of config.laser_tiers) {
-                const mn = Number(t.min) || 0;
-                const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                if (totalMeters >= mn && totalMeters < mx) { laserPrice = Number(t.price) || 0; break; }
-            }
-            if (!laserPrice) {
-                for (const t of config.laser_tiers) {
-                    const mn = Number(t.min) || 0;
-                    const mx = t.max !== null && t.max !== '' ? Number(t.max) : Infinity;
-                    if (totalMeters >= mn && totalMeters <= mx) { laserPrice = Number(t.price) || 0; break; }
-                }
-            }
-        }
-
-        const laserCostPS = Math.round(laserPrice * mps);
-        const totalCost = printCostPS + laserCostPS;
-        if (totalCost > 0 && totalCost < minCost) {
-            minCost = totalCost;
-            cheapestSupplier = supplier.key;
-        }
-    }
-
-    if (cheapestSupplier) {
-        _mobileBgg.print3dSupplier = cheapestSupplier;
-        save3dConfigsMobile();
-    }
+    // Left empty/unused as user requested manual selection only
 }
 
 function render3dSupplierDisplayMobile() {
@@ -650,12 +592,7 @@ function render3dSupplierDisplayMobile() {
 
     const qty = Number(document.getElementById('m_quantity')?.value) || 0;
     if (qty !== _mobileBgg.lastQty) {
-        _mobileBgg.manuallySelected3dSupplier = false;
         _mobileBgg.lastQty = qty;
-    }
-
-    if (_mobileBgg.print3dEnabled && qty > 0 && !_mobileBgg.manuallySelected3dSupplier && _M_BGG_3D_SUPPLIERS.length > 0) {
-        autoSelectCheapest3dSupplierMobile(qty);
     }
 
     // Auto default to first if invalid/empty
@@ -695,25 +632,55 @@ function open3dPickerMobile() {
     if (existing) existing.remove();
 
     const currentSupplier = _mobileBgg.print3dSupplier || '';
+    const qty = Number(document.getElementById('m_quantity')?.value) || 0;
+
+    // Calculate prices for all suppliers
+    const suppliersWithPrices = _M_BGG_3D_SUPPLIERS.map(s => {
+        const calc = _mCalc3dCost(qty, s.key);
+        return {
+            ...s,
+            totalCost: calc.total || 0
+        };
+    });
+
+    // Sort by price: cheapest on top
+    if (qty > 0) {
+        suppliersWithPrices.sort((a, b) => {
+            if (a.totalCost > 0 && b.totalCost > 0) {
+                return a.totalCost - b.totalCost;
+            }
+            if (a.totalCost > 0) return -1;
+            if (b.totalCost > 0) return 1;
+            return 0;
+        });
+    }
 
     const modal = document.createElement('div');
     modal.id = 'm_3d_picker_modal';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
     modal.innerHTML = `
-        <div style="background: white; border-radius: 16px; width: 100%; max-width: 320px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; overflow: hidden;">
+        <div style="background: white; border-radius: 16px; width: 100%; max-width: 350px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; overflow: hidden;">
             <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
                 <h3 style="margin: 0; font-size: 13px; font-weight: 800; color: #0f172a;">🏭 Chọn Nhà In 3D</h3>
                 <button onclick="close3dPickerMobile()" style="background: none; border: none; font-size: 18px; color: #64748b; cursor: pointer;">&times;</button>
             </div>
             <div style="padding: 16px; display: flex; flex-direction: column; gap: 8px;">
-                ${_M_BGG_3D_SUPPLIERS.map(s => `
-                    <div onclick="select3dSupplierFromPickerMobile('${s.key}')" style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 10px; cursor: pointer; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'};">
-                        <div style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center;">
-                            ${currentSupplier === s.key ? '<div style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;"></div>' : ''}
+                ${suppliersWithPrices.map(s => {
+                    const priceText = qty <= 0 
+                        ? '<span style="font-size: 10.5px; color: #e11d48; font-weight: 600;">(Chưa nhập SL)</span>' 
+                        : (s.totalCost > 0 ? `<span style="font-size: 12px; color: #16a34a; font-weight: 800;">${s.totalCost.toLocaleString('vi-VN')}đ / áo</span>` : '<span style="font-size: 10.5px; color: #94a3b8; font-style: italic;">(Chưa config)</span>');
+                    return `
+                        <div onclick="select3dSupplierFromPickerMobile('${s.key}')" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#e2e8f0'}; border-radius: 10px; cursor: pointer; background: ${currentSupplier === s.key ? '#eff6ff' : 'white'};">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid ${currentSupplier === s.key ? '#3b82f6' : '#cbd5e1'}; display: flex; align-items: center; justify-content: center;">
+                                    ${currentSupplier === s.key ? '<div style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;"></div>' : ''}
+                                </div>
+                                <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
+                            </div>
+                            <div style="font-size: 12px; font-weight: 700; color: #475569; flex-shrink: 0;">${priceText}</div>
                         </div>
-                        <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${s.icon} ${s.name}</div>
-                    </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
             <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
                 <button onclick="close3dPickerMobile()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; background: white;">Đóng</button>
