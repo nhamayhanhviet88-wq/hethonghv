@@ -1317,12 +1317,12 @@ function _ctvUpdateCalculations() {
         
         <!-- Grand Totals -->
         <div class="ctv-result-row total">
-            <span>Đơn giá / Áo:</span>
+            <span>Đơn giá / Áo (Chưa VAT):</span>
             <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
         </div>
         
         <div class="ctv-result-row" style="font-size: 16px; font-weight: 700; color: white; margin-top: 10px;">
-            <span>Tổng cộng (${_ctvState.quantity} áo):</span>
+            <span>Tổng cộng (Chưa VAT) (${_ctvState.quantity} áo):</span>
             <span>${grandTotalText}</span>
         </div>
         
@@ -1517,7 +1517,7 @@ function _ctvOpenExportModal() {
                             `).join('')}
                             <tr style="background:#f8fafc; font-weight:800; font-size:14px;">
                                 <td style="border:1px solid #cbd5e1; padding:12px; text-align:right;">
-                                    CỘNG ĐƠN GIÁ TRÊN MỖI ÁO:
+                                    CỘNG ĐƠN GIÁ TRÊN MỖI ÁO (CHƯA VAT):
                                 </td>
                                 <td style="border:1px solid #cbd5e1; padding:12px; text-align:right; color:#1e3a8a;">
                                     ${finalPricePerShirtText}
@@ -1528,7 +1528,7 @@ function _ctvOpenExportModal() {
                     
                     <!-- Grand total and words -->
                     <div style="border:1px solid #cbd5e1; border-radius:10px; padding:20px; background:#f8fafc; text-align:right; margin-bottom:30px;">
-                        <div style="font-size:14px; color:#475569; margin-bottom:6px;">TỔNG TIỀN THANH TOÁN (${_ctvState.quantity} áo):</div>
+                        <div style="font-size:14px; color:#475569; margin-bottom:6px;">TỔNG TIỀN THANH TOÁN (CHƯA VAT) (${_ctvState.quantity} áo):</div>
                         <div style="font-size:24px; font-weight:950; color:#1e3a8a;">${grandTotalText}</div>
                         <div style="font-size:13px; font-style:italic; color:#0369a1; margin-top:8px;">
                             Bằng chữ: <strong>${wordsText}</strong>
@@ -1610,8 +1610,8 @@ function _ctvCopyTextQuotation() {
         : docSoTienVietNam(calc.grandTotal);
         
     text += `----------------------------------------\n`;
-    text += `💰 ĐƠN GIÁ CUỐI: ${finalPricePerShirtTextCopy}\n`;
-    text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${grandTotalTextCopy}\n`;
+    text += `💰 ĐƠN GIÁ CUỐI (Chưa VAT): ${finalPricePerShirtTextCopy}\n`;
+    text += `💵 TỔNG CỘNG ĐƠN HÀNG (Chưa VAT): ${grandTotalTextCopy}\n`;
     text += `✍️ (Bằng chữ: ${wordsTextCopy})\n`;
     text += `----------------------------------------\n`;
     text += `Xin cảm ơn quý khách đã tin dùng sản phẩm của Đồng Phục HV!`;

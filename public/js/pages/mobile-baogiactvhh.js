@@ -762,11 +762,11 @@ function _mUpdateCalculations() {
         ` : ''}
         
         <div class="m-result-row total">
-            <span>Đơn giá/Áo:</span>
+            <span>Đơn giá/Áo (Chưa VAT):</span>
             <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
         </div>
         <div class="m-result-row" style="font-size:15px; font-weight:700; margin-top:4px;">
-            <span>Tổng đơn:</span>
+            <span>Tổng đơn (Chưa VAT):</span>
             <span>${grandTotalText}</span>
         </div>
         
@@ -902,14 +902,14 @@ function _mOpenExportModal() {
                         </tr>
                     `).join('')}
                     <tr style="font-weight:700; background:#f8fafc;">
-                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right;">Đơn giá tổng:</td>
+                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right;">Đơn giá tổng (Chưa VAT):</td>
                         <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#1e3a8a;">${finalPricePerShirtText}</td>
                     </tr>
                 </tbody>
             </table>
             
             <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px; text-align:right;">
-                <div style="font-size:11px; color:#64748b;">Tổng cộng:</div>
+                <div style="font-size:11px; color:#64748b;">Tổng cộng (Chưa VAT):</div>
                 <div style="font-size:18px; font-weight:900; color:#1e3a8a;">${grandTotalText}</div>
                 <div style="font-size:11.5px; font-style:italic; color:#0369a1; margin-top:4px;">
                     Bằng chữ: <strong>${wordsText}</strong>
@@ -965,8 +965,8 @@ function _mCopyTextQuotation() {
         : docSoTienVietNam(calc.grandTotal);
         
     text += `----------------------------------------\n`;
-    text += `💰 ĐƠN GIÁ: ${finalPricePerShirtTextCopy}\n`;
-    text += `💵 TỔNG CỘNG: ${grandTotalTextCopy}\n`;
+    text += `💰 ĐƠN GIÁ (Chưa VAT): ${finalPricePerShirtTextCopy}\n`;
+    text += `💵 TỔNG CỘNG (Chưa VAT): ${grandTotalTextCopy}\n`;
     text += `✍️ (Chữ: ${wordsTextCopy})\n`;
     text += `----------------------------------------\n`;
     
