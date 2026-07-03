@@ -1453,8 +1453,12 @@ function _mOpenExportModal(mode = null) {
         <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.4; font-size:12px;">
             <!-- Toggle Mode Button Group (no-print) -->
             <div class="no-print" style="display:flex; background:#f1f5f9; padding:2px; border-radius:8px; gap:2px; border:1px solid #cbd5e1; margin-bottom: 8px; font-family:'Inter', sans-serif;">
-                <button onclick="_mOpenExportModal('ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">👥 Bản in CTV</button>
-                <button onclick="_mOpenExportModal('customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+                ${(!_mState.targetType || _mState.targetType === 'ctv') ? `
+                    <button onclick="_mOpenExportModal('ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">👥 Bản in CTV</button>
+                ` : ''}
+                ${(!_mState.targetType || _mState.targetType === 'customer') ? `
+                    <button onclick="_mOpenExportModal('customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+                ` : ''}
             </div>
             
             <!-- Creator Input (no-print) -->

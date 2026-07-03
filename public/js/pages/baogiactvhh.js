@@ -2319,8 +2319,12 @@ function _ctvOpenExportModal(mode = null) {
                 <div style="display:flex; align-items:center; gap:16px; margin-left: 20px;">
                     <!-- Toggle Mode Button Group -->
                     <div style="display:flex; background:#f1f5f9; padding:3px; border-radius:10px; gap:4px; border:1px solid #cbd5e1;">
-                        <button onclick="_ctvOpenExportModal('ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">👥 Bản in CTV</button>
-                        <button onclick="_ctvOpenExportModal('customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+                        ${(!_ctvState.targetType || _ctvState.targetType === 'ctv') ? `
+                            <button onclick="_ctvOpenExportModal('ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">👥 Bản in CTV</button>
+                        ` : ''}
+                        ${(!_ctvState.targetType || _ctvState.targetType === 'customer') ? `
+                            <button onclick="_ctvOpenExportModal('customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+                        ` : ''}
                     </div>
                     
                     <!-- Creator input -->
