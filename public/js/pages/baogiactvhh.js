@@ -2330,7 +2330,7 @@ function _ctvOpenExportModal(mode = null) {
                     <!-- Creator input -->
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span style="font-size:12px; font-weight:700; color:#475569; white-space:nowrap;">Người lập:</span>
-                        <input type="text" id="ctv_export_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; width:150px; box-sizing:border-box;" oninput="_ctvUpdateCreatorName(this.value)" />
+                        <input type="text" id="ctv_export_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; width:150px; box-sizing:border-box; background-color:#f1f5f9; color:#64748b; cursor:not-allowed;" disabled />
                     </div>
                 </div>
                 
@@ -3308,7 +3308,7 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                     <!-- Creator input -->
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span style="font-size:12px; font-weight:700; color:#475569; white-space:nowrap;">Người lập:</span>
-                        <input type="text" id="ctv_price_list_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; width:150px; box-sizing:border-box;" oninput="_ctvUpdateCreatorName(this.value)" />
+                        <input type="text" id="ctv_price_list_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; width:150px; box-sizing:border-box; background-color:#f1f5f9; color:#64748b; cursor:not-allowed;" disabled />
                     </div>
                 </div>
                 

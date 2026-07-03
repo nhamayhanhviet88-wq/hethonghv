@@ -1464,7 +1464,7 @@ function _mOpenExportModal(mode = null) {
             <!-- Creator Input (no-print) -->
             <div class="no-print" style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-family:'Inter', sans-serif;">
                 <span style="font-size:11px; font-weight:700; color:#475569; white-space:nowrap;">Người lập:</span>
-                <input type="text" id="m_export_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="flex:1; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:11.5px; outline:none; box-sizing:border-box;" oninput="_mUpdateCreatorName(this.value)" />
+                <input type="text" id="m_export_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="flex:1; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:11.5px; outline:none; box-sizing:border-box; background-color:#f1f5f9; color:#64748b; cursor:not-allowed;" disabled />
             </div>
 
             <div style="border-bottom:2px double #e2e8f0; padding-bottom:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:start;">
