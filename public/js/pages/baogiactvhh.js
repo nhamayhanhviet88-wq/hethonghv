@@ -531,6 +531,12 @@ async function _ctvLoadActiveConfig() {
         if (res && res.config) {
             _ctvState.activeConfig = res.config;
             _ctvState.print3dCost = res.config.print_prices.print3d?.flat_price || 30000;
+            
+            // Ensure activeConfig is in configVersions so we can preview it
+            if (!_ctvState.configVersions) _ctvState.configVersions = [];
+            if (!_ctvState.configVersions.some(v => v.id === res.config.id)) {
+                _ctvState.configVersions.push(res.config);
+            }
         } else {
             _ctvState.activeConfig = null;
         }
@@ -555,10 +561,14 @@ function _ctvRenderPageLayout() {
                         🏢 Cài Đặt Công Ty
                     </button>
                     ${_ctvState.activeConfig ? `
-                        <div style="background: rgba(255,255,255,0.2); padding: 8px 14px; border-radius: 10px; text-align: right;">
-                            <div style="font-size: 11px; font-weight: 700; opacity: 0.9; color: white;">BIỂU PHÍ HIỆN TẠI:</div>
-                            <div style="font-size: 14px; font-weight: 800; color: white;">${_ctvState.activeConfig.version_name}</div>
-                        </div>
+                        <button class="ctv-btn-primary" style="background:#2563eb; border:none; color:white; padding:6px 14px; border-radius:10px; text-align:left; cursor:pointer; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition: all 0.2s; display:flex; flex-direction:column; justify-content:center; gap:2px;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 12px -2px rgba(0,0,0,0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.1)';" onclick="_ctvPreviewConfigDetails(${_ctvState.activeConfig.id}, 'ctv')">
+                            <span style="font-size: 10px; font-weight: 700; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px;">👥 Biểu phí CTV</span>
+                            <span style="font-size: 12px; font-weight: 850;">${_ctvState.activeConfig.version_name}</span>
+                        </button>
+                        <button class="ctv-btn-primary" style="background:#f97316; border:none; color:white; padding:6px 14px; border-radius:10px; text-align:left; cursor:pointer; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition: all 0.2s; display:flex; flex-direction:column; justify-content:center; gap:2px;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 12px -2px rgba(0,0,0,0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.1)';" onclick="_ctvPreviewConfigDetails(${_ctvState.activeConfig.id}, 'customer')">
+                            <span style="font-size: 10px; font-weight: 700; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px;">🛍️ Biểu phí Khách</span>
+                            <span style="font-size: 12px; font-weight: 850;">${_ctvState.activeConfig.version_name}</span>
+                        </button>
                     ` : ''}
                 </div>
             </div>

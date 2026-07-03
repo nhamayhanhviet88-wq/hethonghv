@@ -74,6 +74,12 @@ async function _mLoadActiveConfig() {
         if (res && res.config) {
             _mState.activeConfig = res.config;
             _mState.print3dCost = res.config.print_prices.print3d?.flat_price || 30000;
+            
+            // Ensure activeConfig is in configVersions so we can preview it
+            if (!_mState.configVersions) _mState.configVersions = [];
+            if (!_mState.configVersions.some(v => v.id === res.config.id)) {
+                _mState.configVersions.push(res.config);
+            }
         } else {
             _mState.activeConfig = null;
         }
@@ -130,6 +136,18 @@ function _mRenderCalculator(container) {
     }
     
     container.innerHTML = `
+        <!-- Active Config Price Lists (Quick View) -->
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button onclick="_mShowConfigDetailPopup(${config.id}, 'ctv')" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #2563eb; color: white; border: none; padding: 10px 8px; border-radius: 12px; font-weight: 750; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.15); transition: all 0.2s; gap: 2px;">
+                <span style="font-size: 9px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px;">👥 Biểu phí CTV</span>
+                <span style="font-size: 11px; font-weight: 800;">${config.version_name}</span>
+            </button>
+            <button onclick="_mShowConfigDetailPopup(${config.id}, 'customer')" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f97316; color: white; border: none; padding: 10px 8px; border-radius: 12px; font-weight: 750; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(249,115,22,0.15); transition: all 0.2s; gap: 2px;">
+                <span style="font-size: 9px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px;">🛍️ Biểu phí Khách</span>
+                <span style="font-size: 11px; font-weight: 800;">${config.version_name}</span>
+            </button>
+        </div>
+
         <!-- Target Selection (Mandatory) -->
         <div class="m-card" style="border: 2px solid #3b82f6;">
             <div class="m-card-title" style="color: #1d4ed8; display: flex; align-items: center; justify-content: space-between; font-size:13px; margin-bottom:8px;">
