@@ -1057,6 +1057,19 @@ async function _mSaveQuotation() {
 }
 
 function _mOpenExportModal(mode = null) {
+    let info = null;
+    try {
+        info = JSON.parse(localStorage.getItem('ctv_company_info'));
+    } catch(e) {}
+    if (!info) {
+        info = {
+            name: "XƯỞNG MAY ĐỒNG PHỤC HV",
+            address: "Xưởng may Đồng Phục HV, Hà Nội",
+            phone: "0988.888.888",
+            website: "dongphuchv.net",
+            logo: ""
+        };
+    }
     if (!mode) {
         mode = _mState.targetType === 'customer' ? 'customer' : 'ctv';
     }
@@ -1098,9 +1111,12 @@ function _mOpenExportModal(mode = null) {
             </div>
 
             <div style="border-bottom:2px double #e2e8f0; padding-bottom:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:start;">
-                <div>
-                    <h4 style="margin:0; font-size:14px; font-weight:800; color:#1e3a8a;">ĐỒNG PHỤC HV</h4>
-                    <p style="margin:2px 0 0 0; font-size:10px; color:#64748b;">Xưởng May Đồng Phục HV</p>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    ${info.logo ? `<img src="${info.logo}" style="max-height:36px; max-width:80px; object-fit:contain;" />` : ''}
+                    <div>
+                        <h4 style="margin:0; font-size:14px; font-weight:800; color:#1e3a8a;">${info.name}</h4>
+                        <p style="margin:2px 0 0 0; font-size:10px; color:#64748b;">${info.address}</p>
+                    </div>
                 </div>
                 <div style="text-align:right;">
                     <h5 style="margin:0; font-size:11px; color:#475569;">${mode === 'customer' ? 'BÁO GIÁ SẢN PHẨM' : 'BÁO GIÁ CTV'}</h5>

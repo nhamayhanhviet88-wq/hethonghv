@@ -483,12 +483,17 @@ function _ctvRenderPageLayout() {
                     <h2>🤝 Báo Giá CTV/HH</h2>
                     <p>Tính toán bảng giá may & in ấn chuyên nghiệp cho Cộng Tác Viên & Đại Lý</p>
                 </div>
-                ${_ctvState.activeConfig ? `
-                    <div style="background: rgba(255,255,255,0.2); padding: 8px 14px; border-radius: 10px; text-align: right;">
-                        <div style="font-size: 11px; font-weight: 700; opacity: 0.9;">BIỂU PHÍ HIỆN TẠI:</div>
-                        <div style="font-size: 14px; font-weight: 800;">${_ctvState.activeConfig.version_name}</div>
-                    </div>
-                ` : ''}
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <button class="ctv-btn-secondary" style="background:#fff; border:none; color:#1e3a8a; padding:8px 16px; border-radius:10px; font-size:12px; display:flex; align-items:center; gap:6px; font-weight:800; cursor:pointer; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 12px -2px rgba(0,0,0,0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.1)';" onclick="_ctvOpenCompanySettingsModal()">
+                        🏢 Cài Đặt Công Ty
+                    </button>
+                    ${_ctvState.activeConfig ? `
+                        <div style="background: rgba(255,255,255,0.2); padding: 8px 14px; border-radius: 10px; text-align: right;">
+                            <div style="font-size: 11px; font-weight: 700; opacity: 0.9; color: white;">BIỂU PHÍ HIỆN TẠI:</div>
+                            <div style="font-size: 14px; font-weight: 800; color: white;">${_ctvState.activeConfig.version_name}</div>
+                        </div>
+                    ` : ''}
+                </div>
             </div>
             
             <div class="baogiactvhh-tabs">
@@ -1677,8 +1682,161 @@ async function _ctvSaveQuotation() {
     }
 }
 
+function _ctvGetCompanyInfo() {
+    let info = null;
+    try {
+        info = JSON.parse(localStorage.getItem('ctv_company_info'));
+    } catch(e) {}
+    if (!info) {
+        info = {
+            name: "XƯỞNG MAY ĐỒNG PHỤC HV",
+            address: "Xưởng may Đồng Phục HV, Hà Nội",
+            phone: "0988.888.888",
+            website: "dongphuchv.net",
+            logo: ""
+        };
+    }
+    return info;
+}
+
+function _ctvOpenCompanySettingsModal() {
+    const info = _ctvGetCompanyInfo();
+    
+    let modal = document.getElementById('ctv_company_settings_modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'ctv_company_settings_modal';
+        modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); display:flex; justify-content:center; align-items:center; z-index:9999; font-family:\'Inter\', sans-serif;';
+        document.body.appendChild(modal);
+    }
+    
+    modal.innerHTML = `
+        <div style="background:#fff; border-radius:16px; width:460px; max-width:95%; padding:28px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); position:relative; box-sizing:border-box;">
+            <h3 style="margin:0 0 20px 0; color:#1e3a8a; font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px;">🏢 Cấu Hình Thông Tin Công Ty</h3>
+            
+            <div style="display:flex; flex-direction:column; gap:16px; font-size:13px; color:#475569;">
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Tên đơn vị / Xưởng may</label>
+                    <input type="text" id="ctv_comp_name" value="${info.name}" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                </div>
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Địa chỉ</label>
+                    <input type="text" id="ctv_comp_address" value="${info.address}" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Điện thoại</label>
+                        <input type="text" id="ctv_comp_phone" value="${info.phone}" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                    </div>
+                    <div>
+                        <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Website</label>
+                        <input type="text" id="ctv_comp_website" value="${info.website}" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+                    </div>
+                </div>
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Logo thương hiệu (Hiển thị góc trái báo giá)</label>
+                    <div style="display:flex; gap:16px; align-items:center; margin-top:8px;">
+                        <div id="ctv_comp_logo_preview" style="width:90px; height:60px; border:2px dashed #e2e8f0; border-radius:10px; display:flex; justify-content:center; align-items:center; background:#f8fafc; overflow:hidden; padding:4px; box-sizing:border-box;">
+                            ${info.logo ? `<img src="${info.logo}" style="max-width:100%; max-height:100%; object-fit:contain;" />` : '<span style="font-size:11px; color:#94a3b8; font-weight:550;">Chưa có logo</span>'}
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            <input type="file" id="ctv_comp_logo_file" accept="image/*" style="display:none;" onchange="_ctvHandleLogoUpload(this)">
+                            <button type="button" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; padding:6px 12px; font-size:12px; font-weight:700; border-radius:6px; cursor:pointer;" onclick="document.getElementById('ctv_comp_logo_file').click()">Tải ảnh lên</button>
+                            ${info.logo ? `<button type="button" style="background:transparent; border:none; color:#ef4444; font-size:12px; font-weight:700; cursor:pointer; text-align:left; padding:2px 0;" onclick="_ctvRemoveLogo()">Xóa logo</button>` : ''}
+                        </div>
+                    </div>
+                    <input type="hidden" id="ctv_comp_logo_base64" value="${info.logo || ''}">
+                </div>
+            </div>
+            
+            <div style="margin-top:28px; display:flex; justify-content:end; gap:10px; border-top:1px solid #f1f5f9; padding-top:16px;">
+                <button type="button" style="background:#fff; border:1px solid #cbd5e1; color:#475569; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;" onclick="_ctvCloseCompanySettingsModal()">Hủy</button>
+                <button type="button" style="background:#1e3a8a; border:none; color:#fff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;" onclick="_ctvSaveCompanySettings()">Lưu cấu hình</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+function _ctvCloseCompanySettingsModal() {
+    const modal = document.getElementById('ctv_company_settings_modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function _ctvHandleLogoUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    if (file.size > 1024 * 1024) {
+        showToast('Ảnh quá dung lượng. Vui lòng chọn ảnh dưới 1MB!', 'warning');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64 = e.target.result;
+        document.getElementById('ctv_comp_logo_base64').value = base64;
+        const preview = document.getElementById('ctv_comp_logo_preview');
+        preview.innerHTML = `<img src="${base64}" style="max-width:100%; max-height:100%; object-fit:contain;" />`;
+        
+        // Refresh buttons to show delete button if needed
+        const fileDiv = input.parentElement;
+        if (!fileDiv.querySelector('button[onclick*="Remove"]')) {
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.style.cssText = 'background:transparent; border:none; color:#ef4444; font-size:12px; font-weight:700; cursor:pointer; text-align:left; padding:2px 0;';
+            delBtn.textContent = 'Xóa logo';
+            delBtn.onclick = _ctvRemoveLogo;
+            fileDiv.appendChild(delBtn);
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+function _ctvRemoveLogo() {
+    document.getElementById('ctv_comp_logo_base64').value = '';
+    const preview = document.getElementById('ctv_comp_logo_preview');
+    preview.innerHTML = '<span style="font-size:11px; color:#94a3b8; font-weight:550;">Chưa có logo</span>';
+    
+    const fileInput = document.getElementById('ctv_comp_logo_file');
+    if (fileInput) fileInput.value = '';
+    
+    // Remove the delete button
+    const fileDiv = document.querySelector('button[onclick*="Remove"]')?.parentElement;
+    if (fileDiv) {
+        const delBtn = fileDiv.querySelector('button[onclick*="Remove"]');
+        if (delBtn) delBtn.remove();
+    }
+}
+
+function _ctvSaveCompanySettings() {
+    const name = document.getElementById('ctv_comp_name').value.trim();
+    const address = document.getElementById('ctv_comp_address').value.trim();
+    const phone = document.getElementById('ctv_comp_phone').value.trim();
+    const website = document.getElementById('ctv_comp_website').value.trim();
+    const logo = document.getElementById('ctv_comp_logo_base64').value;
+    
+    if (!name) {
+        showToast('Vui lòng nhập tên công ty/đơn vị!', 'warning');
+        return;
+    }
+    
+    const info = { name, address, phone, website, logo };
+    localStorage.setItem('ctv_company_info', JSON.stringify(info));
+    
+    showToast('Cấu hình thông tin công ty thành công!', 'success');
+    _ctvCloseCompanySettingsModal();
+    
+    // If export modal is open, re-render it to show new changes
+    const exportModal = document.getElementById('ctv_export_modal');
+    if (exportModal && exportModal.style.display !== 'none') {
+        _ctvOpenExportModal(_ctvState.exportMode);
+    }
+}
+
 // Open beautiful printable export modal popup
 function _ctvOpenExportModal(mode = null) {
+    const info = _ctvGetCompanyInfo();
     if (!mode) {
         mode = _ctvState.targetType === 'customer' ? 'customer' : 'ctv';
     }
@@ -1747,10 +1905,13 @@ function _ctvOpenExportModal(mode = null) {
                 <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.5;">
                     <!-- Company Info -->
                     <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:30px; border-bottom:3px double #e2e8f0; padding-bottom:20px;">
-                        <div>
-                            <h1 style="margin:0 0 6px 0; font-size:22px; font-weight:900; color:#1e3a8a; letter-spacing:-0.5px;">XƯỞNG MAY ĐỒNG PHỤC HV</h1>
-                            <p style="margin:0; font-size:12px; color:#475569;">📍 Địa chỉ: Xưởng may Đồng Phục HV, Hà Nội</p>
-                            <p style="margin:2px 0 0 0; font-size:12px; color:#475569;">📞 Điện thoại: 0988.888.888 | Website: dongphuchv.net</p>
+                        <div style="display:flex; gap:16px; align-items:center;">
+                            ${info.logo ? `<img src="${info.logo}" style="max-height:60px; max-width:120px; object-fit:contain;" />` : ''}
+                            <div>
+                                <h1 style="margin:0 0 6px 0; font-size:22px; font-weight:900; color:#1e3a8a; letter-spacing:-0.5px;">${info.name}</h1>
+                                <p style="margin:0; font-size:12px; color:#475569;">📍 Địa chỉ: ${info.address}</p>
+                                <p style="margin:2px 0 0 0; font-size:12px; color:#475569;">📞 Điện thoại: ${info.phone} | Website: ${info.website}</p>
+                            </div>
                         </div>
                         <div style="text-align:right;">
                             <h2 style="margin:0 0 4px 0; font-size:14px; font-weight:800; color:#475569;">${mode === 'customer' ? 'BẢNG BÁO GIÁ SẢN PHẨM' : 'BẢNG BÁO GIÁ ĐẠI LÝ / CTV'}</h2>
@@ -1851,7 +2012,7 @@ function _ctvOpenExportModal(mode = null) {
                             <p style="margin:0; color:#64748b; font-style:italic;">(Ký và ghi rõ họ tên)</p>
                         </div>
                         <div>
-                            <p style="margin:0 0 60px 0; font-weight:700; color:#1e3a8a;">ĐẠI DIỆN XƯỞNG MAY ĐỒNG PHỤC HV</p>
+                            <p style="margin:0 0 60px 0; font-weight:700; color:#1e3a8a;">ĐẠI DIỆN ${info.name.toUpperCase()}</p>
                             <p style="margin:0; font-weight:800; color:#1e3a8a;">NGƯỜI LẬP BIỂU</p>
                         </div>
                     </div>
