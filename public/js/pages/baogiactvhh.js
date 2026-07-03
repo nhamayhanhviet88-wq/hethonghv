@@ -2420,7 +2420,7 @@ function _ctvAddMatRowInput(name = '', price = 75000) {
     div.className = 'ctv-mat-row';
     div.style.display = 'flex';
     div.style.gap = '8px';
-    div.style.margin_bottom = '8px';
+    div.style.marginBottom = '8px';
     div.innerHTML = `
         <input type="text" class="ctv-input" placeholder="Tên chất liệu" value="${name}" style="flex-grow:1;">
         <input type="number" class="ctv-input" placeholder="Đơn giá" value="${price}" style="width:120px;">
