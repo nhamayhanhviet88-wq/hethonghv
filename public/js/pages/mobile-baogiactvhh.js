@@ -45,7 +45,8 @@ var _mState = {
     includeCommission: false,
     targetType: null,
     historyLogs: [],
-    configVersions: []
+    configVersions: [],
+    creatorName: ''
 };
 
 async function initMobileBaogiactvhhPage() {
@@ -1056,6 +1057,14 @@ async function _mSaveQuotation() {
     }
 }
 
+function _mUpdateCreatorName(val) {
+    _mState.creatorName = val;
+    const printedEl = document.getElementById('m_printed_creator_name');
+    if (printedEl) {
+        printedEl.textContent = val;
+    }
+}
+
 function _mOpenExportModal(mode = null) {
     let info = null;
     try {
@@ -1070,6 +1079,7 @@ function _mOpenExportModal(mode = null) {
             logo: ""
         };
     }
+    const creatorName = _mState.creatorName || (window.currentUser && window.currentUser.full_name) || '';
     if (!mode) {
         mode = _mState.targetType === 'customer' ? 'customer' : 'ctv';
     }
@@ -1105,9 +1115,15 @@ function _mOpenExportModal(mode = null) {
     container.innerHTML = `
         <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.4; font-size:12px;">
             <!-- Toggle Mode Button Group (no-print) -->
-            <div class="no-print" style="display:flex; background:#f1f5f9; padding:2px; border-radius:8px; gap:2px; border:1px solid #cbd5e1; margin-bottom: 12px; font-family:'Inter', sans-serif;">
+            <div class="no-print" style="display:flex; background:#f1f5f9; padding:2px; border-radius:8px; gap:2px; border:1px solid #cbd5e1; margin-bottom: 8px; font-family:'Inter', sans-serif;">
                 <button onclick="_mOpenExportModal('ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">👥 Bản in CTV</button>
                 <button onclick="_mOpenExportModal('customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+            </div>
+            
+            <!-- Creator Input (no-print) -->
+            <div class="no-print" style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-family:'Inter', sans-serif;">
+                <span style="font-size:11px; font-weight:700; color:#475569; white-space:nowrap;">Người lập:</span>
+                <input type="text" id="m_export_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="flex:1; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:11.5px; outline:none; box-sizing:border-box;" oninput="_mUpdateCreatorName(this.value)" />
             </div>
 
             <div style="border-bottom:2px double #e2e8f0; padding-bottom:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:start;">
@@ -1178,6 +1194,10 @@ function _mOpenExportModal(mode = null) {
                 <div style="font-size:18px; font-weight:900; color:#1e3a8a;">${grandTotalText}</div>
                 <div style="font-size:11.5px; font-style:italic; color:#0369a1; margin-top:4px;">
                     Bằng chữ: <strong>${wordsText}</strong>
+                </div>
+                <div style="font-size:10px; color:#475569; margin-top:8px; border-top:1px dashed #e2e8f0; padding-top:6px; text-align:left; display:flex; justify-content:space-between;">
+                    <span>Người lập biểu:</span>
+                    <strong id="m_printed_creator_name">${creatorName}</strong>
                 </div>
             </div>
         </div>

@@ -1835,8 +1835,17 @@ function _ctvSaveCompanySettings() {
 }
 
 // Open beautiful printable export modal popup
+function _ctvUpdateCreatorName(val) {
+    _ctvState.creatorName = val;
+    const printedEl = document.getElementById('ctv_printed_creator_name');
+    if (printedEl) {
+        printedEl.textContent = val;
+    }
+}
+
 function _ctvOpenExportModal(mode = null) {
     const info = _ctvGetCompanyInfo();
+    const creatorName = _ctvState.creatorName || (window.currentUser && window.currentUser.full_name) || '';
     if (!mode) {
         mode = _ctvState.targetType === 'customer' ? 'customer' : 'ctv';
     }
@@ -1891,10 +1900,18 @@ function _ctvOpenExportModal(mode = null) {
             <div class="no-print" style="padding:16px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
                 <h3 style="margin:0; font-size:16px; font-weight:800; color:#1e293b;">🖨️ Xuất Bản Báo Giá</h3>
                 
-                <!-- Toggle Mode Button Group -->
-                <div style="display:flex; background:#f1f5f9; padding:3px; border-radius:10px; gap:4px; border:1px solid #cbd5e1; margin-left: 20px;">
-                    <button onclick="_ctvOpenExportModal('ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">👥 Bản in CTV</button>
-                    <button onclick="_ctvOpenExportModal('customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+                <div style="display:flex; align-items:center; gap:16px; margin-left: 20px;">
+                    <!-- Toggle Mode Button Group -->
+                    <div style="display:flex; background:#f1f5f9; padding:3px; border-radius:10px; gap:4px; border:1px solid #cbd5e1;">
+                        <button onclick="_ctvOpenExportModal('ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">👥 Bản in CTV</button>
+                        <button onclick="_ctvOpenExportModal('customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+                    </div>
+                    
+                    <!-- Creator input -->
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:12px; font-weight:700; color:#475569; white-space:nowrap;">Người lập:</span>
+                        <input type="text" id="ctv_export_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; width:150px; box-sizing:border-box;" oninput="_ctvUpdateCreatorName(this.value)" />
+                    </div>
                 </div>
                 
                 <button onclick="_ctvCloseExportModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">×</button>
@@ -2008,12 +2025,16 @@ function _ctvOpenExportModal(mode = null) {
                     <!-- Footer signatures -->
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; text-align:center; font-size:13px; margin-top:40px;">
                         <div>
-                            <p style="margin:0 0 60px 0; font-weight:700;">ĐẠI DIỆN KHÁCH HÀNG</p>
-                            <p style="margin:0; color:#64748b; font-style:italic;">(Ký và ghi rõ họ tên)</p>
+                            <p style="margin:0 0 10px 0; font-weight:700; color:#475569;">ĐẠI DIỆN KHÁCH HÀNG</p>
+                            <p style="margin:0; color:#64748b; font-style:italic; font-size:11px;">(Ký và ghi rõ họ tên)</p>
+                            <div style="height:50px;"></div>
+                            <p style="margin:0; font-weight:800; color:#475569; font-size:14px; opacity:0;">(Ký tên)</p>
                         </div>
                         <div>
-                            <p style="margin:0 0 60px 0; font-weight:700; color:#1e3a8a;">ĐẠI DIỆN ${info.name.toUpperCase()}</p>
+                            <p style="margin:0 0 10px 0; font-weight:700; color:#1e3a8a;">ĐẠI DIỆN ${info.name.toUpperCase()}</p>
                             <p style="margin:0; font-weight:800; color:#1e3a8a;">NGƯỜI LẬP BIỂU</p>
+                            <div style="height:50px;"></div>
+                            <p id="ctv_printed_creator_name" style="margin:0; font-weight:800; color:#1e3a8a; font-size:14px;">${creatorName}</p>
                         </div>
                     </div>
                 </div>
