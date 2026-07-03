@@ -456,12 +456,34 @@ function _mOnPrintTypeChange(val) {
     _mUpdateCalculations();
 }
 
+function _mUpdatePrintTypeDropdown() {
+    const selectEl = document.getElementById('m_print_type');
+    if (!selectEl) return;
+    const savedTypes = (_mState.savedPrints || []).map(p => p.type);
+    
+    Array.from(selectEl.options).forEach(opt => {
+        if (opt.value === 'none') {
+            opt.disabled = false;
+            opt.style.display = 'block';
+            return;
+        }
+        if (savedTypes.includes(opt.value) && opt.value !== _mState.printType) {
+            opt.disabled = true;
+            opt.style.display = 'none';
+        } else {
+            opt.disabled = false;
+            opt.style.display = 'block';
+        }
+    });
+}
+
 function _mRenderPrintPanel() {
     const panel = document.getElementById('m_print_panel');
     if (!panel) return;
     
     if (_mState.printType === 'none') {
         panel.innerHTML = '';
+        _mUpdatePrintTypeDropdown();
         return;
     }
     
@@ -596,6 +618,7 @@ function _mRenderPrintPanel() {
             </div>
         `;
     }
+    _mUpdatePrintTypeDropdown();
 }
 
 function _mSaveActivePrint() {
@@ -750,6 +773,7 @@ function _mDeleteSavedPrint(id) {
     _mState.savedPrints = _mState.savedPrints.filter(p => p.id !== id);
     _mRenderSavedPrintsList();
     _mUpdateCalculations();
+    _mUpdatePrintTypeDropdown();
 }
 
 function _mOn3dCostSelectChange(val) {
