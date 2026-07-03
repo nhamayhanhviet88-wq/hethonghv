@@ -151,7 +151,10 @@ function _mRenderCalculator(container) {
                 <div class="m-checkbox-group">
                     ${(function() {
                         const ordered = _mGetOrderedOptionalSurcharges(config);
-                        return ordered.map(item => {
+                        return ordered.filter(item => {
+                            const priceInfo = _mGetPriceInfo(item.value);
+                            return !priceInfo.isContact;
+                        }).map(item => {
                             const isChecked = _mState.surcharges[item.key] ? 'checked' : '';
                             const priceInfo = _mGetPriceInfo(item.value);
                             const safeId = 'm_sc_' + item.key.replace(/\s+/g, '_');

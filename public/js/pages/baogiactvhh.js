@@ -584,7 +584,10 @@ function _ctvRenderCalculator(container) {
                         <div class="ctv-checkbox-group">
                             ${(function() {
                                 const ordered = _ctvGetOrderedOptionalSurcharges(config);
-                                return ordered.map(item => {
+                                return ordered.filter(item => {
+                                    const priceInfo = _ctvGetPriceInfo(item.value);
+                                    return !priceInfo.isContact;
+                                }).map(item => {
                                     const isChecked = _ctvState.surcharges[item.key] ? 'checked' : '';
                                     const priceInfo = _ctvGetPriceInfo(item.value);
                                     const safeId = 'ctv_sc_' + item.key.replace(/\s+/g, '_');
