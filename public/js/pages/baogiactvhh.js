@@ -1167,6 +1167,8 @@ function _ctvCalculateAllCosts() {
                     labelText += ` (Tối thiểu ${minPositionPrice.toLocaleString('vi-VN')}đ)`;
                 }
                 
+                costPerShirt = Math.ceil(costPerShirt / 1000) * 1000;
+                
                 printCost += costPerShirt;
                 printBreakdown.push({
                     label: labelText,
