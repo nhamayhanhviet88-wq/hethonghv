@@ -1122,6 +1122,15 @@ function _ctvCalculateAllCosts() {
         }
     });
     
+    // Always put 'Giá Tại Xưởng' at the very end of surcharges breakdown
+    surchargesBreakdown.sort((a, b) => {
+        const aHas = a.label.toLowerCase().includes('giá tại xưởng') || a.label.toLowerCase().includes('gia tai xuong');
+        const bHas = b.label.toLowerCase().includes('giá tại xưởng') || b.label.toLowerCase().includes('gia tai xuong');
+        if (aHas && !bHas) return 1;
+        if (!aHas && bHas) return -1;
+        return 0;
+    });
+    
     // 3. Printing costs
     let printCost = 0;
     const printBreakdown = [];
