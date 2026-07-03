@@ -666,6 +666,23 @@ function _mParseShippingLimit(val) {
     return num;
 }
 
+function _mShortenShippingDesc(desc) {
+    if (!desc) return '';
+    let val = desc.trim();
+    const descLower = val.toLowerCase();
+    if (descLower.includes('miễn phí vận chuyển thường j&t') || 
+        descLower.includes('miễn phí vc thường j&t') || 
+        descLower.includes('miễn phí j&t thường')) {
+        return 'Miễn Phí VC Thường J&T';
+    }
+    if (descLower.includes('miễn phí vận chuyển thường j&t / viettel post') || 
+        descLower.includes('miễn phí j&t/viettel thường') ||
+        descLower.includes('miễn phí vc thường j&t/viettel')) {
+        return 'Miễn Phí VC Thường J&T/Viettel';
+    }
+    return val;
+}
+
 function _mMatchShippingPolicy(shippingList, qty, grandTotal) {
     if (!shippingList || shippingList.length === 0) return null;
     
@@ -841,18 +858,7 @@ function _mCalculateAllCosts() {
     if (qty > 0) {
         const matched = _mMatchShippingPolicy(shippingList, qty, grandTotal);
         if (matched) {
-            let desc = matched.desc || '';
-            const descLower = desc.toLowerCase().trim();
-            if (descLower.includes('miễn phí vận chuyển thường j&t') || 
-                descLower.includes('miễn phí vc thường j&t') || 
-                descLower.includes('miễn phí j&t thường')) {
-                desc = 'Miễn Phí VC Thường J&T';
-            } else if (descLower.includes('miễn phí vận chuyển thường j&t / viettel post') || 
-                       descLower.includes('miễn phí j&t/viettel thường') ||
-                       descLower.includes('miễn phí vc thường j&t/viettel')) {
-                desc = 'Miễn Phí VC Thường J&T/Viettel';
-            }
-            matchedShipping = { ...matched, desc };
+            matchedShipping = { ...matched, desc: _mShortenShippingDesc(matched.desc) };
         }
     }
     

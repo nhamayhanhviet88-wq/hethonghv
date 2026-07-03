@@ -1265,6 +1265,23 @@ function _ctvFormatShippingRange(minStr, maxStr) {
     }
 }
 
+function _ctvShortenShippingDesc(desc) {
+    if (!desc) return '';
+    let val = desc.trim();
+    const descLower = val.toLowerCase();
+    if (descLower.includes('miễn phí vận chuyển thường j&t') || 
+        descLower.includes('miễn phí vc thường j&t') || 
+        descLower.includes('miễn phí j&t thường')) {
+        return 'Miễn Phí VC Thường J&T';
+    }
+    if (descLower.includes('miễn phí vận chuyển thường j&t / viettel post') || 
+        descLower.includes('miễn phí j&t/viettel thường') ||
+        descLower.includes('miễn phí vc thường j&t/viettel')) {
+        return 'Miễn Phí VC Thường J&T/Viettel';
+    }
+    return val;
+}
+
 function _ctvMatchShippingPolicy(shippingList, qty, grandTotal) {
     if (!shippingList || shippingList.length === 0) return null;
     
@@ -1454,18 +1471,7 @@ function _ctvCalculateAllCosts() {
     if (qty > 0) {
         const matched = _ctvMatchShippingPolicy(shippingList, qty, grandTotal);
         if (matched) {
-            let desc = matched.desc || '';
-            const descLower = desc.toLowerCase().trim();
-            if (descLower.includes('miễn phí vận chuyển thường j&t') || 
-                descLower.includes('miễn phí vc thường j&t') || 
-                descLower.includes('miễn phí j&t thường')) {
-                desc = 'Miễn Phí VC Thường J&T';
-            } else if (descLower.includes('miễn phí vận chuyển thường j&t / viettel post') || 
-                       descLower.includes('miễn phí j&t/viettel thường') ||
-                       descLower.includes('miễn phí vc thường j&t/viettel')) {
-                desc = 'Miễn Phí VC Thường J&T/Viettel';
-            }
-            matchedShipping = { ...matched, desc };
+            matchedShipping = { ...matched, desc: _ctvShortenShippingDesc(matched.desc) };
         }
     }
     
@@ -2629,7 +2635,12 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                 <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <span style="color:#64748b; font-weight:600;">Khổ mét (58x100cm):</span>
-                                        <strong style="color:#0f172a; font-weight:750;">CTV: ${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ | Khách: ${Number(pr.pet?.sheet_price_customer !== undefined ? pr.pet.sheet_price_customer : pr.pet?.sheet_price).toLocaleString('vi-VN')}đ</strong>
+                                        <strong style="color:#0f172a; font-weight:750;">
+                                            ${mode === 'customer' 
+                                                ? `${Number(pr.pet?.sheet_price_customer !== undefined ? pr.pet.sheet_price_customer : pr.pet?.sheet_price).toLocaleString('vi-VN')}đ`
+                                                : `${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ`
+                                            }
+                                        </strong>
                                     </div>
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <span style="color:#64748b; font-weight:600;">Khoảng cách an toàn:</span>
@@ -2637,17 +2648,28 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                     </div>
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <span style="color:#64748b; font-weight:600;">In PET Ngực (cố định):</span>
-                                        <strong style="color:#0f172a; font-weight:750;">CTV: +${Number(pr.pet?.chest_price || 5000).toLocaleString('vi-VN')}đ | Khách: +${Number(pr.pet?.chest_price_customer !== undefined ? pr.pet.chest_price_customer : (pr.pet?.chest_price || 5000)).toLocaleString('vi-VN')}đ/áo</strong>
+                                        <strong style="color:#0f172a; font-weight:750;">
+                                            ${mode === 'customer'
+                                                ? `+${Number(pr.pet?.chest_price_customer !== undefined ? pr.pet.chest_price_customer : (pr.pet?.chest_price || 5000)).toLocaleString('vi-VN')}đ/áo`
+                                                : `+${Number(pr.pet?.chest_price || 5000).toLocaleString('vi-VN')}đ/áo`
+                                            }
+                                        </strong>
                                     </div>
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <span style="color:#64748b; font-weight:600;">Tối thiểu/Vị trí khác:</span>
-                                        <strong style="color:#0f172a; font-weight:750;">CTV: ${Number(pr.pet?.min_position_price || 5000).toLocaleString('vi-VN')}đ | Khách: ${Number(pr.pet?.min_position_price_customer !== undefined ? pr.pet.min_position_price_customer : (pr.pet?.min_position_price || 5000)).toLocaleString('vi-VN')}đ/vị trí</strong>
+                                        <strong style="color:#0f172a; font-weight:750;">
+                                            ${mode === 'customer'
+                                                ? `${Number(pr.pet?.min_position_price_customer !== undefined ? pr.pet.min_position_price_customer : (pr.pet?.min_position_price || 5000)).toLocaleString('vi-VN')}đ/vị trí`
+                                                : `${Number(pr.pet?.min_position_price || 5000).toLocaleString('vi-VN')}đ/vị trí`
+                                            }
+                                        </strong>
                                     </div>
                                 </div>
                             </div>
                             
                             <!-- Shipping Policy Card -->
-                            <div style="background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+                            <div style="background: ${mode === 'customer' ? '#fff7ed' : '#f0fdfa'}; border: 1px solid ${mode === 'customer' ? '#ffedd5' : '#ccfbf1'}; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+                                ${mode === 'ctv' ? `
                                 <div>
                                     <div style="font-weight: 800; color: #0f766e; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #99f6e4; padding-bottom: 6px; margin-bottom: 6px;">
                                         🚚 HỖ TRỢ VẬN CHUYỂN CTV
@@ -2665,7 +2687,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                                 ? `<span style="color:#0f766e; font-weight:800; font-size:10px; background:#ccfbf1; padding:2px 6px; border-radius:4px; border:1px solid #99f6e4; display:inline-block;">Miễn Phí Ship</span>`
                                                 : `<span style="color:#64748b; font-weight:700; font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1; display:inline-block;">Không hỗ trợ</span>`;
                                             
-                                            let detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${s.desc} ${s.value > 0 ? `(Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)` : ''}</span>`;
+                                            let detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${_ctvShortenShippingDesc(s.desc)} ${s.value > 0 ? `(Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)` : ''}</span>`;
                                             
                                             return `
                                                 <div style="border-bottom:1px solid #f1f5f9; padding-bottom:4px; display:flex; justify-content:space-between; align-items:start; min-height:36px;">
@@ -2681,7 +2703,9 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                         }).join('')}
                                     </div>
                                 </div>
+                                ` : ''}
 
+                                ${mode === 'customer' ? `
                                 <div>
                                     <div style="font-weight: 800; color: #c2410c; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #fed7aa; padding-bottom: 6px; margin-bottom: 6px;">
                                         🚚 HỖ TRỢ VẬN CHUYỂN KHÁCH HÀNG
@@ -2698,7 +2722,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                                 ? `<span style="color:#c2410c; font-weight:800; font-size:10px; background:#ffedd5; padding:2px 6px; border-radius:4px; border:1px solid #fed7aa; display:inline-block;">Miễn Phí Ship</span>`
                                                 : `<span style="color:#64748b; font-weight:700; font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1; display:inline-block;">Không hỗ trợ</span>`;
                                             
-                                            let detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${s.desc} ${s.value > 0 ? `(Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)` : ''}</span>`;
+                                            let detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${_ctvShortenShippingDesc(s.desc)} ${s.value > 0 ? `(Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)` : ''}</span>`;
                                             
                                             return `
                                                 <div style="border-bottom:1px solid #f1f5f9; padding-bottom:4px; display:flex; justify-content:space-between; align-items:start; min-height:36px;">
@@ -2714,6 +2738,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                         }).join('')}
                                     </div>
                                 </div>
+                                ` : ''}
                             </div>
                             
                             <!-- Screen Printing Card (Span 2) -->
