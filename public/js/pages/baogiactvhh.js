@@ -3307,6 +3307,11 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                     margin: 0 !important;
                 }
                 
+                /* Override any global visibility: hidden rules */
+                #ctv_price_list_export_modal, #ctv_price_list_export_modal * {
+                    visibility: visible !important;
+                }
+                
                 /* Compact print spacing to guarantee exactly one A4 page */
                 #ctv_price_list_print_content div[style*="margin-bottom:30px"] {
                     margin-bottom: 12px !important;
