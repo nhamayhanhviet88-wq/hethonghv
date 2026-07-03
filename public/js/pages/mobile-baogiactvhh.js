@@ -836,10 +836,10 @@ function _mUpdateCalculations() {
         </div>
         <div class="m-result-row">
             <span>Đơn giá phôi:</span>
-            <span>${calc.basePrice.toLocaleString('vi-VN')} đ/áo</span>
+            <span>${(_mState.targetType === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ/áo</span>
         </div>
         
-        ${calc.commissionAmount > 0 ? `
+        ${(_mState.targetType !== 'customer' && calc.commissionAmount > 0) ? `
             <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
                 <div class="m-result-row" style="color:#f97316; font-weight:bold; font-size:12px;">
                     <span>Hoa hồng đại lý (+${calc.commissionPercent}%):</span>

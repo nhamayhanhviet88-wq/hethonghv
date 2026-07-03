@@ -1420,11 +1420,11 @@ function _ctvUpdateCalculations() {
         <div style="border-top:1px solid rgba(255,255,255,0.1); margin:12px 0; padding-top:12px;">
             <div class="ctv-result-row">
                 <span>Phôi trơn: <strong>${calc.materialName}</strong></span>
-                <span>${calc.basePrice.toLocaleString('vi-VN')} đ/áo</span>
+                <span>${(_ctvState.targetType === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ/áo</span>
             </div>
         </div>
         
-        ${calc.commissionAmount > 0 ? `
+        ${(_ctvState.targetType !== 'customer' && calc.commissionAmount > 0) ? `
             <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:8px 0; padding-top:8px;">
                 <div class="ctv-result-row" style="color: #f97316; font-weight: bold;">
                     <span>Hoa hồng đại lý (+${calc.commissionPercent}%):</span>
