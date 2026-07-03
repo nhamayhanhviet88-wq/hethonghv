@@ -104,27 +104,27 @@ async function renderBaogiactvhhPage(content) {
                 padding-bottom: 6px;
             }
             .baogiactvhh-tabs .tab-btn {
-                background: none;
-                border: none;
-                padding: 10px 20px;
-                font-size: 14px;
-                font-weight: 700;
-                color: #64748b;
+                background: transparent !important;
+                border: none !important;
+                padding: 10px 20px !important;
+                font-size: 14px !important;
+                font-weight: 700 !important;
+                color: #0f172a !important; /* Xanh đen */
                 cursor: pointer;
-                border-radius: 8px;
+                border-radius: 8px !important;
                 transition: all 0.2s;
                 display: flex;
                 align-items: center;
                 gap: 6px;
             }
             .baogiactvhh-tabs .tab-btn:hover {
-                color: #1e3a8a;
-                background-color: #f1f5f9;
+                color: #1e3a8a !important;
+                background-color: #f1f5f9 !important;
             }
             .baogiactvhh-tabs .tab-btn.active {
-                color: white;
-                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+                color: white !important;
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2) !important;
             }
             .ctv-grid {
                 display: grid;
