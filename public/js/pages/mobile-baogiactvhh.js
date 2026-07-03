@@ -1940,18 +1940,18 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
     // Sort surcharge items by configured display order
     let surchargeItems = [];
     const defaults = {
-        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, inactive: sc.collar_inactive || false },
-        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, inactive: sc.qty_under_20_inactive || false },
-        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, inactive: sc.primary_school_inactive || false },
-        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, inactive: sc.raglan_inactive || false },
-        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, inactive: sc.color_block_inactive || false }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, customer_value: sc.collar_customer !== undefined ? sc.collar_customer : (sc.collar || 0), inactive: sc.collar_inactive || false, ctv_inactive: sc.collar_ctv_inactive || false, customer_inactive: sc.collar_customer_inactive || false },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, customer_value: sc.qty_under_20_customer !== undefined ? sc.qty_under_20_customer : (sc.qty_under_20 || 0), inactive: sc.qty_under_20_inactive || false, ctv_inactive: sc.qty_under_20_ctv_inactive || false, customer_inactive: sc.qty_under_20_customer_inactive || false },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, customer_value: sc.primary_school_customer !== undefined ? sc.primary_school_customer : (sc.primary_school || 0), inactive: sc.primary_school_inactive || false, ctv_inactive: sc.primary_school_ctv_inactive || false, customer_inactive: sc.primary_school_customer_inactive || false },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, customer_value: sc.raglan_customer !== undefined ? sc.raglan_customer : (sc.raglan || 0), inactive: sc.raglan_inactive || false, ctv_inactive: sc.raglan_ctv_inactive || false, customer_inactive: sc.raglan_customer_inactive || false },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, customer_value: sc.color_block_customer !== undefined ? sc.color_block_customer : (sc.color_block || 0), inactive: sc.color_block_inactive || false, ctv_inactive: sc.color_block_ctv_inactive || false, customer_inactive: sc.color_block_customer_inactive || false }
     };
     const customs = {};
     if (sc.custom && Array.isArray(sc.custom)) {
         sc.custom.forEach(item => {
             if (item && item.name) {
                 const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-                customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, inactive: item.inactive || false };
+                customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, customer_value: item.customer_value !== undefined ? item.customer_value : (item.value || 0), inactive: item.inactive || false, ctv_inactive: item.ctv_inactive || false, customer_inactive: item.customer_inactive || false };
             }
         });
     }
@@ -1966,30 +1966,39 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
             if (defaults[oKey]) {
                 found = defaults[oKey];
                 found.name = oName || found.name;
+                found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                 delete defaults[oKey];
             } else if (customs[oKey]) {
                 found = customs[oKey];
                 found.name = oName || found.name;
+                found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                 delete customs[oKey];
             } else {
                 const dk = Object.keys(defaults).find(k => defaults[k].name === oName || defaults[k].key === oName);
                 if (dk) {
                     found = defaults[dk];
                     found.name = oName || found.name;
+                    found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                    found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                    found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                     delete defaults[dk];
                 } else {
                     const ck = Object.keys(customs).find(k => customs[k].name === oName || customs[k].key === oName);
                     if (ck) {
                         found = customs[ck];
                         found.name = oName || found.name;
+                        found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                        found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                        found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                         delete customs[ck];
                     }
                 }
             }
             if (found) {
-                if (typeof o === 'object' && o.inactive !== undefined) {
-                    found.inactive = o.inactive;
-                }
                 surchargeItems.push(found);
             }
         });
@@ -2041,8 +2050,19 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                     ➕ PHỤ PHÍ & CHI TIẾT THÊM
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 6px;">
-                    ${surchargeItems.filter(item => !item.inactive).map(item => {
-                        const priceInfo = _mGetPriceInfo(item.value);
+                    ${surchargeItems.filter(item => {
+                        if (item.inactive) return false;
+                        if (mode === 'customer') {
+                            if (item.customer_inactive) return false;
+                        } else {
+                            if (item.ctv_inactive) return false;
+                        }
+                        return true;
+                    }).map(item => {
+                        const surchargeVal = mode === 'customer'
+                            ? (item.customer_value !== undefined ? item.customer_value : item.value)
+                            : item.value;
+                        const priceInfo = _mGetPriceInfo(surchargeVal);
                         const isNegative = !priceInfo.isContact && priceInfo.value < 0;
                         return `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 8px; border: 1px solid #f1f5f9;">

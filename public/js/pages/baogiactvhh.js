@@ -692,6 +692,11 @@ function _ctvRenderCalculator(container) {
                                 const ordered = _ctvGetOrderedOptionalSurcharges(config);
                                 return ordered.filter(item => {
                                     if (item.inactive) return false;
+                                    if (_ctvState.targetType === 'customer') {
+                                        if (item.customer_inactive) return false;
+                                    } else {
+                                        if (item.ctv_inactive) return false;
+                                    }
                                     const surchargeVal = _ctvState.targetType === 'customer'
                                         ? (item.customer_value !== undefined ? item.customer_value : item.value)
                                         : item.value;
@@ -911,6 +916,11 @@ function _ctvSelectTargetType(type) {
         const ordered = _ctvGetOrderedOptionalSurcharges(config);
         checkboxGroup.innerHTML = ordered.filter(item => {
             if (item.inactive) return false;
+            if (type === 'customer') {
+                if (item.customer_inactive) return false;
+            } else {
+                if (item.ctv_inactive) return false;
+            }
             const surchargeVal = type === 'customer'
                 ? (item.customer_value !== undefined ? item.customer_value : item.value)
                 : item.value;
@@ -950,15 +960,15 @@ function _ctvTogglePetChestPrint(checked) {
 function _ctvGetOrderedOptionalSurcharges(config) {
     if (!config) return [];
     const allItems = {
-        collar: { key: 'collar', name: 'Cổ bẻ', value: config.surcharges.collar || 0, customer_value: config.surcharges.collar_customer || 0, inactive: config.surcharges.collar_inactive || false },
-        primary_school: { key: 'primary_school', name: 'Tiểu học', value: config.surcharges.primary_school || 0, customer_value: config.surcharges.primary_school_customer || 0, inactive: config.surcharges.primary_school_inactive || false },
-        raglan: { key: 'raglan', name: 'Raglan', value: config.surcharges.raglan || 0, customer_value: config.surcharges.raglan_customer || 0, inactive: config.surcharges.raglan_inactive || false },
-        color_block: { key: 'color_block', name: 'Phối màu vải', value: config.surcharges.color_block || 0, customer_value: config.surcharges.color_block_customer || 0, inactive: config.surcharges.color_block_inactive || false }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: config.surcharges.collar || 0, customer_value: config.surcharges.collar_customer || 0, inactive: config.surcharges.collar_inactive || false, ctv_inactive: config.surcharges.collar_ctv_inactive || false, customer_inactive: config.surcharges.collar_customer_inactive || false },
+        primary_school: { key: 'primary_school', name: 'Tiểu học', value: config.surcharges.primary_school || 0, customer_value: config.surcharges.primary_school_customer || 0, inactive: config.surcharges.primary_school_inactive || false, ctv_inactive: config.surcharges.primary_school_ctv_inactive || false, customer_inactive: config.surcharges.primary_school_customer_inactive || false },
+        raglan: { key: 'raglan', name: 'Raglan', value: config.surcharges.raglan || 0, customer_value: config.surcharges.raglan_customer || 0, inactive: config.surcharges.raglan_inactive || false, ctv_inactive: config.surcharges.raglan_ctv_inactive || false, customer_inactive: config.surcharges.raglan_customer_inactive || false },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: config.surcharges.color_block || 0, customer_value: config.surcharges.color_block_customer || 0, inactive: config.surcharges.color_block_inactive || false, ctv_inactive: config.surcharges.color_block_ctv_inactive || false, customer_inactive: config.surcharges.color_block_customer_inactive || false }
     };
     const customList = config.surcharges?.custom || [];
     customList.forEach(item => {
         const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-        allItems[customKey] = { key: customKey, name: item.name, value: item.value || 0, customer_value: item.customer_value || 0, is_custom: true, inactive: item.inactive || false };
+        allItems[customKey] = { key: customKey, name: item.name, value: item.value || 0, customer_value: item.customer_value || 0, is_custom: true, inactive: item.inactive || false, ctv_inactive: item.ctv_inactive || false, customer_inactive: item.customer_inactive || false };
     });
     let ordered = [];
     if (config.surcharges?.display_order && Array.isArray(config.surcharges.display_order)) {
@@ -968,6 +978,8 @@ function _ctvGetOrderedOptionalSurcharges(config) {
                 found = allItems[o.key];
                 found.name = o.name || found.name; // Keep edited name
                 found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                 delete allItems[o.key];
             } else {
                 const matchedKey = Object.keys(allItems).find(k => allItems[k].name === o.name || allItems[k].key === o.name);
@@ -975,6 +987,8 @@ function _ctvGetOrderedOptionalSurcharges(config) {
                     found = allItems[matchedKey];
                     found.name = o.name || found.name; // Keep edited name
                     found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                    found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                    found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                     delete allItems[matchedKey];
                 }
             }
@@ -1704,6 +1718,11 @@ function _ctvCalculateAllCosts() {
     const optionalSurcharges = _ctvGetOrderedOptionalSurcharges(config);
     optionalSurcharges.forEach(item => {
         if (_ctvState.surcharges[item.key]) {
+            if (_ctvState.targetType === 'customer') {
+                if (item.customer_inactive) return;
+            } else {
+                if (item.ctv_inactive) return;
+            }
             const surchargeVal = _ctvState.targetType === 'customer'
                 ? (item.customer_value !== undefined ? item.customer_value : item.value)
                 : item.value;
@@ -2942,18 +2961,18 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
     // Sort surcharge items by configured display order (only show items in display_order)
     let surchargeItems = [];
     const _defaults = {
-        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, is_default: true, inactive: sc.collar_inactive || false },
-        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, is_default: true, inactive: sc.qty_under_20_inactive || false },
-        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, is_default: true, inactive: sc.primary_school_inactive || false },
-        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, is_default: true, inactive: sc.raglan_inactive || false },
-        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, is_default: true, inactive: sc.color_block_inactive || false }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, customer_value: sc.collar_customer !== undefined ? sc.collar_customer : (sc.collar || 0), is_default: true, inactive: sc.collar_inactive || false, ctv_inactive: sc.collar_ctv_inactive || false, customer_inactive: sc.collar_customer_inactive || false },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, customer_value: sc.qty_under_20_customer !== undefined ? sc.qty_under_20_customer : (sc.qty_under_20 || 0), is_default: true, inactive: sc.qty_under_20_inactive || false, ctv_inactive: sc.qty_under_20_ctv_inactive || false, customer_inactive: sc.qty_under_20_customer_inactive || false },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, customer_value: sc.primary_school_customer !== undefined ? sc.primary_school_customer : (sc.primary_school || 0), is_default: true, inactive: sc.primary_school_inactive || false, ctv_inactive: sc.primary_school_ctv_inactive || false, customer_inactive: sc.primary_school_customer_inactive || false },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, customer_value: sc.raglan_customer !== undefined ? sc.raglan_customer : (sc.raglan || 0), is_default: true, inactive: sc.raglan_inactive || false, ctv_inactive: sc.raglan_ctv_inactive || false, customer_inactive: sc.raglan_customer_inactive || false },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, customer_value: sc.color_block_customer !== undefined ? sc.color_block_customer : (sc.color_block || 0), is_default: true, inactive: sc.color_block_inactive || false, ctv_inactive: sc.color_block_ctv_inactive || false, customer_inactive: sc.color_block_customer_inactive || false }
     };
     const _customs = {};
     if (sc.custom && Array.isArray(sc.custom)) {
         sc.custom.forEach(item => {
             if (item && item.name) {
                 const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, is_default: false, inactive: item.inactive || false };
+                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, customer_value: item.customer_value !== undefined ? item.customer_value : (item.value || 0), is_default: false, inactive: item.inactive || false, ctv_inactive: item.ctv_inactive || false, customer_inactive: item.customer_inactive || false };
             }
         });
     }
@@ -2968,30 +2987,39 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
             if (_defaults[oKey]) {
                 found = _defaults[oKey];
                 found.name = oName || found.name;
+                found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                 delete _defaults[oKey];
             } else if (_customs[oKey]) {
                 found = _customs[oKey];
                 found.name = oName || found.name;
+                found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                 delete _customs[oKey];
             } else {
                 const dk = Object.keys(_defaults).find(k => _defaults[k].name === oName || _defaults[k].key === oName);
                 if (dk) {
                     found = _defaults[dk];
                     found.name = oName || found.name;
+                    found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                    found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                    found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                     delete _defaults[dk];
                 } else {
                     const ck = Object.keys(_customs).find(k => _customs[k].name === oName || _customs[k].key === oName);
                     if (ck) {
                         found = _customs[ck];
                         found.name = oName || found.name;
+                        found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                        found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                        found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                         delete _customs[ck];
                     }
                 }
             }
             if (found) {
-                if (typeof o === 'object' && o.inactive !== undefined) {
-                    found.inactive = o.inactive;
-                }
                 surchargeItems.push(found);
             }
         });
@@ -3064,8 +3092,19 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                 ➕ BẢNG PHỤ PHÍ & CHI TIẾT THÊM
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                ${surchargeItems.filter(item => !item.inactive).map(item => {
-                                    const priceInfo = _ctvGetPriceInfo(item.value);
+                                ${surchargeItems.filter(item => {
+                                    if (item.inactive) return false;
+                                    if (mode === 'customer') {
+                                        if (item.customer_inactive) return false;
+                                    } else {
+                                        if (item.ctv_inactive) return false;
+                                    }
+                                    return true;
+                                }).map(item => {
+                                    const surchargeVal = mode === 'customer'
+                                        ? (item.customer_value !== undefined ? item.customer_value : item.value)
+                                        : item.value;
+                                    const priceInfo = _ctvGetPriceInfo(surchargeVal);
                                     const isNegative = !priceInfo.isContact && priceInfo.value < 0;
                                     return `
                                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
@@ -3271,18 +3310,18 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
     // Get Surcharges list in configured order
     let surchargeItems = [];
     const _defaults = {
-        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, inactive: sc.collar_inactive || false },
-        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, inactive: sc.qty_under_20_inactive || false },
-        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, inactive: sc.primary_school_inactive || false },
-        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, inactive: sc.raglan_inactive || false },
-        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, inactive: sc.color_block_inactive || false }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, customer_value: sc.collar_customer !== undefined ? sc.collar_customer : (sc.collar || 0), inactive: sc.collar_inactive || false, ctv_inactive: sc.collar_ctv_inactive || false, customer_inactive: sc.collar_customer_inactive || false },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, customer_value: sc.qty_under_20_customer !== undefined ? sc.qty_under_20_customer : (sc.qty_under_20 || 0), inactive: sc.qty_under_20_inactive || false, ctv_inactive: sc.qty_under_20_ctv_inactive || false, customer_inactive: sc.qty_under_20_customer_inactive || false },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, customer_value: sc.primary_school_customer !== undefined ? sc.primary_school_customer : (sc.primary_school || 0), inactive: sc.primary_school_inactive || false, ctv_inactive: sc.primary_school_ctv_inactive || false, customer_inactive: sc.primary_school_customer_inactive || false },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, customer_value: sc.raglan_customer !== undefined ? sc.raglan_customer : (sc.raglan || 0), inactive: sc.raglan_inactive || false, ctv_inactive: sc.raglan_ctv_inactive || false, customer_inactive: sc.raglan_customer_inactive || false },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, customer_value: sc.color_block_customer !== undefined ? sc.color_block_customer : (sc.color_block || 0), inactive: sc.color_block_inactive || false, ctv_inactive: sc.color_block_ctv_inactive || false, customer_inactive: sc.color_block_customer_inactive || false }
     };
     const _customs = {};
     if (sc.custom && Array.isArray(sc.custom)) {
         sc.custom.forEach(item => {
             if (item && item.name) {
                 const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, inactive: item.inactive || false };
+                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, customer_value: item.customer_value !== undefined ? item.customer_value : (item.value || 0), inactive: item.inactive || false, ctv_inactive: item.ctv_inactive || false, customer_inactive: item.customer_inactive || false };
             }
         });
     }
@@ -3295,16 +3334,39 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
             if (_defaults[oKey]) {
                 found = _defaults[oKey];
                 found.name = oName || found.name;
+                found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                 delete _defaults[oKey];
             } else if (_customs[oKey]) {
                 found = _customs[oKey];
                 found.name = oName || found.name;
+                found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
                 delete _customs[oKey];
+            } else {
+                const dk = Object.keys(_defaults).find(k => _defaults[k].name === oName || _defaults[k].key === oName);
+                if (dk) {
+                    found = _defaults[dk];
+                    found.name = oName || found.name;
+                    found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                    found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                    found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
+                    delete _defaults[dk];
+                } else {
+                    const ck = Object.keys(_customs).find(k => _customs[k].name === oName || _customs[k].key === oName);
+                    if (ck) {
+                        found = _customs[ck];
+                        found.name = oName || found.name;
+                        found.inactive = o.inactive !== undefined ? o.inactive : found.inactive;
+                        found.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : found.ctv_inactive;
+                        found.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : found.customer_inactive;
+                        delete _customs[ck];
+                    }
+                }
             }
             if (found) {
-                if (typeof o === 'object' && o.inactive !== undefined) {
-                    found.inactive = o.inactive;
-                }
                 surchargeItems.push(found);
             }
         });
@@ -3430,8 +3492,19 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${surchargeItems.filter(item => !item.inactive).map((item, idx) => {
-                                        const priceInfo = _ctvGetPriceInfo(item.value);
+                                    ${surchargeItems.filter(item => {
+                                        if (item.inactive) return false;
+                                        if (mode === 'customer') {
+                                            if (item.customer_inactive) return false;
+                                        } else {
+                                            if (item.ctv_inactive) return false;
+                                        }
+                                        return true;
+                                    }).map((item, idx) => {
+                                        const surchargeVal = mode === 'customer'
+                                            ? (item.customer_value !== undefined ? item.customer_value : item.value)
+                                            : item.value;
+                                        const priceInfo = _ctvGetPriceInfo(surchargeVal);
                                         return `
                                             <tr style="${idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
                                                 <td style="border:1px solid #cbd5e1; padding:10px; font-weight:600; color:#334155;">${item.name}</td>
@@ -4242,18 +4315,18 @@ function _ctvRenderSurchargeRows(surchargesObj) {
     let items = [];
     if (surchargesObj) {
         const defaults = {
-            collar: { key: 'collar', name: 'Cổ Bẻ (đ/áo)', value: surchargesObj.collar || 0, customer_value: surchargesObj.collar_customer || 0, is_default: true, inactive: surchargesObj.collar_inactive || false },
-            qty_under_20: { key: 'qty_under_20', name: 'Đơn Hàng < 20 Áo (đ/áo)', value: surchargesObj.qty_under_20 || 0, customer_value: surchargesObj.qty_under_20_customer || 0, is_default: true, is_auto: true, inactive: surchargesObj.qty_under_20_inactive || false },
-            primary_school: { key: 'primary_school', name: 'Chiết Khấu Tiểu Học (đ/áo, nhập âm để giảm)', value: surchargesObj.primary_school || 0, customer_value: surchargesObj.primary_school_customer || 0, is_default: true, inactive: surchargesObj.primary_school_inactive || false },
-            raglan: { key: 'raglan', name: 'Raglan (đ/áo)', value: surchargesObj.raglan || 0, customer_value: surchargesObj.raglan_customer || 0, is_default: true, inactive: surchargesObj.raglan_inactive || false },
-            color_block: { key: 'color_block', name: 'Phối màu vải (đ/áo)', value: surchargesObj.color_block || 0, customer_value: surchargesObj.color_block_customer || 0, is_default: true, inactive: surchargesObj.color_block_inactive || false }
+            collar: { key: 'collar', name: 'Cổ Bẻ (đ/áo)', value: surchargesObj.collar || 0, customer_value: surchargesObj.collar_customer !== undefined ? surchargesObj.collar_customer : (surchargesObj.collar || 0), is_default: true, inactive: surchargesObj.collar_inactive || false, ctv_inactive: surchargesObj.collar_ctv_inactive || false, customer_inactive: surchargesObj.collar_customer_inactive || false },
+            qty_under_20: { key: 'qty_under_20', name: 'Đơn Hàng < 20 Áo (đ/áo)', value: surchargesObj.qty_under_20 || 0, customer_value: surchargesObj.qty_under_20_customer !== undefined ? surchargesObj.qty_under_20_customer : (surchargesObj.qty_under_20 || 0), is_default: true, is_auto: true, inactive: surchargesObj.qty_under_20_inactive || false, ctv_inactive: surchargesObj.qty_under_20_ctv_inactive || false, customer_inactive: surchargesObj.qty_under_20_customer_inactive || false },
+            primary_school: { key: 'primary_school', name: 'Chiết Khấu Tiểu Học (đ/áo, nhập âm để giảm)', value: surchargesObj.primary_school || 0, customer_value: surchargesObj.primary_school_customer !== undefined ? surchargesObj.primary_school_customer : (surchargesObj.primary_school || 0), is_default: true, inactive: surchargesObj.primary_school_inactive || false, ctv_inactive: surchargesObj.primary_school_ctv_inactive || false, customer_inactive: surchargesObj.primary_school_customer_inactive || false },
+            raglan: { key: 'raglan', name: 'Raglan (đ/áo)', value: surchargesObj.raglan || 0, customer_value: surchargesObj.raglan_customer !== undefined ? surchargesObj.raglan_customer : (surchargesObj.raglan || 0), is_default: true, inactive: surchargesObj.raglan_inactive || false, ctv_inactive: surchargesObj.raglan_ctv_inactive || false, customer_inactive: surchargesObj.raglan_customer_inactive || false },
+            color_block: { key: 'color_block', name: 'Phối màu vải (đ/áo)', value: surchargesObj.color_block || 0, customer_value: surchargesObj.color_block_customer !== undefined ? surchargesObj.color_block_customer : (surchargesObj.color_block || 0), is_default: true, inactive: surchargesObj.color_block_inactive || false, ctv_inactive: surchargesObj.color_block_ctv_inactive || false, customer_inactive: surchargesObj.color_block_customer_inactive || false }
         };
         
         const customs = {};
         if (surchargesObj.custom && Array.isArray(surchargesObj.custom)) {
             surchargesObj.custom.forEach(c => {
                 const customKey = 'custom_' + c.name.replace(/\s+/g, '_');
-                customs[customKey] = { key: customKey, name: c.name, value: c.value || 0, customer_value: c.customer_value || 0, is_default: false, inactive: c.inactive || false };
+                customs[customKey] = { key: customKey, name: c.name, value: c.value || 0, customer_value: c.customer_value !== undefined ? c.customer_value : (c.value || 0), is_default: false, inactive: c.inactive || false, ctv_inactive: c.ctv_inactive || false, customer_inactive: c.customer_inactive || false };
             });
         }
         
@@ -4264,23 +4337,31 @@ function _ctvRenderSurchargeRows(surchargesObj) {
                     matched = defaults[o.key];
                     matched.name = o.name;
                     matched.inactive = o.inactive !== undefined ? o.inactive : matched.inactive;
+                    matched.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : matched.ctv_inactive;
+                    matched.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : matched.customer_inactive;
                     delete defaults[o.key];
                 } else if (customs[o.key]) {
                     matched = customs[o.key];
                     matched.name = o.name;
                     matched.inactive = o.inactive !== undefined ? o.inactive : matched.inactive;
+                    matched.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : matched.ctv_inactive;
+                    matched.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : matched.customer_inactive;
                     delete customs[o.key];
                 } else {
                     const dk = Object.keys(defaults).find(k => defaults[k].name === o.name);
                     if (dk) {
                         matched = defaults[dk];
                         matched.inactive = o.inactive !== undefined ? o.inactive : matched.inactive;
+                        matched.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : matched.ctv_inactive;
+                        matched.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : matched.customer_inactive;
                         delete defaults[dk];
                     } else {
                         const ck = Object.keys(customs).find(k => customs[k].name === o.name);
                         if (ck) {
                             matched = customs[ck];
                             matched.inactive = o.inactive !== undefined ? o.inactive : matched.inactive;
+                            matched.ctv_inactive = o.ctv_inactive !== undefined ? o.ctv_inactive : matched.ctv_inactive;
+                            matched.customer_inactive = o.customer_inactive !== undefined ? o.customer_inactive : matched.customer_inactive;
                             delete customs[ck];
                         }
                     }
@@ -4309,11 +4390,13 @@ function _ctvRenderSurchargeRows(surchargesObj) {
                 <div style="flex-grow:1;">
                     <input type="text" class="ctv-input ctv-sc-name" placeholder="Tên chi tiết" value="${item.name}" style="width: 100%;" ${isDefault ? 'disabled' : ''}>
                 </div>
-                <div style="width:110px;">
-                    <input type="text" class="ctv-input ctv-sc-value" placeholder="Giá CTV" value="${item.value}" style="width: 100%; text-align:center;" oninput="_ctvUpdateSurchargeCustomerPrice(this)">
+                <div style="width:125px; display:flex; align-items:center; gap:6px;">
+                    <input type="checkbox" class="ctv-sc-ctv-show" title="Hiển thị bên CTV" ${item.ctv_inactive ? '' : 'checked'} style="width:15px; height:15px; cursor:pointer;" onchange="this.nextElementSibling.style.opacity = this.checked ? '1' : '0.4'; this.nextElementSibling.disabled = !this.checked;">
+                    <input type="text" class="ctv-input ctv-sc-value" placeholder="Giá CTV" value="${item.value}" style="flex-grow:1; text-align:center; opacity: ${item.ctv_inactive ? '0.4' : '1'};" ${item.ctv_inactive ? 'disabled' : ''} oninput="_ctvUpdateSurchargeCustomerPrice(this)">
                 </div>
-                <div style="width:110px;">
-                    <input type="text" class="ctv-input ctv-sc-customer-value" placeholder="Giá Khách" value="${item.customer_value !== undefined ? item.customer_value : item.value}" style="width: 100%; text-align:center; border-color:#fed7aa; color:#c2410c; font-weight:700;">
+                <div style="width:125px; display:flex; align-items:center; gap:6px;">
+                    <input type="checkbox" class="ctv-sc-customer-show" title="Hiển thị bên Khách" ${item.customer_inactive ? '' : 'checked'} style="width:15px; height:15px; cursor:pointer;" onchange="this.nextElementSibling.style.opacity = this.checked ? '1' : '0.4'; this.nextElementSibling.disabled = !this.checked;">
+                    <input type="text" class="ctv-input ctv-sc-customer-value" placeholder="Giá Khách" value="${item.customer_value !== undefined ? item.customer_value : item.value}" style="flex-grow:1; text-align:center; border-color:#fed7aa; color:#c2410c; font-weight:700; opacity: ${item.customer_inactive ? '0.4' : '1'};" ${item.customer_inactive ? 'disabled' : ''}>
                 </div>
                 <div style="width:30px; text-align:right;">
                     ${isDefault ? '' : '<button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>'}
@@ -4382,7 +4465,7 @@ function _ctvAddShippingRowInput(target = 'ctv', min_qty = '', max_qty = '', des
     container.appendChild(div);
 }
 
-function _ctvAddCustomSurchargeRow(name = '', value = 0, customer_value = 0, inactive = false) {
+function _ctvAddCustomSurchargeRow(name = '', value = 0, customer_value = 0, inactive = false, ctv_inactive = false, customer_inactive = false) {
     const container = document.getElementById('new_cfg_surcharges_container');
     if (!container) return;
     const div = document.createElement('div');
@@ -4400,11 +4483,13 @@ function _ctvAddCustomSurchargeRow(name = '', value = 0, customer_value = 0, ina
         <div style="flex-grow:1;">
             <input type="text" class="ctv-input ctv-sc-name" placeholder="Tên chi tiết" value="${name}" style="width: 100%;">
         </div>
-        <div style="width:110px;">
-            <input type="text" class="ctv-input ctv-sc-value" placeholder="Giá CTV" value="${value}" style="width: 100%; text-align:center;" oninput="_ctvUpdateSurchargeCustomerPrice(this)">
+        <div style="width:125px; display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" class="ctv-sc-ctv-show" title="Hiển thị bên CTV" ${ctv_inactive ? '' : 'checked'} style="width:15px; height:15px; cursor:pointer;" onchange="this.nextElementSibling.style.opacity = this.checked ? '1' : '0.4'; this.nextElementSibling.disabled = !this.checked;">
+            <input type="text" class="ctv-input ctv-sc-value" placeholder="Giá CTV" value="${value}" style="flex-grow:1; text-align:center; opacity: ${ctv_inactive ? '0.4' : '1'};" ${ctv_inactive ? 'disabled' : ''} oninput="_ctvUpdateSurchargeCustomerPrice(this)">
         </div>
-        <div style="width:110px;">
-            <input type="text" class="ctv-input ctv-sc-customer-value" placeholder="Giá Khách" value="${customer_value !== undefined ? customer_value : value}" style="width: 100%; text-align:center; border-color:#fed7aa; color:#c2410c; font-weight:700;">
+        <div style="width:125px; display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" class="ctv-sc-customer-show" title="Hiển thị bên Khách" ${customer_inactive ? '' : 'checked'} style="width:15px; height:15px; cursor:pointer;" onchange="this.nextElementSibling.style.opacity = this.checked ? '1' : '0.4'; this.nextElementSibling.disabled = !this.checked;">
+            <input type="text" class="ctv-input ctv-sc-customer-value" placeholder="Giá Khách" value="${customer_value !== undefined ? customer_value : value}" style="flex-grow:1; text-align:center; border-color:#fed7aa; color:#c2410c; font-weight:700; opacity: ${customer_inactive ? '0.4' : '1'};" ${customer_inactive ? 'disabled' : ''}>
         </div>
         <div style="width:30px; text-align:right;">
             <button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>
@@ -4520,6 +4605,12 @@ async function _ctvSaveNewConfigVersion() {
         const activeCheckbox = row.querySelector('.ctv-sc-active');
         const inactive = activeCheckbox ? !activeCheckbox.checked : false;
         
+        const ctvActiveCheckbox = row.querySelector('.ctv-sc-ctv-show');
+        const ctv_inactive = ctvActiveCheckbox ? !ctvActiveCheckbox.checked : false;
+        
+        const customerActiveCheckbox = row.querySelector('.ctv-sc-customer-show');
+        const customer_inactive = customerActiveCheckbox ? !customerActiveCheckbox.checked : false;
+        
         const rawVal = row.querySelector('.ctv-sc-value').value.trim();
         const parsedVal = parseFloat(rawVal);
         const value = (!isNaN(parsedVal) && isFinite(parsedVal) && /^-?\d+(\.\d+)?$/.test(rawVal)) ? parsedVal : rawVal;
@@ -4528,33 +4619,43 @@ async function _ctvSaveNewConfigVersion() {
         const parsedCustVal = parseFloat(rawCustVal);
         const customer_value = (!isNaN(parsedCustVal) && isFinite(parsedCustVal) && /^-?\d+(\.\d+)?$/.test(rawCustVal)) ? parsedCustVal : rawCustVal;
         
-        surcharges.display_order.push({ key, name, inactive });
+        surcharges.display_order.push({ key, name, inactive, ctv_inactive, customer_inactive });
         
         if (isDefault) {
             if (key === 'collar') {
                 surcharges.collar = value;
                 surcharges.collar_customer = customer_value;
                 surcharges.collar_inactive = inactive;
+                surcharges.collar_ctv_inactive = ctv_inactive;
+                surcharges.collar_customer_inactive = customer_inactive;
             } else if (key === 'qty_under_20') {
                 surcharges.qty_under_20 = value;
                 surcharges.qty_under_20_customer = customer_value;
                 surcharges.qty_under_20_inactive = inactive;
+                surcharges.qty_under_20_ctv_inactive = ctv_inactive;
+                surcharges.qty_under_20_customer_inactive = customer_inactive;
             } else if (key === 'primary_school') {
                 surcharges.primary_school = value;
                 surcharges.primary_school_customer = customer_value;
                 surcharges.primary_school_inactive = inactive;
+                surcharges.primary_school_ctv_inactive = ctv_inactive;
+                surcharges.primary_school_customer_inactive = customer_inactive;
             } else if (key === 'raglan') {
                 surcharges.raglan = value;
                 surcharges.raglan_customer = customer_value;
                 surcharges.raglan_inactive = inactive;
+                surcharges.raglan_ctv_inactive = ctv_inactive;
+                surcharges.raglan_customer_inactive = customer_inactive;
             } else if (key === 'color_block') {
                 surcharges.color_block = value;
                 surcharges.color_block_customer = customer_value;
                 surcharges.color_block_inactive = inactive;
+                surcharges.color_block_ctv_inactive = ctv_inactive;
+                surcharges.color_block_customer_inactive = customer_inactive;
             }
         } else {
             if (name) {
-                surcharges.custom.push({ name, value, customer_value, inactive });
+                surcharges.custom.push({ name, value, customer_value, inactive, ctv_inactive, customer_inactive });
             }
         }
     });
