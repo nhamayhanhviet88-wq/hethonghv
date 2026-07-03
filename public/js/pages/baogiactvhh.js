@@ -4102,8 +4102,8 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                             <table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #cbd5e1;">
                                 <thead>
                                     <tr style="background:#f1f5f9;">
-                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:left; font-weight:800; color:#1e3a8a;">Tên loại vải (Cổ tròn)</th>
-                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:right; width:130px; font-weight:800; color:#1e3a8a;">Đơn giá</th>
+                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:left; font-weight:800; color:#ffffff;">Tên loại vải (Cổ tròn)</th>
+                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:right; width:130px; font-weight:800; color:#ffffff;">Đơn giá</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -4126,8 +4126,8 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                             <table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #cbd5e1;">
                                 <thead>
                                     <tr style="background:#f1f5f9;">
-                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:left; font-weight:800; color:#0d9488;">Hạng mục phụ phí</th>
-                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:right; width:130px; font-weight:800; color:#0d9488;">Mức phí / Chiết khấu</th>
+                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:left; font-weight:800; color:#ffffff;">Hạng mục phụ phí</th>
+                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:right; width:130px; font-weight:800; color:#ffffff;">Mức phí / Chiết khấu</th>
                                     </tr>
                                 </thead>
                                 <tbody>
