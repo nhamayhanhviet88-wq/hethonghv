@@ -609,6 +609,7 @@ function _ctvRenderCalculator(container) {
     }
     
     const config = _ctvState.activeConfig;
+    const isLocked = _ctvState.items && _ctvState.items.length > 0;
     
     // Auto-select first active material if current selection is inactive or invalid
     let activeMats = config.materials.map((m, idx) => ({ ...m, originalIndex: idx })).filter(m => !m.inactive);
@@ -629,11 +630,11 @@ function _ctvRenderCalculator(container) {
                         <span>🎯 Chọn Đối Tượng Báo Giá <span style="color:#ef4444;">*</span></span>
                     </div>
                     <div style="display: flex; gap: 12px; margin-top: 8px;">
-                        <div onclick="_ctvSelectTargetType('ctv')" id="target_type_ctv" style="flex: 1; padding: 12px; border-radius: 10px; border: 2px solid #cbd5e1; cursor: pointer; text-align: center; transition: all 0.2s; background: white; font-weight: 700; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                        <div onclick="_ctvSelectTargetType('ctv')" id="target_type_ctv" style="flex: 1; padding: 12px; border-radius: 10px; border: 2px solid #cbd5e1; cursor: ${isLocked ? 'not-allowed' : 'pointer'}; opacity: ${isLocked ? 0.65 : 1}; text-align: center; transition: all 0.2s; background: white; font-weight: 700; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 6px;">
                             <span style="font-size: 24px;">👥</span>
                             <span>Báo giá CTV / Đại lý</span>
                         </div>
-                        <div onclick="_ctvSelectTargetType('customer')" id="target_type_customer" style="flex: 1; padding: 12px; border-radius: 10px; border: 2px solid #cbd5e1; cursor: pointer; text-align: center; transition: all 0.2s; background: white; font-weight: 700; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                        <div onclick="_ctvSelectTargetType('customer')" id="target_type_customer" style="flex: 1; padding: 12px; border-radius: 10px; border: 2px solid #cbd5e1; cursor: ${isLocked ? 'not-allowed' : 'pointer'}; opacity: ${isLocked ? 0.65 : 1}; text-align: center; transition: all 0.2s; background: white; font-weight: 700; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 6px;">
                             <span style="font-size: 24px;">🛍️</span>
                             <span>Báo giá Khách hàng</span>
                         </div>
@@ -645,7 +646,7 @@ function _ctvRenderCalculator(container) {
                     <div class="ctv-card-title">👤 Thông Tin Khách Hàng</div>
                     <div class="ctv-form-group">
                         <label>Tìm kiếm Khách hàng (Telesale/Chăm sóc)</label>
-                        <input type="text" class="ctv-input" id="ctv_cust_search" placeholder="Nhập tên hoặc số điện thoại để tìm kiếm..." oninput="_ctvOnCustomerSearch(this.value)">
+                        <input type="text" class="ctv-input" id="ctv_cust_search" placeholder="${isLocked ? 'Đã khóa đổi khách hàng (đang có sản phẩm)' : 'Nhập tên hoặc số điện thoại để tìm kiếm...'}" oninput="_ctvOnCustomerSearch(this.value)" ${isLocked ? 'disabled style="background-color: #f1f5f9; cursor: not-allowed;"' : ''}>
                         <div id="ctv_cust_dropdown" class="ctv-autocomplete-dropdown" style="display:none;"></div>
                         <div id="ctv_selected_cust_badge"></div>
                     </div>
@@ -727,6 +728,10 @@ function _ctvRenderCalculator(container) {
 }
 
 async function _ctvOnCustomerSearch(val) {
+    if (_ctvState.items && _ctvState.items.length > 0) {
+        showToast('Đã thêm sản phẩm vào phiếu, không thể tìm kiếm khách hàng mới!', 'warning');
+        return;
+    }
     const dropdown = document.getElementById('ctv_cust_dropdown');
     if (!dropdown) return;
     
@@ -760,6 +765,10 @@ async function _ctvOnCustomerSearch(val) {
 }
 
 function _ctvSelectCustomer(id) {
+    if (_ctvState.items && _ctvState.items.length > 0) {
+        showToast('Đã thêm sản phẩm vào phiếu, không thể đổi khách hàng!', 'warning');
+        return;
+    }
     const customer = _ctvState.customers.find(c => c.id === id);
     if (customer) {
         _ctvState.selectedCustomer = customer;
@@ -776,11 +785,12 @@ function _ctvRenderSelectedCustomer() {
     const container = document.getElementById('ctv_selected_cust_badge');
     if (!container) return;
     
+    const isLocked = _ctvState.items && _ctvState.items.length > 0;
     if (_ctvState.selectedCustomer) {
         container.innerHTML = `
             <div class="ctv-selected-badge">
                 👤 ${_ctvState.selectedCustomer.customer_name} (${_ctvState.selectedCustomer.phone})
-                <button type="button" onclick="_ctvClearCustomer()">×</button>
+                ${isLocked ? '' : '<button type="button" onclick="_ctvClearCustomer()">×</button>'}
             </div>
         `;
     } else {
@@ -789,6 +799,10 @@ function _ctvRenderSelectedCustomer() {
 }
 
 function _ctvClearCustomer() {
+    if (_ctvState.items && _ctvState.items.length > 0) {
+        showToast('Đã thêm sản phẩm vào phiếu, không thể đổi khách hàng!', 'warning');
+        return;
+    }
     _ctvState.selectedCustomer = null;
     _ctvRenderSelectedCustomer();
     _ctvUpdateCalculations();
@@ -813,6 +827,12 @@ function _ctvOnMaterialChange(idx) {
 }
 
 function _ctvSelectTargetType(type) {
+    if (_ctvState.items && _ctvState.items.length > 0) {
+        if (_ctvState.targetType !== type) {
+            showToast('Đã thêm sản phẩm vào phiếu, không thể thay đổi đối tượng báo giá!', 'warning');
+        }
+        return;
+    }
     _ctvState.targetType = type;
     _ctvState.includeCommission = (type === 'customer');
     
@@ -2233,7 +2253,12 @@ function _ctvEditItemInQuotation(itemId) {
 
 function _ctvRemoveItemFromQuotation(itemId) {
     _ctvState.items = _ctvState.items.filter(i => i.id !== itemId);
-    _ctvUpdateCalculations();
+    const tabContent = document.getElementById('ctv-tab-content');
+    if (tabContent) {
+        _ctvRenderCalculator(tabContent);
+    } else {
+        _ctvUpdateCalculations();
+    }
     showToast('Đã xóa sản phẩm khỏi phiếu!', 'info');
 }
 

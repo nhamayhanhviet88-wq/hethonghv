@@ -127,6 +127,7 @@ function _mRenderCalculator(container) {
     }
     
     const config = _mState.activeConfig;
+    const isLocked = _mState.items && _mState.items.length > 0;
     
     // Auto-select first active material if current selection is inactive or invalid
     let activeMats = config.materials.map((m, idx) => ({ ...m, originalIndex: idx })).filter(m => !m.inactive);
@@ -149,30 +150,30 @@ function _mRenderCalculator(container) {
                 <span style="font-size: 11px; font-weight: 800;">${config.version_name}</span>
             </button>
         </div>
-
+ 
         <!-- Target Selection (Mandatory) -->
         <div class="m-card" style="border: 2px solid #3b82f6;">
             <div class="m-card-title" style="color: #1d4ed8; display: flex; align-items: center; justify-content: space-between; font-size:13px; margin-bottom:8px;">
                 <span>🎯 Chọn Đối Tượng Báo Giá <span style="color:#ef4444;">*</span></span>
             </div>
             <div style="display: flex; gap: 10px;">
-                <div onclick="_mSelectTargetType('ctv')" id="m_target_type_ctv" style="flex: 1; padding: 10px 8px; border-radius: 8px; border: 2.2px solid #cbd5e1; cursor: pointer; text-align: center; transition: all 0.2s; background: white; font-weight: 750; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px;">
+                <div onclick="_mSelectTargetType('ctv')" id="m_target_type_ctv" style="flex: 1; padding: 10px 8px; border-radius: 8px; border: 2.2px solid #cbd5e1; cursor: ${isLocked ? 'not-allowed' : 'pointer'}; opacity: ${isLocked ? 0.65 : 1}; text-align: center; transition: all 0.2s; background: white; font-weight: 750; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px;">
                     <span style="font-size: 18px;">👥</span>
                     <span>Báo giá CTV</span>
                 </div>
-                <div onclick="_mSelectTargetType('customer')" id="m_target_type_customer" style="flex: 1; padding: 10px 8px; border-radius: 8px; border: 2.2px solid #cbd5e1; cursor: pointer; text-align: center; transition: all 0.2s; background: white; font-weight: 750; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px;">
+                <div onclick="_mSelectTargetType('customer')" id="m_target_type_customer" style="flex: 1; padding: 10px 8px; border-radius: 8px; border: 2.2px solid #cbd5e1; cursor: ${isLocked ? 'not-allowed' : 'pointer'}; opacity: ${isLocked ? 0.65 : 1}; text-align: center; transition: all 0.2s; background: white; font-weight: 750; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px;">
                     <span style="font-size: 18px;">🛍️</span>
                     <span>Báo giá Khách hàng</span>
                 </div>
             </div>
         </div>
-
+ 
         <!-- Customer & Qty -->
         <div class="m-card">
             <div class="m-card-title">👤 Khách Hàng & Số lượng</div>
             <div class="m-form-group">
                 <label>Tìm kiếm khách hàng chăm sóc</label>
-                <input type="text" class="m-input" id="m_cust_search" placeholder="Gõ tên hoặc số điện thoại..." oninput="_mOnCustomerSearch(this.value)">
+                <input type="text" class="m-input" id="m_cust_search" placeholder="${isLocked ? 'Đã khóa đổi khách hàng (đang có sản phẩm)' : 'Gõ tên hoặc số điện thoại...'}" oninput="_mOnCustomerSearch(this.value)" ${isLocked ? 'disabled style="background-color: #f1f5f9; cursor: not-allowed;"' : ''}>
                 <div id="m_cust_dropdown" class="m-autocomplete-dropdown" style="display:none;"></div>
                 <div id="m_selected_cust_badge"></div>
             </div>
@@ -243,6 +244,10 @@ function _mRenderCalculator(container) {
 }
 
 async function _mOnCustomerSearch(val) {
+    if (_mState.items && _mState.items.length > 0) {
+        showToast('Đã thêm sản phẩm vào phiếu, không thể tìm kiếm khách hàng mới!', 'warning');
+        return;
+    }
     const dropdown = document.getElementById('m_cust_dropdown');
     if (!dropdown) return;
     
@@ -273,6 +278,10 @@ async function _mOnCustomerSearch(val) {
 }
 
 function _mSelectCustomer(id) {
+    if (_mState.items && _mState.items.length > 0) {
+        showToast('Đã thêm sản phẩm vào phiếu, không thể đổi khách hàng!', 'warning');
+        return;
+    }
     const customer = _mState.customers.find(c => c.id === id);
     if (customer) {
         _mState.selectedCustomer = customer;
@@ -289,11 +298,12 @@ function _mRenderSelectedCustomer() {
     const container = document.getElementById('m_selected_cust_badge');
     if (!container) return;
     
+    const isLocked = _mState.items && _mState.items.length > 0;
     if (_mState.selectedCustomer) {
         container.innerHTML = `
             <div class="m-selected-badge">
                 👤 ${_mState.selectedCustomer.customer_name} (${_mState.selectedCustomer.phone})
-                <button type="button" onclick="_mClearCustomer()">×</button>
+                ${isLocked ? '' : '<button type="button" onclick="_mClearCustomer()">×</button>'}
             </div>
         `;
     } else {
@@ -302,6 +312,10 @@ function _mRenderSelectedCustomer() {
 }
 
 function _mClearCustomer() {
+    if (_mState.items && _mState.items.length > 0) {
+        showToast('Đã thêm sản phẩm vào phiếu, không thể đổi khách hàng!', 'warning');
+        return;
+    }
     _mState.selectedCustomer = null;
     _mRenderSelectedCustomer();
     _mUpdateCalculations();
@@ -326,6 +340,12 @@ function _mOnMaterialChange(idx) {
 }
 
 function _mSelectTargetType(type) {
+    if (_mState.items && _mState.items.length > 0) {
+        if (_mState.targetType !== type) {
+            showToast('Đã thêm sản phẩm vào phiếu, không thể thay đổi đối tượng báo giá!', 'warning');
+        }
+        return;
+    }
     _mState.targetType = type;
     _mState.includeCommission = (type === 'customer');
     
@@ -1553,7 +1573,12 @@ function _mEditItemInQuotation(itemId) {
 
 function _mRemoveItemFromQuotation(itemId) {
     _mState.items = _mState.items.filter(i => i.id !== itemId);
-    _mUpdateCalculations();
+    const dynContent = document.getElementById('m-dynamic-content');
+    if (dynContent) {
+        _mRenderCalculator(dynContent);
+    } else {
+        _mUpdateCalculations();
+    }
     showToast('Đã xóa sản phẩm khỏi giỏ!', 'info');
 }
 
