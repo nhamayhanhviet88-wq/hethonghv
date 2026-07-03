@@ -1221,6 +1221,8 @@ function _ctvUpdateCalculations() {
         return;
     }
     
+    const hasCustomerSelected = !!_ctvState.selectedCustomer;
+    
     const contactTexts = [];
     calc.printBreakdown.forEach(p => {
         if (p.isContact) contactTexts.push(p.contactText);
