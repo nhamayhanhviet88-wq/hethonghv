@@ -2440,10 +2440,12 @@ function _ctvOpenNewConfigForm(editId = null) {
         };
     }
     
+    const commPct = Number(cfg.print_prices?.commission_percent !== undefined ? cfg.print_prices.commission_percent : 15);
     const matRows = (cfg.materials || []).map((m, idx) => `
         <div class="ctv-mat-row" style="display:flex; gap:8px; margin-bottom:8px;">
             <input type="text" class="ctv-input" placeholder="Tên chất liệu" value="${m.name}" style="flex-grow:1;">
-            <input type="number" class="ctv-input" placeholder="Đơn giá" value="${m.price}" style="width:120px;">
+            <input type="number" class="ctv-input ctv-price-input" placeholder="Giá CTV" value="${m.price}" style="width:110px;" oninput="_ctvUpdateCustomerPrice(this)">
+            <input type="number" class="ctv-input customer-price-input" placeholder="Giá Khách" value="${Math.round(m.price * (1 + commPct / 100))}" style="width:110px; background:#f1f5f9; font-weight:700; color:#ea580c;" readonly>
             <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
         </div>
     `).join('');
@@ -2466,6 +2468,13 @@ function _ctvOpenNewConfigForm(editId = null) {
                     <span>👕 Chất Liệu Phôi Trơn Cổ Tròn</span>
                     <button class="ctv-btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="_ctvAddMatRowInput()">+ Thêm chất liệu</button>
                 </h4>
+                
+                <div style="display:flex; gap:8px; margin-bottom:6px; font-weight:800; color:#475569; font-size:11px; padding-left:4px; padding-right:32px; border-bottom:1px dashed #e2e8f0; padding-bottom:4px;">
+                    <div style="flex-grow:1;">Tên chất liệu vải</div>
+                    <div style="width:110px; text-align:center;">Giá CTV</div>
+                    <div style="width:110px; text-align:center;">Giá Khách hàng</div>
+                </div>
+
                 <div id="new_cfg_mats_container">
                     ${matRows}
                 </div>
@@ -2503,7 +2512,7 @@ function _ctvOpenNewConfigForm(editId = null) {
                         </div>
                         <div class="ctv-form-group" style="margin-top:8px; border-top:1px dashed #cbd5e1; padding-top:8px; margin-bottom:0;">
                             <label style="color:#c2410c; font-weight:700;">Phần trăm hoa hồng CTV (%)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_commission_percent" value="${cfg.print_prices?.commission_percent || 15}" ${commissionDisabled} oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                            <input type="text" class="ctv-input" id="new_cfg_commission_percent" value="${cfg.print_prices?.commission_percent !== undefined ? cfg.print_prices.commission_percent : 15}" ${commissionDisabled} oninput="this.value = this.value.replace(/[^0-9]/g, ''); _ctvUpdateAllCustomerPrices();">
                             ${!isDirector ? '<span style="font-size:10px; color:#ef4444; display:block; margin-top:2px;">(Chỉ Giám đốc mới có quyền cấu hình %)</span>' : ''}
                         </div>
                     </div>
@@ -2751,9 +2760,37 @@ function _ctvAddCustomSurchargeRow(name = '', value = 0) {
     container.appendChild(div);
 }
 
+function _ctvUpdateCustomerPrice(ctvInput) {
+    const row = ctvInput.closest('.ctv-mat-row');
+    if (!row) return;
+    const customerInput = row.querySelector('.customer-price-input');
+    if (!customerInput) return;
+    const commissionInput = document.getElementById('new_cfg_commission_percent');
+    const pct = commissionInput ? (parseFloat(commissionInput.value) || 0) : 15;
+    const ctvPrice = parseFloat(ctvInput.value) || 0;
+    customerInput.value = Math.round(ctvPrice * (1 + pct / 100));
+}
+
+function _ctvUpdateAllCustomerPrices() {
+    const commissionInput = document.getElementById('new_cfg_commission_percent');
+    const pct = commissionInput ? (parseFloat(commissionInput.value) || 0) : 15;
+    document.querySelectorAll('#new_cfg_mats_container .ctv-mat-row').forEach(row => {
+        const ctvInput = row.querySelector('.ctv-price-input');
+        const customerInput = row.querySelector('.customer-price-input');
+        if (ctvInput && customerInput) {
+            const ctvPrice = parseFloat(ctvInput.value) || 0;
+            customerInput.value = Math.round(ctvPrice * (1 + pct / 100));
+        }
+    });
+}
+
 function _ctvAddMatRowInput(name = '', price = 75000) {
     const container = document.getElementById('new_cfg_mats_container');
     if (!container) return;
+    
+    const commissionInput = document.getElementById('new_cfg_commission_percent');
+    const pct = commissionInput ? (parseFloat(commissionInput.value) || 0) : 15;
+    const custPrice = Math.round(price * (1 + pct / 100));
     
     const div = document.createElement('div');
     div.className = 'ctv-mat-row';
@@ -2762,7 +2799,8 @@ function _ctvAddMatRowInput(name = '', price = 75000) {
     div.style.marginBottom = '8px';
     div.innerHTML = `
         <input type="text" class="ctv-input" placeholder="Tên chất liệu" value="${name}" style="flex-grow:1;">
-        <input type="number" class="ctv-input" placeholder="Đơn giá" value="${price}" style="width:120px;">
+        <input type="number" class="ctv-input ctv-price-input" placeholder="Giá CTV" value="${price}" style="width:110px;" oninput="_ctvUpdateCustomerPrice(this)">
+        <input type="number" class="ctv-input customer-price-input" placeholder="Giá Khách" value="${custPrice}" style="width:110px; background:#f1f5f9; font-weight:700; color:#ea580c;" readonly>
         <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
     `;
     container.appendChild(div);
