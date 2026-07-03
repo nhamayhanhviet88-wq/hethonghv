@@ -426,36 +426,8 @@ function _mRenderSurchargeCheckboxes() {
         const priceInfo = _mGetPriceInfo(surchargeVal);
         return !priceInfo.isContact;
     }).map(item => {
-        const is100Plus = item.name.toLowerCase().includes('từ 100 áo') || item.name.toLowerCase().includes('tu 100 ao');
-        const is200Plus = item.name.toLowerCase().includes('từ 200 áo') || item.name.toLowerCase().includes('tu 200 ao');
-        
-        let isChecked = false;
-        let isDisabled = false;
-        
-        if (is200Plus) {
-            if (qty >= 200) {
-                isChecked = true;
-                isDisabled = true;
-                _mState.surcharges[item.key] = true;
-            } else {
-                _mState.surcharges[item.key] = false;
-                isChecked = false;
-                isDisabled = true;
-            }
-        } else if (is100Plus) {
-            if (qty >= 100 && qty < 200) {
-                isChecked = true;
-                isDisabled = true;
-                _mState.surcharges[item.key] = true;
-            } else {
-                _mState.surcharges[item.key] = false;
-                isChecked = false;
-                isDisabled = true;
-            }
-        } else {
-            isChecked = !!_mState.surcharges[item.key];
-            isDisabled = false;
-        }
+        const isChecked = !!_mState.surcharges[item.key];
+        const isDisabled = false;
         
         const surchargeVal = type === 'customer'
             ? (item.customer_value !== undefined ? item.customer_value : item.value)
@@ -503,6 +475,20 @@ function _mToggleSurcharge(key, checked) {
                 ordered.forEach(item => {
                     const nameNorm = item.name.trim().toLowerCase();
                     if (nameNorm.includes('cổ bẻ thường') || nameNorm === 'cổ bẻ') {
+                        _mState.surcharges[item.key] = false;
+                    }
+                });
+            } else if (targetNameNorm.includes('từ 100 áo') || targetNameNorm.includes('tu 100 ao')) {
+                ordered.forEach(item => {
+                    const nameNorm = item.name.trim().toLowerCase();
+                    if (nameNorm.includes('từ 200 áo') || nameNorm.includes('tu 200 ao')) {
+                        _mState.surcharges[item.key] = false;
+                    }
+                });
+            } else if (targetNameNorm.includes('từ 200 áo') || targetNameNorm.includes('tu 200 ao')) {
+                ordered.forEach(item => {
+                    const nameNorm = item.name.trim().toLowerCase();
+                    if (nameNorm.includes('từ 100 áo') || nameNorm.includes('tu 100 ao')) {
                         _mState.surcharges[item.key] = false;
                     }
                 });
