@@ -1522,14 +1522,15 @@ async function _ctvSaveQuotation() {
 }
 
 // Open beautiful printable export modal popup
-function _ctvOpenExportModal() {
+function _ctvOpenExportModal(mode = 'ctv') {
+    _ctvState.exportMode = mode;
     const calc = _ctvCalculateAllCosts();
     if (!calc) return;
     
     const hasCustomer = !!_ctvState.selectedCustomer;
     const name = hasCustomer ? _ctvState.selectedCustomer.customer_name : 'Quý Khách Hàng';
     const phone = hasCustomer ? _ctvState.selectedCustomer.phone : 'Chưa có SĐT';
-    const code = 'BGCTV-' + Math.floor(Math.random()*900000 + 100000);
+    const code = (mode === 'customer' ? 'BGKH-' : 'BGCTV-') + Math.floor(Math.random()*900000 + 100000);
     const dateStr = vnDateStr(vnNow());
     
     const contactTexts = [];
@@ -1571,7 +1572,14 @@ function _ctvOpenExportModal() {
         <div style="background:white; border-radius:16px; max-width:800px; width:100%; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
             <!-- Modal Header -->
             <div class="no-print" style="padding:16px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0; font-size:16px; font-weight:800; color:#1e293b;">🖨️ Xuất Bản Báo Giá Chi Tiết</h3>
+                <h3 style="margin:0; font-size:16px; font-weight:800; color:#1e293b;">🖨️ Xuất Bản Báo Giá</h3>
+                
+                <!-- Toggle Mode Button Group -->
+                <div style="display:flex; background:#f1f5f9; padding:3px; border-radius:10px; gap:4px; border:1px solid #cbd5e1; margin-left: 20px;">
+                    <button onclick="_ctvOpenExportModal('ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">👥 Bản in CTV</button>
+                    <button onclick="_ctvOpenExportModal('customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+                </div>
+                
                 <button onclick="_ctvCloseExportModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">×</button>
             </div>
             
@@ -1586,7 +1594,7 @@ function _ctvOpenExportModal() {
                             <p style="margin:2px 0 0 0; font-size:12px; color:#475569;">📞 Điện thoại: 0988.888.888 | Website: dongphuchv.net</p>
                         </div>
                         <div style="text-align:right;">
-                            <h2 style="margin:0 0 4px 0; font-size:14px; font-weight:800; color:#475569;">BẢNG BÁO GIÁ ĐẠI LÝ / CTV</h2>
+                            <h2 style="margin:0 0 4px 0; font-size:14px; font-weight:800; color:#475569;">${mode === 'customer' ? 'BẢNG BÁO GIÁ SẢN PHẨM' : 'BẢNG BÁO GIÁ ĐẠI LÝ / CTV'}</h2>
                             <p style="margin:0; font-size:11px; color:#64748b;">Mã số: <strong>${code}</strong></p>
                             <p style="margin:2px 0 0 0; font-size:11px; color:#64748b;">Ngày lập: ${dateStr}</p>
                         </div>
@@ -1594,9 +1602,9 @@ function _ctvOpenExportModal() {
                     
                     <!-- Customer details -->
                     <div style="background:#f8fafc; border-radius:10px; padding:16px; margin-bottom:24px; border:1px solid #e2e8f0;">
-                        <h3 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px;">Kính gửi khách hàng</h3>
+                        <h3 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px;">${mode === 'customer' ? 'Kính gửi quý khách hàng' : 'Kính gửi đối tác đại lý / ctv'}</h3>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px;">
-                            <div>• Tên Đại lý/CTV: <strong>${name}</strong></div>
+                            <div>• ${mode === 'customer' ? 'Tên Khách hàng' : 'Tên Đại lý/CTV'}: <strong>${name}</strong></div>
                             <div>• Số điện thoại: <strong>${phone}</strong></div>
                             <div>• Số lượng: <strong>${_ctvState.quantity} chiếc</strong></div>
                             <div>• Kiểu dáng may: <strong>Áo thun đồng phục cổ tròn</strong></div>
@@ -1618,10 +1626,10 @@ function _ctvOpenExportModal() {
                                     <strong>May phôi trơn:</strong> Vải ${calc.materialName} (Chưa bao gồm in ấn/sửa đổi)
                                 </td>
                                 <td style="border:1px solid #cbd5e1; padding:10px; text-align:right;">
-                                    ${calc.basePrice.toLocaleString('vi-VN')} đ
+                                    ${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ
                                 </td>
                             </tr>
-                            ${calc.commissionAmount > 0 ? `
+                            ${(mode !== 'customer' && calc.commissionAmount > 0) ? `
                                 <tr>
                                     <td style="border:1px solid #cbd5e1; padding:10px; padding-left:24px; color:#ea580c; font-weight:bold;">
                                         + Hoa hồng đại lý (+${calc.commissionPercent}%)
@@ -1711,21 +1719,28 @@ function _ctvCopyTextQuotation() {
     const calc = _ctvCalculateAllCosts();
     if (!calc) return;
     
+    const mode = _ctvState.exportMode || 'ctv';
     const hasCustomer = !!_ctvState.selectedCustomer;
     const name = hasCustomer ? _ctvState.selectedCustomer.customer_name : 'Quý Khách Hàng';
     const phone = hasCustomer ? _ctvState.selectedCustomer.phone : 'Chưa có SĐT';
     const dateStr = vnDateStr(vnNow());
     
-    let text = `🤝 BÁO GIÁ ĐẠI LÝ / CỘNG TÁC VIÊN 🤝\n`;
+    let text = mode === 'customer' ? `🤝 BÁO GIÁ SẢN PHẨM ĐỒNG PHỤC 🤝\n` : `🤝 BÁO GIÁ ĐẠI LÝ / CỘNG TÁC VIÊN 🤝\n`;
     text += `Ngày lập: ${dateStr}\n`;
     text += `----------------------------------------\n`;
-    text += `• Tên Khách hàng: ${name}\n`;
+    text += `• ${mode === 'customer' ? 'Tên Khách hàng' : 'Tên Khách hàng/Đại lý'}: ${name}\n`;
     text += `• Số điện thoại: ${phone}\n`;
     text += `• Kiểu dáng: Áo thun cổ tròn\n`;
     text += `• Chất liệu vải: ${calc.materialName}\n`;
     text += `• Số lượng đặt: ${_ctvState.quantity} áo\n`;
     text += `----------------------------------------\n`;
-    text += `• Đơn giá phôi trơn: ${calc.basePrice.toLocaleString('vi-VN')} đ/áo\n`;
+    
+    const displayBasePrice = mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice;
+    text += `• Đơn giá phôi trơn: ${displayBasePrice.toLocaleString('vi-VN')} đ/áo\n`;
+    
+    if (mode !== 'customer' && calc.commissionAmount > 0) {
+        text += `  + Hoa hồng đại lý (+${calc.commissionPercent}%): +${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo\n`;
+    }
     
     calc.surchargesBreakdown.forEach(s => {
         text += `  + Phụ phí ${s.label}: ${s.isContact ? s.contactText : (s.price >= 0 ? '+' : '') + s.price.toLocaleString('vi-VN') + ' đ'}\n`;
@@ -2070,7 +2085,7 @@ async function _ctvApplyConfigVersion(id) {
     }
 }
 
-function _ctvPreviewConfigDetails(id) {
+function _ctvPreviewConfigDetails(id, mode = 'ctv') {
     const c = _ctvState.configVersions.find(v => v.id === id);
     if (!c) return;
     
@@ -2096,6 +2111,7 @@ function _ctvPreviewConfigDetails(id) {
     const mats = c.materials || [];
     const sc = c.surcharges || {};
     const pr = c.print_prices || {};
+    const commissionPercent = Number(pr.commission_percent !== undefined ? pr.commission_percent : 15);
 
     // Sort surcharge items by configured display order (only show items in display_order)
     let surchargeItems = [];
@@ -2167,16 +2183,23 @@ function _ctvPreviewConfigDetails(id) {
                             📋 ${c.version_name}
                         </h3>
                     </div>
+                    
+                    <!-- Mode Selector Group inside Header -->
+                    <div class="no-print" style="display:flex; background:rgba(255,255,255,0.08); padding:3px; border-radius:10px; gap:4px; border:1px solid rgba(255,255,255,0.12); margin-left: 20px;">
+                        <button onclick="_ctvPreviewConfigDetails(${c.id}, 'ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#94a3b8'}; border: none; padding: 6px 14px; border-radius: 8px; font-weight:700; font-size:11px; cursor:pointer; transition: all 0.2s;">👥 Biểu phí CTV</button>
+                        <button onclick="_ctvPreviewConfigDetails(${c.id}, 'customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#94a3b8'}; border: none; padding: 6px 14px; border-radius: 8px; font-weight:700; font-size:11px; cursor:pointer; transition: all 0.2s;">🛍️ Biểu phí Khách hàng</button>
+                    </div>
+                    
                     <button class="no-print" onclick="document.getElementById('ctv_config_preview_modal').style.display='none'" style="background:rgba(255,255,255,0.1); border:none; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; color:#cbd5e1; transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'; this.style.color='#ef4444';" onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1';">×</button>
                 </div>
                 
                 <!-- Brand watermark block -->
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: linear-gradient(135deg, #1e3b8a, #2563eb); color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.15); border-bottom: 1px solid rgba(226, 232, 240, 0.1);">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: ${mode === 'customer' ? 'linear-gradient(135deg, #ea580c, #f97316)' : 'linear-gradient(135deg, #1e3b8a, #2563eb)'}; color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.15); border-bottom: 1px solid rgba(226, 232, 240, 0.1);">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-weight: 900; font-size: 14px; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">⚡ ĐỒNG PHỤC HV</span>
                     </div>
                     <div style="font-size: 11px; font-weight: 800; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
-                        HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC
+                        ${mode === 'customer' ? `BẢNG GIÁ KHÁCH HÀNG (ĐÃ CỘNG HỒI ${commissionPercent}%)` : 'HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC'}
                     </div>
                 </div>
                 
@@ -2189,17 +2212,20 @@ function _ctvPreviewConfigDetails(id) {
                         <!-- Column 1: Fabric Prices -->
                         <div style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
                             <div style="font-weight: 800; color: #1e3a8a; font-size: 13.5px; border-bottom: 2.5px solid #3b82f6; padding-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                                👕 ĐƠN GIÁ PHÔI TRƠN (CỔ TRÒN)
+                                👕 ĐƠN GIÁ PHÔI TRƠN ${mode === 'customer' ? 'BÁN KHÁCH HÀNG' : '(CỔ TRÒN)'}
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                ${mats.map(m => `
-                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
-                                        <span style="font-weight: 700; color: #334155; font-size:12.5px;">${m.name}</span>
-                                        <span style="background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid #dbeafe;">
-                                            ${Number(m.price).toLocaleString('vi-VN')}đ
-                                        </span>
-                                    </div>
-                                `).join('')}
+                                ${mats.map(m => {
+                                    const displayPrice = mode === 'customer' ? Math.round(Number(m.price) * (1 + commissionPercent / 100)) : Number(m.price);
+                                    return `
+                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
+                                            <span style="font-weight: 700; color: #334155; font-size:12.5px;">${m.name}</span>
+                                            <span style="background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid #dbeafe;">
+                                                ${displayPrice.toLocaleString('vi-VN')}đ
+                                            </span>
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
                         

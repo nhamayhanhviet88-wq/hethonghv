@@ -924,7 +924,8 @@ async function _mSaveQuotation() {
     }
 }
 
-function _mOpenExportModal() {
+function _mOpenExportModal(mode = 'ctv') {
+    _mState.exportMode = mode;
     const calc = _mCalculateAllCosts();
     if (!calc) return;
     
@@ -932,7 +933,7 @@ function _mOpenExportModal() {
     const name = hasCustomer ? _mState.selectedCustomer.customer_name : 'Quý Khách Hàng';
     const phone = hasCustomer ? _mState.selectedCustomer.phone : 'Chưa có SĐT';
     const dateStr = vnDateStr(vnNow());
-    const code = 'BGCTV-M' + Math.floor(Math.random()*90000 + 10000);
+    const code = (mode === 'customer' ? 'BGKH-M' : 'BGCTV-M') + Math.floor(Math.random()*90000 + 10000);
     
     const contactTexts = [];
     calc.printBreakdown.forEach(p => {
@@ -955,19 +956,25 @@ function _mOpenExportModal() {
     
     container.innerHTML = `
         <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.4; font-size:12px;">
+            <!-- Toggle Mode Button Group (no-print) -->
+            <div class="no-print" style="display:flex; background:#f1f5f9; padding:2px; border-radius:8px; gap:2px; border:1px solid #cbd5e1; margin-bottom: 12px; font-family:'Inter', sans-serif;">
+                <button onclick="_mOpenExportModal('ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">👥 Bản in CTV</button>
+                <button onclick="_mOpenExportModal('customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+            </div>
+
             <div style="border-bottom:2px double #e2e8f0; padding-bottom:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:start;">
                 <div>
                     <h4 style="margin:0; font-size:14px; font-weight:800; color:#1e3a8a;">ĐỒNG PHỤC HV</h4>
                     <p style="margin:2px 0 0 0; font-size:10px; color:#64748b;">Xưởng May Đồng Phục HV</p>
                 </div>
                 <div style="text-align:right;">
-                    <h5 style="margin:0; font-size:11px; color:#475569;">BÁO GIÁ CTV</h5>
+                    <h5 style="margin:0; font-size:11px; color:#475569;">${mode === 'customer' ? 'BÁO GIÁ SẢN PHẨM' : 'BÁO GIÁ CTV'}</h5>
                     <p style="margin:2px 0 0 0; font-size:9px; color:#94a3b8;">${code} | ${dateStr}</p>
                 </div>
             </div>
             
             <div style="background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; padding:10px; margin-bottom:14px;">
-                <div style="margin-bottom:4px;">• CTV/Khách hàng: <strong>${name}</strong></div>
+                <div style="margin-bottom:4px;">• ${mode === 'customer' ? 'Tên Khách hàng' : 'CTV/Khách hàng'}: <strong>${name}</strong></div>
                 <div style="margin-bottom:4px;">• Số điện thoại: <strong>${phone}</strong></div>
                 <div>• SL áo: <strong>${_mState.quantity} chiếc</strong> (Áo thun cổ tròn)</div>
             </div>
@@ -982,9 +989,9 @@ function _mOpenExportModal() {
                 <tbody>
                     <tr>
                         <td style="border:1px solid #cbd5e1; padding:6px;">Phôi vải ${calc.materialName}</td>
-                        <td style="border:1px solid #cbd5e1; padding:6px; text-align:right;">${calc.basePrice.toLocaleString('vi-VN')} đ</td>
+                        <td style="border:1px solid #cbd5e1; padding:6px; text-align:right;">${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ</td>
                     </tr>
-                    ${calc.commissionAmount > 0 ? `
+                    ${(mode !== 'customer' && calc.commissionAmount > 0) ? `
                         <tr>
                             <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#ea580c; font-weight:bold;">+ Hoa hồng đại lý (+${calc.commissionPercent}%)</td>
                             <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#ea580c; font-weight:bold;">+${calc.commissionAmount.toLocaleString('vi-VN')} đ</td>
@@ -1036,20 +1043,23 @@ function _mCopyTextQuotation() {
     const calc = _mCalculateAllCosts();
     if (!calc) return;
     
+    const mode = _mState.exportMode || 'ctv';
     const hasCustomer = !!_mState.selectedCustomer;
     const name = hasCustomer ? _mState.selectedCustomer.customer_name : 'Quý Khách Hàng';
     const phone = hasCustomer ? _mState.selectedCustomer.phone : 'Chưa có SĐT';
     const dateStr = vnDateStr(vnNow());
     
-    let text = `🤝 BÁO GIÁ ĐẠI LÝ / CTV (MOBILE) 🤝\n`;
+    let text = mode === 'customer' ? `🤝 BÁO GIÁ SẢN PHẨM ĐỒNG PHỤC (MOBILE) 🤝\n` : `🤝 BÁO GIÁ ĐẠI LÝ / CTV (MOBILE) 🤝\n`;
     text += `Ngày: ${dateStr}\n`;
     text += `----------------------------------------\n`;
-    text += `• Khách hàng: ${name} (${phone})\n`;
+    text += `• ${mode === 'customer' ? 'Khách hàng' : 'Khách hàng/Đại lý'}: ${name} (${phone})\n`;
     text += `• Số lượng: ${_mState.quantity} áo (Cổ tròn)\n`;
     text += `• Chất liệu: ${calc.materialName}\n`;
     text += `----------------------------------------\n`;
-    text += `• Giá phôi: ${calc.basePrice.toLocaleString('vi-VN')} đ/áo\n`;
-    if (calc.commissionAmount > 0) {
+    
+    const displayBasePrice = mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice;
+    text += `• Giá phôi: ${displayBasePrice.toLocaleString('vi-VN')} đ/áo\n`;
+    if (mode !== 'customer' && calc.commissionAmount > 0) {
         text += `  + Hoa hồng đại lý (+${calc.commissionPercent}%): +${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo\n`;
     }
     
@@ -1338,7 +1348,7 @@ async function _mApplyConfig(id) {
     }
 }
 
-function _mShowConfigDetailPopup(id) {
+function _mShowConfigDetailPopup(id, mode = 'ctv') {
     const c = _mState.configVersions.find(v => v.id === id);
     if (!c) return;
     
@@ -1347,6 +1357,7 @@ function _mShowConfigDetailPopup(id) {
     const mats = c.materials || [];
     const sc = c.surcharges || {};
     const pr = c.print_prices || {};
+    const commissionPercent = Number(pr.commission_percent !== undefined ? pr.commission_percent : 15);
     
     // Sort surcharge items by configured display order
     let surchargeItems = [];
@@ -1409,28 +1420,37 @@ function _mShowConfigDetailPopup(id) {
     document.getElementById('m_config_modal_body').innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 16px; font-family: 'Inter', sans-serif;">
             
-            <!-- Brand watermark block (nền và chữ ảnh 1 ở dưới ảnh 3) -->
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: linear-gradient(135deg, #1e3b8a, #2563eb); border-radius: 10px; color: white; margin-bottom: 4px; box-shadow: 0 3px 8px rgba(37,99,235,0.15);">
+            <!-- Brand watermark block -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: ${mode === 'customer' ? 'linear-gradient(135deg, #ea580c, #f97316)' : 'linear-gradient(135deg, #1e3b8a, #2563eb)'}; border-radius: 10px; color: white; margin-bottom: 4px; box-shadow: 0 3px 8px rgba(37,99,235,0.15);">
                 <span style="font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">⚡ ĐỒNG PHỤC HV</span>
                 <span style="font-size: 9px; font-weight: 750; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
-                    HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC
+                    ${mode === 'customer' ? `BẢNG GIÁ KHÁCH HÀNG (ĐÃ CỘNG HỒI ${commissionPercent}%)` : 'HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC'}
                 </span>
+            </div>
+            
+            <!-- Toggle Mode Selector Group -->
+            <div style="display:flex; background:#f1f5f9; padding:2px; border-radius:8px; gap:2px; border:1px solid #cbd5e1; margin-bottom: 4px;">
+                <button onclick="_mShowConfigDetailPopup(${c.id}, 'ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">👥 Biểu phí CTV</button>
+                <button onclick="_mShowConfigDetailPopup(${c.id}, 'customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 0; border-radius: 6px; font-weight:750; font-size:11px; cursor:pointer; flex: 1; text-align: center; transition: all 0.2s;">🛍️ Biểu phí Khách hàng</button>
             </div>
             
             <!-- Phôi Vải -->
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
                 <div style="font-weight: 800; color: #1e3a8a; font-size: 12.5px; border-bottom: 2px solid #3b82f6; padding-bottom: 4px; margin-bottom: 8px;">
-                    👕 ĐƠN GIÁ PHÔI TRƠN
+                    👕 ĐƠN GIÁ PHÔI TRƠN ${mode === 'customer' ? 'BÁN KHÁCH HÀNG' : ''}
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 6px;">
-                    ${mats.map(m => `
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 8px; border: 1px solid #f1f5f9;">
-                            <span style="font-weight: 600; color: #334155; font-size: 12px;">${m.name}</span>
-                            <span style="background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 6px; font-weight: 750; font-size: 11px;">
-                                ${Number(m.price).toLocaleString('vi-VN')}đ
-                            </span>
-                        </div>
-                    `).join('')}
+                    ${mats.map(m => {
+                        const displayPrice = mode === 'customer' ? Math.round(Number(m.price) * (1 + commissionPercent / 100)) : Number(m.price);
+                        return `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 8px; border: 1px solid #f1f5f9;">
+                                <span style="font-weight: 600; color: #334155; font-size: 12px;">${m.name}</span>
+                                <span style="background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 6px; font-weight: 750; font-size: 11px;">
+                                    ${displayPrice.toLocaleString('vi-VN')}đ
+                                </span>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
             
@@ -1458,7 +1478,7 @@ function _mShowConfigDetailPopup(id) {
             <!-- In/Thêu -->
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
                 <div style="font-weight: 800; color: #7c3aed; font-size: 12.5px; border-bottom: 2px solid #7c3aed; padding-bottom: 4px; margin-bottom: 8px;">
-                    🎨 PHƯƠNG ÁN IN / THÊU CTV
+                    🎨 PHƯƠNG ÁN IN / THÊU ${mode === 'customer' ? 'KHÁCH HÀNG' : 'CTV'}
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #475569;">
                     <!-- PET -->
