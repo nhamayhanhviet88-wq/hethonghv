@@ -3706,8 +3706,8 @@ function _ctvPrintQuotation(mode) {
     const customerName = hasCustomer ? _ctvState.selectedCustomer.customer_name : '';
     
     if (mode === 'customer') {
-        const displayCustName = customerName ? `(${customerName})` : '(Quý Khách)';
-        document.title = `Báo Giá HV - Gửi Khách ${displayCustName} ${formattedDate}`;
+        const displayCustName = customerName || 'Quý Khách Hàng';
+        document.title = `Gửi Báo Giá KH ${displayCustName} ${formattedDate}`;
     } else {
         const displayCustName = customerName ? `(${customerName})` : '(Đại Lý)';
         document.title = `Báo Giá CTV HV ${displayCustName} ${formattedDate}`;
