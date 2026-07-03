@@ -1217,6 +1217,17 @@ function _ctvCalculateAllCosts() {
     const finalPricePerShirt = basePrice + surchargeTotal + printCost;
     const grandTotal = finalPricePerShirt * qty;
     
+    const shippingList = _ctvState.activeConfig?.print_prices?.shipping || [
+        { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
+        { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 },
+        { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
+        { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
+    ];
+    let matchedShipping = null;
+    if (qty > 0) {
+        matchedShipping = shippingList.find(s => qty >= s.min_qty && qty <= s.max_qty);
+    }
+    
     return {
         materialName,
         basePrice,
@@ -1225,7 +1236,8 @@ function _ctvCalculateAllCosts() {
         printBreakdown,
         printCost,
         finalPricePerShirt,
-        grandTotal
+        grandTotal,
+        matchedShipping
     };
 }
 
@@ -1340,6 +1352,13 @@ function _ctvUpdateCalculations() {
         <div class="ctv-words">
             Bằng chữ: <strong>${wordsText}</strong>
         </div>
+        
+        ${calc.matchedShipping ? `
+        <div class="ctv-result-row" style="color: #38bdf8; font-size: 13px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 8px; margin-top: 8px;">
+            <span>Hỗ trợ vận chuyển:</span>
+            <span style="text-align: right; font-weight: 600;">${calc.matchedShipping.desc}</span>
+        </div>
+        ` : ''}
         
         <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
             <button class="ctv-btn-action" style="margin-top:0;" onclick="_ctvSaveQuotation()" ${!hasCustomerSelected ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>
@@ -1540,6 +1559,11 @@ function _ctvOpenExportModal() {
                     <!-- Grand total and words -->
                     <div style="border:1px solid #cbd5e1; border-radius:10px; padding:20px; background:#f8fafc; text-align:right; margin-bottom:30px;">
                         <div style="font-size:12px; color:#64748b; margin-bottom:6px; font-style:italic;">* Giá chưa bao gồm VAT</div>
+                        ${calc.matchedShipping ? `
+                        <div style="font-size:13px; color:#0369a1; margin-bottom:8px; font-weight:600;">
+                            🚚 Hỗ trợ vận chuyển: ${calc.matchedShipping.desc}
+                        </div>
+                        ` : ''}
                         <div style="font-size:14px; color:#475569; margin-bottom:6px;">TỔNG TIỀN THANH TOÁN (${_ctvState.quantity} áo):</div>
                         <div style="font-size:24px; font-weight:950; color:#1e3a8a;">${grandTotalText}</div>
                         <div style="font-size:13px; font-style:italic; color:#0369a1; margin-top:8px;">
@@ -1626,6 +1650,9 @@ function _ctvCopyTextQuotation() {
     text += `* Giá chưa bao gồm VAT\n`;
     text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${grandTotalTextCopy}\n`;
     text += `✍️ (Bằng chữ: ${wordsTextCopy})\n`;
+    if (calc.matchedShipping) {
+        text += `🚚 Vận chuyển: ${calc.matchedShipping.desc}\n`;
+    }
     text += `----------------------------------------\n`;
     text += `Xin cảm ơn quý khách đã tin dùng sản phẩm của Đồng Phục HV!`;
     
@@ -2360,6 +2387,20 @@ function _ctvOpenNewConfigForm(editId = null) {
                     </div>
                 </div>
                 
+                <!-- Shipping setup -->
+                <h4 style="margin:20px 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">🚚 Thiết Lập Giá Vận Chuyển</h4>
+                <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
+                    <div style="display:grid; grid-template-columns: 80px 80px 1fr 120px; gap:8px; font-weight:bold; margin-bottom:8px; color:#475569; font-size:12px;">
+                        <span>Từ (áo)</span>
+                        <span>Đến (áo)</span>
+                        <span>Chính sách vận chuyển</span>
+                        <span>Hỗ trợ VC khác (đ)</span>
+                    </div>
+                    <div id="new_cfg_shipping_container" style="display:flex; flex-direction:column; gap:8px;">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+                
                 <div style="margin-top:20px; display:flex; gap:10px;">
                     <label class="ctv-checkbox-label">
                         <input type="checkbox" id="new_cfg_apply_now" ${cfg.status === 'active' || !editId ? 'checked' : ''}>
@@ -2376,6 +2417,7 @@ function _ctvOpenNewConfigForm(editId = null) {
     `;
     modal.style.display = 'flex';
     _ctvRenderSurchargeRows(cfg.surcharges);
+    _ctvRenderShippingRows(cfg.print_prices?.shipping);
 }
 
 function _ctvOn3dCostChange(val) {
@@ -2476,6 +2518,27 @@ function _ctvRenderSurchargeRows(surchargesObj) {
             </div>
         `;
     }).join('');
+}
+
+function _ctvRenderShippingRows(shippingList) {
+    const container = document.getElementById('new_cfg_shipping_container');
+    if (!container) return;
+    
+    const list = shippingList || [
+        { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
+        { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 },
+        { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
+        { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
+    ];
+    
+    container.innerHTML = list.map((item, idx) => `
+        <div class="ctv-shipping-row" style="display:grid; grid-template-columns: 80px 80px 1fr 120px; gap:8px; align-items:center;">
+            <input type="number" class="ctv-input shipping-min" value="${item.min_qty}" placeholder="Từ">
+            <input type="number" class="ctv-input shipping-max" value="${item.max_qty}" placeholder="Đến">
+            <input type="text" class="ctv-input shipping-desc" value="${item.desc}" placeholder="Chính sách vận chuyển" style="font-size:12px;">
+            <input type="text" class="ctv-input shipping-value" value="${item.value}" placeholder="Hỗ trợ" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+        </div>
+    `).join('');
 }
 
 function _ctvAddCustomSurchargeRow(name = '', value = 0) {
@@ -2603,7 +2666,18 @@ async function _ctvSaveNewConfigVersion() {
             },
             print3d: {
                 flat_price: parseFloat(document.getElementById('new_cfg_pr_3d_flat').value) || 30000
-            }
+            },
+            shipping: (function() {
+                const list = [];
+                document.querySelectorAll('#new_cfg_shipping_container .ctv-shipping-row').forEach(row => {
+                    const min_qty = parseInt(row.querySelector('.shipping-min').value) || 0;
+                    const max_qty = parseInt(row.querySelector('.shipping-max').value) || 0;
+                    const desc = row.querySelector('.shipping-desc').value.trim();
+                    const value = parseFloat(row.querySelector('.shipping-value').value) || 0;
+                    list.push({ min_qty, max_qty, desc, value });
+                });
+                return list;
+            })()
         },
         apply_now: document.getElementById('new_cfg_apply_now').checked
     };

@@ -665,6 +665,17 @@ function _mCalculateAllCosts() {
     const finalPricePerShirt = basePrice + surchargeTotal + printCost;
     const grandTotal = finalPricePerShirt * qty;
     
+    const shippingList = _mState.activeConfig?.print_prices?.shipping || [
+        { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
+        { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 },
+        { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
+        { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
+    ];
+    let matchedShipping = null;
+    if (qty > 0) {
+        matchedShipping = shippingList.find(s => qty >= s.min_qty && qty <= s.max_qty);
+    }
+    
     return {
         materialName,
         basePrice,
@@ -673,7 +684,8 @@ function _mCalculateAllCosts() {
         printBreakdown,
         printCost,
         finalPricePerShirt,
-        grandTotal
+        grandTotal,
+        matchedShipping
     };
 }
 
@@ -786,6 +798,13 @@ function _mUpdateCalculations() {
         <div style="font-size:11.5px; font-style:italic; color:#38bdf8; text-align:right; margin-top:4px;">
             Bằng chữ: ${wordsText}
         </div>
+        
+        ${calc.matchedShipping ? `
+        <div class="m-result-row" style="color: #38bdf8; font-size: 12px; border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 6px; margin-top: 6px;">
+            <span>Hỗ trợ vận chuyển:</span>
+            <span style="text-align: right; font-weight: 600;">${calc.matchedShipping.desc}</span>
+        </div>
+        ` : ''}
         
         <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
             <button class="m-btn-secondary" style="background:transparent; border-color:rgba(255,255,255,0.3); color:white;" onclick="_mOpenExportModal()">🖨️ Xuất Bản In</button>
@@ -923,6 +942,11 @@ function _mOpenExportModal() {
             
             <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px; text-align:right;">
                 <div style="font-size:10px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
+                ${calc.matchedShipping ? `
+                <div style="font-size:11px; color:#0369a1; margin-bottom:6px; font-weight:600;">
+                    🚚 Hỗ trợ vận chuyển: ${calc.matchedShipping.desc}
+                </div>
+                ` : ''}
                 <div style="font-size:11px; color:#64748b;">Tổng cộng:</div>
                 <div style="font-size:18px; font-weight:900; color:#1e3a8a;">${grandTotalText}</div>
                 <div style="font-size:11.5px; font-style:italic; color:#0369a1; margin-top:4px;">
@@ -983,6 +1007,9 @@ function _mCopyTextQuotation() {
     text += `* Giá chưa bao gồm VAT\n`;
     text += `💵 TỔNG CỘNG: ${grandTotalTextCopy}\n`;
     text += `✍️ (Chữ: ${wordsTextCopy})\n`;
+    if (calc.matchedShipping) {
+        text += `🚚 Vận chuyển: ${calc.matchedShipping.desc}\n`;
+    }
     text += `----------------------------------------\n`;
     
     navigator.clipboard.writeText(text).then(() => {
