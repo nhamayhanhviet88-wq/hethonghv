@@ -1419,8 +1419,7 @@ function _ctvCalculateAllCosts() {
     const isCust = _ctvState.targetType === 'customer';
     const shippingList = isCust
         ? (_ctvState.activeConfig?.print_prices?.shipping_customer || [
-            { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
-            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
+            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
         ])
         : (_ctvState.activeConfig?.print_prices?.shipping || [
             { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
@@ -2474,8 +2473,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                     </div>
                                     <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
                                         ${(pr.shipping_customer || [
-                                            { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
-                                            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
+                                            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
                                         ]).map(s => {
                                             const qtyRange = _ctvFormatShippingRange(s.min_qty, s.max_qty);
                                             const descLower = String(s.desc).toLowerCase();
@@ -2945,8 +2943,7 @@ function _ctvRenderShippingRows(shippingList, shippingCustomerList) {
     if (containerCust) {
         containerCust.innerHTML = '';
         const listCust = shippingCustomerList || [
-            { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
-            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
+            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
         ];
         listCust.forEach(item => {
             _ctvAddShippingRowInput('customer', item.min_qty, item.max_qty, item.desc, item.value);
