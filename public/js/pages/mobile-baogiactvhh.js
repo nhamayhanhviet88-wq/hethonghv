@@ -1807,6 +1807,75 @@ function _mUpdateCreatorName(val) {
     }
 }
 
+function _mFormatSurchargesText(item) {
+    if (!item.surcharges) return '';
+    return Object.keys(item.surcharges)
+        .filter(k => item.surcharges[k])
+        .map(k => {
+            let matchedBreakdown = null;
+            let cleanLabel = k.replace(/^custom_/i, '').replace(/_/g, ' ');
+            if (k === 'collar') cleanLabel = 'Cổ bẻ';
+            if (k === 'raglan') cleanLabel = 'Raglan';
+            if (k === 'color_block') cleanLabel = 'Phối màu vải';
+            if (k === 'primary_school') cleanLabel = 'Tiểu học';
+            
+            if (item.surchargesBreakdown) {
+                matchedBreakdown = item.surchargesBreakdown.find(s => {
+                    const cleanSLabel = s.label.replace(/^custom_/i, '').replace(/_/g, ' ').toLowerCase();
+                    return cleanSLabel.includes(cleanLabel.toLowerCase()) || cleanLabel.toLowerCase().includes(cleanSLabel);
+                });
+            }
+            
+            let priceText = '';
+            if (matchedBreakdown) {
+                if (matchedBreakdown.isContact) {
+                    priceText = ` (${matchedBreakdown.contactText})`;
+                } else {
+                    priceText = ` (${matchedBreakdown.price >= 0 ? '+' : ''}${matchedBreakdown.price.toLocaleString('vi-VN')}đ)`;
+                }
+                cleanLabel = matchedBreakdown.label.replace(/^custom_/i, '').replace(/_/g, ' ');
+            } else {
+                const config = _mState.activeConfig;
+                let foundConfigSurcharge = null;
+                if (config && config.surcharges) {
+                    if (k === 'collar') foundConfigSurcharge = { name: 'Cổ bẻ', value: config.surcharges.collar, customer_value: config.surcharges.collar_customer };
+                    else if (k === 'raglan') foundConfigSurcharge = { name: 'Raglan', value: config.surcharges.raglan, customer_value: config.surcharges.raglan_customer };
+                    else if (k === 'color_block') foundConfigSurcharge = { name: 'Phối màu vải', value: config.surcharges.color_block, customer_value: config.surcharges.color_block_customer };
+                    else if (k === 'primary_school') foundConfigSurcharge = { name: 'Tiểu học', value: config.surcharges.primary_school, customer_value: config.surcharges.primary_school_customer };
+                    else if (config.surcharges.custom) {
+                        const found = config.surcharges.custom.find(c => {
+                            const customKey = 'custom_' + c.name.replace(/\s+/g, '_');
+                            return customKey === k;
+                        });
+                        if (found) {
+                            foundConfigSurcharge = {
+                                name: found.name,
+                                value: found.value,
+                                customer_value: found.customer_value
+                            };
+                        }
+                    }
+                }
+                
+                if (foundConfigSurcharge) {
+                    cleanLabel = foundConfigSurcharge.name;
+                    const targetType = item.targetType || _mState.targetType;
+                    const val = targetType === 'customer'
+                        ? (foundConfigSurcharge.customer_value !== undefined ? foundConfigSurcharge.customer_value : foundConfigSurcharge.value)
+                        : foundConfigSurcharge.value;
+                    const priceInfo = _mGetPriceInfo(val);
+                    if (priceInfo.isContact) {
+                        priceText = ` (${priceInfo.text})`;
+                    } else {
+                        priceText = ` (+${priceInfo.value.toLocaleString('vi-VN')}đ)`;
+                    }
+                }
+            }
+            
+            return `${cleanLabel}${priceText}`;
+        }).join(', ');
+}
+
 function _mOpenExportModal(mode = null) {
     let info = null;
     try {
@@ -1892,15 +1961,7 @@ function _mOpenExportModal(mode = null) {
 
     // Build rows HTML
     const rowsHtml = renderedItems.map((item, idx) => {
-        const surchargesText = Object.keys(item.surcharges)
-            .filter(k => item.surcharges[k])
-            .map(k => {
-                const config = _mState.activeConfig;
-                const match = config && config.surcharges && config.surcharges.optional 
-                    ? config.surcharges.optional.find(o => o.key === k) 
-                    : null;
-                return match ? match.name : k;
-            }).join(', ');
+        const surchargesText = _mFormatSurchargesText(item);
             
         let printDesc = '';
         if (item.printType === 'pet') {
@@ -2080,15 +2141,7 @@ function _mCopyTextQuotation() {
             text += `  - Đơn giá: ${item.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo\n`;
             text += `  - Thành tiền: ${item.grandTotal.toLocaleString('vi-VN')} đ\n`;
             
-            const surchargesText = Object.keys(item.surcharges)
-                .filter(k => item.surcharges[k])
-                .map(k => {
-                    const config = _mState.activeConfig;
-                    const match = config && config.surcharges && config.surcharges.optional 
-                        ? config.surcharges.optional.find(o => o.key === k) 
-                        : null;
-                    return match ? match.name : k;
-                }).join(', ');
+            const surchargesText = _mFormatSurchargesText(item);
             let printDesc = '';
             if (item.printType === 'pet') {
                 printDesc = `In PET (${item.savedPrints.length} hình)`;

@@ -2262,19 +2262,80 @@ function _ctvRemoveItemFromQuotation(itemId) {
     showToast('Đã xóa sản phẩm khỏi phiếu!', 'info');
 }
 
+function _ctvFormatSurchargesText(item) {
+    if (!item.surcharges) return '';
+    return Object.keys(item.surcharges)
+        .filter(k => item.surcharges[k])
+        .map(k => {
+            let matchedBreakdown = null;
+            let cleanLabel = k.replace(/^custom_/i, '').replace(/_/g, ' ');
+            if (k === 'collar') cleanLabel = 'Cổ bẻ';
+            if (k === 'raglan') cleanLabel = 'Raglan';
+            if (k === 'color_block') cleanLabel = 'Phối màu vải';
+            if (k === 'primary_school') cleanLabel = 'Tiểu học';
+            
+            if (item.surchargesBreakdown) {
+                matchedBreakdown = item.surchargesBreakdown.find(s => {
+                    const cleanSLabel = s.label.replace(/^custom_/i, '').replace(/_/g, ' ').toLowerCase();
+                    return cleanSLabel.includes(cleanLabel.toLowerCase()) || cleanLabel.toLowerCase().includes(cleanSLabel);
+                });
+            }
+            
+            let priceText = '';
+            if (matchedBreakdown) {
+                if (matchedBreakdown.isContact) {
+                    priceText = ` (${matchedBreakdown.contactText})`;
+                } else {
+                    priceText = ` (${matchedBreakdown.price >= 0 ? '+' : ''}${matchedBreakdown.price.toLocaleString('vi-VN')}đ)`;
+                }
+                cleanLabel = matchedBreakdown.label.replace(/^custom_/i, '').replace(/_/g, ' ');
+            } else {
+                const config = _ctvState.activeConfig;
+                let foundConfigSurcharge = null;
+                if (config && config.surcharges) {
+                    if (k === 'collar') foundConfigSurcharge = { name: 'Cổ bẻ', value: config.surcharges.collar, customer_value: config.surcharges.collar_customer };
+                    else if (k === 'raglan') foundConfigSurcharge = { name: 'Raglan', value: config.surcharges.raglan, customer_value: config.surcharges.raglan_customer };
+                    else if (k === 'color_block') foundConfigSurcharge = { name: 'Phối màu vải', value: config.surcharges.color_block, customer_value: config.surcharges.color_block_customer };
+                    else if (k === 'primary_school') foundConfigSurcharge = { name: 'Tiểu học', value: config.surcharges.primary_school, customer_value: config.surcharges.primary_school_customer };
+                    else if (config.surcharges.custom) {
+                        const found = config.surcharges.custom.find(c => {
+                            const customKey = 'custom_' + c.name.replace(/\s+/g, '_');
+                            return customKey === k;
+                        });
+                        if (found) {
+                            foundConfigSurcharge = {
+                                name: found.name,
+                                value: found.value,
+                                customer_value: found.customer_value
+                            };
+                        }
+                    }
+                }
+                
+                if (foundConfigSurcharge) {
+                    cleanLabel = foundConfigSurcharge.name;
+                    const targetType = item.targetType || _ctvState.targetType;
+                    const val = targetType === 'customer'
+                        ? (foundConfigSurcharge.customer_value !== undefined ? foundConfigSurcharge.customer_value : foundConfigSurcharge.value)
+                        : foundConfigSurcharge.value;
+                    const priceInfo = _ctvGetPriceInfo(val);
+                    if (priceInfo.isContact) {
+                        priceText = ` (${priceInfo.text})`;
+                    } else {
+                        priceText = ` (+${priceInfo.value.toLocaleString('vi-VN')}đ)`;
+                    }
+                }
+            }
+            
+            return `${cleanLabel}${priceText}`;
+        }).join(', ');
+}
+
 function _ctvRenderItemsTable() {
     if (!_ctvState.items || _ctvState.items.length === 0) return '';
     
     const rows = _ctvState.items.map((item, idx) => {
-        const surchargesText = Object.keys(item.surcharges)
-            .filter(k => item.surcharges[k])
-            .map(k => {
-                const config = _ctvState.activeConfig;
-                const match = config && config.surcharges && config.surcharges.optional 
-                    ? config.surcharges.optional.find(o => o.key === k) 
-                    : null;
-                return match ? match.name : k;
-            }).join(', ');
+        const surchargesText = _ctvFormatSurchargesText(item);
             
         let printDesc = '';
         if (item.printType === 'pet') {
@@ -2789,15 +2850,7 @@ function _ctvOpenExportModal(mode = null) {
 
     // Build rows HTML
     const rowsHtml = renderedItems.map((item, idx) => {
-        const surchargesText = Object.keys(item.surcharges)
-            .filter(k => item.surcharges[k])
-            .map(k => {
-                const config = _ctvState.activeConfig;
-                const match = config && config.surcharges && config.surcharges.optional 
-                    ? config.surcharges.optional.find(o => o.key === k) 
-                    : null;
-                return match ? match.name : k;
-            }).join(', ');
+        const surchargesText = _ctvFormatSurchargesText(item);
             
         let printDesc = '';
         if (item.printType === 'pet') {
@@ -3031,15 +3084,7 @@ function _ctvCopyTextQuotation() {
             text += `  - Đơn giá: ${item.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo\n`;
             text += `  - Thành tiền: ${item.grandTotal.toLocaleString('vi-VN')} đ\n`;
             
-            const surchargesText = Object.keys(item.surcharges)
-                .filter(k => item.surcharges[k])
-                .map(k => {
-                    const config = _ctvState.activeConfig;
-                    const match = config && config.surcharges && config.surcharges.optional 
-                        ? config.surcharges.optional.find(o => o.key === k) 
-                        : null;
-                    return match ? match.name : k;
-                }).join(', ');
+            const surchargesText = _ctvFormatSurchargesText(item);
             let printDesc = '';
             if (item.printType === 'pet') {
                 printDesc = `In PET (${item.savedPrints.length} hình)`;
