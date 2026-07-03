@@ -1789,7 +1789,7 @@ function _ctvCalculateAllCosts() {
             
             if (details.petChestPrint) {
                 cost += chestPrice;
-                breakdown.push({ label: `In PET Ngực (cố định)`, price: chestPrice });
+                breakdown.push({ label: `In PET Ngực`, price: chestPrice });
             }
             
             const shapes = [...(details.petShapes || [])];
@@ -1839,7 +1839,7 @@ function _ctvCalculateAllCosts() {
                 cost3d = qty < 20 ? 30000 : 25000;
             }
             cost = cost3d;
-            breakdown.push({ label: `In 3D toàn thân (${cost3d.toLocaleString('vi-VN')} đ/áo)`, price: cost3d });
+            breakdown.push({ label: `In 3D`, price: cost3d });
         } else if (type === 'screen') {
             const configScreen = config.print_prices.screen || { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 };
             const colors = details.screenColors || 1;
@@ -1869,7 +1869,7 @@ function _ctvCalculateAllCosts() {
                 breakdown.push({ label: `Thêu vi tính: ${embInfo.text}`, price: 0, isContact: true, contactText: embInfo.text });
             } else {
                 cost = embInfo.value;
-                breakdown.push({ label: `Thêu vi tính đồng giá`, price: cost });
+                breakdown.push({ label: `Thêu vi tính`, price: cost });
             }
         }
         return { cost, breakdown };
@@ -2011,7 +2011,7 @@ function _ctvUpdateCalculations() {
         
         <div style="border-top:1px solid rgba(255,255,255,0.1); margin:12px 0; padding-top:12px;">
             <div class="ctv-result-row">
-                <span>Phôi trơn: <strong>${calc.materialName}</strong></span>
+                <span>Chất Liệu : <strong>${calc.materialName}</strong></span>
                 <span>${(_ctvState.targetType === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ/áo</span>
             </div>
         </div>
