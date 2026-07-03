@@ -581,7 +581,10 @@ function _ctvRenderCalculator(container) {
                     </div>
                     
                     ${(function() {
-                        const commissionPercent = Number(config.print_prices?.commission_percent || 15);
+                        const m = config.materials[_ctvState.selectedMaterialIndex];
+                        const basePrice = m ? Number(m.price) : 0;
+                        const custPrice = m && m.customer_price !== undefined ? Number(m.customer_price) : Math.round(basePrice * 1.15);
+                        const diff = custPrice - basePrice;
                         const isChecked = _ctvState.includeCommission ? 'checked' : '';
                         return `
                             <div class="ctv-form-group" style="margin-bottom:15px;">
@@ -589,8 +592,8 @@ function _ctvRenderCalculator(container) {
                                     <div style="display: flex; align-items: center; gap: 10px;">
                                         <span style="font-size: 20px;">💰</span>
                                         <div style="text-align: left;">
-                                            <div style="font-weight: 800; color: #c2410c; font-size: 13px;">Cộng hoa hồng đại lý (+${commissionPercent}%)</div>
-                                            <div style="font-size: 10px; color: #ea580c; font-weight: normal;">Tự động cộng thêm +${commissionPercent}% vào đơn giá vải</div>
+                                            <div style="font-weight: 800; color: #c2410c; font-size: 13px;">Chuyển sang Giá bán Khách hàng</div>
+                                            <div style="font-size: 10px; color: #ea580c; font-weight: normal;">Tự động cộng thêm +${diff.toLocaleString('vi-VN')}đ vào đơn giá vải</div>
                                         </div>
                                     </div>
                                     <input type="checkbox" id="ctv_commission_toggle" ${isChecked} onchange="_ctvToggleCommission(this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c; margin: 0;">
@@ -1298,8 +1301,15 @@ function _ctvCalculateAllCosts() {
         }
     }
     
-    const commissionPercent = Number(config.print_prices?.commission_percent || 15);
-    const commissionAmount = _ctvState.includeCommission ? Math.round(basePrice * commissionPercent / 100) : 0;
+    let commissionAmount = 0;
+    let commissionPercent = 0;
+    if (m) {
+        const custPrice = m.customer_price !== undefined ? Number(m.customer_price) : Math.round(basePrice * 1.15);
+        if (_ctvState.includeCommission) {
+            commissionAmount = custPrice - basePrice;
+            commissionPercent = basePrice > 0 ? Math.round((commissionAmount / basePrice) * 100) : 15;
+        }
+    }
     
     const finalPricePerShirt = basePrice + surchargeTotal + printCost + commissionAmount;
     const grandTotal = finalPricePerShirt * qty;
@@ -2199,7 +2209,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                         <span style="font-weight: 900; font-size: 14px; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">⚡ ĐỒNG PHỤC HV</span>
                     </div>
                     <div style="font-size: 11px; font-weight: 800; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
-                        ${mode === 'customer' ? `BẢNG GIÁ KHÁCH HÀNG (ĐÃ CỘNG HỒI ${commissionPercent}%)` : 'HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC'}
+                        ${mode === 'customer' ? 'BẢNG GIÁ BÁN KHÁCH HÀNG TRỰC TIẾP' : 'HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC'}
                     </div>
                 </div>
                 
@@ -2216,7 +2226,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
                                 ${mats.map(m => {
-                                    const displayPrice = mode === 'customer' ? Math.round(Number(m.price) * (1 + commissionPercent / 100)) : Number(m.price);
+                                    const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
                                     return `
                                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
                                             <span style="font-weight: 700; color: #334155; font-size:12.5px;">${m.name}</span>
@@ -2440,15 +2450,17 @@ function _ctvOpenNewConfigForm(editId = null) {
         };
     }
     
-    const commPct = Number(cfg.print_prices?.commission_percent !== undefined ? cfg.print_prices.commission_percent : 15);
-    const matRows = (cfg.materials || []).map((m, idx) => `
-        <div class="ctv-mat-row" style="display:flex; gap:8px; margin-bottom:8px;">
-            <input type="text" class="ctv-input" placeholder="Tên chất liệu" value="${m.name}" style="flex-grow:1;">
-            <input type="number" class="ctv-input ctv-price-input" placeholder="Giá CTV" value="${m.price}" style="width:110px;" oninput="_ctvUpdateCustomerPrice(this)">
-            <input type="number" class="ctv-input customer-price-input" placeholder="Giá Khách" value="${Math.round(m.price * (1 + commPct / 100))}" style="width:110px; background:#f1f5f9; font-weight:700; color:#ea580c;" readonly>
-            <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
-        </div>
-    `).join('');
+    const matRows = (cfg.materials || []).map((m, idx) => {
+        const custPrice = m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15);
+        return `
+            <div class="ctv-mat-row" style="display:flex; gap:8px; margin-bottom:8px;">
+                <input type="text" class="ctv-input" placeholder="Tên chất liệu" value="${m.name}" style="flex-grow:1;">
+                <input type="number" class="ctv-input ctv-price-input" placeholder="Giá CTV" value="${m.price}" style="width:110px;">
+                <input type="number" class="ctv-input customer-price-input" placeholder="Giá Khách" value="${custPrice}" style="width:110px; font-weight:700; color:#ea580c;">
+                <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
+            </div>
+        `;
+    }).join('');
     
     modal.innerHTML = `
         <div style="background:white; border-radius:16px; max-width:700px; width:100%; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
@@ -2510,10 +2522,9 @@ function _ctvOpenNewConfigForm(editId = null) {
                             <label>Giá tối thiểu/vị trí khác (đ/áo)</label>
                             <input type="text" class="ctv-input" id="new_cfg_pr_pet_min_pos" value="${cfg.print_prices?.pet?.min_position_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
-                        <div class="ctv-form-group" style="margin-top:8px; border-top:1px dashed #cbd5e1; padding-top:8px; margin-bottom:0;">
+                        <div class="ctv-form-group" style="display:none;">
                             <label style="color:#c2410c; font-weight:700;">Phần trăm hoa hồng CTV (%)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_commission_percent" value="${cfg.print_prices?.commission_percent !== undefined ? cfg.print_prices.commission_percent : 15}" ${commissionDisabled} oninput="this.value = this.value.replace(/[^0-9]/g, ''); _ctvUpdateAllCustomerPrices();">
-                            ${!isDirector ? '<span style="font-size:10px; color:#ef4444; display:block; margin-top:2px;">(Chỉ Giám đốc mới có quyền cấu hình %)</span>' : ''}
+                            <input type="text" class="ctv-input" id="new_cfg_commission_percent" value="${cfg.print_prices?.commission_percent !== undefined ? cfg.print_prices.commission_percent : 15}">
                         </div>
                     </div>
                     
@@ -2788,9 +2799,11 @@ function _ctvAddMatRowInput(name = '', price = 75000) {
     const container = document.getElementById('new_cfg_mats_container');
     if (!container) return;
     
-    const commissionInput = document.getElementById('new_cfg_commission_percent');
-    const pct = commissionInput ? (parseFloat(commissionInput.value) || 0) : 15;
-    const custPrice = Math.round(price * (1 + pct / 100));
+function _ctvAddMatRowInput(name = '', price = 75000) {
+    const container = document.getElementById('new_cfg_mats_container');
+    if (!container) return;
+    
+    const custPrice = Math.round(price * 1.15);
     
     const div = document.createElement('div');
     div.className = 'ctv-mat-row';
@@ -2799,8 +2812,8 @@ function _ctvAddMatRowInput(name = '', price = 75000) {
     div.style.marginBottom = '8px';
     div.innerHTML = `
         <input type="text" class="ctv-input" placeholder="Tên chất liệu" value="${name}" style="flex-grow:1;">
-        <input type="number" class="ctv-input ctv-price-input" placeholder="Giá CTV" value="${price}" style="width:110px;" oninput="_ctvUpdateCustomerPrice(this)">
-        <input type="number" class="ctv-input customer-price-input" placeholder="Giá Khách" value="${custPrice}" style="width:110px; background:#f1f5f9; font-weight:700; color:#ea580c;" readonly>
+        <input type="number" class="ctv-input ctv-price-input" placeholder="Giá CTV" value="${price}" style="width:110px;">
+        <input type="number" class="ctv-input customer-price-input" placeholder="Giá Khách" value="${custPrice}" style="width:110px; font-weight:700; color:#ea580c;">
         <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
     `;
     container.appendChild(div);
@@ -2816,11 +2829,12 @@ async function _ctvSaveNewConfigVersion() {
     const materials = [];
     document.querySelectorAll('#new_cfg_mats_container .ctv-mat-row').forEach(row => {
         const inputs = row.querySelectorAll('input');
-        if (inputs.length >= 2) {
+        if (inputs.length >= 3) {
             const name = inputs[0].value.trim();
             const price = parseFloat(inputs[1].value) || 0;
+            const customer_price = parseFloat(inputs[2].value) || 0;
             if (name) {
-                materials.push({ name, price });
+                materials.push({ name, price, customer_price });
             }
         }
     });

@@ -148,7 +148,10 @@ function _mRenderCalculator(container) {
             </div>
             
             ${(function() {
-                const commissionPercent = Number(config.print_prices?.commission_percent || 15);
+                const m = config.materials[_mState.selectedMaterialIndex];
+                const basePrice = m ? Number(m.price) : 0;
+                const custPrice = m && m.customer_price !== undefined ? Number(m.customer_price) : Math.round(basePrice * 1.15);
+                const diff = custPrice - basePrice;
                 const isChecked = _mState.includeCommission ? 'checked' : '';
                 return `
                     <div class="m-form-group">
@@ -156,8 +159,8 @@ function _mRenderCalculator(container) {
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="font-size: 20px;">💰</span>
                                 <div style="text-align: left;">
-                                    <div style="font-weight: 800; color: #c2410c; font-size: 13px;">Cộng hoa hồng đại lý (+${commissionPercent}%)</div>
-                                    <div style="font-size: 10px; color: #ea580c; font-weight: normal;">Tự động cộng thêm +${commissionPercent}% vào đơn giá vải</div>
+                                    <div style="font-weight: 800; color: #c2410c; font-size: 13px;">Chuyển sang Giá bán Khách hàng</div>
+                                    <div style="font-size: 10px; color: #ea580c; font-weight: normal;">Tự động cộng thêm +${diff.toLocaleString('vi-VN')}đ vào đơn giá vải</div>
                                 </div>
                             </div>
                             <input type="checkbox" id="m_commission_toggle" ${isChecked} onchange="_mToggleCommission(this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c; margin: 0;">
@@ -713,8 +716,15 @@ function _mCalculateAllCosts() {
         }
     }
     
-    const commissionPercent = Number(config.print_prices?.commission_percent || 15);
-    const commissionAmount = _mState.includeCommission ? Math.round(basePrice * commissionPercent / 100) : 0;
+    let commissionAmount = 0;
+    let commissionPercent = 0;
+    if (m) {
+        const custPrice = m.customer_price !== undefined ? Number(m.customer_price) : Math.round(basePrice * 1.15);
+        if (_mState.includeCommission) {
+            commissionAmount = custPrice - basePrice;
+            commissionPercent = basePrice > 0 ? Math.round((commissionAmount / basePrice) * 100) : 15;
+        }
+    }
     
     const finalPricePerShirt = basePrice + surchargeTotal + printCost + commissionAmount;
     const grandTotal = finalPricePerShirt * qty;
@@ -1424,7 +1434,7 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: ${mode === 'customer' ? 'linear-gradient(135deg, #ea580c, #f97316)' : 'linear-gradient(135deg, #1e3b8a, #2563eb)'}; border-radius: 10px; color: white; margin-bottom: 4px; box-shadow: 0 3px 8px rgba(37,99,235,0.15);">
                 <span style="font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">⚡ ĐỒNG PHỤC HV</span>
                 <span style="font-size: 9px; font-weight: 750; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
-                    ${mode === 'customer' ? `BẢNG GIÁ KHÁCH HÀNG (ĐÃ CỘNG HỒI ${commissionPercent}%)` : 'HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC'}
+                    ${mode === 'customer' ? 'BẢNG GIÁ KHÁCH BÁN TRỰC TIẾP' : 'HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC'}
                 </span>
             </div>
             
@@ -1441,7 +1451,7 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 6px;">
                     ${mats.map(m => {
-                        const displayPrice = mode === 'customer' ? Math.round(Number(m.price) * (1 + commissionPercent / 100)) : Number(m.price);
+                        const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
                         return `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 8px; border: 1px solid #f1f5f9;">
                                 <span style="font-weight: 600; color: #334155; font-size: 12px;">${m.name}</span>
