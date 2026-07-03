@@ -42,6 +42,7 @@ var _mState = {
     embroideryCost: 15000,
     print3dCost: 30000,
     petChestPrint: false,
+    includeCommission: false,
     historyLogs: [],
     configVersions: []
 };
@@ -145,6 +146,25 @@ function _mRenderCalculator(container) {
                     `).join('')}
                 </select>
             </div>
+            
+            ${(function() {
+                const commissionPercent = Number(config.print_prices?.commission_percent || 15);
+                const isChecked = _mState.includeCommission ? 'checked' : '';
+                return `
+                    <div class="m-form-group">
+                        <label style="display: flex; align-items: center; justify-content: space-between; background: #fff7ed; border: 2px solid #ea580c; border-radius: 8px; padding: 10px 14px; cursor: pointer; user-select: none; margin: 0;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 20px;">💰</span>
+                                <div style="text-align: left;">
+                                    <div style="font-weight: 800; color: #c2410c; font-size: 13px;">Cộng hoa hồng đại lý (+${commissionPercent}%)</div>
+                                    <div style="font-size: 10px; color: #ea580c; font-weight: normal;">Tự động cộng thêm +${commissionPercent}% vào đơn giá vải</div>
+                                </div>
+                            </div>
+                            <input type="checkbox" id="m_commission_toggle" ${isChecked} onchange="_mToggleCommission(this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c; margin: 0;">
+                        </label>
+                    </div>
+                `;
+            })()}
             
             <div class="m-form-group" style="margin-bottom:0;">
                 <label>Phụ phí thêm</label>
@@ -269,6 +289,11 @@ function _mOnQuantityChange(val) {
 
 function _mOnMaterialChange(idx) {
     _mState.selectedMaterialIndex = Number(idx);
+    _mUpdateCalculations();
+}
+
+function _mToggleCommission(checked) {
+    _mState.includeCommission = !!checked;
     _mUpdateCalculations();
 }
 
@@ -688,7 +713,10 @@ function _mCalculateAllCosts() {
         }
     }
     
-    const finalPricePerShirt = basePrice + surchargeTotal + printCost;
+    const commissionPercent = Number(config.print_prices?.commission_percent || 15);
+    const commissionAmount = _mState.includeCommission ? Math.round(basePrice * commissionPercent / 100) : 0;
+    
+    const finalPricePerShirt = basePrice + surchargeTotal + printCost + commissionAmount;
     const grandTotal = finalPricePerShirt * qty;
     
     const shippingList = _mState.activeConfig?.print_prices?.shipping || [
@@ -707,6 +735,8 @@ function _mCalculateAllCosts() {
         surchargeTotal,
         printBreakdown,
         printCost,
+        commissionAmount,
+        commissionPercent,
         finalPricePerShirt,
         grandTotal,
         matchedShipping
@@ -762,6 +792,15 @@ function _mUpdateCalculations() {
             <span>Đơn giá phôi:</span>
             <span>${calc.basePrice.toLocaleString('vi-VN')} đ/áo</span>
         </div>
+        
+        ${calc.commissionAmount > 0 ? `
+            <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
+                <div class="m-result-row" style="color:#f97316; font-weight:bold; font-size:12px;">
+                    <span>Hoa hồng đại lý (+${calc.commissionPercent}%):</span>
+                    <span>+${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo</span>
+                </div>
+            </div>
+        ` : ''}
         
         ${calc.surchargesBreakdown.length > 0 ? `
             <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
@@ -945,6 +984,12 @@ function _mOpenExportModal() {
                         <td style="border:1px solid #cbd5e1; padding:6px;">Phôi vải ${calc.materialName}</td>
                         <td style="border:1px solid #cbd5e1; padding:6px; text-align:right;">${calc.basePrice.toLocaleString('vi-VN')} đ</td>
                     </tr>
+                    ${calc.commissionAmount > 0 ? `
+                        <tr>
+                            <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#ea580c; font-weight:bold;">+ Hoa hồng đại lý (+${calc.commissionPercent}%)</td>
+                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#ea580c; font-weight:bold;">+${calc.commissionAmount.toLocaleString('vi-VN')} đ</td>
+                        </tr>
+                    ` : ''}
                     ${calc.surchargesBreakdown.map(s => `
                         <tr>
                             <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#475569;">+ Phụ phí: ${s.label}</td>
@@ -1004,6 +1049,9 @@ function _mCopyTextQuotation() {
     text += `• Chất liệu: ${calc.materialName}\n`;
     text += `----------------------------------------\n`;
     text += `• Giá phôi: ${calc.basePrice.toLocaleString('vi-VN')} đ/áo\n`;
+    if (calc.commissionAmount > 0) {
+        text += `  + Hoa hồng đại lý (+${calc.commissionPercent}%): +${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo\n`;
+    }
     
     calc.surchargesBreakdown.forEach(s => {
         text += `  + Phụ phí ${s.label}: ${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ\n`;

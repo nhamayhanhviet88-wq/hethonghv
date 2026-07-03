@@ -48,6 +48,7 @@ var _ctvState = {
     // 3D printing cost state
     print3dCost: 30000,
     petChestPrint: false,
+    includeCommission: false,
     
     // History list
     historyLogs: [],
@@ -579,6 +580,25 @@ function _ctvRenderCalculator(container) {
                         </select>
                     </div>
                     
+                    ${(function() {
+                        const commissionPercent = Number(config.print_prices?.commission_percent || 15);
+                        const isChecked = _ctvState.includeCommission ? 'checked' : '';
+                        return `
+                            <div class="ctv-form-group" style="margin-bottom:15px;">
+                                <label style="display: flex; align-items: center; justify-content: space-between; background: #fff7ed; border: 2px solid #ea580c; border-radius: 8px; padding: 10px 14px; cursor: pointer; user-select: none; margin: 0;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span style="font-size: 20px;">💰</span>
+                                        <div style="text-align: left;">
+                                            <div style="font-weight: 800; color: #c2410c; font-size: 13px;">Cộng hoa hồng đại lý (+${commissionPercent}%)</div>
+                                            <div style="font-size: 10px; color: #ea580c; font-weight: normal;">Tự động cộng thêm +${commissionPercent}% vào đơn giá vải</div>
+                                        </div>
+                                    </div>
+                                    <input type="checkbox" id="ctv_commission_toggle" ${isChecked} onchange="_ctvToggleCommission(this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c; margin: 0;">
+                                </label>
+                            </div>
+                        `;
+                    })()}
+                    
                     <div class="ctv-form-group">
                         <label>Các phụ phí tùy chọn</label>
                         <div class="ctv-checkbox-group">
@@ -715,6 +735,11 @@ function _ctvOnQuantityChange(val) {
 
 function _ctvOnMaterialChange(idx) {
     _ctvState.selectedMaterialIndex = Number(idx);
+    _ctvUpdateCalculations();
+}
+
+function _ctvToggleCommission(checked) {
+    _ctvState.includeCommission = !!checked;
     _ctvUpdateCalculations();
 }
 
@@ -1273,7 +1298,10 @@ function _ctvCalculateAllCosts() {
         }
     }
     
-    const finalPricePerShirt = basePrice + surchargeTotal + printCost;
+    const commissionPercent = Number(config.print_prices?.commission_percent || 15);
+    const commissionAmount = _ctvState.includeCommission ? Math.round(basePrice * commissionPercent / 100) : 0;
+    
+    const finalPricePerShirt = basePrice + surchargeTotal + printCost + commissionAmount;
     const grandTotal = finalPricePerShirt * qty;
     
     const shippingList = _ctvState.activeConfig?.print_prices?.shipping || [
@@ -1292,6 +1320,8 @@ function _ctvCalculateAllCosts() {
         surchargeTotal,
         printBreakdown,
         printCost,
+        commissionAmount,
+        commissionPercent,
         finalPricePerShirt,
         grandTotal,
         matchedShipping
@@ -1346,6 +1376,15 @@ function _ctvUpdateCalculations() {
                 <span>${calc.basePrice.toLocaleString('vi-VN')} đ/áo</span>
             </div>
         </div>
+        
+        ${calc.commissionAmount > 0 ? `
+            <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:8px 0; padding-top:8px;">
+                <div class="ctv-result-row" style="color: #f97316; font-weight: bold;">
+                    <span>Hoa hồng đại lý (+${calc.commissionPercent}%):</span>
+                    <span>+${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo</span>
+                </div>
+            </div>
+        ` : ''}
         
         <!-- Surcharges breakdown -->
         ${calc.surchargesBreakdown.length > 0 ? `
@@ -1582,6 +1621,16 @@ function _ctvOpenExportModal() {
                                     ${calc.basePrice.toLocaleString('vi-VN')} đ
                                 </td>
                             </tr>
+                            ${calc.commissionAmount > 0 ? `
+                                <tr>
+                                    <td style="border:1px solid #cbd5e1; padding:10px; padding-left:24px; color:#ea580c; font-weight:bold;">
+                                        + Hoa hồng đại lý (+${calc.commissionPercent}%)
+                                    </td>
+                                    <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; color:#ea580c; font-weight:bold;">
+                                        +${calc.commissionAmount.toLocaleString('vi-VN')} đ
+                                    </td>
+                                </tr>
+                            ` : ''}
                             ${calc.surchargesBreakdown.map(s => `
                                 <tr>
                                     <td style="border:1px solid #cbd5e1; padding:10px; padding-left:24px; color:#475569;">
@@ -2301,6 +2350,8 @@ function _ctvPreviewConfigDetails(id) {
 }
 
 function _ctvOpenNewConfigForm(editId = null) {
+    const isDirector = currentUser && currentUser.role === 'giam_doc';
+    const commissionDisabled = isDirector ? '' : 'disabled style="background-color:#f1f5f9; color:#94a3b8; cursor:not-allowed;"';
     let modal = document.getElementById('ctv_config_new_modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -2343,6 +2394,7 @@ function _ctvOpenNewConfigForm(editId = null) {
             surcharges: { collar: 10000, qty_under_20: 10000, primary_school: -5000, raglan: 5000, color_block: 15000 },
             print_prices: {
                 pet: { sheet_price: 60000, spacing: 0.4 },
+                commission_percent: 15,
                 print3d: {
                     meters_per_shirt: 0.8,
                     print_tiers: [
@@ -2422,6 +2474,11 @@ function _ctvOpenNewConfigForm(editId = null) {
                         <div class="ctv-form-group" style="margin-bottom:0;">
                             <label>Giá tối thiểu/vị trí khác (đ/áo)</label>
                             <input type="text" class="ctv-input" id="new_cfg_pr_pet_min_pos" value="${cfg.print_prices?.pet?.min_position_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                        </div>
+                        <div class="ctv-form-group" style="margin-top:8px; border-top:1px dashed #cbd5e1; padding-top:8px; margin-bottom:0;">
+                            <label style="color:#c2410c; font-weight:700;">Phần trăm hoa hồng CTV (%)</label>
+                            <input type="text" class="ctv-input" id="new_cfg_commission_percent" value="${cfg.print_prices?.commission_percent || 15}" ${commissionDisabled} oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                            ${!isDirector ? '<span style="font-size:10px; color:#ef4444; display:block; margin-top:2px;">(Chỉ Giám đốc mới có quyền cấu hình %)</span>' : ''}
                         </div>
                     </div>
                     
@@ -2749,6 +2806,7 @@ async function _ctvSaveNewConfigVersion() {
         materials,
         surcharges,
         print_prices: {
+            commission_percent: document.getElementById('new_cfg_commission_percent') ? (parseFloat(document.getElementById('new_cfg_commission_percent').value) || 0) : 15,
             pet: {
                 sheet_price: parseFloat(document.getElementById('new_cfg_pr_pet_sheet').value) || 0,
                 spacing: parseFloat(document.getElementById('new_cfg_pr_pet_space').value) || 0,
