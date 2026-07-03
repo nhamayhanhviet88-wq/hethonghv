@@ -3778,7 +3778,7 @@ function _ctvInjectUnifiedPrintStyles() {
                     width: 100% !important;
                     height: auto !important;
                     margin: 0 !important;
-                    padding: 10mm 12mm !important;
+                    padding: 15mm 12mm 10mm 12mm !important;
                     background: white !important;
                     box-shadow: none !important;
                     box-sizing: border-box !important;
@@ -3861,7 +3861,7 @@ function _ctvInjectUnifiedPrintStyles() {
                     width: 100% !important;
                     height: auto !important;
                     margin: 0 !important;
-                    padding: 15mm 20mm !important;
+                    padding: 15mm 12mm 10mm 12mm !important;
                     background: white !important;
                     box-shadow: none !important;
                     box-sizing: border-box !important;
