@@ -1143,6 +1143,14 @@ function _mShowConfigDetailPopup(id) {
     document.getElementById('m_config_modal_body').innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 16px; font-family: 'Inter', sans-serif;">
             
+            <!-- Brand watermark block (nền và chữ ảnh 1 ở dưới ảnh 3) -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: linear-gradient(135deg, #1e3b8a, #2563eb); border-radius: 10px; color: white; margin-bottom: 4px; box-shadow: 0 3px 8px rgba(37,99,235,0.15);">
+                <span style="font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">⚡ ĐỒNG PHỤC HV</span>
+                <span style="font-size: 9px; font-weight: 750; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
+                    HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC
+                </span>
+            </div>
+            
             <!-- Phôi Vải -->
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
                 <div style="font-weight: 800; color: #1e3a8a; font-size: 12.5px; border-bottom: 2px solid #3b82f6; padding-bottom: 4px; margin-bottom: 8px;">
@@ -1210,12 +1218,6 @@ function _mShowConfigDetailPopup(id) {
                         <div style="display:flex; justify-content:space-between; align-items:center;"><span>Đơn >= ${pr.screen?.qty_threshold} áo (4+ màu):</span><strong>${Number(pr.screen?.price_high_4_plus).toLocaleString('vi-VN')}đ/màu/áo</strong></div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Watermark -->
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: linear-gradient(135deg, #1e3a8a, #2563eb); border-radius: 10px; color: white;">
-                <span style="font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">⚡ ĐỒNG PHỤC HV</span>
-                <span style="font-size: 9px; font-weight: 700; opacity: 0.9;">BIỂU PHÍ CTV CHÍNH THỨC</span>
             </div>
             
         </div>

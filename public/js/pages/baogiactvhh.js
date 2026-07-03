@@ -1858,6 +1858,16 @@ function _ctvPreviewConfigDetails(id) {
                 <button onclick="document.getElementById('ctv_config_preview_modal').style.display='none'" style="background:rgba(255,255,255,0.1); border:none; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; color:#cbd5e1; transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'; this.style.color='#ef4444';" onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1';">×</button>
             </div>
             
+            <!-- Brand watermark block (nền và chữ ảnh 1 ở dưới ảnh 3) -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: linear-gradient(135deg, #1e3b8a, #2563eb); color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.15); border-bottom: 1px solid rgba(226, 232, 240, 0.1);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 900; font-size: 14px; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">⚡ ĐỒNG PHỤC HV</span>
+                </div>
+                <div style="font-size: 11px; font-weight: 800; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
+                    HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC
+                </div>
+            </div>
+            
             <!-- Main Content Area -->
             <div style="padding:24px; overflow-y:auto; font-size:13px; line-height:1.6; flex-grow:1; background:#f8fafc; display:flex; flex-direction:column; gap:20px;">
                 
@@ -1982,16 +1992,6 @@ function _ctvPreviewConfigDetails(id) {
                             </div>
                         </div>
                         
-                    </div>
-                </div>
-                
-                <!-- Brand watermark at the bottom of screenshot -->
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: linear-gradient(135deg, #1e3b8a, #2563eb); border-radius: 12px; color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.2);">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-weight: 900; font-size: 14px; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">⚡ ĐỒNG PHỤC HV</span>
-                    </div>
-                    <div style="font-size: 11px; font-weight: 800; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
-                        HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC
                     </div>
                 </div>
                 
