@@ -1961,22 +1961,66 @@ function _mOpenExportModal(mode = null) {
 
     // Build rows HTML
     const rowsHtml = renderedItems.map((item, idx) => {
-        const surchargesText = _mFormatSurchargesText(item);
-            
-        let printDesc = '';
-        if (item.printType === 'pet') {
-            printDesc = `In PET (${item.savedPrints.length} hình)`;
-        } else if (item.printType === 'screen') {
-            printDesc = `In Lưới (${item.screenColors} màu)`;
-        } else if (item.printType === 'print3d') {
-            printDesc = `In 3D`;
-        } else if (item.printType === 'embroidery') {
-            printDesc = `Thêu vi tính`;
+        const config = _mState.activeConfig;
+        const m = config && config.materials ? config.materials[item.selectedMaterialIndex] : null;
+        const basePrice = m ? Number(m.price) : 0;
+        const custPrice = m && m.customer_price !== undefined ? Number(m.customer_price) : Math.round(basePrice * 1.15);
+        const displayBasePrice = (mode === 'customer') ? custPrice : basePrice;
+
+        let detailsHtml = `<div style="font-family: inherit; line-height: 1.5; color: #334155; margin-top: 2px;">`;
+        
+        // 1. Base Price Line
+        detailsHtml += `
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #0f172a; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px; margin-bottom: 4px;">
+                <span>👕 Chất Liệu: ${item.materialName}</span>
+                <span>${displayBasePrice.toLocaleString('vi-VN')} đ/áo</span>
+            </div>
+        `;
+
+        // 2. Surcharges (Phụ phí)
+        if (item.surchargesBreakdown && item.surchargesBreakdown.length > 0) {
+            detailsHtml += `
+                <div style="font-size: 9px; font-weight: 800; color: #64748b; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.5px;">PHỤ PHÍ THÊM:</div>
+            `;
+            item.surchargesBreakdown.forEach(s => {
+                let cleanLabel = s.label.replace(/^custom_/i, '').replace(/_/g, ' ');
+                let priceText = '';
+                if (s.isContact) {
+                    priceText = s.contactText;
+                } else {
+                    priceText = `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`;
+                }
+                detailsHtml += `
+                    <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: #475569; padding-left: 6px; margin-top: 1px;">
+                        <span>+ ${cleanLabel}</span>
+                        <span style="font-weight: 600;">${priceText}</span>
+                    </div>
+                `;
+            });
         }
 
-        let detailsHtml = '';
-        if (surchargesText) detailsHtml += `<div style="font-size:10px; color:#475569; font-style:italic; margin-top:2px;">• Phụ phí: ${surchargesText}</div>`;
-        if (printDesc) detailsHtml += `<div style="font-size:10px; color:#475569; font-style:italic; margin-top:2px;">• Công nghệ: ${printDesc}</div>`;
+        // 3. Printing/Embroidery (In/Thêu)
+        if (item.printBreakdown && item.printBreakdown.length > 0) {
+            detailsHtml += `
+                <div style="font-size: 9px; font-weight: 800; color: #64748b; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.5px;">CHI TIẾT IN/THÊU:</div>
+            `;
+            item.printBreakdown.forEach(p => {
+                let priceText = '';
+                if (p.isContact) {
+                    priceText = p.contactText;
+                } else {
+                    priceText = `+${p.price.toLocaleString('vi-VN')} đ`;
+                }
+                detailsHtml += `
+                    <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: #475569; padding-left: 6px; margin-top: 1px;">
+                        <span>+ ${p.label}</span>
+                        <span style="font-weight: 600;">${priceText}</span>
+                    </div>
+                `;
+            });
+        }
+
+        detailsHtml += `</div>`;
 
         const displayUnitPrice = mode === 'customer' 
             ? item.finalPricePerShirt 
@@ -1985,8 +2029,7 @@ function _mOpenExportModal(mode = null) {
         return `
             <tr style="background:white;">
                 <td style="border:1px solid #cbd5e1; padding:6px; text-align:center;">${(idx + 1).toString().padStart(2, '0')}</td>
-                <td style="border:1px solid #cbd5e1; padding:6px;">
-                    <strong style="color:#1e3a8a;">Chất Liệu:</strong> ${item.materialName}
+                <td style="border:1px solid #cbd5e1; padding:6px; vertical-align: top;">
                     ${detailsHtml}
                 </td>
                 <td style="border:1px solid #cbd5e1; padding:6px; text-align:center; font-weight:600; color:#0f172a;">
