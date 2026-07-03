@@ -831,7 +831,7 @@ function _mCalculateAllCosts() {
     const shippingList = isCust
         ? (_mState.activeConfig?.print_prices?.shipping_customer || [
             { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
-            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
+            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
         ])
         : (_mState.activeConfig?.print_prices?.shipping || [
             { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
