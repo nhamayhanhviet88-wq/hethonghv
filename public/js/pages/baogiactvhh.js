@@ -3641,6 +3641,11 @@ function _ctvInjectUnifiedPrintStyles() {
         style.innerHTML = `
             @media print {
                 /* General rules */
+                body, body * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+                }
                 .no-print {
                     display: none !important;
                 }
@@ -3661,7 +3666,7 @@ function _ctvInjectUnifiedPrintStyles() {
                     width: 100% !important;
                     height: auto !important;
                     margin: 0 !important;
-                    padding: 8mm 10mm !important;
+                    padding: 10mm 12mm !important;
                     background: white !important;
                     box-shadow: none !important;
                     box-sizing: border-box !important;
@@ -3694,41 +3699,42 @@ function _ctvInjectUnifiedPrintStyles() {
                     margin: 0 !important;
                 }
                 body.print-price-list #ctv_price_list_print_content div[style*="margin-bottom:30px"] {
-                    margin-bottom: 10px !important;
-                    padding-bottom: 6px !important;
+                    margin-bottom: 12px !important;
+                    padding-bottom: 8px !important;
                 }
                 body.print-price-list #ctv_price_list_print_content div[style*="margin-bottom:24px"] {
-                    margin-bottom: 8px !important;
-                    padding: 6px 12px !important;
+                    margin-bottom: 10px !important;
+                    padding: 8px 14px !important;
                 }
                 body.print-price-list #ctv_price_list_print_content div[style*="margin-top:20px"] {
-                    margin-top: 10px !important;
+                    margin-top: 12px !important;
                 }
                 body.print-price-list #ctv_price_list_print_content div[style*="margin-top:40px"] {
-                    margin-top: 15px !important;
+                    margin-top: 20px !important;
                 }
                 body.print-price-list #ctv_price_list_print_content table th, 
                 body.print-price-list #ctv_price_list_print_content table td {
-                    padding: 4px 6px !important;
-                    font-size: 11.5px !important;
+                    padding: 6px 8px !important;
+                    font-size: 12px !important;
+                    border: 1px solid #cbd5e1 !important;
                 }
                 body.print-price-list #ctv_price_list_print_content img[style*="height:60px"] {
-                    height: 40px !important;
-                    width: 40px !important;
+                    height: 50px !important;
+                    width: auto !important;
                 }
                 body.print-price-list #ctv_price_list_print_content h1 {
-                    font-size: 16px !important;
+                    font-size: 18px !important;
                 }
                 body.print-price-list #ctv_price_list_print_content h2 {
-                    font-size: 11px !important;
+                    font-size: 12px !important;
                 }
                 body.print-price-list #ctv_price_list_print_content h3,
                 body.print-price-list #ctv_price_list_print_content h4 {
-                    font-size: 11px !important;
-                    margin-bottom: 6px !important;
+                    font-size: 12px !important;
+                    margin-bottom: 8px !important;
                 }
                 body.print-price-list #ctv_price_list_print_content div[style*="height:50px"] {
-                    height: 25px !important;
+                    height: 35px !important;
                 }
                 
                 /* Case 2: Printing Quotation */
@@ -3743,7 +3749,7 @@ function _ctvInjectUnifiedPrintStyles() {
                     width: 100% !important;
                     height: auto !important;
                     margin: 0 !important;
-                    padding: 8mm 10mm !important;
+                    padding: 10mm 12mm !important;
                     background: white !important;
                     box-shadow: none !important;
                     box-sizing: border-box !important;
@@ -3776,41 +3782,42 @@ function _ctvInjectUnifiedPrintStyles() {
                     margin: 0 !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content div[style*="margin-bottom:30px"] {
-                    margin-bottom: 10px !important;
-                    padding-bottom: 6px !important;
+                    margin-bottom: 12px !important;
+                    padding-bottom: 8px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content div[style*="margin-bottom:24px"] {
-                    margin-bottom: 8px !important;
-                    padding: 6px 12px !important;
+                    margin-bottom: 10px !important;
+                    padding: 8px 14px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content div[style*="margin-top:20px"] {
-                    margin-top: 10px !important;
+                    margin-top: 12px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content div[style*="margin-top:40px"] {
-                    margin-top: 15px !important;
+                    margin-top: 20px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content table th, 
                 body.print-quotation #ctv_print_export_modal_content table td {
-                    padding: 4px 6px !important;
-                    font-size: 11.5px !important;
+                    padding: 6px 8px !important;
+                    font-size: 12px !important;
+                    border: 1px solid #cbd5e1 !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content img[style*="height:60px"] {
-                    height: 40px !important;
-                    width: 40px !important;
+                    height: 50px !important;
+                    width: auto !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content h1 {
-                    font-size: 16px !important;
+                    font-size: 18px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content h2 {
-                    font-size: 11px !important;
+                    font-size: 12px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content h3,
                 body.print-quotation #ctv_print_export_modal_content h4 {
-                    font-size: 11px !important;
-                    margin-bottom: 6px !important;
+                    font-size: 12px !important;
+                    margin-bottom: 8px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content div[style*="height:50px"] {
-                    height: 25px !important;
+                    height: 35px !important;
                 }
             }
         `;
