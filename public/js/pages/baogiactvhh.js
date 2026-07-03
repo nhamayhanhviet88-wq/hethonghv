@@ -798,7 +798,7 @@ function _ctvSelectTargetType(type) {
     }
     
     // Update surcharge checkboxes dynamically
-    const checkboxGroup = document.querySelector('#ctv_material') ? document.getElementById('ctv_material').closest('.ctv-card').nextElementSibling.querySelector('.ctv-checkbox-group') : null;
+    const checkboxGroup = document.querySelector('#ctv_material') ? document.getElementById('ctv_material').closest('.ctv-card').querySelector('.ctv-checkbox-group') : null;
     if (checkboxGroup && _ctvState.activeConfig) {
         const config = _ctvState.activeConfig;
         const ordered = _ctvGetOrderedOptionalSurcharges(config);
