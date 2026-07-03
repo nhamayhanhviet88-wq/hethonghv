@@ -1559,74 +1559,79 @@ function _mOpenExportModal(mode = null) {
                 <input type="text" id="m_export_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="flex:1; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:11.5px; outline:none; box-sizing:border-box; background-color:#f1f5f9; color:#64748b; cursor:not-allowed;" disabled />
             </div>
 
-            <div style="border-bottom:2px double #e2e8f0; padding-bottom:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:start;">
-                <div style="display:flex; gap:8px; align-items:center;">
-                    ${info.logo ? `<img src="${info.logo}" style="max-height:36px; max-width:80px; object-fit:contain;" />` : ''}
+            <div style="border-bottom:2px solid #1e3a8a; padding-bottom:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:start;">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    ${info.logo ? `<img src="${info.logo}" style="max-height:40px; max-width:90px; object-fit:contain;" />` : ''}
                     <div>
-                        <h4 style="margin:0; font-size:14px; font-weight:800; color:#1e3a8a;">${info.name}</h4>
-                        <p style="margin:2px 0 0 0; font-size:10px; color:#64748b;">${info.address}</p>
+                        <h4 style="margin:0; font-size:14px; font-weight:900; color:#1e3a8a;">${info.name}</h4>
+                        <p style="margin:2px 0 0 0; font-size:9.5px; color:#64748b;">📍 ${info.address}</p>
                     </div>
                 </div>
                 <div style="text-align:right;">
-                    <h5 style="margin:0; font-size:11px; color:#475569;">${mode === 'customer' ? 'BÁO GIÁ SẢN PHẨM' : 'BÁO GIÁ CTV'}</h5>
-                    <p style="margin:2px 0 0 0; font-size:9px; color:#94a3b8;">${code} | ${dateStr}</p>
+                    <h5 style="margin:0; font-size:11.5px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.3px;">${mode === 'customer' ? 'BÁO GIÁ SẢN PHẨM' : 'BÁO GIÁ CTV'}</h5>
+                    <p style="margin:2px 0 0 0; font-size:9px; color:#64748b;">Mã số: <strong>${code}</strong></p>
+                    <p style="margin:1px 0 0 0; font-size:9px; color:#64748b;">Ngày lập: ${dateStr}</p>
                 </div>
             </div>
             
-            <div style="background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; padding:10px; margin-bottom:14px;">
-                <div style="margin-bottom:4px;">• ${mode === 'customer' ? 'Tên Khách hàng' : 'CTV/Khách hàng'}: <strong>${name}</strong></div>
-                <div style="margin-bottom:4px;">• Số điện thoại: <strong>${phone}</strong></div>
-                <div style="margin-bottom:4px;">• SL áo: <strong>${_mState.quantity} chiếc</strong> (Áo thun cổ tròn)</div>
-                ${calc.matchedShipping ? `<div>• Hỗ trợ vận chuyển: <strong style="color:#0369a1;">${calc.matchedShipping.desc}</strong></div>` : ''}
+            <div style="background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; border-left:4px solid #1e3a8a; padding:12px; margin-bottom:16px; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                <div style="margin-bottom:6px; font-size:12.5px;">👤 ${mode === 'customer' ? 'Kính gửi quý khách hàng' : 'Kính gửi đại lý/ctv'}</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px;">
+                    <div>• Tên: <strong>${name}</strong></div>
+                    <div>• SĐT: <strong>${phone}</strong></div>
+                    <div>• Số lượng: <strong>${_mState.quantity} áo</strong></div>
+                    <div>• Kiểu dáng: <strong>Cổ tròn</strong></div>
+                    ${calc.matchedShipping ? `<div style="grid-column: span 2;">• Hỗ trợ vận chuyển: <strong style="color:#1e3a8a;">${calc.matchedShipping.desc}</strong></div>` : ''}
+                </div>
             </div>
             
-            <table style="width:100%; border-collapse:collapse; font-size:11.5px; border:1px solid #cbd5e1; margin-bottom:14px;">
+            <table style="width:100%; border-collapse:collapse; font-size:11.5px; border:1px solid #cbd5e1; margin-bottom:16px;">
                 <thead>
-                    <tr style="background:#f1f5f9;">
-                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:left;">Hạng mục may & in</th>
-                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:right; width:100px;">Đơn giá</th>
+                    <tr style="background:#1e3a8a; color:white; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                        <th style="border:1px solid #cbd5e1; padding:8px; text-align:left; color:white; font-weight:700; text-transform:uppercase;">Hạng mục may & in</th>
+                        <th style="border:1px solid #cbd5e1; padding:8px; text-align:right; width:110px; color:white; font-weight:700; text-transform:uppercase;">Đơn giá</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td style="border:1px solid #cbd5e1; padding:6px;">Phôi vải ${calc.materialName}</td>
-                        <td style="border:1px solid #cbd5e1; padding:6px; text-align:right;">${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ</td>
+                    <tr style="background:white;">
+                        <td style="border:1px solid #cbd5e1; padding:8px;">Phôi vải ${calc.materialName}</td>
+                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; font-weight:600; color:#0f172a;">${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ</td>
                     </tr>
                     ${(mode !== 'customer' && calc.commissionAmount > 0) ? `
-                        <tr>
-                            <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#ea580c; font-weight:bold;">+ Hoa hồng đại lý (+${calc.commissionPercent}%)</td>
-                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#ea580c; font-weight:bold;">+${calc.commissionAmount.toLocaleString('vi-VN')} đ</td>
+                        <tr style="background:#fff7ed; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#c2410c; font-style:italic;">+ Hoa hồng đại lý (+${calc.commissionPercent}%)</td>
+                            <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#c2410c; font-weight:700;">+${calc.commissionAmount.toLocaleString('vi-VN')} đ</td>
                         </tr>
                     ` : ''}
                     ${calc.surchargesBreakdown.map(s => `
-                        <tr>
-                            <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#475569;">+ Phụ phí: ${s.label}</td>
-                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#475569;">${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}</td>
+                        <tr style="background:#f8fafc; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#475569; font-style:italic;">+ Phụ phí: ${s.label}</td>
+                            <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#475569;">${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}</td>
                         </tr>
                     `).join('')}
                     ${calc.printBreakdown.map(p => `
-                        <tr>
-                            <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#0d9488;">+ In/thêu: ${p.label}</td>
-                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#0d9488;">${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}</td>
+                        <tr style="background:#f0fdf4; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#15803d; font-style:italic;">+ In/thêu: ${p.label}</td>
+                            <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#15803d;">${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}</td>
                         </tr>
                     `).join('')}
-                    <tr style="font-weight:700; background:#f8fafc;">
-                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right;">Đơn giá tổng:</td>
-                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#1e3a8a;">${finalPricePerShirtText}</td>
+                    <tr style="background:#eff6ff; font-weight:800; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                        <td style="border:1px solid #cbd5e1; padding:10px 8px; text-align:right; color:#1e3a8a; border-bottom: 2.5px double #1e3a8a;">ĐƠN GIÁ TRÊN MỖI ÁO:</td>
+                        <td style="border:1px solid #cbd5e1; padding:10px 8px; text-align:right; color:#1e3a8a; font-weight:900; border-bottom: 2.5px double #1e3a8a;">${finalPricePerShirtText}</td>
                     </tr>
                 </tbody>
             </table>
             
-            <div style="background:#f8fafc; border-1px solid #cbd5e1; border-radius:8px; padding:12px; text-align:right;">
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #1e3a8a; border-radius:8px; padding:14px; text-align:right; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
                 <div style="font-size:10px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
-                <div style="font-size:11px; color:#64748b;">Tổng cộng:</div>
-                <div style="font-size:18px; font-weight:900; color:#1e3a8a;">${grandTotalText}</div>
-                <div style="font-size:11.5px; font-style:italic; color:#0369a1; margin-top:4px;">
-                    Bằng chữ: <strong>${wordsText}</strong>
+                <div style="font-size:11.5px; font-weight:700; color:#475569;">TỔNG TIỀN THANH TOÁN (${_mState.quantity} áo):</div>
+                <div style="font-size:20px; font-weight:950; color:#1e3a8a; letter-spacing:-0.3px; margin:2px 0;">${grandTotalText}</div>
+                <div style="font-size:11.5px; font-style:italic; color:#0369a1; border-top:1px dashed #cbd5e1; padding-top:6px; margin-top:6px; display:inline-block; min-width:180px;">
+                    Bằng chữ: <strong style="color:#0f172a;">${wordsText}</strong>
                 </div>
-                <div style="font-size:10px; color:#475569; margin-top:8px; border-top:1px dashed #e2e8f0; padding-top:6px; text-align:left; display:flex; justify-content:space-between;">
+                <div style="font-size:10px; color:#475569; margin-top:10px; border-top:1px dashed #e2e8f0; padding-top:6px; text-align:left; display:flex; justify-content:space-between;">
                     <span>Người lập biểu:</span>
-                    <strong id="m_printed_creator_name">${creatorName}</strong>
+                    <strong id="m_printed_creator_name" style="color:#1e3a8a;">${creatorName}</strong>
                 </div>
             </div>
         </div>

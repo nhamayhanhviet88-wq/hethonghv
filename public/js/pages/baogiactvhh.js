@@ -2437,9 +2437,9 @@ function _ctvOpenExportModal(mode = null) {
             <div style="padding:40px; overflow-y:auto; flex-grow:1;" id="ctv_print_export_modal_content">
                 <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.5;">
                     <!-- Company Info -->
-                    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:30px; border-bottom:3px double #e2e8f0; padding-bottom:20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:30px; border-bottom:3px solid #1e3a8a; padding-bottom:20px;">
                         <div style="display:flex; gap:16px; align-items:center;">
-                            ${info.logo ? `<img src="${info.logo}" style="max-height:60px; max-width:120px; object-fit:contain;" />` : ''}
+                            ${info.logo ? `<img src="${info.logo}" style="max-height:65px; max-width:130px; object-fit:contain;" />` : ''}
                             <div>
                                 <h1 style="margin:0 0 6px 0; font-size:22px; font-weight:900; color:#1e3a8a; letter-spacing:-0.5px;">${info.name}</h1>
                                 <p style="margin:0; font-size:12px; color:#475569;">📍 Địa chỉ: ${info.address}</p>
@@ -2447,77 +2447,79 @@ function _ctvOpenExportModal(mode = null) {
                             </div>
                         </div>
                         <div style="text-align:right;">
-                            <h2 style="margin:0 0 4px 0; font-size:14px; font-weight:800; color:#475569;">${mode === 'customer' ? 'BẢNG BÁO GIÁ SẢN PHẨM' : 'BẢNG BÁO GIÁ ĐẠI LÝ / CTV'}</h2>
-                            <p style="margin:0; font-size:11px; color:#64748b;">Mã số: <strong>${code}</strong></p>
+                            <h2 style="margin:0 0 4px 0; font-size:14px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">${mode === 'customer' ? 'BẢNG BÁO GIÁ SẢN PHẨM' : 'BẢNG BÁO GIÁ ĐẠI LÝ / CTV'}</h2>
+                            <p style="margin:0; font-size:11px; color:#64748b;">Mã số: <strong style="color:#0f172a;">${code}</strong></p>
                             <p style="margin:2px 0 0 0; font-size:11px; color:#64748b;">Ngày lập: ${dateStr}</p>
                         </div>
                     </div>
                     
                     <!-- Customer details -->
-                    <div style="background:#f8fafc; border-radius:10px; padding:16px; margin-bottom:24px; border:1px solid #e2e8f0;">
-                        <h3 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px;">${mode === 'customer' ? 'Kính gửi quý khách hàng' : 'Kính gửi đối tác đại lý / ctv'}</h3>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px;">
-                            <div>• ${mode === 'customer' ? 'Tên Khách hàng' : 'Tên Đại lý/CTV'}: <strong>${name}</strong></div>
-                            <div>• Số điện thoại: <strong>${phone}</strong></div>
-                            <div>• Số lượng: <strong>${_ctvState.quantity} chiếc</strong></div>
-                            <div>• Kiểu dáng may: <strong>Áo thun đồng phục cổ tròn</strong></div>
-                            ${calc.matchedShipping ? `<div style="grid-column: span 2;">• Hỗ trợ vận chuyển: <strong style="color:#0369a1;">${calc.matchedShipping.desc}</strong></div>` : ''}
+                    <div style="background:#f8fafc; border-radius:10px; padding:16px; margin-bottom:24px; border:1px solid #e2e8f0; border-left:5px solid #1e3a8a; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                        <h3 style="margin:0 0 12px 0; font-size:13px; font-weight:800; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+                            <span>👤</span> ${mode === 'customer' ? 'Kính gửi quý khách hàng' : 'Kính gửi đối tác đại lý / ctv'}
+                        </h3>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; font-size:13px;">
+                            <div>• ${mode === 'customer' ? 'Tên Khách hàng' : 'Tên Đại lý/CTV'}: <strong style="color:#0f172a;">${name}</strong></div>
+                            <div>• Số điện thoại: <strong style="color:#0f172a;">${phone}</strong></div>
+                            <div>• Số lượng: <strong style="color:#0f172a;">${_ctvState.quantity} chiếc</strong></div>
+                            <div>• Kiểu dáng may: <strong style="color:#0f172a;">Áo thun đồng phục cổ tròn</strong></div>
+                            ${calc.matchedShipping ? `<div style="grid-column: span 2;">• Hỗ trợ vận chuyển: <strong style="color:#1e3a8a;">${calc.matchedShipping.desc}</strong></div>` : ''}
                         </div>
                     </div>
                     
                     <!-- Price breakdown list -->
-                    <h3 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px;">Chi tiết đơn giá sản xuất</h3>
+                    <h3 style="margin:0 0 12px 0; font-size:13px; font-weight:800; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px;">Chi tiết đơn giá sản xuất</h3>
                     <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:24px; border:1px solid #cbd5e1;">
                         <thead>
-                            <tr style="background:#f1f5f9;">
-                                <th style="border:1px solid #cbd5e1; padding:10px; text-align:left;">Hạng mục sản xuất</th>
-                                <th style="border:1px solid #cbd5e1; padding:10px; text-align:right; width:150px;">Đơn giá (đ/áo)</th>
+                            <tr style="background:#1e3a8a; color:white; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                                <th style="border:1px solid #cbd5e1; padding:10px 14px; text-align:left; color:white; font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Hạng mục sản xuất</th>
+                                <th style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; width:160px; color:white; font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Đơn giá (đ/áo)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td style="border:1px solid #cbd5e1; padding:10px;">
-                                    <strong>May phôi trơn:</strong> Vải ${calc.materialName} (Chưa bao gồm in ấn/sửa đổi)
+                            <tr style="background:white;">
+                                <td style="border:1px solid #cbd5e1; padding:10px 14px; font-size:13px;">
+                                    <strong style="color:#1e3a8a;">May phôi trơn:</strong> Vải ${calc.materialName} (Chưa bao gồm in ấn/sửa đổi)
                                 </td>
-                                <td style="border:1px solid #cbd5e1; padding:10px; text-align:right;">
+                                <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; font-weight:600; color:#0f172a; font-size:13px;">
                                     ${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ
                                 </td>
                             </tr>
                             ${(mode !== 'customer' && calc.commissionAmount > 0) ? `
-                                <tr>
-                                    <td style="border:1px solid #cbd5e1; padding:10px; padding-left:24px; color:#ea580c; font-weight:bold;">
+                                <tr style="background:#fff7ed; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; padding-left:24px; color:#c2410c; font-weight:500; font-size:12.5px; font-style:italic;">
                                         + Hoa hồng đại lý (+${calc.commissionPercent}%)
                                     </td>
-                                    <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; color:#ea580c; font-weight:bold;">
+                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; color:#c2410c; font-weight:700; font-size:12.5px;">
                                         +${calc.commissionAmount.toLocaleString('vi-VN')} đ
                                     </td>
                                 </tr>
                             ` : ''}
                             ${calc.surchargesBreakdown.map(s => `
-                                <tr>
-                                    <td style="border:1px solid #cbd5e1; padding:10px; padding-left:24px; color:#475569;">
+                                <tr style="background:#f8fafc; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; padding-left:24px; color:#475569; font-size:12.5px; font-style:italic;">
                                         + Phụ phí: ${s.label}
                                     </td>
-                                    <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; color:#475569;">
+                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; color:#475569; font-size:12.5px;">
                                         ${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}
                                     </td>
                                 </tr>
                             `).join('')}
                             ${calc.printBreakdown.map(p => `
-                                <tr>
-                                    <td style="border:1px solid #cbd5e1; padding:10px; padding-left:24px; color:#0d9488;">
+                                <tr style="background:#f0fdf4; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; padding-left:24px; color:#15803d; font-size:12.5px; font-style:italic;">
                                         + Công nghệ in/thêu: ${p.label}
                                     </td>
-                                    <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; color:#0d9488;">
+                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; color:#15803d; font-size:12.5px;">
                                         ${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}
                                     </td>
                                 </tr>
                             `).join('')}
-                            <tr style="background:#f8fafc; font-weight:800; font-size:14px;">
-                                <td style="border:1px solid #cbd5e1; padding:12px; text-align:right;">
+                            <tr style="background:#eff6ff; font-weight:800; font-size:13.5px; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                                <td style="border:1px solid #cbd5e1; padding:12px 14px; text-align:right; color:#1e3a8a; border-bottom: 3px double #1e3a8a;">
                                     CỘNG ĐƠN GIÁ TRÊN MỖI ÁO:
                                 </td>
-                                <td style="border:1px solid #cbd5e1; padding:12px; text-align:right; color:#1e3a8a;">
+                                <td style="border:1px solid #cbd5e1; padding:12px 14px; text-align:right; color:#1e3a8a; font-size:14px; font-weight:900; border-bottom: 3px double #1e3a8a;">
                                     ${finalPricePerShirtText}
                                 </td>
                             </tr>
@@ -2525,27 +2527,27 @@ function _ctvOpenExportModal(mode = null) {
                     </table>
                     
                     <!-- Grand total and words -->
-                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:20px; background:#f8fafc; text-align:right; margin-bottom:30px;">
-                        <div style="font-size:12px; color:#64748b; margin-bottom:6px; font-style:italic;">* Giá chưa bao gồm VAT</div>
-                        <div style="font-size:14px; color:#475569; margin-bottom:6px;">TỔNG TIỀN THANH TOÁN (${_ctvState.quantity} áo):</div>
-                        <div style="font-size:24px; font-weight:950; color:#1e3a8a;">${grandTotalText}</div>
-                        <div style="font-size:13px; font-style:italic; color:#0369a1; margin-top:8px;">
-                            Bằng chữ: <strong>${wordsText}</strong>
+                    <div style="border:1px solid #cbd5e1; border-left:5px solid #1e3a8a; border-radius:10px; padding:18px 24px; background:#f8fafc; text-align:right; margin-bottom:30px; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                        <div style="font-size:11.5px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
+                        <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:4px;">TỔNG TIỀN THANH TOÁN (${_ctvState.quantity} áo):</div>
+                        <div style="font-size:26px; font-weight:950; color:#1e3a8a; letter-spacing:-0.5px;">${grandTotalText}</div>
+                        <div style="font-size:13px; font-style:italic; color:#0369a1; margin-top:6px; border-top:1px dashed #cbd5e1; padding-top:6px; display:inline-block; min-width:250px;">
+                            Bằng chữ: <strong style="color:#0f172a;">${wordsText}</strong>
                         </div>
                     </div>
                     
                     <!-- Footer signatures -->
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; text-align:center; font-size:13px; margin-top:40px;">
                         <div>
-                            <p style="margin:0 0 10px 0; font-weight:700; color:#475569;">ĐẠI DIỆN KHÁCH HÀNG</p>
+                            <p style="margin:0 0 6px 0; font-weight:700; color:#475569; text-transform:uppercase;">ĐẠI DIỆN KHÁCH HÀNG</p>
                             <p style="margin:0; color:#64748b; font-style:italic; font-size:11px;">(Ký và ghi rõ họ tên)</p>
-                            <div style="height:50px;"></div>
+                            <div style="height:70px;"></div>
                             <p style="margin:0; font-weight:800; color:#475569; font-size:14px; opacity:0;">(Ký tên)</p>
                         </div>
                         <div>
-                            <p style="margin:0 0 10px 0; font-weight:700; color:#1e3a8a;">ĐẠI DIỆN ${info.name.toUpperCase()}</p>
+                            <p style="margin:0 0 6px 0; font-weight:700; color:#1e3a8a; text-transform:uppercase;">ĐẠI DIỆN ${info.name.toUpperCase()}</p>
                             <p style="margin:0; font-weight:800; color:#1e3a8a;">NGƯỜI LẬP BIỂU</p>
-                            <div style="height:50px;"></div>
+                            <div style="height:70px;"></div>
                             <p id="ctv_printed_creator_name" style="margin:0; font-weight:800; color:#1e3a8a; font-size:14px;">${creatorName}</p>
                         </div>
                     </div>
@@ -3842,7 +3844,7 @@ function _ctvInjectUnifiedPrintStyles() {
                     width: 100% !important;
                     height: auto !important;
                     margin: 0 !important;
-                    padding: 10mm 12mm !important;
+                    padding: 15mm 20mm !important;
                     background: white !important;
                     box-shadow: none !important;
                     box-sizing: border-box !important;
@@ -3866,7 +3868,7 @@ function _ctvInjectUnifiedPrintStyles() {
                     margin: 0 !important;
                     background: white !important;
                     overflow: visible !important;
-                    zoom: 0.85 !important;
+                    zoom: 0.9 !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content > div {
                     border: none !important;
@@ -3875,42 +3877,73 @@ function _ctvInjectUnifiedPrintStyles() {
                     margin: 0 !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content div[style*="margin-bottom:30px"] {
-                    margin-bottom: 12px !important;
-                    padding-bottom: 8px !important;
+                    margin-bottom: 20px !important;
+                    padding-bottom: 12px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content div[style*="margin-bottom:24px"] {
-                    margin-bottom: 10px !important;
-                    padding: 8px 14px !important;
+                    margin-bottom: 18px !important;
+                    padding: 12px 16px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content div[style*="margin-top:20px"] {
-                    margin-top: 12px !important;
+                    margin-top: 14px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content div[style*="margin-top:40px"] {
-                    margin-top: 20px !important;
+                    margin-top: 24px !important;
                 }
-                body.print-quotation #ctv_print_export_modal_content table th, 
+                body.print-quotation #ctv_print_export_modal_content table th {
+                    background-color: #1e3a8a !important;
+                    color: white !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    font-weight: 700 !important;
+                    text-transform: uppercase !important;
+                    font-size: 11px !important;
+                    letter-spacing: 0.5px !important;
+                    padding: 8px 12px !important;
+                    border: 1px solid #cbd5e1 !important;
+                }
                 body.print-quotation #ctv_print_export_modal_content table td {
-                    padding: 6px 8px !important;
+                    padding: 8px 12px !important;
                     font-size: 12px !important;
                     border: 1px solid #cbd5e1 !important;
                 }
-                body.print-quotation #ctv_print_export_modal_content img[style*="height:60px"] {
-                    height: 50px !important;
+                body.print-quotation #ctv_print_export_modal_content tr[style*="background:#fff7ed"] {
+                    background-color: #fff7ed !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content tr[style*="background:#f8fafc"] {
+                    background-color: #f8fafc !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content tr[style*="background:#f0fdf4"] {
+                    background-color: #f0fdf4 !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content tr[style*="background:#eff6ff"] {
+                    background-color: #eff6ff !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content img[style*="height:65px"] {
+                    height: 55px !important;
                     width: auto !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content h1 {
-                    font-size: 18px !important;
+                    font-size: 20px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content h2 {
-                    font-size: 12px !important;
+                    font-size: 13px !important;
                 }
                 body.print-quotation #ctv_print_export_modal_content h3,
                 body.print-quotation #ctv_print_export_modal_content h4 {
                     font-size: 12px !important;
                     margin-bottom: 8px !important;
                 }
-                body.print-quotation #ctv_print_export_modal_content div[style*="height:50px"] {
-                    height: 35px !important;
+                body.print-quotation #ctv_print_export_modal_content div[style*="height:70px"] {
+                    height: 50px !important;
                 }
             }
         `;

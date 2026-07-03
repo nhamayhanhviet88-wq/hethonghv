@@ -353,16 +353,52 @@
         }
 
         @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0;
+            }
             body * {
                 visibility: hidden;
             }
             #m_print_area, #m_print_area * {
-                visibility: visible;
+                visibility: visible !important;
             }
             #m_print_area {
-                position: absolute;
-                left: 0; top: 0; width: 100%;
-                padding: 0; margin: 0;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                padding: 15mm 20mm !important;
+                margin: 0 !important;
+                background: white !important;
+                box-sizing: border-box !important;
+                zoom: 0.9 !important;
+            }
+            #m_print_area table th {
+                background-color: #1e3a8a !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            #m_print_area tr[style*="background:#fff7ed"] {
+                background-color: #fff7ed !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            #m_print_area tr[style*="background:#f8fafc"] {
+                background-color: #f8fafc !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            #m_print_area tr[style*="background:#f0fdf4"] {
+                background-color: #f0fdf4 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            #m_print_area tr[style*="background:#eff6ff"] {
+                background-color: #eff6ff !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
         }
     </style>
@@ -434,7 +470,7 @@
     <!-- Toast container -->
     <div id="toastContainer" style="position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
 
-    <script src="/js/pages/mobile-baogiactvhh.js?v=20260704_v61"></script>
+    <script src="/js/pages/mobile-baogiactvhh.js?v=20260704_v62"></script>
     <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
 </body>
 </html>
