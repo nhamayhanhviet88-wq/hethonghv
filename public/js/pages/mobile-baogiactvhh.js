@@ -1113,29 +1113,112 @@ function _mShowConfigDetailPopup(id) {
     const sc = c.surcharges || {};
     const pr = c.print_prices || {};
     
+    // Sort surcharge items by configured display order
+    let surchargeItems = [];
+    surchargeItems.push({ key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0 });
+    surchargeItems.push({ key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0 });
+    surchargeItems.push({ key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0 });
+    surchargeItems.push({ key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0 });
+    surchargeItems.push({ key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0 });
+    
+    if (sc.custom && Array.isArray(sc.custom)) {
+        sc.custom.forEach(item => {
+            if (item && item.name) {
+                surchargeItems.push({ key: 'custom_' + item.name.replace(/\s+/g, '_'), name: item.name, value: item.value || 0 });
+            }
+        });
+    }
+    
+    if (sc.display_order && Array.isArray(sc.display_order)) {
+        surchargeItems.sort((a, b) => {
+            const idxA = sc.display_order.findIndex(o => o && (typeof o === 'string' ? (o === a.key || o === a.name) : (o.key === a.key || o.name === a.name || o.name === a.key)));
+            const idxB = sc.display_order.findIndex(o => o && (typeof o === 'string' ? (o === b.key || o === b.name) : (o.key === b.key || o.name === b.name || o.name === b.key)));
+            if (idxA === -1 && idxB === -1) return 0;
+            if (idxA === -1) return 1;
+            if (idxB === -1) return -1;
+            return idxA - idxB;
+        });
+    }
+    
     document.getElementById('m_config_modal_body').innerHTML = `
-        <strong style="color:#1e3a8a;">👕 Phôi Vải (May cổ tròn):</strong>
-        <ul style="margin:4px 0 12px 16px;">
-            ${mats.map(m => `<li>${m.name}: ${Number(m.price).toLocaleString('vi-VN')}đ</li>`).join('')}
-        </ul>
-        
-        <strong style="color:#1e3a8a;">➕ Chi Tiết Thêm:</strong>
-        <ul style="margin:4px 0 12px 16px;">
-            <li>Cổ bẻ: +${Number(sc.collar).toLocaleString('vi-VN')}đ</li>
-            <li>Đơn < 20 áo: +${Number(sc.qty_under_20).toLocaleString('vi-VN')}đ</li>
-            <li>Tiểu học: ${Number(sc.primary_school).toLocaleString('vi-VN')}đ</li>
-            <li>Raglan: +${Number(sc.raglan).toLocaleString('vi-VN')}đ</li>
-            <li>Phối: +${Number(sc.color_block).toLocaleString('vi-VN')}đ</li>
-            ${(sc.custom || []).map(item => `<li>${item.name}: ${item.value >= 0 ? '+' : ''}${Number(item.value).toLocaleString('vi-VN')}đ</li>`).join('')}
-        </ul>
-        
-        <strong style="color:#1e3a8a;">🎨 Giá in CTV:</strong>
-        <ul style="margin:4px 0 0 16px;">
-            <li>In PET: ${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ/m, cách ${pr.pet?.spacing}cm</li>
-            <li>Thêu: Đồng giá ${Number(pr.embroidery?.flat_price).toLocaleString('vi-VN')}đ/áo</li>
-            <li>In 3D: ${Number(pr.print3d?.flat_price || 30000).toLocaleString('vi-VN')}đ/áo</li>
-            <li>In lưới: Hạn mức ${pr.screen?.qty_threshold} áo, giá thấp: ${Number(pr.screen?.price_low).toLocaleString('vi-VN')}đ</li>
-        </ul>
+        <div style="display: flex; flex-direction: column; gap: 16px; font-family: 'Inter', sans-serif;">
+            
+            <!-- Phôi Vải -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
+                <div style="font-weight: 800; color: #1e3a8a; font-size: 12.5px; border-bottom: 2px solid #3b82f6; padding-bottom: 4px; margin-bottom: 8px;">
+                    👕 ĐƠN GIÁ PHÔI TRƠN
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    ${mats.map(m => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 8px; border: 1px solid #f1f5f9;">
+                            <span style="font-weight: 600; color: #334155; font-size: 12px;">${m.name}</span>
+                            <span style="background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 6px; font-weight: 750; font-size: 11px;">
+                                ${Number(m.price).toLocaleString('vi-VN')}đ
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <!-- Chi Tiết Thêm -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
+                <div style="font-weight: 800; color: #0d9488; font-size: 12.5px; border-bottom: 2px solid #0d9488; padding-bottom: 4px; margin-bottom: 8px;">
+                    ➕ PHỤ PHÍ & CHI TIẾT THÊM
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    ${surchargeItems.map(item => {
+                        const sign = item.value >= 0 ? '+' : '';
+                        const isNegative = item.value < 0;
+                        return `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 8px; border: 1px solid #f1f5f9;">
+                                <span style="font-weight: 600; color: #334155; font-size: 12px;">${item.name}</span>
+                                <span style="background: ${isNegative ? '#fef2f2' : '#f0fdf4'}; color: ${isNegative ? '#b91c1c' : '#15803d'}; padding: 2px 6px; border-radius: 6px; font-weight: 750; font-size: 11px;">
+                                    ${sign}${Number(item.value).toLocaleString('vi-VN')}đ
+                                </span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            
+            <!-- In/Thêu -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
+                <div style="font-weight: 800; color: #7c3aed; font-size: 12.5px; border-bottom: 2px solid #7c3aed; padding-bottom: 4px; margin-bottom: 8px;">
+                    🎨 PHƯƠNG ÁN IN / THÊU CTV
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #475569;">
+                    <!-- PET -->
+                    <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
+                        <div style="font-weight: 750; color: #6b21a8; font-size: 11.5px; border-bottom: 1px dashed #e9d5ff; padding-bottom: 2px; margin-bottom: 2px;">🧬 In PET Khổ Mét</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Khổ mét (58x100cm):</span><strong>${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ</strong></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Khoảng cách an toàn:</span><strong>${pr.pet?.spacing} cm</strong></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>In PET Ngực:</span><strong>+${Number(pr.pet?.chest_price || 5000).toLocaleString('vi-VN')}đ/áo</strong></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Tối thiểu/Vị trí khác:</span><strong>${Number(pr.pet?.min_position_price || 5000).toLocaleString('vi-VN')}đ</strong></div>
+                    </div>
+                    <!-- Embroidery & 3D -->
+                    <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
+                        <div style="font-weight: 750; color: #86198f; font-size: 11.5px; border-bottom: 1px dashed #f5d0fe; padding-bottom: 2px; margin-bottom: 2px;">⚡ Thêu & In 3D</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Thêu vi tính đồng giá:</span><strong>${Number(pr.embroidery?.flat_price).toLocaleString('vi-VN')}đ/áo</strong></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>In 3D toàn thân:</span><strong>${Number(pr.print3d?.flat_price || 30000).toLocaleString('vi-VN')}đ/áo</strong></div>
+                    </div>
+                    <!-- Screen -->
+                    <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
+                        <div style="font-weight: 750; color: #334155; font-size: 11.5px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px; margin-bottom: 2px;">🖌️ In Lưới (Screen Printing)</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Đơn tối thiểu:</span><strong>${pr.screen?.qty_threshold} áo</strong></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Đơn hàng &lt; ${pr.screen?.qty_threshold} áo:</span><strong>${Number(pr.screen?.price_low).toLocaleString('vi-VN')}đ/màu</strong></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Đơn >= ${pr.screen?.qty_threshold} áo (1-3 màu):</span><strong>${Number(pr.screen?.price_high_1_3).toLocaleString('vi-VN')}đ/màu/áo</strong></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Đơn >= ${pr.screen?.qty_threshold} áo (4+ màu):</span><strong>${Number(pr.screen?.price_high_4_plus).toLocaleString('vi-VN')}đ/màu/áo</strong></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Watermark -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: linear-gradient(135deg, #1e3a8a, #2563eb); border-radius: 10px; color: white;">
+                <span style="font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">⚡ ĐỒNG PHỤC HV</span>
+                <span style="font-size: 9px; font-weight: 700; opacity: 0.9;">BIỂU PHÍ CTV CHÍNH THỨC</span>
+            </div>
+            
+        </div>
     `;
     
     document.getElementById('m_config_modal').style.display = 'flex';
