@@ -1212,11 +1212,31 @@ function _ctvFormatShippingRange(minStr, maxStr) {
     const min = _ctvParseShippingLimit(minStr);
     const max = _ctvParseShippingLimit(maxStr) || 999999999;
     
-    if (max < 10000) {
+    const isMinMoney = (str => {
+        const s = String(str || '').toLowerCase();
+        if (s.includes('áo') || s.includes('cái') || s.includes('pcs')) return false;
+        const num = parseInt(s.replace(/[^0-9]/g, '')) || 0;
+        if (s.includes('triệu') || s.includes('tr') || s.includes('m') || s.includes('đ') || s.includes('k') || s.includes('vnd')) return true;
+        if (num >= 10000) return true;
+        return false;
+    })(minStr);
+    
+    const isMaxMoney = (str => {
+        const s = String(str || '').toLowerCase();
+        if (s.includes('áo') || s.includes('cái') || s.includes('pcs') || s.includes('trở lên')) return false;
+        const num = parseInt(s.replace(/[^0-9]/g, '')) || 0;
+        if (s.includes('triệu') || s.includes('tr') || s.includes('m') || s.includes('đ') || s.includes('k') || s.includes('vnd')) return true;
+        if (num >= 10000) return true;
+        return false;
+    })(maxStr);
+    
+    const isMoney = isMinMoney || isMaxMoney;
+    
+    if (!isMoney) {
         if (min === 0 && max === 19) {
             return 'Dưới 20 áo';
         } else if (max >= 99999) {
-            return `Từ ${min} áo trở lên`;
+            return `Đơn từ ${min} áo trở lên`;
         } else {
             return `Từ ${min} - ${max} áo`;
         }
