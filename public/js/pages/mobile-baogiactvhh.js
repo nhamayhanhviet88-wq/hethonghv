@@ -172,15 +172,12 @@ function _mRenderCalculator(container) {
         
         <!-- Printing Options -->
         <div class="m-card">
-            <div class="m-card-title">🎨 Phương Án In / Thêu</div>
+            <div class="m-card-title">🎨 Phương Án In PET</div>
             <div class="m-form-group" style="margin-bottom:0;">
-                <label>Loại hình in/thêu</label>
+                <label>Loại hình in</label>
                 <select class="m-select" id="m_print_type" onchange="_mOnPrintTypeChange(this.value)">
-                    <option value="none" ${_mState.printType === 'none' ? 'selected' : ''}>Không in/thêu</option>
+                    <option value="none" ${_mState.printType === 'none' ? 'selected' : ''}>Không in</option>
                     <option value="pet" ${_mState.printType === 'pet' ? 'selected' : ''}>In PET CTV</option>
-                    <option value="print3d" ${_mState.printType === 'print3d' ? 'selected' : ''}>In 3D CTV</option>
-                    <option value="screen" ${_mState.printType === 'screen' ? 'selected' : ''}>In Lưới CTV</option>
-                    <option value="embroidery" ${_mState.printType === 'embroidery' ? 'selected' : ''}>Thêu CTV</option>
                 </select>
             </div>
             

@@ -605,15 +605,12 @@ function _ctvRenderCalculator(container) {
                 
                 <!-- Print Configuration -->
                 <div class="ctv-card">
-                    <div class="ctv-card-title">🎨 Phương Án In / Thêu</div>
+                    <div class="ctv-card-title">🎨 Phương Án In PET</div>
                     <div class="ctv-form-group">
-                        <label>Loại hình in/thêu</label>
+                        <label>Loại hình in</label>
                         <select class="ctv-select" id="ctv_print_type" onchange="_ctvOnPrintTypeChange(this.value)">
-                            <option value="none" ${_ctvState.printType === 'none' ? 'selected' : ''}>Không in/thêu</option>
+                            <option value="none" ${_ctvState.printType === 'none' ? 'selected' : ''}>Không in</option>
                             <option value="pet" ${_ctvState.printType === 'pet' ? 'selected' : ''}>In PET CTV</option>
-                            <option value="print3d" ${_ctvState.printType === 'print3d' ? 'selected' : ''}>In 3D CTV</option>
-                            <option value="screen" ${_ctvState.printType === 'screen' ? 'selected' : ''}>In Lưới CTV</option>
-                            <option value="embroidery" ${_ctvState.printType === 'embroidery' ? 'selected' : ''}>Thêu CTV</option>
                         </select>
                     </div>
                     
