@@ -2799,10 +2799,6 @@ function _ctvAddMatRowInput(name = '', price = 75000) {
     const container = document.getElementById('new_cfg_mats_container');
     if (!container) return;
     
-function _ctvAddMatRowInput(name = '', price = 75000) {
-    const container = document.getElementById('new_cfg_mats_container');
-    if (!container) return;
-    
     const custPrice = Math.round(price * 1.15);
     
     const div = document.createElement('div');
