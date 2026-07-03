@@ -734,7 +734,7 @@ function _ctvGetOrderedOptionalSurcharges(config) {
     const customList = config.surcharges?.custom || [];
     customList.forEach(item => {
         const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-        allItems[customKey] = { key: item.name, name: item.name, value: item.value || 0, is_custom: true };
+        allItems[customKey] = { key: customKey, name: item.name, value: item.value || 0, is_custom: true };
     });
     let ordered = [];
     if (config.surcharges?.display_order && Array.isArray(config.surcharges.display_order)) {
@@ -742,11 +742,13 @@ function _ctvGetOrderedOptionalSurcharges(config) {
             let found = null;
             if (o.key && allItems[o.key]) {
                 found = allItems[o.key];
+                found.name = o.name || found.name; // Keep edited name
                 delete allItems[o.key];
             } else {
                 const matchedKey = Object.keys(allItems).find(k => allItems[k].name === o.name || allItems[k].key === o.name);
                 if (matchedKey) {
                     found = allItems[matchedKey];
+                    found.name = o.name || found.name; // Keep edited name
                     delete allItems[matchedKey];
                 }
             }
@@ -754,52 +756,65 @@ function _ctvGetOrderedOptionalSurcharges(config) {
                 ordered.push(found);
             }
         });
+    } else {
+        Object.keys(allItems).forEach(k => {
+            if (allItems[k].key !== 'qty_under_20') {
+                ordered.push(allItems[k]);
+            }
+        });
     }
-    Object.keys(allItems).forEach(k => {
-        if (allItems[k].key !== 'qty_under_20') {
-            ordered.push(allItems[k]);
-        }
-    });
     return ordered;
 }
 
 function _ctvGetOrderedSurchargesList(surchargesObj) {
     if (!surchargesObj) return [];
     const defaults = {
-        collar: { name: 'Cổ bẻ', value: surchargesObj.collar || 0, is_default: true },
-        qty_under_20: { name: 'Sản xuất dưới 20 áo', value: surchargesObj.qty_under_20 || 0, is_default: true, is_auto: true },
-        primary_school: { name: 'Chiết khấu tiểu học', value: surchargesObj.primary_school || 0, is_default: true },
-        raglan: { name: 'Tay Raglan', value: surchargesObj.raglan || 0, is_default: true },
-        color_block: { name: 'Phối màu vải', value: surchargesObj.color_block || 0, is_default: true }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: surchargesObj.collar || 0, is_default: true },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: surchargesObj.qty_under_20 || 0, is_default: true, is_auto: true },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: surchargesObj.primary_school || 0, is_default: true },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: surchargesObj.raglan || 0, is_default: true },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: surchargesObj.color_block || 0, is_default: true }
     };
     const customList = surchargesObj.custom || [];
     const customs = {};
     customList.forEach(c => {
-        customs['custom_' + c.name.replace(/\s+/g, '_')] = { name: c.name, value: c.value || 0, is_default: false };
+        const customKey = 'custom_' + c.name.replace(/\s+/g, '_');
+        customs[customKey] = { key: customKey, name: c.name, value: c.value || 0, is_default: false };
     });
-    const all = { ...defaults, ...customs };
+    
     let ordered = [];
     if (surchargesObj.display_order && Array.isArray(surchargesObj.display_order)) {
         surchargesObj.display_order.forEach(o => {
             let found = null;
-            if (o.key && all[o.key]) {
-                found = all[o.key];
-                delete all[o.key];
+            if (defaults[o.key]) {
+                found = defaults[o.key];
+                found.name = o.name; // Keep edited name
+                delete defaults[o.key];
+            } else if (customs[o.key]) {
+                found = customs[o.key];
+                found.name = o.name; // Keep edited name
+                delete customs[o.key];
             } else {
-                const matchedKey = Object.keys(all).find(k => all[k].name === o.name);
-                if (matchedKey) {
-                    found = all[matchedKey];
-                    delete all[matchedKey];
+                const dk = Object.keys(defaults).find(k => defaults[k].name === o.name);
+                if (dk) {
+                    found = defaults[dk];
+                    delete defaults[dk];
+                } else {
+                    const ck = Object.keys(customs).find(k => customs[k].name === o.name);
+                    if (ck) {
+                        found = customs[ck];
+                        delete customs[ck];
+                    }
                 }
             }
             if (found) {
                 ordered.push(found);
             }
         });
+    } else {
+        ordered = Object.values(defaults);
+        Object.values(customs).forEach(c => ordered.push(c));
     }
-    Object.keys(all).forEach(k => {
-        ordered.push(all[k]);
-    });
     return ordered;
 }
 
@@ -893,7 +908,7 @@ function _ctvRenderPrintPanel() {
                 <h4 style="color:#b45309;">🧵 Thêu Vi Tính CTV</h4>
                 <div class="ctv-form-group" style="margin-bottom:0;">
                     <label style="color:#b45309;">Giá thêu trên mỗi áo (đ/áo)</label>
-                    <input type="number" class="ctv-input" id="ctv_emb_cost" min="0" value="${_ctvState.embroideryCost}" oninput="_ctvOnEmbCostChange(this.value)">
+                    <input type="text" class="ctv-input" id="ctv_emb_cost" value="${_ctvState.embroideryCost}" oninput="_ctvOnEmbCostChange(this.value)">
                 </div>
             </div>
         `;
@@ -906,7 +921,7 @@ function _ctvOnScreenColorsChange(val) {
 }
 
 function _ctvOnEmbCostChange(val) {
-    _ctvState.embroideryCost = Math.max(0, Number(val) || 0);
+    _ctvState.embroideryCost = val;
     _ctvUpdateCalculations();
 }
 
@@ -1042,6 +1057,15 @@ function _ctvCalcPetPlacement(W_sheet, H_sheet, w, h, s) {
     return { aligned, optimized };
 }
 
+function _ctvGetEmbPriceInfo(val) {
+    const cleanVal = String(val || '').trim();
+    const parsed = parseFloat(cleanVal.replace(/[^0-9.-]/g, ''));
+    if (!isNaN(parsed) && isFinite(parsed)) {
+        return { isContact: false, value: parsed, text: parsed.toLocaleString('vi-VN') + 'đ/áo' };
+    }
+    return { isContact: true, value: 0, text: cleanVal || 'Liên hệ' };
+}
+
 function _ctvCalculateAllCosts() {
     const config = _ctvState.activeConfig;
     if (!config) return null;
@@ -1138,8 +1162,14 @@ function _ctvCalculateAllCosts() {
         }
         printCost = singleScreenPrice;
     } else if (pt === 'embroidery') {
-        printCost = _ctvState.embroideryCost;
-        printBreakdown.push({ label: 'Thêu vi tính đồng giá', price: printCost });
+        const embInfo = _ctvGetEmbPriceInfo(_ctvState.embroideryCost);
+        if (embInfo.isContact) {
+            printCost = 0;
+            printBreakdown.push({ label: `Thêu vi tính: ${embInfo.text}`, price: 0, isContact: true, contactText: embInfo.text });
+        } else {
+            printCost = embInfo.value;
+            printBreakdown.push({ label: `Thêu vi tính đồng giá`, price: printCost });
+        }
     }
     
     const finalPricePerShirt = basePrice + surchargeTotal + printCost;
@@ -1168,6 +1198,19 @@ function _ctvUpdateCalculations() {
     }
     
     const hasCustomerSelected = !!_ctvState.selectedCustomer;
+    
+    const hasContactPrice = calc.printBreakdown.some(p => p.isContact);
+    const finalPricePerShirtText = hasContactPrice 
+        ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
+        : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ / áo`;
+    
+    const grandTotalText = hasContactPrice
+        ? `${calc.grandTotal.toLocaleString('vi-VN')} đ + Thêu liên hệ`
+        : `${calc.grandTotal.toLocaleString('vi-VN')} đ`;
+        
+    const wordsText = hasContactPrice
+        ? `${docSoTienVietNam(calc.grandTotal)} (và giá thêu liên hệ)`
+        : docSoTienVietNam(calc.grandTotal);
     
     card.innerHTML = `
         <div class="ctv-result-title">📊 Chi Tiết Giá Dự Kiến</div>
@@ -1208,7 +1251,7 @@ function _ctvUpdateCalculations() {
                 ${calc.printBreakdown.map(p => `
                     <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
                         <span style="padding-left:8px;">+ ${p.label}</span>
-                        <span>+${p.price.toLocaleString('vi-VN')} đ</span>
+                        <span>${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}</span>
                     </div>
                 `).join('')}
             </div>
@@ -1217,16 +1260,16 @@ function _ctvUpdateCalculations() {
         <!-- Grand Totals -->
         <div class="ctv-result-row total">
             <span>Đơn giá / Áo:</span>
-            <span style="color:#38bdf8;">${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ / áo</span>
+            <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
         </div>
         
         <div class="ctv-result-row" style="font-size: 16px; font-weight: 700; color: white; margin-top: 10px;">
             <span>Tổng cộng (${_ctvState.quantity} áo):</span>
-            <span>${calc.grandTotal.toLocaleString('vi-VN')} đ</span>
+            <span>${grandTotalText}</span>
         </div>
         
         <div class="ctv-words">
-            Bằng chữ: <strong>${docSoTienVietNam(calc.grandTotal)}</strong>
+            Bằng chữ: <strong>${wordsText}</strong>
         </div>
         
         <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
@@ -1304,6 +1347,17 @@ function _ctvOpenExportModal() {
     const phone = hasCustomer ? _ctvState.selectedCustomer.phone : 'Chưa có SĐT';
     const code = 'BGCTV-' + Math.floor(Math.random()*900000 + 100000);
     const dateStr = vnDateStr(vnNow());
+    
+    const hasContactPrice = calc.printBreakdown.some(p => p.isContact);
+    const finalPricePerShirtText = hasContactPrice 
+        ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
+        : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo`;
+    const grandTotalText = hasContactPrice
+        ? `${calc.grandTotal.toLocaleString('vi-VN')} đ + Thêu liên hệ`
+        : `${calc.grandTotal.toLocaleString('vi-VN')} đ`;
+    const wordsText = hasContactPrice
+        ? `${docSoTienVietNam(calc.grandTotal)} (và giá thêu liên hệ)`
+        : docSoTienVietNam(calc.grandTotal);
     
     let modal = document.getElementById('ctv_export_modal');
     if (!modal) {
@@ -1391,10 +1445,10 @@ function _ctvOpenExportModal() {
                             ${calc.printBreakdown.map(p => `
                                 <tr>
                                     <td style="border:1px solid #cbd5e1; padding:10px; padding-left:24px; color:#0d9488;">
-                                        + Công nghệ in: ${p.label}
+                                        + Công nghệ in/thêu: ${p.label}
                                     </td>
                                     <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; color:#0d9488;">
-                                        +${p.price.toLocaleString('vi-VN')} đ
+                                        ${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}
                                     </td>
                                 </tr>
                             `).join('')}
@@ -1403,7 +1457,7 @@ function _ctvOpenExportModal() {
                                     CỘNG ĐƠN GIÁ TRÊN MỖI ÁO:
                                 </td>
                                 <td style="border:1px solid #cbd5e1; padding:12px; text-align:right; color:#1e3a8a;">
-                                    ${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ / áo
+                                    ${finalPricePerShirtText}
                                 </td>
                             </tr>
                         </tbody>
@@ -1412,9 +1466,9 @@ function _ctvOpenExportModal() {
                     <!-- Grand total and words -->
                     <div style="border:1px solid #cbd5e1; border-radius:10px; padding:20px; background:#f8fafc; text-align:right; margin-bottom:30px;">
                         <div style="font-size:14px; color:#475569; margin-bottom:6px;">TỔNG TIỀN THANH TOÁN (${_ctvState.quantity} áo):</div>
-                        <div style="font-size:24px; font-weight:950; color:#1e3a8a;">${calc.grandTotal.toLocaleString('vi-VN')} VNĐ</div>
+                        <div style="font-size:24px; font-weight:950; color:#1e3a8a;">${grandTotalText}</div>
                         <div style="font-size:13px; font-style:italic; color:#0369a1; margin-top:8px;">
-                            Bằng chữ: <strong>${docSoTienVietNam(calc.grandTotal)}</strong>
+                            Bằng chữ: <strong>${wordsText}</strong>
                         </div>
                     </div>
                     
@@ -1473,13 +1527,26 @@ function _ctvCopyTextQuotation() {
     });
     
     calc.printBreakdown.forEach(p => {
-        text += `  + In/thêu ${p.label}: +${p.price.toLocaleString('vi-VN')} đ\n`;
+        text += `  + In/thêu ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
     });
     
+    const hasContactPriceText = calc.printBreakdown.some(p => p.isContact);
+    const finalPricePerShirtTextCopy = hasContactPriceText 
+        ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
+        : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ / áo`;
+    
+    const grandTotalTextCopy = hasContactPriceText
+        ? `${calc.grandTotal.toLocaleString('vi-VN')} đ + Thêu liên hệ`
+        : `${calc.grandTotal.toLocaleString('vi-VN')} đ`;
+        
+    const wordsTextCopy = hasContactPriceText
+        ? `${docSoTienVietNam(calc.grandTotal)} (và giá thêu liên hệ)`
+        : docSoTienVietNam(calc.grandTotal);
+        
     text += `----------------------------------------\n`;
-    text += `💰 ĐƠN GIÁ CUỐI: ${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ / áo\n`;
-    text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${calc.grandTotal.toLocaleString('vi-VN')} đ\n`;
-    text += `✍️ (Bằng chữ: ${docSoTienVietNam(calc.grandTotal)})\n`;
+    text += `💰 ĐƠN GIÁ CUỐI: ${finalPricePerShirtTextCopy}\n`;
+    text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${grandTotalTextCopy}\n`;
+    text += `✍️ (Bằng chữ: ${wordsTextCopy})\n`;
     text += `----------------------------------------\n`;
     text += `Xin cảm ơn quý khách đã tin dùng sản phẩm của Đồng Phục HV!`;
     
@@ -1817,31 +1884,62 @@ function _ctvPreviewConfigDetails(id) {
     const sc = c.surcharges || {};
     const pr = c.print_prices || {};
 
-    // Sort surcharge items by configured display order
+    // Sort surcharge items by configured display order (only show items in display_order)
     let surchargeItems = [];
-    surchargeItems.push({ key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, is_default: true });
-    surchargeItems.push({ key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, is_default: true });
-    surchargeItems.push({ key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, is_default: true });
-    surchargeItems.push({ key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, is_default: true });
-    surchargeItems.push({ key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, is_default: true });
-    
+    const _defaults = {
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, is_default: true },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, is_default: true },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, is_default: true },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, is_default: true },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, is_default: true }
+    };
+    const _customs = {};
     if (sc.custom && Array.isArray(sc.custom)) {
         sc.custom.forEach(item => {
             if (item && item.name) {
-                surchargeItems.push({ key: 'custom_' + item.name.replace(/\s+/g, '_'), name: item.name, value: item.value || 0, is_default: false });
+                const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
+                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, is_default: false };
             }
         });
     }
     
     if (sc.display_order && Array.isArray(sc.display_order)) {
-        surchargeItems.sort((a, b) => {
-            const idxA = sc.display_order.findIndex(o => o && (typeof o === 'string' ? (o === a.key || o === a.name) : (o.key === a.key || o.name === a.name || o.name === a.key)));
-            const idxB = sc.display_order.findIndex(o => o && (typeof o === 'string' ? (o === b.key || o === b.name) : (o.key === b.key || o.name === b.name || o.name === b.key)));
-            if (idxA === -1 && idxB === -1) return 0;
-            if (idxA === -1) return 1;
-            if (idxB === -1) return -1;
-            return idxA - idxB;
+        sc.display_order.forEach(o => {
+            if (!o) return;
+            let found = null;
+            const oKey = typeof o === 'string' ? o : o.key;
+            const oName = typeof o === 'string' ? o : o.name;
+            
+            if (_defaults[oKey]) {
+                found = _defaults[oKey];
+                found.name = oName || found.name;
+                delete _defaults[oKey];
+            } else if (_customs[oKey]) {
+                found = _customs[oKey];
+                found.name = oName || found.name;
+                delete _customs[oKey];
+            } else {
+                const dk = Object.keys(_defaults).find(k => _defaults[k].name === oName || _defaults[k].key === oName);
+                if (dk) {
+                    found = _defaults[dk];
+                    found.name = oName || found.name;
+                    delete _defaults[dk];
+                } else {
+                    const ck = Object.keys(_customs).find(k => _customs[k].name === oName || _customs[k].key === oName);
+                    if (ck) {
+                        found = _customs[ck];
+                        found.name = oName || found.name;
+                        delete _customs[ck];
+                    }
+                }
+            }
+            if (found) {
+                surchargeItems.push(found);
+            }
         });
+    } else {
+        surchargeItems = Object.values(_defaults);
+        Object.values(_customs).forEach(c => surchargeItems.push(c));
     }
 
     modal.innerHTML = `
@@ -1954,7 +2052,13 @@ function _ctvPreviewConfigDetails(id) {
                             <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; justify-content: center; height: 100%;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0;">
                                     <span style="color:#64748b; font-weight:600;">Thêu vi tính đồng giá:</span>
-                                    <strong style="color:#0f172a; font-weight:750; background:#fae8ff; padding:2px 8px; border-radius:6px;">${Number(pr.embroidery?.flat_price).toLocaleString('vi-VN')}đ/áo</strong>
+                                    <strong style="color:#0f172a; font-weight:750; background:#fae8ff; padding:2px 8px; border-radius:6px;">
+                                        ${(() => {
+                                            const val = pr.embroidery?.flat_price;
+                                            const isNum = !isNaN(parseFloat(val)) && isFinite(val);
+                                            return isNum ? Number(val).toLocaleString('vi-VN') + 'đ/áo' : (val || 'Liên hệ');
+                                        })()}
+                                    </strong>
                                 </div>
                                 <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0;">
                                     <span style="color:#64748b; font-weight:600;">In 3D toàn thân (tính theo áo):</span>
@@ -2123,7 +2227,7 @@ function _ctvOpenNewConfigForm() {
                         <strong style="color:#b45309;">🧵 Thêu Vi Tính</strong>
                         <div class="ctv-form-group" style="margin-top:8px; margin-bottom:0;">
                             <label>Giá thêu đồng giá (đ/áo)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_emb_flat" value="${cfg.print_prices.embroidery?.flat_price || 15000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_emb_flat" value="${cfg.print_prices.embroidery?.flat_price || 15000}">
                         </div>
                     </div>
                     
@@ -2208,27 +2312,53 @@ function _ctvRenderSurchargeRows(surchargesObj) {
     
     let items = [];
     if (surchargesObj) {
-        items.push({ key: 'collar', name: 'Cổ Bẻ (đ/áo)', value: surchargesObj.collar || 0, is_default: true });
-        items.push({ key: 'qty_under_20', name: 'Đơn Hàng < 20 Áo (đ/áo)', value: surchargesObj.qty_under_20 || 0, is_default: true, is_auto: true });
-        items.push({ key: 'primary_school', name: 'Chiết Khấu Tiểu Học (đ/áo, nhập âm để giảm)', value: surchargesObj.primary_school || 0, is_default: true });
-        items.push({ key: 'raglan', name: 'Raglan (đ/áo)', value: surchargesObj.raglan || 0, is_default: true });
-        items.push({ key: 'color_block', name: 'Phối màu vải (đ/áo)', value: surchargesObj.color_block || 0, is_default: true });
+        const defaults = {
+            collar: { key: 'collar', name: 'Cổ Bẻ (đ/áo)', value: surchargesObj.collar || 0, is_default: true },
+            qty_under_20: { key: 'qty_under_20', name: 'Đơn Hàng < 20 Áo (đ/áo)', value: surchargesObj.qty_under_20 || 0, is_default: true, is_auto: true },
+            primary_school: { key: 'primary_school', name: 'Chiết Khấu Tiểu Học (đ/áo, nhập âm để giảm)', value: surchargesObj.primary_school || 0, is_default: true },
+            raglan: { key: 'raglan', name: 'Raglan (đ/áo)', value: surchargesObj.raglan || 0, is_default: true },
+            color_block: { key: 'color_block', name: 'Phối màu vải (đ/áo)', value: surchargesObj.color_block || 0, is_default: true }
+        };
         
+        const customs = {};
         if (surchargesObj.custom && Array.isArray(surchargesObj.custom)) {
             surchargesObj.custom.forEach(c => {
-                items.push({ key: 'custom_' + c.name.replace(/\s+/g, '_'), name: c.name, value: c.value || 0, is_default: false });
+                const customKey = 'custom_' + c.name.replace(/\s+/g, '_');
+                customs[customKey] = { key: customKey, name: c.name, value: c.value || 0, is_default: false };
             });
         }
         
         if (surchargesObj.display_order && Array.isArray(surchargesObj.display_order)) {
-            items.sort((a, b) => {
-                const idxA = surchargesObj.display_order.findIndex(o => o.key === a.key || o.name === a.name);
-                const idxB = surchargesObj.display_order.findIndex(o => o.key === b.key || o.name === b.name);
-                if (idxA === -1 && idxB === -1) return 0;
-                if (idxA === -1) return 1;
-                if (idxB === -1) return -1;
-                return idxA - idxB;
+            surchargesObj.display_order.forEach(o => {
+                let matched = null;
+                if (defaults[o.key]) {
+                    matched = defaults[o.key];
+                    matched.name = o.name;
+                    delete defaults[o.key];
+                } else if (customs[o.key]) {
+                    matched = customs[o.key];
+                    matched.name = o.name;
+                    delete customs[o.key];
+                } else {
+                    const dk = Object.keys(defaults).find(k => defaults[k].name === o.name);
+                    if (dk) {
+                        matched = defaults[dk];
+                        delete defaults[dk];
+                    } else {
+                        const ck = Object.keys(customs).find(k => customs[k].name === o.name);
+                        if (ck) {
+                            matched = customs[ck];
+                            delete customs[ck];
+                        }
+                    }
+                }
+                if (matched) {
+                    items.push(matched);
+                }
             });
+        } else {
+            items = Object.values(defaults);
+            Object.values(customs).forEach(c => items.push(c));
         }
     }
     
@@ -2242,13 +2372,13 @@ function _ctvRenderSurchargeRows(surchargesObj) {
                     <button type="button" class="ctv-btn-move" onclick="_ctvMoveSurchargeRow(this, 1)" style="padding:1px 6px; font-size:10px; line-height:1; cursor:pointer;">▼</button>
                 </div>
                 <div style="flex-grow:1;">
-                    <input type="text" class="ctv-input ctv-sc-name" placeholder="Tên chi tiết" value="${item.name}" ${isDefault ? 'readonly style="background:#f1f5f9; color:#64748b;"' : ''} style="width: 100%;">
+                    <input type="text" class="ctv-input ctv-sc-name" placeholder="Tên chi tiết" value="${item.name}" style="width: 100%;">
                 </div>
                 <div style="width:150px;">
                     <input type="text" class="ctv-input ctv-sc-value" placeholder="Giá (đ/áo)" value="${item.value}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')" style="width: 100%;">
                 </div>
                 <div style="width:30px; text-align:right;">
-                    ${isDefault ? '' : `<button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>`}
+                    <button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>
                 </div>
             </div>
         `;
@@ -2367,7 +2497,7 @@ async function _ctvSaveNewConfigVersion() {
                 min_position_price: parseFloat(document.getElementById('new_cfg_pr_pet_min_pos').value) || 0
             },
             embroidery: {
-                flat_price: parseFloat(document.getElementById('new_cfg_pr_emb_flat').value) || 0
+                flat_price: document.getElementById('new_cfg_pr_emb_flat').value.trim()
             },
             screen: {
                 qty_threshold: parseFloat(document.getElementById('new_cfg_pr_scr_threshold').value) || 0,

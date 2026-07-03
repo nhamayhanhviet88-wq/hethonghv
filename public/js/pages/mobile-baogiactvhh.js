@@ -289,19 +289,24 @@ function _mGetOrderedOptionalSurcharges(config) {
     const customList = config.surcharges?.custom || [];
     customList.forEach(item => {
         const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-        allItems[customKey] = { key: item.name, name: item.name, value: item.value || 0, is_custom: true };
+        allItems[customKey] = { key: customKey, name: item.name, value: item.value || 0, is_custom: true };
     });
     let ordered = [];
     if (config.surcharges?.display_order && Array.isArray(config.surcharges.display_order)) {
         config.surcharges.display_order.forEach(o => {
             let found = null;
-            if (o.key && allItems[o.key]) {
-                found = allItems[o.key];
-                delete allItems[o.key];
+            const oKey = typeof o === 'string' ? o : o.key;
+            const oName = typeof o === 'string' ? o : o.name;
+            
+            if (oKey && allItems[oKey]) {
+                found = allItems[oKey];
+                found.name = oName || found.name;
+                delete allItems[oKey];
             } else {
-                const matchedKey = Object.keys(allItems).find(k => allItems[k].name === o.name || allItems[k].key === o.name);
+                const matchedKey = Object.keys(allItems).find(k => allItems[k].name === oName || allItems[k].key === oName);
                 if (matchedKey) {
                     found = allItems[matchedKey];
+                    found.name = oName || found.name;
                     delete allItems[matchedKey];
                 }
             }
@@ -309,12 +314,13 @@ function _mGetOrderedOptionalSurcharges(config) {
                 ordered.push(found);
             }
         });
+    } else {
+        Object.keys(allItems).forEach(k => {
+            if (allItems[k].key !== 'qty_under_20') {
+                ordered.push(allItems[k]);
+            }
+        });
     }
-    Object.keys(allItems).forEach(k => {
-        if (allItems[k].key !== 'qty_under_20') {
-            ordered.push(allItems[k]);
-        }
-    });
     return ordered;
 }
 
@@ -401,7 +407,7 @@ function _mRenderPrintPanel() {
             <div style="background:#fffbeb; border:1px dashed #fcd34d; border-radius:10px; padding:10px; margin-top:12px;">
                 <div class="m-form-group" style="margin-bottom:0;">
                     <label style="color:#b45309;">Giá thêu CTV (đ/áo)</label>
-                    <input type="number" class="m-input" id="m_emb_cost" min="0" value="${_mState.embroideryCost}" oninput="_mOnEmbCostChange(this.value)">
+                    <input type="text" class="m-input" id="m_emb_cost" value="${_mState.embroideryCost}" oninput="_mOnEmbCostChange(this.value)">
                 </div>
             </div>
         `;
@@ -418,8 +424,17 @@ function _mOn3dCostChange(val) {
     _mUpdateCalculations();
 }
 
+function _mGetEmbPriceInfo(val) {
+    const cleanVal = String(val || '').trim();
+    const parsed = parseFloat(cleanVal.replace(/[^0-9.-]/g, ''));
+    if (!isNaN(parsed) && isFinite(parsed)) {
+        return { isContact: false, value: parsed, text: parsed.toLocaleString('vi-VN') + 'đ/áo' };
+    }
+    return { isContact: true, value: 0, text: cleanVal || 'Liên hệ' };
+}
+
 function _mOnEmbCostChange(val) {
-    _mState.embroideryCost = Math.max(0, Number(val) || 0);
+    _mState.embroideryCost = val;
     _mUpdateCalculations();
 }
 
@@ -594,8 +609,14 @@ function _mCalculateAllCosts() {
         printCost = singleScreenPrice;
         printBreakdown.push({ label: `In lưới (${colors} màu)`, price: singleScreenPrice });
     } else if (pt === 'embroidery') {
-        printCost = _mState.embroideryCost;
-        printBreakdown.push({ label: 'Thêu vi tính', price: printCost });
+        const embInfo = _mGetEmbPriceInfo(_mState.embroideryCost);
+        if (embInfo.isContact) {
+            printCost = 0;
+            printBreakdown.push({ label: `Thêu vi tính: ${embInfo.text}`, price: 0, isContact: true, contactText: embInfo.text });
+        } else {
+            printCost = embInfo.value;
+            printBreakdown.push({ label: `Thêu vi tính đồng giá`, price: printCost });
+        }
     }
     
     const finalPricePerShirt = basePrice + surchargeTotal + printCost;
@@ -624,6 +645,19 @@ function _mUpdateCalculations() {
     }
     
     const hasCustomer = !!_mState.selectedCustomer;
+    
+    const hasContactPrice = calc.printBreakdown.some(p => p.isContact);
+    const finalPricePerShirtText = hasContactPrice 
+        ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
+        : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo`;
+    
+    const grandTotalText = hasContactPrice
+        ? `${calc.grandTotal.toLocaleString('vi-VN')} đ + Thêu liên hệ`
+        : `${calc.grandTotal.toLocaleString('vi-VN')} đ`;
+        
+    const wordsText = hasContactPrice
+        ? `${docSoTienVietNam(calc.grandTotal)} (và giá thêu liên hệ)`
+        : docSoTienVietNam(calc.grandTotal);
     
     box.innerHTML = `
         <div class="m-result-title">📊 Chi tiết đơn hàng</div>
@@ -663,7 +697,7 @@ function _mUpdateCalculations() {
                 ${calc.printBreakdown.map(p => `
                     <div class="m-result-row" style="font-size:12px;">
                         <span>• ${p.label}</span>
-                        <span>+${p.price.toLocaleString('vi-VN')} đ</span>
+                        <span>${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}</span>
                     </div>
                 `).join('')}
             </div>
@@ -671,15 +705,15 @@ function _mUpdateCalculations() {
         
         <div class="m-result-row total">
             <span>Đơn giá/Áo:</span>
-            <span style="color:#38bdf8;">${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo</span>
+            <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
         </div>
         <div class="m-result-row" style="font-size:15px; font-weight:700; margin-top:4px;">
             <span>Tổng đơn:</span>
-            <span>${calc.grandTotal.toLocaleString('vi-VN')} đ</span>
+            <span>${grandTotalText}</span>
         </div>
         
         <div style="font-size:11.5px; font-style:italic; color:#38bdf8; text-align:right; margin-top:4px;">
-            Bằng chữ: ${docSoTienVietNam(calc.grandTotal)}
+            Bằng chữ: ${wordsText}
         </div>
         
         <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
@@ -747,6 +781,17 @@ function _mOpenExportModal() {
     const dateStr = vnDateStr(vnNow());
     const code = 'BGCTV-M' + Math.floor(Math.random()*90000 + 10000);
     
+    const hasContactPrice = calc.printBreakdown.some(p => p.isContact);
+    const finalPricePerShirtText = hasContactPrice 
+        ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
+        : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo`;
+    const grandTotalText = hasContactPrice
+        ? `${calc.grandTotal.toLocaleString('vi-VN')} đ + Thêu liên hệ`
+        : `${calc.grandTotal.toLocaleString('vi-VN')} đ`;
+    const wordsText = hasContactPrice
+        ? `${docSoTienVietNam(calc.grandTotal)} (và giá thêu liên hệ)`
+        : docSoTienVietNam(calc.grandTotal);
+    
     const container = document.getElementById('m_print_area');
     if (!container) return;
     
@@ -789,22 +834,22 @@ function _mOpenExportModal() {
                     `).join('')}
                     ${calc.printBreakdown.map(p => `
                         <tr>
-                            <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#0d9488;">+ In: ${p.label}</td>
-                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#0d9488;">+${p.price.toLocaleString('vi-VN')} đ</td>
+                            <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#0d9488;">+ In/thêu: ${p.label}</td>
+                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#0d9488;">${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}</td>
                         </tr>
                     `).join('')}
                     <tr style="font-weight:700; background:#f8fafc;">
                         <td style="border:1px solid #cbd5e1; padding:8px; text-align:right;">Đơn giá tổng:</td>
-                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#1e3a8a;">${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo</td>
+                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#1e3a8a;">${finalPricePerShirtText}</td>
                     </tr>
                 </tbody>
             </table>
             
             <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px; text-align:right;">
                 <div style="font-size:11px; color:#64748b;">Tổng cộng:</div>
-                <div style="font-size:18px; font-weight:900; color:#1e3a8a;">${calc.grandTotal.toLocaleString('vi-VN')} đ</div>
+                <div style="font-size:18px; font-weight:900; color:#1e3a8a;">${grandTotalText}</div>
                 <div style="font-size:11.5px; font-style:italic; color:#0369a1; margin-top:4px;">
-                    Bằng chữ: <strong>${docSoTienVietNam(calc.grandTotal)}</strong>
+                    Bằng chữ: <strong>${wordsText}</strong>
                 </div>
             </div>
         </div>
@@ -840,13 +885,26 @@ function _mCopyTextQuotation() {
     });
     
     calc.printBreakdown.forEach(p => {
-        text += `  + In/thêu ${p.label}: +${p.price.toLocaleString('vi-VN')} đ\n`;
+        text += `  + In/thêu ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
     });
     
+    const hasContactPriceText = calc.printBreakdown.some(p => p.isContact);
+    const finalPricePerShirtTextCopy = hasContactPriceText 
+        ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
+        : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo`;
+    
+    const grandTotalTextCopy = hasContactPriceText
+        ? `${calc.grandTotal.toLocaleString('vi-VN')} đ + Thêu liên hệ`
+        : `${calc.grandTotal.toLocaleString('vi-VN')} đ`;
+        
+    const wordsTextCopy = hasContactPriceText
+        ? `${docSoTienVietNam(calc.grandTotal)} (và giá thêu liên hệ)`
+        : docSoTienVietNam(calc.grandTotal);
+        
     text += `----------------------------------------\n`;
-    text += `💰 ĐƠN GIÁ: ${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo\n`;
-    text += `💵 TỔNG CỘNG: ${calc.grandTotal.toLocaleString('vi-VN')} đ\n`;
-    text += `✍️ (Chữ: ${docSoTienVietNam(calc.grandTotal)})\n`;
+    text += `💰 ĐƠN GIÁ: ${finalPricePerShirtTextCopy}\n`;
+    text += `💵 TỔNG CỘNG: ${grandTotalTextCopy}\n`;
+    text += `✍️ (Chữ: ${wordsTextCopy})\n`;
     text += `----------------------------------------\n`;
     
     navigator.clipboard.writeText(text).then(() => {
@@ -1115,29 +1173,60 @@ function _mShowConfigDetailPopup(id) {
     
     // Sort surcharge items by configured display order
     let surchargeItems = [];
-    surchargeItems.push({ key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0 });
-    surchargeItems.push({ key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0 });
-    surchargeItems.push({ key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0 });
-    surchargeItems.push({ key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0 });
-    surchargeItems.push({ key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0 });
-    
+    const defaults = {
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0 },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0 },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0 },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0 },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0 }
+    };
+    const customs = {};
     if (sc.custom && Array.isArray(sc.custom)) {
         sc.custom.forEach(item => {
             if (item && item.name) {
-                surchargeItems.push({ key: 'custom_' + item.name.replace(/\s+/g, '_'), name: item.name, value: item.value || 0 });
+                const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
+                customs[customKey] = { key: customKey, name: item.name, value: item.value || 0 };
             }
         });
     }
     
     if (sc.display_order && Array.isArray(sc.display_order)) {
-        surchargeItems.sort((a, b) => {
-            const idxA = sc.display_order.findIndex(o => o && (typeof o === 'string' ? (o === a.key || o === a.name) : (o.key === a.key || o.name === a.name || o.name === a.key)));
-            const idxB = sc.display_order.findIndex(o => o && (typeof o === 'string' ? (o === b.key || o === b.name) : (o.key === b.key || o.name === b.name || o.name === b.key)));
-            if (idxA === -1 && idxB === -1) return 0;
-            if (idxA === -1) return 1;
-            if (idxB === -1) return -1;
-            return idxA - idxB;
+        sc.display_order.forEach(o => {
+            if (!o) return;
+            let found = null;
+            const oKey = typeof o === 'string' ? o : o.key;
+            const oName = typeof o === 'string' ? o : o.name;
+            
+            if (defaults[oKey]) {
+                found = defaults[oKey];
+                found.name = oName || found.name;
+                delete defaults[oKey];
+            } else if (customs[oKey]) {
+                found = customs[oKey];
+                found.name = oName || found.name;
+                delete customs[oKey];
+            } else {
+                const dk = Object.keys(defaults).find(k => defaults[k].name === oName || defaults[k].key === oName);
+                if (dk) {
+                    found = defaults[dk];
+                    found.name = oName || found.name;
+                    delete defaults[dk];
+                } else {
+                    const ck = Object.keys(customs).find(k => customs[k].name === oName || customs[k].key === oName);
+                    if (ck) {
+                        found = customs[ck];
+                        found.name = oName || found.name;
+                        delete customs[ck];
+                    }
+                }
+            }
+            if (found) {
+                surchargeItems.push(found);
+            }
         });
+    } else {
+        surchargeItems = Object.values(defaults);
+        Object.values(customs).forEach(c => surchargeItems.push(c));
     }
     
     document.getElementById('m_config_modal_body').innerHTML = `
@@ -1206,7 +1295,13 @@ function _mShowConfigDetailPopup(id) {
                     <!-- Embroidery & 3D -->
                     <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
                         <div style="font-weight: 750; color: #86198f; font-size: 11.5px; border-bottom: 1px dashed #f5d0fe; padding-bottom: 2px; margin-bottom: 2px;">⚡ Thêu & In 3D</div>
-                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Thêu vi tính đồng giá:</span><strong>${Number(pr.embroidery?.flat_price).toLocaleString('vi-VN')}đ/áo</strong></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Thêu vi tính đồng giá:</span><strong>
+                            ${(() => {
+                                const val = pr.embroidery?.flat_price;
+                                const isNum = !isNaN(parseFloat(val)) && isFinite(val);
+                                return isNum ? Number(val).toLocaleString('vi-VN') + 'đ/áo' : (val || 'Liên hệ');
+                            })()}
+                        </strong></div>
                         <div style="display:flex; justify-content:space-between; align-items:center;"><span>In 3D toàn thân:</span><strong>${Number(pr.print3d?.flat_price || 30000).toLocaleString('vi-VN')}đ/áo</strong></div>
                     </div>
                     <!-- Screen -->
