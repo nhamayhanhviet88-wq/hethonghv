@@ -3709,8 +3709,8 @@ function _ctvPrintQuotation(mode) {
         const displayCustName = customerName || 'Quý Khách Hàng';
         document.title = `Gửi Báo Giá KH ${displayCustName} ${formattedDate}`;
     } else {
-        const displayCustName = customerName ? `(${customerName})` : '(Đại Lý)';
-        document.title = `Báo Giá CTV HV ${displayCustName} ${formattedDate}`;
+        const displayCustName = customerName || 'Quý Khách Hàng';
+        document.title = `Gửi Báo Giá CTV ${displayCustName} ${formattedDate}`;
     }
     
     document.body.classList.add('print-quotation');
