@@ -831,7 +831,7 @@ function _mCalculateAllCosts() {
     const isCust = _mState.targetType === 'customer';
     const shippingList = isCust
         ? (_mState.activeConfig?.print_prices?.shipping_customer || [
-            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
+            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn phí J&T thường (Khác hỗ trợ 50k)", value: 50000 }
         ])
         : (_mState.activeConfig?.print_prices?.shipping || [
             { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
@@ -1147,7 +1147,8 @@ function _mOpenExportModal(mode = null) {
             <div style="background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; padding:10px; margin-bottom:14px;">
                 <div style="margin-bottom:4px;">• ${mode === 'customer' ? 'Tên Khách hàng' : 'CTV/Khách hàng'}: <strong>${name}</strong></div>
                 <div style="margin-bottom:4px;">• Số điện thoại: <strong>${phone}</strong></div>
-                <div>• SL áo: <strong>${_mState.quantity} chiếc</strong> (Áo thun cổ tròn)</div>
+                <div style="margin-bottom:4px;">• SL áo: <strong>${_mState.quantity} chiếc</strong> (Áo thun cổ tròn)</div>
+                ${calc.matchedShipping ? `<div>• Hỗ trợ vận chuyển: <strong style="color:#0369a1;">${calc.matchedShipping.desc}</strong></div>` : ''}
             </div>
             
             <table style="width:100%; border-collapse:collapse; font-size:11.5px; border:1px solid #cbd5e1; margin-bottom:14px;">
@@ -1187,13 +1188,8 @@ function _mOpenExportModal(mode = null) {
                 </tbody>
             </table>
             
-            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px; text-align:right;">
+            <div style="background:#f8fafc; border-1px solid #cbd5e1; border-radius:8px; padding:12px; text-align:right;">
                 <div style="font-size:10px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
-                ${calc.matchedShipping ? `
-                <div style="font-size:11px; color:#0369a1; margin-bottom:6px; font-weight:600;">
-                    🚚 Hỗ trợ vận chuyển: ${calc.matchedShipping.desc}
-                </div>
-                ` : ''}
                 <div style="font-size:11px; color:#64748b;">Tổng cộng:</div>
                 <div style="font-size:18px; font-weight:900; color:#1e3a8a;">${grandTotalText}</div>
                 <div style="font-size:11.5px; font-style:italic; color:#0369a1; margin-top:4px;">

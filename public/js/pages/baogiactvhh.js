@@ -1444,7 +1444,7 @@ function _ctvCalculateAllCosts() {
     const isCust = _ctvState.targetType === 'customer';
     const shippingList = isCust
         ? (_ctvState.activeConfig?.print_prices?.shipping_customer || [
-            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
+            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn phí J&T thường (Khác hỗ trợ 50k)", value: 50000 }
         ])
         : (_ctvState.activeConfig?.print_prices?.shipping || [
             { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
@@ -1949,6 +1949,7 @@ function _ctvOpenExportModal(mode = null) {
                             <div>• Số điện thoại: <strong>${phone}</strong></div>
                             <div>• Số lượng: <strong>${_ctvState.quantity} chiếc</strong></div>
                             <div>• Kiểu dáng may: <strong>Áo thun đồng phục cổ tròn</strong></div>
+                            ${calc.matchedShipping ? `<div style="grid-column: span 2;">• Hỗ trợ vận chuyển: <strong style="color:#0369a1;">${calc.matchedShipping.desc}</strong></div>` : ''}
                         </div>
                     </div>
                     
@@ -2014,11 +2015,6 @@ function _ctvOpenExportModal(mode = null) {
                     <!-- Grand total and words -->
                     <div style="border:1px solid #cbd5e1; border-radius:10px; padding:20px; background:#f8fafc; text-align:right; margin-bottom:30px;">
                         <div style="font-size:12px; color:#64748b; margin-bottom:6px; font-style:italic;">* Giá chưa bao gồm VAT</div>
-                        ${calc.matchedShipping ? `
-                        <div style="font-size:13px; color:#0369a1; margin-bottom:8px; font-weight:600;">
-                            🚚 Hỗ trợ vận chuyển: ${calc.matchedShipping.desc}
-                        </div>
-                        ` : ''}
                         <div style="font-size:14px; color:#475569; margin-bottom:6px;">TỔNG TIỀN THANH TOÁN (${_ctvState.quantity} áo):</div>
                         <div style="font-size:24px; font-weight:950; color:#1e3a8a;">${grandTotalText}</div>
                         <div style="font-size:13px; font-style:italic; color:#0369a1; margin-top:8px;">
@@ -2646,7 +2642,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                     <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
                                         ${(pr.shipping || [
                                             { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
-                                            { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 }
+                                            { min_qty: 20, max_qty: 100, desc: "Miễn phí J&T/Viettel thường (Khác hỗ trợ 50k)", value: 50000 }
                                         ]).map(s => {
                                             const qtyRange = _ctvFormatShippingRange(s.min_qty, s.max_qty);
                                             const descLower = String(s.desc).toLowerCase();
@@ -2679,7 +2675,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                     </div>
                                     <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
                                         ${(pr.shipping_customer || [
-                                            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
+                                            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn phí J&T thường (Khác hỗ trợ 50k)", value: 50000 }
                                         ]).map(s => {
                                             const qtyRange = _ctvFormatShippingRange(s.min_qty, s.max_qty);
                                             const descLower = String(s.desc).toLowerCase();
@@ -3149,7 +3145,7 @@ function _ctvRenderShippingRows(shippingList, shippingCustomerList) {
     if (containerCust) {
         containerCust.innerHTML = '';
         const listCust = shippingCustomerList || [
-            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn Phí Vận Chuyển Thường J&T , nếu Vận Chuyển Khác hỗ trợ 50k", value: 50000 }
+            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn phí J&T thường (Khác hỗ trợ 50k)", value: 50000 }
         ];
         listCust.forEach(item => {
             _ctvAddShippingRowInput('customer', item.min_qty, item.max_qty, item.desc, item.value);
