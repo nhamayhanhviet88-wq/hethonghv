@@ -2536,7 +2536,7 @@ function _ctvOpenExportModal(mode = null) {
                         <tbody>
                             <tr style="background:white;">
                                 <td style="border:1px solid #cbd5e1; padding:10px 14px; font-size:13px;">
-                                    <strong style="color:#1e3a8a;">May phôi trơn:</strong> Vải ${calc.materialName}
+                                    <strong style="color:#1e3a8a;">Chất Liệu:</strong> ${calc.materialName}
                                 </td>
                                 <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; font-weight:600; color:#0f172a; font-size:13px;">
                                     ${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ
@@ -2555,9 +2555,9 @@ function _ctvOpenExportModal(mode = null) {
                             ${calc.surchargesBreakdown.map(s => `
                                 <tr style="background:#f8fafc; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
                                     <td style="border:1px solid #cbd5e1; padding:10px 14px; padding-left:24px; color:#475569; font-size:12.5px; font-style:italic;">
-                                        + Phụ phí: ${s.label}
+                                        + ${s.label}
                                     </td>
-                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; color:#475569; font-size:12.5px;">
+                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; color:${s.price < 0 ? '#ef4444' : '#475569'}; font-size:12.5px; ${s.price < 0 ? 'font-weight:700;' : ''}">
                                         ${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}
                                     </td>
                                 </tr>
@@ -2565,7 +2565,7 @@ function _ctvOpenExportModal(mode = null) {
                             ${calc.printBreakdown.map(p => `
                                 <tr style="background:#f0fdf4; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
                                     <td style="border:1px solid #cbd5e1; padding:10px 14px; padding-left:24px; color:#15803d; font-size:12.5px; font-style:italic;">
-                                        + Công nghệ in/thêu: ${p.label}
+                                        + ${p.label}
                                     </td>
                                     <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; color:#15803d; font-size:12.5px;">
                                         ${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}
@@ -2655,11 +2655,11 @@ function _ctvCopyTextQuotation() {
     }
     
     calc.surchargesBreakdown.forEach(s => {
-        text += `  + Phụ phí ${s.label}: ${s.isContact ? s.contactText : (s.price >= 0 ? '+' : '') + s.price.toLocaleString('vi-VN') + ' đ'}\n`;
+        text += `  + ${s.label}: ${s.isContact ? s.contactText : (s.price >= 0 ? '+' : '') + s.price.toLocaleString('vi-VN') + ' đ'}\n`;
     });
     
     calc.printBreakdown.forEach(p => {
-        text += `  + In/thêu ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
+        text += `  + ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
     });
     
     const contactTextsCopy = [];

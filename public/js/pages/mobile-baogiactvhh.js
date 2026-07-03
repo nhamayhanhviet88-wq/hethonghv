@@ -1659,7 +1659,7 @@ function _mOpenExportModal(mode = null) {
                 </thead>
                 <tbody>
                     <tr style="background:white;">
-                        <td style="border:1px solid #cbd5e1; padding:8px;">Phôi vải ${calc.materialName}</td>
+                        <td style="border:1px solid #cbd5e1; padding:8px;"><strong style="color:#1e3a8a;">Chất Liệu:</strong> ${calc.materialName}</td>
                         <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; font-weight:600; color:#0f172a;">${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ</td>
                     </tr>
                     ${(mode !== 'customer' && calc.commissionAmount > 0) ? `
@@ -1670,13 +1670,13 @@ function _mOpenExportModal(mode = null) {
                     ` : ''}
                     ${calc.surchargesBreakdown.map(s => `
                         <tr style="background:#f8fafc; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#475569; font-style:italic;">+ Phụ phí: ${s.label}</td>
-                            <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#475569;">${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}</td>
+                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#475569; font-style:italic;">+ ${s.label}</td>
+                            <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:${s.price < 0 ? '#ef4444' : '#475569'}; ${s.price < 0 ? 'font-weight:700;' : ''}">${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}</td>
                         </tr>
                     `).join('')}
                     ${calc.printBreakdown.map(p => `
                         <tr style="background:#f0fdf4; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#15803d; font-style:italic;">+ In/thêu: ${p.label}</td>
+                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#15803d; font-style:italic;">+ ${p.label}</td>
                             <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#15803d;">${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}</td>
                         </tr>
                     `).join('')}
@@ -1734,11 +1734,11 @@ function _mCopyTextQuotation() {
     }
     
     calc.surchargesBreakdown.forEach(s => {
-        text += `  + Phụ phí ${s.label}: ${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ\n`;
+        text += `  + ${s.label}: ${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ\n`;
     });
     
     calc.printBreakdown.forEach(p => {
-        text += `  + In/thêu ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
+        text += `  + ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
     });
     
     const hasContactPriceText = calc.printBreakdown.some(p => p.isContact);
