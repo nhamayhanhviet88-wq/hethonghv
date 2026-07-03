@@ -1494,14 +1494,18 @@ function _mOpenExportModal(mode = null) {
     let info = null;
     try {
         info = JSON.parse(localStorage.getItem('ctv_company_info'));
+        if (info && (info.name === "XƯỞNG MAY ĐỒNG PHỤC HV" || info.phone === "0988.888.888")) {
+            info = null;
+            localStorage.removeItem('ctv_company_info');
+        }
     } catch(e) {}
     if (!info) {
         info = {
-            name: "XƯỞNG MAY ĐỒNG PHỤC HV",
-            address: "Xưởng may Đồng Phục HV, Hà Nội",
-            phone: "0988.888.888",
-            website: "dongphuchv.net",
-            logo: ""
+            name: "ĐỒNG PHỤC HV",
+            address: "LK02-21 Khu Đô Thị Đô Nghĩa, Hà Đông, Hà Nội",
+            phone: "09.2333.2333",
+            website: "www.dongphuchv.vn",
+            logo: "/images/logo.png"
         };
     }
     const userObj = window._currentUser || window.currentUser;
