@@ -2447,8 +2447,8 @@ function _ctvOpenExportModal(mode = null) {
             </div>
             
             <!-- Printable Bill area -->
-            <div style="padding:40px; overflow-y:auto; flex-grow:1;" id="ctv_print_export_modal_content">
-                <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.5;">
+            <div style="padding:40px; overflow-y:auto; flex-grow:1; background:#f8fafc;" id="ctv_print_export_modal_content">
+                <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.5; background:white; padding:30px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
                     <!-- Company Info -->
                     <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:30px; border-bottom:3px solid #1e3a8a; padding-bottom:20px;">
                         <div style="display:flex; gap:16px; align-items:center;">
