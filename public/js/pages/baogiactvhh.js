@@ -2316,7 +2316,7 @@ function _ctvOpenNewConfigForm(editId = null) {
                     </div>
                     
                     <!-- Embroidery -->
-                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
+                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; display:none;">
                         <strong style="color:#b45309;">🧵 Thêu Vi Tính</strong>
                         <div class="ctv-form-group" style="margin-top:8px; margin-bottom:0;">
                             <label>Giá thêu đồng giá (đ/áo)</label>
@@ -2348,7 +2348,7 @@ function _ctvOpenNewConfigForm(editId = null) {
                     </div>
                     
                     <!-- In 3D -->
-                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; grid-column: span 2;">
+                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; grid-column: span 2; display:none;">
                         <strong style="color:#0284c7;">🌀 In 3D Toàn Thân</strong>
                         <div class="ctv-form-group" style="margin-top:8px; margin-bottom:8px;">
                             <label>Giá in 3D (đ/áo)</label>
