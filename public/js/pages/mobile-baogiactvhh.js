@@ -673,7 +673,11 @@ function _mCalculateAllCosts() {
     ];
     let matchedShipping = null;
     if (qty > 0) {
-        matchedShipping = shippingList.find(s => qty >= s.min_qty && qty <= s.max_qty);
+        matchedShipping = shippingList.find(s => {
+            const min = parseInt(String(s.min_qty).replace(/[^0-9]/g, '')) || 0;
+            const max = parseInt(String(s.max_qty).replace(/[^0-9]/g, '')) || 999999;
+            return qty >= min && qty <= max;
+        });
     }
     
     return {

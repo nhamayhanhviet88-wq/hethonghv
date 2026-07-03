@@ -1226,7 +1226,11 @@ function _ctvCalculateAllCosts() {
     ];
     let matchedShipping = null;
     if (qty > 0) {
-        matchedShipping = shippingList.find(s => qty >= s.min_qty && qty <= s.max_qty);
+        matchedShipping = shippingList.find(s => {
+            const min = parseInt(String(s.min_qty).replace(/[^0-9]/g, '')) || 0;
+            const max = parseInt(String(s.max_qty).replace(/[^0-9]/g, '')) || 999999;
+            return qty >= min && qty <= max;
+        });
     }
     
     return {
@@ -2165,13 +2169,15 @@ function _ctvPreviewConfigDetails(id) {
                                         { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
                                         { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
                                     ]).map(s => {
+                                        const min = parseInt(String(s.min_qty).replace(/[^0-9]/g, '')) || 0;
+                                        const max = parseInt(String(s.max_qty).replace(/[^0-9]/g, '')) || 999999;
                                         let qtyRange = '';
-                                        if (s.min_qty === 0 && s.max_qty === 19) {
+                                        if (min === 0 && max === 19) {
                                             qtyRange = 'Dưới 20 áo';
-                                        } else if (s.max_qty >= 99999) {
-                                            qtyRange = `Từ ${s.min_qty} áo trở lên`;
+                                        } else if (max >= 99999) {
+                                            qtyRange = `Từ ${min} áo trở lên`;
                                         } else {
-                                            qtyRange = `Từ ${s.min_qty} - ${s.max_qty} áo`;
+                                            qtyRange = `Từ ${min} - ${max} áo`;
                                         }
                                         
                                         let badgeHTML = '';
@@ -2415,13 +2421,17 @@ function _ctvOpenNewConfigForm(editId = null) {
                 </div>
                 
                 <!-- Shipping setup -->
-                <h4 style="margin:20px 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">🚚 Thiết Lập Giá Vận Chuyển</h4>
+                <h4 style="margin:20px 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🚚 Thiết Lập Giá Vận Chuyển</span>
+                    <button type="button" class="ctv-btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="_ctvAddShippingRowInput()">+ Thêm vận chuyển</button>
+                </h4>
                 <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
-                    <div style="display:grid; grid-template-columns: 80px 80px 1fr 120px; gap:8px; font-weight:bold; margin-bottom:8px; color:#475569; font-size:12px;">
+                    <div style="display:grid; grid-template-columns: 80px 80px 1fr 120px 30px; gap:8px; font-weight:bold; margin-bottom:8px; color:#475569; font-size:12px;">
                         <span>Từ (áo)</span>
                         <span>Đến (áo)</span>
                         <span>Chính sách vận chuyển</span>
                         <span>Hỗ trợ VC khác (đ)</span>
+                        <span></span>
                     </div>
                     <div id="new_cfg_shipping_container" style="display:flex; flex-direction:column; gap:8px;">
                         <!-- Will be populated dynamically -->
@@ -2550,22 +2560,37 @@ function _ctvRenderSurchargeRows(surchargesObj) {
 function _ctvRenderShippingRows(shippingList) {
     const container = document.getElementById('new_cfg_shipping_container');
     if (!container) return;
+    container.innerHTML = '';
     
     const list = shippingList || [
-        { min_qty: 0, max_qty: 19, desc: "Không hỗ trợ vận chuyển", value: 0 },
-        { min_qty: 20, max_qty: 100, desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 50k)", value: 50000 },
-        { min_qty: 101, max_qty: 499, desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 100k)", value: 100000 },
-        { min_qty: 500, max_qty: 999999, desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 200k)", value: 200000 }
+        { min_qty: "0", max_qty: "19", desc: "Không hỗ trợ vận chuyển", value: 0 },
+        { min_qty: "20", max_qty: "100", desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 50k)", value: 50000 },
+        { min_qty: "101", max_qty: "499", desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 100k)", value: 100000 },
+        { min_qty: "500", max_qty: "999999", desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 200k)", value: 200000 }
     ];
     
-    container.innerHTML = list.map((item, idx) => `
-        <div class="ctv-shipping-row" style="display:grid; grid-template-columns: 80px 80px 1fr 120px; gap:8px; align-items:center;">
-            <input type="number" class="ctv-input shipping-min" value="${item.min_qty}" placeholder="Từ">
-            <input type="number" class="ctv-input shipping-max" value="${item.max_qty}" placeholder="Đến">
-            <input type="text" class="ctv-input shipping-desc" value="${item.desc}" placeholder="Chính sách vận chuyển" style="font-size:12px;">
-            <input type="text" class="ctv-input shipping-value" value="${item.value}" placeholder="Hỗ trợ" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+    list.forEach(item => {
+        _ctvAddShippingRowInput(item.min_qty, item.max_qty, item.desc, item.value);
+    });
+}
+
+function _ctvAddShippingRowInput(min_qty = '', max_qty = '', desc = '', value = 0) {
+    const container = document.getElementById('new_cfg_shipping_container');
+    if (!container) return;
+    
+    const div = document.createElement('div');
+    div.className = 'ctv-shipping-row';
+    div.style.cssText = 'display:grid; grid-template-columns: 80px 80px 1fr 120px 30px; gap:8px; align-items:center;';
+    div.innerHTML = `
+        <input type="text" class="ctv-input shipping-min" value="${min_qty}" placeholder="Từ">
+        <input type="text" class="ctv-input shipping-max" value="${max_qty}" placeholder="Đến">
+        <input type="text" class="ctv-input shipping-desc" value="${desc}" placeholder="Chính sách vận chuyển" style="font-size:12px;">
+        <input type="text" class="ctv-input shipping-value" value="${value}" placeholder="Hỗ trợ" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+        <div style="text-align:right;">
+            <button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>
         </div>
-    `).join('');
+    `;
+    container.appendChild(div);
 }
 
 function _ctvAddCustomSurchargeRow(name = '', value = 0) {
@@ -2697,8 +2722,8 @@ async function _ctvSaveNewConfigVersion() {
             shipping: (function() {
                 const list = [];
                 document.querySelectorAll('#new_cfg_shipping_container .ctv-shipping-row').forEach(row => {
-                    const min_qty = parseInt(row.querySelector('.shipping-min').value) || 0;
-                    const max_qty = parseInt(row.querySelector('.shipping-max').value) || 0;
+                    const min_qty = row.querySelector('.shipping-min').value.trim();
+                    const max_qty = row.querySelector('.shipping-max').value.trim();
                     const desc = row.querySelector('.shipping-desc').value.trim();
                     const value = parseFloat(row.querySelector('.shipping-value').value) || 0;
                     list.push({ min_qty, max_qty, desc, value });
