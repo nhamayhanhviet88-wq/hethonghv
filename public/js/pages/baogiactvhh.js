@@ -724,6 +724,7 @@ function _ctvRenderCalculator(container) {
                         <select class="ctv-select" id="ctv_print_type" onchange="_ctvOnPrintTypeChange(this.value)">
                             <option value="none" ${_ctvState.printType === 'none' ? 'selected' : ''}>Không in</option>
                             <option value="pet" ${_ctvState.printType === 'pet' ? 'selected' : ''}>In PET</option>
+                            <option value="screen" ${_ctvState.printType === 'screen' ? 'selected' : ''}>In Lưới</option>
                             <option value="print3d" ${_ctvState.printType === 'print3d' ? 'selected' : ''}>In 3D</option>
                             <option value="embroidery" ${_ctvState.printType === 'embroidery' ? 'selected' : ''}>Thêu</option>
                         </select>
@@ -751,6 +752,7 @@ function _ctvRenderCalculator(container) {
     // Render dynamic printing fields
     _ctvRenderPrintPanel();
     _ctvRenderSavedPrintsList();
+    _ctvUpdatePrintTypeDropdown();
     if (_ctvState.targetType) {
         _ctvSelectTargetType(_ctvState.targetType);
     }
@@ -931,6 +933,7 @@ function _ctvSelectTargetType(type) {
     }
     
     _ctvRenderPrintPanel();
+    _ctvUpdatePrintTypeDropdown();
     _ctvUpdateCalculations();
 }
 
@@ -1046,12 +1049,15 @@ function _ctvOnPrintTypeChange(val) {
     _ctvState.showPetInputForm = false;
     _ctvRenderPrintPanel();
     _ctvUpdateCalculations();
+    _ctvUpdatePrintTypeDropdown();
 }
 
 function _ctvUpdatePrintTypeDropdown() {
     const selectEl = document.getElementById('ctv_print_type');
     if (!selectEl) return;
     const savedTypes = (_ctvState.savedPrints || []).map(p => p.type);
+    const config = _ctvState.activeConfig || {};
+    const pr = config.print_prices || {};
     
     Array.from(selectEl.options).forEach(opt => {
         if (opt.value === 'none') {
@@ -1059,7 +1065,12 @@ function _ctvUpdatePrintTypeDropdown() {
             opt.style.display = 'block';
             return;
         }
-        if (savedTypes.includes(opt.value) && opt.value !== _ctvState.printType) {
+        
+        let isInactive = false;
+        if (opt.value === 'pet' && pr.pet?.inactive) isInactive = true;
+        if (opt.value === 'screen' && pr.screen?.inactive) isInactive = true;
+        
+        if (isInactive || (savedTypes.includes(opt.value) && opt.value !== _ctvState.printType)) {
             opt.disabled = true;
             opt.style.display = 'none';
         } else {
@@ -1073,13 +1084,24 @@ function _ctvRenderPrintPanel() {
     const panel = document.getElementById('ctv_print_panel');
     if (!panel) return;
     
+    const config = _ctvState.activeConfig || {};
+    const pr = config.print_prices || {};
+    if (_ctvState.printType === 'pet' && pr.pet?.inactive) {
+        _ctvState.printType = 'none';
+        const selectEl = document.getElementById('ctv_print_type');
+        if (selectEl) selectEl.value = 'none';
+    }
+    if (_ctvState.printType === 'screen' && pr.screen?.inactive) {
+        _ctvState.printType = 'none';
+        const selectEl = document.getElementById('ctv_print_type');
+        if (selectEl) selectEl.value = 'none';
+    }
+    
     if (_ctvState.printType === 'none') {
         panel.innerHTML = '';
         _ctvUpdatePrintTypeDropdown();
         return;
     }
-    
-    const config = _ctvState.activeConfig;
     
     if (_ctvState.printType === 'pet') {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
@@ -1714,6 +1736,13 @@ function _ctvCalculateAllCosts() {
     function calcSinglePrint(type, details) {
         let cost = 0;
         const breakdown = [];
+        
+        if (type === 'pet' && config.print_prices?.pet?.inactive) {
+            return { cost: 0, breakdown: [] };
+        }
+        if (type === 'screen' && config.print_prices?.screen?.inactive) {
+            return { cost: 0, breakdown: [] };
+        }
         
         if (type === 'pet') {
             const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
@@ -3775,8 +3804,11 @@ function _ctvOpenNewConfigForm(editId = null) {
                 <h4 style="margin:20px 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">🎨 Thiết Lập Giá In CTV</h4>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                     <!-- PET -->
-                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
-                        <strong style="color:#0d9488;">🧬 In PET</strong>
+                    <div id="cfg_pet_container" style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; opacity: ${cfg.print_prices?.pet?.inactive ? '0.5' : '1'}; transition: opacity 0.2s;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                            <input type="checkbox" id="new_cfg_pr_pet_active" title="Sử dụng In PET" ${cfg.print_prices?.pet?.inactive ? '' : 'checked'} style="width:16px; height:16px; cursor:pointer;" onchange="document.getElementById('cfg_pet_container').style.opacity = this.checked ? '1' : '0.5'">
+                            <strong style="color:#0d9488; margin:0;">🧬 In PET</strong>
+                        </div>
                         
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
                             <div class="ctv-form-group" style="margin-bottom:8px;">
@@ -3831,8 +3863,11 @@ function _ctvOpenNewConfigForm(editId = null) {
                     </div>
                     
                     <!-- Screen Print -->
-                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; grid-column: span 2;">
-                        <strong style="color:#7e22ce;">🎨 In Lưới (Screen)</strong>
+                    <div id="cfg_screen_container" style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; grid-column: span 2; opacity: ${cfg.print_prices?.screen?.inactive ? '0.5' : '1'}; transition: opacity 0.2s;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                            <input type="checkbox" id="new_cfg_pr_scr_active" title="Sử dụng In Lưới" ${cfg.print_prices?.screen?.inactive ? '' : 'checked'} style="width:16px; height:16px; cursor:pointer;" onchange="document.getElementById('cfg_screen_container').style.opacity = this.checked ? '1' : '0.5'">
+                            <strong style="color:#7e22ce; margin:0;">🎨 In Lưới (Screen)</strong>
+                        </div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
                             <div class="ctv-form-group" style="margin-bottom:0;">
                                 <label>Hạn mức tối thiểu (áo)</label>
@@ -4277,6 +4312,7 @@ async function _ctvSaveNewConfigVersion() {
         print_prices: {
             commission_percent: document.getElementById('new_cfg_commission_percent') ? (parseFloat(document.getElementById('new_cfg_commission_percent').value) || 0) : 15,
             pet: {
+                inactive: !document.getElementById('new_cfg_pr_pet_active').checked,
                 sheet_price: parseFloat(document.getElementById('new_cfg_pr_pet_sheet').value) || 0,
                 sheet_price_customer: parseFloat(document.getElementById('new_cfg_pr_pet_sheet_cust').value) || 0,
                 spacing: parseFloat(document.getElementById('new_cfg_pr_pet_space').value) || 0,
@@ -4289,6 +4325,7 @@ async function _ctvSaveNewConfigVersion() {
                 flat_price: document.getElementById('new_cfg_pr_emb_flat').value.trim()
             },
             screen: {
+                inactive: !document.getElementById('new_cfg_pr_scr_active').checked,
                 qty_threshold: parseFloat(document.getElementById('new_cfg_pr_scr_threshold').value) || 0,
                 price_low: parseFloat(document.getElementById('new_cfg_pr_scr_low').value) || 0,
                 price_high_1_3: parseFloat(document.getElementById('new_cfg_pr_scr_high_13').value) || 0,

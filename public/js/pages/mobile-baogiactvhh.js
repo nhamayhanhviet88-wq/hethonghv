@@ -221,6 +221,7 @@ function _mRenderCalculator(container) {
                 <select class="m-select" id="m_print_type" onchange="_mOnPrintTypeChange(this.value)">
                     <option value="none" ${_mState.printType === 'none' ? 'selected' : ''}>Không in</option>
                     <option value="pet" ${_mState.printType === 'pet' ? 'selected' : ''}>In PET</option>
+                    <option value="screen" ${_mState.printType === 'screen' ? 'selected' : ''}>In Lưới</option>
                     <option value="print3d" ${_mState.printType === 'print3d' ? 'selected' : ''}>In 3D</option>
                     <option value="embroidery" ${_mState.printType === 'embroidery' ? 'selected' : ''}>Thêu</option>
                 </select>
@@ -239,6 +240,7 @@ function _mRenderCalculator(container) {
     _mRenderSelectedCustomer();
     _mRenderPrintPanel();
     _mRenderSavedPrintsList();
+    _mUpdatePrintTypeDropdown();
     if (_mState.targetType) {
         _mSelectTargetType(_mState.targetType);
     }
@@ -415,6 +417,7 @@ function _mSelectTargetType(type) {
     }
     
     _mRenderPrintPanel();
+    _mUpdatePrintTypeDropdown();
     _mUpdateCalculations();
 }
 
@@ -482,12 +485,15 @@ function _mOnPrintTypeChange(val) {
     _mState.showPetInputForm = false;
     _mRenderPrintPanel();
     _mUpdateCalculations();
+    _mUpdatePrintTypeDropdown();
 }
 
 function _mUpdatePrintTypeDropdown() {
     const selectEl = document.getElementById('m_print_type');
     if (!selectEl) return;
     const savedTypes = (_mState.savedPrints || []).map(p => p.type);
+    const config = _mState.activeConfig || {};
+    const pr = config.print_prices || {};
     
     Array.from(selectEl.options).forEach(opt => {
         if (opt.value === 'none') {
@@ -495,7 +501,12 @@ function _mUpdatePrintTypeDropdown() {
             opt.style.display = 'block';
             return;
         }
-        if (savedTypes.includes(opt.value) && opt.value !== _mState.printType) {
+        
+        let isInactive = false;
+        if (opt.value === 'pet' && pr.pet?.inactive) isInactive = true;
+        if (opt.value === 'screen' && pr.screen?.inactive) isInactive = true;
+        
+        if (isInactive || (savedTypes.includes(opt.value) && opt.value !== _mState.printType)) {
             opt.disabled = true;
             opt.style.display = 'none';
         } else {
@@ -508,6 +519,19 @@ function _mUpdatePrintTypeDropdown() {
 function _mRenderPrintPanel() {
     const panel = document.getElementById('m_print_panel');
     if (!panel) return;
+    
+    const config = _mState.activeConfig || {};
+    const pr = config.print_prices || {};
+    if (_mState.printType === 'pet' && pr.pet?.inactive) {
+        _mState.printType = 'none';
+        const selectEl = document.getElementById('m_print_type');
+        if (selectEl) selectEl.value = 'none';
+    }
+    if (_mState.printType === 'screen' && pr.screen?.inactive) {
+        _mState.printType = 'none';
+        const selectEl = document.getElementById('m_print_type');
+        if (selectEl) selectEl.value = 'none';
+    }
     
     if (_mState.printType === 'none') {
         panel.innerHTML = '';
@@ -1044,6 +1068,13 @@ function _mCalculateAllCosts() {
     function calcSinglePrint(type, details) {
         let cost = 0;
         const breakdown = [];
+        
+        if (type === 'pet' && config.print_prices?.pet?.inactive) {
+            return { cost: 0, breakdown: [] };
+        }
+        if (type === 'screen' && config.print_prices?.screen?.inactive) {
+            return { cost: 0, breakdown: [] };
+        }
         
         if (type === 'pet') {
             const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
