@@ -1327,6 +1327,20 @@ function _mCalculateAllCosts() {
         }
     }
     
+    let vatRate = 8;
+    try {
+        const compInfo = JSON.parse(localStorage.getItem('ctv_company_info'));
+        if (compInfo && compInfo.vatRate !== undefined) {
+            vatRate = parseInt(compInfo.vatRate);
+        }
+    } catch (e) {}
+    let vatAmount = 0;
+    let finalGrandTotal = grandTotal;
+    if (_mState.includeVat) {
+        vatAmount = Math.round(grandTotal * (vatRate / 100));
+        finalGrandTotal = grandTotal + vatAmount;
+    }
+    
     return {
         materialName,
         basePrice,
@@ -1338,8 +1352,16 @@ function _mCalculateAllCosts() {
         commissionPercent,
         finalPricePerShirt,
         grandTotal,
+        vatRate,
+        vatAmount,
+        finalGrandTotal,
         matchedShipping
     };
+}
+
+function _mToggleVat(checked) {
+    _mState.includeVat = checked;
+    _mUpdateCalculations();
 }
 
 function _mUpdateCalculations() {
@@ -1376,10 +1398,11 @@ function _mUpdateCalculations() {
     const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
     
     const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
-        
+    
+    const finalTotalValue = _mState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
     const wordsText = hasContactPrice
-        ? `${docSoTienVietNam(calc.grandTotal)} (và ${contactTexts.join(', ')})`
-        : docSoTienVietNam(calc.grandTotal);
+        ? `${docSoTienVietNam(finalTotalValue)} (và ${contactTexts.join(', ')})`
+        : docSoTienVietNam(finalTotalValue);
     
     box.innerHTML = `
         <div class="m-result-title">📊 Chi tiết đơn hàng</div>
@@ -1464,12 +1487,18 @@ function _mUpdateCalculations() {
             <span>Đơn giá/Áo:</span>
             <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
         </div>
-        <div style="font-size: 11px; color: #94a3b8; text-align: right; margin-top: -4px; margin-bottom: 4px; font-style: italic;">
-            * Giá chưa bao gồm VAT
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top:1px dashed rgba(255,255,255,0.15); margin-top: 6px; padding-top: 6px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #cbd5e1; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="m_include_vat" ${_mState.includeVat ? 'checked' : ''} onchange="_mToggleVat(this.checked)" style="accent-color: #38bdf8; cursor: pointer; width: 14px; height: 14px;">
+                <span>VAT (${calc.vatRate}%)</span>
+            </label>
+            ${_mState.includeVat ? `<span style="font-size: 12px; color: #ef4444; font-weight: 700;">+${calc.vatAmount.toLocaleString('vi-VN')} đ</span>` : `<span style="font-size: 11px; color: #94a3b8; font-style: italic;">* Chưa gồm VAT</span>`}
         </div>
+        
         <div class="m-result-row" style="font-size:15px; font-weight:700; margin-top:4px;">
             <span>Tổng đơn:</span>
-            <span>${grandTotalText}</span>
+            <span>${_mState.includeVat ? calc.finalGrandTotal.toLocaleString('vi-VN') + ' đ' + contactNote : grandTotalText}</span>
         </div>
         
         <div style="font-size:11.5px; font-style:italic; color:#38bdf8; text-align:right; margin-top:4px;">
@@ -1508,10 +1537,11 @@ async function _mSaveQuotation() {
             savedPrints: _mState.savedPrints || [],
             materialName: calc.materialName,
             targetType: _mState.targetType,
-            includeCommission: _mState.includeCommission
+            includeCommission: _mState.includeCommission,
+            includeVat: _mState.includeVat || false
         },
         calculated_price: calc.finalPricePerShirt,
-        total_amount: calc.grandTotal
+        total_amount: _mState.includeVat ? calc.finalGrandTotal : calc.grandTotal
     };
     
     try {
@@ -1526,6 +1556,7 @@ async function _mSaveQuotation() {
             _mState.savedPrints = [];
             _mState.targetType = null;
             _mState.includeCommission = false;
+            _mState.includeVat = false;
             
             const dynContent = document.getElementById('m-dynamic-content');
             if (dynContent && _mState.activeTab === 'calculator') {
@@ -1688,9 +1719,17 @@ function _mOpenExportModal(mode = null) {
             </table>
             
             <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #1e3a8a; border-radius:8px; padding:14px; text-align:right; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                <div style="font-size:10px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
-                <div style="font-size:11.5px; font-weight:700; color:#475569;">TỔNG TIỀN THANH TOÁN (${_mState.quantity} áo):</div>
-                <div style="font-size:20px; font-weight:950; color:#1e3a8a; letter-spacing:-0.3px; margin:2px 0;">${grandTotalText}</div>
+                ${_mState.includeVat ? `
+                    <div style="font-size:10px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá đã bao gồm VAT</div>
+                    <div style="font-size:11.5px; font-weight:700; color:#475569; margin-bottom:2px;">Tổng tiền (chưa VAT): <span style="font-weight:700; color:#0f172a; margin-left:6px;">${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}</span></div>
+                    <div style="font-size:11.5px; font-weight:700; color:#475569; margin-bottom:6px;">VAT (${calc.vatRate}%): <span style="font-weight:700; color:#ef4444; margin-left:6px;">+${calc.vatAmount.toLocaleString('vi-VN')} đ</span></div>
+                    <div style="font-size:11.5px; font-weight:700; color:#475569;">TỔNG TIỀN THANH TOÁN (gồm VAT):</div>
+                    <div style="font-size:20px; font-weight:950; color:#1e3a8a; letter-spacing:-0.3px; margin:2px 0;">${calc.finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</div>
+                ` : `
+                    <div style="font-size:10px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
+                    <div style="font-size:11.5px; font-weight:700; color:#475569;">TỔNG TIỀN THANH TOÁN (${_mState.quantity} áo):</div>
+                    <div style="font-size:20px; font-weight:950; color:#1e3a8a; letter-spacing:-0.3px; margin:2px 0;">${grandTotalText}</div>
+                `}
                 <div style="font-size:11.5px; font-style:italic; color:#0369a1; border-top:1px dashed #cbd5e1; padding-top:6px; margin-top:6px; display:inline-block; min-width:180px;">
                     Bằng chữ: <strong style="color:#0f172a;">${wordsText}</strong>
                 </div>
@@ -1746,18 +1785,22 @@ function _mCopyTextQuotation() {
         ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
         : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo`;
     
-    const grandTotalTextCopy = hasContactPriceText
-        ? `${calc.grandTotal.toLocaleString('vi-VN')} đ + Thêu liên hệ`
-        : `${calc.grandTotal.toLocaleString('vi-VN')} đ`;
-        
+    const finalTotalValue = _mState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
     const wordsTextCopy = hasContactPriceText
-        ? `${docSoTienVietNam(calc.grandTotal)} (và giá thêu liên hệ)`
-        : docSoTienVietNam(calc.grandTotal);
+        ? `${docSoTienVietNam(finalTotalValue)} (và giá thêu liên hệ)`
+        : docSoTienVietNam(finalTotalValue);
         
     text += `----------------------------------------\n`;
     text += `💰 ĐƠN GIÁ: ${finalPricePerShirtTextCopy}\n`;
-    text += `* Giá chưa bao gồm VAT\n`;
-    text += `💵 TỔNG CỘNG: ${grandTotalTextCopy}\n`;
+    if (_mState.includeVat) {
+        text += `* Giá đã bao gồm VAT\n`;
+        text += `• Tổng tiền (chưa VAT): ${calc.grandTotal.toLocaleString('vi-VN')} đ${hasContactPriceText ? ' + Thêu liên hệ' : ''}\n`;
+        text += `• Thuế VAT (${calc.vatRate}%): +${calc.vatAmount.toLocaleString('vi-VN')} đ\n`;
+        text += `💵 TỔNG CỘNG (gồm VAT): ${calc.finalGrandTotal.toLocaleString('vi-VN')} đ${hasContactPriceText ? ' + Thêu liên hệ' : ''}\n`;
+    } else {
+        text += `* Giá chưa bao gồm VAT\n`;
+        text += `💵 TỔNG CỘNG: ${calc.grandTotal.toLocaleString('vi-VN')} đ${hasContactPriceText ? ' + Thêu liên hệ' : ''}\n`;
+    }
     text += `✍️ (Chữ: ${wordsTextCopy})\n`;
     if (calc.matchedShipping) {
         text += `🚚 Vận chuyển: ${calc.matchedShipping.desc}\n`;
@@ -1897,7 +1940,8 @@ function _mShowHistoryDetail(quoteId) {
         petChestPrint: q.input_details.petChestPrint || false,
         savedPrints: q.input_details.savedPrints || [],
         targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
-        includeCommission: q.input_details.includeCommission || false
+        includeCommission: q.input_details.includeCommission || false,
+        includeVat: q.input_details.includeVat || false
     };
     
     const originalConfig = _mState.activeConfig;
@@ -1914,6 +1958,7 @@ function _mShowHistoryDetail(quoteId) {
     const originalSavedPrints = _mState.savedPrints;
     const originalTargetType = _mState.targetType;
     const originalIncludeCommission = _mState.includeCommission;
+    const originalIncludeVat = _mState.includeVat;
     
     _mState.activeConfig = tempState.activeConfig;
     _mState.selectedCustomer = tempState.selectedCustomer;
@@ -1929,6 +1974,7 @@ function _mShowHistoryDetail(quoteId) {
     _mState.savedPrints = tempState.savedPrints;
     _mState.targetType = tempState.targetType;
     _mState.includeCommission = tempState.includeCommission;
+    _mState.includeVat = tempState.includeVat;
     
     _mOpenExportModal(tempState.targetType);
     
@@ -1947,6 +1993,7 @@ function _mShowHistoryDetail(quoteId) {
     _mState.savedPrints = originalSavedPrints;
     _mState.targetType = originalTargetType;
     _mState.includeCommission = originalIncludeCommission;
+    _mState.includeVat = originalIncludeVat;
 }
 
 // ==========================================

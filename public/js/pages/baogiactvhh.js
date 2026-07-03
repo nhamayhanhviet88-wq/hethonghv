@@ -1998,6 +1998,15 @@ function _ctvCalculateAllCosts() {
         }
     }
     
+    const compInfo = _ctvGetCompanyInfo();
+    const vatRate = compInfo.vatRate !== undefined ? parseInt(compInfo.vatRate) : 8;
+    let vatAmount = 0;
+    let finalGrandTotal = grandTotal;
+    if (_ctvState.includeVat) {
+        vatAmount = Math.round(grandTotal * (vatRate / 100));
+        finalGrandTotal = grandTotal + vatAmount;
+    }
+    
     return {
         materialName,
         basePrice,
@@ -2009,8 +2018,16 @@ function _ctvCalculateAllCosts() {
         commissionPercent,
         finalPricePerShirt,
         grandTotal,
+        vatRate,
+        vatAmount,
+        finalGrandTotal,
         matchedShipping
     };
+}
+
+function _ctvToggleVat(checked) {
+    _ctvState.includeVat = checked;
+    _ctvUpdateCalculations();
 }
 
 function _ctvUpdateCalculations() {
@@ -2047,10 +2064,11 @@ function _ctvUpdateCalculations() {
     const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
     
     const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
-        
+    
+    const finalTotalValue = _ctvState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
     const wordsText = hasContactPrice
-        ? `${docSoTienVietNam(calc.grandTotal)} (và ${contactTexts.join(', ')})`
-        : docSoTienVietNam(calc.grandTotal);
+        ? `${docSoTienVietNam(finalTotalValue)} (và ${contactTexts.join(', ')})`
+        : docSoTienVietNam(finalTotalValue);
     
     card.innerHTML = `
         <div class="ctv-result-title">📊 Chi Tiết Giá Dự Kiến</div>
@@ -2137,12 +2155,18 @@ function _ctvUpdateCalculations() {
             <span>Đơn giá / Áo:</span>
             <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
         </div>
-        <div style="font-size: 11.5px; color: #94a3b8; text-align: right; margin-top: -6px; margin-bottom: 6px; font-style: italic;">
-            * Giá chưa bao gồm VAT
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top:1px dashed rgba(255,255,255,0.1); margin-top: 10px; padding-top: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ctv_include_vat" ${_ctvState.includeVat ? 'checked' : ''} onchange="_ctvToggleVat(this.checked)" style="accent-color: #38bdf8; cursor: pointer; width: 15px; height: 15px;">
+                <span>Xuất hóa đơn VAT (${calc.vatRate}%)</span>
+            </label>
+            ${_ctvState.includeVat ? `<span style="font-size: 13px; color: #ef4444; font-weight: 700;">+${calc.vatAmount.toLocaleString('vi-VN')} đ</span>` : `<span style="font-size: 11px; color: #94a3b8; font-style: italic;">* Giá chưa bao gồm VAT</span>`}
         </div>
+        
         <div class="ctv-result-row" style="font-size: 16px; font-weight: 700; color: white; margin-top: 10px;">
             <span>Tổng cộng (${_ctvState.quantity} áo):</span>
-            <span>${grandTotalText}</span>
+            <span>${_ctvState.includeVat ? calc.finalGrandTotal.toLocaleString('vi-VN') + ' đ' + contactNote : grandTotalText}</span>
         </div>
         
         <div class="ctv-words">
@@ -2185,10 +2209,11 @@ async function _ctvSaveQuotation() {
             savedPrints: _ctvState.savedPrints || [],
             materialName: calc.materialName,
             targetType: _ctvState.targetType,
-            includeCommission: _ctvState.includeCommission
+            includeCommission: _ctvState.includeCommission,
+            includeVat: _ctvState.includeVat || false
         },
         calculated_price: calc.finalPricePerShirt,
-        total_amount: calc.grandTotal
+        total_amount: _ctvState.includeVat ? calc.finalGrandTotal : calc.grandTotal
     };
     
     try {
@@ -2204,6 +2229,7 @@ async function _ctvSaveQuotation() {
             _ctvState.savedPrints = [];
             _ctvState.targetType = null;
             _ctvState.includeCommission = false;
+            _ctvState.includeVat = false;
             
             const tabContent = document.getElementById('ctv-tab-content');
             if (tabContent && _ctvState.activeTab === 'calculator') {
@@ -2280,6 +2306,10 @@ function _ctvOpenCompanySettingsModal() {
                         <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Website</label>
                         <input type="text" id="ctv_comp_website" value="${info.website}" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
                     </div>
+                </div>
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Thuế suất VAT mặc định (%)</label>
+                    <input type="number" id="ctv_comp_vat_rate" value="${info.vatRate !== undefined ? info.vatRate : 8}" min="0" max="100" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:6px; color:#334155;">Logo thương hiệu (Hiển thị góc trái báo giá)</label>
@@ -2362,6 +2392,7 @@ function _ctvSaveCompanySettings() {
     const address = document.getElementById('ctv_comp_address').value.trim();
     const phone = document.getElementById('ctv_comp_phone').value.trim();
     const website = document.getElementById('ctv_comp_website').value.trim();
+    const vatRate = parseInt(document.getElementById('ctv_comp_vat_rate').value) || 0;
     const logo = document.getElementById('ctv_comp_logo_base64').value;
     
     if (!name) {
@@ -2369,7 +2400,7 @@ function _ctvSaveCompanySettings() {
         return;
     }
     
-    const info = { name, address, phone, website, logo };
+    const info = { name, address, phone, website, vatRate, logo };
     localStorage.setItem('ctv_company_info', JSON.stringify(info));
     
     showToast('Cấu hình thông tin công ty thành công!', 'success');
@@ -2585,9 +2616,17 @@ function _ctvOpenExportModal(mode = null) {
                     
                     <!-- Grand total and words -->
                     <div style="border:1px solid #cbd5e1; border-left:5px solid #1e3a8a; border-radius:10px; padding:18px 24px; background:#f8fafc; text-align:right; margin-bottom:30px; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                        <div style="font-size:11.5px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
-                        <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:4px;">TỔNG TIỀN THANH TOÁN (${_ctvState.quantity} áo):</div>
-                        <div style="font-size:26px; font-weight:950; color:#1e3a8a; letter-spacing:-0.5px;">${grandTotalText}</div>
+                        ${_ctvState.includeVat ? `
+                            <div style="font-size:11.5px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá đã bao gồm VAT</div>
+                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:2px;">Tổng tiền (chưa VAT): <span style="font-weight:700; color:#0f172a; margin-left:8px;">${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}</span></div>
+                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:8px;">Thuế VAT (${calc.vatRate}%): <span style="font-weight:700; color:#ef4444; margin-left:8px;">+${calc.vatAmount.toLocaleString('vi-VN')} đ</span></div>
+                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:4px;">TỔNG TIỀN THANH TOÁN (gồm VAT):</div>
+                            <div style="font-size:26px; font-weight:950; color:#1e3a8a; letter-spacing:-0.5px;">${calc.finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</div>
+                        ` : `
+                            <div style="font-size:11.5px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
+                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:4px;">TỔNG TIỀN THANH TOÁN (${_ctvState.quantity} áo):</div>
+                            <div style="font-size:26px; font-weight:950; color:#1e3a8a; letter-spacing:-0.5px;">${grandTotalText}</div>
+                        `}
                         <div style="font-size:13px; font-style:italic; color:#0369a1; margin-top:6px; border-top:1px dashed #cbd5e1; padding-top:6px; display:inline-block; min-width:250px;">
                             Bằng chữ: <strong style="color:#0f172a;">${wordsText}</strong>
                         </div>
@@ -2673,15 +2712,22 @@ function _ctvCopyTextQuotation() {
     const contactNoteCopy = hasContactPriceText ? ` + ${contactTextsCopy.join(', ')}` : '';
     
     const finalPricePerShirtTextCopy = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNoteCopy}`;
-    const grandTotalTextCopy = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}`;
+    const finalTotalValue = _ctvState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
     const wordsTextCopy = hasContactPriceText
-        ? `${docSoTienVietNam(calc.grandTotal)} (và ${contactTextsCopy.join(', ')})`
-        : docSoTienVietNam(calc.grandTotal);
+        ? `${docSoTienVietNam(finalTotalValue)} (và ${contactTextsCopy.join(', ')})`
+        : docSoTienVietNam(finalTotalValue);
         
     text += `----------------------------------------\n`;
     text += `💰 ĐƠN GIÁ CUỐI: ${finalPricePerShirtTextCopy}\n`;
-    text += `* Giá chưa bao gồm VAT\n`;
-    text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${grandTotalTextCopy}\n`;
+    if (_ctvState.includeVat) {
+        text += `* Giá đã bao gồm VAT\n`;
+        text += `• Tổng tiền (chưa VAT): ${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}\n`;
+        text += `• Thuế VAT (${calc.vatRate}%): +${calc.vatAmount.toLocaleString('vi-VN')} đ\n`;
+        text += `💵 TỔNG CỘNG ĐƠN HÀNG (gồm VAT): ${calc.finalGrandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}\n`;
+    } else {
+        text += `* Giá chưa bao gồm VAT\n`;
+        text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}\n`;
+    }
     text += `✍️ (Bằng chữ: ${wordsTextCopy})\n`;
     if (calc.matchedShipping) {
         text += `🚚 Vận chuyển: ${calc.matchedShipping.desc}\n`;
@@ -2840,7 +2886,8 @@ function _ctvShowHistoryDetail(quoteId) {
         petChestPrint: q.input_details.petChestPrint || false,
         savedPrints: q.input_details.savedPrints || [],
         targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
-        includeCommission: q.input_details.includeCommission || false
+        includeCommission: q.input_details.includeCommission || false,
+        includeVat: q.input_details.includeVat || false
     };
     
     // Save state temporarily, render export modal, then restore state
@@ -2858,6 +2905,7 @@ function _ctvShowHistoryDetail(quoteId) {
     const originalSavedPrints = _ctvState.savedPrints;
     const originalTargetType = _ctvState.targetType;
     const originalIncludeCommission = _ctvState.includeCommission;
+    const originalIncludeVat = _ctvState.includeVat;
     
     _ctvState.activeConfig = tempState.activeConfig;
     _ctvState.selectedCustomer = tempState.selectedCustomer;
@@ -2873,6 +2921,7 @@ function _ctvShowHistoryDetail(quoteId) {
     _ctvState.savedPrints = tempState.savedPrints;
     _ctvState.targetType = tempState.targetType;
     _ctvState.includeCommission = tempState.includeCommission;
+    _ctvState.includeVat = tempState.includeVat;
     
     _ctvOpenExportModal(tempState.targetType);
     
@@ -2891,6 +2940,7 @@ function _ctvShowHistoryDetail(quoteId) {
     _ctvState.savedPrints = originalSavedPrints;
     _ctvState.targetType = originalTargetType;
     _ctvState.includeCommission = originalIncludeCommission;
+    _ctvState.includeVat = originalIncludeVat;
 }
 
 // ==========================================
