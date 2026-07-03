@@ -831,7 +831,7 @@ function _mCalculateAllCosts() {
     const isCust = _mState.targetType === 'customer';
     const shippingList = isCust
         ? (_mState.activeConfig?.print_prices?.shipping_customer || [
-            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn phí J&T thường (Khác hỗ trợ 50k)", value: 50000 }
+            { min_qty: "0", max_qty: "Trở lên", desc: "Miễn Phí VC Thường J&T", value: 50000 }
         ])
         : (_mState.activeConfig?.print_prices?.shipping || [
             { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
@@ -839,7 +839,21 @@ function _mCalculateAllCosts() {
         ]);
     let matchedShipping = null;
     if (qty > 0) {
-        matchedShipping = _mMatchShippingPolicy(shippingList, qty, grandTotal);
+        const matched = _mMatchShippingPolicy(shippingList, qty, grandTotal);
+        if (matched) {
+            let desc = matched.desc || '';
+            const descLower = desc.toLowerCase().trim();
+            if (descLower.includes('miễn phí vận chuyển thường j&t') || 
+                descLower.includes('miễn phí vc thường j&t') || 
+                descLower.includes('miễn phí j&t thường')) {
+                desc = 'Miễn Phí VC Thường J&T';
+            } else if (descLower.includes('miễn phí vận chuyển thường j&t / viettel post') || 
+                       descLower.includes('miễn phí j&t/viettel thường') ||
+                       descLower.includes('miễn phí vc thường j&t/viettel')) {
+                desc = 'Miễn Phí VC Thường J&T/Viettel';
+            }
+            matchedShipping = { ...matched, desc };
+        }
     }
     
     return {
