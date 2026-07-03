@@ -184,32 +184,7 @@ function _mRenderCalculator(container) {
             </div>
             <div class="m-form-group" style="margin-bottom:0;">
                 <label>Phụ phí thêm</label>
-                <div class="m-checkbox-group">
-                    ${(function() {
-                        const ordered = _mGetOrderedOptionalSurcharges(config);
-                        return ordered.filter(item => {
-                            if (item.inactive) return false;
-                            const surchargeVal = _mState.targetType === 'customer'
-                                ? (item.customer_value !== undefined ? item.customer_value : item.value)
-                                : item.value;
-                            const priceInfo = _mGetPriceInfo(surchargeVal);
-                            return !priceInfo.isContact;
-                        }).map(item => {
-                            const isChecked = _mState.surcharges[item.key] ? 'checked' : '';
-                            const surchargeVal = _mState.targetType === 'customer'
-                                ? (item.customer_value !== undefined ? item.customer_value : item.value)
-                                : item.value;
-                            const priceInfo = _mGetPriceInfo(surchargeVal);
-                            const safeId = 'm_sc_' + item.key.replace(/\s+/g, '_');
-                            return `
-                                <label class="m-checkbox-label">
-                                    <input type="checkbox" id="${safeId}" ${isChecked} onchange="_mToggleSurcharge('${item.key}', this.checked)">
-                                    ${item.name} (${priceInfo.text})
-                                </label>
-                            `;
-                        }).join('');
-                    })()}
-                </div>
+                <div class="m-checkbox-group" id="m_surcharges_group"></div>
             </div>
         </div>
         
@@ -318,6 +293,7 @@ function _mOnQuantityChange(val) {
     } else {
         _mState.quantity = Math.max(1, parseInt(val) || 1);
     }
+    _mRenderSurchargeCheckboxes();
     if (_mState.printType === 'print3d') {
         _mRenderPrintPanel();
     }
@@ -389,32 +365,60 @@ function _mSelectTargetType(type) {
     }
     
     // Update surcharge checkboxes dynamically
-    const checkboxGroup = document.querySelector('#m_material') ? document.getElementById('m_material').closest('.m-card').querySelector('.m-checkbox-group') : null;
-    if (checkboxGroup && _mState.activeConfig) {
-        const config = _mState.activeConfig;
-        const ordered = _mGetOrderedOptionalSurcharges(config);
-        checkboxGroup.innerHTML = ordered.filter(item => {
-            if (item.inactive) return false;
-            const surchargeVal = type === 'customer'
-                ? (item.customer_value !== undefined ? item.customer_value : item.value)
-                : item.value;
-            const priceInfo = _mGetPriceInfo(surchargeVal);
-            return !priceInfo.isContact;
-        }).map(item => {
-            const isChecked = _mState.surcharges[item.key] ? 'checked' : '';
-            const surchargeVal = type === 'customer'
-                ? (item.customer_value !== undefined ? item.customer_value : item.value)
-                : item.value;
-            const priceInfo = _mGetPriceInfo(surchargeVal);
-            const safeId = 'm_sc_' + item.key.replace(/\s+/g, '_');
-            return `
-                <label class="m-checkbox-label">
-                    <input type="checkbox" id="${safeId}" ${isChecked} onchange="_mToggleSurcharge('${item.key}', this.checked)">
-                    ${item.name} (${priceInfo.text})
-                </label>
-            `;
-        }).join('');
-    }
+    _mRenderSurchargeCheckboxes();
+}
+
+function _mRenderSurchargeCheckboxes() {
+    const group = document.getElementById('m_surcharges_group');
+    if (!group || !_mState.activeConfig) return;
+    
+    const config = _mState.activeConfig;
+    const type = _mState.targetType || 'ctv';
+    const qty = parseInt(_mState.quantity) || 0;
+    
+    const ordered = _mGetOrderedOptionalSurcharges(config);
+    
+    group.innerHTML = ordered.filter(item => {
+        if (item.inactive) return false;
+        const surchargeVal = type === 'customer'
+            ? (item.customer_value !== undefined ? item.customer_value : item.value)
+            : item.value;
+        const priceInfo = _mGetPriceInfo(surchargeVal);
+        return !priceInfo.isContact;
+    }).map(item => {
+        const is100Plus = item.name.toLowerCase().includes('từ 100 áo') || item.name.toLowerCase().includes('tu 100 ao');
+        
+        let isChecked = false;
+        let isDisabled = false;
+        
+        if (is100Plus && qty >= 100) {
+            isChecked = true;
+            isDisabled = true;
+            _mState.surcharges[item.key] = true;
+        } else if (is100Plus && qty < 100) {
+            if (_mState.surcharges[item.key] === true) {
+                _mState.surcharges[item.key] = false;
+            }
+            isChecked = !!_mState.surcharges[item.key];
+            isDisabled = false;
+        } else {
+            isChecked = !!_mState.surcharges[item.key];
+            isDisabled = false;
+        }
+        
+        const surchargeVal = type === 'customer'
+            ? (item.customer_value !== undefined ? item.customer_value : item.value)
+            : item.value;
+        const priceInfo = _mGetPriceInfo(surchargeVal);
+        const safeId = 'm_sc_' + item.key.replace(/\s+/g, '_');
+        
+        return `
+            <label class="m-checkbox-label" style="${isDisabled ? 'opacity:0.7; cursor:not-allowed;' : ''}">
+                <input type="checkbox" id="${safeId}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} onchange="_mToggleSurcharge('${item.key}', this.checked)">
+                ${item.name} (${priceInfo.text})
+            </label>
+        `;
+    }).join('');
     
     _mRenderPrintPanel();
     _mUpdatePrintTypeDropdown();

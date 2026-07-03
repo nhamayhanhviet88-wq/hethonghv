@@ -687,37 +687,7 @@ function _ctvRenderCalculator(container) {
                     
                     <div class="ctv-form-group">
                         <label>Các phụ phí tùy chọn</label>
-                        <div class="ctv-checkbox-group">
-                            ${(function() {
-                                const ordered = _ctvGetOrderedOptionalSurcharges(config);
-                                return ordered.filter(item => {
-                                    if (item.inactive) return false;
-                                    if (_ctvState.targetType === 'customer') {
-                                        if (item.customer_inactive) return false;
-                                    } else {
-                                        if (item.ctv_inactive) return false;
-                                    }
-                                    const surchargeVal = _ctvState.targetType === 'customer'
-                                        ? (item.customer_value !== undefined ? item.customer_value : item.value)
-                                        : item.value;
-                                    const priceInfo = _ctvGetPriceInfo(surchargeVal);
-                                    return !priceInfo.isContact;
-                                }).map(item => {
-                                    const isChecked = _ctvState.surcharges[item.key] ? 'checked' : '';
-                                    const surchargeVal = _ctvState.targetType === 'customer'
-                                        ? (item.customer_value !== undefined ? item.customer_value : item.value)
-                                        : item.value;
-                                    const priceInfo = _ctvGetPriceInfo(surchargeVal);
-                                    const safeId = 'ctv_sc_' + item.key.replace(/\s+/g, '_');
-                                    return `
-                                        <label class="ctv-checkbox-label">
-                                            <input type="checkbox" id="${safeId}" ${isChecked} onchange="_ctvToggleSurcharge('${item.key}', this.checked)">
-                                            ${item.name} (${priceInfo.text})
-                                        </label>
-                                    `;
-                                }).join('');
-                            })()}
-                        </div>
+                        <div class="ctv-checkbox-group" id="ctv_surcharges_group"></div>
                     </div>
                 </div>
                 
@@ -839,6 +809,7 @@ function _ctvOnQuantityChange(val) {
     } else {
         _ctvState.quantity = Math.max(1, parseInt(val) || 1);
     }
+    _ctvRenderSurchargeCheckboxes();
     if (_ctvState.printType === 'print3d') {
         _ctvRenderPrintPanel();
     }
@@ -910,37 +881,65 @@ function _ctvSelectTargetType(type) {
     }
     
     // Update surcharge checkboxes dynamically
-    const checkboxGroup = document.querySelector('#ctv_material') ? document.getElementById('ctv_material').closest('.ctv-card').querySelector('.ctv-checkbox-group') : null;
-    if (checkboxGroup && _ctvState.activeConfig) {
-        const config = _ctvState.activeConfig;
-        const ordered = _ctvGetOrderedOptionalSurcharges(config);
-        checkboxGroup.innerHTML = ordered.filter(item => {
-            if (item.inactive) return false;
-            if (type === 'customer') {
-                if (item.customer_inactive) return false;
-            } else {
-                if (item.ctv_inactive) return false;
+    _ctvRenderSurchargeCheckboxes();
+}
+
+function _ctvRenderSurchargeCheckboxes() {
+    const group = document.getElementById('ctv_surcharges_group');
+    if (!group || !_ctvState.activeConfig) return;
+    
+    const config = _ctvState.activeConfig;
+    const type = _ctvState.targetType || 'ctv';
+    const qty = parseInt(_ctvState.quantity) || 0;
+    
+    const ordered = _ctvGetOrderedOptionalSurcharges(config);
+    
+    group.innerHTML = ordered.filter(item => {
+        if (item.inactive) return false;
+        if (type === 'customer') {
+            if (item.customer_inactive) return false;
+        } else {
+            if (item.ctv_inactive) return false;
+        }
+        const surchargeVal = type === 'customer'
+            ? (item.customer_value !== undefined ? item.customer_value : item.value)
+            : item.value;
+        const priceInfo = _ctvGetPriceInfo(surchargeVal);
+        return !priceInfo.isContact;
+    }).map(item => {
+        const is100Plus = item.name.toLowerCase().includes('từ 100 áo') || item.name.toLowerCase().includes('tu 100 ao');
+        
+        let isChecked = false;
+        let isDisabled = false;
+        
+        if (is100Plus && qty >= 100) {
+            isChecked = true;
+            isDisabled = true;
+            _ctvState.surcharges[item.key] = true;
+        } else if (is100Plus && qty < 100) {
+            if (_ctvState.surcharges[item.key] === true) {
+                _ctvState.surcharges[item.key] = false;
             }
-            const surchargeVal = type === 'customer'
-                ? (item.customer_value !== undefined ? item.customer_value : item.value)
-                : item.value;
-            const priceInfo = _ctvGetPriceInfo(surchargeVal);
-            return !priceInfo.isContact;
-        }).map(item => {
-            const isChecked = _ctvState.surcharges[item.key] ? 'checked' : '';
-            const surchargeVal = type === 'customer'
-                ? (item.customer_value !== undefined ? item.customer_value : item.value)
-                : item.value;
-            const priceInfo = _ctvGetPriceInfo(surchargeVal);
-            const safeId = 'ctv_sc_' + item.key.replace(/\s+/g, '_');
-            return `
-                <label class="ctv-checkbox-label">
-                    <input type="checkbox" id="${safeId}" ${isChecked} onchange="_ctvToggleSurcharge('${item.key}', this.checked)">
-                    ${item.name} (${priceInfo.text})
-                </label>
-            `;
-        }).join('');
-    }
+            isChecked = !!_ctvState.surcharges[item.key];
+            isDisabled = false;
+        } else {
+            isChecked = !!_ctvState.surcharges[item.key];
+            isDisabled = false;
+        }
+        
+        const surchargeVal = type === 'customer'
+            ? (item.customer_value !== undefined ? item.customer_value : item.value)
+            : item.value;
+        const priceInfo = _ctvGetPriceInfo(surchargeVal);
+        const safeId = 'ctv_sc_' + item.key.replace(/\s+/g, '_');
+        
+        return `
+            <label class="ctv-checkbox-label" style="${isDisabled ? 'opacity:0.7; cursor:not-allowed;' : ''}">
+                <input type="checkbox" id="${safeId}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} onchange="_ctvToggleSurcharge('${item.key}', this.checked)">
+                ${item.name} (${priceInfo.text})
+            </label>
+        `;
+    }).join('');
     
     _ctvRenderPrintPanel();
     _ctvUpdatePrintTypeDropdown();
