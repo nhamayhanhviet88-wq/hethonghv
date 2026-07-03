@@ -1860,6 +1860,22 @@ function _ctvUpdateCreatorName(val) {
     if (printedEl) {
         printedEl.textContent = val;
     }
+    const printedFeeEl = document.getElementById('ctv_price_list_printed_creator_name');
+    if (printedFeeEl) {
+        printedFeeEl.textContent = val;
+    }
+    const labelFeeEl = document.getElementById('ctv_price_list_creator_label');
+    if (labelFeeEl) {
+        labelFeeEl.textContent = val;
+    }
+    const inputExport = document.getElementById('ctv_export_creator_input');
+    if (inputExport && inputExport.value !== val) {
+        inputExport.value = val;
+    }
+    const inputPriceList = document.getElementById('ctv_price_list_creator_input');
+    if (inputPriceList && inputPriceList.value !== val) {
+        inputPriceList.value = val;
+    }
 }
 
 function _ctvOpenExportModal(mode = null) {
@@ -2778,12 +2794,445 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
             
             <!-- Footer -->
             <div class="no-print" style="padding:16px 24px; border-top:1px solid #e2e8f0; text-align:right; background:#f8fafc; border-bottom-left-radius:24px; border-bottom-right-radius:24px; display:flex; justify-content:flex-end; gap:12px;">
-                <button class="ctv-btn-secondary" style="background:#1e3a8a; color:white; border-color:#1e3a8a; padding:8px 24px; border-radius:10px; font-weight:700; cursor:pointer; font-size:13px; transition:all 0.2s;" onclick="window.print()">🖨️ In / Xuất PDF</button>
+                <button class="ctv-btn-secondary" style="background:#1e3a8a; color:white; border-color:#1e3a8a; padding:8px 24px; border-radius:10px; font-weight:700; cursor:pointer; font-size:13px; transition:all 0.2s;" onclick="_ctvOpenPriceListExportModal(${c.id}, '${mode}')">🖨️ In / Xuất PDF</button>
                 <button class="ctv-btn-secondary" onclick="document.getElementById('ctv_config_preview_modal').style.display='none'" style="padding:8px 24px; border-radius:10px; font-weight:700; cursor:pointer; font-size:13px; transition:all 0.2s;">Đóng</button>
             </div>
         </div>
     `;
     modal.style.display = 'flex';
+}
+
+function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
+    const c = _ctvState.configVersions.find(v => v.id === configId);
+    if (!c) return;
+
+    const info = _ctvGetCompanyInfo();
+    const userObj = window._currentUser || window.currentUser;
+    const creatorName = _ctvState.creatorName || (userObj ? (userObj.full_name || userObj.username) : '');
+    if (!_ctvState.creatorName && creatorName) {
+        _ctvState.creatorName = creatorName;
+    }
+    
+    // Inject dynamic print style sheet specifically for this modal
+    let style = document.getElementById('ctv_price_list_print_style');
+    if (!style) {
+        style = document.createElement('style');
+        style.id = 'ctv_price_list_print_style';
+        style.innerHTML = `
+            @media print {
+                body * {
+                    visibility: hidden !important;
+                }
+                #ctv_price_list_print_content, #ctv_price_list_print_content * {
+                    visibility: visible !important;
+                }
+                #ctv_price_list_print_content {
+                    position: absolute !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    width: 100% !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                }
+                .no-print {
+                    display: none !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const mats = c.materials || [];
+    const sc = c.surcharges || {};
+    const pr = c.print_prices || {};
+
+    // Get Surcharges list in configured order
+    let surchargeItems = [];
+    const _defaults = {
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0 },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0 },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0 },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0 },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0 }
+    };
+    const _customs = {};
+    if (sc.custom && Array.isArray(sc.custom)) {
+        sc.custom.forEach(item => {
+            if (item && item.name) {
+                const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
+                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0 };
+            }
+        });
+    }
+    if (sc.display_order && Array.isArray(sc.display_order)) {
+        sc.display_order.forEach(o => {
+            if (!o) return;
+            const oKey = typeof o === 'string' ? o : o.key;
+            const oName = typeof o === 'string' ? o : o.name;
+            let found = null;
+            if (_defaults[oKey]) {
+                found = _defaults[oKey];
+                found.name = oName || found.name;
+                delete _defaults[oKey];
+            } else if (_customs[oKey]) {
+                found = _customs[oKey];
+                found.name = oName || found.name;
+                delete _customs[oKey];
+            }
+            if (found) surchargeItems.push(found);
+        });
+    }
+
+    const logoSrc = info.logo || '/images/logo.png';
+    const titleText = mode === 'customer' ? 'BẢNG GIÁ BÁN KHÁCH HÀNG TRỰC TIẾP' : 'HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC';
+
+    let modal = document.getElementById('ctv_price_list_export_modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'ctv_price_list_export_modal';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.right = '0';
+        modal.style.bottom = '0';
+        modal.style.background = 'rgba(15,23,42,0.6)';
+        modal.style.backdropFilter = 'blur(4px)';
+        modal.style.zIndex = '1005'; // higher than the detail modal (1000)
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.padding = '16px';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div style="background:white; border-radius:16px; max-width:850px; width:100%; max-height:95vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <!-- Modal Header -->
+            <div class="no-print" style="padding:16px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 style="margin:0; font-size:16px; font-weight:800; color:#1e293b;">🖨️ Xuất Bản Biểu Phí</h3>
+                </div>
+                
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <!-- Toggle Mode Button Group -->
+                    <div style="display:flex; background:#f1f5f9; padding:3px; border-radius:10px; gap:4px; border:1px solid #cbd5e1;">
+                        <button onclick="_ctvOpenPriceListExportModal(${configId}, 'ctv')" style="background: ${mode === 'ctv' ? '#2563eb' : 'transparent'}; color: ${mode === 'ctv' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">👥 Bản in CTV</button>
+                        <button onclick="_ctvOpenPriceListExportModal(${configId}, 'customer')" style="background: ${mode === 'customer' ? '#f97316' : 'transparent'}; color: ${mode === 'customer' ? 'white' : '#475569'}; border: none; padding: 6px 16px; border-radius: 8px; font-weight:700; font-size:12px; cursor:pointer; transition: all 0.2s;">🛍️ Bản in Khách hàng</button>
+                    </div>
+                    
+                    <!-- Creator input -->
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:12px; font-weight:700; color:#475569; white-space:nowrap;">Người lập:</span>
+                        <input type="text" id="ctv_price_list_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; outline:none; width:150px; box-sizing:border-box;" oninput="_ctvUpdateCreatorName(this.value)" />
+                    </div>
+                </div>
+                
+                <button onclick="_ctvClosePriceListExportModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">×</button>
+            </div>
+            
+            <!-- Printable content area -->
+            <div style="padding:40px; overflow-y:auto; flex-grow:1; background:#f8fafc;" id="ctv_price_list_print_content">
+                <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.5; background:white; padding:30px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                    <!-- Company Header -->
+                    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:30px; border-bottom:3px double #e2e8f0; padding-bottom:20px;">
+                        <div style="display:flex; gap:16px; align-items:center;">
+                            <img src="${logoSrc}" style="height:60px; width:60px; border-radius:50%; object-fit:cover; border:1px solid #e2e8f0;" />
+                            <div>
+                                <h1 style="margin:0 0 6px 0; font-size:22px; font-weight:900; color:#1e3a8a; letter-spacing:-0.5px;">${info.name}</h1>
+                                <p style="margin:0; font-size:12px; color:#475569;">📍 Địa chỉ: ${info.address}</p>
+                                <p style="margin:2px 0 0 0; font-size:12px; color:#475569;">📞 Điện thoại: ${info.phone} | Website: ${info.website}</p>
+                            </div>
+                        </div>
+                        <div style="text-align:right; max-width: 320px;">
+                            <h2 style="margin:0 0 4px 0; font-size:14px; font-weight:800; color:#1e3a8a; line-height: 1.3;">${titleText}</h2>
+                            <p style="margin:0; font-size:11px; color:#64748b;">Mã số: <strong>BG-${c.id}-${mode.toUpperCase()}</strong></p>
+                            <p style="margin:2px 0 0 0; font-size:11px; color:#64748b;">Ngày lập: ${vnDateStr(vnNow())}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Client Details Block -->
+                    <div style="background:#f8fafc; border-radius:10px; padding:16px; margin-bottom:24px; border:1px solid #e2e8f0;">
+                        <h3 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px;">
+                            ${mode === 'customer' ? 'Kính gửi quý khách hàng' : 'Kính gửi đối tác đại lý / ctv'}
+                        </h3>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px;">
+                            <div>• Đối tượng áp dụng: <strong>${mode === 'customer' ? 'Khách hàng bán trực tiếp' : 'Cộng Tác Viên & Đại Lý'}</strong></div>
+                            <div>• Người lập biểu: <strong id="ctv_price_list_creator_label">${creatorName || 'Giám Đốc'}</strong></div>
+                            <div>• Phiên bản bảng giá: <strong>${c.version_name}</strong></div>
+                            <div>• Trạng thái áp dụng: <strong style="color:#16a34a;">Đang hoạt động</strong></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Side-by-Side Tables -->
+                    <div style="display:grid; grid-template-columns:1fr 1.1fr; gap:20px;">
+                        <!-- Fabrics Table -->
+                        <div>
+                            <h3 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:4px;">👕 Đơn giá phôi trơn</h3>
+                            <table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #cbd5e1;">
+                                <thead>
+                                    <tr style="background:#f1f5f9;">
+                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:left; font-weight:800; color:#1e3a8a;">Tên loại vải (Cổ tròn)</th>
+                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:right; width:130px; font-weight:800; color:#1e3a8a;">Đơn giá</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${mats.map((m, idx) => {
+                                        const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
+                                        return `
+                                            <tr style="${idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
+                                                <td style="border:1px solid #cbd5e1; padding:10px; font-weight:600; color:#334155;">Vải ${m.name}</td>
+                                                <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; font-weight:750; color:#1e293b;">${displayPrice.toLocaleString('vi-VN')} đ/áo</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Surcharges Table -->
+                        <div>
+                            <h3 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#0d9488; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:4px;">➕ Phụ phí & chi tiết thêm</h3>
+                            <table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #cbd5e1;">
+                                <thead>
+                                    <tr style="background:#f1f5f9;">
+                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:left; font-weight:800; color:#0d9488;">Hạng mục phụ phí</th>
+                                        <th style="border:1px solid #cbd5e1; padding:10px; text-align:right; width:130px; font-weight:800; color:#0d9488;">Mức phí / Chiết khấu</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${surchargeItems.map((item, idx) => {
+                                        const priceInfo = _ctvGetPriceInfo(item.value);
+                                        return `
+                                            <tr style="${idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
+                                                <td style="border:1px solid #cbd5e1; padding:10px; font-weight:600; color:#334155;">${item.name}</td>
+                                                <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; font-weight:750; color:#1e293b;">${priceInfo.text}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Print and Shipping Blocks -->
+                    <div style="margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                        <!-- PET Card -->
+                        <div style="background:#fdfcff; border:1px solid #e9d5ff; border-radius:10px; padding:14px; font-size:12.5px;">
+                            <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#6b21a8; border-bottom:1px dashed #d8b4fe; padding-bottom:6px;">🧬 IN PET KHỔ MÉT</h4>
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:#64748b;">Khổ mét (58x100cm):</span>
+                                    <strong style="color:#0f172a;">
+                                        ${mode === 'customer' 
+                                            ? `${Number(pr.pet?.sheet_price_customer !== undefined ? pr.pet.sheet_price_customer : pr.pet?.sheet_price).toLocaleString('vi-VN')}đ`
+                                            : `${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ`
+                                        }
+                                    </strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:#64748b;">Khoảng cách an toàn:</span>
+                                    <strong style="color:#0f172a;">${pr.pet?.spacing} cm</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:#64748b;">In PET Ngực (cố định):</span>
+                                    <strong style="color:#0f172a;">
+                                        ${mode === 'customer'
+                                            ? `+${Number(pr.pet?.chest_price_customer !== undefined ? pr.pet.chest_price_customer : (pr.pet?.chest_price || 5000)).toLocaleString('vi-VN')}đ/áo`
+                                            : `+${Number(pr.pet?.chest_price || 5000).toLocaleString('vi-VN')}đ/áo`
+                                        }
+                                    </strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:#64748b;">Tối thiểu/Vị trí khác:</span>
+                                    <strong style="color:#0f172a;">
+                                        ${mode === 'customer'
+                                            ? `${Number(pr.pet?.min_position_price_customer !== undefined ? pr.pet.min_position_price_customer : (pr.pet?.min_position_price || 5000)).toLocaleString('vi-VN')}đ/vị trí`
+                                            : `${Number(pr.pet?.min_position_price || 5000).toLocaleString('vi-VN')}đ/vị trí`
+                                        }
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Screen Print Card -->
+                        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:14px; font-size:12.5px;">
+                            <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#334155; border-bottom:1px dashed #cbd5e1; padding-bottom:6px;">🖌️ IN LƯỚI CTV (SCREEN PRINTING)</h4>
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:#64748b;">Đơn tối thiểu:</span>
+                                    <strong style="color:#0f172a;">${pr.screen?.qty_threshold} áo</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:#64748b;">Đơn hàng &lt; ${pr.screen?.qty_threshold} áo:</span>
+                                    <strong style="color:#0f172a;">${Number(pr.screen?.price_low).toLocaleString('vi-VN')}đ/màu</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:#64748b;">Đơn >= ${pr.screen?.qty_threshold} áo (1-3 màu):</span>
+                                    <strong style="color:#0f172a;">${Number(pr.screen?.price_high_1_3).toLocaleString('vi-VN')}đ/áo/màu</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="color:#64748b;">Đơn >= ${pr.screen?.qty_threshold} áo (4+ màu):</span>
+                                    <strong style="color:#0f172a;">${Number(pr.screen?.price_high_4_plus).toLocaleString('vi-VN')}đ/áo/màu</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shipping Policy Card -->
+                    <div style="margin-top:20px; background:${mode === 'customer' ? '#fff7ed' : '#f0fdfa'}; border:1px solid ${mode === 'customer' ? '#fed7aa' : '#ccfbf1'}; border-radius:10px; padding:14px; font-size:12.5px;">
+                        <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:${mode === 'customer' ? '#c2410c' : '#0f766e'}; border-bottom:1px dashed ${mode === 'customer' ? '#fed7aa' : '#99f6e4'}; padding-bottom:6px;">
+                            🚚 HỖ TRỢ VẬN CHUYỂN ${mode === 'customer' ? 'KHÁCH HÀNG' : 'CTV'}
+                        </h4>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; column-gap:24px; row-gap:8px;">
+                            ${(mode === 'customer' ? pr.shipping_customer : pr.shipping || []).map(s => {
+                                const qtyRange = _ctvFormatShippingRange(s.min_qty, s.max_qty);
+                                return `
+                                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:4px;">
+                                        <span style="font-weight:600; color:#475569;">SL: ${qtyRange}</span>
+                                        <span style="color:#1e293b; font-weight:700;">${_ctvShortenShippingDesc(s.desc)} ${s.value > 0 ? `(Hỗ trợ ${s.value.toLocaleString('vi-VN')}đ)` : ''}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- Signatures -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; text-align:center; font-size:13px; margin-top:40px;">
+                        <div>
+                            <p style="margin:0 0 10px 0; font-weight:700; color:#475569;">NGƯỜI XEM BIỂU PHÍ</p>
+                            <p style="margin:0; color:#64748b; font-style:italic; font-size:11px;">(Ký và ghi rõ họ tên)</p>
+                            <div style="height:50px;"></div>
+                            <p style="margin:0; font-weight:800; color:#475569; font-size:14px; opacity:0;">(Ký tên)</p>
+                        </div>
+                        <div>
+                            <p style="margin:0 0 10px 0; font-weight:700; color:#1e3a8a;">ĐẠI DIỆN ${info.name.toUpperCase()}</p>
+                            <p style="margin:0; font-weight:800; color:#1e3a8a;">NGƯỜI LẬP BIỂU</p>
+                            <div style="height:50px;"></div>
+                            <p id="ctv_price_list_printed_creator_name" style="margin:0; font-weight:800; color:#1e3a8a; font-size:14px;">${creatorName || 'Giám Đốc'}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Action Footer (Image 5) -->
+            <div class="no-print" style="padding:16px 24px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:12px; background:#f8fafc; border-bottom-left-radius:16px; border-bottom-right-radius:16px;">
+                <button class="ctv-btn-secondary" onclick="_ctvCopyPriceListText(${configId}, '${mode}')" style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">📋 Sao chép text nhanh</button>
+                <button class="ctv-btn-secondary" style="background:#1e3a8a; color:white; border-color:#1e3a8a; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" onclick="window.print()">🖨️ In / Tải PDF</button>
+                <button class="ctv-btn-secondary" onclick="_ctvClosePriceListExportModal()" style="cursor:pointer;">Đóng</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+function _ctvClosePriceListExportModal() {
+    const modal = document.getElementById('ctv_price_list_export_modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function _ctvCopyPriceListText(configId, mode) {
+    const c = _ctvState.configVersions.find(v => v.id === configId);
+    if (!c) return;
+    
+    const mats = c.materials || [];
+    const sc = c.surcharges || {};
+    const pr = c.print_prices || {};
+    
+    let text = `⚡ ĐỒNG PHỤC HV\n`;
+    text += `${mode === 'customer' ? 'BẢNG GIÁ BÁN KHÁCH HÀNG TRỰC TIẾP' : 'HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC'}\n`;
+    text += `Phiên bản: ${c.version_name}\n`;
+    text += `Ngày lập: ${vnDateStr(vnNow())}\n`;
+    text += `-------------------------------------------\n\n`;
+    
+    text += `👕 ĐƠN GIÁ PHÔI TRƠN (CỔ TRÒN):\n`;
+    mats.forEach(m => {
+        const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
+        text += `- Vải ${m.name}: ${displayPrice.toLocaleString('vi-VN')}đ\n`;
+    });
+    text += `\n`;
+    
+    // Get Surcharges list in configured order
+    let surchargeItems = [];
+    const _defaults = {
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0 },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0 },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0 },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0 },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0 }
+    };
+    const _customs = {};
+    if (sc.custom && Array.isArray(sc.custom)) {
+        sc.custom.forEach(item => {
+            if (item && item.name) {
+                const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
+                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0 };
+            }
+        });
+    }
+    if (sc.display_order && Array.isArray(sc.display_order)) {
+        sc.display_order.forEach(o => {
+            if (!o) return;
+            const oKey = typeof o === 'string' ? o : o.key;
+            const oName = typeof o === 'string' ? o : o.name;
+            let found = null;
+            if (_defaults[oKey]) {
+                found = _defaults[oKey];
+                found.name = oName || found.name;
+                delete _defaults[oKey];
+            } else if (_customs[oKey]) {
+                found = _customs[oKey];
+                found.name = oName || found.name;
+                delete _customs[oKey];
+            }
+            if (found) surchargeItems.push(found);
+        });
+    }
+    
+    text += `➕ PHỤ PHÍ & CHI TIẾT THÊM:\n`;
+    surchargeItems.forEach(item => {
+        const priceInfo = _ctvGetPriceInfo(item.value);
+        text += `- ${item.name}: ${priceInfo.text}\n`;
+    });
+    text += `\n`;
+    
+    text += `🧬 IN PET KHỔ MÉT:\n`;
+    const sheetPrice = mode === 'customer'
+        ? (pr.pet?.sheet_price_customer !== undefined ? Number(pr.pet.sheet_price_customer) : Number(pr.pet?.sheet_price) || 60000)
+        : (Number(pr.pet?.sheet_price) || 60000);
+    const chestPrice = mode === 'customer'
+        ? (pr.pet?.chest_price_customer !== undefined ? Number(pr.pet.chest_price_customer) : (pr.pet?.chest_price || 5000))
+        : (pr.pet?.chest_price || 5000);
+    const minPositionPrice = mode === 'customer'
+        ? (pr.pet?.min_position_price_customer !== undefined ? Number(pr.pet.min_position_price_customer) : (pr.pet?.min_position_price || 5000))
+        : (pr.pet?.min_position_price || 5000);
+    
+    text += `- Khổ mét (58x100cm): ${sheetPrice.toLocaleString('vi-VN')}đ\n`;
+    text += `- Khoảng cách an toàn: ${pr.pet?.spacing || 0.4} cm\n`;
+    text += `- In PET Ngực: +${chestPrice.toLocaleString('vi-VN')}đ/áo\n`;
+    text += `- Tối thiểu/Vị trí khác: ${minPositionPrice.toLocaleString('vi-VN')}đ/vị trí\n\n`;
+    
+    text += `🖌️ IN LƯỚI CTV (SCREEN PRINTING):\n`;
+    text += `- Đơn tối thiểu: ${pr.screen?.qty_threshold || 20} áo\n`;
+    text += `- Đơn hàng < ${pr.screen?.qty_threshold || 20} áo: ${Number(pr.screen?.price_low || 0).toLocaleString('vi-VN')}đ/màu\n`;
+    text += `- Đơn hàng >= ${pr.screen?.qty_threshold || 20} áo (1-3 màu): ${Number(pr.screen?.price_high_1_3 || 0).toLocaleString('vi-VN')}đ/áo/màu\n`;
+    text += `- Đơn hàng >= ${pr.screen?.qty_threshold || 20} áo (4+ màu): ${Number(pr.screen?.price_high_4_plus || 0).toLocaleString('vi-VN')}đ/áo/màu\n\n`;
+    
+    text += `🚚 HỖ TRỢ VẬN CHUYỂN:\n`;
+    const shippingList = mode === 'customer' ? pr.shipping_customer : pr.shipping;
+    if (shippingList && shippingList.length > 0) {
+        shippingList.forEach(s => {
+            const qtyRange = _ctvFormatShippingRange(s.min_qty, s.max_qty);
+            text += `- Số lượng ${qtyRange}: ${_ctvShortenShippingDesc(s.desc)} ${s.value > 0 ? `(Hỗ trợ ${s.value.toLocaleString('vi-VN')}đ)` : ''}\n`;
+        });
+    } else {
+        text += `- Không có cấu hình vận chuyển.\n`;
+    }
+    
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Đã sao chép bảng biểu phí vào clipboard!', 'success');
+    }).catch(err => {
+        showToast('Lỗi sao chép: ' + err.message, 'error');
+    });
 }
 
 function _ctvOpenNewConfigForm(editId = null) {
