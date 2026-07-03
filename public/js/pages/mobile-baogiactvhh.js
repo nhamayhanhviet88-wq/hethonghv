@@ -120,6 +120,15 @@ function _mRenderCalculator(container) {
     
     const config = _mState.activeConfig;
     
+    // Auto-select first active material if current selection is inactive or invalid
+    let activeMats = config.materials.map((m, idx) => ({ ...m, originalIndex: idx })).filter(m => !m.inactive);
+    if (activeMats.length > 0) {
+        const currentMat = config.materials[_mState.selectedMaterialIndex];
+        if (!currentMat || currentMat.inactive) {
+            _mState.selectedMaterialIndex = activeMats[0].originalIndex;
+        }
+    }
+    
     container.innerHTML = `
         <!-- Target Selection (Mandatory) -->
         <div class="m-card" style="border: 2px solid #3b82f6;">
@@ -161,6 +170,7 @@ function _mRenderCalculator(container) {
                 <label>Chất liệu vải</label>
                 <select class="m-select" id="m_material" onchange="_mOnMaterialChange(this.value)">
                     ${config.materials.map((m, idx) => {
+                        if (m.inactive) return '';
                         const price = _mState.targetType === 'customer' 
                             ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
                             : Number(m.price);
@@ -178,6 +188,7 @@ function _mRenderCalculator(container) {
                     ${(function() {
                         const ordered = _mGetOrderedOptionalSurcharges(config);
                         return ordered.filter(item => {
+                            if (item.inactive) return false;
                             const surchargeVal = _mState.targetType === 'customer'
                                 ? (item.customer_value !== undefined ? item.customer_value : item.value)
                                 : item.value;
@@ -347,12 +358,25 @@ function _mSelectTargetType(type) {
         }
     }
     
+    // Auto-select first active material if current selection is inactive or invalid
+    if (_mState.activeConfig) {
+        const config = _mState.activeConfig;
+        let activeMats = config.materials.map((m, idx) => ({ ...m, originalIndex: idx })).filter(m => !m.inactive);
+        if (activeMats.length > 0) {
+            const currentMat = config.materials[_mState.selectedMaterialIndex];
+            if (!currentMat || currentMat.inactive) {
+                _mState.selectedMaterialIndex = activeMats[0].originalIndex;
+            }
+        }
+    }
+    
     // Update material dropdown options dynamically
     const materialSelect = document.getElementById('m_material');
     if (materialSelect && _mState.activeConfig) {
         const config = _mState.activeConfig;
         const currentIdx = materialSelect.value !== "" ? Number(materialSelect.value) : _mState.selectedMaterialIndex;
         materialSelect.innerHTML = config.materials.map((m, idx) => {
+            if (m.inactive) return '';
             const price = type === 'customer' 
                 ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
                 : Number(m.price);
@@ -368,6 +392,7 @@ function _mSelectTargetType(type) {
         const config = _mState.activeConfig;
         const ordered = _mGetOrderedOptionalSurcharges(config);
         checkboxGroup.innerHTML = ordered.filter(item => {
+            if (item.inactive) return false;
             const surchargeVal = type === 'customer'
                 ? (item.customer_value !== undefined ? item.customer_value : item.value)
                 : item.value;
@@ -406,15 +431,15 @@ function _mTogglePetChestPrint(checked) {
 function _mGetOrderedOptionalSurcharges(config) {
     if (!config) return [];
     const allItems = {
-        collar: { key: 'collar', name: 'Cổ bẻ', value: config.surcharges.collar || 0, customer_value: config.surcharges.collar_customer || 0 },
-        primary_school: { key: 'primary_school', name: 'Tiểu học', value: config.surcharges.primary_school || 0, customer_value: config.surcharges.primary_school_customer || 0 },
-        raglan: { key: 'raglan', name: 'Raglan', value: config.surcharges.raglan || 0, customer_value: config.surcharges.raglan_customer || 0 },
-        color_block: { key: 'color_block', name: 'Phối màu vải', value: config.surcharges.color_block || 0, customer_value: config.surcharges.color_block_customer || 0 }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: config.surcharges.collar || 0, customer_value: config.surcharges.collar_customer || 0, inactive: config.surcharges.collar_inactive || false },
+        primary_school: { key: 'primary_school', name: 'Tiểu học', value: config.surcharges.primary_school || 0, customer_value: config.surcharges.primary_school_customer || 0, inactive: config.surcharges.primary_school_inactive || false },
+        raglan: { key: 'raglan', name: 'Raglan', value: config.surcharges.raglan || 0, customer_value: config.surcharges.raglan_customer || 0, inactive: config.surcharges.raglan_inactive || false },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: config.surcharges.color_block || 0, customer_value: config.surcharges.color_block_customer || 0, inactive: config.surcharges.color_block_inactive || false }
     };
     const customList = config.surcharges?.custom || [];
     customList.forEach(item => {
         const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-        allItems[customKey] = { key: customKey, name: item.name, value: item.value || 0, customer_value: item.customer_value || 0, is_custom: true };
+        allItems[customKey] = { key: customKey, name: item.name, value: item.value || 0, customer_value: item.customer_value || 0, is_custom: true, inactive: item.inactive || false };
     });
     let ordered = [];
     if (config.surcharges?.display_order && Array.isArray(config.surcharges.display_order)) {
@@ -422,16 +447,19 @@ function _mGetOrderedOptionalSurcharges(config) {
             let found = null;
             const oKey = typeof o === 'string' ? o : o.key;
             const oName = typeof o === 'string' ? o : o.name;
+            const oInactive = typeof o === 'string' ? false : (o.inactive || false);
             
             if (oKey && allItems[oKey]) {
                 found = allItems[oKey];
                 found.name = oName || found.name;
+                found.inactive = oInactive !== undefined ? oInactive : found.inactive;
                 delete allItems[oKey];
             } else {
                 const matchedKey = Object.keys(allItems).find(k => allItems[k].name === oName || allItems[k].key === oName);
                 if (matchedKey) {
                     found = allItems[matchedKey];
                     found.name = oName || found.name;
+                    found.inactive = oInactive !== undefined ? oInactive : found.inactive;
                     delete allItems[matchedKey];
                 }
             }
@@ -966,7 +994,7 @@ function _mCalculateAllCosts() {
     let surchargeTotal = 0;
     const surchargesBreakdown = [];
     
-    if (qty > 0 && qty < 20) {
+    if (qty > 0 && qty < 20 && !config.surcharges.qty_under_20_inactive) {
         const surchargeVal = _mState.targetType === 'customer'
             ? (config.surcharges.qty_under_20_customer !== undefined ? config.surcharges.qty_under_20_customer : config.surcharges.qty_under_20)
             : config.surcharges.qty_under_20;
