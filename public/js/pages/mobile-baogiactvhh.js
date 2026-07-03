@@ -175,11 +175,17 @@ function _mRenderCalculator(container) {
                     ${(function() {
                         const ordered = _mGetOrderedOptionalSurcharges(config);
                         return ordered.filter(item => {
-                            const priceInfo = _mGetPriceInfo(item.value);
+                            const surchargeVal = _mState.targetType === 'customer'
+                                ? (item.customer_value !== undefined ? item.customer_value : item.value)
+                                : item.value;
+                            const priceInfo = _mGetPriceInfo(surchargeVal);
                             return !priceInfo.isContact;
                         }).map(item => {
                             const isChecked = _mState.surcharges[item.key] ? 'checked' : '';
-                            const priceInfo = _mGetPriceInfo(item.value);
+                            const surchargeVal = _mState.targetType === 'customer'
+                                ? (item.customer_value !== undefined ? item.customer_value : item.value)
+                                : item.value;
+                            const priceInfo = _mGetPriceInfo(surchargeVal);
                             const safeId = 'm_sc_' + item.key.replace(/\s+/g, '_');
                             return `
                                 <label class="m-checkbox-label">
@@ -344,6 +350,33 @@ function _mSelectTargetType(type) {
         }).join('');
     }
     
+    // Update surcharge checkboxes dynamically
+    const checkboxGroup = document.querySelector('#m_material') ? document.getElementById('m_material').closest('.m-card').querySelector('.m-checkbox-group') : null;
+    if (checkboxGroup && _mState.activeConfig) {
+        const config = _mState.activeConfig;
+        const ordered = _mGetOrderedOptionalSurcharges(config);
+        checkboxGroup.innerHTML = ordered.filter(item => {
+            const surchargeVal = type === 'customer'
+                ? (item.customer_value !== undefined ? item.customer_value : item.value)
+                : item.value;
+            const priceInfo = _mGetPriceInfo(surchargeVal);
+            return !priceInfo.isContact;
+        }).map(item => {
+            const isChecked = _mState.surcharges[item.key] ? 'checked' : '';
+            const surchargeVal = type === 'customer'
+                ? (item.customer_value !== undefined ? item.customer_value : item.value)
+                : item.value;
+            const priceInfo = _mGetPriceInfo(surchargeVal);
+            const safeId = 'm_sc_' + item.key.replace(/\s+/g, '_');
+            return `
+                <label class="m-checkbox-label">
+                    <input type="checkbox" id="${safeId}" ${isChecked} onchange="_mToggleSurcharge('${item.key}', this.checked)">
+                    ${item.name} (${priceInfo.text})
+                </label>
+            `;
+        }).join('');
+    }
+    
     _mUpdateCalculations();
 }
 
@@ -360,15 +393,15 @@ function _mTogglePetChestPrint(checked) {
 function _mGetOrderedOptionalSurcharges(config) {
     if (!config) return [];
     const allItems = {
-        collar: { key: 'collar', name: 'Cổ bẻ', value: config.surcharges.collar || 0 },
-        primary_school: { key: 'primary_school', name: 'Tiểu học', value: config.surcharges.primary_school || 0 },
-        raglan: { key: 'raglan', name: 'Raglan', value: config.surcharges.raglan || 0 },
-        color_block: { key: 'color_block', name: 'Phối màu vải', value: config.surcharges.color_block || 0 }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: config.surcharges.collar || 0, customer_value: config.surcharges.collar_customer || 0 },
+        primary_school: { key: 'primary_school', name: 'Tiểu học', value: config.surcharges.primary_school || 0, customer_value: config.surcharges.primary_school_customer || 0 },
+        raglan: { key: 'raglan', name: 'Raglan', value: config.surcharges.raglan || 0, customer_value: config.surcharges.raglan_customer || 0 },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: config.surcharges.color_block || 0, customer_value: config.surcharges.color_block_customer || 0 }
     };
     const customList = config.surcharges?.custom || [];
     customList.forEach(item => {
         const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-        allItems[customKey] = { key: customKey, name: item.name, value: item.value || 0, is_custom: true };
+        allItems[customKey] = { key: customKey, name: item.name, value: item.value || 0, customer_value: item.customer_value || 0, is_custom: true };
     });
     let ordered = [];
     if (config.surcharges?.display_order && Array.isArray(config.surcharges.display_order)) {
@@ -659,7 +692,10 @@ function _mCalculateAllCosts() {
     const surchargesBreakdown = [];
     
     if (qty > 0 && qty < 20) {
-        const priceInfo = _mGetPriceInfo(config.surcharges.qty_under_20);
+        const surchargeVal = _mState.targetType === 'customer'
+            ? (config.surcharges.qty_under_20_customer !== undefined ? config.surcharges.qty_under_20_customer : config.surcharges.qty_under_20)
+            : config.surcharges.qty_under_20;
+        const priceInfo = _mGetPriceInfo(surchargeVal);
         surchargeTotal += priceInfo.value;
         surchargesBreakdown.push({
             label: 'Số lượng < 20 áo',
@@ -674,7 +710,10 @@ function _mCalculateAllCosts() {
     const optionalSurcharges = _mGetOrderedOptionalSurcharges(config);
     optionalSurcharges.forEach(item => {
         if (_mState.surcharges[item.key]) {
-            const priceInfo = _mGetPriceInfo(item.value);
+            const surchargeVal = _mState.targetType === 'customer'
+                ? (item.customer_value !== undefined ? item.customer_value : item.value)
+                : item.value;
+            const priceInfo = _mGetPriceInfo(surchargeVal);
             surchargeTotal += priceInfo.value;
             surchargesBreakdown.push({
                 label: item.name,
