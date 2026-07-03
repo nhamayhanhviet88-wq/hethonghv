@@ -3659,7 +3659,7 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
             <!-- Bottom Action Footer (Image 5) -->
             <div class="no-print" style="padding:16px 24px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:12px; background:#f8fafc; border-bottom-left-radius:16px; border-bottom-right-radius:16px;">
                 <button class="ctv-btn-secondary" onclick="_ctvCopyPriceListText(${configId}, '${mode}')" style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">📋 Sao chép text nhanh</button>
-                <button class="ctv-btn-secondary" style="background:#1e3a8a; color:white; border-color:#1e3a8a; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" onclick="window.print()">🖨️ In / Tải PDF</button>
+                <button class="ctv-btn-secondary" style="background:#1e3a8a; color:white; border-color:#1e3a8a; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" onclick="_ctvPrintPriceList('${mode}')">🖨️ In / Tải PDF</button>
                 <button class="ctv-btn-secondary" onclick="_ctvClosePriceListExportModal()" style="cursor:pointer;">Đóng</button>
             </div>
         </div>
@@ -3670,6 +3670,33 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
 function _ctvClosePriceListExportModal() {
     const modal = document.getElementById('ctv_price_list_export_modal');
     if (modal) modal.style.display = 'none';
+}
+
+function _ctvPrintPriceList(mode) {
+    const originalTitle = document.title;
+    const d = typeof vnNow === 'function' ? vnNow() : new Date();
+    const vnParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+    }).formatToParts(d);
+    const day = vnParts.find(p => p.type === 'day').value;
+    const month = vnParts.find(p => p.type === 'month').value;
+    const year = vnParts.find(p => p.type === 'year').value;
+    const formattedDate = `${day}-${month}-${year}`;
+
+    if (mode === 'customer') {
+        document.title = `Báo Giá Khách Hàng HV ${formattedDate}`;
+    } else {
+        document.title = `Báo Giá CTV HV ${formattedDate}`;
+    }
+    
+    window.print();
+    
+    setTimeout(() => {
+        document.title = originalTitle;
+    }, 100);
 }
 
 function _ctvCopyPriceListText(configId, mode) {
