@@ -1940,18 +1940,18 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
     // Sort surcharge items by configured display order
     let surchargeItems = [];
     const defaults = {
-        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0 },
-        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0 },
-        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0 },
-        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0 },
-        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0 }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, inactive: sc.collar_inactive || false },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, inactive: sc.qty_under_20_inactive || false },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, inactive: sc.primary_school_inactive || false },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, inactive: sc.raglan_inactive || false },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, inactive: sc.color_block_inactive || false }
     };
     const customs = {};
     if (sc.custom && Array.isArray(sc.custom)) {
         sc.custom.forEach(item => {
             if (item && item.name) {
                 const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-                customs[customKey] = { key: customKey, name: item.name, value: item.value || 0 };
+                customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, inactive: item.inactive || false };
             }
         });
     }
@@ -1987,6 +1987,9 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                 }
             }
             if (found) {
+                if (typeof o === 'object' && o.inactive !== undefined) {
+                    found.inactive = o.inactive;
+                }
                 surchargeItems.push(found);
             }
         });
@@ -2018,7 +2021,7 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                     👕 ĐƠN GIÁ PHÔI TRƠN ${mode === 'customer' ? 'BÁN KHÁCH HÀNG' : ''}
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 6px;">
-                    ${mats.map(m => {
+                    ${mats.filter(m => !m.inactive).map(m => {
                         const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
                         return `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 8px; border: 1px solid #f1f5f9;">
@@ -2038,7 +2041,7 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                     ➕ PHỤ PHÍ & CHI TIẾT THÊM
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 6px;">
-                    ${surchargeItems.map(item => {
+                    ${surchargeItems.filter(item => !item.inactive).map(item => {
                         const priceInfo = _mGetPriceInfo(item.value);
                         const isNegative = !priceInfo.isContact && priceInfo.value < 0;
                         return `
@@ -2060,6 +2063,7 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #475569;">
                     <!-- PET -->
+                    ${!pr.pet?.inactive ? `
                     <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
                         <div style="font-weight: 750; color: #6b21a8; font-size: 11.5px; border-bottom: 1px dashed #e9d5ff; padding-bottom: 2px; margin-bottom: 2px;">🧬 In PET Khổ Mét</div>
                         ${(function() {
@@ -2080,6 +2084,7 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                             `;
                         })()}
                     </div>
+                    ` : ''}
                     <!-- Embroidery & 3D -->
                     <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
                         <div style="font-weight: 750; color: #86198f; font-size: 11.5px; border-bottom: 1px dashed #f5d0fe; padding-bottom: 2px; margin-bottom: 2px;">⚡ Thêu & In 3D</div>
@@ -2093,6 +2098,7 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                         <div style="display:flex; justify-content:space-between; align-items:center;"><span>In 3D toàn thân:</span><strong>${Number(pr.print3d?.flat_price || 30000).toLocaleString('vi-VN')}đ/áo</strong></div>
                     </div>
                     <!-- Screen -->
+                    ${!pr.screen?.inactive ? `
                     <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
                         <div style="font-weight: 750; color: #334155; font-size: 11.5px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px; margin-bottom: 2px;">🖌️ In Lưới (Screen Printing)</div>
                         <div style="display:flex; justify-content:space-between; align-items:center;"><span>Đơn tối thiểu:</span><strong>${pr.screen?.qty_threshold} áo</strong></div>
@@ -2100,6 +2106,7 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                         <div style="display:flex; justify-content:space-between; align-items:center;"><span>Đơn >= ${pr.screen?.qty_threshold} áo (1-3 màu):</span><strong>${Number(pr.screen?.price_high_1_3).toLocaleString('vi-VN')}đ/màu/áo</strong></div>
                         <div style="display:flex; justify-content:space-between; align-items:center;"><span>Đơn >= ${pr.screen?.qty_threshold} áo (4+ màu):</span><strong>${Number(pr.screen?.price_high_4_plus).toLocaleString('vi-VN')}đ/màu/áo</strong></div>
                     </div>
+                    ` : ''}
                 </div>
             </div>
             

@@ -2941,18 +2941,18 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
     // Sort surcharge items by configured display order (only show items in display_order)
     let surchargeItems = [];
     const _defaults = {
-        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, is_default: true },
-        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, is_default: true },
-        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, is_default: true },
-        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, is_default: true },
-        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, is_default: true }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, is_default: true, inactive: sc.collar_inactive || false },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, is_default: true, inactive: sc.qty_under_20_inactive || false },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, is_default: true, inactive: sc.primary_school_inactive || false },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, is_default: true, inactive: sc.raglan_inactive || false },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, is_default: true, inactive: sc.color_block_inactive || false }
     };
     const _customs = {};
     if (sc.custom && Array.isArray(sc.custom)) {
         sc.custom.forEach(item => {
             if (item && item.name) {
                 const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, is_default: false };
+                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, is_default: false, inactive: item.inactive || false };
             }
         });
     }
@@ -2988,6 +2988,9 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                 }
             }
             if (found) {
+                if (typeof o === 'object' && o.inactive !== undefined) {
+                    found.inactive = o.inactive;
+                }
                 surchargeItems.push(found);
             }
         });
@@ -3040,7 +3043,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                 👕 ĐƠN GIÁ PHÔI TRƠN ${mode === 'customer' ? 'BÁN KHÁCH HÀNG' : '(CỔ TRÒN)'}
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                ${mats.map(m => {
+                                ${mats.filter(m => !m.inactive).map(m => {
                                     const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
                                     return `
                                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
@@ -3060,7 +3063,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                 ➕ BẢNG PHỤ PHÍ & CHI TIẾT THÊM
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                ${surchargeItems.map(item => {
+                                ${surchargeItems.filter(item => !item.inactive).map(item => {
                                     const priceInfo = _ctvGetPriceInfo(item.value);
                                     const isNegative = !priceInfo.isContact && priceInfo.value < 0;
                                     return `
@@ -3085,6 +3088,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                             
                             <!-- PET Card -->
+                            ${!pr.pet?.inactive ? `
                             <div style="background: #fdfcff; border: 1px solid #f3e8ff; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
                                 <div style="font-weight: 800; color: #6b21a8; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #e9d5ff; padding-bottom: 6px; margin-bottom: 2px;">
                                     🧬 IN PET KHỔ MÉT
@@ -3123,9 +3127,10 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                     </div>
                                 </div>
                             </div>
+                            ` : ''}
                             
                             <!-- Shipping Policy Card -->
-                            <div style="background: ${mode === 'customer' ? '#fff7ed' : '#f0fdfa'}; border: 1px solid ${mode === 'customer' ? '#ffedd5' : '#ccfbf1'}; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+                            <div style="background: ${mode === 'customer' ? '#fff7ed' : '#f0fdfa'}; border: 1px solid ${mode === 'customer' ? '#ffedd5' : '#ccfbf1'}; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px; ${pr.pet?.inactive && pr.screen?.inactive ? 'grid-column: span 2;' : ''}">
                                 ${mode === 'ctv' ? `
                                 <div>
                                     <div style="font-weight: 800; color: #0f766e; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #99f6e4; padding-bottom: 6px; margin-bottom: 6px;">
@@ -3198,8 +3203,9 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                 ` : ''}
                             </div>
                             
-                            <!-- Screen Printing Card (Span 2) -->
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; grid-column: span 2; display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Screen Printing Card -->
+                            ${!pr.screen?.inactive ? `
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; ${!pr.pet?.inactive ? 'grid-column: span 2;' : ''} display: flex; flex-direction: column; gap: 8px;">
                                 <div style="font-weight: 800; color: #334155; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; margin-bottom: 2px;">
                                     🖌️ IN LƯỚI CTV (SCREEN PRINTING)
                                 </div>
@@ -3226,6 +3232,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                     </div>
                                 </div>
                             </div>
+                            ` : ''}
                             
                         </div>
                     </div>
@@ -3290,18 +3297,18 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
     // Get Surcharges list in configured order
     let surchargeItems = [];
     const _defaults = {
-        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0 },
-        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0 },
-        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0 },
-        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0 },
-        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0 }
+        collar: { key: 'collar', name: 'Cổ bẻ', value: sc.collar || 0, inactive: sc.collar_inactive || false },
+        qty_under_20: { key: 'qty_under_20', name: 'Sản xuất dưới 20 áo', value: sc.qty_under_20 || 0, inactive: sc.qty_under_20_inactive || false },
+        primary_school: { key: 'primary_school', name: 'Chiết khấu tiểu học', value: sc.primary_school || 0, inactive: sc.primary_school_inactive || false },
+        raglan: { key: 'raglan', name: 'Tay Raglan', value: sc.raglan || 0, inactive: sc.raglan_inactive || false },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: sc.color_block || 0, inactive: sc.color_block_inactive || false }
     };
     const _customs = {};
     if (sc.custom && Array.isArray(sc.custom)) {
         sc.custom.forEach(item => {
             if (item && item.name) {
                 const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
-                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0 };
+                _customs[customKey] = { key: customKey, name: item.name, value: item.value || 0, inactive: item.inactive || false };
             }
         });
     }
@@ -3320,8 +3327,16 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                 found.name = oName || found.name;
                 delete _customs[oKey];
             }
-            if (found) surchargeItems.push(found);
+            if (found) {
+                if (typeof o === 'object' && o.inactive !== undefined) {
+                    found.inactive = o.inactive;
+                }
+                surchargeItems.push(found);
+            }
         });
+    } else {
+        surchargeItems = Object.values(_defaults);
+        Object.values(_customs).forEach(c => surchargeItems.push(c));
     }
 
     const logoSrc = info.logo || '/images/logo.png';
@@ -3417,7 +3432,7 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${mats.map((m, idx) => {
+                                    ${mats.filter(m => !m.inactive).map((m, idx) => {
                                         const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
                                         return `
                                             <tr style="${idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
@@ -3441,7 +3456,7 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${surchargeItems.map((item, idx) => {
+                                    ${surchargeItems.filter(item => !item.inactive).map((item, idx) => {
                                         const priceInfo = _ctvGetPriceInfo(item.value);
                                         return `
                                             <tr style="${idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
@@ -3456,8 +3471,10 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                     </div>
                     
                     <!-- Print and Shipping Blocks -->
-                    <div style="margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                    ${(!pr.pet?.inactive || !pr.screen?.inactive) ? `
+                    <div style="margin-top:20px; display:grid; grid-template-columns: ${(!pr.pet?.inactive && !pr.screen?.inactive) ? '1fr 1fr' : '1fr'}; gap:20px;">
                         <!-- PET Card -->
+                        ${!pr.pet?.inactive ? `
                         <div style="background:#fdfcff; border:1px solid #e9d5ff; border-radius:10px; padding:14px; font-size:12.5px;">
                             <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#6b21a8; border-bottom:1px dashed #d8b4fe; padding-bottom:6px;">🧬 IN PET KHỔ MÉT</h4>
                             <div style="display:flex; flex-direction:column; gap:6px;">
@@ -3494,8 +3511,10 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                                 </div>
                             </div>
                         </div>
+                        ` : ''}
 
                         <!-- Screen Print Card -->
+                        ${!pr.screen?.inactive ? `
                         <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:14px; font-size:12.5px;">
                             <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#334155; border-bottom:1px dashed #cbd5e1; padding-bottom:6px;">🖌️ IN LƯỚI CTV (SCREEN PRINTING)</h4>
                             <div style="display:flex; flex-direction:column; gap:6px;">
@@ -3517,7 +3536,9 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                                 </div>
                             </div>
                         </div>
+                        ` : ''}
                     </div>
+                    ` : ''}
 
                     <!-- Shipping Policy Card -->
                     <div style="margin-top:20px; background:${mode === 'customer' ? '#fff7ed' : '#f0fdfa'}; border:1px solid ${mode === 'customer' ? '#fed7aa' : '#ccfbf1'}; border-radius:10px; padding:14px; font-size:12.5px;">
