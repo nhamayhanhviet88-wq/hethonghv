@@ -416,7 +416,7 @@ async function renderBaogiactvhhPage(content) {
             }
             .ctv-pet-shape-form {
                 display: grid;
-                grid-template-columns: 1fr 1fr 1fr auto;
+                grid-template-columns: 1.5fr 1fr 1fr auto;
                 gap: 8px;
                 align-items: end;
                 margin-bottom: 12px;
@@ -1163,16 +1163,16 @@ function _ctvRenderPrintPanel() {
                 ${_ctvState.showPetInputForm ? `
                 <div class="ctv-pet-shape-form" style="margin-bottom:12px;">
                     <div>
+                        <label style="font-size:11px; font-weight:700; color:#0f766e;">Tên hình in</label>
+                        <input type="text" class="ctv-input" id="ctv_pet_name" placeholder="Ví dụ: Lưng, Ngực..." oninput="_ctvUpdateCalculations()">
+                    </div>
+                    <div>
                         <label style="font-size:11px; font-weight:700; color:#0f766e;">Rộng (cm)</label>
                         <input type="number" class="ctv-input" id="ctv_pet_w" step="0.1" value="10" oninput="_ctvUpdateCalculations()">
                     </div>
                     <div>
                         <label style="font-size:11px; font-weight:700; color:#0f766e;">Cao (cm)</label>
                         <input type="number" class="ctv-input" id="ctv_pet_h" step="0.1" value="10" oninput="_ctvUpdateCalculations()">
-                    </div>
-                    <div>
-                        <label style="font-size:11px; font-weight:700; color:#0f766e;">SL/Áo</label>
-                        <input type="number" class="ctv-input" id="ctv_pet_qty" value="1" min="1" oninput="_ctvUpdateCalculations()">
                     </div>
                     <button type="button" class="ctv-btn-secondary btn-add-pet-shape" style="padding: 10px 14px;" onclick="_ctvAddPetShape()">Thêm</button>
                 </div>
@@ -1287,24 +1287,29 @@ function _ctvSaveActivePrint() {
     
     if (_ctvState.printType === 'pet') {
         if (_ctvState.showPetInputForm) {
+            const nameEl = document.getElementById('ctv_pet_name');
             const wEl = document.getElementById('ctv_pet_w');
             const hEl = document.getElementById('ctv_pet_h');
-            const qtyEl = document.getElementById('ctv_pet_qty');
             
+            const nameVal = nameEl ? nameEl.value.trim() : '';
             const wVal = wEl ? wEl.value.trim() : '';
             const hVal = hEl ? hEl.value.trim() : '';
-            const qtyVal = qtyEl ? qtyEl.value.trim() : '';
             
-            if (!wVal || !hVal || !qtyVal || parseFloat(wVal) <= 0 || parseFloat(hVal) <= 0 || parseInt(qtyVal) <= 0) {
-                alert('Vui lòng điền đầy đủ kích thước và số lượng hình in PET.');
+            if (!nameVal) {
+                alert('Vui lòng điền tên hình in PET.');
+                return;
+            }
+            if (!wVal || !hVal || parseFloat(wVal) <= 0 || parseFloat(hVal) <= 0) {
+                alert('Vui lòng điền đầy đủ kích thước hình in PET.');
                 return;
             }
             
             // Auto-add the shape if valid
             _ctvState.petShapes.push({
+                name: nameVal,
                 width: parseFloat(wVal),
                 height: parseFloat(hVal),
-                qty_per_shirt: parseInt(qtyVal),
+                qty_per_shirt: 1,
                 mode: 'aligned'
             });
             _ctvState.showPetInputForm = false;
@@ -1460,22 +1465,28 @@ function _ctvShowPetInput(show) {
 }
 
 function _ctvAddPetShape() {
+    const nameInput = document.getElementById('ctv_pet_name');
     const wInput = document.getElementById('ctv_pet_w');
     const hInput = document.getElementById('ctv_pet_h');
-    const qtyInput = document.getElementById('ctv_pet_qty');
     
-    if (!wInput || !hInput || !qtyInput) return;
+    if (!nameInput || !wInput || !hInput) return;
     
+    const name = nameInput.value.trim();
     const w = parseFloat(wInput.value) || 0;
     const h = parseFloat(hInput.value) || 0;
-    const qty = parseInt(qtyInput.value) || 0;
+    const qty = 1;
     
-    if (w <= 0 || h <= 0 || qty <= 0) {
-        showToast('Vui lòng nhập kích thước và số lượng hình in hợp lệ', 'error');
+    if (!name) {
+        showToast('Vui lòng nhập tên hình in', 'error');
+        return;
+    }
+    if (w <= 0 || h <= 0) {
+        showToast('Vui lòng nhập kích thước hình in hợp lệ', 'error');
         return;
     }
     
     _ctvState.petShapes.push({
+        name: name,
         width: w,
         height: h,
         qty_per_shirt: qty,
@@ -1508,8 +1519,8 @@ function _ctvRenderPetShapesList() {
             <thead>
                 <tr>
                     <th>STT</th>
+                    <th>Tên hình in</th>
                     <th>Kích thước</th>
-                    <th>SL/áo</th>
                     <th>Xóa</th>
                 </tr>
             </thead>
@@ -1517,8 +1528,8 @@ function _ctvRenderPetShapesList() {
                 ${_ctvState.petShapes.map((s, idx) => `
                     <tr>
                         <td>${idx + 1}</td>
+                        <td>${s.name || 'Hình ' + (idx + 1)}</td>
                         <td>${s.width} x ${s.height} cm</td>
-                        <td>${s.qty_per_shirt} hình</td>
                         <td>
                             <button type="button" class="ctv-remove-btn" onclick="_ctvRemovePetShape(${idx})">×</button>
                         </td>
@@ -1804,16 +1815,18 @@ function _ctvCalculateAllCosts() {
             
             const shapes = [...(details.petShapes || [])];
             if (_ctvState.showPetInputForm && details.petShapes === _ctvState.petShapes) {
+                const nameEl = document.getElementById('ctv_pet_name');
                 const wEl = document.getElementById('ctv_pet_w');
                 const hEl = document.getElementById('ctv_pet_h');
-                const qtyEl = document.getElementById('ctv_pet_qty');
                 
+                const name = nameEl ? nameEl.value.trim() : '';
                 const w = wEl ? parseFloat(wEl.value) : 10;
                 const h = hEl ? parseFloat(hEl.value) : 10;
-                const qty = qtyEl ? parseInt(qtyEl.value) : 1;
+                const qty = 1;
                 
                 if (w > 0 && h > 0 && qty > 0) {
                     shapes.push({
+                        name: name,
                         width: w,
                         height: h,
                         qty_per_shirt: qty,
@@ -1830,7 +1843,7 @@ function _ctvCalculateAllCosts() {
                 if (perSheetCount > 0) {
                     const sheetFraction = s.qty_per_shirt / perSheetCount;
                     let costPerShirt = Math.round(sheetFraction * sheetPrice);
-                    let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm${s.isActiveInput ? ' (Dự tính)' : ''}`;
+                    let labelText = `In PET ${s.name || `#${idx+1}`}: ${s.width}x${s.height}cm${s.isActiveInput ? ' (Dự tính)' : ''}`;
                     
                     if (costPerShirt < minPositionPrice) {
                         costPerShirt = minPositionPrice;
