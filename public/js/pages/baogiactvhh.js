@@ -2479,7 +2479,7 @@ function _ctvOpenExportModal(mode = null) {
                         <tbody>
                             <tr style="background:white;">
                                 <td style="border:1px solid #cbd5e1; padding:10px 14px; font-size:13px;">
-                                    <strong style="color:#1e3a8a;">May phôi trơn:</strong> Vải ${calc.materialName} (Chưa bao gồm in ấn/sửa đổi)
+                                    <strong style="color:#1e3a8a;">May phôi trơn:</strong> Vải ${calc.materialName}
                                 </td>
                                 <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; font-weight:600; color:#0f172a; font-size:13px;">
                                     ${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ
