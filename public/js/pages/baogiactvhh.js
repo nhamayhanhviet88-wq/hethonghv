@@ -1520,6 +1520,12 @@ function _ctvUpdateCalculations() {
             <span>Số lượng đơn:</span>
             <strong style="color:white;">${_ctvState.quantity ? _ctvState.quantity + ' áo' : '<span style="color:#ef4444; font-weight:700;">Chưa nhập số lượng</span>'}</strong>
         </div>
+        ${calc.matchedShipping ? `
+        <div class="ctv-result-row">
+            <span>Vận chuyển:</span>
+            <strong style="color:#38bdf8;">${calc.matchedShipping.desc}</strong>
+        </div>
+        ` : ''}
         
         <div style="border-top:1px solid rgba(255,255,255,0.1); margin:12px 0; padding-top:12px;">
             <div class="ctv-result-row">
@@ -1599,13 +1605,6 @@ function _ctvUpdateCalculations() {
         <div class="ctv-words">
             Bằng chữ: <strong>${wordsText}</strong>
         </div>
-        
-        ${calc.matchedShipping ? `
-        <div class="ctv-result-row" style="color: #38bdf8; font-size: 13px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 8px; margin-top: 8px;">
-            <span>Hỗ trợ vận chuyển:</span>
-            <span style="text-align: right; font-weight: 600;">${calc.matchedShipping.desc}</span>
-        </div>
-        ` : ''}
         
         <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
             <button class="ctv-btn-action" style="margin-top:0;" onclick="_ctvSaveQuotation()" ${!hasCustomerSelected ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>

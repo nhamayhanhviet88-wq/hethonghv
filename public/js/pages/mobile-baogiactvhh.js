@@ -907,6 +907,12 @@ function _mUpdateCalculations() {
             <span>Số lượng:</span>
             <strong style="color:white;">${_mState.quantity ? _mState.quantity + ' áo' : '<span style="color:#ef4444;">Chưa nhập số lượng</span>'}</strong>
         </div>
+        ${calc.matchedShipping ? `
+        <div class="m-result-row">
+            <span>Vận chuyển:</span>
+            <strong style="color:#38bdf8;">${calc.matchedShipping.desc}</strong>
+        </div>
+        ` : ''}
         <div class="m-result-row">
             <span>Chất liệu vải:</span>
             <strong style="color:white;">${calc.materialName}</strong>
@@ -984,13 +990,6 @@ function _mUpdateCalculations() {
         <div style="font-size:11.5px; font-style:italic; color:#38bdf8; text-align:right; margin-top:4px;">
             Bằng chữ: ${wordsText}
         </div>
-        
-        ${calc.matchedShipping ? `
-        <div class="m-result-row" style="color: #38bdf8; font-size: 12px; border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 6px; margin-top: 6px;">
-            <span>Hỗ trợ vận chuyển:</span>
-            <span style="text-align: right; font-weight: 600;">${calc.matchedShipping.desc}</span>
-        </div>
-        ` : ''}
         
         <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
             <button class="m-btn-secondary" style="background:transparent; border-color:rgba(255,255,255,0.3); color:white;" onclick="_mOpenExportModal()">🖨️ Xuất Bản In</button>
