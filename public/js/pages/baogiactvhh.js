@@ -590,11 +590,16 @@ function _ctvRenderCalculator(container) {
                     <div class="ctv-form-group">
                         <label>Chọn Chất liệu vải</label>
                         <select class="ctv-select" id="ctv_material" onchange="_ctvOnMaterialChange(this.value)">
-                            ${config.materials.map((m, idx) => `
-                                <option value="${idx}" ${idx === _ctvState.selectedMaterialIndex ? 'selected' : ''}>
-                                    ${m.name} - ${Number(m.price).toLocaleString('vi-VN')} đ (May cổ tròn)
-                                </option>
-                            `).join('')}
+                            ${config.materials.map((m, idx) => {
+                                const price = _ctvState.targetType === 'customer' 
+                                    ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
+                                    : Number(m.price);
+                                return `
+                                    <option value="${idx}" ${idx === _ctvState.selectedMaterialIndex ? 'selected' : ''}>
+                                        ${m.name} - ${price.toLocaleString('vi-VN')} đ (May cổ tròn)
+                                    </option>
+                                `;
+                            }).join('')}
                         </select>
                     </div>
                     
@@ -770,6 +775,22 @@ function _ctvSelectTargetType(type) {
             ctvCard.style.boxShadow = 'none';
         }
     }
+    
+    // Update material dropdown options dynamically
+    const materialSelect = document.getElementById('ctv_material');
+    if (materialSelect && _ctvState.activeConfig) {
+        const config = _ctvState.activeConfig;
+        const currentIdx = materialSelect.value !== "" ? Number(materialSelect.value) : _ctvState.selectedMaterialIndex;
+        materialSelect.innerHTML = config.materials.map((m, idx) => {
+            const price = type === 'customer' 
+                ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
+                : Number(m.price);
+            return `<option value="${idx}" ${idx === currentIdx ? 'selected' : ''}>
+                ${m.name} - ${price.toLocaleString('vi-VN')} đ (May cổ tròn)
+            </option>`;
+        }).join('');
+    }
+    
     _ctvUpdateCalculations();
 }
 

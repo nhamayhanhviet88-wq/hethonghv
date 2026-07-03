@@ -157,11 +157,16 @@ function _mRenderCalculator(container) {
             <div class="m-form-group">
                 <label>Chất liệu vải</label>
                 <select class="m-select" id="m_material" onchange="_mOnMaterialChange(this.value)">
-                    ${config.materials.map((m, idx) => `
-                        <option value="${idx}" ${idx === _mState.selectedMaterialIndex ? 'selected' : ''}>
-                            ${m.name} - ${Number(m.price).toLocaleString('vi-VN')}đ (May cổ tròn)
-                        </option>
-                    `).join('')}
+                    ${config.materials.map((m, idx) => {
+                        const price = _mState.targetType === 'customer' 
+                            ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
+                            : Number(m.price);
+                        return `
+                            <option value="${idx}" ${idx === _mState.selectedMaterialIndex ? 'selected' : ''}>
+                                ${m.name} - ${price.toLocaleString('vi-VN')}đ (May cổ tròn)
+                            </option>
+                        `;
+                    }).join('')}
                 </select>
             </div>
             <div class="m-form-group" style="margin-bottom:0;">
@@ -323,6 +328,22 @@ function _mSelectTargetType(type) {
             ctvCard.style.boxShadow = 'none';
         }
     }
+    
+    // Update material dropdown options dynamically
+    const materialSelect = document.getElementById('m_material');
+    if (materialSelect && _mState.activeConfig) {
+        const config = _mState.activeConfig;
+        const currentIdx = materialSelect.value !== "" ? Number(materialSelect.value) : _mState.selectedMaterialIndex;
+        materialSelect.innerHTML = config.materials.map((m, idx) => {
+            const price = type === 'customer' 
+                ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
+                : Number(m.price);
+            return `<option value="${idx}" ${idx === currentIdx ? 'selected' : ''}>
+                ${m.name} - ${price.toLocaleString('vi-VN')}đ (May cổ tròn)
+            </option>`;
+        }).join('');
+    }
+    
     _mUpdateCalculations();
 }
 
