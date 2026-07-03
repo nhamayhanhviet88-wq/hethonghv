@@ -153,12 +153,12 @@ function _mRenderCalculator(container) {
                         const ordered = _mGetOrderedOptionalSurcharges(config);
                         return ordered.map(item => {
                             const isChecked = _mState.surcharges[item.key] ? 'checked' : '';
-                            const sign = item.value >= 0 ? '+' : '';
+                            const priceInfo = _mGetPriceInfo(item.value);
                             const safeId = 'm_sc_' + item.key.replace(/\s+/g, '_');
                             return `
                                 <label class="m-checkbox-label">
                                     <input type="checkbox" id="${safeId}" ${isChecked} onchange="_mToggleSurcharge('${item.key}', this.checked)">
-                                    ${item.name} (${sign}${Number(item.value).toLocaleString('vi-VN')}đ)
+                                    ${item.name} (${priceInfo.text})
                                 </label>
                             `;
                         }).join('');
@@ -424,6 +424,18 @@ function _mOn3dCostChange(val) {
     _mUpdateCalculations();
 }
 
+function _mGetPriceInfo(val) {
+    const cleanVal = String(val === undefined || val === null ? '' : val).trim();
+    if (cleanVal === '') {
+        return { isContact: false, value: 0, text: '0đ' };
+    }
+    const parsed = parseFloat(cleanVal.replace(/[^0-9.-]/g, ''));
+    if (!isNaN(parsed) && isFinite(parsed) && /^-?\d+(\.\d+)?$/.test(cleanVal.replace(/[,.đ]/g, ''))) {
+        return { isContact: false, value: parsed, text: (parsed >= 0 ? '+' : '') + parsed.toLocaleString('vi-VN') + 'đ' };
+    }
+    return { isContact: true, value: 0, text: cleanVal };
+}
+
 function _mGetEmbPriceInfo(val) {
     const cleanVal = String(val || '').trim();
     const parsed = parseFloat(cleanVal.replace(/[^0-9.-]/g, ''));
@@ -541,18 +553,30 @@ function _mCalculateAllCosts() {
     const surchargesBreakdown = [];
     
     if (qty < 20) {
-        const fee = Number(config.surcharges.qty_under_20) || 0;
-        surchargeTotal += fee;
-        surchargesBreakdown.push({ label: 'Số lượng < 20 áo', price: fee });
+        const priceInfo = _mGetPriceInfo(config.surcharges.qty_under_20);
+        surchargeTotal += priceInfo.value;
+        surchargesBreakdown.push({
+            label: 'Số lượng < 20 áo',
+            price: priceInfo.value,
+            text: priceInfo.text,
+            isContact: priceInfo.isContact,
+            contactText: priceInfo.text
+        });
     }
     
     // Optional surcharges ordered
     const optionalSurcharges = _mGetOrderedOptionalSurcharges(config);
     optionalSurcharges.forEach(item => {
         if (_mState.surcharges[item.key]) {
-            const fee = Number(item.value) || 0;
-            surchargeTotal += fee;
-            surchargesBreakdown.push({ label: item.name, price: fee });
+            const priceInfo = _mGetPriceInfo(item.value);
+            surchargeTotal += priceInfo.value;
+            surchargesBreakdown.push({
+                label: item.name,
+                price: priceInfo.value,
+                text: priceInfo.text,
+                isContact: priceInfo.isContact,
+                contactText: priceInfo.text
+            });
         }
     });
     
@@ -646,17 +670,22 @@ function _mUpdateCalculations() {
     
     const hasCustomer = !!_mState.selectedCustomer;
     
-    const hasContactPrice = calc.printBreakdown.some(p => p.isContact);
-    const finalPricePerShirtText = hasContactPrice 
-        ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
-        : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo`;
+    const contactTexts = [];
+    calc.printBreakdown.forEach(p => {
+        if (p.isContact) contactTexts.push(p.contactText);
+    });
+    calc.surchargesBreakdown.forEach(s => {
+        if (s.isContact) contactTexts.push(s.contactText);
+    });
+    const hasContactPrice = contactTexts.length > 0;
+    const contactNote = hasContactPrice ? ` + ${contactTexts.join(', ')}` : '';
     
-    const grandTotalText = hasContactPrice
-        ? `${calc.grandTotal.toLocaleString('vi-VN')} đ + Thêu liên hệ`
-        : `${calc.grandTotal.toLocaleString('vi-VN')} đ`;
+    const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
+    
+    const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
         
     const wordsText = hasContactPrice
-        ? `${docSoTienVietNam(calc.grandTotal)} (và giá thêu liên hệ)`
+        ? `${docSoTienVietNam(calc.grandTotal)} (và ${contactTexts.join(', ')})`
         : docSoTienVietNam(calc.grandTotal);
     
     box.innerHTML = `
@@ -685,7 +714,7 @@ function _mUpdateCalculations() {
                 ${calc.surchargesBreakdown.map(s => `
                     <div class="m-result-row" style="font-size:12px;">
                         <span>• ${s.label}</span>
-                        <span>${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ</span>
+                        <span>${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}</span>
                     </div>
                 `).join('')}
             </div>
@@ -781,15 +810,20 @@ function _mOpenExportModal() {
     const dateStr = vnDateStr(vnNow());
     const code = 'BGCTV-M' + Math.floor(Math.random()*90000 + 10000);
     
-    const hasContactPrice = calc.printBreakdown.some(p => p.isContact);
-    const finalPricePerShirtText = hasContactPrice 
-        ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
-        : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo`;
-    const grandTotalText = hasContactPrice
-        ? `${calc.grandTotal.toLocaleString('vi-VN')} đ + Thêu liên hệ`
-        : `${calc.grandTotal.toLocaleString('vi-VN')} đ`;
+    const contactTexts = [];
+    calc.printBreakdown.forEach(p => {
+        if (p.isContact) contactTexts.push(p.contactText);
+    });
+    calc.surchargesBreakdown.forEach(s => {
+        if (s.isContact) contactTexts.push(s.contactText);
+    });
+    const hasContactPrice = contactTexts.length > 0;
+    const contactNote = hasContactPrice ? ` + ${contactTexts.join(', ')}` : '';
+    
+    const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
+    const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
     const wordsText = hasContactPrice
-        ? `${docSoTienVietNam(calc.grandTotal)} (và giá thêu liên hệ)`
+        ? `${docSoTienVietNam(calc.grandTotal)} (và ${contactTexts.join(', ')})`
         : docSoTienVietNam(calc.grandTotal);
     
     const container = document.getElementById('m_print_area');
@@ -829,7 +863,7 @@ function _mOpenExportModal() {
                     ${calc.surchargesBreakdown.map(s => `
                         <tr>
                             <td style="border:1px solid #cbd5e1; padding:6px; padding-left:14px; color:#475569;">+ Phụ phí: ${s.label}</td>
-                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#475569;">${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ</td>
+                            <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:#475569;">${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}</td>
                         </tr>
                     `).join('')}
                     ${calc.printBreakdown.map(p => `
