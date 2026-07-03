@@ -49,6 +49,7 @@ var _ctvState = {
     print3dCost: 30000,
     petChestPrint: false,
     includeCommission: false,
+    targetType: null,
     
     // History list
     historyLogs: [],
@@ -550,6 +551,23 @@ function _ctvRenderCalculator(container) {
         <div class="ctv-grid">
             <!-- Left Side: Inputs -->
             <div>
+                <!-- Target Selection (Mandatory) -->
+                <div class="ctv-card" style="border: 2px solid #3b82f6;">
+                    <div class="ctv-card-title" style="color: #1d4ed8; display: flex; align-items: center; justify-content: space-between;">
+                        <span>🎯 Chọn Đối Tượng Báo Giá <span style="color:#ef4444;">*</span></span>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-top: 8px;">
+                        <div onclick="_ctvSelectTargetType('ctv')" id="target_type_ctv" style="flex: 1; padding: 12px; border-radius: 10px; border: 2px solid #cbd5e1; cursor: pointer; text-align: center; transition: all 0.2s; background: white; font-weight: 700; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                            <span style="font-size: 24px;">👥</span>
+                            <span>Báo giá CTV / Đại lý</span>
+                        </div>
+                        <div onclick="_ctvSelectTargetType('customer')" id="target_type_customer" style="flex: 1; padding: 12px; border-radius: 10px; border: 2px solid #cbd5e1; cursor: pointer; text-align: center; transition: all 0.2s; background: white; font-weight: 700; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                            <span style="font-size: 24px;">🛍️</span>
+                            <span>Báo giá Khách hàng</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Customer Lookup -->
                 <div class="ctv-card">
                     <div class="ctv-card-title">👤 Thông Tin Khách Hàng</div>
@@ -579,28 +597,6 @@ function _ctvRenderCalculator(container) {
                             `).join('')}
                         </select>
                     </div>
-                    
-                    ${(function() {
-                        const m = config.materials[_ctvState.selectedMaterialIndex];
-                        const basePrice = m ? Number(m.price) : 0;
-                        const custPrice = m && m.customer_price !== undefined ? Number(m.customer_price) : Math.round(basePrice * 1.15);
-                        const diff = custPrice - basePrice;
-                        const isChecked = _ctvState.includeCommission ? 'checked' : '';
-                        return `
-                            <div class="ctv-form-group" style="margin-bottom:15px;">
-                                <label style="display: flex; align-items: center; justify-content: space-between; background: #fff7ed; border: 2px solid #ea580c; border-radius: 8px; padding: 10px 14px; cursor: pointer; user-select: none; margin: 0;">
-                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                        <span style="font-size: 20px;">💰</span>
-                                        <div style="text-align: left;">
-                                            <div style="font-weight: 800; color: #c2410c; font-size: 13px;">Chuyển sang Giá bán Khách hàng</div>
-                                            <div style="font-size: 10px; color: #ea580c; font-weight: normal;">Tự động cộng thêm +${diff.toLocaleString('vi-VN')}đ vào đơn giá vải</div>
-                                        </div>
-                                    </div>
-                                    <input type="checkbox" id="ctv_commission_toggle" ${isChecked} onchange="_ctvToggleCommission(this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c; margin: 0;">
-                                </label>
-                            </div>
-                        `;
-                    })()}
                     
                     <div class="ctv-form-group">
                         <label>Các phụ phí tùy chọn</label>
@@ -655,6 +651,9 @@ function _ctvRenderCalculator(container) {
     _ctvRenderSelectedCustomer();
     // Render dynamic printing fields
     _ctvRenderPrintPanel();
+    if (_ctvState.targetType) {
+        _ctvSelectTargetType(_ctvState.targetType);
+    }
     // Render live breakdown results
     _ctvUpdateCalculations();
 }
@@ -741,8 +740,36 @@ function _ctvOnMaterialChange(idx) {
     _ctvUpdateCalculations();
 }
 
-function _ctvToggleCommission(checked) {
-    _ctvState.includeCommission = !!checked;
+function _ctvSelectTargetType(type) {
+    _ctvState.targetType = type;
+    _ctvState.includeCommission = (type === 'customer');
+    
+    const ctvCard = document.getElementById('target_type_ctv');
+    const customerCard = document.getElementById('target_type_customer');
+    
+    if (ctvCard && customerCard) {
+        if (type === 'ctv') {
+            ctvCard.style.borderColor = '#2563eb';
+            ctvCard.style.background = '#eff6ff';
+            ctvCard.style.color = '#1d4ed8';
+            ctvCard.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)';
+            
+            customerCard.style.borderColor = '#cbd5e1';
+            customerCard.style.background = 'white';
+            customerCard.style.color = '#475569';
+            customerCard.style.boxShadow = 'none';
+        } else if (type === 'customer') {
+            customerCard.style.borderColor = '#ea580c';
+            customerCard.style.background = '#fff7ed';
+            customerCard.style.color = '#c2410c';
+            customerCard.style.boxShadow = '0 0 0 2px rgba(234,88,12,0.2)';
+            
+            ctvCard.style.borderColor = '#cbd5e1';
+            ctvCard.style.background = 'white';
+            ctvCard.style.color = '#475569';
+            ctvCard.style.boxShadow = 'none';
+        }
+    }
     _ctvUpdateCalculations();
 }
 
@@ -1170,6 +1197,7 @@ function _ctvMatchShippingPolicy(shippingList, qty, grandTotal) {
 }
 
 function _ctvCalculateAllCosts() {
+    if (_ctvState.targetType === null || _ctvState.targetType === undefined) return null;
     const config = _ctvState.activeConfig;
     if (!config) return null;
     
@@ -1344,7 +1372,16 @@ function _ctvUpdateCalculations() {
     
     const calc = _ctvCalculateAllCosts();
     if (!calc) {
-        card.innerHTML = `<div style="text-align:center; padding:20px; font-style:italic;">Không thể tính toán chi phí. Vui lòng kiểm tra cấu hình bảng giá.</div>`;
+        if (_ctvState.targetType === null || _ctvState.targetType === undefined) {
+            card.innerHTML = `
+                <div class="ctv-result-title">📊 Chi Tiết Giá Dự Kiến</div>
+                <div style="text-align: center; padding: 40px 20px; color: #ef4444; font-weight: 700; border: 2px dashed #fca5a5; border-radius: 12px; background: #fef2f2; margin-top: 15px; font-size: 13px;">
+                    ⚠️ Vui lòng chọn Đối tượng báo giá ở khung bên trái trước khi bắt đầu tính toán!
+                </div>
+            `;
+        } else {
+            card.innerHTML = `<div style="text-align:center; padding:20px; font-style:italic;">Không thể tính toán chi phí. Vui lòng kiểm tra cấu hình bảng giá.</div>`;
+        }
         return;
     }
     
@@ -1499,7 +1536,9 @@ async function _ctvSaveQuotation() {
             embroideryCost: _ctvState.embroideryCost,
             print3dCost: _ctvState.print3dCost,
             petChestPrint: _ctvState.petChestPrint,
-            materialName: calc.materialName
+            materialName: calc.materialName,
+            targetType: _ctvState.targetType,
+            includeCommission: _ctvState.includeCommission
         },
         calculated_price: calc.finalPricePerShirt,
         total_amount: calc.grandTotal
@@ -1515,9 +1554,17 @@ async function _ctvSaveQuotation() {
             // Reset input values
             _ctvState.selectedCustomer = null;
             _ctvState.petShapes = [];
-            _ctvRenderSelectedCustomer();
-            _ctvRenderPrintPanel();
-            _ctvUpdateCalculations();
+            _ctvState.targetType = null;
+            _ctvState.includeCommission = false;
+            
+            const tabContent = document.getElementById('ctv-tab-content');
+            if (tabContent && _ctvState.activeTab === 'calculator') {
+                _ctvRenderCalculator(tabContent);
+            } else {
+                _ctvRenderSelectedCustomer();
+                _ctvRenderPrintPanel();
+                _ctvUpdateCalculations();
+            }
             
             // Re-render history log
             if (_ctvState.activeTab === 'history') {
@@ -1532,7 +1579,10 @@ async function _ctvSaveQuotation() {
 }
 
 // Open beautiful printable export modal popup
-function _ctvOpenExportModal(mode = 'ctv') {
+function _ctvOpenExportModal(mode = null) {
+    if (!mode) {
+        mode = _ctvState.targetType === 'customer' ? 'customer' : 'ctv';
+    }
     _ctvState.exportMode = mode;
     const calc = _ctvCalculateAllCosts();
     if (!calc) return;
@@ -1935,7 +1985,9 @@ function _ctvShowHistoryDetail(quoteId) {
         screenColors: q.input_details.screenColors || 1,
         embroideryCost: q.input_details.embroideryCost || 15000,
         print3dCost: q.input_details.print3dCost || 30000,
-        petChestPrint: q.input_details.petChestPrint || false
+        petChestPrint: q.input_details.petChestPrint || false,
+        targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
+        includeCommission: q.input_details.includeCommission || false
     };
     
     // Save state temporarily, render export modal, then restore state
@@ -1950,6 +2002,8 @@ function _ctvShowHistoryDetail(quoteId) {
     const originalEmb = _ctvState.embroideryCost;
     const originalPrint3d = _ctvState.print3dCost;
     const originalPetChest = _ctvState.petChestPrint;
+    const originalTargetType = _ctvState.targetType;
+    const originalIncludeCommission = _ctvState.includeCommission;
     
     _ctvState.activeConfig = tempState.activeConfig;
     _ctvState.selectedCustomer = tempState.selectedCustomer;
@@ -1962,8 +2016,10 @@ function _ctvShowHistoryDetail(quoteId) {
     _ctvState.embroideryCost = tempState.embroideryCost;
     _ctvState.print3dCost = tempState.print3dCost;
     _ctvState.petChestPrint = tempState.petChestPrint;
+    _ctvState.targetType = tempState.targetType;
+    _ctvState.includeCommission = tempState.includeCommission;
     
-    _ctvOpenExportModal();
+    _ctvOpenExportModal(tempState.targetType);
     
     // Restore
     _ctvState.activeConfig = originalConfig;
@@ -1977,6 +2033,8 @@ function _ctvShowHistoryDetail(quoteId) {
     _ctvState.embroideryCost = originalEmb;
     _ctvState.print3dCost = originalPrint3d;
     _ctvState.petChestPrint = originalPetChest;
+    _ctvState.targetType = originalTargetType;
+    _ctvState.includeCommission = originalIncludeCommission;
 }
 
 // ==========================================

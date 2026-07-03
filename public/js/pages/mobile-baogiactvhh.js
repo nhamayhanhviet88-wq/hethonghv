@@ -43,6 +43,7 @@ var _mState = {
     print3dCost: 30000,
     petChestPrint: false,
     includeCommission: false,
+    targetType: null,
     historyLogs: [],
     configVersions: []
 };
@@ -117,6 +118,23 @@ function _mRenderCalculator(container) {
     const config = _mState.activeConfig;
     
     container.innerHTML = `
+        <!-- Target Selection (Mandatory) -->
+        <div class="m-card" style="border: 2px solid #3b82f6;">
+            <div class="m-card-title" style="color: #1d4ed8; display: flex; align-items: center; justify-content: space-between; font-size:13px; margin-bottom:8px;">
+                <span>🎯 Chọn Đối Tượng Báo Giá <span style="color:#ef4444;">*</span></span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div onclick="_mSelectTargetType('ctv')" id="m_target_type_ctv" style="flex: 1; padding: 10px 8px; border-radius: 8px; border: 2.2px solid #cbd5e1; cursor: pointer; text-align: center; transition: all 0.2s; background: white; font-weight: 750; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px;">
+                    <span style="font-size: 18px;">👥</span>
+                    <span>Báo giá CTV</span>
+                </div>
+                <div onclick="_mSelectTargetType('customer')" id="m_target_type_customer" style="flex: 1; padding: 10px 8px; border-radius: 8px; border: 2.2px solid #cbd5e1; cursor: pointer; text-align: center; transition: all 0.2s; background: white; font-weight: 750; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px;">
+                    <span style="font-size: 18px;">🛍️</span>
+                    <span>Báo giá Khách hàng</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Customer & Qty -->
         <div class="m-card">
             <div class="m-card-title">👤 Khách Hàng & Số lượng</div>
@@ -146,29 +164,6 @@ function _mRenderCalculator(container) {
                     `).join('')}
                 </select>
             </div>
-            
-            ${(function() {
-                const m = config.materials[_mState.selectedMaterialIndex];
-                const basePrice = m ? Number(m.price) : 0;
-                const custPrice = m && m.customer_price !== undefined ? Number(m.customer_price) : Math.round(basePrice * 1.15);
-                const diff = custPrice - basePrice;
-                const isChecked = _mState.includeCommission ? 'checked' : '';
-                return `
-                    <div class="m-form-group">
-                        <label style="display: flex; align-items: center; justify-content: space-between; background: #fff7ed; border: 2px solid #ea580c; border-radius: 8px; padding: 10px 14px; cursor: pointer; user-select: none; margin: 0;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 20px;">💰</span>
-                                <div style="text-align: left;">
-                                    <div style="font-weight: 800; color: #c2410c; font-size: 13px;">Chuyển sang Giá bán Khách hàng</div>
-                                    <div style="font-size: 10px; color: #ea580c; font-weight: normal;">Tự động cộng thêm +${diff.toLocaleString('vi-VN')}đ vào đơn giá vải</div>
-                                </div>
-                            </div>
-                            <input type="checkbox" id="m_commission_toggle" ${isChecked} onchange="_mToggleCommission(this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c; margin: 0;">
-                        </label>
-                    </div>
-                `;
-            })()}
-            
             <div class="m-form-group" style="margin-bottom:0;">
                 <label>Phụ phí thêm</label>
                 <div class="m-checkbox-group">
@@ -213,6 +208,9 @@ function _mRenderCalculator(container) {
     
     _mRenderSelectedCustomer();
     _mRenderPrintPanel();
+    if (_mState.targetType) {
+        _mSelectTargetType(_mState.targetType);
+    }
     _mUpdateCalculations();
 }
 
@@ -295,8 +293,36 @@ function _mOnMaterialChange(idx) {
     _mUpdateCalculations();
 }
 
-function _mToggleCommission(checked) {
-    _mState.includeCommission = !!checked;
+function _mSelectTargetType(type) {
+    _mState.targetType = type;
+    _mState.includeCommission = (type === 'customer');
+    
+    const ctvCard = document.getElementById('m_target_type_ctv');
+    const customerCard = document.getElementById('m_target_type_customer');
+    
+    if (ctvCard && customerCard) {
+        if (type === 'ctv') {
+            ctvCard.style.borderColor = '#2563eb';
+            ctvCard.style.background = '#eff6ff';
+            ctvCard.style.color = '#1d4ed8';
+            ctvCard.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)';
+            
+            customerCard.style.borderColor = '#cbd5e1';
+            customerCard.style.background = 'white';
+            customerCard.style.color = '#475569';
+            customerCard.style.boxShadow = 'none';
+        } else if (type === 'customer') {
+            customerCard.style.borderColor = '#ea580c';
+            customerCard.style.background = '#fff7ed';
+            customerCard.style.color = '#c2410c';
+            customerCard.style.boxShadow = '0 0 0 2px rgba(234,88,12,0.2)';
+            
+            ctvCard.style.borderColor = '#cbd5e1';
+            ctvCard.style.background = 'white';
+            ctvCard.style.color = '#475569';
+            ctvCard.style.boxShadow = 'none';
+        }
+    }
     _mUpdateCalculations();
 }
 
@@ -599,6 +625,7 @@ function _mMatchShippingPolicy(shippingList, qty, grandTotal) {
 }
 
 function _mCalculateAllCosts() {
+    if (_mState.targetType === null || _mState.targetType === undefined) return null;
     const config = _mState.activeConfig;
     if (!config) return null;
     
@@ -759,7 +786,16 @@ function _mUpdateCalculations() {
     
     const calc = _mCalculateAllCosts();
     if (!calc) {
-        box.innerHTML = `<div style="text-align:center; font-style:italic;">Không thể tính toán chi phí.</div>`;
+        if (_mState.targetType === null || _mState.targetType === undefined) {
+            box.innerHTML = `
+                <div class="m-result-title">📊 Chi tiết đơn hàng</div>
+                <div style="text-align: center; padding: 25px 15px; color: #ef4444; font-weight: 700; border: 2px dashed #fca5a5; border-radius: 10px; background: #fef2f2; margin-top: 10px; font-size:12px;">
+                    ⚠️ Vui lòng chọn Đối tượng báo giá trước khi tính toán!
+                </div>
+            `;
+        } else {
+            box.innerHTML = `<div style="text-align:center; font-style:italic;">Không thể tính toán chi phí.</div>`;
+        }
         return;
     }
     
@@ -908,7 +944,9 @@ async function _mSaveQuotation() {
             embroideryCost: _mState.embroideryCost,
             print3dCost: _mState.print3dCost,
             petChestPrint: _mState.petChestPrint,
-            materialName: calc.materialName
+            materialName: calc.materialName,
+            targetType: _mState.targetType,
+            includeCommission: _mState.includeCommission
         },
         calculated_price: calc.finalPricePerShirt,
         total_amount: calc.grandTotal
@@ -923,9 +961,17 @@ async function _mSaveQuotation() {
             showToast('Đã lưu báo giá thành công!', 'success');
             _mState.selectedCustomer = null;
             _mState.petShapes = [];
-            _mRenderSelectedCustomer();
-            _mRenderPrintPanel();
-            _mUpdateCalculations();
+            _mState.targetType = null;
+            _mState.includeCommission = false;
+            
+            const dynContent = document.getElementById('m-dynamic-content');
+            if (dynContent && _mState.activeTab === 'calculator') {
+                _mRenderCalculator(dynContent);
+            } else {
+                _mRenderSelectedCustomer();
+                _mRenderPrintPanel();
+                _mUpdateCalculations();
+            }
         } else {
             showToast(res.error || 'Lỗi lưu báo giá', 'error');
         }
@@ -934,7 +980,10 @@ async function _mSaveQuotation() {
     }
 }
 
-function _mOpenExportModal(mode = 'ctv') {
+function _mOpenExportModal(mode = null) {
+    if (!mode) {
+        mode = _mState.targetType === 'customer' ? 'customer' : 'ctv';
+    }
     _mState.exportMode = mode;
     const calc = _mCalculateAllCosts();
     if (!calc) return;
@@ -1223,7 +1272,6 @@ function _mShowHistoryDetail(quoteId) {
     const q = _mState.historyLogs.find(log => log.id === quoteId);
     if (!q) return;
     
-    // Preview snapshot inside modal using exact same mechanism
     const tempState = {
         activeConfig: q.config_snapshot,
         selectedCustomer: { customer_name: q.customer_name, phone: q.customer_phone },
@@ -1235,7 +1283,9 @@ function _mShowHistoryDetail(quoteId) {
         screenColors: q.input_details.screenColors || 1,
         embroideryCost: q.input_details.embroideryCost || 15000,
         print3dCost: q.input_details.print3dCost || 30000,
-        petChestPrint: q.input_details.petChestPrint || false
+        petChestPrint: q.input_details.petChestPrint || false,
+        targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
+        includeCommission: q.input_details.includeCommission || false
     };
     
     const originalConfig = _mState.activeConfig;
@@ -1249,6 +1299,8 @@ function _mShowHistoryDetail(quoteId) {
     const originalEmb = _mState.embroideryCost;
     const originalPrint3d = _mState.print3dCost;
     const originalPetChest = _mState.petChestPrint;
+    const originalTargetType = _mState.targetType;
+    const originalIncludeCommission = _mState.includeCommission;
     
     _mState.activeConfig = tempState.activeConfig;
     _mState.selectedCustomer = tempState.selectedCustomer;
@@ -1261,8 +1313,10 @@ function _mShowHistoryDetail(quoteId) {
     _mState.embroideryCost = tempState.embroideryCost;
     _mState.print3dCost = tempState.print3dCost;
     _mState.petChestPrint = tempState.petChestPrint;
+    _mState.targetType = tempState.targetType;
+    _mState.includeCommission = tempState.includeCommission;
     
-    _mOpenExportModal();
+    _mOpenExportModal(tempState.targetType);
     
     // Restore
     _mState.activeConfig = originalConfig;
@@ -1276,6 +1330,8 @@ function _mShowHistoryDetail(quoteId) {
     _mState.embroideryCost = originalEmb;
     _mState.print3dCost = originalPrint3d;
     _mState.petChestPrint = originalPetChest;
+    _mState.targetType = originalTargetType;
+    _mState.includeCommission = originalIncludeCommission;
 }
 
 // ==========================================
