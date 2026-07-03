@@ -1818,6 +1818,7 @@ async function _ctvLoadConfigVersionsList() {
                                     <td>
                                         <div style="display:flex; gap:6px;">
                                             <button class="ctv-btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="_ctvPreviewConfigDetails(${c.id})">Chi tiết</button>
+                                            <button class="ctv-btn-secondary" style="padding:4px 8px; font-size:11px; background:#f59e0b; color:white; border-color:#f59e0b;" onclick="_ctvOpenNewConfigForm(${c.id})">✏️ Sửa</button>
                                             ${!isActive ? `
                                                 <button class="ctv-btn-secondary" style="padding:4px 8px; font-size:11px; background:#22c55e; color:white; border-color:#22c55e;" onclick="_ctvApplyConfigVersion(${c.id})">⚡ Áp dụng</button>
                                             ` : ''}
@@ -2110,7 +2111,7 @@ function _ctvPreviewConfigDetails(id) {
     modal.style.display = 'flex';
 }
 
-function _ctvOpenNewConfigForm() {
+function _ctvOpenNewConfigForm(editId = null) {
     let modal = document.getElementById('ctv_config_new_modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -2130,36 +2131,49 @@ function _ctvOpenNewConfigForm() {
         document.body.appendChild(modal);
     }
     
-    // Fill values with active config or base defaults
-    const cfg = _ctvState.activeConfig || {
-        version_name: '',
-        materials: [
-            { name: 'Cotton Lite 100%', price: 75000 },
-            { name: 'Cotton Premium 100%', price: 95000 },
-            { name: 'Thun Cá Sấu', price: 85000 }
-        ],
-        surcharges: { collar: 10000, qty_under_20: 10000, primary_school: -5000, raglan: 5000, color_block: 15000 },
-        print_prices: {
-            pet: { sheet_price: 60000, spacing: 0.4 },
-            print3d: {
-                meters_per_shirt: 0.8,
-                print_tiers: [
-                    { min: 500, max: null, price: 30000 },
-                    { min: 100, max: 500, price: 35000 },
-                    { min: 10, max: 100, price: 40000 },
-                    { min: 0, max: 10, price: 45000 }
-                ],
-                laser_tiers: [
-                    { min: 500, max: null, price: 3000 },
-                    { min: 0, max: 500, price: 4000 }
-                ]
-            },
-            screen: { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 },
-            embroidery: { flat_price: 15000 }
-        }
-    };
+    if (editId) {
+        modal.setAttribute('data-edit-id', editId);
+    } else {
+        modal.removeAttribute('data-edit-id');
+    }
     
-    const matRows = cfg.materials.map((m, idx) => `
+    // Fill values with active config or base defaults
+    let cfg = null;
+    if (editId && _ctvState.configVersions) {
+        cfg = _ctvState.configVersions.find(v => v.id === editId);
+    }
+    
+    if (!cfg) {
+        cfg = _ctvState.activeConfig || {
+            version_name: '',
+            materials: [
+                { name: 'Cotton Lite 100%', price: 75000 },
+                { name: 'Cotton Premium 100%', price: 95000 },
+                { name: 'Thun Cá Sấu', price: 85000 }
+            ],
+            surcharges: { collar: 10000, qty_under_20: 10000, primary_school: -5000, raglan: 5000, color_block: 15000 },
+            print_prices: {
+                pet: { sheet_price: 60000, spacing: 0.4 },
+                print3d: {
+                    meters_per_shirt: 0.8,
+                    print_tiers: [
+                        { min: 500, max: null, price: 30000 },
+                        { min: 100, max: 500, price: 35000 },
+                        { min: 10, max: 100, price: 40000 },
+                        { min: 0, max: 10, price: 45000 }
+                    ],
+                    laser_tiers: [
+                        { min: 500, max: null, price: 3000 },
+                        { min: 0, max: 500, price: 4000 }
+                    ]
+                },
+                screen: { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 },
+                embroidery: { flat_price: 15000 }
+            }
+        };
+    }
+    
+    const matRows = (cfg.materials || []).map((m, idx) => `
         <div class="ctv-mat-row" style="display:flex; gap:8px; margin-bottom:8px;">
             <input type="text" class="ctv-input" placeholder="Tên chất liệu" value="${m.name}" style="flex-grow:1;">
             <input type="number" class="ctv-input" placeholder="Đơn giá" value="${m.price}" style="width:120px;">
@@ -2170,14 +2184,14 @@ function _ctvOpenNewConfigForm() {
     modal.innerHTML = `
         <div style="background:white; border-radius:16px; max-width:700px; width:100%; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
             <div style="padding:16px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0; font-size:15px; font-weight:800; color:#1e293b;">➕ Tạo Phiên Bản Bảng Giá Mới</h3>
+                <h3 style="margin:0; font-size:15px; font-weight:800; color:#1e293b;">${editId ? '✏️ Chỉnh Sửa Phiên Bản Bảng Giá' : '➕ Tạo Phiên Bản Bảng Giá Mới'}</h3>
                 <button onclick="document.getElementById('ctv_config_new_modal').style.display='none'" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">×</button>
             </div>
             
             <div style="padding:24px; overflow-y:auto; flex-grow:1; font-size:13px;">
                 <div class="ctv-form-group">
-                    <label>Tên phiên bản bảng giá mới (Ví dụ: "Bảng giá CTV Tháng 2/2026")</label>
-                    <input type="text" class="ctv-input" id="new_cfg_version_name" placeholder="Bắt buộc nhập..." value="${cfg.version_name ? cfg.version_name + ' (Sao chép)' : ''}">
+                    <label>Tên phiên bản bảng giá ${editId ? 'chỉnh sửa' : 'mới'} (Ví dụ: "Bảng giá CTV Tháng 2/2026")</label>
+                    <input type="text" class="ctv-input" id="new_cfg_version_name" placeholder="Bắt buộc nhập..." value="${editId ? cfg.version_name : (cfg.version_name ? cfg.version_name + ' (Sao chép)' : '')}">
                 </div>
                 
                 <!-- Materials list setup -->
@@ -2206,19 +2220,19 @@ function _ctvOpenNewConfigForm() {
                         <strong style="color:#0d9488;">🧬 In PET</strong>
                         <div class="ctv-form-group" style="margin-top:8px; margin-bottom:8px;">
                             <label>Giá mét PET (58x100cm)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_sheet" value="${cfg.print_prices.pet?.sheet_price || 60000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_sheet" value="${cfg.print_prices?.pet?.sheet_price || 60000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
                         <div class="ctv-form-group" style="margin-bottom:8px;">
                             <label>Khoảng cách spacing (cm)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_space" value="${cfg.print_prices.pet?.spacing || 0.4}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_space" value="${cfg.print_prices?.pet?.spacing || 0.4}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')">
                         </div>
                         <div class="ctv-form-group" style="margin-bottom:8px;">
                             <label>Giá in PET Ngực (đ/áo)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_chest" value="${cfg.print_prices.pet?.chest_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_chest" value="${cfg.print_prices?.pet?.chest_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
                         <div class="ctv-form-group" style="margin-bottom:0;">
                             <label>Giá tối thiểu/vị trí khác (đ/áo)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_min_pos" value="${cfg.print_prices.pet?.min_position_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_min_pos" value="${cfg.print_prices?.pet?.min_position_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
                     </div>
                     
@@ -2227,7 +2241,7 @@ function _ctvOpenNewConfigForm() {
                         <strong style="color:#b45309;">🧵 Thêu Vi Tính</strong>
                         <div class="ctv-form-group" style="margin-top:8px; margin-bottom:0;">
                             <label>Giá thêu đồng giá (đ/áo)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_emb_flat" value="${cfg.print_prices.embroidery?.flat_price || 15000}">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_emb_flat" value="${cfg.print_prices?.embroidery?.flat_price || 15000}">
                         </div>
                     </div>
                     
@@ -2237,19 +2251,19 @@ function _ctvOpenNewConfigForm() {
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
                             <div class="ctv-form-group" style="margin-bottom:0;">
                                 <label>Hạn mức tối thiểu (áo)</label>
-                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_threshold" value="${cfg.print_prices.screen?.qty_threshold || 20}" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_threshold" value="${cfg.print_prices?.screen?.qty_threshold || 20}" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                             </div>
                             <div class="ctv-form-group" style="margin-bottom:0;">
                                 <label>Đơn giá thấp cồng kềnh (đ/đơn/màu)</label>
-                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_low" value="${cfg.print_prices.screen?.price_low || 60000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_low" value="${cfg.print_prices?.screen?.price_low || 60000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                             </div>
                             <div class="ctv-form-group" style="margin-bottom:0;">
                                 <label>Giá in 1-3 màu (đ/áo/màu)</label>
-                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_high_13" value="${cfg.print_prices.screen?.price_high_1_3 || 4000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_high_13" value="${cfg.print_prices?.screen?.price_high_1_3 || 4000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                             </div>
                             <div class="ctv-form-group" style="margin-bottom:0;">
                                 <label>Giá in 4+ màu (đ/áo/màu)</label>
-                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_high_4" value="${cfg.print_prices.screen?.price_high_4_plus || 3500}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                                <input type="text" class="ctv-input" id="new_cfg_pr_scr_high_4" value="${cfg.print_prices?.screen?.price_high_4_plus || 3500}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                             </div>
                         </div>
                     </div>
@@ -2259,7 +2273,7 @@ function _ctvOpenNewConfigForm() {
                         <strong style="color:#0284c7;">🌀 In 3D Toàn Thân</strong>
                         <div class="ctv-form-group" style="margin-top:8px; margin-bottom:8px;">
                             <label>Giá in 3D (đ/áo)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_3d_flat" value="${cfg.print_prices.print3d?.flat_price || 30000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                            <input type="text" class="ctv-input" id="new_cfg_pr_3d_flat" value="${cfg.print_prices?.print3d?.flat_price || 30000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
                         <div style="font-size:11px; color:#64748b; font-style:italic; line-height:1.4;">
                             * Giá in 3D được tính trực tiếp theo đ/áo. Ví dụ: 30.000đ × 10 áo = 300.000đ.
@@ -2269,7 +2283,7 @@ function _ctvOpenNewConfigForm() {
                 
                 <div style="margin-top:20px; display:flex; gap:10px;">
                     <label class="ctv-checkbox-label">
-                        <input type="checkbox" id="new_cfg_apply_now" checked>
+                        <input type="checkbox" id="new_cfg_apply_now" ${cfg.status === 'active' || !editId ? 'checked' : ''}>
                         Kích hoạt áp dụng bảng giá này ngay lập tức (Active)
                     </label>
                 </div>
@@ -2512,13 +2526,18 @@ async function _ctvSaveNewConfigVersion() {
         apply_now: document.getElementById('new_cfg_apply_now').checked
     };
     
+    const editId = document.getElementById('ctv_config_new_modal')?.getAttribute('data-edit-id');
+    
     try {
-        const res = await apiFetch('/api/ctv-quotations/config', {
-            method: 'POST',
+        const url = editId ? `/api/ctv-quotations/config/${editId}` : '/api/ctv-quotations/config';
+        const method = editId ? 'PUT' : 'POST';
+        
+        const res = await apiFetch(url, {
+            method,
             body
         });
         if (res && res.success) {
-            showToast('Đã lưu cấu hình bảng giá mới!', 'success');
+            showToast(editId ? 'Đã cập nhật cấu hình bảng giá thành công!' : 'Đã lưu cấu hình bảng giá mới!', 'success');
             document.getElementById('ctv_config_new_modal').style.display = 'none';
             // Reload page layout/active config
             await _ctvLoadActiveConfig();

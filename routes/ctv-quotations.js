@@ -99,6 +99,69 @@ async function ctvQuotationsRoutes(fastify, options) {
         }
     });
 
+    // 3b. PUT Update Existing Configuration Version (Director & Senior Manager only)
+    fastify.put('/api/ctv-quotations/config/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao')] }, async (request, reply) => {
+        const configId = Number(request.params.id);
+        if (isNaN(configId)) {
+            return reply.code(400).send({ error: 'ID cấu hình không hợp lệ' });
+        }
+        const { version_name, materials, surcharges, print_prices, apply_now } = request.body || {};
+        if (!version_name) {
+            return reply.code(400).send({ error: 'Vui lòng điền tên phiên bản' });
+        }
+        if (!materials || !Array.isArray(materials)) {
+            return reply.code(400).send({ error: 'Danh sách chất liệu không hợp lệ' });
+        }
+        if (!surcharges || typeof surcharges !== 'object') {
+            return reply.code(400).send({ error: 'Bảng phụ phí không hợp lệ' });
+        }
+        if (!print_prices || typeof print_prices !== 'object') {
+            return reply.code(400).send({ error: 'Bảng giá in không hợp lệ' });
+        }
+
+        try {
+            // Verify if target config exists
+            const target = await db.get("SELECT id FROM ctv_price_configs WHERE id = ?", [configId]);
+            if (!target) {
+                return reply.code(404).send({ error: 'Không tìm thấy cấu hình bảng giá được yêu cầu' });
+            }
+
+            if (apply_now) {
+                // Set all other configurations to inactive first
+                await db.run("UPDATE ctv_price_configs SET status = 'inactive' WHERE status = 'active'");
+                await db.run(
+                    `UPDATE ctv_price_configs 
+                     SET version_name = ?, materials = ?, surcharges = ?, print_prices = ?, status = 'active', updated_at = NOW()
+                     WHERE id = ?`,
+                    [
+                        version_name,
+                        JSON.stringify(materials),
+                        JSON.stringify(surcharges),
+                        JSON.stringify(print_prices),
+                        configId
+                    ]
+                );
+            } else {
+                await db.run(
+                    `UPDATE ctv_price_configs 
+                     SET version_name = ?, materials = ?, surcharges = ?, print_prices = ?, updated_at = NOW()
+                     WHERE id = ?`,
+                    [
+                        version_name,
+                        JSON.stringify(materials),
+                        JSON.stringify(surcharges),
+                        JSON.stringify(print_prices),
+                        configId
+                    ]
+                );
+            }
+
+            return { success: true, message: 'Đã cập nhật cấu hình bảng giá thành công' };
+        } catch (err) {
+            return reply.code(500).send({ error: 'Lỗi cập nhật cấu hình: ' + err.message });
+        }
+    });
+
     // 4. POST Apply / Activate Pricing Version (Director & Senior Manager only)
     fastify.post('/api/ctv-quotations/config/:id/apply', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const configId = Number(request.params.id);
