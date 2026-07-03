@@ -640,12 +640,14 @@ function _ctvRenderCalculator(container) {
                 
                 <!-- Print Configuration -->
                 <div class="ctv-card">
-                    <div class="ctv-card-title">🎨 Phương Án In PET</div>
+                    <div class="ctv-card-title">🎨 Phương Án In</div>
                     <div class="ctv-form-group">
                         <label>Loại hình in</label>
                         <select class="ctv-select" id="ctv_print_type" onchange="_ctvOnPrintTypeChange(this.value)">
                             <option value="none" ${_ctvState.printType === 'none' ? 'selected' : ''}>Không in</option>
-                            <option value="pet" ${_ctvState.printType === 'pet' ? 'selected' : ''}>In PET CTV</option>
+                            <option value="pet" ${_ctvState.printType === 'pet' ? 'selected' : ''}>In PET</option>
+                            <option value="print3d" ${_ctvState.printType === 'print3d' ? 'selected' : ''}>In 3D</option>
+                            <option value="embroidery" ${_ctvState.printType === 'embroidery' ? 'selected' : ''}>Thêu</option>
                         </select>
                     </div>
                     
@@ -747,6 +749,9 @@ function _ctvOnQuantityChange(val) {
         _ctvState.quantity = '';
     } else {
         _ctvState.quantity = Math.max(1, parseInt(val) || 1);
+    }
+    if (_ctvState.printType === 'print3d') {
+        _ctvRenderPrintPanel();
     }
     _ctvUpdateCalculations();
 }
@@ -883,7 +888,7 @@ function _ctvGetOrderedOptionalSurcharges(config) {
             }
         });
     }
-    return ordered;
+    return ordered.filter(item => !item.name.toLowerCase().includes('in 3d'));
 }
 
 function _ctvGetOrderedSurchargesList(surchargesObj) {
@@ -999,20 +1004,46 @@ function _ctvRenderPrintPanel() {
         `;
         _ctvRenderPetShapesList();
     } else if (_ctvState.printType === 'print3d') {
-        const config3d = config.print_prices.print3d || { flat_price: 30000 };
-        const flatPrice = Number(config3d.flat_price) || 30000;
-        panel.innerHTML = `
-            <div class="ctv-print-config-box" style="border-color:#38bdf8; background:#f0f9ff; color:#0369a1;">
-                <h4 style="color:#0284c7;">🌀 In 3D Toàn Thân CTV</h4>
-                <div style="font-size:12.5px; line-height:1.5; margin-bottom:10px;">
-                    Giá in 3D tính theo <strong>đ/áo</strong>. Giá cấu hình mặc định: <strong>${flatPrice.toLocaleString('vi-VN')} đ/áo</strong>.
+        const qty = _ctvState.quantity || 0;
+        if (_ctvState.print3dCost != 30000 && _ctvState.print3dCost != 25000) {
+            _ctvState.print3dCost = 30000;
+        }
+        let html = '';
+        if (qty <= 0) {
+            html = `
+                <div class="ctv-print-config-box" style="border-color:#38bdf8; background:#f0f9ff; color:#0369a1;">
+                    <h4 style="color:#0284c7;">🌀 Phương Án In 3D</h4>
+                    <div style="font-size:12.5px; line-height:1.5; margin-bottom:10px;">
+                        Số lượng áo đặt hàng chưa được điền. Vui lòng chọn phân khúc In 3D hoặc nhập số lượng áo ở trên.
+                    </div>
+                    <div class="ctv-form-group" style="margin-bottom:0;">
+                        <label style="color:#0284c7;">Chọn mốc In 3D</label>
+                        <select class="ctv-select" id="ctv_3d_cost_select" onchange="_ctvOn3dCostSelectChange(this.value)">
+                            <option value="30000" ${_ctvState.print3dCost == 30000 ? 'selected' : ''}>In 3D dưới 20 Áo (+30.000đ)</option>
+                            <option value="25000" ${_ctvState.print3dCost == 25000 ? 'selected' : ''}>In 3D trên 20 Áo (+25.000đ)</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="ctv-form-group" style="margin-bottom:0;">
-                    <label style="color:#0284c7;">Giá in 3D (đ/áo)</label>
-                    <input type="text" class="ctv-input" id="ctv_3d_cost" value="${_ctvState.print3dCost}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _ctvOn3dCostChange(this.value)">
+            `;
+        } else {
+            const autoCost = qty < 20 ? 30000 : 25000;
+            _ctvState.print3dCost = autoCost;
+            html = `
+                <div class="ctv-print-config-box" style="border-color:#38bdf8; background:#f0f9ff; color:#0369a1;">
+                    <h4 style="color:#0284c7;">🌀 Phương Án In 3D (Tự động)</h4>
+                    <div style="font-size:12.5px; line-height:1.5; margin-bottom:10px;">
+                        Số lượng: <strong>${qty} áo</strong>. Mốc áp dụng: <strong>${qty < 20 ? 'Dưới 20 áo' : 'Trên 20 áo'}</strong>.
+                    </div>
+                    <div class="ctv-form-group" style="margin-bottom:0;">
+                        <label style="color:#0284c7;">Đơn giá In 3D (Tự động khóa)</label>
+                        <select class="ctv-select" disabled style="background:#e2e8f0; cursor:not-allowed;">
+                            <option selected>${qty < 20 ? 'In 3D dưới 20 Áo (+30.000đ)' : 'In 3D trên 20 Áo (+25.000đ)'}</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
+        panel.innerHTML = html;
     } else if (_ctvState.printType === 'screen') {
         const screenConfig = config.print_prices.screen || { qty_threshold: 20 };
         panel.innerHTML = `
@@ -1028,10 +1059,9 @@ function _ctvRenderPrintPanel() {
             </div>
         `;
     } else if (_ctvState.printType === 'embroidery') {
-        const embConfig = config.print_prices.embroidery || { flat_price: 15000 };
         panel.innerHTML = `
             <div class="ctv-print-config-box" style="border-color:#f59e0b; background:#fffbeb; color:#92400e;">
-                <h4 style="color:#b45309;">🧵 Thêu Vi Tính CTV</h4>
+                <h4 style="color:#b45309;">🧵 Thêu Vi Tính</h4>
                 <div class="ctv-form-group" style="margin-bottom:0;">
                     <label style="color:#b45309;">Giá thêu trên mỗi áo (đ/áo)</label>
                     <input type="text" class="ctv-input" id="ctv_emb_cost" value="${_ctvState.embroideryCost}" oninput="_ctvOnEmbCostChange(this.value)">
@@ -1041,13 +1071,18 @@ function _ctvRenderPrintPanel() {
     }
 }
 
+function _ctvOn3dCostSelectChange(val) {
+    _ctvState.print3dCost = Number(val) || 0;
+    _ctvUpdateCalculations();
+}
+
 function _ctvOnScreenColorsChange(val) {
     _ctvState.screenColors = Math.max(1, Number(val) || 1);
     _ctvUpdateCalculations();
 }
 
 function _ctvOnEmbCostChange(val) {
-    _ctvState.embroideryCost = val;
+    _ctvState.embroideryCost = val.replace(/[^0-9]/g, '');
     _ctvUpdateCalculations();
 }
 
@@ -1408,7 +1443,9 @@ function _ctvCalculateAllCosts() {
             }
         });
     } else if (pt === 'print3d') {
-        // In 3D CTV: tính đơn giản theo đ/áo (flat_price)
+        if (qty > 0) {
+            _ctvState.print3dCost = qty < 20 ? 30000 : 25000;
+        }
         const flatPrice = Number(_ctvState.print3dCost) || 0;
         printCost = flatPrice;
         printBreakdown.push({ label: `In 3D toàn thân (${flatPrice.toLocaleString('vi-VN')} đ/áo)`, price: flatPrice });

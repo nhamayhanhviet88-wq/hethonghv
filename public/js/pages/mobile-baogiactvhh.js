@@ -202,12 +202,14 @@ function _mRenderCalculator(container) {
         
         <!-- Printing Options -->
         <div class="m-card">
-            <div class="m-card-title">🎨 Phương Án In PET</div>
+            <div class="m-card-title">🎨 Phương Án In</div>
             <div class="m-form-group" style="margin-bottom:0;">
                 <label>Loại hình in</label>
                 <select class="m-select" id="m_print_type" onchange="_mOnPrintTypeChange(this.value)">
                     <option value="none" ${_mState.printType === 'none' ? 'selected' : ''}>Không in</option>
-                    <option value="pet" ${_mState.printType === 'pet' ? 'selected' : ''}>In PET CTV</option>
+                    <option value="pet" ${_mState.printType === 'pet' ? 'selected' : ''}>In PET</option>
+                    <option value="print3d" ${_mState.printType === 'print3d' ? 'selected' : ''}>In 3D</option>
+                    <option value="embroidery" ${_mState.printType === 'embroidery' ? 'selected' : ''}>Thêu</option>
                 </select>
             </div>
             
@@ -296,6 +298,9 @@ function _mOnQuantityChange(val) {
         _mState.quantity = '';
     } else {
         _mState.quantity = Math.max(1, parseInt(val) || 1);
+    }
+    if (_mState.printType === 'print3d') {
+        _mRenderPrintPanel();
     }
     _mUpdateCalculations();
 }
@@ -435,7 +440,7 @@ function _mGetOrderedOptionalSurcharges(config) {
             }
         });
     }
-    return ordered;
+    return ordered.filter(item => !item.name.toLowerCase().includes('in 3d'));
 }
 
 function _mOnPrintTypeChange(val) {
@@ -497,18 +502,40 @@ function _mRenderPrintPanel() {
         `;
         _mRenderPetShapesList();
     } else if (_mState.printType === 'print3d') {
-        const config3d = config.print_prices.print3d || { flat_price: 30000 };
-        const flatPrice = Number(config3d.flat_price) || 30000;
-        panel.innerHTML = `
-            <div style="background:#f0f9ff; border:1px dashed #bae6fd; border-radius:10px; padding:10px; margin-top:12px;">
-                <div style="font-size:11px; font-weight:700; color:#0284c7; margin-bottom:6px;">🌀 IN 3D TOÀN THÂN</div>
-                <div style="font-size:11px; color:#0369a1; margin-bottom:8px;">Giá cấu hình: <strong>${flatPrice.toLocaleString('vi-VN')} đ/áo</strong></div>
-                <div class="m-form-group" style="margin-bottom:0;">
-                    <label style="color:#0284c7;">Giá in 3D (đ/áo)</label>
-                    <input type="text" class="m-input" id="m_3d_cost" value="${_mState.print3dCost}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, ''); _mOn3dCostChange(this.value)">
+        const qty = _mState.quantity || 0;
+        if (_mState.print3dCost != 30000 && _mState.print3dCost != 25000) {
+            _mState.print3dCost = 30000;
+        }
+        let html = '';
+        if (qty <= 0) {
+            html = `
+                <div style="background:#f0f9ff; border:1px dashed #bae6fd; border-radius:10px; padding:10px; margin-top:12px;">
+                    <div style="font-size:11px; font-weight:700; color:#0284c7; margin-bottom:6px;">🌀 PHƯƠNG ÁN IN 3D</div>
+                    <div style="font-size:11px; color:#0369a1; margin-bottom:8px;">Số lượng áo đặt hàng chưa được điền. Vui lòng chọn phân khúc:</div>
+                    <div class="m-form-group" style="margin-bottom:0;">
+                        <select class="m-select" id="m_3d_cost_select" onchange="_mOn3dCostSelectChange(this.value)">
+                            <option value="30000" ${_mState.print3dCost == 30000 ? 'selected' : ''}>In 3D dưới 20 Áo (+30.000đ)</option>
+                            <option value="25000" ${_mState.print3dCost == 25000 ? 'selected' : ''}>In 3D trên 20 Áo (+25.000đ)</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        } else {
+            const autoCost = qty < 20 ? 30000 : 25000;
+            _mState.print3dCost = autoCost;
+            html = `
+                <div style="background:#f0f9ff; border:1px dashed #bae6fd; border-radius:10px; padding:10px; margin-top:12px;">
+                    <div style="font-size:11px; font-weight:700; color:#0284c7; margin-bottom:6px;">🌀 PHƯƠNG ÁN IN 3D (TỰ ĐỘNG)</div>
+                    <div style="font-size:11px; color:#0369a1; margin-bottom:8px;">Số lượng: <strong>${qty} áo</strong> (${qty < 20 ? 'Dưới 20 áo' : 'Trên 20 áo'})</div>
+                    <div class="m-form-group" style="margin-bottom:0;">
+                        <select class="m-select" disabled style="background:#e2e8f0; cursor:not-allowed;">
+                            <option selected>${qty < 20 ? 'In 3D dưới 20 Áo (+30.000đ)' : 'In 3D trên 20 Áo (+25.000đ)'}</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+        }
+        panel.innerHTML = html;
     } else if (_mState.printType === 'screen') {
         const screenConfig = config.print_prices.screen || { qty_threshold: 20 };
         panel.innerHTML = `
@@ -523,7 +550,7 @@ function _mRenderPrintPanel() {
         panel.innerHTML = `
             <div style="background:#fffbeb; border:1px dashed #fcd34d; border-radius:10px; padding:10px; margin-top:12px;">
                 <div class="m-form-group" style="margin-bottom:0;">
-                    <label style="color:#b45309;">Giá thêu CTV (đ/áo)</label>
+                    <label style="color:#b45309;">Giá thêu trên mỗi áo (đ/áo)</label>
                     <input type="text" class="m-input" id="m_emb_cost" value="${_mState.embroideryCost}" oninput="_mOnEmbCostChange(this.value)">
                 </div>
             </div>
@@ -531,13 +558,13 @@ function _mRenderPrintPanel() {
     }
 }
 
-function _mOnScreenColorsChange(val) {
-    _mState.screenColors = Math.max(1, Number(val) || 1);
+function _mOn3dCostSelectChange(val) {
+    _mState.print3dCost = Number(val) || 0;
     _mUpdateCalculations();
 }
 
-function _mOn3dCostChange(val) {
-    _mState.print3dCost = Math.max(0, Number(val) || 0);
+function _mOnScreenColorsChange(val) {
+    _mState.screenColors = Math.max(1, Number(val) || 1);
     _mUpdateCalculations();
 }
 
@@ -801,6 +828,9 @@ function _mCalculateAllCosts() {
             }
         });
     } else if (pt === 'print3d') {
+        if (qty > 0) {
+            _mState.print3dCost = qty < 20 ? 30000 : 25000;
+        }
         const flatPrice = Number(_mState.print3dCost) || 0;
         printCost = flatPrice;
         printBreakdown.push({ label: `In 3D toàn thân (${flatPrice.toLocaleString('vi-VN')} đ/áo)`, price: flatPrice });
