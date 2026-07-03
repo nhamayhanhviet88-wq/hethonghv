@@ -1298,13 +1298,13 @@ function _mShowConfigDetailPopup(id) {
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 6px;">
                     ${surchargeItems.map(item => {
-                        const sign = item.value >= 0 ? '+' : '';
-                        const isNegative = item.value < 0;
+                        const priceInfo = _mGetPriceInfo(item.value);
+                        const isNegative = !priceInfo.isContact && priceInfo.value < 0;
                         return `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 8px; border: 1px solid #f1f5f9;">
                                 <span style="font-weight: 600; color: #334155; font-size: 12px;">${item.name}</span>
                                 <span style="background: ${isNegative ? '#fef2f2' : '#f0fdf4'}; color: ${isNegative ? '#b91c1c' : '#15803d'}; padding: 2px 6px; border-radius: 6px; font-weight: 750; font-size: 11px;">
-                                    ${sign}${Number(item.value).toLocaleString('vi-VN')}đ
+                                    ${priceInfo.text}
                                 </span>
                             </div>
                         `;

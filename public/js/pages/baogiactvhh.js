@@ -2032,13 +2032,13 @@ function _ctvPreviewConfigDetails(id) {
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             ${surchargeItems.map(item => {
-                                const sign = item.value >= 0 ? '+' : '';
-                                const isNegative = item.value < 0;
+                                const priceInfo = _ctvGetPriceInfo(item.value);
+                                const isNegative = !priceInfo.isContact && priceInfo.value < 0;
                                 return `
                                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
                                         <span style="font-weight: 700; color: #334155; font-size:12.5px;">${item.name}</span>
                                         <span style="background: ${isNegative ? '#fef2f2' : '#f0fdf4'}; color: ${isNegative ? '#b91c1c' : '#15803d'}; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid ${isNegative ? '#fee2e2' : '#dcfce7'};">
-                                            ${sign}${Number(item.value).toLocaleString('vi-VN')}đ
+                                            ${priceInfo.text}
                                         </span>
                                     </div>
                                 `;
