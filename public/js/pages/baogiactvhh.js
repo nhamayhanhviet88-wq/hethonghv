@@ -956,6 +956,30 @@ function _ctvRenderSurchargeCheckboxes() {
 
 function _ctvToggleSurcharge(key, checked) {
     _ctvState.surcharges[key] = !!checked;
+    
+    if (checked && _ctvState.activeConfig) {
+        const ordered = _ctvGetOrderedOptionalSurcharges(_ctvState.activeConfig);
+        const targetItem = ordered.find(o => o.key === key);
+        if (targetItem) {
+            const targetNameNorm = targetItem.name.trim().toLowerCase();
+            
+            if (targetNameNorm.includes('cổ bẻ thường') || targetNameNorm === 'cổ bẻ') {
+                ordered.forEach(item => {
+                    if (item.name.trim().toLowerCase().includes('cổ bẻ thời trang')) {
+                        _ctvState.surcharges[item.key] = false;
+                    }
+                });
+            } else if (targetNameNorm.includes('cổ bẻ thời trang')) {
+                ordered.forEach(item => {
+                    const nameNorm = item.name.trim().toLowerCase();
+                    if (nameNorm.includes('cổ bẻ thường') || nameNorm === 'cổ bẻ') {
+                        _ctvState.surcharges[item.key] = false;
+                    }
+                });
+            }
+        }
+    }
+    
     if (checked) {
         _ctvState.surchargeQty = _ctvState.surchargeQty || {};
         _ctvState.surchargeQty[key] = _ctvState.surchargeQty[key] || 1;

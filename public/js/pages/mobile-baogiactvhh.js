@@ -464,6 +464,30 @@ function _mRenderSurchargeCheckboxes() {
 
 function _mToggleSurcharge(key, checked) {
     _mState.surcharges[key] = !!checked;
+    
+    if (checked && _mState.activeConfig) {
+        const ordered = _mGetOrderedOptionalSurcharges(_mState.activeConfig);
+        const targetItem = ordered.find(o => o.key === key);
+        if (targetItem) {
+            const targetNameNorm = targetItem.name.trim().toLowerCase();
+            
+            if (targetNameNorm.includes('cổ bẻ thường') || targetNameNorm === 'cổ bẻ') {
+                ordered.forEach(item => {
+                    if (item.name.trim().toLowerCase().includes('cổ bẻ thời trang')) {
+                        _mState.surcharges[item.key] = false;
+                    }
+                });
+            } else if (targetNameNorm.includes('cổ bẻ thời trang')) {
+                ordered.forEach(item => {
+                    const nameNorm = item.name.trim().toLowerCase();
+                    if (nameNorm.includes('cổ bẻ thường') || nameNorm === 'cổ bẻ') {
+                        _mState.surcharges[item.key] = false;
+                    }
+                });
+            }
+        }
+    }
+    
     if (checked) {
         _mState.surchargeQty = _mState.surchargeQty || {};
         _mState.surchargeQty[key] = _mState.surchargeQty[key] || 1;
