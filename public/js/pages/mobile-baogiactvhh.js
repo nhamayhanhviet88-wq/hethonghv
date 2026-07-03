@@ -37,6 +37,7 @@ var _mState = {
         primary_school: false
     },
     printType: 'none', // none, pet, print3d, screen, embroidery
+    savedPrints: [],
     petShapes: [],
     screenColors: 1,
     embroideryCost: 15000,
@@ -214,6 +215,9 @@ function _mRenderCalculator(container) {
             </div>
             
             <div id="m_print_panel"></div>
+            
+            <!-- Saved Prints List -->
+            <div id="m_saved_prints_container" style="margin-top: 12px;"></div>
         </div>
         
         <!-- Calculation Box -->
@@ -222,6 +226,7 @@ function _mRenderCalculator(container) {
     
     _mRenderSelectedCustomer();
     _mRenderPrintPanel();
+    _mRenderSavedPrintsList();
     if (_mState.targetType) {
         _mSelectTargetType(_mState.targetType);
     }
@@ -498,6 +503,11 @@ function _mRenderPrintPanel() {
                 </div>
                 
                 <div id="m_pet_shapes_list" class="m-shapes-list"></div>
+                <div style="margin-top: 10px; border-top: 1px dashed #5eead4; padding-top: 8px;">
+                    <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0f766e; border-color:#0f766e; color:white;" onclick="_mSaveActivePrint()">
+                        💾 Lưu phương án In PET
+                    </button>
+                </div>
             </div>
         `;
         _mRenderPetShapesList();
@@ -512,11 +522,16 @@ function _mRenderPrintPanel() {
                 <div style="background:#f0f9ff; border:1px dashed #bae6fd; border-radius:10px; padding:10px; margin-top:12px;">
                     <div style="font-size:11px; font-weight:700; color:#0284c7; margin-bottom:6px;">🌀 PHƯƠNG ÁN IN 3D</div>
                     <div style="font-size:11px; color:#0369a1; margin-bottom:8px;">Số lượng áo đặt hàng chưa được điền. Vui lòng chọn phân khúc:</div>
-                    <div class="m-form-group" style="margin-bottom:0;">
+                    <div class="m-form-group" style="margin-bottom:10px;">
                         <select class="m-select" id="m_3d_cost_select" onchange="_mOn3dCostSelectChange(this.value)">
                             <option value="30000" ${_mState.print3dCost == 30000 ? 'selected' : ''}>In 3D dưới 20 Áo (+30.000đ)</option>
                             <option value="25000" ${_mState.print3dCost == 25000 ? 'selected' : ''}>In 3D trên 20 Áo (+25.000đ)</option>
                         </select>
+                    </div>
+                    <div style="margin-top: 10px; border-top: 1px dashed #7dd3fc; padding-top: 8px;">
+                        <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7; color:white;" onclick="_mSaveActivePrint()">
+                            💾 Lưu phương án In 3D
+                        </button>
                     </div>
                 </div>
             `;
@@ -527,10 +542,15 @@ function _mRenderPrintPanel() {
                 <div style="background:#f0f9ff; border:1px dashed #bae6fd; border-radius:10px; padding:10px; margin-top:12px;">
                     <div style="font-size:11px; font-weight:700; color:#0284c7; margin-bottom:6px;">🌀 PHƯƠNG ÁN IN 3D (TỰ ĐỘNG)</div>
                     <div style="font-size:11px; color:#0369a1; margin-bottom:8px;">Số lượng: <strong>${qty} áo</strong> (${qty < 20 ? 'Dưới 20 áo' : 'Trên 20 áo'})</div>
-                    <div class="m-form-group" style="margin-bottom:0;">
+                    <div class="m-form-group" style="margin-bottom:10px;">
                         <select class="m-select" disabled style="background:#e2e8f0; cursor:not-allowed;">
                             <option selected>${qty < 20 ? 'In 3D dưới 20 Áo (+30.000đ)' : 'In 3D trên 20 Áo (+25.000đ)'}</option>
                         </select>
+                    </div>
+                    <div style="margin-top: 10px; border-top: 1px dashed #7dd3fc; padding-top: 8px;">
+                        <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7; color:white;" onclick="_mSaveActivePrint()">
+                            💾 Lưu phương án In 3D
+                        </button>
                     </div>
                 </div>
             `;
@@ -540,22 +560,159 @@ function _mRenderPrintPanel() {
         const screenConfig = config.print_prices.screen || { qty_threshold: 20 };
         panel.innerHTML = `
             <div style="background:#faf5ff; border:1px dashed #c084fc; border-radius:10px; padding:10px; margin-top:12px;">
-                <div class="m-form-group" style="margin-bottom:0;">
+                <div class="m-form-group" style="margin-bottom:10px;">
                     <label style="color:#7e22ce;">Số màu in lưới</label>
                     <input type="number" class="m-input" id="m_screen_colors" min="1" value="${_mState.screenColors}" oninput="_mOnScreenColorsChange(this.value)">
+                </div>
+                <div style="margin-top: 10px; border-top: 1px dashed #c084fc; padding-top: 8px;">
+                    <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#7e22ce; border-color:#7e22ce; color:white;" onclick="_mSaveActivePrint()">
+                        💾 Lưu phương án In Lưới
+                    </button>
                 </div>
             </div>
         `;
     } else if (_mState.printType === 'embroidery') {
         panel.innerHTML = `
             <div style="background:#fffbeb; border:1px dashed #fcd34d; border-radius:10px; padding:10px; margin-top:12px;">
-                <div class="m-form-group" style="margin-bottom:0;">
+                <div class="m-form-group" style="margin-bottom:10px;">
                     <label style="color:#b45309;">Giá thêu trên mỗi áo (đ/áo)</label>
                     <input type="text" class="m-input" id="m_emb_cost" value="${_mState.embroideryCost}" oninput="_mOnEmbCostChange(this.value)">
+                </div>
+                <div style="margin-top: 10px; border-top: 1px dashed #fcd34d; padding-top: 8px;">
+                    <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#d97706; border-color:#d97706; color:white;" onclick="_mSaveActivePrint()">
+                        💾 Lưu phương án Thêu
+                    </button>
                 </div>
             </div>
         `;
     }
+}
+
+function _mSaveActivePrint() {
+    if (_mState.printType === 'none') return;
+    
+    if (_mState.printType === 'pet' && _mState.petShapes.length === 0 && !_mState.petChestPrint) {
+        alert('Vui lòng thêm hình in PET hoặc chọn In PET Ngực.');
+        return;
+    }
+    
+    const printItem = {
+        id: 'print_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        type: _mState.printType,
+        details: {
+            petShapes: [..._mState.petShapes],
+            petChestPrint: _mState.petChestPrint,
+            print3dCost: _mState.print3dCost,
+            screenColors: _mState.screenColors,
+            embroideryCost: _mState.embroideryCost
+        }
+    };
+    
+    if (!_mState.savedPrints) {
+        _mState.savedPrints = [];
+    }
+    _mState.savedPrints.push(printItem);
+    
+    _mState.printType = 'none';
+    _mState.petShapes = [];
+    _mState.petChestPrint = false;
+    
+    const selectEl = document.getElementById('m_print_type');
+    if (selectEl) selectEl.value = 'none';
+    
+    _mRenderPrintPanel();
+    _mRenderSavedPrintsList();
+    _mUpdateCalculations();
+}
+
+function _mRenderSavedPrintsList() {
+    const container = document.getElementById('m_saved_prints_container');
+    if (!container) return;
+    
+    if (!_mState.savedPrints || _mState.savedPrints.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let html = `
+        <div style="background: #fafafa; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-weight: 700; font-size: 11px; color: #475569; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px;">
+                <span>📋 CÁC PHƯƠNG ÁN IN ĐÃ CHỌN (${_mState.savedPrints.length})</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+    `;
+    
+    _mState.savedPrints.forEach((item, index) => {
+        let typeName = '';
+        let desc = '';
+        if (item.type === 'pet') {
+            typeName = '🧬 In PET';
+            const shapeDescs = [];
+            if (item.details.petChestPrint) shapeDescs.push('PET Ngực');
+            (item.details.petShapes || []).forEach(s => {
+                shapeDescs.push(`${s.width}x${s.height}cm`);
+            });
+            desc = shapeDescs.join(', ') || 'Chưa có chi tiết';
+        } else if (item.type === 'print3d') {
+            typeName = '🌀 In 3D';
+            const cost = Number(item.details.print3dCost) || 0;
+            desc = `Mốc: ${cost.toLocaleString('vi-VN')} đ/áo`;
+        } else if (item.type === 'screen') {
+            typeName = '🎨 In Lưới';
+            desc = `${item.details.screenColors || 1} màu`;
+        } else if (item.type === 'embroidery') {
+            typeName = '🧵 Thêu';
+            const embInfo = _mGetEmbPriceInfo(item.details.embroideryCost);
+            desc = `Giá: ${embInfo.text}`;
+        }
+        
+        html += `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; gap: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;">
+                    <div style="font-weight: 700; color: #1e293b;">${typeName}</div>
+                    <div style="color: #64748b; font-size: 10px;">${desc}</div>
+                </div>
+                <div style="display: flex; gap: 4px;">
+                    <button type="button" class="m-btn-secondary" style="padding: 2px 6px; font-size: 10px; background: #f1f5f9; border-color: #cbd5e1; border-radius: 4px;" onclick="_mEditSavedPrint('${item.id}')">✏️ Sửa</button>
+                    <button type="button" class="m-btn-secondary" style="padding: 2px 6px; font-size: 10px; background: #fee2e2; border-color: #fca5a5; color: #991b1b; border-radius: 4px;" onclick="_mDeleteSavedPrint('${item.id}')">🗑️ Xóa</button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+    `;
+    container.innerHTML = html;
+}
+
+function _mEditSavedPrint(id) {
+    const idx = _mState.savedPrints.findIndex(p => p.id === id);
+    if (idx === -1) return;
+    const item = _mState.savedPrints[idx];
+    
+    _mState.printType = item.type;
+    _mState.petShapes = [...(item.details.petShapes || [])];
+    _mState.petChestPrint = item.details.petChestPrint || false;
+    _mState.print3dCost = item.details.print3dCost || 30000;
+    _mState.screenColors = item.details.screenColors || 1;
+    _mState.embroideryCost = item.details.embroideryCost || 15000;
+    
+    _mState.savedPrints.splice(idx, 1);
+    
+    const selectEl = document.getElementById('m_print_type');
+    if (selectEl) selectEl.value = item.type;
+    
+    _mRenderPrintPanel();
+    _mRenderSavedPrintsList();
+    _mUpdateCalculations();
+}
+
+function _mDeleteSavedPrint(id) {
+    _mState.savedPrints = _mState.savedPrints.filter(p => p.id !== id);
+    _mRenderSavedPrintsList();
+    _mUpdateCalculations();
 }
 
 function _mOn3dCostSelectChange(val) {
@@ -785,81 +942,118 @@ function _mCalculateAllCosts() {
     
     let printCost = 0;
     const printBreakdown = [];
-    const pt = _mState.printType;
-    
-    if (pt === 'pet') {
-        const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
-        const isCust = _mState.targetType === 'customer';
-        const sheetPrice = isCust
-            ? (petConfig.sheet_price_customer !== undefined ? Number(petConfig.sheet_price_customer) : Number(petConfig.sheet_price) || 60000)
-            : (Number(petConfig.sheet_price) || 60000);
-        const spacing = Number(petConfig.spacing) || 0.4;
-        const chestPrice = isCust
-            ? (petConfig.chest_price_customer !== undefined ? Number(petConfig.chest_price_customer) : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000))
-            : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000);
-        const minPositionPrice = isCust
-            ? (petConfig.min_position_price_customer !== undefined ? Number(petConfig.min_position_price_customer) : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000))
-            : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000);
+
+    // Helper to calculate cost for a single print configuration
+    function calcSinglePrint(type, details) {
+        let cost = 0;
+        const breakdown = [];
         
-        // Add flat chest print if enabled
-        if (_mState.petChestPrint) {
-            printCost += chestPrice;
-            printBreakdown.push({ label: `In PET Ngực (cố định)`, price: chestPrice });
-        }
-        
-        _mState.petShapes.forEach((s, idx) => {
-            const packed = _mState.activeConfig ? _mCalcPetPlacement(58, 100, s.width, s.height, spacing) : { aligned: 0, optimized: 0 };
-            const perSheetCount = packed.aligned; // Mobile aligned calculation
+        if (type === 'pet') {
+            const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
+            const isCust = _mState.targetType === 'customer';
+            const sheetPrice = isCust
+                ? (petConfig.sheet_price_customer !== undefined ? Number(petConfig.sheet_price_customer) : Number(petConfig.sheet_price) || 60000)
+                : (Number(petConfig.sheet_price) || 60000);
+            const spacing = Number(petConfig.spacing) || 0.4;
+            const chestPrice = isCust
+                ? (petConfig.chest_price_customer !== undefined ? Number(petConfig.chest_price_customer) : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000))
+                : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000);
+            const minPositionPrice = isCust
+                ? (petConfig.min_position_price_customer !== undefined ? Number(petConfig.min_position_price_customer) : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000))
+                : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000);
             
-            if (perSheetCount > 0) {
-                const sheetFraction = s.qty_per_shirt / perSheetCount;
-                let costPerShirt = Math.round(sheetFraction * sheetPrice);
-                let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm`;
-                
-                if (costPerShirt < minPositionPrice) {
-                    costPerShirt = minPositionPrice;
-                    labelText += ` (Tối thiểu ${minPositionPrice.toLocaleString('vi-VN')}đ)`;
-                }
-                
-                costPerShirt = Math.ceil(costPerShirt / 1000) * 1000;
-                
-                printCost += costPerShirt;
-                printBreakdown.push({ label: labelText, price: costPerShirt });
+            if (details.petChestPrint) {
+                cost += chestPrice;
+                breakdown.push({ label: `In PET Ngực (cố định)`, price: chestPrice });
             }
+            
+            const shapes = details.petShapes || [];
+            shapes.forEach((s, idx) => {
+                const packed = _mState.activeConfig ? _mCalcPetPlacement(58, 100, s.width, s.height, spacing) : { aligned: 0, optimized: 0 };
+                const perSheetCount = packed.aligned; // Mobile aligned calculation
+                
+                if (perSheetCount > 0) {
+                    const sheetFraction = s.qty_per_shirt / perSheetCount;
+                    let costPerShirt = Math.round(sheetFraction * sheetPrice);
+                    let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm`;
+                    
+                    if (costPerShirt < minPositionPrice) {
+                        costPerShirt = minPositionPrice;
+                        labelText += ` (Tối thiểu ${minPositionPrice.toLocaleString('vi-VN')}đ)`;
+                    }
+                    
+                    costPerShirt = Math.ceil(costPerShirt / 1000) * 1000;
+                    cost += costPerShirt;
+                    breakdown.push({ label: labelText, price: costPerShirt });
+                }
+            });
+        } else if (type === 'print3d') {
+            let cost3d = Number(details.print3dCost) || 0;
+            if (qty > 0) {
+                cost3d = qty < 20 ? 30000 : 25000;
+            }
+            cost = cost3d;
+            breakdown.push({ label: `In 3D toàn thân (${cost3d.toLocaleString('vi-VN')} đ/áo)`, price: cost3d });
+        } else if (type === 'screen') {
+            const configScreen = config.print_prices.screen || { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 };
+            const colors = details.screenColors || 1;
+            const threshold = configScreen.qty_threshold || 20;
+            let singleScreenPrice = 0;
+            
+            if (qty === 0) {
+                singleScreenPrice = 0;
+                breakdown.push({ label: `In lưới (${colors} màu, chưa nhập số lượng)`, price: 0 });
+            } else if (qty < threshold) {
+                singleScreenPrice = Math.round((configScreen.price_low * colors) / qty);
+                breakdown.push({ label: `In lưới (${colors} màu)`, price: singleScreenPrice });
+            } else {
+                singleScreenPrice = (colors <= 3 ? configScreen.price_high_1_3 : configScreen.price_high_4_plus) * colors;
+                breakdown.push({ label: `In lưới (${colors} màu)`, price: singleScreenPrice });
+            }
+            cost = singleScreenPrice;
+        } else if (type === 'embroidery') {
+            const embInfo = _mGetEmbPriceInfo(details.embroideryCost);
+            if (embInfo.isContact) {
+                cost = 0;
+                breakdown.push({ label: `Thêu vi tính: ${embInfo.text}`, price: 0, isContact: true, contactText: embInfo.text });
+            } else {
+                cost = embInfo.value;
+                breakdown.push({ label: `Thêu vi tính đồng giá`, price: cost });
+            }
+        }
+        return { cost, breakdown };
+    }
+    
+    // 1. Calculate saved prints
+    if (_mState.savedPrints && _mState.savedPrints.length > 0) {
+        _mState.savedPrints.forEach((item, index) => {
+            const res = calcSinglePrint(item.type, item.details);
+            printCost += res.cost;
+            const prefix = item.type === 'pet' ? 'PET: ' : item.type === 'print3d' ? '3D: ' : item.type === 'screen' ? 'Lưới: ' : 'Thêu: ';
+            res.breakdown.forEach(b => {
+                printBreakdown.push({
+                    label: prefix + b.label,
+                    price: b.price,
+                    isContact: b.isContact,
+                    contactText: b.contactText
+                });
+            });
         });
-    } else if (pt === 'print3d') {
-        if (qty > 0) {
-            _mState.print3dCost = qty < 20 ? 30000 : 25000;
-        }
-        const flatPrice = Number(_mState.print3dCost) || 0;
-        printCost = flatPrice;
-        printBreakdown.push({ label: `In 3D toàn thân (${flatPrice.toLocaleString('vi-VN')} đ/áo)`, price: flatPrice });
-    } else if (pt === 'screen') {
-        const configScreen = config.print_prices.screen || { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 };
-        const colors = _mState.screenColors;
-        const threshold = configScreen.qty_threshold || 20;
-        let singleScreenPrice = 0;
-        
-        if (qty === 0) {
-            singleScreenPrice = 0;
-            printBreakdown.push({ label: `In lưới (${colors} màu, chưa nhập số lượng)`, price: 0 });
-        } else if (qty < threshold) {
-            singleScreenPrice = Math.round((configScreen.price_low * colors) / qty);
-            printBreakdown.push({ label: `In lưới (${colors} màu)`, price: singleScreenPrice });
-        } else {
-            singleScreenPrice = (colors <= 3 ? configScreen.price_high_1_3 : configScreen.price_high_4_plus) * colors;
-            printBreakdown.push({ label: `In lưới (${colors} màu)`, price: singleScreenPrice });
-        }
-        printCost = singleScreenPrice;
-    } else if (pt === 'embroidery') {
-        const embInfo = _mGetEmbPriceInfo(_mState.embroideryCost);
-        if (embInfo.isContact) {
-            printCost = 0;
-            printBreakdown.push({ label: `Thêu vi tính: ${embInfo.text}`, price: 0, isContact: true, contactText: embInfo.text });
-        } else {
-            printCost = embInfo.value;
-            printBreakdown.push({ label: `Thêu vi tính đồng giá`, price: printCost });
-        }
+    }
+    
+    // 2. Calculate active editing print
+    if (_mState.printType !== 'none') {
+        const res = calcSinglePrint(_mState.printType, {
+            petShapes: _mState.petShapes,
+            petChestPrint: _mState.petChestPrint,
+            print3dCost: _mState.print3dCost,
+            screenColors: _mState.screenColors,
+            embroideryCost: _mState.embroideryCost
+        });
+        printCost += res.cost;
+        res.breakdown.forEach(b => {
+            printBreakdown.push(b);
+        });
     }
     
     let commissionAmount = 0;
@@ -1070,6 +1264,7 @@ async function _mSaveQuotation() {
             embroideryCost: _mState.embroideryCost,
             print3dCost: _mState.print3dCost,
             petChestPrint: _mState.petChestPrint,
+            savedPrints: _mState.savedPrints || [],
             materialName: calc.materialName,
             targetType: _mState.targetType,
             includeCommission: _mState.includeCommission
@@ -1087,6 +1282,7 @@ async function _mSaveQuotation() {
             showToast('Đã lưu báo giá thành công!', 'success');
             _mState.selectedCustomer = null;
             _mState.petShapes = [];
+            _mState.savedPrints = [];
             _mState.targetType = null;
             _mState.includeCommission = false;
             
@@ -1445,6 +1641,7 @@ function _mShowHistoryDetail(quoteId) {
         embroideryCost: q.input_details.embroideryCost || 15000,
         print3dCost: q.input_details.print3dCost || 30000,
         petChestPrint: q.input_details.petChestPrint || false,
+        savedPrints: q.input_details.savedPrints || [],
         targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
         includeCommission: q.input_details.includeCommission || false
     };
@@ -1460,6 +1657,7 @@ function _mShowHistoryDetail(quoteId) {
     const originalEmb = _mState.embroideryCost;
     const originalPrint3d = _mState.print3dCost;
     const originalPetChest = _mState.petChestPrint;
+    const originalSavedPrints = _mState.savedPrints;
     const originalTargetType = _mState.targetType;
     const originalIncludeCommission = _mState.includeCommission;
     
@@ -1474,6 +1672,7 @@ function _mShowHistoryDetail(quoteId) {
     _mState.embroideryCost = tempState.embroideryCost;
     _mState.print3dCost = tempState.print3dCost;
     _mState.petChestPrint = tempState.petChestPrint;
+    _mState.savedPrints = tempState.savedPrints;
     _mState.targetType = tempState.targetType;
     _mState.includeCommission = tempState.includeCommission;
     
@@ -1491,6 +1690,7 @@ function _mShowHistoryDetail(quoteId) {
     _mState.embroideryCost = originalEmb;
     _mState.print3dCost = originalPrint3d;
     _mState.petChestPrint = originalPetChest;
+    _mState.savedPrints = originalSavedPrints;
     _mState.targetType = originalTargetType;
     _mState.includeCommission = originalIncludeCommission;
 }

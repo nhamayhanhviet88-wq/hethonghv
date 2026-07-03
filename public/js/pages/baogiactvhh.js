@@ -39,6 +39,7 @@ var _ctvState = {
     },
     // Print config
     printType: 'none', // none, pet, print3d, screen, embroidery
+    savedPrints: [],
     // PET Shapes list
     petShapes: [], // { width, height, qty_per_shirt, mode: 'aligned'|'nested' }
     // Screen print state
@@ -653,6 +654,9 @@ function _ctvRenderCalculator(container) {
                     
                     <!-- Dynamic Print Panel -->
                     <div id="ctv_print_panel"></div>
+                    
+                    <!-- Saved Prints List -->
+                    <div id="ctv_saved_prints_container" style="margin-top: 14px;"></div>
                 </div>
             </div>
             
@@ -669,6 +673,7 @@ function _ctvRenderCalculator(container) {
     _ctvRenderSelectedCustomer();
     // Render dynamic printing fields
     _ctvRenderPrintPanel();
+    _ctvRenderSavedPrintsList();
     if (_ctvState.targetType) {
         _ctvSelectTargetType(_ctvState.targetType);
     }
@@ -1000,6 +1005,11 @@ function _ctvRenderPrintPanel() {
                 </div>
                 
                 <div id="ctv_pet_shapes_list"></div>
+                <div style="margin-top: 14px; border-top: 1px dashed #5eead4; padding-top: 10px;">
+                    <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0f766e; border-color:#0f766e;" onclick="_ctvSaveActivePrint()">
+                        💾 Lưu phương án In PET
+                    </button>
+                </div>
             </div>
         `;
         _ctvRenderPetShapesList();
@@ -1016,12 +1026,17 @@ function _ctvRenderPrintPanel() {
                     <div style="font-size:12.5px; line-height:1.5; margin-bottom:10px;">
                         Số lượng áo đặt hàng chưa được điền. Vui lòng chọn phân khúc In 3D hoặc nhập số lượng áo ở trên.
                     </div>
-                    <div class="ctv-form-group" style="margin-bottom:0;">
+                    <div class="ctv-form-group" style="margin-bottom:12px;">
                         <label style="color:#0284c7;">Chọn mốc In 3D</label>
                         <select class="ctv-select" id="ctv_3d_cost_select" onchange="_ctvOn3dCostSelectChange(this.value)">
                             <option value="30000" ${_ctvState.print3dCost == 30000 ? 'selected' : ''}>In 3D dưới 20 Áo (+30.000đ)</option>
                             <option value="25000" ${_ctvState.print3dCost == 25000 ? 'selected' : ''}>In 3D trên 20 Áo (+25.000đ)</option>
                         </select>
+                    </div>
+                    <div style="margin-top: 14px; border-top: 1px dashed #7dd3fc; padding-top: 10px;">
+                        <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7;" onclick="_ctvSaveActivePrint()">
+                            💾 Lưu phương án In 3D
+                        </button>
                     </div>
                 </div>
             `;
@@ -1034,11 +1049,16 @@ function _ctvRenderPrintPanel() {
                     <div style="font-size:12.5px; line-height:1.5; margin-bottom:10px;">
                         Số lượng: <strong>${qty} áo</strong>. Mốc áp dụng: <strong>${qty < 20 ? 'Dưới 20 áo' : 'Trên 20 áo'}</strong>.
                     </div>
-                    <div class="ctv-form-group" style="margin-bottom:0;">
+                    <div class="ctv-form-group" style="margin-bottom:12px;">
                         <label style="color:#0284c7;">Đơn giá In 3D (Tự động khóa)</label>
                         <select class="ctv-select" disabled style="background:#e2e8f0; cursor:not-allowed;">
                             <option selected>${qty < 20 ? 'In 3D dưới 20 Áo (+30.000đ)' : 'In 3D trên 20 Áo (+25.000đ)'}</option>
                         </select>
+                    </div>
+                    <div style="margin-top: 14px; border-top: 1px dashed #7dd3fc; padding-top: 10px;">
+                        <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7;" onclick="_ctvSaveActivePrint()">
+                            💾 Lưu phương án In 3D
+                        </button>
                     </div>
                 </div>
             `;
@@ -1052,9 +1072,14 @@ function _ctvRenderPrintPanel() {
                 <div style="font-size:12px; margin-bottom:12px;">
                     Mức tối thiểu đơn hàng: <strong>${screenConfig.qty_threshold} áo</strong>. Bảng giá in lưới được cấu hình riêng theo số lượng & màu sắc.
                 </div>
-                <div class="ctv-form-group" style="margin-bottom:0;">
+                <div class="ctv-form-group" style="margin-bottom:12px;">
                     <label style="color:#7e22ce;">Số màu in lưới</label>
                     <input type="number" class="ctv-input" id="ctv_screen_colors" min="1" value="${_ctvState.screenColors}" oninput="_ctvOnScreenColorsChange(this.value)">
+                </div>
+                <div style="margin-top: 14px; border-top: 1px dashed #c084fc; padding-top: 10px;">
+                    <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#7e22ce; border-color:#7e22ce;" onclick="_ctvSaveActivePrint()">
+                        💾 Lưu phương án In Lưới
+                    </button>
                 </div>
             </div>
         `;
@@ -1062,13 +1087,146 @@ function _ctvRenderPrintPanel() {
         panel.innerHTML = `
             <div class="ctv-print-config-box" style="border-color:#f59e0b; background:#fffbeb; color:#92400e;">
                 <h4 style="color:#b45309;">🧵 Thêu Vi Tính</h4>
-                <div class="ctv-form-group" style="margin-bottom:0;">
+                <div class="ctv-form-group" style="margin-bottom:12px;">
                     <label style="color:#b45309;">Giá thêu trên mỗi áo (đ/áo)</label>
                     <input type="text" class="ctv-input" id="ctv_emb_cost" value="${_ctvState.embroideryCost}" oninput="_ctvOnEmbCostChange(this.value)">
+                </div>
+                <div style="margin-top: 14px; border-top: 1px dashed #fde047; padding-top: 10px;">
+                    <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#d97706; border-color:#d97706;" onclick="_ctvSaveActivePrint()">
+                        💾 Lưu phương án Thêu
+                    </button>
                 </div>
             </div>
         `;
     }
+}
+
+function _ctvSaveActivePrint() {
+    if (_ctvState.printType === 'none') return;
+    
+    if (_ctvState.printType === 'pet' && _ctvState.petShapes.length === 0 && !_ctvState.petChestPrint) {
+        alert('Vui lòng thêm hình in PET hoặc chọn In PET Ngực.');
+        return;
+    }
+    
+    const printItem = {
+        id: 'print_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        type: _ctvState.printType,
+        details: {
+            petShapes: [..._ctvState.petShapes],
+            petChestPrint: _ctvState.petChestPrint,
+            print3dCost: _ctvState.print3dCost,
+            screenColors: _ctvState.screenColors,
+            embroideryCost: _ctvState.embroideryCost
+        }
+    };
+    
+    if (!_ctvState.savedPrints) {
+        _ctvState.savedPrints = [];
+    }
+    _ctvState.savedPrints.push(printItem);
+    
+    _ctvState.printType = 'none';
+    _ctvState.petShapes = [];
+    _ctvState.petChestPrint = false;
+    
+    const selectEl = document.getElementById('ctv_print_type');
+    if (selectEl) selectEl.value = 'none';
+    
+    _ctvRenderPrintPanel();
+    _ctvRenderSavedPrintsList();
+    _ctvUpdateCalculations();
+}
+
+function _ctvRenderSavedPrintsList() {
+    const container = document.getElementById('ctv_saved_prints_container');
+    if (!container) return;
+    
+    if (!_ctvState.savedPrints || _ctvState.savedPrints.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let html = `
+        <div style="background: #fafafa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-weight: 700; font-size: 12px; color: #475569; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px;">
+                <span>📋 CÁC PHƯƠNG ÁN IN ĐÃ CHỌN (${_ctvState.savedPrints.length})</span>
+                <span style="font-size: 10px; color: #94a3b8;">Click nút để sửa/xóa</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+    `;
+    
+    _ctvState.savedPrints.forEach((item, index) => {
+        let typeName = '';
+        let desc = '';
+        if (item.type === 'pet') {
+            typeName = '🧬 In PET';
+            const shapeDescs = [];
+            if (item.details.petChestPrint) shapeDescs.push('PET Ngực');
+            (item.details.petShapes || []).forEach(s => {
+                shapeDescs.push(`${s.width}x${s.height}cm (${s.qty_per_shirt} hình)`);
+            });
+            desc = shapeDescs.join(', ') || 'Chưa cấu hình chi tiết';
+        } else if (item.type === 'print3d') {
+            typeName = '🌀 In 3D';
+            const cost = Number(item.details.print3dCost) || 0;
+            desc = `Mốc giá: ${cost.toLocaleString('vi-VN')} đ/áo`;
+        } else if (item.type === 'screen') {
+            typeName = '🎨 In Lưới';
+            desc = `${item.details.screenColors || 1} màu`;
+        } else if (item.type === 'embroidery') {
+            typeName = '🧵 Thêu';
+            const embInfo = _ctvGetEmbPriceInfo(item.details.embroideryCost);
+            desc = `Giá: ${embInfo.text}`;
+        }
+        
+        html += `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; gap: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;">
+                    <div style="font-weight: 700; color: #1e293b;">${typeName}</div>
+                    <div style="color: #64748b; font-size: 11px;">${desc}</div>
+                </div>
+                <div style="display: flex; gap: 4px;">
+                    <button type="button" class="ctv-btn-secondary" style="padding: 4px 8px; font-size: 11px; background: #f1f5f9; border-color: #cbd5e1;" onclick="_ctvEditSavedPrint('${item.id}')">✏️ Sửa</button>
+                    <button type="button" class="ctv-btn-secondary" style="padding: 4px 8px; font-size: 11px; background: #fee2e2; border-color: #fca5a5; color: #991b1b;" onclick="_ctvDeleteSavedPrint('${item.id}')">🗑️ Xóa</button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+    `;
+    container.innerHTML = html;
+}
+
+function _ctvEditSavedPrint(id) {
+    const idx = _ctvState.savedPrints.findIndex(p => p.id === id);
+    if (idx === -1) return;
+    const item = _ctvState.savedPrints[idx];
+    
+    _ctvState.printType = item.type;
+    _ctvState.petShapes = [...(item.details.petShapes || [])];
+    _ctvState.petChestPrint = item.details.petChestPrint || false;
+    _ctvState.print3dCost = item.details.print3dCost || 30000;
+    _ctvState.screenColors = item.details.screenColors || 1;
+    _ctvState.embroideryCost = item.details.embroideryCost || 15000;
+    
+    _ctvState.savedPrints.splice(idx, 1);
+    
+    const selectEl = document.getElementById('ctv_print_type');
+    if (selectEl) selectEl.value = item.type;
+    
+    _ctvRenderPrintPanel();
+    _ctvRenderSavedPrintsList();
+    _ctvUpdateCalculations();
+}
+
+function _ctvDeleteSavedPrint(id) {
+    _ctvState.savedPrints = _ctvState.savedPrints.filter(p => p.id !== id);
+    _ctvRenderSavedPrintsList();
+    _ctvUpdateCalculations();
 }
 
 function _ctvOn3dCostSelectChange(val) {
@@ -1397,89 +1555,123 @@ function _ctvCalculateAllCosts() {
     // 3. Printing costs
     let printCost = 0;
     const printBreakdown = [];
-    const pt = _ctvState.printType;
-    
-    if (pt === 'pet') {
-        const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
-        const isCust = _ctvState.targetType === 'customer';
-        const sheetPrice = isCust
-            ? (petConfig.sheet_price_customer !== undefined ? Number(petConfig.sheet_price_customer) : Number(petConfig.sheet_price) || 60000)
-            : (Number(petConfig.sheet_price) || 60000);
-        const spacing = Number(petConfig.spacing) || 0.4;
-        const chestPrice = isCust
-            ? (petConfig.chest_price_customer !== undefined ? Number(petConfig.chest_price_customer) : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000))
-            : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000);
-        const minPositionPrice = isCust
-            ? (petConfig.min_position_price_customer !== undefined ? Number(petConfig.min_position_price_customer) : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000))
-            : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000);
+
+    // Helper to calculate cost for a single print configuration
+    function calcSinglePrint(type, details) {
+        let cost = 0;
+        const breakdown = [];
         
-        // Add flat chest print if enabled
-        if (_ctvState.petChestPrint) {
-            printCost += chestPrice;
-            printBreakdown.push({ label: `In PET Ngực (cố định)`, price: chestPrice });
-        }
-        
-        _ctvState.petShapes.forEach((s, idx) => {
-            const packed = _ctvState.activeConfig ? _ctvCalcPetPlacement(58, 100, s.width, s.height, spacing) : { aligned: 0, optimized: 0 };
-            const perSheetCount = s.mode === 'nested' ? packed.optimized : packed.aligned;
+        if (type === 'pet') {
+            const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
+            const isCust = _ctvState.targetType === 'customer';
+            const sheetPrice = isCust
+                ? (petConfig.sheet_price_customer !== undefined ? Number(petConfig.sheet_price_customer) : Number(petConfig.sheet_price) || 60000)
+                : (Number(petConfig.sheet_price) || 60000);
+            const spacing = Number(petConfig.spacing) || 0.4;
+            const chestPrice = isCust
+                ? (petConfig.chest_price_customer !== undefined ? Number(petConfig.chest_price_customer) : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000))
+                : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000);
+            const minPositionPrice = isCust
+                ? (petConfig.min_position_price_customer !== undefined ? Number(petConfig.min_position_price_customer) : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000))
+                : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000);
             
-            if (perSheetCount > 0) {
-                const sheetFraction = s.qty_per_shirt / perSheetCount;
-                let costPerShirt = Math.round(sheetFraction * sheetPrice);
-                let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm (${s.qty_per_shirt} hình, xếp ${s.mode === 'nested' ? 'tối ưu' : 'thẳng'})`;
+            if (details.petChestPrint) {
+                cost += chestPrice;
+                breakdown.push({ label: `In PET Ngực (cố định)`, price: chestPrice });
+            }
+            
+            const shapes = details.petShapes || [];
+            shapes.forEach((s, idx) => {
+                const packed = _ctvState.activeConfig ? _ctvCalcPetPlacement(58, 100, s.width, s.height, spacing) : { aligned: 0, optimized: 0 };
+                const perSheetCount = s.mode === 'nested' ? packed.optimized : packed.aligned;
                 
-                if (costPerShirt < minPositionPrice) {
-                    costPerShirt = minPositionPrice;
-                    labelText += ` (Tối thiểu ${minPositionPrice.toLocaleString('vi-VN')}đ)`;
+                if (perSheetCount > 0) {
+                    const sheetFraction = s.qty_per_shirt / perSheetCount;
+                    let costPerShirt = Math.round(sheetFraction * sheetPrice);
+                    let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm (${s.qty_per_shirt} hình, xếp ${s.mode === 'nested' ? 'tối ưu' : 'thẳng'})`;
+                    
+                    if (costPerShirt < minPositionPrice) {
+                        costPerShirt = minPositionPrice;
+                        labelText += ` (Tối thiểu ${minPositionPrice.toLocaleString('vi-VN')}đ)`;
+                    }
+                    
+                    costPerShirt = Math.ceil(costPerShirt / 1000) * 1000;
+                    cost += costPerShirt;
+                    breakdown.push({ label: labelText, price: costPerShirt });
                 }
-                
-                costPerShirt = Math.ceil(costPerShirt / 1000) * 1000;
-                
-                printCost += costPerShirt;
-                printBreakdown.push({
-                    label: labelText,
-                    price: costPerShirt
-                });
+            });
+        } else if (type === 'print3d') {
+            let cost3d = Number(details.print3dCost) || 0;
+            if (qty > 0) {
+                cost3d = qty < 20 ? 30000 : 25000;
             }
-        });
-    } else if (pt === 'print3d') {
-        if (qty > 0) {
-            _ctvState.print3dCost = qty < 20 ? 30000 : 25000;
-        }
-        const flatPrice = Number(_ctvState.print3dCost) || 0;
-        printCost = flatPrice;
-        printBreakdown.push({ label: `In 3D toàn thân (${flatPrice.toLocaleString('vi-VN')} đ/áo)`, price: flatPrice });
-    } else if (pt === 'screen') {
-        const configScreen = config.print_prices.screen || { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 };
-        const colors = _ctvState.screenColors;
-        const threshold = configScreen.qty_threshold || 20;
-        let singleScreenPrice = 0;
-        
-        if (qty === 0) {
-            singleScreenPrice = 0;
-            printBreakdown.push({ label: `In lưới (${colors} màu, chưa nhập số lượng)`, price: 0 });
-        } else if (qty < threshold) {
-            const totalOrderCost = configScreen.price_low * colors;
-            singleScreenPrice = Math.round(totalOrderCost / qty);
-            printBreakdown.push({ label: `In lưới dưới hạn (${colors} màu, phân bổ đơn)`, price: singleScreenPrice });
-        } else {
-            if (colors <= 3) {
-                singleScreenPrice = configScreen.price_high_1_3 * colors;
+            cost = cost3d;
+            breakdown.push({ label: `In 3D toàn thân (${cost3d.toLocaleString('vi-VN')} đ/áo)`, price: cost3d });
+        } else if (type === 'screen') {
+            const configScreen = config.print_prices.screen || { qty_threshold: 20, price_low: 60000, price_high_1_3: 4000, price_high_4_plus: 3500 };
+            const colors = details.screenColors || 1;
+            const threshold = configScreen.qty_threshold || 20;
+            let singleScreenPrice = 0;
+            
+            if (qty === 0) {
+                singleScreenPrice = 0;
+                breakdown.push({ label: `In lưới (${colors} màu, chưa nhập số lượng)`, price: 0 });
+            } else if (qty < threshold) {
+                const totalOrderCost = configScreen.price_low * colors;
+                singleScreenPrice = Math.round(totalOrderCost / qty);
+                breakdown.push({ label: `In lưới dưới hạn (${colors} màu, phân bổ đơn)`, price: singleScreenPrice });
             } else {
-                singleScreenPrice = configScreen.price_high_4_plus * colors;
+                if (colors <= 3) {
+                    singleScreenPrice = configScreen.price_high_1_3 * colors;
+                } else {
+                    singleScreenPrice = configScreen.price_high_4_plus * colors;
+                }
+                breakdown.push({ label: `In lưới (${colors} màu, đơn giá/áo)`, price: singleScreenPrice });
             }
-            printBreakdown.push({ label: `In lưới (${colors} màu, đơn giá/áo)`, price: singleScreenPrice });
+            cost = singleScreenPrice;
+        } else if (type === 'embroidery') {
+            const embInfo = _ctvGetEmbPriceInfo(details.embroideryCost);
+            if (embInfo.isContact) {
+                cost = 0;
+                breakdown.push({ label: `Thêu vi tính: ${embInfo.text}`, price: 0, isContact: true, contactText: embInfo.text });
+            } else {
+                cost = embInfo.value;
+                breakdown.push({ label: `Thêu vi tính đồng giá`, price: cost });
+            }
         }
-        printCost = singleScreenPrice;
-    } else if (pt === 'embroidery') {
-        const embInfo = _ctvGetEmbPriceInfo(_ctvState.embroideryCost);
-        if (embInfo.isContact) {
-            printCost = 0;
-            printBreakdown.push({ label: `Thêu vi tính: ${embInfo.text}`, price: 0, isContact: true, contactText: embInfo.text });
-        } else {
-            printCost = embInfo.value;
-            printBreakdown.push({ label: `Thêu vi tính đồng giá`, price: printCost });
-        }
+        return { cost, breakdown };
+    }
+    
+    // 1. Calculate saved prints
+    if (_ctvState.savedPrints && _ctvState.savedPrints.length > 0) {
+        _ctvState.savedPrints.forEach((item, index) => {
+            const res = calcSinglePrint(item.type, item.details);
+            printCost += res.cost;
+            const prefix = item.type === 'pet' ? 'PET: ' : item.type === 'print3d' ? '3D: ' : item.type === 'screen' ? 'Lưới: ' : 'Thêu: ';
+            res.breakdown.forEach(b => {
+                printBreakdown.push({
+                    label: prefix + b.label,
+                    price: b.price,
+                    isContact: b.isContact,
+                    contactText: b.contactText
+                });
+            });
+        });
+    }
+    
+    // 2. Calculate active editing print
+    if (_ctvState.printType !== 'none') {
+        const res = calcSinglePrint(_ctvState.printType, {
+            petShapes: _ctvState.petShapes,
+            petChestPrint: _ctvState.petChestPrint,
+            print3dCost: _ctvState.print3dCost,
+            screenColors: _ctvState.screenColors,
+            embroideryCost: _ctvState.embroideryCost
+        });
+        printCost += res.cost;
+        res.breakdown.forEach(b => {
+            printBreakdown.push(b);
+        });
     }
     
     let commissionAmount = 0;
@@ -1696,6 +1888,7 @@ async function _ctvSaveQuotation() {
             embroideryCost: _ctvState.embroideryCost,
             print3dCost: _ctvState.print3dCost,
             petChestPrint: _ctvState.petChestPrint,
+            savedPrints: _ctvState.savedPrints || [],
             materialName: calc.materialName,
             targetType: _ctvState.targetType,
             includeCommission: _ctvState.includeCommission
@@ -1714,6 +1907,7 @@ async function _ctvSaveQuotation() {
             // Reset input values
             _ctvState.selectedCustomer = null;
             _ctvState.petShapes = [];
+            _ctvState.savedPrints = [];
             _ctvState.targetType = null;
             _ctvState.includeCommission = false;
             
@@ -2339,6 +2533,7 @@ function _ctvShowHistoryDetail(quoteId) {
         embroideryCost: q.input_details.embroideryCost || 15000,
         print3dCost: q.input_details.print3dCost || 30000,
         petChestPrint: q.input_details.petChestPrint || false,
+        savedPrints: q.input_details.savedPrints || [],
         targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
         includeCommission: q.input_details.includeCommission || false
     };
@@ -2355,6 +2550,7 @@ function _ctvShowHistoryDetail(quoteId) {
     const originalEmb = _ctvState.embroideryCost;
     const originalPrint3d = _ctvState.print3dCost;
     const originalPetChest = _ctvState.petChestPrint;
+    const originalSavedPrints = _ctvState.savedPrints;
     const originalTargetType = _ctvState.targetType;
     const originalIncludeCommission = _ctvState.includeCommission;
     
@@ -2369,6 +2565,7 @@ function _ctvShowHistoryDetail(quoteId) {
     _ctvState.embroideryCost = tempState.embroideryCost;
     _ctvState.print3dCost = tempState.print3dCost;
     _ctvState.petChestPrint = tempState.petChestPrint;
+    _ctvState.savedPrints = tempState.savedPrints;
     _ctvState.targetType = tempState.targetType;
     _ctvState.includeCommission = tempState.includeCommission;
     
@@ -2386,6 +2583,7 @@ function _ctvShowHistoryDetail(quoteId) {
     _ctvState.embroideryCost = originalEmb;
     _ctvState.print3dCost = originalPrint3d;
     _ctvState.petChestPrint = originalPetChest;
+    _ctvState.savedPrints = originalSavedPrints;
     _ctvState.targetType = originalTargetType;
     _ctvState.includeCommission = originalIncludeCommission;
 }
