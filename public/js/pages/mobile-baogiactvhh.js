@@ -48,7 +48,9 @@ var _mState = {
     targetType: null,
     historyLogs: [],
     configVersions: [],
-    creatorName: ''
+    creatorName: '',
+    items: [],
+    includeVat: false
 };
 
 async function initMobileBaogiactvhhPage() {
@@ -617,9 +619,6 @@ function _mRenderPrintPanel() {
         _mUpdatePrintTypeDropdown();
         return;
     }
-    
-    const config = _mState.activeConfig;
-    
     if (_mState.printType === 'pet') {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
         const isCust = _mState.targetType === 'customer';
@@ -1369,40 +1368,86 @@ function _mUpdateCalculations() {
     if (!box) return;
     
     const calc = _mCalculateAllCosts();
-    if (!calc) {
+    const hasCustomer = !!_mState.selectedCustomer;
+    const isMultiItem = _mState.items && _mState.items.length > 0;
+    
+    let currentItemHtml = '';
+    if (calc) {
+        const contactTexts = [];
+        calc.printBreakdown.forEach(p => {
+            if (p.isContact) contactTexts.push(p.contactText);
+        });
+        calc.surchargesBreakdown.forEach(s => {
+            if (s.isContact) contactTexts.push(s.contactText);
+        });
+        const hasContactPrice = contactTexts.length > 0;
+        const contactNote = hasContactPrice ? ` + ${contactTexts.join(', ')}` : '';
+        
+        const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
+        const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
+        
+        currentItemHtml = `
+            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-top: 10px; font-size:12.5px;">
+                <div style="font-weight: 700; color: #cbd5e1; margin-bottom: 4px; font-size:11px; text-transform: uppercase;">⚡ Dòng sản phẩm đang chọn:</div>
+                <div class="m-result-row">
+                    <span>Chất liệu: <strong>${calc.materialName}</strong></span>
+                    <span>${(_mState.targetType === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ</span>
+                </div>
+                
+                ${(_mState.targetType !== 'customer' && calc.commissionAmount > 0) ? `
+                    <div class="m-result-row" style="color: #f97316; font-size:12px; margin-top: 2px;">
+                        <span>Hoa hồng (+${calc.commissionPercent}%):</span>
+                        <span>+${calc.commissionAmount.toLocaleString('vi-VN')} đ</span>
+                    </div>
+                ` : ''}
+                
+                ${calc.surchargesBreakdown.length > 0 ? `
+                    <div style="margin-top:4px; padding-top:4px; border-top:1px dashed rgba(255,255,255,0.1);">
+                        ${calc.surchargesBreakdown.map(s => `
+                            <div class="m-result-row" style="font-size:12px; color:#94a3b8;">
+                                <span>+ Phụ phí: ${s.label}</span>
+                                <span>${s.isContact ? s.contactText : (s.price >= 0 ? '+' : '') + s.price.toLocaleString('vi-VN') + ' đ'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
+                ${calc.printBreakdown.length > 0 ? `
+                    <div style="margin-top:4px; padding-top:4px; border-top:1px dashed rgba(255,255,255,0.1);">
+                        ${calc.printBreakdown.map(p => `
+                            <div class="m-result-row" style="font-size:12px; color:#94a3b8;">
+                                <span>+ In/Thêu: ${p.label}</span>
+                                <span>${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
+                <div class="m-result-row" style="border-top:1px solid rgba(255,255,255,0.15); margin-top: 6px; padding-top: 6px; font-weight:700;">
+                    <span>Đơn giá dòng:</span>
+                    <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
+                </div>
+                <div class="m-result-row" style="font-weight:700; margin-top:2px;">
+                    <span>Thành tiền dòng:</span>
+                    <span style="color:#38bdf8;">${grandTotalText}</span>
+                </div>
+                
+                <button class="m-btn" style="margin-top: 8px; background: #4f46e5; color: white; padding: 8px; font-size: 12px; width: 100%; border-radius: 6px;" onclick="_mAddItemToQuotation()">
+                    ➕ Thêm vào giỏ báo giá
+                </button>
+            </div>
+        `;
+    } else {
         if (_mState.targetType === null || _mState.targetType === undefined) {
-            box.innerHTML = `
-                <div class="m-result-title">📊 Chi tiết đơn hàng</div>
-                <div style="text-align: center; padding: 25px 15px; color: #ef4444; font-weight: 700; border: 2px dashed #fca5a5; border-radius: 10px; background: #fef2f2; margin-top: 10px; font-size:12px;">
-                    ⚠️ Vui lòng chọn Đối tượng báo giá trước khi tính toán!
+            currentItemHtml = `
+                <div style="text-align: center; padding: 18px 10px; color: #ef4444; font-weight: 700; border: 2px dashed #fca5a5; border-radius: 8px; background: #fef2f2; margin-top: 10px; font-size: 12px;">
+                    ⚠️ Vui lòng chọn Đối tượng báo giá để tính toán!
                 </div>
             `;
         } else {
-            box.innerHTML = `<div style="text-align:center; font-style:italic;">Không thể tính toán chi phí.</div>`;
+            currentItemHtml = `<div style="text-align:center; padding:10px; font-style:italic; font-size:11.5px; color:#cbd5e1;">Nhập số lượng & chọn chất liệu...</div>`;
         }
-        return;
     }
-    
-    const hasCustomer = !!_mState.selectedCustomer;
-    
-    const contactTexts = [];
-    calc.printBreakdown.forEach(p => {
-        if (p.isContact) contactTexts.push(p.contactText);
-    });
-    calc.surchargesBreakdown.forEach(s => {
-        if (s.isContact) contactTexts.push(s.contactText);
-    });
-    const hasContactPrice = contactTexts.length > 0;
-    const contactNote = hasContactPrice ? ` + ${contactTexts.join(', ')}` : '';
-    
-    const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
-    
-    const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
-    
-    const finalTotalValue = _mState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
-    const wordsText = hasContactPrice
-        ? `${docSoTienVietNam(finalTotalValue)} (và ${contactTexts.join(', ')})`
-        : docSoTienVietNam(finalTotalValue);
     
     box.innerHTML = `
         <div class="m-result-title">📊 Chi tiết đơn hàng</div>
@@ -1411,103 +1456,209 @@ function _mUpdateCalculations() {
             <span>Khách hàng:</span>
             <strong style="color:white;">${hasCustomer ? _mState.selectedCustomer.customer_name : '<span style="color:#ef4444;">Chưa chọn khách</span>'}</strong>
         </div>
-        <div class="m-result-row">
-            <span>Số lượng:</span>
-            <strong style="color:white;">${_mState.quantity ? _mState.quantity + ' áo' : '<span style="color:#ef4444;">Chưa nhập số lượng</span>'}</strong>
-        </div>
-        ${calc.matchedShipping ? `
-        <div class="m-result-row">
-            <span>Vận chuyển:</span>
-            <strong style="color:#38bdf8;">${calc.matchedShipping.desc}</strong>
-        </div>
-        ` : ''}
-        <div class="m-result-row">
-            <span>Chất liệu vải:</span>
-            <strong style="color:white;">${calc.materialName}</strong>
-        </div>
-        <div class="m-result-row">
-            <span>Đơn giá phôi:</span>
-            <span>${(_mState.targetType === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ/áo</span>
-        </div>
         
-        ${(_mState.targetType !== 'customer' && calc.commissionAmount > 0) ? `
-            <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
-                <div class="m-result-row" style="color:#f97316; font-weight:bold; font-size:12px;">
-                    <span>Hoa hồng đại lý (+${calc.commissionPercent}%):</span>
-                    <span>+${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo</span>
+        ${currentItemHtml}
+        
+        <!-- Render items list if multi-item -->
+        ${_mRenderItemsTable()}
+        
+        <!-- Bottom Totals block -->
+        ${(isMultiItem || calc) ? _mRenderTotalsSummaryHtml(calc) : ''}
+    `;
+}
+
+function _mAddItemToQuotation() {
+    const calc = _mCalculateAllCosts();
+    if (!calc) {
+        showToast('Không thể tính toán chi phí. Vui lòng kiểm tra lại chất liệu/số lượng!', 'error');
+        return;
+    }
+    if (!_mState.quantity || Number(_mState.quantity) <= 0) {
+        showToast('Vui lòng nhập số lượng > 0 trước!', 'error');
+        return;
+    }
+    
+    const item = {
+        id: Date.now(),
+        quantity: Number(_mState.quantity),
+        selectedMaterialIndex: _mState.selectedMaterialIndex,
+        materialName: calc.materialName,
+        surcharges: JSON.parse(JSON.stringify(_mState.surcharges)),
+        printType: _mState.printType,
+        petShapes: JSON.parse(JSON.stringify(_mState.petShapes || [])),
+        screenColors: _mState.screenColors,
+        embroideryCost: _mState.embroideryCost,
+        print3dCost: _mState.print3dCost,
+        petChestPrint: _mState.petChestPrint,
+        savedPrints: JSON.parse(JSON.stringify(_mState.savedPrints || [])),
+        targetType: _mState.targetType,
+        includeCommission: _mState.includeCommission,
+        
+        // Snapshots
+        finalPricePerShirt: calc.finalPricePerShirt,
+        grandTotal: calc.grandTotal,
+        surchargesBreakdown: calc.surchargesBreakdown,
+        printBreakdown: calc.printBreakdown
+    };
+    
+    _mState.items.push(item);
+    
+    // Clear temp inputs
+    _mState.quantity = '';
+    _mState.petShapes = [];
+    _mState.savedPrints = [];
+    _mState.printType = 'none';
+    _mState.petChestPrint = false;
+    _mState.surcharges = {
+        collar: false,
+        raglan: false,
+        color_block: false,
+        primary_school: false
+    };
+    
+    const dynContent = document.getElementById('m-dynamic-content');
+    if (dynContent) {
+        _mRenderCalculator(dynContent);
+    }
+    _mUpdateCalculations();
+    showToast('Đã thêm sản phẩm thành công!', 'success');
+}
+
+function _mEditItemInQuotation(itemId) {
+    const item = _mState.items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    _mState.quantity = item.quantity;
+    _mState.selectedMaterialIndex = item.selectedMaterialIndex;
+    _mState.surcharges = JSON.parse(JSON.stringify(item.surcharges));
+    _mState.printType = item.printType;
+    _mState.petShapes = JSON.parse(JSON.stringify(item.petShapes || []));
+    _mState.screenColors = item.screenColors;
+    _mState.embroideryCost = item.embroideryCost;
+    _mState.print3dCost = item.print3dCost;
+    _mState.petChestPrint = item.petChestPrint;
+    _mState.savedPrints = JSON.parse(JSON.stringify(item.savedPrints || []));
+    _mState.targetType = item.targetType;
+    _mState.includeCommission = item.includeCommission;
+    
+    _mState.items = _mState.items.filter(i => i.id !== itemId);
+    
+    const dynContent = document.getElementById('m-dynamic-content');
+    if (dynContent) {
+        _mRenderCalculator(dynContent);
+    }
+    _mUpdateCalculations();
+    showToast('Đã tải sản phẩm lên để sửa!', 'info');
+}
+
+function _mRemoveItemFromQuotation(itemId) {
+    _mState.items = _mState.items.filter(i => i.id !== itemId);
+    _mUpdateCalculations();
+    showToast('Đã xóa sản phẩm khỏi giỏ!', 'info');
+}
+
+function _mRenderItemsTable() {
+    if (!_mState.items || _mState.items.length === 0) return '';
+    
+    const rows = _mState.items.map((item, idx) => {
+        return `
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:6px; margin-bottom:6px; font-size:12px;">
+                <div style="display:flex; justify-content:space-between; font-weight:700; color:white;">
+                    <span>#${idx+1}. ${item.materialName}</span>
+                    <span style="color:#38bdf8;">${item.grandTotal.toLocaleString('vi-VN')} đ</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:11px; color:#cbd5e1; margin-top:2px;">
+                    <span>SL: ${item.quantity} áo x ${item.finalPricePerShirt.toLocaleString('vi-VN')} đ</span>
+                    <div style="display:flex; gap:8px;">
+                        <span onclick="_mEditItemInQuotation(${item.id})" style="color:#38bdf8; cursor:pointer;" title="Sửa">✏️ Sửa</span>
+                        <span onclick="_mRemoveItemFromQuotation(${item.id})" style="color:#ef4444; cursor:pointer;" title="Xóa">❌ Xóa</span>
+                    </div>
                 </div>
             </div>
-        ` : ''}
-        
-        ${calc.surchargesBreakdown.length > 0 ? `
-            <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
-                <div style="font-size:10px; color:#94a3b8; font-weight:700; margin-bottom:4px;">PHỤ PHÍ:</div>
-                ${calc.surchargesBreakdown.map(s => {
-                    if (s.isContact) {
-                        return `
-                            <div class="m-result-row" style="font-size:12px;">
-                                <span>• ${s.label} ${s.contactText}</span>
-                                <span></span>
-                            </div>
-                        `;
-                    }
-                    return `
-                        <div class="m-result-row" style="font-size:12px;">
-                            <span>• ${s.label}</span>
-                            <span>${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ</span>
-                        </div>
-                    `;
-                }).join('')}
+        `;
+    }).join('');
+    
+    return `
+        <div style="border-top:1px solid rgba(255,255,255,0.15); margin:12px 0 8px 0; padding-top:12px;">
+            <div style="font-size:11.5px; font-weight:700; color:#38bdf8; text-transform:uppercase; margin-bottom:6px; display:flex; justify-content:space-between;">
+                <span>📋 Danh sách sản phẩm:</span>
+                <span>${_mState.items.length} dòng</span>
             </div>
-        ` : ''}
+            ${rows}
+        </div>
+    `;
+}
+
+function _mRenderTotalsSummaryHtml(calc) {
+    const isMultiItem = _mState.items && _mState.items.length > 0;
+    const hasCustomer = !!_mState.selectedCustomer;
+    
+    const companyInfo = JSON.parse(localStorage.getItem('ctv_company_info') || '{}');
+    const defaultVatRate = companyInfo.vatRate !== undefined ? Number(companyInfo.vatRate) : 8;
+    
+    let subtotal = 0;
+    let qtyText = '';
+    
+    if (isMultiItem) {
+        subtotal = _mState.items.reduce((sum, item) => sum + item.grandTotal, 0);
+        const totalQty = _mState.items.reduce((sum, item) => sum + item.quantity, 0);
+        qtyText = `${totalQty} áo`;
+    } else if (calc) {
+        subtotal = calc.grandTotal;
+        qtyText = `${_mState.quantity} áo`;
+    }
+    
+    const vatAmount = _mState.includeVat ? Math.round(subtotal * defaultVatRate / 100) : 0;
+    const finalGrandTotal = subtotal + vatAmount;
+    
+    let hasContactPrice = false;
+    let contactNote = '';
+    if (isMultiItem) {
+        hasContactPrice = _mState.items.some(item => 
+            (item.printBreakdown && item.printBreakdown.some(p => p.isContact)) || 
+            (item.surchargesBreakdown && item.surchargesBreakdown.some(s => s.isContact))
+        );
+    } else if (calc) {
+        hasContactPrice = calc.printBreakdown.some(p => p.isContact) || calc.surchargesBreakdown.some(s => s.isContact);
+    }
+    if (hasContactPrice) {
+        contactNote = ' + Liên hệ';
+    }
+    
+    const wordsText = hasContactPrice 
+        ? `${docSoTienVietNam(finalGrandTotal)} (và liên hệ)` 
+        : docSoTienVietNam(finalGrandTotal);
         
-        ${calc.printBreakdown.length > 0 ? `
-            <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
-                <div style="font-size:10px; color:#94a3b8; font-weight:700; margin-bottom:4px;">IN / THÊU:</div>
-                ${calc.printBreakdown.map(p => {
-                    if (p.isContact) {
-                        return `
-                            <div class="m-result-row" style="font-size:12px;">
-                                <span>• ${p.label}</span>
-                                <span></span>
-                            </div>
-                        `;
-                    }
-                    return `
-                        <div class="m-result-row" style="font-size:12px;">
-                            <span>• ${p.label}</span>
-                            <span>+${p.price.toLocaleString('vi-VN')} đ</span>
-                        </div>
-                    `;
-                }).join('')}
+    return `
+        <div style="border-top:1px solid rgba(255,255,255,0.15); margin-top:12px; padding-top:12px; font-size:12.5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label style="display:flex; align-items:center; gap:6px; color:#cbd5e1; cursor:pointer; user-select:none; font-size:12px;">
+                    <input type="checkbox" id="m_include_vat" ${_mState.includeVat ? 'checked' : ''} onchange="_mToggleVat(this.checked)" style="accent-color:#38bdf8; width:14px; height:14px; cursor:pointer;">
+                    <span>Xuất hóa đơn VAT (${defaultVatRate}%)</span>
+                </label>
+                ${_mState.includeVat ? `<span style="color:#ef4444; font-weight:700;">+${vatAmount.toLocaleString('vi-VN')} đ</span>` : `<span style="font-size:11px; color:#94a3b8; font-style:italic;">* Chưa gồm VAT</span>`}
             </div>
-        ` : ''}
-        
-        <div class="m-result-row total">
-            <span>Đơn giá/Áo:</span>
-            <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
-        </div>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; border-top:1px dashed rgba(255,255,255,0.15); margin-top: 6px; padding-top: 6px;">
-            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #cbd5e1; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="m_include_vat" ${_mState.includeVat ? 'checked' : ''} onchange="_mToggleVat(this.checked)" style="accent-color: #38bdf8; cursor: pointer; width: 14px; height: 14px;">
-                <span>VAT (${calc.vatRate}%)</span>
-            </label>
-            ${_mState.includeVat ? `<span style="font-size: 12px; color: #ef4444; font-weight: 700;">+${calc.vatAmount.toLocaleString('vi-VN')} đ</span>` : `<span style="font-size: 11px; color: #94a3b8; font-style: italic;">* Chưa gồm VAT</span>`}
-        </div>
-        
-        <div class="m-result-row" style="font-size:15px; font-weight:700; margin-top:4px;">
-            <span>Tổng đơn:</span>
-            <span>${_mState.includeVat ? calc.finalGrandTotal.toLocaleString('vi-VN') + ' đ' + contactNote : grandTotalText}</span>
-        </div>
-        
-        <div style="font-size:11.5px; font-style:italic; color:#38bdf8; text-align:right; margin-top:4px;">
-            Bằng chữ: ${wordsText}
-        </div>
-        
-        <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-            <button class="m-btn-secondary" style="background:transparent; border-color:rgba(255,255,255,0.3); color:white;" onclick="_mOpenExportModal()">🖨️ Xuất Bản In</button>
-            <button class="m-btn" style="background:#22c55e; box-shadow:none;" onclick="_mSaveQuotation()" ${!hasCustomer ? 'disabled style="opacity:0.5;"' : ''}>💾 Lưu Giá</button>
+            
+            ${_mState.includeVat ? `
+                <div class="m-result-row" style="color:#cbd5e1; margin-top:4px; font-size:12px;">
+                    <span>Tổng chưa VAT:</span>
+                    <span>${subtotal.toLocaleString('vi-VN')} đ${contactNote}</span>
+                </div>
+            ` : ''}
+            
+            <div class="m-result-row" style="font-size:14.5px; font-weight:700; color:white; margin-top:4px;">
+                <span>TỔNG CỘNG (${qtyText}):</span>
+                <span>${finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</span>
+            </div>
+            
+            <div style="font-size:11px; font-style:italic; color:#cbd5e1; text-align:right; margin-top:4px;">
+                Bằng chữ: <strong>${wordsText}</strong>
+            </div>
+            
+            <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <button class="m-btn-secondary" style="background:transparent; border-color:rgba(255,255,255,0.3); color:white; padding:8px; font-size:12px;" onclick="_mOpenExportModal()">🖨️ In Báo Giá</button>
+                <button class="m-btn" style="background:#22c55e; box-shadow:none; padding:8px; font-size:12px;" onclick="_mSaveQuotation()" ${!hasCustomer ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>💾 Lưu Giá</button>
+            </div>
         </div>
     `;
 }
@@ -1518,13 +1669,55 @@ async function _mSaveQuotation() {
         return;
     }
     
-    const calc = _mCalculateAllCosts();
-    if (!calc) return;
+    const isMultiItem = _mState.items && _mState.items.length > 0;
     
-    const body = {
-        customer_id: _mState.selectedCustomer.id,
-        config_version_id: _mState.activeConfig.id,
-        input_details: {
+    let calc = null;
+    if (!isMultiItem) {
+        calc = _mCalculateAllCosts();
+        if (!calc) return;
+    }
+    
+    let finalTotalAmount = 0;
+    let details = {};
+    
+    const companyInfo = JSON.parse(localStorage.getItem('ctv_company_info') || '{}');
+    const defaultVatRate = companyInfo.vatRate !== undefined ? Number(companyInfo.vatRate) : 8;
+    
+    if (isMultiItem) {
+        const subtotal = _mState.items.reduce((sum, item) => sum + item.grandTotal, 0);
+        const vatAmount = _mState.includeVat ? Math.round(subtotal * defaultVatRate / 100) : 0;
+        const finalGrandTotal = subtotal + vatAmount;
+        
+        finalTotalAmount = finalGrandTotal;
+        details = {
+            is_multi_item: true,
+            items: _mState.items.map(item => ({
+                quantity: item.quantity,
+                selectedMaterialIndex: item.selectedMaterialIndex,
+                materialName: item.materialName,
+                surcharges: item.surcharges,
+                printType: item.printType,
+                petShapes: item.petShapes,
+                screenColors: item.screenColors,
+                embroideryCost: item.embroideryCost,
+                print3dCost: item.print3dCost,
+                petChestPrint: item.petChestPrint,
+                savedPrints: item.savedPrints,
+                targetType: item.targetType,
+                includeCommission: item.includeCommission,
+                finalPricePerShirt: item.finalPricePerShirt,
+                itemGrandTotal: item.grandTotal,
+                surchargesBreakdown: item.surchargesBreakdown,
+                printBreakdown: item.printBreakdown
+            })),
+            includeVat: _mState.includeVat || false,
+            vatRate: defaultVatRate,
+            vatAmount: vatAmount,
+            finalGrandTotal: finalGrandTotal
+        };
+    } else {
+        finalTotalAmount = _mState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
+        details = {
             quantity: _mState.quantity,
             selectedMaterialIndex: _mState.selectedMaterialIndex,
             surcharges: _mState.surcharges,
@@ -1539,9 +1732,15 @@ async function _mSaveQuotation() {
             targetType: _mState.targetType,
             includeCommission: _mState.includeCommission,
             includeVat: _mState.includeVat || false
-        },
-        calculated_price: calc.finalPricePerShirt,
-        total_amount: _mState.includeVat ? calc.finalGrandTotal : calc.grandTotal
+        };
+    }
+    
+    const body = {
+        customer_id: _mState.selectedCustomer.id,
+        config_version_id: _mState.activeConfig.id,
+        input_details: details,
+        calculated_price: isMultiItem ? 0 : calc.finalPricePerShirt,
+        total_amount: finalTotalAmount
     };
     
     try {
@@ -1557,6 +1756,7 @@ async function _mSaveQuotation() {
             _mState.targetType = null;
             _mState.includeCommission = false;
             _mState.includeVat = false;
+            _mState.items = [];
             
             const dynContent = document.getElementById('m-dynamic-content');
             if (dynContent && _mState.activeTab === 'calculator') {
@@ -1609,36 +1809,118 @@ function _mOpenExportModal(mode = null) {
         mode = _mState.targetType === 'customer' ? 'customer' : 'ctv';
     }
     _mState.exportMode = mode;
-    const calc = _mCalculateAllCosts();
-    if (!calc) return;
-    
+
+    const isMultiItem = _mState.items && _mState.items.length > 0;
+    let calc = null;
+    if (!isMultiItem) {
+        calc = _mCalculateAllCosts();
+        if (!calc) return;
+    }
+
     const hasCustomer = !!_mState.selectedCustomer;
     const name = hasCustomer ? _mState.selectedCustomer.customer_name : 'Quý Khách Hàng';
     const phone = hasCustomer ? _mState.selectedCustomer.phone : 'Chưa có SĐT';
     const dateStr = vnDateStr(vnNow());
     const code = (mode === 'customer' ? 'BGKH-M' : 'BGCTV-M') + Math.floor(Math.random()*90000 + 10000);
-    
-    const contactTexts = [];
-    calc.printBreakdown.forEach(p => {
-        if (p.isContact) contactTexts.push(p.contactText);
+
+    // Build unified list of items to render
+    let renderedItems = [];
+    if (isMultiItem) {
+        renderedItems = _mState.items;
+    } else {
+        renderedItems = [{
+            quantity: Number(_mState.quantity),
+            selectedMaterialIndex: _mState.selectedMaterialIndex,
+            materialName: calc.materialName,
+            surcharges: JSON.parse(JSON.stringify(_mState.surcharges)),
+            printType: _mState.printType,
+            petShapes: JSON.parse(JSON.stringify(_mState.petShapes || [])),
+            screenColors: _mState.screenColors,
+            embroideryCost: _mState.embroideryCost,
+            print3dCost: _mState.print3dCost,
+            petChestPrint: _mState.petChestPrint,
+            savedPrints: JSON.parse(JSON.stringify(_mState.savedPrints || [])),
+            targetType: _mState.targetType,
+            includeCommission: _mState.includeCommission,
+            finalPricePerShirt: calc.finalPricePerShirt,
+            grandTotal: calc.grandTotal,
+            surchargesBreakdown: calc.surchargesBreakdown,
+            printBreakdown: calc.printBreakdown
+        }];
+    }
+
+    const totalQuantity = renderedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotal = renderedItems.reduce((sum, item) => sum + item.grandTotal, 0);
+    const defaultVatRate = info.vatRate !== undefined ? Number(info.vatRate) : 8;
+    const vatAmount = _mState.includeVat ? Math.round(subtotal * defaultVatRate / 100) : 0;
+    const finalGrandTotal = subtotal + vatAmount;
+
+    let hasContactPrice = false;
+    renderedItems.forEach(item => {
+        if (item.printBreakdown && item.printBreakdown.some(p => p.isContact)) hasContactPrice = true;
+        if (item.surchargesBreakdown && item.surchargesBreakdown.some(s => s.isContact)) hasContactPrice = true;
     });
-    calc.surchargesBreakdown.forEach(s => {
-        if (s.isContact) contactTexts.push(s.contactText);
-    });
-    const hasContactPrice = contactTexts.length > 0;
-    const contactNote = hasContactPrice ? ` + ${contactTexts.join(', ')}` : '';
-    
-    const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
-    const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
+    const contactNote = hasContactPrice ? ' + Liên hệ' : '';
     const wordsText = hasContactPrice
-        ? `${docSoTienVietNam(calc.grandTotal)} (và ${contactTexts.join(', ')})`
-        : docSoTienVietNam(calc.grandTotal);
-    
+        ? `${docSoTienVietNam(finalGrandTotal)} (và giá liên hệ)`
+        : docSoTienVietNam(finalGrandTotal);
+
+    // Build rows HTML
+    const rowsHtml = renderedItems.map((item, idx) => {
+        const surchargesText = Object.keys(item.surcharges)
+            .filter(k => item.surcharges[k])
+            .map(k => {
+                const config = _mState.activeConfig;
+                const match = config && config.surcharges && config.surcharges.optional 
+                    ? config.surcharges.optional.find(o => o.key === k) 
+                    : null;
+                return match ? match.name : k;
+            }).join(', ');
+            
+        let printDesc = '';
+        if (item.printType === 'pet') {
+            printDesc = `In PET (${item.savedPrints.length} hình)`;
+        } else if (item.printType === 'screen') {
+            printDesc = `In Lưới (${item.screenColors} màu)`;
+        } else if (item.printType === 'print3d') {
+            printDesc = `In 3D`;
+        } else if (item.printType === 'embroidery') {
+            printDesc = `Thêu vi tính`;
+        }
+
+        let detailsHtml = '';
+        if (surchargesText) detailsHtml += `<div style="font-size:10px; color:#475569; font-style:italic; margin-top:2px;">• Phụ phí: ${surchargesText}</div>`;
+        if (printDesc) detailsHtml += `<div style="font-size:10px; color:#475569; font-style:italic; margin-top:2px;">• Công nghệ: ${printDesc}</div>`;
+
+        const displayUnitPrice = mode === 'customer' 
+            ? item.finalPricePerShirt 
+            : item.finalPricePerShirt;
+
+        return `
+            <tr style="background:white;">
+                <td style="border:1px solid #cbd5e1; padding:6px; text-align:center;">${(idx + 1).toString().padStart(2, '0')}</td>
+                <td style="border:1px solid #cbd5e1; padding:6px;">
+                    <strong style="color:#1e3a8a;">Chất Liệu:</strong> ${item.materialName}
+                    ${detailsHtml}
+                </td>
+                <td style="border:1px solid #cbd5e1; padding:6px; text-align:center; font-weight:600; color:#0f172a;">
+                    ${item.quantity.toLocaleString('vi-VN')}
+                </td>
+                <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; font-weight:600; color:#0f172a;">
+                    ${displayUnitPrice.toLocaleString('vi-VN')} đ
+                </td>
+                <td style="border:1px solid #cbd5e1; padding:6px; text-align:right; font-weight:700; color:#1e3a8a;">
+                    ${item.grandTotal.toLocaleString('vi-VN')} đ
+                </td>
+            </tr>
+        `;
+    }).join('');
+
     const container = document.getElementById('m_print_area');
     if (!container) return;
-    
+
     container.innerHTML = `
-        <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.4; font-size:12px;">
+        <div style="font-family:'Inter', sans-serif; color:#1e293b; line-height:1.4; font-size:11.5px;">
             <!-- Toggle Mode Button Group (no-print) -->
             <div class="no-print" style="display:flex; background:#f1f5f9; padding:2px; border-radius:8px; gap:2px; border:1px solid #cbd5e1; margin-bottom: 8px; font-family:'Inter', sans-serif;">
                 ${(!_mState.targetType || _mState.targetType === 'ctv') ? `
@@ -1655,85 +1937,62 @@ function _mOpenExportModal(mode = null) {
                 <input type="text" id="m_export_creator_input" value="${creatorName}" placeholder="Tên người lập..." style="flex:1; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:11.5px; outline:none; box-sizing:border-box; background-color:#f1f5f9; color:#64748b; cursor:not-allowed;" disabled />
             </div>
 
-            <div style="border-bottom:2px solid #1e3a8a; padding-bottom:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:start;">
-                <div style="display:flex; gap:10px; align-items:center;">
-                    ${info.logo ? `<img src="${info.logo}" style="max-height:40px; max-width:90px; object-fit:contain;" />` : ''}
+            <div style="border-bottom:2px solid #1e3a8a; padding-bottom:8px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:start;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    ${info.logo ? `<img src="${info.logo}" style="max-height:35px; max-width:80px; object-fit:contain;" />` : ''}
                     <div>
-                        <h4 style="margin:0; font-size:14px; font-weight:900; color:#1e3a8a;">${info.name}</h4>
-                        <p style="margin:2px 0 0 0; font-size:9.5px; color:#64748b;">📍 ${info.address}</p>
+                        <h4 style="margin:0; font-size:12.5px; font-weight:900; color:#1e3a8a;">${info.name}</h4>
+                        <p style="margin:2px 0 0 0; font-size:8.5px; color:#64748b;">📍 ${info.address}</p>
                     </div>
                 </div>
                 <div style="text-align:right;">
-                    <h5 style="margin:0; font-size:11.5px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.3px;">${mode === 'customer' ? 'BÁO GIÁ SẢN PHẨM' : 'BÁO GIÁ CTV'}</h5>
-                    <p style="margin:2px 0 0 0; font-size:9px; color:#64748b;">Mã số: <strong>${code}</strong></p>
-                    <p style="margin:1px 0 0 0; font-size:9px; color:#64748b;">Ngày lập: ${dateStr}</p>
+                    <h5 style="margin:0; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.3px;">${mode === 'customer' ? 'BÁO GIÁ SẢN PHẨM' : 'BÁO GIÁ CTV'}</h5>
+                    <p style="margin:2px 0 0 0; font-size:8.5px; color:#64748b;">Mã số: <strong>${code}</strong></p>
+                    <p style="margin:1px 0 0 0; font-size:8.5px; color:#64748b;">Ngày lập: ${dateStr}</p>
                 </div>
             </div>
             
-            <div style="background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; border-left:4px solid #1e3a8a; padding:12px; margin-bottom:16px; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                <div style="margin-bottom:6px; font-size:12.5px;">👤 ${mode === 'customer' ? 'Kính gửi quý khách hàng' : 'Kính gửi đại lý/ctv'}</div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px;">
+            <div style="background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; border-left:4px solid #1e3a8a; padding:10px; margin-bottom:12px; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+                <div style="margin-bottom:4px; font-size:12px;">👤 ${mode === 'customer' ? 'Kính gửi quý khách hàng' : 'Kính gửi đại lý/ctv'}</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 8px;">
                     <div>• Tên: <strong>${name}</strong></div>
                     <div>• SĐT: <strong>${phone}</strong></div>
-                    <div>• Số lượng: <strong>${_mState.quantity} áo</strong></div>
+                    <div>• Số lượng: <strong>${totalQuantity} áo</strong></div>
                     <div>• Kiểu dáng: <strong>Cổ tròn</strong></div>
-                    ${calc.matchedShipping ? `<div style="grid-column: span 2;">• Hỗ trợ vận chuyển: <strong style="color:#1e3a8a;">${calc.matchedShipping.desc}</strong></div>` : ''}
                 </div>
             </div>
             
-            <table style="width:100%; border-collapse:collapse; font-size:11.5px; border:1px solid #cbd5e1; margin-bottom:16px;">
+            <table style="width:100%; border-collapse:collapse; font-size:11px; border:1px solid #cbd5e1; margin-bottom:12px;">
                 <thead>
                     <tr style="background:#1e3a8a; color:white; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                        <th style="border:1px solid #cbd5e1; padding:8px; text-align:left; color:white; font-weight:700; text-transform:uppercase;">Hạng mục may & in</th>
-                        <th style="border:1px solid #cbd5e1; padding:8px; text-align:right; width:110px; color:white; font-weight:700; text-transform:uppercase;">Đơn giá</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; color:white; font-weight:700; width:30px;">STT</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:left; color:white; font-weight:700; text-transform:uppercase;">Hạng mục may & in</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; color:white; font-weight:700; width:45px;">SL</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:white; font-weight:700; width:80px;">Đơn giá</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:right; color:white; font-weight:700; width:95px;">Thành tiền</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr style="background:white;">
-                        <td style="border:1px solid #cbd5e1; padding:8px;"><strong style="color:#1e3a8a;">Chất Liệu:</strong> ${calc.materialName}</td>
-                        <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; font-weight:600; color:#0f172a;">${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ</td>
-                    </tr>
-                    ${(mode !== 'customer' && calc.commissionAmount > 0) ? `
-                        <tr style="background:#fff7ed; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#c2410c; font-style:italic;">+ Hoa hồng đại lý (+${calc.commissionPercent}%)</td>
-                            <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#c2410c; font-weight:700;">+${calc.commissionAmount.toLocaleString('vi-VN')} đ</td>
-                        </tr>
-                    ` : ''}
-                    ${calc.surchargesBreakdown.map(s => `
-                        <tr style="background:#f8fafc; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#475569; font-style:italic;">+ ${s.label}</td>
-                            <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:${s.price < 0 ? '#ef4444' : '#475569'}; ${s.price < 0 ? 'font-weight:700;' : ''}">${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}</td>
-                        </tr>
-                    `).join('')}
-                    ${calc.printBreakdown.map(p => `
-                        <tr style="background:#f0fdf4; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                            <td style="border:1px solid #cbd5e1; padding:8px; padding-left:14px; color:#15803d; font-style:italic;">+ ${p.label}</td>
-                            <td style="border:1px solid #cbd5e1; padding:8px; text-align:right; color:#15803d;">${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}</td>
-                        </tr>
-                    `).join('')}
-                    <tr style="background:#eff6ff; font-weight:800; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                        <td style="border:1px solid #cbd5e1; padding:10px 8px; text-align:right; color:#1e3a8a; border-bottom: 2.5px double #1e3a8a;">ĐƠN GIÁ TRÊN MỖI ÁO:</td>
-                        <td style="border:1px solid #cbd5e1; padding:10px 8px; text-align:right; color:#1e3a8a; font-weight:900; border-bottom: 2.5px double #1e3a8a;">${finalPricePerShirtText}</td>
-                    </tr>
+                    ${rowsHtml}
                 </tbody>
             </table>
             
-            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #1e3a8a; border-radius:8px; padding:14px; text-align:right; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #1e3a8a; border-radius:8px; padding:10px; text-align:right; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
                 ${_mState.includeVat ? `
-                    <div style="font-size:10px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá đã bao gồm VAT</div>
-                    <div style="font-size:11.5px; font-weight:700; color:#475569; margin-bottom:2px;">Tổng tiền (chưa VAT): <span style="font-weight:700; color:#0f172a; margin-left:6px;">${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}</span></div>
-                    <div style="font-size:11.5px; font-weight:700; color:#475569; margin-bottom:6px;">VAT (${calc.vatRate}%): <span style="font-weight:700; color:#ef4444; margin-left:6px;">+${calc.vatAmount.toLocaleString('vi-VN')} đ</span></div>
-                    <div style="font-size:11.5px; font-weight:700; color:#475569;">TỔNG TIỀN THANH TOÁN (gồm VAT):</div>
-                    <div style="font-size:20px; font-weight:950; color:#1e3a8a; letter-spacing:-0.3px; margin:2px 0;">${calc.finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</div>
+                    <div style="font-size:9.5px; color:#64748b; margin-bottom:2px; font-style:italic;">* Giá đã bao gồm VAT</div>
+                    <div style="font-size:11px; font-weight:700; color:#475569; margin-bottom:2px;">Tổng tiền (chưa VAT): <span style="font-weight:700; color:#0f172a; margin-left:6px;">${subtotal.toLocaleString('vi-VN')} đ${contactNote}</span></div>
+                    <div style="font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">VAT (${defaultVatRate}%): <span style="font-weight:700; color:#ef4444; margin-left:6px;">+${vatAmount.toLocaleString('vi-VN')} đ</span></div>
+                    <div style="font-size:11px; font-weight:700; color:#475569;">TỔNG TIỀN THANH TOÁN (gồm VAT):</div>
+                    <div style="font-size:16px; font-weight:950; color:#1e3a8a; letter-spacing:-0.3px; margin:2px 0;">${finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</div>
                 ` : `
-                    <div style="font-size:10px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
-                    <div style="font-size:11.5px; font-weight:700; color:#475569;">TỔNG TIỀN THANH TOÁN (${_mState.quantity} áo):</div>
-                    <div style="font-size:20px; font-weight:950; color:#1e3a8a; letter-spacing:-0.3px; margin:2px 0;">${grandTotalText}</div>
+                    <div style="font-size:9.5px; color:#64748b; margin-bottom:2px; font-style:italic;">* Giá chưa bao gồm VAT</div>
+                    <div style="font-size:11px; font-weight:700; color:#475569;">TỔNG TIỀN THANH TOÁN (${totalQuantity} áo):</div>
+                    <div style="font-size:16px; font-weight:950; color:#1e3a8a; letter-spacing:-0.3px; margin:2px 0;">${finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</div>
                 `}
-                <div style="font-size:11.5px; font-style:italic; color:#0369a1; border-top:1px dashed #cbd5e1; padding-top:6px; margin-top:6px; display:inline-block; min-width:180px;">
+                <div style="font-size:11px; font-style:italic; color:#0369a1; border-top:1px dashed #cbd5e1; padding-top:4px; margin-top:4px; display:inline-block; min-width:180px; text-align:right;">
                     Bằng chữ: <strong style="color:#0f172a;">${wordsText}</strong>
                 </div>
-                <div style="font-size:10px; color:#475569; margin-top:10px; border-top:1px dashed #e2e8f0; padding-top:6px; text-align:left; display:flex; justify-content:space-between;">
+                <div style="font-size:9.5px; color:#475569; margin-top:6px; border-top:1px dashed #e2e8f0; padding-top:4px; text-align:left; display:flex; justify-content:space-between;">
                     <span>Người lập biểu:</span>
                     <strong id="m_printed_creator_name" style="color:#1e3a8a;">${creatorName}</strong>
                 </div>
@@ -1749,8 +2008,13 @@ function _mCloseExportModal() {
 }
 
 function _mCopyTextQuotation() {
-    const calc = _mCalculateAllCosts();
-    if (!calc) return;
+    const isMultiItem = _mState.items && _mState.items.length > 0;
+    
+    let calc = null;
+    if (!isMultiItem) {
+        calc = _mCalculateAllCosts();
+        if (!calc) return;
+    }
     
     const mode = _mState.exportMode || 'ctv';
     const hasCustomer = !!_mState.selectedCustomer;
@@ -1759,51 +2023,116 @@ function _mCopyTextQuotation() {
     const dateStr = vnDateStr(vnNow());
     
     let text = mode === 'customer' ? `🤝 BÁO GIÁ SẢN PHẨM ĐỒNG PHỤC (MOBILE) 🤝\n` : `🤝 BÁO GIÁ ĐẠI LÝ / CTV (MOBILE) 🤝\n`;
-    text += `Ngày: ${dateStr}\n`;
+    text += `Ngày lập: ${dateStr}\n`;
     text += `----------------------------------------\n`;
-    text += `• ${mode === 'customer' ? 'Khách hàng' : 'Khách hàng/Đại lý'}: ${name} (${phone})\n`;
-    text += `• Số lượng: ${_mState.quantity} áo (Cổ tròn)\n`;
-    text += `• Chất liệu: ${calc.materialName}\n`;
-    text += `----------------------------------------\n`;
+    text += `• ${mode === 'customer' ? 'Tên Khách hàng' : 'Tên Khách hàng/Đại lý'}: ${name}\n`;
+    text += `• Số điện thoại: ${phone}\n`;
     
-    const displayBasePrice = mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice;
-    text += `• Giá phôi: ${displayBasePrice.toLocaleString('vi-VN')} đ/áo\n`;
-    if (mode !== 'customer' && calc.commissionAmount > 0) {
-        text += `  + Hoa hồng đại lý (+${calc.commissionPercent}%): +${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo\n`;
-    }
-    
-    calc.surchargesBreakdown.forEach(s => {
-        text += `  + ${s.label}: ${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ\n`;
-    });
-    
-    calc.printBreakdown.forEach(p => {
-        text += `  + ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
-    });
-    
-    const hasContactPriceText = calc.printBreakdown.some(p => p.isContact);
-    const finalPricePerShirtTextCopy = hasContactPriceText 
-        ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
-        : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo`;
-    
-    const finalTotalValue = _mState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
-    const wordsTextCopy = hasContactPriceText
-        ? `${docSoTienVietNam(finalTotalValue)} (và giá thêu liên hệ)`
-        : docSoTienVietNam(finalTotalValue);
+    const companyInfo = JSON.parse(localStorage.getItem('ctv_company_info') || '{}');
+    const defaultVatRate = companyInfo.vatRate !== undefined ? Number(companyInfo.vatRate) : 8;
+
+    if (isMultiItem) {
+        const totalQuantity = _mState.items.reduce((sum, item) => sum + item.quantity, 0);
+        const subtotal = _mState.items.reduce((sum, item) => sum + item.grandTotal, 0);
+        const vatAmount = _mState.includeVat ? Math.round(subtotal * defaultVatRate / 100) : 0;
+        const finalGrandTotal = subtotal + vatAmount;
         
-    text += `----------------------------------------\n`;
-    text += `💰 ĐƠN GIÁ: ${finalPricePerShirtTextCopy}\n`;
-    if (_mState.includeVat) {
-        text += `* Giá đã bao gồm VAT\n`;
-        text += `• Tổng tiền (chưa VAT): ${calc.grandTotal.toLocaleString('vi-VN')} đ${hasContactPriceText ? ' + Thêu liên hệ' : ''}\n`;
-        text += `• Thuế VAT (${calc.vatRate}%): +${calc.vatAmount.toLocaleString('vi-VN')} đ\n`;
-        text += `💵 TỔNG CỘNG (gồm VAT): ${calc.finalGrandTotal.toLocaleString('vi-VN')} đ${hasContactPriceText ? ' + Thêu liên hệ' : ''}\n`;
+        let hasContactPrice = _mState.items.some(item => 
+            (item.printBreakdown && item.printBreakdown.some(p => p.isContact)) || 
+            (item.surchargesBreakdown && item.surchargesBreakdown.some(s => s.isContact))
+        );
+        const contactNote = hasContactPrice ? ' + Liên hệ' : '';
+        const wordsTextCopy = hasContactPrice
+            ? `${docSoTienVietNam(finalGrandTotal)} (và giá liên hệ)`
+            : docSoTienVietNam(finalGrandTotal);
+            
+        text += `• Tổng số lượng: ${totalQuantity} áo\n`;
+        text += `----------------------------------------\n`;
+        
+        _mState.items.forEach((item, idx) => {
+            text += `${idx + 1}. Chất liệu: ${item.materialName}\n`;
+            text += `  - Số lượng: ${item.quantity} áo\n`;
+            text += `  - Đơn giá: ${item.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo\n`;
+            text += `  - Thành tiền: ${item.grandTotal.toLocaleString('vi-VN')} đ\n`;
+            
+            const surchargesText = Object.keys(item.surcharges)
+                .filter(k => item.surcharges[k])
+                .map(k => {
+                    const config = _mState.activeConfig;
+                    const match = config && config.surcharges && config.surcharges.optional 
+                        ? config.surcharges.optional.find(o => o.key === k) 
+                        : null;
+                    return match ? match.name : k;
+                }).join(', ');
+            let printDesc = '';
+            if (item.printType === 'pet') {
+                printDesc = `In PET (${item.savedPrints.length} hình)`;
+            } else if (item.printType === 'screen') {
+                printDesc = `In Lưới (${item.screenColors} màu)`;
+            } else if (item.printType === 'print3d') {
+                printDesc = `In 3D`;
+            } else if (item.printType === 'embroidery') {
+                printDesc = `Thêu vi tính`;
+            }
+            if (surchargesText) text += `  - Phụ phí: ${surchargesText}\n`;
+            if (printDesc) text += `  - Công nghệ: ${printDesc}\n`;
+            text += `\n`;
+        });
+        
+        text += `----------------------------------------\n`;
+        if (_mState.includeVat) {
+            text += `* Price includes VAT\n`;
+            text += `• Tổng tiền (chưa VAT): ${subtotal.toLocaleString('vi-VN')} đ${contactNote}\n`;
+            text += `• Thuế VAT (${defaultVatRate}%): +${vatAmount.toLocaleString('vi-VN')} đ\n`;
+            text += `💵 TỔNG CỘNG ĐƠN HÀNG (gồm VAT): ${finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}\n`;
+        } else {
+            text += `* Giá chưa bao gồm VAT\n`;
+            text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${subtotal.toLocaleString('vi-VN')} đ${contactNote}\n`;
+        }
+        text += `✍️ (Chữ: ${wordsTextCopy})\n`;
     } else {
-        text += `* Giá chưa bao gồm VAT\n`;
-        text += `💵 TỔNG CỘNG: ${calc.grandTotal.toLocaleString('vi-VN')} đ${hasContactPriceText ? ' + Thêu liên hệ' : ''}\n`;
-    }
-    text += `✍️ (Chữ: ${wordsTextCopy})\n`;
-    if (calc.matchedShipping) {
-        text += `🚚 Vận chuyển: ${calc.matchedShipping.desc}\n`;
+        const displayBasePrice = mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice;
+        text += `• Số lượng: ${_mState.quantity} áo (Cổ tròn)\n`;
+        text += `• Chất liệu: ${calc.materialName}\n`;
+        text += `----------------------------------------\n`;
+        text += `• Giá phôi: ${displayBasePrice.toLocaleString('vi-VN')} đ/áo\n`;
+        if (mode !== 'customer' && calc.commissionAmount > 0) {
+            text += `  + Hoa hồng đại lý (+${calc.commissionPercent}%): +${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo\n`;
+        }
+        
+        calc.surchargesBreakdown.forEach(s => {
+            text += `  + ${s.label}: ${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ\n`;
+        });
+        
+        calc.printBreakdown.forEach(p => {
+            text += `  + ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
+        });
+        
+        const hasContactPriceText = calc.printBreakdown.some(p => p.isContact);
+        const finalPricePerShirtTextCopy = hasContactPriceText 
+            ? `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo + Thêu liên hệ`
+            : `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo`;
+        
+        const finalTotalValue = _mState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
+        const wordsTextCopy = hasContactPriceText
+            ? `${docSoTienVietNam(finalTotalValue)} (và giá thêu liên hệ)`
+            : docSoTienVietNam(finalTotalValue);
+            
+        text += `----------------------------------------\n`;
+        text += `💰 ĐƠN GIÁ: ${finalPricePerShirtTextCopy}\n`;
+        if (_mState.includeVat) {
+            text += `* Giá đã bao gồm VAT\n`;
+            text += `• Tổng tiền (chưa VAT): ${calc.grandTotal.toLocaleString('vi-VN')} đ${hasContactPriceText ? ' + Thêu liên hệ' : ''}\n`;
+            text += `• Thuế VAT (${calc.vatRate}%): +${calc.vatAmount.toLocaleString('vi-VN')} đ\n`;
+            text += `💵 TỔNG CỘNG (gồm VAT): ${calc.finalGrandTotal.toLocaleString('vi-VN')} đ${hasContactPriceText ? ' + Thêu liên hệ' : ''}\n`;
+        } else {
+            text += `* Giá chưa bao gồm VAT\n`;
+            text += `💵 TỔNG CỘNG: ${calc.grandTotal.toLocaleString('vi-VN')} đ${hasContactPriceText ? ' + Thêu liên hệ' : ''}\n`;
+        }
+        text += `✍️ (Chữ: ${wordsTextCopy})\n`;
+        if (calc.matchedShipping) {
+            text += `🚚 Vận chuyển: ${calc.matchedShipping.desc}\n`;
+        }
     }
     text += `----------------------------------------\n`;
     
@@ -1926,73 +2255,119 @@ function _mShowHistoryDetail(quoteId) {
     const q = _mState.historyLogs.find(log => log.id === quoteId);
     if (!q) return;
     
-    const tempState = {
-        activeConfig: q.config_snapshot,
-        selectedCustomer: { customer_name: q.customer_name, phone: q.customer_phone },
-        quantity: q.input_details.quantity,
-        selectedMaterialIndex: q.input_details.selectedMaterialIndex,
-        surcharges: q.input_details.surcharges,
-        printType: q.input_details.printType,
-        petShapes: q.input_details.petShapes || [],
-        screenColors: q.input_details.screenColors || 1,
-        embroideryCost: q.input_details.embroideryCost || 15000,
-        print3dCost: q.input_details.print3dCost || 30000,
-        petChestPrint: q.input_details.petChestPrint || false,
-        savedPrints: q.input_details.savedPrints || [],
-        targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
-        includeCommission: q.input_details.includeCommission || false,
-        includeVat: q.input_details.includeVat || false
-    };
+    let items = [];
+    if (q.input_details && q.input_details.is_multi_item) {
+        items = q.input_details.items.map((item, idx) => ({
+            id: Date.now() + idx,
+            quantity: item.quantity,
+            selectedMaterialIndex: item.selectedMaterialIndex,
+            materialName: item.materialName,
+            surcharges: item.surcharges,
+            printType: item.printType,
+            petShapes: item.petShapes || [],
+            screenColors: item.screenColors || 1,
+            embroideryCost: item.embroideryCost || 15000,
+            print3dCost: item.print3dCost || 30000,
+            petChestPrint: item.petChestPrint || false,
+            savedPrints: item.savedPrints || [],
+            targetType: item.targetType || (item.includeCommission ? 'customer' : 'ctv'),
+            includeCommission: item.includeCommission || false,
+            finalPricePerShirt: item.finalPricePerShirt,
+            grandTotal: item.itemGrandTotal || item.grandTotal,
+            surchargesBreakdown: item.surchargesBreakdown || [],
+            printBreakdown: item.printBreakdown || []
+        }));
+    } else {
+        const originalConfig = _mState.activeConfig;
+        const originalQty = _mState.quantity;
+        const originalMat = _mState.selectedMaterialIndex;
+        const originalSc = _mState.surcharges;
+        const originalPt = _mState.printType;
+        const originalPet = _mState.petShapes;
+        const originalScr = _mState.screenColors;
+        const originalEmb = _mState.embroideryCost;
+        const originalPrint3d = _mState.print3dCost;
+        const originalPetChest = _mState.petChestPrint;
+        const originalSavedPrints = _mState.savedPrints;
+        const originalTargetType = _mState.targetType;
+        const originalIncludeCommission = _mState.includeCommission;
+        
+        _mState.activeConfig = q.config_snapshot;
+        _mState.quantity = q.input_details.quantity;
+        _mState.selectedMaterialIndex = q.input_details.selectedMaterialIndex;
+        _mState.surcharges = q.input_details.surcharges;
+        _mState.printType = q.input_details.printType;
+        _mState.petShapes = q.input_details.petShapes || [];
+        _mState.screenColors = q.input_details.screenColors || 1;
+        _mState.embroideryCost = q.input_details.embroideryCost || 15000;
+        _mState.print3dCost = q.input_details.print3dCost || 30000;
+        _mState.petChestPrint = q.input_details.petChestPrint || false;
+        _mState.savedPrints = q.input_details.savedPrints || [];
+        _mState.targetType = q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv');
+        _mState.includeCommission = q.input_details.includeCommission || false;
+        
+        const calc = _mCalculateAllCosts();
+        
+        _mState.activeConfig = originalConfig;
+        _mState.quantity = originalQty;
+        _mState.selectedMaterialIndex = originalMat;
+        _mState.surcharges = originalSc;
+        _mState.printType = originalPt;
+        _mState.petShapes = originalPet;
+        _mState.screenColors = originalScr;
+        _mState.embroideryCost = originalEmb;
+        _mState.print3dCost = originalPrint3d;
+        _mState.petChestPrint = originalPetChest;
+        _mState.savedPrints = originalSavedPrints;
+        _mState.targetType = originalTargetType;
+        _mState.includeCommission = originalIncludeCommission;
+        
+        if (calc) {
+            items = [{
+                id: Date.now(),
+                quantity: Number(q.input_details.quantity),
+                selectedMaterialIndex: q.input_details.selectedMaterialIndex,
+                materialName: calc.materialName,
+                surcharges: q.input_details.surcharges,
+                printType: q.input_details.printType,
+                petShapes: q.input_details.petShapes || [],
+                screenColors: q.input_details.screenColors || 1,
+                embroideryCost: q.input_details.embroideryCost || 15000,
+                print3dCost: q.input_details.print3dCost || 30000,
+                petChestPrint: q.input_details.petChestPrint || false,
+                savedPrints: q.input_details.savedPrints || [],
+                targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
+                includeCommission: q.input_details.includeCommission || false,
+                finalPricePerShirt: calc.finalPricePerShirt,
+                grandTotal: calc.grandTotal,
+                surchargesBreakdown: calc.surchargesBreakdown,
+                printBreakdown: calc.printBreakdown
+            }];
+        }
+    }
     
     const originalConfig = _mState.activeConfig;
     const originalCustomer = _mState.selectedCustomer;
-    const originalQty = _mState.quantity;
-    const originalMat = _mState.selectedMaterialIndex;
-    const originalSc = _mState.surcharges;
-    const originalPt = _mState.printType;
-    const originalPet = _mState.petShapes;
-    const originalScr = _mState.screenColors;
-    const originalEmb = _mState.embroideryCost;
-    const originalPrint3d = _mState.print3dCost;
-    const originalPetChest = _mState.petChestPrint;
-    const originalSavedPrints = _mState.savedPrints;
-    const originalTargetType = _mState.targetType;
-    const originalIncludeCommission = _mState.includeCommission;
+    const originalItems = _mState.items;
     const originalIncludeVat = _mState.includeVat;
     
-    _mState.activeConfig = tempState.activeConfig;
-    _mState.selectedCustomer = tempState.selectedCustomer;
-    _mState.quantity = tempState.quantity;
-    _mState.selectedMaterialIndex = tempState.selectedMaterialIndex;
-    _mState.surcharges = tempState.surcharges;
-    _mState.printType = tempState.printType;
-    _mState.petShapes = tempState.petShapes;
-    _mState.screenColors = tempState.screenColors;
-    _mState.embroideryCost = tempState.embroideryCost;
-    _mState.print3dCost = tempState.print3dCost;
-    _mState.petChestPrint = tempState.petChestPrint;
-    _mState.savedPrints = tempState.savedPrints;
-    _mState.targetType = tempState.targetType;
-    _mState.includeCommission = tempState.includeCommission;
-    _mState.includeVat = tempState.includeVat;
+    _mState.activeConfig = q.config_snapshot;
+    _mState.selectedCustomer = {
+        customer_name: q.customer_name,
+        phone: q.customer_phone
+    };
+    _mState.items = items;
+    _mState.includeVat = q.input_details.includeVat || false;
     
-    _mOpenExportModal(tempState.targetType);
+    const targetType = q.input_details.is_multi_item 
+        ? (items[0] ? items[0].targetType : 'ctv')
+        : (q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'));
     
-    // Restore
+    _mOpenExportModal(targetType);
+    
     _mState.activeConfig = originalConfig;
     _mState.selectedCustomer = originalCustomer;
-    _mState.quantity = originalQty;
-    _mState.selectedMaterialIndex = originalMat;
-    _mState.surcharges = originalSc;
-    _mState.printType = originalPt;
-    _mState.petShapes = originalPet;
-    _mState.screenColors = originalScr;
-    _mState.embroideryCost = originalEmb;
-    _mState.print3dCost = originalPrint3d;
-    _mState.petChestPrint = originalPetChest;
-    _mState.savedPrints = originalSavedPrints;
-    _mState.targetType = originalTargetType;
-    _mState.includeCommission = originalIncludeCommission;
+    _mState.items = originalItems;
     _mState.includeVat = originalIncludeVat;
 }
 

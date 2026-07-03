@@ -56,7 +56,9 @@ var _ctvState = {
     // History list
     historyLogs: [],
     // Config version history
-    configVersions: []
+    configVersions: [],
+    // Multi-item quotation cart list
+    items: []
 };
 
 async function renderBaogiactvhhPage(content) {
@@ -2035,41 +2037,94 @@ function _ctvUpdateCalculations() {
     if (!card) return;
     
     const calc = _ctvCalculateAllCosts();
-    if (!calc) {
+    const hasCustomerSelected = !!_ctvState.selectedCustomer;
+    const isMultiItem = _ctvState.items && _ctvState.items.length > 0;
+    
+    let currentItemHtml = '';
+    if (calc) {
+        const contactTexts = [];
+        calc.printBreakdown.forEach(p => {
+            if (p.isContact) contactTexts.push(p.contactText);
+        });
+        calc.surchargesBreakdown.forEach(s => {
+            if (s.isContact) contactTexts.push(s.contactText);
+        });
+        const hasContactPrice = contactTexts.length > 0;
+        const contactNote = hasContactPrice ? ` + ${contactTexts.join(', ')}` : '';
+        
+        const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
+        const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
+        
+        currentItemHtml = `
+            <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-top: 10px;">
+                <div style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; text-transform: uppercase;">⚡ Chi tiết dòng đang chọn:</div>
+                <div class="ctv-result-row">
+                    <span>Chất Liệu : <strong>${calc.materialName}</strong></span>
+                    <span>${(_ctvState.targetType === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ/áo</span>
+                </div>
+                
+                ${(_ctvState.targetType !== 'customer' && calc.commissionAmount > 0) ? `
+                    <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:6px 0; padding-top:6px;">
+                        <div class="ctv-result-row" style="color: #f97316; font-size:12.5px;">
+                            <span>Hoa hồng đại lý (+${calc.commissionPercent}%):</span>
+                            <span>+${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo</span>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- Surcharges breakdown -->
+                ${calc.surchargesBreakdown.length > 0 ? `
+                    <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:6px 0; padding-top:6px;">
+                        <div style="font-size:10.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Phụ phí thêm:</div>
+                        ${calc.surchargesBreakdown.map(s => `
+                            <div class="ctv-result-row" style="font-size:12.5px; margin-bottom:2px;">
+                                <span style="padding-left:6px;">+ ${s.label}</span>
+                                <span>${s.isContact ? s.contactText : (s.price >= 0 ? '+' : '') + s.price.toLocaleString('vi-VN') + ' đ'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
+                <!-- Printing breakdown -->
+                ${calc.printBreakdown.length > 0 ? `
+                    <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:6px 0; padding-top:6px;">
+                        <div style="font-size:10.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Chi tiết in/thêu:</div>
+                        ${calc.printBreakdown.map(p => `
+                            <div class="ctv-result-row" style="font-size:12.5px; margin-bottom:2px;">
+                                <span style="padding-left:6px;">+ ${p.label}</span>
+                                <span>${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
+                <div class="ctv-result-row" style="border-top:1px solid rgba(255,255,255,0.15); margin-top: 8px; padding-top: 8px; font-weight:700;">
+                    <span>Đơn giá dòng này:</span>
+                    <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
+                </div>
+                <div class="ctv-result-row" style="font-weight:700; font-size:14px; margin-top:4px;">
+                    <span>Thành tiền dòng này:</span>
+                    <span style="color:#38bdf8;">${grandTotalText}</span>
+                </div>
+                
+                <button class="ctv-btn-action" style="margin-top: 10px; background: #4f46e5; border-color: #4f46e5; color: white; padding: 8px 12px; font-size: 13px;" onclick="_ctvAddItemToQuotation()">
+                    ➕ Thêm sản phẩm vào phiếu
+                </button>
+            </div>
+        `;
+    } else {
         if (_ctvState.targetType === null || _ctvState.targetType === undefined) {
-            card.innerHTML = `
-                <div class="ctv-result-title">📊 Chi Tiết Giá Dự Kiến</div>
-                <div style="text-align: center; padding: 40px 20px; color: #ef4444; font-weight: 700; border: 2px dashed #fca5a5; border-radius: 12px; background: #fef2f2; margin-top: 15px; font-size: 13px;">
+            currentItemHtml = `
+                <div style="text-align: center; padding: 24px 12px; color: #ef4444; font-weight: 700; border: 2px dashed #fca5a5; border-radius: 12px; background: #fef2f2; margin-top: 15px; font-size: 13px;">
                     ⚠️ Vui lòng chọn Đối tượng báo giá ở khung bên trái trước khi bắt đầu tính toán!
                 </div>
             `;
         } else {
-            card.innerHTML = `<div style="text-align:center; padding:20px; font-style:italic;">Không thể tính toán chi phí. Vui lòng kiểm tra cấu hình bảng giá.</div>`;
+            currentItemHtml = `<div style="text-align:center; padding:15px; font-style:italic; font-size:12px; color:#cbd5e1;">Nhập số lượng & chất liệu để tính toán chi phí...</div>`;
         }
-        return;
     }
     
-    const hasCustomerSelected = !!_ctvState.selectedCustomer;
-    
-    const contactTexts = [];
-    calc.printBreakdown.forEach(p => {
-        if (p.isContact) contactTexts.push(p.contactText);
-    });
-    calc.surchargesBreakdown.forEach(s => {
-        if (s.isContact) contactTexts.push(s.contactText);
-    });
-    const hasContactPrice = contactTexts.length > 0;
-    const contactNote = hasContactPrice ? ` + ${contactTexts.join(', ')}` : '';
-    
-    const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
-    
-    const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
-    
-    const finalTotalValue = _ctvState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
-    const wordsText = hasContactPrice
-        ? `${docSoTienVietNam(finalTotalValue)} (và ${contactTexts.join(', ')})`
-        : docSoTienVietNam(finalTotalValue);
-    
+    // Draw outer frame
     card.innerHTML = `
         <div class="ctv-result-title">📊 Chi Tiết Giá Dự Kiến</div>
         
@@ -2077,109 +2132,260 @@ function _ctvUpdateCalculations() {
             <span>Khách hàng:</span>
             <strong style="color:white;">${hasCustomerSelected ? _ctvState.selectedCustomer.customer_name : '<span style="color:#ef4444; font-weight:700;">Chưa chọn khách hàng</span>'}</strong>
         </div>
-        <div class="ctv-result-row">
-            <span>Số lượng đơn:</span>
-            <strong style="color:white;">${_ctvState.quantity ? _ctvState.quantity + ' áo' : '<span style="color:#ef4444; font-weight:700;">Chưa nhập số lượng</span>'}</strong>
-        </div>
-        ${calc.matchedShipping ? `
-        <div class="ctv-result-row">
-            <span>Vận chuyển:</span>
-            <strong style="color:#38bdf8;">${calc.matchedShipping.desc}</strong>
-        </div>
-        ` : ''}
         
-        <div style="border-top:1px solid rgba(255,255,255,0.1); margin:12px 0; padding-top:12px;">
-            <div class="ctv-result-row">
-                <span>Chất Liệu : <strong>${calc.materialName}</strong></span>
-                <span>${(_ctvState.targetType === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ/áo</span>
+        ${currentItemHtml}
+        
+        <!-- Render items list if multi-item -->
+        ${_ctvRenderItemsTable()}
+        
+        <!-- Bottom Totals block -->
+        ${(isMultiItem || calc) ? _ctvRenderTotalsSummaryHtml(calc) : ''}
+    `;
+}
+
+function _ctvAddItemToQuotation() {
+    const calc = _ctvCalculateAllCosts();
+    if (!calc) {
+        showToast('Không thể tính toán chi phí dòng này. Vui lòng kiểm tra lại chất liệu hoặc số lượng!', 'error');
+        return;
+    }
+    if (!_ctvState.quantity || Number(_ctvState.quantity) <= 0) {
+        showToast('Vui lòng nhập số lượng hợp lệ lớn hơn 0 trước!', 'error');
+        return;
+    }
+    
+    const item = {
+        id: Date.now(),
+        quantity: Number(_ctvState.quantity),
+        selectedMaterialIndex: _ctvState.selectedMaterialIndex,
+        materialName: calc.materialName,
+        surcharges: JSON.parse(JSON.stringify(_ctvState.surcharges)),
+        printType: _ctvState.printType,
+        petShapes: JSON.parse(JSON.stringify(_ctvState.petShapes || [])),
+        screenColors: _ctvState.screenColors,
+        embroideryCost: _ctvState.embroideryCost,
+        print3dCost: _ctvState.print3dCost,
+        petChestPrint: _ctvState.petChestPrint,
+        savedPrints: JSON.parse(JSON.stringify(_ctvState.savedPrints || [])),
+        targetType: _ctvState.targetType,
+        includeCommission: _ctvState.includeCommission,
+        
+        // Cost values snapshotted
+        finalPricePerShirt: calc.finalPricePerShirt,
+        grandTotal: calc.grandTotal,
+        surchargesBreakdown: calc.surchargesBreakdown,
+        printBreakdown: calc.printBreakdown
+    };
+    
+    _ctvState.items.push(item);
+    
+    // Clear temporary inputs for next product configuration
+    _ctvState.quantity = '';
+    _ctvState.petShapes = [];
+    _ctvState.savedPrints = [];
+    _ctvState.printType = 'none';
+    _ctvState.petChestPrint = false;
+    _ctvState.surcharges = {
+        collar: false,
+        raglan: false,
+        color_block: false,
+        primary_school: false
+    };
+    
+    // Re-render
+    const tabContent = document.getElementById('ctv-tab-content');
+    if (tabContent) {
+        _ctvRenderCalculator(tabContent);
+    }
+    _ctvUpdateCalculations();
+    showToast('Đã thêm sản phẩm vào phiếu báo giá thành công!', 'success');
+}
+
+function _ctvEditItemInQuotation(itemId) {
+    const item = _ctvState.items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    // Restore
+    _ctvState.quantity = item.quantity;
+    _ctvState.selectedMaterialIndex = item.selectedMaterialIndex;
+    _ctvState.surcharges = JSON.parse(JSON.stringify(item.surcharges));
+    _ctvState.printType = item.printType;
+    _ctvState.petShapes = JSON.parse(JSON.stringify(item.petShapes || []));
+    _ctvState.screenColors = item.screenColors;
+    _ctvState.embroideryCost = item.embroideryCost;
+    _ctvState.print3dCost = item.print3dCost;
+    _ctvState.petChestPrint = item.petChestPrint;
+    _ctvState.savedPrints = JSON.parse(JSON.stringify(item.savedPrints || []));
+    _ctvState.targetType = item.targetType;
+    _ctvState.includeCommission = item.includeCommission;
+    
+    // Remove from cart
+    _ctvState.items = _ctvState.items.filter(i => i.id !== itemId);
+    
+    // Render
+    const tabContent = document.getElementById('ctv-tab-content');
+    if (tabContent) {
+        _ctvRenderCalculator(tabContent);
+    }
+    _ctvUpdateCalculations();
+    showToast('Đã tải thông tin sản phẩm lên bảng chỉnh sửa!', 'info');
+}
+
+function _ctvRemoveItemFromQuotation(itemId) {
+    _ctvState.items = _ctvState.items.filter(i => i.id !== itemId);
+    _ctvUpdateCalculations();
+    showToast('Đã xóa sản phẩm khỏi phiếu!', 'info');
+}
+
+function _ctvRenderItemsTable() {
+    if (!_ctvState.items || _ctvState.items.length === 0) return '';
+    
+    const rows = _ctvState.items.map((item, idx) => {
+        const surchargesText = Object.keys(item.surcharges)
+            .filter(k => item.surcharges[k])
+            .map(k => {
+                const config = _ctvState.activeConfig;
+                const match = config && config.surcharges && config.surcharges.optional 
+                    ? config.surcharges.optional.find(o => o.key === k) 
+                    : null;
+                return match ? match.name : k;
+            }).join(', ');
+            
+        let printDesc = '';
+        if (item.printType === 'pet') {
+            printDesc = `In PET (${item.savedPrints.length} hình)`;
+        } else if (item.printType === 'screen') {
+            printDesc = `In Lưới (${item.screenColors} màu)`;
+        } else if (item.printType === 'print3d') {
+            printDesc = `In 3D`;
+        } else if (item.printType === 'embroidery') {
+            printDesc = `Thêu`;
+        }
+        
+        let detailsHtml = '';
+        if (surchargesText) detailsHtml += `<div style="font-size:11px; color:#cbd5e1; font-style:italic; margin-top:2px;">* Phụ phí: ${surchargesText}</div>`;
+        if (printDesc) detailsHtml += `<div style="font-size:11px; color:#cbd5e1; font-style:italic; margin-top:2px;">* Kiểu in: ${printDesc}</div>`;
+        
+        return `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); font-size:12.5px;">
+                <td style="padding: 8px 4px; text-align: center; color:#cbd5e1;">${idx + 1}</td>
+                <td style="padding: 8px 4px;">
+                    <strong style="color:white;">${item.materialName}</strong>
+                    ${detailsHtml}
+                </td>
+                <td style="padding: 8px 4px; text-align: center; color:white;">${item.quantity}</td>
+                <td style="padding: 8px 4px; text-align: right; color:#38bdf8;">${item.finalPricePerShirt.toLocaleString('vi-VN')} đ</td>
+                <td style="padding: 8px 4px; text-align: right; color:#38bdf8; font-weight:700;">${item.grandTotal.toLocaleString('vi-VN')} đ</td>
+                <td style="padding: 8px 4px; text-align: center;">
+                    <div style="display:flex; gap:6px; justify-content:center;">
+                        <button onclick="_ctvEditItemInQuotation(${item.id})" style="background:#0284c7; border:none; color:white; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer;" title="Sửa">✏️</button>
+                        <button onclick="_ctvRemoveItemFromQuotation(${item.id})" style="background:#ef4444; border:none; color:white; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer;" title="Xóa">❌</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    return `
+        <div style="border-top:2px solid rgba(255,255,255,0.2); margin:15px 0 10px 0; padding-top:15px;">
+            <div style="font-size:12px; font-weight:700; color:#38bdf8; text-transform:uppercase; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                <span>📋 Danh sách sản phẩm trong phiếu:</span>
+                <span style="background:#4f46e5; color:white; font-size:10px; padding:2px 6px; border-radius:10px;">${_ctvState.items.length} dòng hàng</span>
             </div>
+            <table style="width:100%; border-collapse:collapse; text-align:left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.15); font-size:11px; color:#94a3b8; text-transform:uppercase;">
+                        <th style="padding:4px; text-align:center; width:25px;">STT</th>
+                        <th style="padding:4px;">Sản phẩm / Cấu hình</th>
+                        <th style="padding:4px; text-align:center; width:40px;">SL</th>
+                        <th style="padding:4px; text-align:right; width:70px;">Đơn giá</th>
+                        <th style="padding:4px; text-align:right; width:90px;">Thành tiền</th>
+                        <th style="padding:4px; text-align:center; width:65px;">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
         </div>
+    `;
+}
+
+function _ctvRenderTotalsSummaryHtml(calc) {
+    const isMultiItem = _ctvState.items && _ctvState.items.length > 0;
+    const hasCustomerSelected = !!_ctvState.selectedCustomer;
+    
+    const companyInfo = JSON.parse(localStorage.getItem('ctv_company_info') || '{}');
+    const defaultVatRate = companyInfo.vatRate !== undefined ? Number(companyInfo.vatRate) : 8;
+    
+    let subtotal = 0;
+    let qtyText = '';
+    
+    if (isMultiItem) {
+        subtotal = _ctvState.items.reduce((sum, item) => sum + item.grandTotal, 0);
+        const totalQty = _ctvState.items.reduce((sum, item) => sum + item.quantity, 0);
+        qtyText = `${totalQty} áo`;
+    } else if (calc) {
+        subtotal = calc.grandTotal;
+        qtyText = `${_ctvState.quantity} áo`;
+    }
+    
+    const vatAmount = _ctvState.includeVat ? Math.round(subtotal * defaultVatRate / 100) : 0;
+    const finalGrandTotal = subtotal + vatAmount;
+    
+    // Check if there are any contact prices in multi-item
+    let hasContactPrice = false;
+    let contactNote = '';
+    if (isMultiItem) {
+        hasContactPrice = _ctvState.items.some(item => 
+            (item.printBreakdown && item.printBreakdown.some(p => p.isContact)) || 
+            (item.surchargesBreakdown && item.surchargesBreakdown.some(s => s.isContact))
+        );
+    } else if (calc) {
+        hasContactPrice = calc.printBreakdown.some(p => p.isContact) || calc.surchargesBreakdown.some(s => s.isContact);
+    }
+    if (hasContactPrice) {
+        contactNote = ' + Liên hệ';
+    }
+    
+    const wordsText = hasContactPrice 
+        ? `${docSoTienVietNam(finalGrandTotal)} (và giá liên hệ)` 
+        : docSoTienVietNam(finalGrandTotal);
         
-        ${(_ctvState.targetType !== 'customer' && calc.commissionAmount > 0) ? `
-            <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:8px 0; padding-top:8px;">
-                <div class="ctv-result-row" style="color: #f97316; font-weight: bold;">
-                    <span>Hoa hồng đại lý (+${calc.commissionPercent}%):</span>
-                    <span>+${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo</span>
+    return `
+        <div style="border-top: 2px solid rgba(255,255,255,0.2); margin-top: 15px; padding-top: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1; cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="ctv_include_vat" ${_ctvState.includeVat ? 'checked' : ''} onchange="_ctvToggleVat(this.checked)" style="accent-color: #38bdf8; cursor: pointer; width: 15px; height: 15px;">
+                    <span>Xuất hóa đơn VAT (${defaultVatRate}%)</span>
+                </label>
+                ${_ctvState.includeVat ? `<span style="font-size: 13px; color: #ef4444; font-weight: 700;">+${vatAmount.toLocaleString('vi-VN')} đ</span>` : `<span style="font-size: 11px; color: #94a3b8; font-style: italic;">* Giá chưa bao gồm VAT</span>`}
+            </div>
+            
+            ${_ctvState.includeVat ? `
+                <div class="ctv-result-row" style="font-size: 13px; margin-top: 8px; color:#cbd5e1;">
+                    <span>Tổng tiền (chưa VAT):</span>
+                    <span>${subtotal.toLocaleString('vi-VN')} đ${contactNote}</span>
                 </div>
+            ` : ''}
+            
+            <div class="ctv-result-row" style="font-size: 16px; font-weight: 700; color: white; margin-top: 6px;">
+                <span>TỔNG TIỀN PHIẾU (${qtyText}):</span>
+                <span>${finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</span>
             </div>
-        ` : ''}
-        
-        <!-- Surcharges breakdown -->
-        ${calc.surchargesBreakdown.length > 0 ? `
-            <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:8px 0; padding-top:8px;">
-                <div style="font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin-bottom:6px;">Phụ phí thêm:</div>
-                ${calc.surchargesBreakdown.map(s => {
-                    if (s.isContact) {
-                        return `
-                            <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
-                                <span style="padding-left:8px;">+ ${s.label} ${s.contactText}</span>
-                                <span></span>
-                            </div>
-                        `;
-                    }
-                    return `
-                        <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
-                            <span style="padding-left:8px;">+ ${s.label}</span>
-                            <span>${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ</span>
-                        </div>
-                    `;
-                }).join('')}
+            
+            <div class="ctv-words" style="margin-top:6px;">
+                Bằng chữ: <strong>${wordsText}</strong>
             </div>
-        ` : ''}
-        
-        <!-- Printing breakdown -->
-        ${calc.printBreakdown.length > 0 ? `
-            <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:8px 0; padding-top:8px;">
-                <div style="font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin-bottom:6px;">Chi tiết in/thêu:</div>
-                ${calc.printBreakdown.map(p => {
-                    if (p.isContact) {
-                        return `
-                            <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
-                                <span style="padding-left:8px;">+ ${p.label}</span>
-                                <span></span>
-                            </div>
-                        `;
-                    }
-                    return `
-                        <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
-                            <span style="padding-left:8px;">+ ${p.label}</span>
-                            <span>+${p.price.toLocaleString('vi-VN')} đ</span>
-                        </div>
-                    `;
-                }).join('')}
+            
+            <div style="margin-top:15px; display:flex; flex-direction:column; gap:10px;">
+                <button class="ctv-btn-action" style="margin-top:0;" onclick="_ctvSaveQuotation()" ${!hasCustomerSelected ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>
+                    💾 Lưu Báo Giá Hệ Thống
+                </button>
+                <button class="ctv-btn-secondary" style="background:transparent; border-color:rgba(255,255,255,0.3); color:white; padding:12px; font-weight:700; font-size:14px;" onclick="_ctvOpenExportModal()">
+                    🖨️ Xuất File Báo Giá Đẹp
+                </button>
             </div>
-        ` : ''}
-        
-        <!-- Grand Totals -->
-        <div class="ctv-result-row total">
-            <span>Đơn giá / Áo:</span>
-            <span style="color:#38bdf8;">${finalPricePerShirtText}</span>
-        </div>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; border-top:1px dashed rgba(255,255,255,0.1); margin-top: 10px; padding-top: 10px;">
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="ctv_include_vat" ${_ctvState.includeVat ? 'checked' : ''} onchange="_ctvToggleVat(this.checked)" style="accent-color: #38bdf8; cursor: pointer; width: 15px; height: 15px;">
-                <span>Xuất hóa đơn VAT (${calc.vatRate}%)</span>
-            </label>
-            ${_ctvState.includeVat ? `<span style="font-size: 13px; color: #ef4444; font-weight: 700;">+${calc.vatAmount.toLocaleString('vi-VN')} đ</span>` : `<span style="font-size: 11px; color: #94a3b8; font-style: italic;">* Giá chưa bao gồm VAT</span>`}
-        </div>
-        
-        <div class="ctv-result-row" style="font-size: 16px; font-weight: 700; color: white; margin-top: 10px;">
-            <span>Tổng cộng (${_ctvState.quantity} áo):</span>
-            <span>${_ctvState.includeVat ? calc.finalGrandTotal.toLocaleString('vi-VN') + ' đ' + contactNote : grandTotalText}</span>
-        </div>
-        
-        <div class="ctv-words">
-            Bằng chữ: <strong>${wordsText}</strong>
-        </div>
-        
-        <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-            <button class="ctv-btn-action" style="margin-top:0;" onclick="_ctvSaveQuotation()" ${!hasCustomerSelected ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>
-                💾 Lưu Báo Giá Hệ Thống
-            </button>
-            <button class="ctv-btn-secondary" style="background:transparent; border-color:rgba(255,255,255,0.3); color:white; padding:12px; font-weight:700; font-size:14px;" onclick="_ctvOpenExportModal()">
-                🖨️ Xuất File Báo Giá Đẹp
-            </button>
         </div>
     `;
 }
@@ -2190,13 +2396,55 @@ async function _ctvSaveQuotation() {
         return;
     }
     
-    const calc = _ctvCalculateAllCosts();
-    if (!calc) return;
+    const isMultiItem = _ctvState.items && _ctvState.items.length > 0;
     
-    const body = {
-        customer_id: _ctvState.selectedCustomer.id,
-        config_version_id: _ctvState.activeConfig.id,
-        input_details: {
+    let calc = null;
+    if (!isMultiItem) {
+        calc = _ctvCalculateAllCosts();
+        if (!calc) return;
+    }
+    
+    let finalTotalAmount = 0;
+    let details = {};
+    
+    const companyInfo = JSON.parse(localStorage.getItem('ctv_company_info') || '{}');
+    const defaultVatRate = companyInfo.vatRate !== undefined ? Number(companyInfo.vatRate) : 8;
+    
+    if (isMultiItem) {
+        const subtotal = _ctvState.items.reduce((sum, item) => sum + item.grandTotal, 0);
+        const vatAmount = _ctvState.includeVat ? Math.round(subtotal * defaultVatRate / 100) : 0;
+        const finalGrandTotal = subtotal + vatAmount;
+        
+        finalTotalAmount = finalGrandTotal;
+        details = {
+            is_multi_item: true,
+            items: _ctvState.items.map(item => ({
+                quantity: item.quantity,
+                selectedMaterialIndex: item.selectedMaterialIndex,
+                materialName: item.materialName,
+                surcharges: item.surcharges,
+                printType: item.printType,
+                petShapes: item.petShapes,
+                screenColors: item.screenColors,
+                embroideryCost: item.embroideryCost,
+                print3dCost: item.print3dCost,
+                petChestPrint: item.petChestPrint,
+                savedPrints: item.savedPrints,
+                targetType: item.targetType,
+                includeCommission: item.includeCommission,
+                finalPricePerShirt: item.finalPricePerShirt,
+                itemGrandTotal: item.grandTotal,
+                surchargesBreakdown: item.surchargesBreakdown,
+                printBreakdown: item.printBreakdown
+            })),
+            includeVat: _ctvState.includeVat || false,
+            vatRate: defaultVatRate,
+            vatAmount: vatAmount,
+            finalGrandTotal: finalGrandTotal
+        };
+    } else {
+        finalTotalAmount = _ctvState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
+        details = {
             quantity: _ctvState.quantity,
             selectedMaterialIndex: _ctvState.selectedMaterialIndex,
             surcharges: _ctvState.surcharges,
@@ -2211,9 +2459,15 @@ async function _ctvSaveQuotation() {
             targetType: _ctvState.targetType,
             includeCommission: _ctvState.includeCommission,
             includeVat: _ctvState.includeVat || false
-        },
-        calculated_price: calc.finalPricePerShirt,
-        total_amount: _ctvState.includeVat ? calc.finalGrandTotal : calc.grandTotal
+        };
+    }
+    
+    const body = {
+        customer_id: _ctvState.selectedCustomer.id,
+        config_version_id: _ctvState.activeConfig.id,
+        input_details: details,
+        calculated_price: isMultiItem ? 0 : calc.finalPricePerShirt,
+        total_amount: finalTotalAmount
     };
     
     try {
@@ -2230,6 +2484,7 @@ async function _ctvSaveQuotation() {
             _ctvState.targetType = null;
             _ctvState.includeCommission = false;
             _ctvState.includeVat = false;
+            _ctvState.items = []; // Reset the list
             
             const tabContent = document.getElementById('ctv-tab-content');
             if (tabContent && _ctvState.activeTab === 'calculator') {
@@ -2450,31 +2705,110 @@ function _ctvOpenExportModal(mode = null) {
         mode = _ctvState.targetType === 'customer' ? 'customer' : 'ctv';
     }
     _ctvState.exportMode = mode;
-    const calc = _ctvCalculateAllCosts();
-    if (!calc) return;
-    
+
+    const isMultiItem = _ctvState.items && _ctvState.items.length > 0;
+    let calc = null;
+    if (!isMultiItem) {
+        calc = _ctvCalculateAllCosts();
+        if (!calc) return;
+    }
+
     const hasCustomer = !!_ctvState.selectedCustomer;
     const name = hasCustomer ? _ctvState.selectedCustomer.customer_name : 'Quý Khách Hàng';
     const phone = hasCustomer ? _ctvState.selectedCustomer.phone : 'Chưa có SĐT';
     const code = (mode === 'customer' ? 'BGKH-' : 'BGCTV-') + Math.floor(Math.random()*900000 + 100000);
     const dateStr = vnDateStr(vnNow());
+
+    // Build unified list of items to render
+    let renderedItems = [];
+    if (isMultiItem) {
+        renderedItems = _ctvState.items;
+    } else {
+        renderedItems = [{
+            quantity: Number(_ctvState.quantity),
+            selectedMaterialIndex: _ctvState.selectedMaterialIndex,
+            materialName: calc.materialName,
+            surcharges: JSON.parse(JSON.stringify(_ctvState.surcharges)),
+            printType: _ctvState.printType,
+            petShapes: JSON.parse(JSON.stringify(_ctvState.petShapes || [])),
+            screenColors: _ctvState.screenColors,
+            embroideryCost: _ctvState.embroideryCost,
+            print3dCost: _ctvState.print3dCost,
+            petChestPrint: _ctvState.petChestPrint,
+            savedPrints: JSON.parse(JSON.stringify(_ctvState.savedPrints || [])),
+            targetType: _ctvState.targetType,
+            includeCommission: _ctvState.includeCommission,
+            finalPricePerShirt: calc.finalPricePerShirt,
+            grandTotal: calc.grandTotal,
+            surchargesBreakdown: calc.surchargesBreakdown,
+            printBreakdown: calc.printBreakdown
+        }];
+    }
+
+    const totalQuantity = renderedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotal = renderedItems.reduce((sum, item) => sum + item.grandTotal, 0);
+    const defaultVatRate = info.vatRate !== undefined ? Number(info.vatRate) : 8;
+    const vatAmount = _ctvState.includeVat ? Math.round(subtotal * defaultVatRate / 100) : 0;
+    const finalGrandTotal = subtotal + vatAmount;
     
-    const contactTexts = [];
-    calc.printBreakdown.forEach(p => {
-        if (p.isContact) contactTexts.push(p.contactText);
+    // Check if there's any contact price in the items
+    let hasContactPrice = false;
+    renderedItems.forEach(item => {
+        if (item.printBreakdown && item.printBreakdown.some(p => p.isContact)) hasContactPrice = true;
+        if (item.surchargesBreakdown && item.surchargesBreakdown.some(s => s.isContact)) hasContactPrice = true;
     });
-    calc.surchargesBreakdown.forEach(s => {
-        if (s.isContact) contactTexts.push(s.contactText);
-    });
-    const hasContactPrice = contactTexts.length > 0;
-    const contactNote = hasContactPrice ? ` + ${contactTexts.join(', ')}` : '';
-    
-    const finalPricePerShirtText = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNote}`;
-    const grandTotalText = `${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}`;
+    const contactNote = hasContactPrice ? ' + Liên hệ' : '';
     const wordsText = hasContactPrice
-        ? `${docSoTienVietNam(calc.grandTotal)} (và ${contactTexts.join(', ')})`
-        : docSoTienVietNam(calc.grandTotal);
-    
+        ? `${docSoTienVietNam(finalGrandTotal)} (và giá liên hệ)`
+        : docSoTienVietNam(finalGrandTotal);
+
+    // Build rows HTML
+    const rowsHtml = renderedItems.map((item, idx) => {
+        const surchargesText = Object.keys(item.surcharges)
+            .filter(k => item.surcharges[k])
+            .map(k => {
+                const config = _ctvState.activeConfig;
+                const match = config && config.surcharges && config.surcharges.optional 
+                    ? config.surcharges.optional.find(o => o.key === k) 
+                    : null;
+                return match ? match.name : k;
+            }).join(', ');
+            
+        let printDesc = '';
+        if (item.printType === 'pet') {
+            printDesc = `In PET (${item.savedPrints.length} hình)`;
+        } else if (item.printType === 'screen') {
+            printDesc = `In Lưới (${item.screenColors} màu)`;
+        } else if (item.printType === 'print3d') {
+            printDesc = `In 3D`;
+        } else if (item.printType === 'embroidery') {
+            printDesc = `Thêu vi tính`;
+        }
+
+        let detailsHtml = '';
+        if (surchargesText) detailsHtml += `<div style="font-size:11px; color:#475569; font-style:italic; margin-top:2px;">• Phụ phí: ${surchargesText}</div>`;
+        if (printDesc) detailsHtml += `<div style="font-size:11px; color:#475569; font-style:italic; margin-top:2px;">• Công nghệ: ${printDesc}</div>`;
+
+        return `
+            <tr style="background:white;">
+                <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:center;">${(idx + 1).toString().padStart(2, '0')}</td>
+                <td style="border:1px solid #cbd5e1; padding:10px 14px;">
+                    <strong style="color:#1e3a8a;">Chất Liệu:</strong> ${item.materialName}
+                    ${detailsHtml}
+                </td>
+                <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:center; font-weight:600; color:#0f172a;">
+                    ${item.quantity.toLocaleString('vi-VN')} chiếc
+                </td>
+                <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; font-weight:600; color:#0f172a;">
+                    ${item.finalPricePerShirt.toLocaleString('vi-VN')} đ
+                </td>
+                <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; font-weight:700; color:#1e3a8a;">
+                    ${item.grandTotal.toLocaleString('vi-VN')} đ
+                </td>
+            </tr>
+        `;
+    }).join('');
+
     let modal = document.getElementById('ctv_export_modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -2493,7 +2827,7 @@ function _ctvOpenExportModal(mode = null) {
         modal.style.padding = '16px';
         document.body.appendChild(modal);
     }
-    
+
     modal.innerHTML = `
         <div style="background:white; border-radius:16px; max-width:800px; width:100%; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
             <!-- Modal Header -->
@@ -2549,9 +2883,9 @@ function _ctvOpenExportModal(mode = null) {
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; font-size:13px;">
                             <div>• ${mode === 'customer' ? 'Tên Khách hàng' : 'Tên Đại lý/CTV'}: <strong style="color:#0f172a;">${name}</strong></div>
                             <div>• Số điện thoại: <strong style="color:#0f172a;">${phone}</strong></div>
-                            <div>• Số lượng: <strong style="color:#0f172a;">${_ctvState.quantity} chiếc</strong></div>
+                            <div>• Số lượng: <strong style="color:#0f172a;">${totalQuantity} chiếc</strong></div>
                             <div>• Kiểu dáng may: <strong style="color:#0f172a;">Áo thun đồng phục cổ tròn</strong></div>
-                            ${calc.matchedShipping ? `<div style="grid-column: span 2;">• Hỗ trợ vận chuyển: <strong style="color:#1e3a8a;">${calc.matchedShipping.desc}</strong></div>` : ''}
+                            ${(!isMultiItem && calc && calc.matchedShipping) ? `<div style="grid-column: span 2;">• Hỗ trợ vận chuyển: <strong style="color:#1e3a8a;">${calc.matchedShipping.desc}</strong></div>` : ''}
                         </div>
                     </div>
                     
@@ -2560,57 +2894,15 @@ function _ctvOpenExportModal(mode = null) {
                     <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:24px; border:1px solid #cbd5e1;">
                         <thead>
                             <tr style="background:#1e3a8a; color:white; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                                <th style="border:1px solid #cbd5e1; padding:10px 14px; text-align:left; color:white; font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Hạng mục sản xuất</th>
-                                <th style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; width:160px; color:white; font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Đơn giá (đ/áo)</th>
+                                <th style="border:1px solid #cbd5e1; padding:10px 14px; text-align:center; width:50px; color:white; font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">STT</th>
+                                <th style="border:1px solid #cbd5e1; padding:10px 14px; text-align:left; color:white; font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Hạng mục sản phẩm</th>
+                                <th style="border:1px solid #cbd5e1; padding:10px 14px; text-align:center; width:100px; color:white; font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Số lượng</th>
+                                <th style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; width:140px; color:white; font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Đơn giá</th>
+                                <th style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; width:160px; color:white; font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Thành tiền</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="background:white;">
-                                <td style="border:1px solid #cbd5e1; padding:10px 14px; font-size:13px;">
-                                    <strong style="color:#1e3a8a;">Chất Liệu:</strong> ${calc.materialName}
-                                </td>
-                                <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; font-weight:600; color:#0f172a; font-size:13px;">
-                                    ${(mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice).toLocaleString('vi-VN')} đ
-                                </td>
-                            </tr>
-                            ${(mode !== 'customer' && calc.commissionAmount > 0) ? `
-                                <tr style="background:#fff7ed; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; padding-left:24px; color:#c2410c; font-weight:500; font-size:12.5px; font-style:italic;">
-                                        + Hoa hồng đại lý (+${calc.commissionPercent}%)
-                                    </td>
-                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; color:#c2410c; font-weight:700; font-size:12.5px;">
-                                        +${calc.commissionAmount.toLocaleString('vi-VN')} đ
-                                    </td>
-                                </tr>
-                            ` : ''}
-                            ${calc.surchargesBreakdown.map(s => `
-                                <tr style="background:#f8fafc; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; padding-left:24px; color:#475569; font-size:12.5px; font-style:italic;">
-                                        + ${s.label}
-                                    </td>
-                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; color:${s.price < 0 ? '#ef4444' : '#475569'}; font-size:12.5px; ${s.price < 0 ? 'font-weight:700;' : ''}">
-                                        ${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                            ${calc.printBreakdown.map(p => `
-                                <tr style="background:#f0fdf4; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; padding-left:24px; color:#15803d; font-size:12.5px; font-style:italic;">
-                                        + ${p.label}
-                                    </td>
-                                    <td style="border:1px solid #cbd5e1; padding:10px 14px; text-align:right; color:#15803d; font-size:12.5px;">
-                                        ${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                            <tr style="background:#eff6ff; font-weight:800; font-size:13.5px; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
-                                <td style="border:1px solid #cbd5e1; padding:12px 14px; text-align:right; color:#1e3a8a; border-bottom: 3px double #1e3a8a;">
-                                    CỘNG ĐƠN GIÁ TRÊN MỖI ÁO:
-                                </td>
-                                <td style="border:1px solid #cbd5e1; padding:12px 14px; text-align:right; color:#1e3a8a; font-size:14px; font-weight:900; border-bottom: 3px double #1e3a8a;">
-                                    ${finalPricePerShirtText}
-                                </td>
-                            </tr>
+                            ${rowsHtml}
                         </tbody>
                     </table>
                     
@@ -2618,14 +2910,14 @@ function _ctvOpenExportModal(mode = null) {
                     <div style="border:1px solid #cbd5e1; border-left:5px solid #1e3a8a; border-radius:10px; padding:18px 24px; background:#f8fafc; text-align:right; margin-bottom:30px; -webkit-print-color-adjust:exact; print-color-adjust:exact;">
                         ${_ctvState.includeVat ? `
                             <div style="font-size:11.5px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá đã bao gồm VAT</div>
-                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:2px;">Tổng tiền (chưa VAT): <span style="font-weight:700; color:#0f172a; margin-left:8px;">${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNote}</span></div>
-                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:8px;">Thuế VAT (${calc.vatRate}%): <span style="font-weight:700; color:#ef4444; margin-left:8px;">+${calc.vatAmount.toLocaleString('vi-VN')} đ</span></div>
+                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:2px;">Tổng tiền (chưa VAT): <span style="font-weight:700; color:#0f172a; margin-left:8px;">${subtotal.toLocaleString('vi-VN')} đ${contactNote}</span></div>
+                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:8px;">Thuế VAT (${defaultVatRate}%): <span style="font-weight:700; color:#ef4444; margin-left:8px;">+${vatAmount.toLocaleString('vi-VN')} đ</span></div>
                             <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:4px;">TỔNG TIỀN THANH TOÁN (gồm VAT):</div>
-                            <div style="font-size:26px; font-weight:950; color:#1e3a8a; letter-spacing:-0.5px;">${calc.finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</div>
+                            <div style="font-size:26px; font-weight:950; color:#1e3a8a; letter-spacing:-0.5px;">${finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</div>
                         ` : `
                             <div style="font-size:11.5px; color:#64748b; margin-bottom:4px; font-style:italic;">* Giá chưa bao gồm VAT</div>
-                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:4px;">TỔNG TIỀN THANH TOÁN (${_ctvState.quantity} áo):</div>
-                            <div style="font-size:26px; font-weight:950; color:#1e3a8a; letter-spacing:-0.5px;">${grandTotalText}</div>
+                            <div style="font-size:13px; font-weight:700; color:#475569; margin-bottom:4px;">TỔNG TIỀN THANH TOÁN (${totalQuantity} áo):</div>
+                            <div style="font-size:26px; font-weight:950; color:#1e3a8a; letter-spacing:-0.5px;">${finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}</div>
                         `}
                         <div style="font-size:13px; font-style:italic; color:#0369a1; margin-top:6px; border-top:1px dashed #cbd5e1; padding-top:6px; display:inline-block; min-width:250px;">
                             Bằng chữ: <strong style="color:#0f172a;">${wordsText}</strong>
@@ -2667,8 +2959,13 @@ function _ctvCloseExportModal() {
 }
 
 function _ctvCopyTextQuotation() {
-    const calc = _ctvCalculateAllCosts();
-    if (!calc) return;
+    const isMultiItem = _ctvState.items && _ctvState.items.length > 0;
+    
+    let calc = null;
+    if (!isMultiItem) {
+        calc = _ctvCalculateAllCosts();
+        if (!calc) return;
+    }
     
     const mode = _ctvState.exportMode || 'ctv';
     const hasCustomer = !!_ctvState.selectedCustomer;
@@ -2681,55 +2978,121 @@ function _ctvCopyTextQuotation() {
     text += `----------------------------------------\n`;
     text += `• ${mode === 'customer' ? 'Tên Khách hàng' : 'Tên Khách hàng/Đại lý'}: ${name}\n`;
     text += `• Số điện thoại: ${phone}\n`;
-    text += `• Kiểu dáng: Áo thun cổ tròn\n`;
-    text += `• Chất liệu vải: ${calc.materialName}\n`;
-    text += `• Số lượng đặt: ${_ctvState.quantity} áo\n`;
-    text += `----------------------------------------\n`;
     
-    const displayBasePrice = mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice;
-    text += `• Đơn giá phôi trơn: ${displayBasePrice.toLocaleString('vi-VN')} đ/áo\n`;
-    
-    if (mode !== 'customer' && calc.commissionAmount > 0) {
-        text += `  + Hoa hồng đại lý (+${calc.commissionPercent}%): +${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo\n`;
-    }
-    
-    calc.surchargesBreakdown.forEach(s => {
-        text += `  + ${s.label}: ${s.isContact ? s.contactText : (s.price >= 0 ? '+' : '') + s.price.toLocaleString('vi-VN') + ' đ'}\n`;
-    });
-    
-    calc.printBreakdown.forEach(p => {
-        text += `  + ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
-    });
-    
-    const contactTextsCopy = [];
-    calc.printBreakdown.forEach(p => {
-        if (p.isContact) contactTextsCopy.push(p.contactText);
-    });
-    calc.surchargesBreakdown.forEach(s => {
-        if (s.isContact) contactTextsCopy.push(s.contactText);
-    });
-    const hasContactPriceText = contactTextsCopy.length > 0;
-    const contactNoteCopy = hasContactPriceText ? ` + ${contactTextsCopy.join(', ')}` : '';
-    
-    const finalPricePerShirtTextCopy = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNoteCopy}`;
-    const finalTotalValue = _ctvState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
-    const wordsTextCopy = hasContactPriceText
-        ? `${docSoTienVietNam(finalTotalValue)} (và ${contactTextsCopy.join(', ')})`
-        : docSoTienVietNam(finalTotalValue);
+    const companyInfo = _ctvGetCompanyInfo();
+    const defaultVatRate = companyInfo.vatRate !== undefined ? Number(companyInfo.vatRate) : 8;
+
+    if (isMultiItem) {
+        const totalQuantity = _ctvState.items.reduce((sum, item) => sum + item.quantity, 0);
+        const subtotal = _ctvState.items.reduce((sum, item) => sum + item.grandTotal, 0);
+        const vatAmount = _ctvState.includeVat ? Math.round(subtotal * defaultVatRate / 100) : 0;
+        const finalGrandTotal = subtotal + vatAmount;
         
-    text += `----------------------------------------\n`;
-    text += `💰 ĐƠN GIÁ CUỐI: ${finalPricePerShirtTextCopy}\n`;
-    if (_ctvState.includeVat) {
-        text += `* Giá đã bao gồm VAT\n`;
-        text += `• Tổng tiền (chưa VAT): ${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}\n`;
-        text += `• Thuế VAT (${calc.vatRate}%): +${calc.vatAmount.toLocaleString('vi-VN')} đ\n`;
-        text += `💵 TỔNG CỘNG ĐƠN HÀNG (gồm VAT): ${calc.finalGrandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}\n`;
+        let hasContactPrice = _ctvState.items.some(item => 
+            (item.printBreakdown && item.printBreakdown.some(p => p.isContact)) || 
+            (item.surchargesBreakdown && item.surchargesBreakdown.some(s => s.isContact))
+        );
+        const contactNote = hasContactPrice ? ' + Liên hệ' : '';
+        const wordsTextCopy = hasContactPrice
+            ? `${docSoTienVietNam(finalGrandTotal)} (và giá liên hệ)`
+            : docSoTienVietNam(finalGrandTotal);
+            
+        text += `• Tổng số lượng: ${totalQuantity} áo\n`;
+        text += `----------------------------------------\n`;
+        
+        _ctvState.items.forEach((item, idx) => {
+            text += `${idx + 1}. Chất liệu: ${item.materialName}\n`;
+            text += `  - Số lượng: ${item.quantity} áo\n`;
+            text += `  - Đơn giá: ${item.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo\n`;
+            text += `  - Thành tiền: ${item.grandTotal.toLocaleString('vi-VN')} đ\n`;
+            
+            const surchargesText = Object.keys(item.surcharges)
+                .filter(k => item.surcharges[k])
+                .map(k => {
+                    const config = _ctvState.activeConfig;
+                    const match = config && config.surcharges && config.surcharges.optional 
+                        ? config.surcharges.optional.find(o => o.key === k) 
+                        : null;
+                    return match ? match.name : k;
+                }).join(', ');
+            let printDesc = '';
+            if (item.printType === 'pet') {
+                printDesc = `In PET (${item.savedPrints.length} hình)`;
+            } else if (item.printType === 'screen') {
+                printDesc = `In Lưới (${item.screenColors} màu)`;
+            } else if (item.printType === 'print3d') {
+                printDesc = `In 3D`;
+            } else if (item.printType === 'embroidery') {
+                printDesc = `Thêu vi tính`;
+            }
+            if (surchargesText) text += `  - Phụ phí: ${surchargesText}\n`;
+            if (printDesc) text += `  - Công nghệ: ${printDesc}\n`;
+            text += `\n`;
+        });
+        
+        text += `----------------------------------------\n`;
+        if (_ctvState.includeVat) {
+            text += `* Giá đã bao gồm VAT\n`;
+            text += `• Tổng tiền (chưa VAT): ${subtotal.toLocaleString('vi-VN')} đ${contactNote}\n`;
+            text += `• Thuế VAT (${defaultVatRate}%): +${vatAmount.toLocaleString('vi-VN')} đ\n`;
+            text += `💵 TỔNG CỘNG ĐƠN HÀNG (gồm VAT): ${finalGrandTotal.toLocaleString('vi-VN')} đ${contactNote}\n`;
+        } else {
+            text += `* Giá chưa bao gồm VAT\n`;
+            text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${subtotal.toLocaleString('vi-VN')} đ${contactNote}\n`;
+        }
+        text += `✍️ (Bằng chữ: ${wordsTextCopy})\n`;
     } else {
-        text += `* Giá chưa bao gồm VAT\n`;
-        text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}\n`;
+        text += `• Kiểu dáng: Áo thun cổ tròn\n`;
+        text += `• Chất liệu vải: ${calc.materialName}\n`;
+        text += `• Số lượng đặt: ${_ctvState.quantity} áo\n`;
+        text += `----------------------------------------\n`;
+        
+        const displayBasePrice = mode === 'customer' ? (calc.basePrice + calc.commissionAmount) : calc.basePrice;
+        text += `• Đơn giá phôi trơn: ${displayBasePrice.toLocaleString('vi-VN')} đ/áo\n`;
+        
+        if (mode !== 'customer' && calc.commissionAmount > 0) {
+            text += `  + Hoa hồng đại lý (+${calc.commissionPercent}%): +${calc.commissionAmount.toLocaleString('vi-VN')} đ/áo\n`;
+        }
+        
+        calc.surchargesBreakdown.forEach(s => {
+            text += `  + ${s.label}: ${s.isContact ? s.contactText : (s.price >= 0 ? '+' : '') + s.price.toLocaleString('vi-VN') + ' đ'}\n`;
+        });
+        
+        calc.printBreakdown.forEach(p => {
+            text += `  + ${p.label}: ${p.isContact ? p.contactText : '+' + p.price.toLocaleString('vi-VN') + ' đ'}\n`;
+        });
+        
+        const contactTextsCopy = [];
+        calc.printBreakdown.forEach(p => {
+            if (p.isContact) contactTextsCopy.push(p.contactText);
+        });
+        calc.surchargesBreakdown.forEach(s => {
+            if (s.isContact) contactTextsCopy.push(s.contactText);
+        });
+        const hasContactPriceText = contactTextsCopy.length > 0;
+        const contactNoteCopy = hasContactPriceText ? ` + ${contactTextsCopy.join(', ')}` : '';
+        
+        const finalPricePerShirtTextCopy = `${calc.finalPricePerShirt.toLocaleString('vi-VN')} đ/áo${contactNoteCopy}`;
+        const finalTotalValue = _ctvState.includeVat ? calc.finalGrandTotal : calc.grandTotal;
+        const wordsTextCopy = hasContactPriceText
+            ? `${docSoTienVietNam(finalTotalValue)} (và ${contactTextsCopy.join(', ')})`
+            : docSoTienVietNam(finalTotalValue);
+            
+        text += `----------------------------------------\n`;
+        text += `💰 ĐƠN GIÁ CUỐI: ${finalPricePerShirtTextCopy}\n`;
+        if (_ctvState.includeVat) {
+            text += `* Giá đã bao gồm VAT\n`;
+            text += `• Tổng tiền (chưa VAT): ${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}\n`;
+            text += `• Thuế VAT (${defaultVatRate}%): +${vatAmount.toLocaleString('vi-VN')} đ\n`;
+            text += `💵 TỔNG CỘNG ĐƠN HÀNG (gồm VAT): ${finalGrandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}\n`;
+        } else {
+            text += `* Giá chưa bao gồm VAT\n`;
+            text += `💵 TỔNG CỘNG ĐƠN HÀNG: ${calc.grandTotal.toLocaleString('vi-VN')} đ${contactNoteCopy}\n`;
+        }
+        text += `✍️ (Bằng chữ: ${wordsTextCopy})\n`;
     }
-    text += `✍️ (Bằng chữ: ${wordsTextCopy})\n`;
-    if (calc.matchedShipping) {
+
+    if (!isMultiItem && calc && calc.matchedShipping) {
         text += `🚚 Vận chuyển: ${calc.matchedShipping.desc}\n`;
     }
     text += `----------------------------------------\n`;
@@ -2868,78 +3231,126 @@ function _ctvShowHistoryDetail(quoteId) {
     const q = _ctvState.historyLogs.find(log => log.id === quoteId);
     if (!q) return;
     
-    // Temporarily overwrite active config snapshot and run inputs to preview inside modal
-    const tempState = {
-        activeConfig: q.config_snapshot,
-        selectedCustomer: {
-            customer_name: q.customer_name,
-            phone: q.customer_phone
-        },
-        quantity: q.input_details.quantity,
-        selectedMaterialIndex: q.input_details.selectedMaterialIndex,
-        surcharges: q.input_details.surcharges,
-        printType: q.input_details.printType,
-        petShapes: q.input_details.petShapes || [],
-        screenColors: q.input_details.screenColors || 1,
-        embroideryCost: q.input_details.embroideryCost || 15000,
-        print3dCost: q.input_details.print3dCost || 30000,
-        petChestPrint: q.input_details.petChestPrint || false,
-        savedPrints: q.input_details.savedPrints || [],
-        targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
-        includeCommission: q.input_details.includeCommission || false,
-        includeVat: q.input_details.includeVat || false
-    };
+    // Check if the saved quote has multi-item structure
+    let items = [];
+    if (q.input_details && q.input_details.is_multi_item) {
+        // Map snapshot fields to ctvState items
+        items = q.input_details.items.map((item, idx) => ({
+            id: Date.now() + idx,
+            quantity: item.quantity,
+            selectedMaterialIndex: item.selectedMaterialIndex,
+            materialName: item.materialName,
+            surcharges: item.surcharges,
+            printType: item.printType,
+            petShapes: item.petShapes || [],
+            screenColors: item.screenColors || 1,
+            embroideryCost: item.embroideryCost || 15000,
+            print3dCost: item.print3dCost || 30000,
+            petChestPrint: item.petChestPrint || false,
+            savedPrints: item.savedPrints || [],
+            targetType: item.targetType || (item.includeCommission ? 'customer' : 'ctv'),
+            includeCommission: item.includeCommission || false,
+            finalPricePerShirt: item.finalPricePerShirt,
+            grandTotal: item.itemGrandTotal || item.grandTotal,
+            surchargesBreakdown: item.surchargesBreakdown || [],
+            printBreakdown: item.printBreakdown || []
+        }));
+    } else {
+        // Fallback for backward compatibility (single-item converted to array)
+        // Calculate mock calculations to populate item values correctly
+        const originalConfig = _ctvState.activeConfig;
+        const originalQty = _ctvState.quantity;
+        const originalMat = _ctvState.selectedMaterialIndex;
+        const originalSc = _ctvState.surcharges;
+        const originalPt = _ctvState.printType;
+        const originalPet = _ctvState.petShapes;
+        const originalScr = _ctvState.screenColors;
+        const originalEmb = _ctvState.embroideryCost;
+        const originalPrint3d = _ctvState.print3dCost;
+        const originalPetChest = _ctvState.petChestPrint;
+        const originalSavedPrints = _ctvState.savedPrints;
+        const originalTargetType = _ctvState.targetType;
+        const originalIncludeCommission = _ctvState.includeCommission;
+        
+        _ctvState.activeConfig = q.config_snapshot;
+        _ctvState.quantity = q.input_details.quantity;
+        _ctvState.selectedMaterialIndex = q.input_details.selectedMaterialIndex;
+        _ctvState.surcharges = q.input_details.surcharges;
+        _ctvState.printType = q.input_details.printType;
+        _ctvState.petShapes = q.input_details.petShapes || [];
+        _ctvState.screenColors = q.input_details.screenColors || 1;
+        _ctvState.embroideryCost = q.input_details.embroideryCost || 15000;
+        _ctvState.print3dCost = q.input_details.print3dCost || 30000;
+        _ctvState.petChestPrint = q.input_details.petChestPrint || false;
+        _ctvState.savedPrints = q.input_details.savedPrints || [];
+        _ctvState.targetType = q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv');
+        _ctvState.includeCommission = q.input_details.includeCommission || false;
+        
+        const calc = _ctvCalculateAllCosts();
+        
+        // Restore immediately
+        _ctvState.activeConfig = originalConfig;
+        _ctvState.quantity = originalQty;
+        _ctvState.selectedMaterialIndex = originalMat;
+        _ctvState.surcharges = originalSc;
+        _ctvState.printType = originalPt;
+        _ctvState.petShapes = originalPet;
+        _ctvState.screenColors = originalScr;
+        _ctvState.embroideryCost = originalEmb;
+        _ctvState.print3dCost = originalPrint3d;
+        _ctvState.petChestPrint = originalPetChest;
+        _ctvState.savedPrints = originalSavedPrints;
+        _ctvState.targetType = originalTargetType;
+        _ctvState.includeCommission = originalIncludeCommission;
+        
+        if (calc) {
+            items = [{
+                id: Date.now(),
+                quantity: Number(q.input_details.quantity),
+                selectedMaterialIndex: q.input_details.selectedMaterialIndex,
+                materialName: calc.materialName,
+                surcharges: q.input_details.surcharges,
+                printType: q.input_details.printType,
+                petShapes: q.input_details.petShapes || [],
+                screenColors: q.input_details.screenColors || 1,
+                embroideryCost: q.input_details.embroideryCost || 15000,
+                print3dCost: q.input_details.print3dCost || 30000,
+                petChestPrint: q.input_details.petChestPrint || false,
+                savedPrints: q.input_details.savedPrints || [],
+                targetType: q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'),
+                includeCommission: q.input_details.includeCommission || false,
+                finalPricePerShirt: calc.finalPricePerShirt,
+                grandTotal: calc.grandTotal,
+                surchargesBreakdown: calc.surchargesBreakdown,
+                printBreakdown: calc.printBreakdown
+            }];
+        }
+    }
     
     // Save state temporarily, render export modal, then restore state
     const originalConfig = _ctvState.activeConfig;
     const originalCustomer = _ctvState.selectedCustomer;
-    const originalQty = _ctvState.quantity;
-    const originalMat = _ctvState.selectedMaterialIndex;
-    const originalSc = _ctvState.surcharges;
-    const originalPt = _ctvState.printType;
-    const originalPet = _ctvState.petShapes;
-    const originalScr = _ctvState.screenColors;
-    const originalEmb = _ctvState.embroideryCost;
-    const originalPrint3d = _ctvState.print3dCost;
-    const originalPetChest = _ctvState.petChestPrint;
-    const originalSavedPrints = _ctvState.savedPrints;
-    const originalTargetType = _ctvState.targetType;
-    const originalIncludeCommission = _ctvState.includeCommission;
+    const originalItems = _ctvState.items;
     const originalIncludeVat = _ctvState.includeVat;
     
-    _ctvState.activeConfig = tempState.activeConfig;
-    _ctvState.selectedCustomer = tempState.selectedCustomer;
-    _ctvState.quantity = tempState.quantity;
-    _ctvState.selectedMaterialIndex = tempState.selectedMaterialIndex;
-    _ctvState.surcharges = tempState.surcharges;
-    _ctvState.printType = tempState.printType;
-    _ctvState.petShapes = tempState.petShapes;
-    _ctvState.screenColors = tempState.screenColors;
-    _ctvState.embroideryCost = tempState.embroideryCost;
-    _ctvState.print3dCost = tempState.print3dCost;
-    _ctvState.petChestPrint = tempState.petChestPrint;
-    _ctvState.savedPrints = tempState.savedPrints;
-    _ctvState.targetType = tempState.targetType;
-    _ctvState.includeCommission = tempState.includeCommission;
-    _ctvState.includeVat = tempState.includeVat;
+    _ctvState.activeConfig = q.config_snapshot;
+    _ctvState.selectedCustomer = {
+        customer_name: q.customer_name,
+        phone: q.customer_phone
+    };
+    _ctvState.items = items;
+    _ctvState.includeVat = q.input_details.includeVat || false;
     
-    _ctvOpenExportModal(tempState.targetType);
+    const targetType = q.input_details.is_multi_item 
+        ? (items[0] ? items[0].targetType : 'ctv')
+        : (q.input_details.targetType || (q.input_details.includeCommission ? 'customer' : 'ctv'));
+    
+    _ctvOpenExportModal(targetType);
     
     // Restore
     _ctvState.activeConfig = originalConfig;
     _ctvState.selectedCustomer = originalCustomer;
-    _ctvState.quantity = originalQty;
-    _ctvState.selectedMaterialIndex = originalMat;
-    _ctvState.surcharges = originalSc;
-    _ctvState.printType = originalPt;
-    _ctvState.petShapes = originalPet;
-    _ctvState.screenColors = originalScr;
-    _ctvState.embroideryCost = originalEmb;
-    _ctvState.print3dCost = originalPrint3d;
-    _ctvState.petChestPrint = originalPetChest;
-    _ctvState.savedPrints = originalSavedPrints;
-    _ctvState.targetType = originalTargetType;
-    _ctvState.includeCommission = originalIncludeCommission;
+    _ctvState.items = originalItems;
     _ctvState.includeVat = originalIncludeVat;
 }
 
