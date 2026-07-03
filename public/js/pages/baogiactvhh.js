@@ -2312,6 +2312,7 @@ function _ctvUpdateCreatorName(val) {
 }
 
 function _ctvOpenExportModal(mode = null) {
+    _ctvInjectUnifiedPrintStyles();
     const info = _ctvGetCompanyInfo();
     const userObj = window._currentUser || window.currentUser;
     const creatorName = _ctvState.creatorName || (userObj ? (userObj.full_name || userObj.username) : '');
@@ -2515,7 +2516,7 @@ function _ctvOpenExportModal(mode = null) {
             <!-- Modal actions -->
             <div class="no-print" style="padding:16px 24px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:12px; background:#f8fafc; border-bottom-left-radius:16px; border-bottom-right-radius:16px;">
                 <button class="ctv-btn-secondary" onclick="_ctvCopyTextQuotation()">📋 Sao chép text nhanh</button>
-                <button class="ctv-btn-secondary" style="background:#1e3a8a; color:white; border-color:#1e3a8a;" onclick="window.print()">🖨️ In / Tải PDF</button>
+                <button class="ctv-btn-secondary" style="background:#1e3a8a; color:white; border-color:#1e3a8a;" onclick="_ctvPrintQuotation('${mode}')">🖨️ In / Tải PDF</button>
                 <button class="ctv-btn-secondary" onclick="_ctvCloseExportModal()">Đóng</button>
             </div>
         </div>
@@ -3261,114 +3262,7 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
         _ctvState.creatorName = creatorName;
     }
     
-    // Inject dynamic print style sheet specifically for this modal
-    let style = document.getElementById('ctv_price_list_print_style');
-    if (!style) {
-        style = document.createElement('style');
-        style.id = 'ctv_price_list_print_style';
-        style.innerHTML = `
-            @media print {
-                /* Hide everything except the export modal */
-                body > *:not(#ctv_price_list_export_modal) {
-                    display: none !important;
-                }
-                #ctv_price_list_export_modal {
-                    display: block !important;
-                    position: absolute !important;
-                    left: 0 !important;
-                    top: 0 !important;
-                    width: 100% !important;
-                    height: auto !important;
-                    margin: 0 !important;
-                    padding: 8mm 10mm !important; /* safe margins for printing since @page margin is 0 */
-                    background: white !important;
-                    box-shadow: none !important;
-                    box-sizing: border-box !important;
-                }
-                #ctv_price_list_export_modal > div {
-                    max-width: 100% !important;
-                    width: 100% !important;
-                    max-height: none !important;
-                    height: auto !important;
-                    box-shadow: none !important;
-                    border: none !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                }
-                #ctv_price_list_print_content {
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    background: white !important;
-                    overflow: visible !important;
-                    zoom: 0.85 !important; /* Scale down to guarantee single page */
-                }
-                #ctv_price_list_print_content > div {
-                    border: none !important;
-                    box-shadow: none !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                }
-                
-                /* Override any global visibility: hidden rules */
-                #ctv_price_list_export_modal, #ctv_price_list_export_modal * {
-                    visibility: visible !important;
-                }
-                
-                /* Compact print spacing to guarantee exactly one A4 page */
-                #ctv_price_list_print_content div[style*="margin-bottom:30px"] {
-                    margin-bottom: 10px !important;
-                    padding-bottom: 6px !important;
-                }
-                #ctv_price_list_print_content div[style*="margin-bottom:24px"] {
-                    margin-bottom: 8px !important;
-                    padding: 6px 12px !important;
-                }
-                #ctv_price_list_print_content div[style*="margin-top:20px"] {
-                    margin-top: 10px !important;
-                }
-                #ctv_price_list_print_content div[style*="margin-top:40px"] {
-                    margin-top: 15px !important;
-                }
-                #ctv_price_list_print_content table th, 
-                #ctv_price_list_print_content table td {
-                    padding: 4px 6px !important;
-                    font-size: 11.5px !important;
-                }
-                #ctv_price_list_print_content img[style*="height:60px"] {
-                    height: 40px !important;
-                    width: 40px !important;
-                }
-                #ctv_price_list_print_content h1 {
-                    font-size: 16px !important;
-                }
-                #ctv_price_list_print_content h2 {
-                    font-size: 11px !important;
-                }
-                #ctv_price_list_print_content h3 {
-                    font-size: 11px !important;
-                    margin-bottom: 6px !important;
-                }
-                #ctv_price_list_print_content h4 {
-                    font-size: 11px !important;
-                    margin-bottom: 6px !important;
-                }
-                
-                /* Reduce signature block height */
-                #ctv_price_list_print_content div[style*="height:50px"] {
-                    height: 25px !important;
-                }
-                
-                .no-print {
-                    display: none !important;
-                }
-                @page {
-                    size: A4 portrait;
-                    margin: 0; /* Hides default header (title) and footer (URL) */
-                }
-            }
-        `;
-        document.head.appendChild(style);
-    }
+    _ctvInjectUnifiedPrintStyles();
 
     const mats = c.materials || [];
     const sc = c.surcharges || {};
@@ -3692,11 +3586,236 @@ function _ctvPrintPriceList(mode) {
         document.title = `Báo Giá CTV HV ${formattedDate}`;
     }
     
+    document.body.classList.add('print-price-list');
+    document.body.classList.remove('print-quotation');
+    
     window.print();
     
     setTimeout(() => {
         document.title = originalTitle;
+        document.body.classList.remove('print-price-list');
     }, 100);
+}
+
+function _ctvPrintQuotation(mode) {
+    const originalTitle = document.title;
+    const d = typeof vnNow === 'function' ? vnNow() : new Date();
+    const vnParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+    }).formatToParts(d);
+    const day = vnParts.find(p => p.type === 'day').value;
+    const month = vnParts.find(p => p.type === 'month').value;
+    const year = vnParts.find(p => p.type === 'year').value;
+    const formattedDate = `${day}-${month}-${year}`;
+
+    const hasCustomer = !!_ctvState.selectedCustomer;
+    const customerName = hasCustomer ? _ctvState.selectedCustomer.customer_name : '';
+    
+    if (mode === 'customer') {
+        const displayCustName = customerName ? `(${customerName})` : '(Quý Khách)';
+        document.title = `Báo Giá HV - Gửi Khách ${displayCustName} ${formattedDate}`;
+    } else {
+        const displayCustName = customerName ? `(${customerName})` : '(Đại Lý)';
+        document.title = `Báo Giá CTV HV ${displayCustName} ${formattedDate}`;
+    }
+    
+    document.body.classList.add('print-quotation');
+    document.body.classList.remove('print-price-list');
+    
+    window.print();
+    
+    setTimeout(() => {
+        document.title = originalTitle;
+        document.body.classList.remove('print-quotation');
+    }, 100);
+}
+
+function _ctvInjectUnifiedPrintStyles() {
+    let style = document.getElementById('ctv_price_list_print_style');
+    if (!style) {
+        style = document.createElement('style');
+        style.id = 'ctv_price_list_print_style';
+        style.innerHTML = `
+            @media print {
+                /* General rules */
+                .no-print {
+                    display: none !important;
+                }
+                @page {
+                    size: A4 portrait;
+                    margin: 0; /* Hides default header/footer */
+                }
+                
+                /* Case 1: Printing Price List */
+                body.print-price-list > *:not(#ctv_price_list_export_modal) {
+                    display: none !important;
+                }
+                body.print-price-list #ctv_price_list_export_modal {
+                    display: block !important;
+                    position: absolute !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    width: 100% !important;
+                    height: auto !important;
+                    margin: 0 !important;
+                    padding: 8mm 10mm !important;
+                    background: white !important;
+                    box-shadow: none !important;
+                    box-sizing: border-box !important;
+                }
+                body.print-price-list #ctv_price_list_export_modal, 
+                body.print-price-list #ctv_price_list_export_modal * {
+                    visibility: visible !important;
+                }
+                body.print-price-list #ctv_price_list_export_modal > div {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    max-height: none !important;
+                    height: auto !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                body.print-price-list #ctv_price_list_print_content {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    background: white !important;
+                    overflow: visible !important;
+                    zoom: 0.85 !important;
+                }
+                body.print-price-list #ctv_price_list_print_content > div {
+                    border: none !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                }
+                body.print-price-list #ctv_price_list_print_content div[style*="margin-bottom:30px"] {
+                    margin-bottom: 10px !important;
+                    padding-bottom: 6px !important;
+                }
+                body.print-price-list #ctv_price_list_print_content div[style*="margin-bottom:24px"] {
+                    margin-bottom: 8px !important;
+                    padding: 6px 12px !important;
+                }
+                body.print-price-list #ctv_price_list_print_content div[style*="margin-top:20px"] {
+                    margin-top: 10px !important;
+                }
+                body.print-price-list #ctv_price_list_print_content div[style*="margin-top:40px"] {
+                    margin-top: 15px !important;
+                }
+                body.print-price-list #ctv_price_list_print_content table th, 
+                body.print-price-list #ctv_price_list_print_content table td {
+                    padding: 4px 6px !important;
+                    font-size: 11.5px !important;
+                }
+                body.print-price-list #ctv_price_list_print_content img[style*="height:60px"] {
+                    height: 40px !important;
+                    width: 40px !important;
+                }
+                body.print-price-list #ctv_price_list_print_content h1 {
+                    font-size: 16px !important;
+                }
+                body.print-price-list #ctv_price_list_print_content h2 {
+                    font-size: 11px !important;
+                }
+                body.print-price-list #ctv_price_list_print_content h3,
+                body.print-price-list #ctv_price_list_print_content h4 {
+                    font-size: 11px !important;
+                    margin-bottom: 6px !important;
+                }
+                body.print-price-list #ctv_price_list_print_content div[style*="height:50px"] {
+                    height: 25px !important;
+                }
+                
+                /* Case 2: Printing Quotation */
+                body.print-quotation > *:not(#ctv_export_modal) {
+                    display: none !important;
+                }
+                body.print-quotation #ctv_export_modal {
+                    display: block !important;
+                    position: absolute !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    width: 100% !important;
+                    height: auto !important;
+                    margin: 0 !important;
+                    padding: 8mm 10mm !important;
+                    background: white !important;
+                    box-shadow: none !important;
+                    box-sizing: border-box !important;
+                }
+                body.print-quotation #ctv_export_modal, 
+                body.print-quotation #ctv_export_modal * {
+                    visibility: visible !important;
+                }
+                body.print-quotation #ctv_export_modal > div {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    max-height: none !important;
+                    height: auto !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    background: white !important;
+                    overflow: visible !important;
+                    zoom: 0.85 !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content > div {
+                    border: none !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content div[style*="margin-bottom:30px"] {
+                    margin-bottom: 10px !important;
+                    padding-bottom: 6px !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content div[style*="margin-bottom:24px"] {
+                    margin-bottom: 8px !important;
+                    padding: 6px 12px !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content div[style*="margin-top:20px"] {
+                    margin-top: 10px !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content div[style*="margin-top:40px"] {
+                    margin-top: 15px !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content table th, 
+                body.print-quotation #ctv_print_export_modal_content table td {
+                    padding: 4px 6px !important;
+                    font-size: 11.5px !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content img[style*="height:60px"] {
+                    height: 40px !important;
+                    width: 40px !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content h1 {
+                    font-size: 16px !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content h2 {
+                    font-size: 11px !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content h3,
+                body.print-quotation #ctv_print_export_modal_content h4 {
+                    font-size: 11px !important;
+                    margin-bottom: 6px !important;
+                }
+                body.print-quotation #ctv_print_export_modal_content div[style*="height:50px"] {
+                    height: 25px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
 function _ctvCopyPriceListText(configId, mode) {
