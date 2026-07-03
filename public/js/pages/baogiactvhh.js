@@ -908,20 +908,31 @@ function _ctvRenderSurchargeCheckboxes() {
         return !priceInfo.isContact;
     }).map(item => {
         const is100Plus = item.name.toLowerCase().includes('từ 100 áo') || item.name.toLowerCase().includes('tu 100 ao');
+        const is200Plus = item.name.toLowerCase().includes('từ 200 áo') || item.name.toLowerCase().includes('tu 200 ao');
         
         let isChecked = false;
         let isDisabled = false;
         
-        if (is100Plus && qty >= 100) {
-            isChecked = true;
-            isDisabled = true;
-            _ctvState.surcharges[item.key] = true;
-        } else if (is100Plus && qty < 100) {
-            if (_ctvState.surcharges[item.key] === true) {
+        if (is200Plus) {
+            if (qty >= 200) {
+                isChecked = true;
+                isDisabled = true;
+                _ctvState.surcharges[item.key] = true;
+            } else {
                 _ctvState.surcharges[item.key] = false;
+                isChecked = false;
+                isDisabled = true;
             }
-            isChecked = !!_ctvState.surcharges[item.key];
-            isDisabled = false;
+        } else if (is100Plus) {
+            if (qty >= 100 && qty < 200) {
+                isChecked = true;
+                isDisabled = true;
+                _ctvState.surcharges[item.key] = true;
+            } else {
+                _ctvState.surcharges[item.key] = false;
+                isChecked = false;
+                isDisabled = true;
+            }
         } else {
             isChecked = !!_ctvState.surcharges[item.key];
             isDisabled = false;
