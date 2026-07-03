@@ -3268,22 +3268,81 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
         style.id = 'ctv_price_list_print_style';
         style.innerHTML = `
             @media print {
-                body * {
-                    visibility: hidden !important;
+                /* Hide everything except the export modal */
+                body > *:not(#ctv_price_list_export_modal) {
+                    display: none !important;
                 }
-                #ctv_price_list_print_content, #ctv_price_list_print_content * {
-                    visibility: visible !important;
-                }
-                #ctv_price_list_print_content {
+                #ctv_price_list_export_modal {
+                    display: block !important;
                     position: absolute !important;
                     left: 0 !important;
                     top: 0 !important;
                     width: 100% !important;
+                    height: auto !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                    box-shadow: none !important;
+                }
+                #ctv_price_list_export_modal > div {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    max-height: none !important;
+                    height: auto !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                #ctv_price_list_print_content {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    background: white !important;
+                    overflow: visible !important;
+                }
+                #ctv_price_list_print_content > div {
+                    border: none !important;
+                    box-shadow: none !important;
                     padding: 0 !important;
                     margin: 0 !important;
                 }
+                
+                /* Compact print spacing to guarantee exactly one A4 page */
+                #ctv_price_list_print_content div[style*="margin-bottom:30px"] {
+                    margin-bottom: 12px !important;
+                    padding-bottom: 10px !important;
+                }
+                #ctv_price_list_print_content div[style*="margin-bottom:24px"] {
+                    margin-bottom: 10px !important;
+                    padding: 8px 12px !important;
+                }
+                #ctv_price_list_print_content div[style*="margin-top:20px"] {
+                    margin-top: 10px !important;
+                }
+                #ctv_price_list_print_content div[style*="margin-top:40px"] {
+                    margin-top: 15px !important;
+                }
+                #ctv_price_list_print_content table th, 
+                #ctv_price_list_print_content table td {
+                    padding: 6px 8px !important;
+                }
+                #ctv_price_list_print_content img[style*="height:60px"] {
+                    height: 48px !important;
+                    width: 48px !important;
+                }
+                #ctv_price_list_print_content h1 {
+                    font-size: 18px !important;
+                }
+                #ctv_price_list_print_content h2 {
+                    font-size: 12px !important;
+                }
+                
                 .no-print {
                     display: none !important;
+                }
+                @page {
+                    size: A4 portrait;
+                    margin: 10mm;
                 }
             }
         `;
