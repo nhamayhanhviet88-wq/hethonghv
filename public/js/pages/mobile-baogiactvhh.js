@@ -720,24 +720,44 @@ function _mUpdateCalculations() {
         ${calc.surchargesBreakdown.length > 0 ? `
             <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
                 <div style="font-size:10px; color:#94a3b8; font-weight:700; margin-bottom:4px;">PHỤ PHÍ:</div>
-                ${calc.surchargesBreakdown.map(s => `
-                    <div class="m-result-row" style="font-size:12px;">
-                        <span>• ${s.label}</span>
-                        <span>${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}</span>
-                    </div>
-                `).join('')}
+                ${calc.surchargesBreakdown.map(s => {
+                    if (s.isContact) {
+                        return `
+                            <div class="m-result-row" style="font-size:12px;">
+                                <span>• ${s.label} ${s.contactText}</span>
+                                <span></span>
+                            </div>
+                        `;
+                    }
+                    return `
+                        <div class="m-result-row" style="font-size:12px;">
+                            <span>• ${s.label}</span>
+                            <span>${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ</span>
+                        </div>
+                    `;
+                }).join('')}
             </div>
         ` : ''}
         
         ${calc.printBreakdown.length > 0 ? `
             <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:6px;">
                 <div style="font-size:10px; color:#94a3b8; font-weight:700; margin-bottom:4px;">IN / THÊU:</div>
-                ${calc.printBreakdown.map(p => `
-                    <div class="m-result-row" style="font-size:12px;">
-                        <span>• ${p.label}</span>
-                        <span>${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}</span>
-                    </div>
-                `).join('')}
+                ${calc.printBreakdown.map(p => {
+                    if (p.isContact) {
+                        return `
+                            <div class="m-result-row" style="font-size:12px;">
+                                <span>• ${p.label}</span>
+                                <span></span>
+                            </div>
+                        `;
+                    }
+                    return `
+                        <div class="m-result-row" style="font-size:12px;">
+                            <span>• ${p.label}</span>
+                            <span>+${p.price.toLocaleString('vi-VN')} đ</span>
+                        </div>
+                    `;
+                }).join('')}
             </div>
         ` : ''}
         

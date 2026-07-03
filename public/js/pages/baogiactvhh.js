@@ -1273,12 +1273,22 @@ function _ctvUpdateCalculations() {
         ${calc.surchargesBreakdown.length > 0 ? `
             <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:8px 0; padding-top:8px;">
                 <div style="font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin-bottom:6px;">Phụ phí thêm:</div>
-                ${calc.surchargesBreakdown.map(s => `
-                    <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
-                        <span style="padding-left:8px;">+ ${s.label}</span>
-                        <span>${s.isContact ? s.contactText : `${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ`}</span>
-                    </div>
-                `).join('')}
+                ${calc.surchargesBreakdown.map(s => {
+                    if (s.isContact) {
+                        return `
+                            <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
+                                <span style="padding-left:8px;">+ ${s.label} ${s.contactText}</span>
+                                <span></span>
+                            </div>
+                        `;
+                    }
+                    return `
+                        <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
+                            <span style="padding-left:8px;">+ ${s.label}</span>
+                            <span>${s.price >= 0 ? '+' : ''}${s.price.toLocaleString('vi-VN')} đ</span>
+                        </div>
+                    `;
+                }).join('')}
             </div>
         ` : ''}
         
@@ -1286,12 +1296,22 @@ function _ctvUpdateCalculations() {
         ${calc.printBreakdown.length > 0 ? `
             <div style="border-top:1px dashed rgba(255,255,255,0.1); margin:8px 0; padding-top:8px;">
                 <div style="font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin-bottom:6px;">Chi tiết in/thêu:</div>
-                ${calc.printBreakdown.map(p => `
-                    <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
-                        <span style="padding-left:8px;">+ ${p.label}</span>
-                        <span>${p.isContact ? p.contactText : `+${p.price.toLocaleString('vi-VN')} đ`}</span>
-                    </div>
-                `).join('')}
+                ${calc.printBreakdown.map(p => {
+                    if (p.isContact) {
+                        return `
+                            <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
+                                <span style="padding-left:8px;">+ ${p.label}</span>
+                                <span></span>
+                            </div>
+                        `;
+                    }
+                    return `
+                        <div class="ctv-result-row" style="font-size:13px; margin-bottom:4px;">
+                            <span style="padding-left:8px;">+ ${p.label}</span>
+                            <span>+${p.price.toLocaleString('vi-VN')} đ</span>
+                        </div>
+                    `;
+                }).join('')}
             </div>
         ` : ''}
         
