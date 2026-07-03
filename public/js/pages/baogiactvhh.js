@@ -307,6 +307,55 @@ async function renderBaogiactvhhPage(content) {
             .ctv-btn-secondary:hover {
                 background: #e2e8f0;
             }
+            .ctv-btn-primary {
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 12px 20px;
+                font-size: 14px;
+                font-weight: 750;
+                cursor: pointer;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+            }
+            .ctv-btn-primary:hover {
+                transform: translateY(-2px);
+                filter: brightness(1.15);
+            }
+            .ctv-btn-primary:active {
+                transform: translateY(0);
+            }
+            .btn-print-pet {
+                background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+                box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
+            }
+            .btn-print-pet:hover {
+                box-shadow: 0 6px 20px rgba(13, 148, 136, 0.45);
+            }
+            .btn-print-3d {
+                background: linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%);
+                box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+            }
+            .btn-print-3d:hover {
+                box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+            }
+            .btn-print-screen {
+                background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+                box-shadow: 0 4px 14px rgba(168, 85, 247, 0.3);
+            }
+            .btn-print-screen:hover {
+                box-shadow: 0 6px 20px rgba(168, 85, 247, 0.45);
+            }
+            .btn-print-emb {
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+            }
+            .btn-print-emb:hover {
+                box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45);
+            }
             /* Result Breakdown area */
             .ctv-result-card {
                 background: #1e293b;
@@ -1006,7 +1055,7 @@ function _ctvRenderPrintPanel() {
                 
                 <div id="ctv_pet_shapes_list"></div>
                 <div style="margin-top: 14px; border-top: 1px dashed #5eead4; padding-top: 10px;">
-                    <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0f766e; border-color:#0f766e;" onclick="_ctvSaveActivePrint()">
+                    <button type="button" class="ctv-btn-primary btn-print-pet" style="width:100%;" onclick="_ctvSaveActivePrint()">
                         💾 Lưu phương án In PET
                     </button>
                 </div>
@@ -1034,7 +1083,7 @@ function _ctvRenderPrintPanel() {
                         </select>
                     </div>
                     <div style="margin-top: 14px; border-top: 1px dashed #7dd3fc; padding-top: 10px;">
-                        <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7;" onclick="_ctvSaveActivePrint()">
+                        <button type="button" class="ctv-btn-primary btn-print-3d" style="width:100%;" onclick="_ctvSaveActivePrint()">
                             💾 Lưu phương án In 3D
                         </button>
                     </div>
@@ -1056,7 +1105,7 @@ function _ctvRenderPrintPanel() {
                         </select>
                     </div>
                     <div style="margin-top: 14px; border-top: 1px dashed #7dd3fc; padding-top: 10px;">
-                        <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7;" onclick="_ctvSaveActivePrint()">
+                        <button type="button" class="ctv-btn-primary btn-print-3d" style="width:100%;" onclick="_ctvSaveActivePrint()">
                             💾 Lưu phương án In 3D
                         </button>
                     </div>
@@ -1077,7 +1126,7 @@ function _ctvRenderPrintPanel() {
                     <input type="number" class="ctv-input" id="ctv_screen_colors" min="1" value="${_ctvState.screenColors}" oninput="_ctvOnScreenColorsChange(this.value)">
                 </div>
                 <div style="margin-top: 14px; border-top: 1px dashed #c084fc; padding-top: 10px;">
-                    <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#7e22ce; border-color:#7e22ce;" onclick="_ctvSaveActivePrint()">
+                    <button type="button" class="ctv-btn-primary btn-print-screen" style="width:100%;" onclick="_ctvSaveActivePrint()">
                         💾 Lưu phương án In Lưới
                     </button>
                 </div>
@@ -1092,7 +1141,7 @@ function _ctvRenderPrintPanel() {
                     <input type="text" class="ctv-input" id="ctv_emb_cost" value="${_ctvState.embroideryCost}" oninput="_ctvOnEmbCostChange(this.value)">
                 </div>
                 <div style="margin-top: 14px; border-top: 1px dashed #fde047; padding-top: 10px;">
-                    <button type="button" class="ctv-btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#d97706; border-color:#d97706;" onclick="_ctvSaveActivePrint()">
+                    <button type="button" class="ctv-btn-primary btn-print-emb" style="width:100%;" onclick="_ctvSaveActivePrint()">
                         💾 Lưu phương án Thêu
                     </button>
                 </div>

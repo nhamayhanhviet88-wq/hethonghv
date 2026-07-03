@@ -504,7 +504,7 @@ function _mRenderPrintPanel() {
                 
                 <div id="m_pet_shapes_list" class="m-shapes-list"></div>
                 <div style="margin-top: 10px; border-top: 1px dashed #5eead4; padding-top: 8px;">
-                    <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0f766e; border-color:#0f766e; color:white;" onclick="_mSaveActivePrint()">
+                    <button type="button" class="m-btn btn-print-pet" onclick="_mSaveActivePrint()">
                         💾 Lưu phương án In PET
                     </button>
                 </div>
@@ -529,7 +529,7 @@ function _mRenderPrintPanel() {
                         </select>
                     </div>
                     <div style="margin-top: 10px; border-top: 1px dashed #7dd3fc; padding-top: 8px;">
-                        <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7; color:white;" onclick="_mSaveActivePrint()">
+                        <button type="button" class="m-btn btn-print-3d" onclick="_mSaveActivePrint()">
                             💾 Lưu phương án In 3D
                         </button>
                     </div>
@@ -548,7 +548,7 @@ function _mRenderPrintPanel() {
                         </select>
                     </div>
                     <div style="margin-top: 10px; border-top: 1px dashed #7dd3fc; padding-top: 8px;">
-                        <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7; color:white;" onclick="_mSaveActivePrint()">
+                        <button type="button" class="m-btn btn-print-3d" onclick="_mSaveActivePrint()">
                             💾 Lưu phương án In 3D
                         </button>
                     </div>
@@ -565,7 +565,7 @@ function _mRenderPrintPanel() {
                     <input type="number" class="m-input" id="m_screen_colors" min="1" value="${_mState.screenColors}" oninput="_mOnScreenColorsChange(this.value)">
                 </div>
                 <div style="margin-top: 10px; border-top: 1px dashed #c084fc; padding-top: 8px;">
-                    <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#7e22ce; border-color:#7e22ce; color:white;" onclick="_mSaveActivePrint()">
+                    <button type="button" class="m-btn btn-print-screen" onclick="_mSaveActivePrint()">
                         💾 Lưu phương án In Lưới
                     </button>
                 </div>
@@ -579,7 +579,7 @@ function _mRenderPrintPanel() {
                     <input type="text" class="m-input" id="m_emb_cost" value="${_mState.embroideryCost}" oninput="_mOnEmbCostChange(this.value)">
                 </div>
                 <div style="margin-top: 10px; border-top: 1px dashed #fcd34d; padding-top: 8px;">
-                    <button type="button" class="m-btn" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px; background:#d97706; border-color:#d97706; color:white;" onclick="_mSaveActivePrint()">
+                    <button type="button" class="m-btn btn-print-emb" onclick="_mSaveActivePrint()">
                         💾 Lưu phương án Thêu
                     </button>
                 </div>
