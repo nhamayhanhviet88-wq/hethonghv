@@ -329,6 +329,22 @@ async function renderBaogiactvhhPage(content) {
             .ctv-btn-primary:active {
                 transform: translateY(0);
             }
+            .btn-add-pet-shape {
+                background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+                color: white !important;
+                border: none !important;
+                font-weight: 700 !important;
+                box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
+                transition: all 0.2s ease;
+            }
+            .btn-add-pet-shape:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45) !important;
+                filter: brightness(1.15);
+            }
+            .btn-add-pet-shape:active {
+                transform: translateY(0);
+            }
             .btn-print-pet {
                 background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
                 box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
@@ -1075,11 +1091,11 @@ function _ctvRenderPrintPanel() {
                         <label style="font-size:11px; font-weight:700; color:#0f766e;">SL/Áo</label>
                         <input type="number" class="ctv-input" id="ctv_pet_qty" value="1" min="1" oninput="_ctvUpdateCalculations()">
                     </div>
-                    <button type="button" class="ctv-btn-secondary" style="padding: 10px 14px;" onclick="_ctvAddPetShape()">Thêm</button>
+                    <button type="button" class="ctv-btn-secondary btn-add-pet-shape" style="padding: 10px 14px;" onclick="_ctvAddPetShape()">Thêm</button>
                 </div>
                 ` : `
                 <div style="margin-bottom: 12px;">
-                    <button type="button" class="ctv-btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: #0f766e; color: white; border: none; font-weight: 700; padding: 12px;" onclick="_ctvShowPetInput(true)">
+                    <button type="button" class="ctv-btn-secondary btn-add-pet-shape" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px;" onclick="_ctvShowPetInput(true)">
                         ➕ Thêm hình in PET
                     </button>
                 </div>
@@ -1411,7 +1427,6 @@ function _ctvRenderPetShapesList() {
                     <th>STT</th>
                     <th>Kích thước</th>
                     <th>SL/áo</th>
-                    <th>Cách xếp</th>
                     <th>Xóa</th>
                 </tr>
             </thead>
@@ -1421,12 +1436,6 @@ function _ctvRenderPetShapesList() {
                         <td>${idx + 1}</td>
                         <td>${s.width} x ${s.height} cm</td>
                         <td>${s.qty_per_shirt} hình</td>
-                        <td>
-                            <select onchange="_ctvUpdateShapeMode(${idx}, this.value)" style="padding:2px 4px; font-size:11px; border-radius:4px;">
-                                <option value="aligned" ${s.mode === 'aligned' ? 'selected' : ''}>Xếp thẳng</option>
-                                <option value="nested" ${s.mode === 'nested' ? 'selected' : ''}>Xếp tối ưu</option>
-                            </select>
-                        </td>
                         <td>
                             <button type="button" class="ctv-remove-btn" onclick="_ctvRemovePetShape(${idx})">×</button>
                         </td>

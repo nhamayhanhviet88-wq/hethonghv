@@ -523,12 +523,12 @@ function _mRenderPrintPanel() {
                         <input type="number" class="m-input" id="m_pet_qty" value="1" min="1" oninput="_mUpdateCalculations()">
                     </div>
                     <div style="display:flex; align-items:end;">
-                        <button type="button" class="m-btn" style="padding:10px 0; font-size:12px;" onclick="_mAddPetShape()">Thêm hình</button>
+                        <button type="button" class="m-btn btn-add-pet-shape" style="padding:10px 0; font-size:12px;" onclick="_mAddPetShape()">Thêm hình</button>
                     </div>
                 </div>
                 ` : `
                 <div style="margin-bottom: 10px;">
-                    <button type="button" class="m-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; background: #0d9488; color: white; border: none; font-size:12px; padding: 10px;" onclick="_mShowPetInput(true)">
+                    <button type="button" class="m-btn btn-add-pet-shape" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; font-size:12px; padding: 10px;" onclick="_mShowPetInput(true)">
                         ➕ Thêm hình in
                     </button>
                 </div>
