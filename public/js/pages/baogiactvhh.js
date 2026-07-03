@@ -49,6 +49,7 @@ var _ctvState = {
     // 3D printing cost state
     print3dCost: 30000,
     petChestPrint: false,
+    showPetInputForm: false,
     includeCommission: false,
     targetType: null,
     
@@ -999,6 +1000,7 @@ function _ctvGetOrderedSurchargesList(surchargesObj) {
 
 function _ctvOnPrintTypeChange(val) {
     _ctvState.printType = val;
+    _ctvState.showPetInputForm = false;
     _ctvRenderPrintPanel();
     _ctvUpdateCalculations();
 }
@@ -1037,21 +1039,29 @@ function _ctvRenderPrintPanel() {
                     </label>
                 </div>
                 
-                <div class="ctv-pet-shape-form">
+                ${_ctvState.showPetInputForm ? `
+                <div class="ctv-pet-shape-form" style="margin-bottom:12px;">
                     <div>
                         <label style="font-size:11px; font-weight:700; color:#0f766e;">Rộng (cm)</label>
-                        <input type="number" class="ctv-input" id="ctv_pet_w" step="0.1" value="10">
+                        <input type="number" class="ctv-input" id="ctv_pet_w" step="0.1" value="10" oninput="_ctvUpdateCalculations()">
                     </div>
                     <div>
                         <label style="font-size:11px; font-weight:700; color:#0f766e;">Cao (cm)</label>
-                        <input type="number" class="ctv-input" id="ctv_pet_h" step="0.1" value="10">
+                        <input type="number" class="ctv-input" id="ctv_pet_h" step="0.1" value="10" oninput="_ctvUpdateCalculations()">
                     </div>
                     <div>
                         <label style="font-size:11px; font-weight:700; color:#0f766e;">SL/Áo</label>
-                        <input type="number" class="ctv-input" id="ctv_pet_qty" value="1" min="1">
+                        <input type="number" class="ctv-input" id="ctv_pet_qty" value="1" min="1" oninput="_ctvUpdateCalculations()">
                     </div>
                     <button type="button" class="ctv-btn-secondary" style="padding: 10px 14px;" onclick="_ctvAddPetShape()">Thêm</button>
                 </div>
+                ` : `
+                <div style="margin-bottom: 12px;">
+                    <button type="button" class="ctv-btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: #0f766e; color: white; border: none; font-weight: 700; padding: 12px;" onclick="_ctvShowPetInput(true)">
+                        ➕ Thêm hình in PET
+                    </button>
+                </div>
+                `}
                 
                 <div id="ctv_pet_shapes_list"></div>
                 <div style="margin-top: 14px; border-top: 1px dashed #5eead4; padding-top: 10px;">
@@ -1153,9 +1163,35 @@ function _ctvRenderPrintPanel() {
 function _ctvSaveActivePrint() {
     if (_ctvState.printType === 'none') return;
     
-    if (_ctvState.printType === 'pet' && _ctvState.petShapes.length === 0 && !_ctvState.petChestPrint) {
-        alert('Vui lòng thêm hình in PET hoặc chọn In PET Ngực.');
-        return;
+    if (_ctvState.printType === 'pet') {
+        if (_ctvState.showPetInputForm) {
+            const wEl = document.getElementById('ctv_pet_w');
+            const hEl = document.getElementById('ctv_pet_h');
+            const qtyEl = document.getElementById('ctv_pet_qty');
+            
+            const wVal = wEl ? wEl.value.trim() : '';
+            const hVal = hEl ? hEl.value.trim() : '';
+            const qtyVal = qtyEl ? qtyEl.value.trim() : '';
+            
+            if (!wVal || !hVal || !qtyVal || parseFloat(wVal) <= 0 || parseFloat(hVal) <= 0 || parseInt(qtyVal) <= 0) {
+                alert('Vui lòng điền đầy đủ kích thước và số lượng hình in PET.');
+                return;
+            }
+            
+            // Auto-add the shape if valid
+            _ctvState.petShapes.push({
+                width: parseFloat(wVal),
+                height: parseFloat(hVal),
+                qty_per_shirt: parseInt(qtyVal),
+                mode: 'aligned'
+            });
+            _ctvState.showPetInputForm = false;
+        }
+        
+        if (_ctvState.petShapes.length === 0 && !_ctvState.petChestPrint) {
+            alert('Vui lòng thêm hình in PET hoặc chọn In PET Ngực.');
+            return;
+        }
     }
     
     const printItem = {
@@ -1178,6 +1214,7 @@ function _ctvSaveActivePrint() {
     _ctvState.printType = 'none';
     _ctvState.petShapes = [];
     _ctvState.petChestPrint = false;
+    _ctvState.showPetInputForm = false;
     
     const selectEl = document.getElementById('ctv_print_type');
     if (selectEl) selectEl.value = 'none';
@@ -1293,6 +1330,12 @@ function _ctvOnEmbCostChange(val) {
     _ctvUpdateCalculations();
 }
 
+function _ctvShowPetInput(show) {
+    _ctvState.showPetInputForm = show;
+    _ctvRenderPrintPanel();
+    _ctvUpdateCalculations();
+}
+
 function _ctvAddPetShape() {
     const wInput = document.getElementById('ctv_pet_w');
     const hInput = document.getElementById('ctv_pet_h');
@@ -1316,8 +1359,10 @@ function _ctvAddPetShape() {
         mode: 'aligned' // Mode xếp thẳng hàng mặc định
     });
     
+    _ctvState.showPetInputForm = false;
     _ctvRenderPetShapesList();
     _ctvUpdateCalculations();
+    _ctvRenderPrintPanel();
 }
 
 function _ctvRemovePetShape(idx) {
@@ -1629,7 +1674,27 @@ function _ctvCalculateAllCosts() {
                 breakdown.push({ label: `In PET Ngực (cố định)`, price: chestPrice });
             }
             
-            const shapes = details.petShapes || [];
+            const shapes = [...(details.petShapes || [])];
+            if (_ctvState.showPetInputForm && details.petShapes === _ctvState.petShapes) {
+                const wEl = document.getElementById('ctv_pet_w');
+                const hEl = document.getElementById('ctv_pet_h');
+                const qtyEl = document.getElementById('ctv_pet_qty');
+                
+                const w = wEl ? parseFloat(wEl.value) : 10;
+                const h = hEl ? parseFloat(hEl.value) : 10;
+                const qty = qtyEl ? parseInt(qtyEl.value) : 1;
+                
+                if (w > 0 && h > 0 && qty > 0) {
+                    shapes.push({
+                        width: w,
+                        height: h,
+                        qty_per_shirt: qty,
+                        mode: 'aligned',
+                        isActiveInput: true
+                    });
+                }
+            }
+            
             shapes.forEach((s, idx) => {
                 const packed = _ctvState.activeConfig ? _ctvCalcPetPlacement(58, 100, s.width, s.height, spacing) : { aligned: 0, optimized: 0 };
                 const perSheetCount = s.mode === 'nested' ? packed.optimized : packed.aligned;
@@ -1637,7 +1702,7 @@ function _ctvCalculateAllCosts() {
                 if (perSheetCount > 0) {
                     const sheetFraction = s.qty_per_shirt / perSheetCount;
                     let costPerShirt = Math.round(sheetFraction * sheetPrice);
-                    let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm (${s.qty_per_shirt} hình, xếp ${s.mode === 'nested' ? 'tối ưu' : 'thẳng'})`;
+                    let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm (${s.qty_per_shirt} hình, xếp ${s.mode === 'nested' ? 'tối ưu' : 'thẳng'})${s.isActiveInput ? ' (Dự tính)' : ''}`;
                     
                     if (costPerShirt < minPositionPrice) {
                         costPerShirt = minPositionPrice;

@@ -43,6 +43,7 @@ var _mState = {
     embroideryCost: 15000,
     print3dCost: 30000,
     petChestPrint: false,
+    showPetInputForm: false,
     includeCommission: false,
     targetType: null,
     historyLogs: [],
@@ -450,6 +451,7 @@ function _mGetOrderedOptionalSurcharges(config) {
 
 function _mOnPrintTypeChange(val) {
     _mState.printType = val;
+    _mState.showPetInputForm = false;
     _mRenderPrintPanel();
     _mUpdateCalculations();
 }
@@ -482,25 +484,33 @@ function _mRenderPrintPanel() {
                     </label>
                 </div>
                 
+                ${_mState.showPetInputForm ? `
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
                     <div>
                         <label style="font-size:10px; color:#475569; font-weight:700;">RỘNG (CM)</label>
-                        <input type="number" class="m-input" id="m_pet_w" step="0.1" value="10">
+                        <input type="number" class="m-input" id="m_pet_w" step="0.1" value="10" oninput="_mUpdateCalculations()">
                     </div>
                     <div>
                         <label style="font-size:10px; color:#475569; font-weight:700;">CAO (CM)</label>
-                        <input type="number" class="m-input" id="m_pet_h" step="0.1" value="10">
+                        <input type="number" class="m-input" id="m_pet_h" step="0.1" value="10" oninput="_mUpdateCalculations()">
                     </div>
                 </div>
-                <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:6px;">
+                <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:6px; margin-bottom:10px;">
                     <div>
                         <label style="font-size:10px; color:#475569; font-weight:700;">SỐ HÌNH/ÁO</label>
-                        <input type="number" class="m-input" id="m_pet_qty" value="1" min="1">
+                        <input type="number" class="m-input" id="m_pet_qty" value="1" min="1" oninput="_mUpdateCalculations()">
                     </div>
                     <div style="display:flex; align-items:end;">
                         <button type="button" class="m-btn" style="padding:10px 0; font-size:12px;" onclick="_mAddPetShape()">Thêm hình</button>
                     </div>
                 </div>
+                ` : `
+                <div style="margin-bottom: 10px;">
+                    <button type="button" class="m-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; background: #0d9488; color: white; border: none; font-size:12px; padding: 10px;" onclick="_mShowPetInput(true)">
+                        ➕ Thêm hình in
+                    </button>
+                </div>
+                `}
                 
                 <div id="m_pet_shapes_list" class="m-shapes-list"></div>
                 <div style="margin-top: 10px; border-top: 1px dashed #5eead4; padding-top: 8px;">
@@ -591,9 +601,35 @@ function _mRenderPrintPanel() {
 function _mSaveActivePrint() {
     if (_mState.printType === 'none') return;
     
-    if (_mState.printType === 'pet' && _mState.petShapes.length === 0 && !_mState.petChestPrint) {
-        alert('Vui lòng thêm hình in PET hoặc chọn In PET Ngực.');
-        return;
+    if (_mState.printType === 'pet') {
+        if (_mState.showPetInputForm) {
+            const wEl = document.getElementById('m_pet_w');
+            const hEl = document.getElementById('m_pet_h');
+            const qtyEl = document.getElementById('m_pet_qty');
+            
+            const wVal = wEl ? wEl.value.trim() : '';
+            const hVal = hEl ? hEl.value.trim() : '';
+            const qtyVal = qtyEl ? qtyEl.value.trim() : '';
+            
+            if (!wVal || !hVal || !qtyVal || parseFloat(wVal) <= 0 || parseFloat(hVal) <= 0 || parseInt(qtyVal) <= 0) {
+                alert('Vui lòng điền đầy đủ kích thước và số lượng hình in PET.');
+                return;
+            }
+            
+            // Auto commit
+            _mState.petShapes.push({
+                width: parseFloat(wVal),
+                height: parseFloat(hVal),
+                qty_per_shirt: parseInt(qtyVal),
+                mode: 'aligned'
+            });
+            _mState.showPetInputForm = false;
+        }
+        
+        if (_mState.petShapes.length === 0 && !_mState.petChestPrint) {
+            alert('Vui lòng thêm hình in PET hoặc chọn In PET Ngực.');
+            return;
+        }
     }
     
     const printItem = {
@@ -616,6 +652,7 @@ function _mSaveActivePrint() {
     _mState.printType = 'none';
     _mState.petShapes = [];
     _mState.petChestPrint = false;
+    _mState.showPetInputForm = false;
     
     const selectEl = document.getElementById('m_print_type');
     if (selectEl) selectEl.value = 'none';
@@ -751,6 +788,12 @@ function _mOnEmbCostChange(val) {
     _mUpdateCalculations();
 }
 
+function _mShowPetInput(show) {
+    _mState.showPetInputForm = show;
+    _mRenderPrintPanel();
+    _mUpdateCalculations();
+}
+
 function _mAddPetShape() {
     const w = parseFloat(document.getElementById('m_pet_w')?.value) || 0;
     const h = parseFloat(document.getElementById('m_pet_h')?.value) || 0;
@@ -762,8 +805,10 @@ function _mAddPetShape() {
     }
     
     _mState.petShapes.push({ width: w, height: h, qty_per_shirt: qty, mode: 'aligned' });
+    _mState.showPetInputForm = false;
     _mRenderPetShapesList();
     _mUpdateCalculations();
+    _mRenderPrintPanel();
 }
 
 function _mRemovePetShape(idx) {
@@ -967,7 +1012,27 @@ function _mCalculateAllCosts() {
                 breakdown.push({ label: `In PET Ngực (cố định)`, price: chestPrice });
             }
             
-            const shapes = details.petShapes || [];
+            const shapes = [...(details.petShapes || [])];
+            if (_mState.showPetInputForm && details.petShapes === _mState.petShapes) {
+                const wEl = document.getElementById('m_pet_w');
+                const hEl = document.getElementById('m_pet_h');
+                const qtyEl = document.getElementById('m_pet_qty');
+                
+                const w = wEl ? parseFloat(wEl.value) : 10;
+                const h = hEl ? parseFloat(hEl.value) : 10;
+                const qty = qtyEl ? parseInt(qtyEl.value) : 1;
+                
+                if (w > 0 && h > 0 && qty > 0) {
+                    shapes.push({
+                        width: w,
+                        height: h,
+                        qty_per_shirt: qty,
+                        mode: 'aligned',
+                        isActiveInput: true
+                    });
+                }
+            }
+            
             shapes.forEach((s, idx) => {
                 const packed = _mState.activeConfig ? _mCalcPetPlacement(58, 100, s.width, s.height, spacing) : { aligned: 0, optimized: 0 };
                 const perSheetCount = packed.aligned; // Mobile aligned calculation
@@ -975,7 +1040,7 @@ function _mCalculateAllCosts() {
                 if (perSheetCount > 0) {
                     const sheetFraction = s.qty_per_shirt / perSheetCount;
                     let costPerShirt = Math.round(sheetFraction * sheetPrice);
-                    let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm`;
+                    let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm${s.isActiveInput ? ' (Dự tính)' : ''}`;
                     
                     if (costPerShirt < minPositionPrice) {
                         costPerShirt = minPositionPrice;
