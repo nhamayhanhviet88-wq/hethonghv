@@ -1845,7 +1845,11 @@ function _ctvUpdateCreatorName(val) {
 
 function _ctvOpenExportModal(mode = null) {
     const info = _ctvGetCompanyInfo();
-    const creatorName = _ctvState.creatorName || (window.currentUser && window.currentUser.full_name) || '';
+    const userObj = window._currentUser || window.currentUser;
+    const creatorName = _ctvState.creatorName || (userObj ? (userObj.full_name || userObj.username) : '');
+    if (!_ctvState.creatorName && creatorName) {
+        _ctvState.creatorName = creatorName;
+    }
     if (!mode) {
         mode = _ctvState.targetType === 'customer' ? 'customer' : 'ctv';
     }

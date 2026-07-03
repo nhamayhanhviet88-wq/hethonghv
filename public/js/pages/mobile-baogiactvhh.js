@@ -1079,7 +1079,11 @@ function _mOpenExportModal(mode = null) {
             logo: ""
         };
     }
-    const creatorName = _mState.creatorName || (window.currentUser && window.currentUser.full_name) || '';
+    const userObj = window._currentUser || window.currentUser;
+    const creatorName = _mState.creatorName || (userObj ? (userObj.full_name || userObj.username) : '');
+    if (!_mState.creatorName && creatorName) {
+        _mState.creatorName = creatorName;
+    }
     if (!mode) {
         mode = _mState.targetType === 'customer' ? 'customer' : 'ctv';
     }
