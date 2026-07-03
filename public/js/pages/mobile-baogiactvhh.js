@@ -377,6 +377,7 @@ function _mSelectTargetType(type) {
         }).join('');
     }
     
+    _mRenderPrintPanel();
     _mUpdateCalculations();
 }
 
@@ -455,10 +456,13 @@ function _mRenderPrintPanel() {
     
     if (_mState.printType === 'pet') {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
-        const chestPrice = petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000;
+        const isCust = _mState.targetType === 'customer';
+        const chestPrice = isCust
+            ? (petConfig.chest_price_customer !== undefined ? Number(petConfig.chest_price_customer) : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000))
+            : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000);
         panel.innerHTML = `
             <div style="background:#f0fdfa; border:1px dashed #99f6e4; border-radius:10px; padding:10px; margin-top:12px;">
-                <div style="font-size:11px; font-weight:700; color:#0d9488; margin-bottom:8px;">🧬 CẤU HÌNH PET KHỔ MÉT</div>
+                <div style="font-size:11px; font-weight:700; color:#0d9488; margin-bottom:8px;">🧬 CẤU HÌNH PET KHỔ MÉT (${isCust ? 'KHÁCH HÀNG' : 'CTV'})</div>
                 
                 <div style="background:#e0f2fe; border:1px solid #bae6fd; border-radius:8px; padding:8px; margin-bottom:10px; display:flex; align-items:center;">
                     <label style="display:flex; align-items:center; gap:6px; font-weight:700; color:#0369a1; cursor:pointer; margin:0; font-size:12px; width: 100%;">
@@ -740,10 +744,17 @@ function _mCalculateAllCosts() {
     
     if (pt === 'pet') {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
-        const sheetPrice = Number(petConfig.sheet_price) || 60000;
+        const isCust = _mState.targetType === 'customer';
+        const sheetPrice = isCust
+            ? (petConfig.sheet_price_customer !== undefined ? Number(petConfig.sheet_price_customer) : Number(petConfig.sheet_price) || 60000)
+            : (Number(petConfig.sheet_price) || 60000);
         const spacing = Number(petConfig.spacing) || 0.4;
-        const chestPrice = petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000;
-        const minPositionPrice = petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000;
+        const chestPrice = isCust
+            ? (petConfig.chest_price_customer !== undefined ? Number(petConfig.chest_price_customer) : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000))
+            : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000);
+        const minPositionPrice = isCust
+            ? (petConfig.min_position_price_customer !== undefined ? Number(petConfig.min_position_price_customer) : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000))
+            : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000);
         
         // Add flat chest print if enabled
         if (_mState.petChestPrint) {
@@ -1610,10 +1621,23 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                     <!-- PET -->
                     <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
                         <div style="font-weight: 750; color: #6b21a8; font-size: 11.5px; border-bottom: 1px dashed #e9d5ff; padding-bottom: 2px; margin-bottom: 2px;">🧬 In PET Khổ Mét</div>
-                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Khổ mét (58x100cm):</span><strong>${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ</strong></div>
-                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Khoảng cách an toàn:</span><strong>${pr.pet?.spacing} cm</strong></div>
-                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>In PET Ngực:</span><strong>+${Number(pr.pet?.chest_price || 5000).toLocaleString('vi-VN')}đ/áo</strong></div>
-                        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Tối thiểu/Vị trí khác:</span><strong>${Number(pr.pet?.min_position_price || 5000).toLocaleString('vi-VN')}đ</strong></div>
+                        ${(function() {
+                            const sheetPrice = mode === 'customer'
+                                ? (pr.pet?.sheet_price_customer !== undefined ? Number(pr.pet.sheet_price_customer) : Number(pr.pet?.sheet_price) || 60000)
+                                : (Number(pr.pet?.sheet_price) || 60000);
+                            const chestPrice = mode === 'customer'
+                                ? (pr.pet?.chest_price_customer !== undefined ? Number(pr.pet.chest_price_customer) : (pr.pet?.chest_price !== undefined ? Number(pr.pet.chest_price) : 5000))
+                                : (pr.pet?.chest_price !== undefined ? Number(pr.pet.chest_price) : 5000);
+                            const minPositionPrice = mode === 'customer'
+                                ? (pr.pet?.min_position_price_customer !== undefined ? Number(pr.pet.min_position_price_customer) : (pr.pet?.min_position_price !== undefined ? Number(pr.pet.min_position_price) : 5000))
+                                : (pr.pet?.min_position_price !== undefined ? Number(pr.pet.min_position_price) : 5000);
+                            return `
+                                <div style="display:flex; justify-content:space-between; align-items:center;"><span>Khổ mét (58x100cm):</span><strong>${sheetPrice.toLocaleString('vi-VN')}đ</strong></div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;"><span>Khoảng cách an toàn:</span><strong>${pr.pet?.spacing} cm</strong></div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;"><span>In PET Ngực:</span><strong>+${chestPrice.toLocaleString('vi-VN')}đ/áo</strong></div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;"><span>Tối thiểu/Vị trí khác:</span><strong>${minPositionPrice.toLocaleString('vi-VN')}đ</strong></div>
+                            `;
+                        })()}
                     </div>
                     <!-- Embroidery & 3D -->
                     <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">

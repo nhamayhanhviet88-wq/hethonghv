@@ -824,6 +824,7 @@ function _ctvSelectTargetType(type) {
         }).join('');
     }
     
+    _ctvRenderPrintPanel();
     _ctvUpdateCalculations();
 }
 
@@ -951,12 +952,18 @@ function _ctvRenderPrintPanel() {
     
     if (_ctvState.printType === 'pet') {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
-        const chestPrice = petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000;
+        const isCust = _ctvState.targetType === 'customer';
+        const sheetPrice = isCust
+            ? (petConfig.sheet_price_customer !== undefined ? Number(petConfig.sheet_price_customer) : Number(petConfig.sheet_price) || 60000)
+            : (Number(petConfig.sheet_price) || 60000);
+        const chestPrice = isCust
+            ? (petConfig.chest_price_customer !== undefined ? Number(petConfig.chest_price_customer) : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000))
+            : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000);
         panel.innerHTML = `
             <div class="ctv-print-config-box">
-                <h4>🧬 In PET Báo Giá CTV</h4>
+                <h4>🧬 In PET Báo Giá ${isCust ? 'Khách Hàng' : 'CTV'}</h4>
                 <div style="font-size:12px; color:#0d9488; margin-bottom:12px;">
-                    Biểu phí cấu hình: <strong>${petConfig.sheet_price.toLocaleString('vi-VN')} đ/khổ mét (58x100cm)</strong>. Khoảng cách an toàn hình in: <strong>${petConfig.spacing} cm</strong>.
+                    Biểu phí cấu hình: <strong>${sheetPrice.toLocaleString('vi-VN')} đ/khổ mét (58x100cm)</strong>. Khoảng cách an toàn hình in: <strong>${petConfig.spacing} cm</strong>.
                 </div>
                 
                 <div style="background:#e0f2fe; border:1px solid #bae6fd; border-radius:10px; padding:12px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
@@ -1317,10 +1324,17 @@ function _ctvCalculateAllCosts() {
     
     if (pt === 'pet') {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
-        const sheetPrice = Number(petConfig.sheet_price) || 60000;
+        const isCust = _ctvState.targetType === 'customer';
+        const sheetPrice = isCust
+            ? (petConfig.sheet_price_customer !== undefined ? Number(petConfig.sheet_price_customer) : Number(petConfig.sheet_price) || 60000)
+            : (Number(petConfig.sheet_price) || 60000);
         const spacing = Number(petConfig.spacing) || 0.4;
-        const chestPrice = petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000;
-        const minPositionPrice = petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000;
+        const chestPrice = isCust
+            ? (petConfig.chest_price_customer !== undefined ? Number(petConfig.chest_price_customer) : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000))
+            : (petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000);
+        const minPositionPrice = isCust
+            ? (petConfig.min_position_price_customer !== undefined ? Number(petConfig.min_position_price_customer) : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000))
+            : (petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000);
         
         // Add flat chest print if enabled
         if (_ctvState.petChestPrint) {
@@ -2395,7 +2409,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                 <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <span style="color:#64748b; font-weight:600;">Khổ mét (58x100cm):</span>
-                                        <strong style="color:#0f172a; font-weight:750;">${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ</strong>
+                                        <strong style="color:#0f172a; font-weight:750;">CTV: ${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ | Khách: ${Number(pr.pet?.sheet_price_customer !== undefined ? pr.pet.sheet_price_customer : pr.pet?.sheet_price).toLocaleString('vi-VN')}đ</strong>
                                     </div>
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <span style="color:#64748b; font-weight:600;">Khoảng cách an toàn:</span>
@@ -2403,11 +2417,11 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                     </div>
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <span style="color:#64748b; font-weight:600;">In PET Ngực (cố định):</span>
-                                        <strong style="color:#0f172a; font-weight:750;">+${Number(pr.pet?.chest_price || 5000).toLocaleString('vi-VN')}đ/áo</strong>
+                                        <strong style="color:#0f172a; font-weight:750;">CTV: +${Number(pr.pet?.chest_price || 5000).toLocaleString('vi-VN')}đ | Khách: +${Number(pr.pet?.chest_price_customer !== undefined ? pr.pet.chest_price_customer : (pr.pet?.chest_price || 5000)).toLocaleString('vi-VN')}đ/áo</strong>
                                     </div>
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <span style="color:#64748b; font-weight:600;">Tối thiểu/Vị trí khác:</span>
-                                        <strong style="color:#0f172a; font-weight:750;">${Number(pr.pet?.min_position_price || 5000).toLocaleString('vi-VN')}đ/vị trí</strong>
+                                        <strong style="color:#0f172a; font-weight:750;">CTV: ${Number(pr.pet?.min_position_price || 5000).toLocaleString('vi-VN')}đ | Khách: ${Number(pr.pet?.min_position_price_customer !== undefined ? pr.pet.min_position_price_customer : (pr.pet?.min_position_price || 5000)).toLocaleString('vi-VN')}đ/vị trí</strong>
                                     </div>
                                 </div>
                             </div>
@@ -2631,21 +2645,43 @@ function _ctvOpenNewConfigForm(editId = null) {
                     <!-- PET -->
                     <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
                         <strong style="color:#0d9488;">🧬 In PET</strong>
-                        <div class="ctv-form-group" style="margin-top:8px; margin-bottom:8px;">
-                            <label>Giá mét PET (58x100cm)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_sheet" value="${cfg.print_prices?.pet?.sheet_price || 60000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                        
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                            <div class="ctv-form-group" style="margin-bottom:8px;">
+                                <label>Giá mét PET CTV</label>
+                                <input type="text" class="ctv-input" id="new_cfg_pr_pet_sheet" value="${cfg.print_prices?.pet?.sheet_price || 60000}" oninput="this.value = this.value.replace(/[^0-9.]/g, ''); _ctvSyncPetPriceField(this, 'new_cfg_pr_pet_sheet_cust')">
+                            </div>
+                            <div class="ctv-form-group" style="margin-bottom:8px;">
+                                <label style="color:#c2410c; font-weight:700;">Giá mét PET Khách</label>
+                                <input type="text" class="ctv-input" id="new_cfg_pr_pet_sheet_cust" value="${cfg.print_prices?.pet?.sheet_price_customer !== undefined ? cfg.print_prices.pet.sheet_price_customer : (cfg.print_prices?.pet?.sheet_price || 60000)}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')" style="border-color:#fed7aa; color:#c2410c; font-weight:700;">
+                            </div>
                         </div>
+
                         <div class="ctv-form-group" style="margin-bottom:8px;">
                             <label>Khoảng cách spacing (cm)</label>
                             <input type="text" class="ctv-input" id="new_cfg_pr_pet_space" value="${cfg.print_prices?.pet?.spacing || 0.4}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')">
                         </div>
-                        <div class="ctv-form-group" style="margin-bottom:8px;">
-                            <label>Giá in PET Ngực (đ/áo)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_chest" value="${cfg.print_prices?.pet?.chest_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            <div class="ctv-form-group" style="margin-bottom:8px;">
+                                <label>Giá in PET Ngực CTV</label>
+                                <input type="text" class="ctv-input" id="new_cfg_pr_pet_chest" value="${cfg.print_prices?.pet?.chest_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, ''); _ctvSyncPetPriceField(this, 'new_cfg_pr_pet_chest_cust')">
+                            </div>
+                            <div class="ctv-form-group" style="margin-bottom:8px;">
+                                <label style="color:#c2410c; font-weight:700;">Giá in PET Ngực Khách</label>
+                                <input type="text" class="ctv-input" id="new_cfg_pr_pet_chest_cust" value="${cfg.print_prices?.pet?.chest_price_customer !== undefined ? cfg.print_prices.pet.chest_price_customer : (cfg.print_prices?.pet?.chest_price || 5000)}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')" style="border-color:#fed7aa; color:#c2410c; font-weight:700;">
+                            </div>
                         </div>
-                        <div class="ctv-form-group" style="margin-bottom:0;">
-                            <label>Giá tối thiểu/vị trí khác (đ/áo)</label>
-                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_min_pos" value="${cfg.print_prices?.pet?.min_position_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            <div class="ctv-form-group" style="margin-bottom:0;">
+                                <label>Giá tối thiểu/khác CTV</label>
+                                <input type="text" class="ctv-input" id="new_cfg_pr_pet_min_pos" value="${cfg.print_prices?.pet?.min_position_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, ''); _ctvSyncPetPriceField(this, 'new_cfg_pr_pet_min_pos_cust')">
+                            </div>
+                            <div class="ctv-form-group" style="margin-bottom:0;">
+                                <label style="color:#c2410c; font-weight:700;">Giá tối thiểu Khách</label>
+                                <input type="text" class="ctv-input" id="new_cfg_pr_pet_min_pos_cust" value="${cfg.print_prices?.pet?.min_position_price_customer !== undefined ? cfg.print_prices.pet.min_position_price_customer : (cfg.print_prices?.pet?.min_position_price || 5000)}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')" style="border-color:#fed7aa; color:#c2410c; font-weight:700;">
+                            </div>
                         </div>
                         <div class="ctv-form-group" style="display:none;">
                             <label style="color:#c2410c; font-weight:700;">Phần trăm hoa hồng CTV (%)</label>
@@ -2911,6 +2947,13 @@ function _ctvUpdateSurchargeCustomerPrice(ctvInput) {
     }
 }
 
+function _ctvSyncPetPriceField(ctvInput, targetId) {
+    const target = document.getElementById(targetId);
+    if (target) {
+        target.value = ctvInput.value;
+    }
+}
+
 function _ctvUpdateCustomerPrice(ctvInput) {
     const row = ctvInput.closest('.ctv-mat-row');
     if (!row) return;
@@ -3038,9 +3081,12 @@ async function _ctvSaveNewConfigVersion() {
             commission_percent: document.getElementById('new_cfg_commission_percent') ? (parseFloat(document.getElementById('new_cfg_commission_percent').value) || 0) : 15,
             pet: {
                 sheet_price: parseFloat(document.getElementById('new_cfg_pr_pet_sheet').value) || 0,
+                sheet_price_customer: parseFloat(document.getElementById('new_cfg_pr_pet_sheet_cust').value) || 0,
                 spacing: parseFloat(document.getElementById('new_cfg_pr_pet_space').value) || 0,
                 chest_price: parseFloat(document.getElementById('new_cfg_pr_pet_chest').value) || 0,
-                min_position_price: parseFloat(document.getElementById('new_cfg_pr_pet_min_pos').value) || 0
+                chest_price_customer: parseFloat(document.getElementById('new_cfg_pr_pet_chest_cust').value) || 0,
+                min_position_price: parseFloat(document.getElementById('new_cfg_pr_pet_min_pos').value) || 0,
+                min_position_price_customer: parseFloat(document.getElementById('new_cfg_pr_pet_min_pos_cust').value) || 0
             },
             embroidery: {
                 flat_price: document.getElementById('new_cfg_pr_emb_flat').value.trim()
