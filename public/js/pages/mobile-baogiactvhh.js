@@ -1044,7 +1044,6 @@ function _mCalculateAllCosts() {
                     
                     if (costPerShirt < minPositionPrice) {
                         costPerShirt = minPositionPrice;
-                        labelText += ` (Tối thiểu ${minPositionPrice.toLocaleString('vi-VN')}đ)`;
                     }
                     
                     costPerShirt = Math.ceil(costPerShirt / 1000) * 1000;

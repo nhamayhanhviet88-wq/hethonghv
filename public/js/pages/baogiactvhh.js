@@ -1702,11 +1702,10 @@ function _ctvCalculateAllCosts() {
                 if (perSheetCount > 0) {
                     const sheetFraction = s.qty_per_shirt / perSheetCount;
                     let costPerShirt = Math.round(sheetFraction * sheetPrice);
-                    let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm (${s.qty_per_shirt} hình, xếp ${s.mode === 'nested' ? 'tối ưu' : 'thẳng'})${s.isActiveInput ? ' (Dự tính)' : ''}`;
+                    let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm${s.isActiveInput ? ' (Dự tính)' : ''}`;
                     
                     if (costPerShirt < minPositionPrice) {
                         costPerShirt = minPositionPrice;
-                        labelText += ` (Tối thiểu ${minPositionPrice.toLocaleString('vi-VN')}đ)`;
                     }
                     
                     costPerShirt = Math.ceil(costPerShirt / 1000) * 1000;
