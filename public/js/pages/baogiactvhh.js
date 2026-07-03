@@ -47,6 +47,7 @@ var _ctvState = {
     embroideryCost: 15000,
     // 3D printing cost state
     print3dCost: 30000,
+    petChestPrint: false,
     
     // History list
     historyLogs: [],
@@ -581,35 +582,18 @@ function _ctvRenderCalculator(container) {
                         <label>Các phụ phí tùy chọn</label>
                         <div class="ctv-checkbox-group">
                             ${(function() {
-                                let html = `
-                                    <label class="ctv-checkbox-label">
-                                        <input type="checkbox" id="ctv_sc_collar" ${_ctvState.surcharges.collar ? 'checked' : ''} onchange="_ctvToggleSurcharge('collar', this.checked)">
-                                        Cổ bẻ (+${Number(config.surcharges.collar).toLocaleString('vi-VN')}đ)
-                                    </label>
-                                    <label class="ctv-checkbox-label">
-                                        <input type="checkbox" id="ctv_sc_raglan" ${_ctvState.surcharges.raglan ? 'checked' : ''} onchange="_ctvToggleSurcharge('raglan', this.checked)">
-                                        Raglan (+${Number(config.surcharges.raglan).toLocaleString('vi-VN')}đ)
-                                    </label>
-                                    <label class="ctv-checkbox-label">
-                                        <input type="checkbox" id="ctv_sc_color_block" ${_ctvState.surcharges.color_block ? 'checked' : ''} onchange="_ctvToggleSurcharge('color_block', this.checked)">
-                                        Phối màu (+${Number(config.surcharges.color_block).toLocaleString('vi-VN')}đ)
-                                    </label>
-                                    <label class="ctv-checkbox-label">
-                                        <input type="checkbox" id="ctv_sc_primary_school" ${_ctvState.surcharges.primary_school ? 'checked' : ''} onchange="_ctvToggleSurcharge('primary_school', this.checked)">
-                                        Tiểu học (${Number(config.surcharges.primary_school).toLocaleString('vi-VN')}đ)
-                                    </label>
-                                `;
-                                const customList = config.surcharges?.custom || [];
-                                customList.forEach((item) => {
-                                    const safeName = item.name.replace(/\s+/g, '_');
-                                    html += `
+                                const ordered = _ctvGetOrderedOptionalSurcharges(config);
+                                return ordered.map(item => {
+                                    const isChecked = _ctvState.surcharges[item.key] ? 'checked' : '';
+                                    const sign = item.value >= 0 ? '+' : '';
+                                    const safeId = 'ctv_sc_' + item.key.replace(/\s+/g, '_');
+                                    return `
                                         <label class="ctv-checkbox-label">
-                                            <input type="checkbox" id="ctv_sc_${safeName}" ${_ctvState.surcharges[item.name] ? 'checked' : ''} onchange="_ctvToggleSurcharge('${item.name}', this.checked)">
-                                            ${item.name} (${item.value >= 0 ? '+' : ''}${Number(item.value).toLocaleString('vi-VN')}đ)
+                                            <input type="checkbox" id="${safeId}" ${isChecked} onchange="_ctvToggleSurcharge('${item.key}', this.checked)">
+                                            ${item.name} (${sign}${Number(item.value).toLocaleString('vi-VN')}đ)
                                         </label>
                                     `;
-                                });
-                                return html;
+                                }).join('');
                             })()}
                         </div>
                     </div>
@@ -734,6 +718,91 @@ function _ctvToggleSurcharge(key, checked) {
     _ctvUpdateCalculations();
 }
 
+function _ctvTogglePetChestPrint(checked) {
+    _ctvState.petChestPrint = !!checked;
+    _ctvUpdateCalculations();
+}
+
+function _ctvGetOrderedOptionalSurcharges(config) {
+    if (!config) return [];
+    const allItems = {
+        collar: { key: 'collar', name: 'Cổ bẻ', value: config.surcharges.collar || 0 },
+        primary_school: { key: 'primary_school', name: 'Tiểu học', value: config.surcharges.primary_school || 0 },
+        raglan: { key: 'raglan', name: 'Raglan', value: config.surcharges.raglan || 0 },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: config.surcharges.color_block || 0 }
+    };
+    const customList = config.surcharges?.custom || [];
+    customList.forEach(item => {
+        const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
+        allItems[customKey] = { key: item.name, name: item.name, value: item.value || 0, is_custom: true };
+    });
+    let ordered = [];
+    if (config.surcharges?.display_order && Array.isArray(config.surcharges.display_order)) {
+        config.surcharges.display_order.forEach(o => {
+            let found = null;
+            if (o.key && allItems[o.key]) {
+                found = allItems[o.key];
+                delete allItems[o.key];
+            } else {
+                const matchedKey = Object.keys(allItems).find(k => allItems[k].name === o.name || allItems[k].key === o.name);
+                if (matchedKey) {
+                    found = allItems[matchedKey];
+                    delete allItems[matchedKey];
+                }
+            }
+            if (found && found.key !== 'qty_under_20') {
+                ordered.push(found);
+            }
+        });
+    }
+    Object.keys(allItems).forEach(k => {
+        if (allItems[k].key !== 'qty_under_20') {
+            ordered.push(allItems[k]);
+        }
+    });
+    return ordered;
+}
+
+function _ctvGetOrderedSurchargesList(surchargesObj) {
+    if (!surchargesObj) return [];
+    const defaults = {
+        collar: { name: 'Cổ bẻ', value: surchargesObj.collar || 0, is_default: true },
+        qty_under_20: { name: 'Sản xuất dưới 20 áo', value: surchargesObj.qty_under_20 || 0, is_default: true, is_auto: true },
+        primary_school: { name: 'Chiết khấu tiểu học', value: surchargesObj.primary_school || 0, is_default: true },
+        raglan: { name: 'Tay Raglan', value: surchargesObj.raglan || 0, is_default: true },
+        color_block: { name: 'Phối màu vải', value: surchargesObj.color_block || 0, is_default: true }
+    };
+    const customList = surchargesObj.custom || [];
+    const customs = {};
+    customList.forEach(c => {
+        customs['custom_' + c.name.replace(/\s+/g, '_')] = { name: c.name, value: c.value || 0, is_default: false };
+    });
+    const all = { ...defaults, ...customs };
+    let ordered = [];
+    if (surchargesObj.display_order && Array.isArray(surchargesObj.display_order)) {
+        surchargesObj.display_order.forEach(o => {
+            let found = null;
+            if (o.key && all[o.key]) {
+                found = all[o.key];
+                delete all[o.key];
+            } else {
+                const matchedKey = Object.keys(all).find(k => all[k].name === o.name);
+                if (matchedKey) {
+                    found = all[matchedKey];
+                    delete all[matchedKey];
+                }
+            }
+            if (found) {
+                ordered.push(found);
+            }
+        });
+    }
+    Object.keys(all).forEach(k => {
+        ordered.push(all[k]);
+    });
+    return ordered;
+}
+
 function _ctvOnPrintTypeChange(val) {
     _ctvState.printType = val;
     _ctvRenderPrintPanel();
@@ -753,11 +822,19 @@ function _ctvRenderPrintPanel() {
     
     if (_ctvState.printType === 'pet') {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
+        const chestPrice = petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000;
         panel.innerHTML = `
             <div class="ctv-print-config-box">
                 <h4>🧬 In PET Báo Giá CTV</h4>
                 <div style="font-size:12px; color:#0d9488; margin-bottom:12px;">
                     Biểu phí cấu hình: <strong>${petConfig.sheet_price.toLocaleString('vi-VN')} đ/khổ mét (58x100cm)</strong>. Khoảng cách an toàn hình in: <strong>${petConfig.spacing} cm</strong>.
+                </div>
+                
+                <div style="background:#e0f2fe; border:1px solid #bae6fd; border-radius:10px; padding:12px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:700; color:#0369a1; cursor:pointer; margin:0; width: 100%;">
+                        <input type="checkbox" id="ctv_pet_chest_print" ${_ctvState.petChestPrint ? 'checked' : ''} onchange="_ctvTogglePetChestPrint(this.checked)" style="transform:scale(1.2); margin-right: 4px;">
+                        🎯 In PET Ngực (Cố định +${chestPrice.toLocaleString('vi-VN')} đ/áo)
+                    </label>
                 </div>
                 
                 <div class="ctv-pet-shape-form">
@@ -980,36 +1057,17 @@ function _ctvCalculateAllCosts() {
     let surchargeTotal = 0;
     const surchargesBreakdown = [];
     
-    if (_ctvState.surcharges.collar) {
-        const fee = Number(config.surcharges.collar) || 0;
-        surchargeTotal += fee;
-        surchargesBreakdown.push({ label: 'Cổ bẻ', price: fee });
-    }
-    if (_ctvState.surcharges.raglan) {
-        const fee = Number(config.surcharges.raglan) || 0;
-        surchargeTotal += fee;
-        surchargesBreakdown.push({ label: 'Raglan', price: fee });
-    }
-    if (_ctvState.surcharges.color_block) {
-        const fee = Number(config.surcharges.color_block) || 0;
-        surchargeTotal += fee;
-        surchargesBreakdown.push({ label: 'Phối màu', price: fee });
-    }
-    if (_ctvState.surcharges.primary_school) {
-        const fee = Number(config.surcharges.primary_school) || 0;
-        surchargeTotal += fee; // fee is negative (e.g. -5000)
-        surchargesBreakdown.push({ label: 'Tiểu học', price: fee });
-    }
     // Auto surcharge for low quantity < 20
     if (qty < 20) {
         const fee = Number(config.surcharges.qty_under_20) || 0;
         surchargeTotal += fee;
         surchargesBreakdown.push({ label: 'Số lượng < 20 áo', price: fee });
     }
-    // Custom surcharges
-    const customSurcharges = config.surcharges?.custom || [];
-    customSurcharges.forEach(item => {
-        if (_ctvState.surcharges[item.name]) {
+    
+    // Optional surcharges ordered
+    const optionalSurcharges = _ctvGetOrderedOptionalSurcharges(config);
+    optionalSurcharges.forEach(item => {
+        if (_ctvState.surcharges[item.key]) {
             const fee = Number(item.value) || 0;
             surchargeTotal += fee;
             surchargesBreakdown.push({ label: item.name, price: fee });
@@ -1025,6 +1083,14 @@ function _ctvCalculateAllCosts() {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
         const sheetPrice = Number(petConfig.sheet_price) || 60000;
         const spacing = Number(petConfig.spacing) || 0.4;
+        const chestPrice = petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000;
+        const minPositionPrice = petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000;
+        
+        // Add flat chest print if enabled
+        if (_ctvState.petChestPrint) {
+            printCost += chestPrice;
+            printBreakdown.push({ label: `In PET Ngực (cố định)`, price: chestPrice });
+        }
         
         _ctvState.petShapes.forEach((s, idx) => {
             const packed = _ctvState.activeConfig ? _ctvCalcPetPlacement(58, 100, s.width, s.height, spacing) : { aligned: 0, optimized: 0 };
@@ -1032,10 +1098,17 @@ function _ctvCalculateAllCosts() {
             
             if (perSheetCount > 0) {
                 const sheetFraction = s.qty_per_shirt / perSheetCount;
-                const costPerShirt = Math.round(sheetFraction * sheetPrice);
+                let costPerShirt = Math.round(sheetFraction * sheetPrice);
+                let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm (${s.qty_per_shirt} hình, xếp ${s.mode === 'nested' ? 'tối ưu' : 'thẳng'})`;
+                
+                if (costPerShirt < minPositionPrice) {
+                    costPerShirt = minPositionPrice;
+                    labelText += ` (Tối thiểu ${minPositionPrice.toLocaleString('vi-VN')}đ)`;
+                }
+                
                 printCost += costPerShirt;
                 printBreakdown.push({
-                    label: `PET #${idx+1}: ${s.width}x${s.height}cm (${s.qty_per_shirt} hình, xếp ${s.mode === 'nested' ? 'tối ưu' : 'thẳng'})`,
+                    label: labelText,
                     price: costPerShirt
                 });
             }
@@ -1188,6 +1261,7 @@ async function _ctvSaveQuotation() {
             screenColors: _ctvState.screenColors,
             embroideryCost: _ctvState.embroideryCost,
             print3dCost: _ctvState.print3dCost,
+            petChestPrint: _ctvState.petChestPrint,
             materialName: calc.materialName
         },
         calculated_price: calc.finalPricePerShirt,
@@ -1556,7 +1630,8 @@ function _ctvShowHistoryDetail(quoteId) {
         petShapes: q.input_details.petShapes || [],
         screenColors: q.input_details.screenColors || 1,
         embroideryCost: q.input_details.embroideryCost || 15000,
-        print3dCost: q.input_details.print3dCost || 30000
+        print3dCost: q.input_details.print3dCost || 30000,
+        petChestPrint: q.input_details.petChestPrint || false
     };
     
     // Save state temporarily, render export modal, then restore state
@@ -1569,6 +1644,8 @@ function _ctvShowHistoryDetail(quoteId) {
     const originalPet = _ctvState.petShapes;
     const originalScr = _ctvState.screenColors;
     const originalEmb = _ctvState.embroideryCost;
+    const originalPrint3d = _ctvState.print3dCost;
+    const originalPetChest = _ctvState.petChestPrint;
     
     _ctvState.activeConfig = tempState.activeConfig;
     _ctvState.selectedCustomer = tempState.selectedCustomer;
@@ -1579,6 +1656,8 @@ function _ctvShowHistoryDetail(quoteId) {
     _ctvState.petShapes = tempState.petShapes;
     _ctvState.screenColors = tempState.screenColors;
     _ctvState.embroideryCost = tempState.embroideryCost;
+    _ctvState.print3dCost = tempState.print3dCost;
+    _ctvState.petChestPrint = tempState.petChestPrint;
     
     _ctvOpenExportModal();
     
@@ -1592,6 +1671,8 @@ function _ctvShowHistoryDetail(quoteId) {
     _ctvState.petShapes = originalPet;
     _ctvState.screenColors = originalScr;
     _ctvState.embroideryCost = originalEmb;
+    _ctvState.print3dCost = originalPrint3d;
+    _ctvState.petChestPrint = originalPetChest;
 }
 
 // ==========================================
@@ -1869,36 +1950,8 @@ function _ctvOpenNewConfigForm() {
                     <span>➕ Thiết Lập Chi Tiết Thêm</span>
                     <button class="ctv-btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="_ctvAddCustomSurchargeRow()">+ Thêm chi tiết</button>
                 </h4>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                    <div class="ctv-form-group">
-                        <label>Cổ Bẻ (đ/áo)</label>
-                        <input type="text" class="ctv-input" id="new_cfg_sc_collar" value="${cfg.surcharges.collar}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
-                    </div>
-                    <div class="ctv-form-group">
-                        <label>Đơn Hàng < 20 Áo (đ/áo)</label>
-                        <input type="text" class="ctv-input" id="new_cfg_sc_qty_under_20" value="${cfg.surcharges.qty_under_20}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
-                    </div>
-                    <div class="ctv-form-group">
-                        <label>Chiết Khấu Tiểu Học (đ/áo, nhập âm để giảm)</label>
-                        <input type="text" class="ctv-input" id="new_cfg_sc_primary_school" value="${cfg.surcharges.primary_school}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
-                    </div>
-                    <div class="ctv-form-group">
-                        <label>Raglan (đ/áo)</label>
-                        <input type="text" class="ctv-input" id="new_cfg_sc_raglan" value="${cfg.surcharges.raglan}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
-                    </div>
-                    <div class="ctv-form-group" style="grid-column: span 2;">
-                        <label>Phối màu vải (đ/áo)</label>
-                        <input type="text" class="ctv-input" id="new_cfg_sc_color_block" value="${cfg.surcharges.color_block}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
-                    </div>
-                </div>
-                <div id="new_cfg_custom_surcharges_container">
-                    ${(cfg.surcharges?.custom || []).map((item, idx) => `
-                        <div class="ctv-custom-sc-row" style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
-                            <input type="text" class="ctv-input" placeholder="Tên chi tiết" value="${item.name}" style="flex-grow:1;">
-                            <input type="text" class="ctv-input" placeholder="Giá (đ/áo)" value="${item.value}" style="width:120px;" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
-                            <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
-                        </div>
-                    `).join('')}
+                <div id="new_cfg_surcharges_container" style="display:flex; flex-direction:column; gap:4px; max-height:250px; overflow-y:auto; padding-right:4px;">
+                    <!-- Will be populated by _ctvRenderSurchargeRows -->
                 </div>
                 
                 <!-- Printing setup -->
@@ -1911,9 +1964,17 @@ function _ctvOpenNewConfigForm() {
                             <label>Giá mét PET (58x100cm)</label>
                             <input type="text" class="ctv-input" id="new_cfg_pr_pet_sheet" value="${cfg.print_prices.pet?.sheet_price || 60000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
-                        <div class="ctv-form-group" style="margin-bottom:0;">
+                        <div class="ctv-form-group" style="margin-bottom:8px;">
                             <label>Khoảng cách spacing (cm)</label>
                             <input type="text" class="ctv-input" id="new_cfg_pr_pet_space" value="${cfg.print_prices.pet?.spacing || 0.4}" oninput="this.value = this.value.replace(/,/g, '.').replace(/[^0-9.]/g, '')">
+                        </div>
+                        <div class="ctv-form-group" style="margin-bottom:8px;">
+                            <label>Giá in PET Ngực (đ/áo)</label>
+                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_chest" value="${cfg.print_prices.pet?.chest_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+                        </div>
+                        <div class="ctv-form-group" style="margin-bottom:0;">
+                            <label>Giá tối thiểu/vị trí khác (đ/áo)</label>
+                            <input type="text" class="ctv-input" id="new_cfg_pr_pet_min_pos" value="${cfg.print_prices.pet?.min_position_price || 5000}" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
                         </div>
                     </div>
                     
@@ -1977,6 +2038,7 @@ function _ctvOpenNewConfigForm() {
         </div>
     `;
     modal.style.display = 'flex';
+    _ctvRenderSurchargeRows(cfg.surcharges);
 }
 
 function _ctvOn3dCostChange(val) {
@@ -1984,16 +2046,98 @@ function _ctvOn3dCostChange(val) {
     _ctvUpdateCalculations();
 }
 
+function _ctvMoveSurchargeRow(btn, direction) {
+    const row = btn.closest('.ctv-sc-row');
+    if (!row) return;
+    if (direction === -1) {
+        const prev = row.previousElementSibling;
+        if (prev) {
+            row.parentElement.insertBefore(row, prev);
+        }
+    } else {
+        const next = row.nextElementSibling;
+        if (next) {
+            row.parentElement.insertBefore(next, row);
+        }
+    }
+}
+
+function _ctvRenderSurchargeRows(surchargesObj) {
+    const container = document.getElementById('new_cfg_surcharges_container');
+    if (!container) return;
+    
+    let items = [];
+    if (surchargesObj) {
+        items.push({ key: 'collar', name: 'Cổ Bẻ (đ/áo)', value: surchargesObj.collar || 0, is_default: true });
+        items.push({ key: 'qty_under_20', name: 'Đơn Hàng < 20 Áo (đ/áo)', value: surchargesObj.qty_under_20 || 0, is_default: true, is_auto: true });
+        items.push({ key: 'primary_school', name: 'Chiết Khấu Tiểu Học (đ/áo, nhập âm để giảm)', value: surchargesObj.primary_school || 0, is_default: true });
+        items.push({ key: 'raglan', name: 'Raglan (đ/áo)', value: surchargesObj.raglan || 0, is_default: true });
+        items.push({ key: 'color_block', name: 'Phối màu vải (đ/áo)', value: surchargesObj.color_block || 0, is_default: true });
+        
+        if (surchargesObj.custom && Array.isArray(surchargesObj.custom)) {
+            surchargesObj.custom.forEach(c => {
+                items.push({ key: 'custom_' + c.name.replace(/\s+/g, '_'), name: c.name, value: c.value || 0, is_default: false });
+            });
+        }
+        
+        if (surchargesObj.display_order && Array.isArray(surchargesObj.display_order)) {
+            items.sort((a, b) => {
+                const idxA = surchargesObj.display_order.findIndex(o => o.key === a.key || o.name === a.name);
+                const idxB = surchargesObj.display_order.findIndex(o => o.key === b.key || o.name === b.name);
+                if (idxA === -1 && idxB === -1) return 0;
+                if (idxA === -1) return 1;
+                if (idxB === -1) return -1;
+                return idxA - idxB;
+            });
+        }
+    }
+    
+    container.innerHTML = items.map((item, idx) => {
+        const isDefault = item.is_default;
+        const isAuto = item.is_auto;
+        return `
+            <div class="ctv-sc-row" data-key="${item.key}" data-is-default="${isDefault}" data-is-auto="${isAuto || false}" style="display:flex; align-items:center; gap:8px; margin-bottom:8px; width: 100%;">
+                <div style="display:flex; flex-direction:column; gap:2px; min-width:30px; align-items:center;">
+                    <button type="button" class="ctv-btn-move" onclick="_ctvMoveSurchargeRow(this, -1)" style="padding:1px 6px; font-size:10px; line-height:1; cursor:pointer;">▲</button>
+                    <button type="button" class="ctv-btn-move" onclick="_ctvMoveSurchargeRow(this, 1)" style="padding:1px 6px; font-size:10px; line-height:1; cursor:pointer;">▼</button>
+                </div>
+                <div style="flex-grow:1;">
+                    <input type="text" class="ctv-input ctv-sc-name" placeholder="Tên chi tiết" value="${item.name}" ${isDefault ? 'readonly style="background:#f1f5f9; color:#64748b;"' : ''} style="width: 100%;">
+                </div>
+                <div style="width:150px;">
+                    <input type="text" class="ctv-input ctv-sc-value" placeholder="Giá (đ/áo)" value="${item.value}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')" style="width: 100%;">
+                </div>
+                <div style="width:30px; text-align:right;">
+                    ${isDefault ? '' : `<button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>`}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 function _ctvAddCustomSurchargeRow(name = '', value = 0) {
-    const container = document.getElementById('new_cfg_custom_surcharges_container');
+    const container = document.getElementById('new_cfg_surcharges_container');
     if (!container) return;
     const div = document.createElement('div');
-    div.className = 'ctv-custom-sc-row';
-    div.style.cssText = 'display:flex; gap:8px; margin-bottom:8px; align-items:center;';
+    div.className = 'ctv-sc-row';
+    div.setAttribute('data-key', 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
+    div.setAttribute('data-is-default', 'false');
+    div.setAttribute('data-is-auto', 'false');
+    div.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:8px; width: 100%;';
     div.innerHTML = `
-        <input type="text" class="ctv-input" placeholder="Tên chi tiết" value="${name}" style="flex-grow:1;">
-        <input type="text" class="ctv-input" placeholder="Giá (đ/áo)" value="${value}" style="width:120px;" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')">
-        <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
+        <div style="display:flex; flex-direction:column; gap:2px; min-width:30px; align-items:center;">
+            <button type="button" class="ctv-btn-move" onclick="_ctvMoveSurchargeRow(this, -1)" style="padding:1px 6px; font-size:10px; line-height:1; cursor:pointer;">▲</button>
+            <button type="button" class="ctv-btn-move" onclick="_ctvMoveSurchargeRow(this, 1)" style="padding:1px 6px; font-size:10px; line-height:1; cursor:pointer;">▼</button>
+        </div>
+        <div style="flex-grow:1;">
+            <input type="text" class="ctv-input ctv-sc-name" placeholder="Tên chi tiết" value="${name}" style="width: 100%;">
+        </div>
+        <div style="width:150px;">
+            <input type="text" class="ctv-input ctv-sc-value" placeholder="Giá (đ/áo)" value="${value}" oninput="this.value = this.value.replace(/[^0-9.-]/g, '')" style="width: 100%;">
+        </div>
+        <div style="width:30px; text-align:right;">
+            <button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>
+        </div>
     `;
     container.appendChild(div);
 }
@@ -2039,32 +2183,48 @@ async function _ctvSaveNewConfigVersion() {
         return;
     }
     
-    // Collect custom surcharges from dynamic rows
-    const customSurcharges = [];
-    document.querySelectorAll('#new_cfg_custom_surcharges_container .ctv-custom-sc-row').forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        if (inputs.length >= 2) {
-            const name = inputs[0].value.trim();
-            const value = parseFloat(inputs[1].value) || 0;
-            if (name) customSurcharges.push({ name, value });
+    // Collect ordered surcharges from rows
+    const surcharges = {
+        collar: 0,
+        qty_under_20: 0,
+        primary_school: 0,
+        raglan: 0,
+        color_block: 0,
+        custom: [],
+        display_order: []
+    };
+    
+    document.querySelectorAll('#new_cfg_surcharges_container .ctv-sc-row').forEach(row => {
+        const key = row.getAttribute('data-key');
+        const isDefault = row.getAttribute('data-is-default') === 'true';
+        const name = row.querySelector('.ctv-sc-name').value.trim();
+        const value = parseFloat(row.querySelector('.ctv-sc-value').value) || 0;
+        
+        surcharges.display_order.push({ key, name });
+        
+        if (isDefault) {
+            if (key === 'collar') surcharges.collar = value;
+            else if (key === 'qty_under_20') surcharges.qty_under_20 = value;
+            else if (key === 'primary_school') surcharges.primary_school = value;
+            else if (key === 'raglan') surcharges.raglan = value;
+            else if (key === 'color_block') surcharges.color_block = value;
+        } else {
+            if (name) {
+                surcharges.custom.push({ name, value });
+            }
         }
     });
     
     const body = {
         version_name: vNameInput.value.trim(),
         materials,
-        surcharges: {
-            collar: parseFloat(document.getElementById('new_cfg_sc_collar').value) || 0,
-            qty_under_20: parseFloat(document.getElementById('new_cfg_sc_qty_under_20').value) || 0,
-            primary_school: parseFloat(document.getElementById('new_cfg_sc_primary_school').value) || 0,
-            raglan: parseFloat(document.getElementById('new_cfg_sc_raglan').value) || 0,
-            color_block: parseFloat(document.getElementById('new_cfg_sc_color_block').value) || 0,
-            custom: customSurcharges
-        },
+        surcharges,
         print_prices: {
             pet: {
                 sheet_price: parseFloat(document.getElementById('new_cfg_pr_pet_sheet').value) || 0,
-                spacing: parseFloat(document.getElementById('new_cfg_pr_pet_space').value) || 0
+                spacing: parseFloat(document.getElementById('new_cfg_pr_pet_space').value) || 0,
+                chest_price: parseFloat(document.getElementById('new_cfg_pr_pet_chest').value) || 0,
+                min_position_price: parseFloat(document.getElementById('new_cfg_pr_pet_min_pos').value) || 0
             },
             embroidery: {
                 flat_price: parseFloat(document.getElementById('new_cfg_pr_emb_flat').value) || 0

@@ -41,6 +41,7 @@ var _mState = {
     screenColors: 1,
     embroideryCost: 15000,
     print3dCost: 30000,
+    petChestPrint: false,
     historyLogs: [],
     configVersions: []
 };
@@ -148,29 +149,20 @@ function _mRenderCalculator(container) {
             <div class="m-form-group" style="margin-bottom:0;">
                 <label>Phụ phí thêm</label>
                 <div class="m-checkbox-group">
-                    <label class="m-checkbox-label">
-                        <input type="checkbox" id="m_sc_collar" ${_mState.surcharges.collar ? 'checked' : ''} onchange="_mToggleSurcharge('collar', this.checked)">
-                        Cổ bẻ (+${Number(config.surcharges.collar).toLocaleString('vi-VN')}đ)
-                    </label>
-                    <label class="m-checkbox-label">
-                        <input type="checkbox" id="m_sc_raglan" ${_mState.surcharges.raglan ? 'checked' : ''} onchange="_mToggleSurcharge('raglan', this.checked)">
-                        Raglan (+${Number(config.surcharges.raglan).toLocaleString('vi-VN')}đ)
-                    </label>
-                    <label class="m-checkbox-label">
-                        <input type="checkbox" id="m_sc_color_block" ${_mState.surcharges.color_block ? 'checked' : ''} onchange="_mToggleSurcharge('color_block', this.checked)">
-                        Phối (+${Number(config.surcharges.color_block).toLocaleString('vi-VN')}đ)
-                    </label>
-                    <label class="m-checkbox-label">
-                        <input type="checkbox" id="m_sc_primary_school" ${_mState.surcharges.primary_school ? 'checked' : ''} onchange="_mToggleSurcharge('primary_school', this.checked)">
-                        Tiểu học (${Number(config.surcharges.primary_school).toLocaleString('vi-VN')}đ)
-                    </label>
-                    ${(config.surcharges?.custom || []).map(item => {
-                        const safeName = item.name.replace(/\s+/g, '_');
-                        return `<label class="m-checkbox-label">
-                            <input type="checkbox" id="m_sc_${safeName}" ${_mState.surcharges[item.name] ? 'checked' : ''} onchange="_mToggleSurcharge('${item.name}', this.checked)">
-                            ${item.name} (${item.value >= 0 ? '+' : ''}${Number(item.value).toLocaleString('vi-VN')}đ)
-                        </label>`;
-                    }).join('')}
+                    ${(function() {
+                        const ordered = _mGetOrderedOptionalSurcharges(config);
+                        return ordered.map(item => {
+                            const isChecked = _mState.surcharges[item.key] ? 'checked' : '';
+                            const sign = item.value >= 0 ? '+' : '';
+                            const safeId = 'm_sc_' + item.key.replace(/\s+/g, '_');
+                            return `
+                                <label class="m-checkbox-label">
+                                    <input type="checkbox" id="${safeId}" ${isChecked} onchange="_mToggleSurcharge('${item.key}', this.checked)">
+                                    ${item.name} (${sign}${Number(item.value).toLocaleString('vi-VN')}đ)
+                                </label>
+                            `;
+                        }).join('');
+                    })()}
                 </div>
             </div>
         </div>
@@ -281,6 +273,51 @@ function _mToggleSurcharge(key, checked) {
     _mUpdateCalculations();
 }
 
+function _mTogglePetChestPrint(checked) {
+    _mState.petChestPrint = !!checked;
+    _mUpdateCalculations();
+}
+
+function _mGetOrderedOptionalSurcharges(config) {
+    if (!config) return [];
+    const allItems = {
+        collar: { key: 'collar', name: 'Cổ bẻ', value: config.surcharges.collar || 0 },
+        primary_school: { key: 'primary_school', name: 'Tiểu học', value: config.surcharges.primary_school || 0 },
+        raglan: { key: 'raglan', name: 'Raglan', value: config.surcharges.raglan || 0 },
+        color_block: { key: 'color_block', name: 'Phối màu vải', value: config.surcharges.color_block || 0 }
+    };
+    const customList = config.surcharges?.custom || [];
+    customList.forEach(item => {
+        const customKey = 'custom_' + item.name.replace(/\s+/g, '_');
+        allItems[customKey] = { key: item.name, name: item.name, value: item.value || 0, is_custom: true };
+    });
+    let ordered = [];
+    if (config.surcharges?.display_order && Array.isArray(config.surcharges.display_order)) {
+        config.surcharges.display_order.forEach(o => {
+            let found = null;
+            if (o.key && allItems[o.key]) {
+                found = allItems[o.key];
+                delete allItems[o.key];
+            } else {
+                const matchedKey = Object.keys(allItems).find(k => allItems[k].name === o.name || allItems[k].key === o.name);
+                if (matchedKey) {
+                    found = allItems[matchedKey];
+                    delete allItems[matchedKey];
+                }
+            }
+            if (found && found.key !== 'qty_under_20') {
+                ordered.push(found);
+            }
+        });
+    }
+    Object.keys(allItems).forEach(k => {
+        if (allItems[k].key !== 'qty_under_20') {
+            ordered.push(allItems[k]);
+        }
+    });
+    return ordered;
+}
+
 function _mOnPrintTypeChange(val) {
     _mState.printType = val;
     _mRenderPrintPanel();
@@ -300,9 +337,18 @@ function _mRenderPrintPanel() {
     
     if (_mState.printType === 'pet') {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
+        const chestPrice = petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000;
         panel.innerHTML = `
             <div style="background:#f0fdfa; border:1px dashed #99f6e4; border-radius:10px; padding:10px; margin-top:12px;">
                 <div style="font-size:11px; font-weight:700; color:#0d9488; margin-bottom:8px;">🧬 CẤU HÌNH PET KHỔ MÉT</div>
+                
+                <div style="background:#e0f2fe; border:1px solid #bae6fd; border-radius:8px; padding:8px; margin-bottom:10px; display:flex; align-items:center;">
+                    <label style="display:flex; align-items:center; gap:6px; font-weight:700; color:#0369a1; cursor:pointer; margin:0; font-size:12px; width: 100%;">
+                        <input type="checkbox" id="m_pet_chest_print" ${_mState.petChestPrint ? 'checked' : ''} onchange="_mTogglePetChestPrint(this.checked)" style="transform:scale(1.1); margin-right: 4px;">
+                        In PET Ngực (Cố định +${chestPrice.toLocaleString('vi-VN')} đ/áo)
+                    </label>
+                </div>
+                
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
                     <div>
                         <label style="font-size:10px; color:#475569; font-weight:700;">RỘNG (CM)</label>
@@ -479,35 +525,16 @@ function _mCalculateAllCosts() {
     let surchargeTotal = 0;
     const surchargesBreakdown = [];
     
-    if (_mState.surcharges.collar) {
-        const fee = Number(config.surcharges.collar) || 0;
-        surchargeTotal += fee;
-        surchargesBreakdown.push({ label: 'Cổ bẻ', price: fee });
-    }
-    if (_mState.surcharges.raglan) {
-        const fee = Number(config.surcharges.raglan) || 0;
-        surchargeTotal += fee;
-        surchargesBreakdown.push({ label: 'Raglan', price: fee });
-    }
-    if (_mState.surcharges.color_block) {
-        const fee = Number(config.surcharges.color_block) || 0;
-        surchargeTotal += fee;
-        surchargesBreakdown.push({ label: 'Phối màu', price: fee });
-    }
-    if (_mState.surcharges.primary_school) {
-        const fee = Number(config.surcharges.primary_school) || 0;
-        surchargeTotal += fee;
-        surchargesBreakdown.push({ label: 'Tiểu học', price: fee });
-    }
     if (qty < 20) {
         const fee = Number(config.surcharges.qty_under_20) || 0;
         surchargeTotal += fee;
         surchargesBreakdown.push({ label: 'Số lượng < 20 áo', price: fee });
     }
-    // Custom surcharges
-    const customSurcharges = config.surcharges?.custom || [];
-    customSurcharges.forEach(item => {
-        if (_mState.surcharges[item.name]) {
+    
+    // Optional surcharges ordered
+    const optionalSurcharges = _mGetOrderedOptionalSurcharges(config);
+    optionalSurcharges.forEach(item => {
+        if (_mState.surcharges[item.key]) {
             const fee = Number(item.value) || 0;
             surchargeTotal += fee;
             surchargesBreakdown.push({ label: item.name, price: fee });
@@ -522,6 +549,14 @@ function _mCalculateAllCosts() {
         const petConfig = config.print_prices.pet || { sheet_price: 60000, spacing: 0.4 };
         const sheetPrice = Number(petConfig.sheet_price) || 60000;
         const spacing = Number(petConfig.spacing) || 0.4;
+        const chestPrice = petConfig.chest_price !== undefined ? Number(petConfig.chest_price) : 5000;
+        const minPositionPrice = petConfig.min_position_price !== undefined ? Number(petConfig.min_position_price) : 5000;
+        
+        // Add flat chest print if enabled
+        if (_mState.petChestPrint) {
+            printCost += chestPrice;
+            printBreakdown.push({ label: `In PET Ngực (cố định)`, price: chestPrice });
+        }
         
         _mState.petShapes.forEach((s, idx) => {
             const packed = _mState.activeConfig ? _mCalcPetPlacement(58, 100, s.width, s.height, spacing) : { aligned: 0, optimized: 0 };
@@ -529,9 +564,16 @@ function _mCalculateAllCosts() {
             
             if (perSheetCount > 0) {
                 const sheetFraction = s.qty_per_shirt / perSheetCount;
-                const costPerShirt = Math.round(sheetFraction * sheetPrice);
+                let costPerShirt = Math.round(sheetFraction * sheetPrice);
+                let labelText = `PET #${idx+1}: ${s.width}x${s.height}cm`;
+                
+                if (costPerShirt < minPositionPrice) {
+                    costPerShirt = minPositionPrice;
+                    labelText += ` (Tối thiểu ${minPositionPrice.toLocaleString('vi-VN')}đ)`;
+                }
+                
                 printCost += costPerShirt;
-                printBreakdown.push({ label: `PET #${idx+1}: ${s.width}x${s.height}cm`, price: costPerShirt });
+                printBreakdown.push({ label: labelText, price: costPerShirt });
             }
         });
     } else if (pt === 'print3d') {
@@ -668,6 +710,7 @@ async function _mSaveQuotation() {
             screenColors: _mState.screenColors,
             embroideryCost: _mState.embroideryCost,
             print3dCost: _mState.print3dCost,
+            petChestPrint: _mState.petChestPrint,
             materialName: calc.materialName
         },
         calculated_price: calc.finalPricePerShirt,
@@ -936,7 +979,8 @@ function _mShowHistoryDetail(quoteId) {
         petShapes: q.input_details.petShapes || [],
         screenColors: q.input_details.screenColors || 1,
         embroideryCost: q.input_details.embroideryCost || 15000,
-        print3dCost: q.input_details.print3dCost || 30000
+        print3dCost: q.input_details.print3dCost || 30000,
+        petChestPrint: q.input_details.petChestPrint || false
     };
     
     const originalConfig = _mState.activeConfig;
@@ -948,6 +992,8 @@ function _mShowHistoryDetail(quoteId) {
     const originalPet = _mState.petShapes;
     const originalScr = _mState.screenColors;
     const originalEmb = _mState.embroideryCost;
+    const originalPrint3d = _mState.print3dCost;
+    const originalPetChest = _mState.petChestPrint;
     
     _mState.activeConfig = tempState.activeConfig;
     _mState.selectedCustomer = tempState.selectedCustomer;
@@ -958,6 +1004,8 @@ function _mShowHistoryDetail(quoteId) {
     _mState.petShapes = tempState.petShapes;
     _mState.screenColors = tempState.screenColors;
     _mState.embroideryCost = tempState.embroideryCost;
+    _mState.print3dCost = tempState.print3dCost;
+    _mState.petChestPrint = tempState.petChestPrint;
     
     _mOpenExportModal();
     
@@ -971,6 +1019,8 @@ function _mShowHistoryDetail(quoteId) {
     _mState.petShapes = originalPet;
     _mState.screenColors = originalScr;
     _mState.embroideryCost = originalEmb;
+    _mState.print3dCost = originalPrint3d;
+    _mState.petChestPrint = originalPetChest;
 }
 
 // ==========================================
