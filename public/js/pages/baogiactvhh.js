@@ -4112,7 +4112,11 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                                         return `
                                             <tr style="${idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
                                                 <td style="border:1px solid #cbd5e1; padding:10px; font-weight:600; color:#334155;">Vải ${m.name}</td>
-                                                <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; font-weight:750; color:#1e293b;">${displayPrice.toLocaleString('vi-VN')} đ/áo</td>
+                                                <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; vertical-align:middle;">
+                                                    <span style="background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid #dbeafe; display: inline-block; white-space: nowrap;">
+                                                        ${displayPrice.toLocaleString('vi-VN')} đ/áo
+                                                    </span>
+                                                </td>
                                             </tr>
                                         `;
                                     }).join('')}
@@ -4144,10 +4148,26 @@ function _ctvOpenPriceListExportModal(configId, mode = 'ctv') {
                                             ? (item.customer_value !== undefined ? item.customer_value : item.value)
                                             : item.value;
                                         const priceInfo = _ctvGetPriceInfo(surchargeVal);
+                                        const isNegative = !priceInfo.isContact && priceInfo.value < 0;
+                                        const isContact = priceInfo.isContact;
+                                        
+                                        let badgeStyle = '';
+                                        if (isContact) {
+                                            badgeStyle = 'background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;';
+                                        } else if (isNegative) {
+                                            badgeStyle = 'background:#fef2f2; color:#b91c1c; border:1px solid #fee2e2;';
+                                        } else {
+                                            badgeStyle = 'background:#f0fdf4; color:#15803d; border:1px solid #dcfce7;';
+                                        }
+                                        
                                         return `
                                             <tr style="${idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
                                                 <td style="border:1px solid #cbd5e1; padding:10px; font-weight:600; color:#334155;">${item.name}</td>
-                                                <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; font-weight:750; color:#1e293b;">${priceInfo.text}</td>
+                                                <td style="border:1px solid #cbd5e1; padding:10px; text-align:right; vertical-align:middle;">
+                                                    <span style="${badgeStyle} padding:4px 10px; border-radius:8px; font-weight:800; font-size:12px; display:inline-block; white-space:nowrap;">
+                                                        ${priceInfo.text}
+                                                    </span>
+                                                </td>
                                             </tr>
                                         `;
                                     }).join('')}
