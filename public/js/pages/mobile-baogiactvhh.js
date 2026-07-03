@@ -442,10 +442,18 @@ function _mRenderSurchargeCheckboxes() {
         const safeId = 'm_sc_' + item.key.replace(/\s+/g, '_');
         
         return `
-            <label class="m-checkbox-label" style="${isDisabled ? 'opacity:0.7; cursor:not-allowed;' : ''}">
-                <input type="checkbox" id="${safeId}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} onchange="_mToggleSurcharge('${item.key}', this.checked)">
-                ${item.name} (${priceInfo.text})
-            </label>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label class="m-checkbox-label" style="${isDisabled ? 'opacity:0.7; cursor:not-allowed;' : ''}">
+                    <input type="checkbox" id="${safeId}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} onchange="_mToggleSurcharge('${item.key}', this.checked)">
+                    ${item.name} (${priceInfo.text})
+                </label>
+                ${(isChecked && item.name === 'Phối 1 Chi Tiết') ? `
+                    <div style="margin-left: 26px; display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 11px; color: #64748b; font-weight: 600;">SL phối:</span>
+                        <input type="number" min="1" step="1" value="${_mState.surchargeQty?.[item.key] || 1}" oninput="_mOnSurchargeQtyChange('${item.key}', this.value)" style="width: 50px; border: 1.5px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; font-size: 11.5px; font-weight: bold; text-align: center; color: #0f172a; outline: none; background: white;">
+                    </div>
+                ` : ''}
+            </div>
         `;
     }).join('');
     
@@ -456,6 +464,20 @@ function _mRenderSurchargeCheckboxes() {
 
 function _mToggleSurcharge(key, checked) {
     _mState.surcharges[key] = !!checked;
+    if (checked) {
+        _mState.surchargeQty = _mState.surchargeQty || {};
+        _mState.surchargeQty[key] = _mState.surchargeQty[key] || 1;
+    }
+    _mRenderSurchargeCheckboxes();
+}
+
+function _mOnSurchargeQtyChange(key, value) {
+    _mState.surchargeQty = _mState.surchargeQty || {};
+    let val = parseInt(value);
+    if (isNaN(val) || val < 1) {
+        val = 1;
+    }
+    _mState.surchargeQty[key] = val;
     _mUpdateCalculations();
 }
 
@@ -1074,10 +1096,25 @@ function _mCalculateAllCosts() {
                 ? (item.customer_value !== undefined ? item.customer_value : item.value)
                 : item.value;
             const priceInfo = _mGetPriceInfo(surchargeVal);
-            surchargeTotal += priceInfo.value;
+            
+            let qtyMultiplier = 1;
+            if (item.name === 'Phối 1 Chi Tiết') {
+                _mState.surchargeQty = _mState.surchargeQty || {};
+                qtyMultiplier = parseInt(_mState.surchargeQty[item.key]) || 1;
+                if (qtyMultiplier < 1) qtyMultiplier = 1;
+            }
+            
+            const finalPrice = priceInfo.value * qtyMultiplier;
+            surchargeTotal += finalPrice;
+            
+            let labelText = item.name;
+            if (item.name === 'Phối 1 Chi Tiết' && qtyMultiplier > 1) {
+                labelText = `${item.name} (${qtyMultiplier} x ${priceInfo.value.toLocaleString('vi-VN')}đ)`;
+            }
+            
             surchargesBreakdown.push({
-                label: item.name,
-                price: priceInfo.value,
+                label: labelText,
+                price: finalPrice,
                 text: priceInfo.text,
                 isContact: priceInfo.isContact,
                 contactText: priceInfo.text
