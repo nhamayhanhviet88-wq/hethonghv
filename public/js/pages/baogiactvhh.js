@@ -427,10 +427,11 @@ async function renderBaogiactvhhPage(content) {
                 body * {
                     visibility: hidden;
                 }
-                #ctv_print_export_modal_content, #ctv_print_export_modal_content * {
+                #ctv_print_export_modal_content, #ctv_print_export_modal_content *,
+                #ctv_fee_print_content, #ctv_fee_print_content * {
                     visibility: visible;
                 }
-                #ctv_print_export_modal_content {
+                #ctv_print_export_modal_content, #ctv_fee_print_content {
                     position: absolute;
                     left: 0;
                     top: 0;
@@ -2052,167 +2053,185 @@ function _ctvPreviewConfigDetails(id) {
     modal.innerHTML = `
         <div style="background:white; border-radius:24px; max-width:720px; width:100%; max-height:92vh; display:flex; flex-direction:column; box-shadow:0 25px 60px -15px rgba(15,23,42,0.3); border: 1px solid rgba(226, 232, 240, 0.8); overflow: hidden; font-family: 'Inter', sans-serif;">
             
-            <!-- Header section -->
-            <div style="padding:20px 24px; background:linear-gradient(135deg, #1e293b, #0f172a); display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #3b82f6;">
-                <div style="display:flex; flex-direction:column; gap:2px;">
-                    <div style="font-size:11px; font-weight:800; color:#3b82f6; text-transform:uppercase; letter-spacing:1.5px;">Bảng Chi Tiết Biểu Phí</div>
-                    <h3 style="margin:0; font-size:18px; font-weight:900; color:white; display:flex; align-items:center; gap:8px;">
-                        📋 ${c.version_name}
-                    </h3>
-                </div>
-                <button onclick="document.getElementById('ctv_config_preview_modal').style.display='none'" style="background:rgba(255,255,255,0.1); border:none; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; color:#cbd5e1; transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'; this.style.color='#ef4444';" onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1';">×</button>
-            </div>
-            
-            <!-- Brand watermark block (nền và chữ ảnh 1 ở dưới ảnh 3) -->
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: linear-gradient(135deg, #1e3b8a, #2563eb); color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.15); border-bottom: 1px solid rgba(226, 232, 240, 0.1);">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-weight: 900; font-size: 14px; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">⚡ ĐỒNG PHỤC HV</span>
-                </div>
-                <div style="font-size: 11px; font-weight: 800; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
-                    HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC
-                </div>
-            </div>
-            
-            <!-- Main Content Area -->
-            <div style="padding:24px; overflow-y:auto; font-size:13px; line-height:1.6; flex-grow:1; background:#f8fafc; display:flex; flex-direction:column; gap:20px;">
-                
-                <!-- Two Column Layout for Fabrics and Surcharges -->
-                <div style="display: grid; grid-template-columns: 1fr 1.1fr; gap: 20px;">
-                    
-                    <!-- Column 1: Fabric Prices -->
-                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
-                        <div style="font-weight: 800; color: #1e3a8a; font-size: 13.5px; border-bottom: 2.5px solid #3b82f6; padding-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                            👕 ĐƠN GIÁ PHÔI TRƠN (CỔ TRÒN)
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            ${mats.map(m => `
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
-                                    <span style="font-weight: 700; color: #334155; font-size:12.5px;">${m.name}</span>
-                                    <span style="background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid #dbeafe;">
-                                        ${Number(m.price).toLocaleString('vi-VN')}đ
-                                    </span>
-                                </div>
-                            `).join('')}
-                        </div>
+            <div id="ctv_fee_print_content" style="display:flex; flex-direction:column; overflow-y:auto; flex-grow:1; background:#f8fafc;">
+                <!-- Header section -->
+                <div style="padding:20px 24px; background:linear-gradient(135deg, #1e293b, #0f172a); display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #3b82f6;">
+                    <div style="display:flex; flex-direction:column; gap:2px;">
+                        <div style="font-size:11px; font-weight:800; color:#3b82f6; text-transform:uppercase; letter-spacing:1.5px;">Bảng Chi Tiết Biểu Phí</div>
+                        <h3 style="margin:0; font-size:18px; font-weight:900; color:white; display:flex; align-items:center; gap:8px;">
+                            📋 ${c.version_name}
+                        </h3>
                     </div>
+                    <button class="no-print" onclick="document.getElementById('ctv_config_preview_modal').style.display='none'" style="background:rgba(255,255,255,0.1); border:none; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; color:#cbd5e1; transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'; this.style.color='#ef4444';" onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1';">×</button>
+                </div>
+                
+                <!-- Brand watermark block -->
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: linear-gradient(135deg, #1e3b8a, #2563eb); color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.15); border-bottom: 1px solid rgba(226, 232, 240, 0.1);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-weight: 900; font-size: 14px; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">⚡ ĐỒNG PHỤC HV</span>
+                    </div>
+                    <div style="font-size: 11px; font-weight: 800; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
+                        HỆ THỐNG BIỂU PHÍ CTV & ĐẠI LÝ CHÍNH THỨC
+                    </div>
+                </div>
+                
+                <!-- Main Content Area -->
+                <div style="padding:24px; font-size:13px; line-height:1.6; background:#f8fafc; display:flex; flex-direction:column; gap:20px;">
                     
-                    <!-- Column 2: Surcharges & Extra Details -->
-                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
-                        <div style="font-weight: 800; color: #0d9488; font-size: 13.5px; border-bottom: 2.5px solid #0d9488; padding-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                            ➕ BẢNG PHỤ PHÍ & CHI TIẾT THÊM
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            ${surchargeItems.map(item => {
-                                const priceInfo = _ctvGetPriceInfo(item.value);
-                                const isNegative = !priceInfo.isContact && priceInfo.value < 0;
-                                return `
+                    <!-- Two Column Layout for Fabrics and Surcharges -->
+                    <div style="display: grid; grid-template-columns: 1fr 1.1fr; gap: 20px;">
+                        
+                        <!-- Column 1: Fabric Prices -->
+                        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
+                            <div style="font-weight: 800; color: #1e3a8a; font-size: 13.5px; border-bottom: 2.5px solid #3b82f6; padding-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                                👕 ĐƠN GIÁ PHÔI TRƠN (CỔ TRÒN)
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                ${mats.map(m => `
                                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
-                                        <span style="font-weight: 700; color: #334155; font-size:12.5px;">${item.name}</span>
-                                        <span style="background: ${isNegative ? '#fef2f2' : '#f0fdf4'}; color: ${isNegative ? '#b91c1c' : '#15803d'}; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid ${isNegative ? '#fee2e2' : '#dcfce7'};">
-                                            ${priceInfo.text}
+                                        <span style="font-weight: 700; color: #334155; font-size:12.5px;">${m.name}</span>
+                                        <span style="background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid #dbeafe;">
+                                            ${Number(m.price).toLocaleString('vi-VN')}đ
                                         </span>
                                     </div>
-                                `;
-                            }).join('')}
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <!-- Column 2: Surcharges & Extra Details -->
+                        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
+                            <div style="font-weight: 800; color: #0d9488; font-size: 13.5px; border-bottom: 2.5px solid #0d9488; padding-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                                ➕ BẢNG PHỤ PHÍ & CHI TIẾT THÊM
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                ${surchargeItems.map(item => {
+                                    const priceInfo = _ctvGetPriceInfo(item.value);
+                                    const isNegative = !priceInfo.isContact && priceInfo.value < 0;
+                                    return `
+                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
+                                            <span style="font-weight: 700; color: #334155; font-size:12.5px;">${item.name}</span>
+                                            <span style="background: ${isNegative ? '#fef2f2' : '#f0fdf4'}; color: ${isNegative ? '#b91c1c' : '#15803d'}; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid ${isNegative ? '#fee2e2' : '#dcfce7'};">
+                                                ${priceInfo.text}
+                                            </span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- Print config full width section -->
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 14px;">
+                        <div style="font-weight: 800; color: #7c3aed; font-size: 13.5px; border-bottom: 2.5px solid #7c3aed; padding-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                            🎨 CẤU HÌNH PHƯƠNG ÁN IN & VẬN CHUYỂN
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                            
+                            <!-- PET Card -->
+                            <div style="background: #fdfcff; border: 1px solid #f3e8ff; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                                <div style="font-weight: 800; color: #6b21a8; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #e9d5ff; padding-bottom: 6px; margin-bottom: 2px;">
+                                    🧬 IN PET KHỔ MÉT
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="color:#64748b; font-weight:600;">Khổ mét (58x100cm):</span>
+                                        <strong style="color:#0f172a; font-weight:750;">${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ</strong>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="color:#64748b; font-weight:600;">Khoảng cách an toàn:</span>
+                                        <strong style="color:#0f172a; font-weight:750;">${pr.pet?.spacing} cm</strong>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="color:#64748b; font-weight:600;">In PET Ngực (cố định):</span>
+                                        <strong style="color:#0f172a; font-weight:750;">+${Number(pr.pet?.chest_price || 5000).toLocaleString('vi-VN')}đ/áo</strong>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="color:#64748b; font-weight:600;">Tối thiểu/Vị trí khác:</span>
+                                        <strong style="color:#0f172a; font-weight:750;">${Number(pr.pet?.min_position_price || 5000).toLocaleString('vi-VN')}đ/vị trí</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Shipping Policy Card -->
+                            <div style="background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                                <div style="font-weight: 800; color: #0f766e; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #99f6e4; padding-bottom: 6px; margin-bottom: 2px;">
+                                    🚚 CHÍNH SÁCH HỖ TRỢ VẬN CHUYỂN
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+                                    ${(pr.shipping || [
+                                        { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
+                                        { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 },
+                                        { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
+                                        { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
+                                    ]).map(s => {
+                                        let qtyRange = '';
+                                        if (s.min_qty === 0 && s.max_qty === 19) {
+                                            qtyRange = 'Dưới 20 áo';
+                                        } else if (s.max_qty >= 99999) {
+                                            qtyRange = `Từ ${s.min_qty} áo trở lên`;
+                                        } else {
+                                            qtyRange = `Từ ${s.min_qty} - ${s.max_qty} áo`;
+                                        }
+                                        return `
+                                            <div style="display:flex; justify-content:space-between; align-items:start; border-bottom:1px dashed #e2e8f0; padding-bottom:4px; margin-bottom:4px;">
+                                                <div style="display:flex; flex-direction:column; gap:2px; flex-grow:1; padding-right:8px;">
+                                                    <span style="color:#0f766e; font-weight:700; font-size:11.5px;">${qtyRange}</span>
+                                                    <span style="font-size:9.5px; color:#64748b; line-height:1.2; font-style:italic;">${s.desc}</span>
+                                                </div>
+                                                <strong style="color:#0d9488; font-weight:800; white-space:nowrap; font-size:11px;">
+                                                    ${s.value > 0 ? `Hỗ trợ ${s.value.toLocaleString('vi-VN')}đ` : 'K.hỗ trợ'}
+                                                </strong>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
+                            
+                            <!-- Screen Printing Card (Span 2) -->
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; grid-column: span 2; display: flex; flex-direction: column; gap: 8px;">
+                                <div style="font-weight: 800; color: #334155; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; margin-bottom: 2px;">
+                                    🖌️ IN LƯỚI CTV (SCREEN PRINTING)
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; font-size: 12px;">
+                                    <div style="display: flex; flex-direction: column; gap: 6px; border-right: 1px solid #e2e8f0; padding-right: 12px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="color:#64748b; font-weight:600;">Đơn tối thiểu:</span>
+                                            <strong style="color:#0f172a; font-weight:750;">${pr.screen?.qty_threshold} áo</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="color:#64748b; font-weight:600;">Đơn hàng &lt; ${pr.screen?.qty_threshold} áo:</span>
+                                            <strong style="color:#0f172a; font-weight:750;">${Number(pr.screen?.price_low).toLocaleString('vi-VN')}đ/màu</strong>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="color:#64748b; font-weight:600;">Đơn >= ${pr.screen?.qty_threshold} áo (1-3 màu):</span>
+                                            <strong style="color:#0f172a; font-weight:750;">${Number(pr.screen?.price_high_1_3).toLocaleString('vi-VN')}đ/áo/màu</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="color:#64748b; font-weight:600;">Đơn >= ${pr.screen?.qty_threshold} áo (4+ màu):</span>
+                                            <strong style="color:#0f172a; font-weight:750;">${Number(pr.screen?.price_high_4_plus).toLocaleString('vi-VN')}đ/áo/màu</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                         </div>
                     </div>
                     
                 </div>
-                
-                <!-- Print config full width section -->
-                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 14px;">
-                    <div style="font-weight: 800; color: #7c3aed; font-size: 13.5px; border-bottom: 2.5px solid #7c3aed; padding-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                        🎨 CẤU HÌNH PHƯƠNG ÁN IN / THÊU CTV
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-                        
-                        <!-- PET Card -->
-                        <div style="background: #fdfcff; border: 1px solid #f3e8ff; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
-                            <div style="font-weight: 800; color: #6b21a8; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #e9d5ff; padding-bottom: 6px; margin-bottom: 2px;">
-                                🧬 IN PET KHỔ MÉT
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="color:#64748b; font-weight:600;">Khổ mét (58x100cm):</span>
-                                    <strong style="color:#0f172a; font-weight:750;">${Number(pr.pet?.sheet_price).toLocaleString('vi-VN')}đ</strong>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="color:#64748b; font-weight:600;">Khoảng cách an toàn:</span>
-                                    <strong style="color:#0f172a; font-weight:750;">${pr.pet?.spacing} cm</strong>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="color:#64748b; font-weight:600;">In PET Ngực (cố định):</span>
-                                    <strong style="color:#0f172a; font-weight:750;">+${Number(pr.pet?.chest_price || 5000).toLocaleString('vi-VN')}đ/áo</strong>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="color:#64748b; font-weight:600;">Tối thiểu/Vị trí khác:</span>
-                                    <strong style="color:#0f172a; font-weight:750;">${Number(pr.pet?.min_position_price || 5000).toLocaleString('vi-VN')}đ/vị trí</strong>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Embroidery and 3D Print Card -->
-                        <div style="background: #fcfaff; border: 1px solid #fae8ff; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
-                            <div style="font-weight: 800; color: #86198f; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #f5d0fe; padding-bottom: 6px; margin-bottom: 2px;">
-                                ⚡ THÊU VI TÍNH & IN 3D TOÀN THÂN
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; justify-content: center; height: 100%;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0;">
-                                    <span style="color:#64748b; font-weight:600;">Thêu vi tính đồng giá:</span>
-                                    <strong style="color:#0f172a; font-weight:750; background:#fae8ff; padding:2px 8px; border-radius:6px;">
-                                        ${(() => {
-                                            const val = pr.embroidery?.flat_price;
-                                            const isNum = !isNaN(parseFloat(val)) && isFinite(val);
-                                            return isNum ? Number(val).toLocaleString('vi-VN') + 'đ/áo' : (val || 'Liên hệ');
-                                        })()}
-                                    </strong>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0;">
-                                    <span style="color:#64748b; font-weight:600;">In 3D toàn thân (tính theo áo):</span>
-                                    <strong style="color:#0f172a; font-weight:750; background:#f5d0fe; padding:2px 8px; border-radius:6px;">${Number(pr.print3d?.flat_price || 30000).toLocaleString('vi-VN')}đ/áo</strong>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Screen Printing Card (Span 2) -->
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; grid-column: span 2; display: flex; flex-direction: column; gap: 8px;">
-                            <div style="font-weight: 800; color: #334155; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; margin-bottom: 2px;">
-                                🖌️ IN LƯỚI CTV (SCREEN PRINTING)
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; font-size: 12px;">
-                                <div style="display: flex; flex-direction: column; gap: 6px; border-right: 1px solid #e2e8f0; padding-right: 12px;">
-                                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                                        <span style="color:#64748b; font-weight:600;">Đơn tối thiểu:</span>
-                                        <strong style="color:#0f172a; font-weight:750;">${pr.screen?.qty_threshold} áo</strong>
-                                    </div>
-                                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                                        <span style="color:#64748b; font-weight:600;">Đơn hàng &lt; ${pr.screen?.qty_threshold} áo:</span>
-                                        <strong style="color:#0f172a; font-weight:750;">${Number(pr.screen?.price_low).toLocaleString('vi-VN')}đ/màu</strong>
-                                    </div>
-                                </div>
-                                <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center;">
-                                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                                        <span style="color:#64748b; font-weight:600;">Đơn >= ${pr.screen?.qty_threshold} áo (1-3 màu):</span>
-                                        <strong style="color:#0f172a; font-weight:750;">${Number(pr.screen?.price_high_1_3).toLocaleString('vi-VN')}đ/áo/màu</strong>
-                                    </div>
-                                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                                        <span style="color:#64748b; font-weight:600;">Đơn >= ${pr.screen?.qty_threshold} áo (4+ màu):</span>
-                                        <strong style="color:#0f172a; font-weight:750;">${Number(pr.screen?.price_high_4_plus).toLocaleString('vi-VN')}đ/áo/màu</strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                    </div>
-                </div>
-                
             </div>
             
             <!-- Footer -->
-            <div style="padding:16px 24px; border-top:1px solid #e2e8f0; text-align:right; background:#f8fafc; border-bottom-left-radius:24px; border-bottom-right-radius:24px; display:flex; justify-content:flex-end;">
+            <div class="no-print" style="padding:16px 24px; border-top:1px solid #e2e8f0; text-align:right; background:#f8fafc; border-bottom-left-radius:24px; border-bottom-right-radius:24px; display:flex; justify-content:flex-end; gap:12px;">
+                <button class="ctv-btn-secondary" style="background:#1e3a8a; color:white; border-color:#1e3a8a; padding:8px 24px; border-radius:10px; font-weight:700; cursor:pointer; font-size:13px; transition:all 0.2s;" onclick="window.print()">🖨️ In / Xuất PDF</button>
                 <button class="ctv-btn-secondary" onclick="document.getElementById('ctv_config_preview_modal').style.display='none'" style="padding:8px 24px; border-radius:10px; font-weight:700; cursor:pointer; font-size:13px; transition:all 0.2s;">Đóng</button>
             </div>
         </div>
+    `;
+    modal.style.display = 'flex';
+}
     `;
     modal.style.display = 'flex';
 }
