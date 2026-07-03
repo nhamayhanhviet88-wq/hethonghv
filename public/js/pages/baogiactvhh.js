@@ -2173,15 +2173,26 @@ function _ctvPreviewConfigDetails(id) {
                                         } else {
                                             qtyRange = `Từ ${s.min_qty} - ${s.max_qty} áo`;
                                         }
+                                        
+                                        let badgeHTML = '';
+                                        let detailsHTML = '';
+                                        if (s.value > 0) {
+                                            badgeHTML = `<span style="color:#0f766e; font-weight:800; font-size:10px; background:#ccfbf1; padding:2px 6px; border-radius:4px; border:1px solid #99f6e4; display:inline-block; margin-top:2px;">Miễn Phí Ship Thường</span>`;
+                                            detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">J&T / Viettel Post (Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)</span>`;
+                                        } else {
+                                            badgeHTML = `<span style="color:#64748b; font-weight:700; font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1; display:inline-block; margin-top:2px;">Không hỗ trợ</span>`;
+                                            detailsHTML = `<span style="font-size:10px; color:#64748b; display:block; margin-top:2px;">Cộng tác viên tự thanh toán phí ship</span>`;
+                                        }
+                                        
                                         return `
-                                            <div style="display:flex; justify-content:space-between; align-items:start; border-bottom:1px dashed #e2e8f0; padding-bottom:4px; margin-bottom:4px;">
-                                                <div style="display:flex; flex-direction:column; gap:2px; flex-grow:1; padding-right:8px;">
-                                                    <span style="color:#0f766e; font-weight:700; font-size:11.5px;">${qtyRange}</span>
-                                                    <span style="font-size:9.5px; color:#64748b; line-height:1.2; font-style:italic;">${s.desc}</span>
+                                            <div style="display:flex; justify-content:space-between; align-items:start; border-bottom:1px dashed #99f6e4; padding-bottom:6px; margin-bottom:6px; min-height:40px;">
+                                                <div style="display:flex; flex-direction:column; flex-grow:1; padding-right:8px;">
+                                                    <span style="color:#0f766e; font-weight:750; font-size:11.5px;">${qtyRange}</span>
+                                                    ${detailsHTML}
                                                 </div>
-                                                <strong style="color:#0d9488; font-weight:800; white-space:nowrap; font-size:11px;">
-                                                    ${s.value > 0 ? `Hỗ trợ ${s.value.toLocaleString('vi-VN')}đ` : 'K.hỗ trợ'}
-                                                </strong>
+                                                <div style="white-space:nowrap; text-align:right; margin-top:1px;">
+                                                    ${badgeHTML}
+                                                </div>
                                             </div>
                                         `;
                                     }).join('')}
@@ -2541,10 +2552,10 @@ function _ctvRenderShippingRows(shippingList) {
     if (!container) return;
     
     const list = shippingList || [
-        { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
-        { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 },
-        { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
-        { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
+        { min_qty: 0, max_qty: 19, desc: "Không hỗ trợ vận chuyển", value: 0 },
+        { min_qty: 20, max_qty: 100, desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 50k)", value: 50000 },
+        { min_qty: 101, max_qty: 499, desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 100k)", value: 100000 },
+        { min_qty: 500, max_qty: 999999, desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 200k)", value: 200000 }
     ];
     
     container.innerHTML = list.map((item, idx) => `
