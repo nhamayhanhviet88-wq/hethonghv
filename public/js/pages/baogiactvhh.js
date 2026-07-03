@@ -2232,9 +2232,6 @@ function _ctvPreviewConfigDetails(id) {
     `;
     modal.style.display = 'flex';
 }
-    `;
-    modal.style.display = 'flex';
-}
 
 function _ctvOpenNewConfigForm(editId = null) {
     let modal = document.getElementById('ctv_config_new_modal');
