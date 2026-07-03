@@ -491,27 +491,6 @@ async function renderBaogiactvhhPage(content) {
                 border-radius: 8px;
                 font-size: 13px;
             }
-            /* Printable Quote Styles */
-            @media print {
-                body * {
-                    visibility: hidden;
-                }
-                #ctv_print_export_modal_content, #ctv_print_export_modal_content *,
-                #ctv_fee_print_content, #ctv_fee_print_content * {
-                    visibility: visible;
-                }
-                #ctv_print_export_modal_content, #ctv_fee_print_content {
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    width: 100%;
-                    padding: 0;
-                    margin: 0;
-                }
-                .no-print {
-                    display: none !important;
-                }
-            }
         `;
         document.head.appendChild(style);
     }
