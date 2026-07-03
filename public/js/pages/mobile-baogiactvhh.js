@@ -827,10 +827,16 @@ function _mCalculateAllCosts() {
     const finalPricePerShirt = basePrice + surchargeTotal + printCost + commissionAmount;
     const grandTotal = finalPricePerShirt * qty;
     
-    const shippingList = _mState.activeConfig?.print_prices?.shipping || [
-        { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
-        { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
-    ];
+    const isCust = _mState.targetType === 'customer';
+    const shippingList = isCust
+        ? (_mState.activeConfig?.print_prices?.shipping_customer || [
+            { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
+            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
+        ])
+        : (_mState.activeConfig?.print_prices?.shipping || [
+            { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
+            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
+        ]);
     let matchedShipping = null;
     if (qty > 0) {
         matchedShipping = _mMatchShippingPolicy(shippingList, qty, grandTotal);

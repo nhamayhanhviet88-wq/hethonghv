@@ -1416,10 +1416,16 @@ function _ctvCalculateAllCosts() {
     const finalPricePerShirt = basePrice + surchargeTotal + printCost + commissionAmount;
     const grandTotal = finalPricePerShirt * qty;
     
-    const shippingList = _ctvState.activeConfig?.print_prices?.shipping || [
-        { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
-        { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
-    ];
+    const isCust = _ctvState.targetType === 'customer';
+    const shippingList = isCust
+        ? (_ctvState.activeConfig?.print_prices?.shipping_customer || [
+            { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
+            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
+        ])
+        : (_ctvState.activeConfig?.print_prices?.shipping || [
+            { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
+            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
+        ]);
     let matchedShipping = null;
     if (qty > 0) {
         matchedShipping = _ctvMatchShippingPolicy(shippingList, qty, grandTotal);
@@ -2427,48 +2433,73 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                             </div>
                             
                             <!-- Shipping Policy Card -->
-                            <div style="background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
-                                <div style="font-weight: 800; color: #0f766e; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #99f6e4; padding-bottom: 6px; margin-bottom: 2px;">
-                                    🚚 CHÍNH SÁCH HỖ TRỢ VẬN CHUYỂN
+                            <div style="background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+                                <div>
+                                    <div style="font-weight: 800; color: #0f766e; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #99f6e4; padding-bottom: 6px; margin-bottom: 6px;">
+                                        🚚 HỖ TRỢ VẬN CHUYỂN CTV
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+                                        ${(pr.shipping || [
+                                            { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
+                                            { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 }
+                                        ]).map(s => {
+                                            const qtyRange = _ctvFormatShippingRange(s.min_qty, s.max_qty);
+                                            const descLower = String(s.desc).toLowerCase();
+                                            const isFree = descLower.includes('miễn phí') || descLower.includes('free') || s.value > 0;
+                                            
+                                            let badgeHTML = isFree 
+                                                ? `<span style="color:#0f766e; font-weight:800; font-size:10px; background:#ccfbf1; padding:2px 6px; border-radius:4px; border:1px solid #99f6e4; display:inline-block;">Miễn Phí Ship</span>`
+                                                : `<span style="color:#64748b; font-weight:700; font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1; display:inline-block;">Không hỗ trợ</span>`;
+                                            
+                                            let detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${s.desc} ${s.value > 0 ? `(Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)` : ''}</span>`;
+                                            
+                                            return `
+                                                <div style="border-bottom:1px solid #f1f5f9; padding-bottom:4px; display:flex; justify-content:space-between; align-items:start; min-height:36px;">
+                                                    <div style="display:flex; flex-direction:column; flex-grow:1; padding-right:8px;">
+                                                        <span style="font-weight:700; color:#1e293b;">SL: ${qtyRange}</span>
+                                                        ${detailsHTML}
+                                                    </div>
+                                                    <div style="white-space:nowrap; text-align:right;">
+                                                        ${badgeHTML}
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
                                 </div>
-                                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
-                                    ${(pr.shipping || [
-                                        { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
-                                        { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 },
-                                        { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
-                                        { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
-                                    ]).map(s => {
-                                        const qtyRange = _ctvFormatShippingRange(s.min_qty, s.max_qty);
-                                        
-                                        let badgeHTML = '';
-                                        let detailsHTML = '';
-                                        const descLower = String(s.desc).toLowerCase();
-                                        const isFree = descLower.includes('miễn phí') || descLower.includes('free') || s.value > 0;
-                                        
-                                        if (isFree) {
-                                            badgeHTML = `<span style="color:#0f766e; font-weight:800; font-size:10px; background:#ccfbf1; padding:2px 6px; border-radius:4px; border:1px solid #99f6e4; display:inline-block; margin-top:2px;">Miễn Phí Ship</span>`;
-                                            if (s.value > 0) {
-                                                detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${s.desc} (Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)</span>`;
-                                            } else {
-                                                detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${s.desc}</span>`;
-                                            }
-                                        } else {
-                                            badgeHTML = `<span style="color:#64748b; font-weight:700; font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1; display:inline-block; margin-top:2px;">Không hỗ trợ</span>`;
-                                            detailsHTML = `<span style="font-size:10px; color:#64748b; display:block; margin-top:2px;">${s.desc}</span>`;
-                                        }
-                                        
-                                        return `
-                                            <div style="display:flex; justify-content:space-between; align-items:start; border-bottom:1px dashed #99f6e4; padding-bottom:6px; margin-bottom:6px; min-height:40px;">
-                                                <div style="display:flex; flex-direction:column; flex-grow:1; padding-right:8px;">
-                                                    <span style="color:#0f766e; font-weight:750; font-size:11.5px;">${qtyRange}</span>
-                                                    ${detailsHTML}
+
+                                <div>
+                                    <div style="font-weight: 800; color: #c2410c; font-size: 12px; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed #fed7aa; padding-bottom: 6px; margin-bottom: 6px;">
+                                        🚚 HỖ TRỢ VẬN CHUYỂN KHÁCH HÀNG
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+                                        ${(pr.shipping_customer || [
+                                            { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
+                                            { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 }
+                                        ]).map(s => {
+                                            const qtyRange = _ctvFormatShippingRange(s.min_qty, s.max_qty);
+                                            const descLower = String(s.desc).toLowerCase();
+                                            const isFree = descLower.includes('miễn phí') || descLower.includes('free') || s.value > 0;
+                                            
+                                            let badgeHTML = isFree 
+                                                ? `<span style="color:#c2410c; font-weight:800; font-size:10px; background:#ffedd5; padding:2px 6px; border-radius:4px; border:1px solid #fed7aa; display:inline-block;">Miễn Phí Ship</span>`
+                                                : `<span style="color:#64748b; font-weight:700; font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1; display:inline-block;">Không hỗ trợ</span>`;
+                                            
+                                            let detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${s.desc} ${s.value > 0 ? `(Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)` : ''}</span>`;
+                                            
+                                            return `
+                                                <div style="border-bottom:1px solid #f1f5f9; padding-bottom:4px; display:flex; justify-content:space-between; align-items:start; min-height:36px;">
+                                                    <div style="display:flex; flex-direction:column; flex-grow:1; padding-right:8px;">
+                                                        <span style="font-weight:700; color:#1e293b;">SL: ${qtyRange}</span>
+                                                        ${detailsHTML}
+                                                    </div>
+                                                    <div style="white-space:nowrap; text-align:right;">
+                                                        ${badgeHTML}
+                                                    </div>
                                                 </div>
-                                                <div style="white-space:nowrap; text-align:right; margin-top:1px;">
-                                                    ${badgeHTML}
-                                                </div>
-                                            </div>
-                                        `;
-                                    }).join('')}
+                                            `;
+                                        }).join('')}
+                                    </div>
                                 </div>
                             </div>
                             
@@ -2735,20 +2766,43 @@ function _ctvOpenNewConfigForm(editId = null) {
                 </div>
                 
                 <!-- Shipping setup -->
-                <h4 style="margin:20px 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
-                    <span>🚚 Thiết Lập Giá Vận Chuyển</span>
-                    <button type="button" class="ctv-btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="_ctvAddShippingRowInput()">+ Thêm vận chuyển</button>
-                </h4>
-                <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
-                    <div style="display:grid; grid-template-columns: 80px 80px 1fr 120px 30px; gap:8px; font-weight:bold; margin-bottom:8px; color:#475569; font-size:12px;">
-                        <span>Từ</span>
-                        <span>Đến</span>
-                        <span>Chính sách vận chuyển</span>
-                        <span>Hỗ trợ VC khác (đ)</span>
-                        <span></span>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div>
+                        <h4 style="margin:20px 0 8px 0; color:#1e3a8a; border-bottom:1px solid #cbd5e1; padding-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>🚚 VC cho CTV</span>
+                            <button type="button" class="ctv-btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="_ctvAddShippingRowInput('ctv')">+ Thêm</button>
+                        </h4>
+                        <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; background: #fafafa;">
+                            <div style="display:grid; grid-template-columns: 80px 80px 1fr 90px 20px; gap:6px; font-weight:bold; margin-bottom:8px; color:#475569; font-size:11px;">
+                                <span>Từ</span>
+                                <span>Đến</span>
+                                <span>Chính sách vận chuyển</span>
+                                <span>Hỗ trợ (đ)</span>
+                                <span></span>
+                            </div>
+                            <div id="new_cfg_shipping_container" style="display:flex; flex-direction:column; gap:8px;">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                        </div>
                     </div>
-                    <div id="new_cfg_shipping_container" style="display:flex; flex-direction:column; gap:8px;">
-                        <!-- Will be populated dynamically -->
+
+                    <div>
+                        <h4 style="margin:20px 0 8px 0; color:#c2410c; border-bottom:1px solid #fed7aa; padding-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="color:#c2410c;">🚚 VC cho Khách Hàng</span>
+                            <button type="button" class="ctv-btn-secondary" style="padding:2px 8px; font-size:11px; border-color:#fed7aa; color:#c2410c;" onclick="_ctvAddShippingRowInput('customer')">+ Thêm</button>
+                        </h4>
+                        <div style="border:1px solid #fed7aa; border-radius:10px; padding:12px; background-color:#fffbeb;">
+                            <div style="display:grid; grid-template-columns: 80px 80px 1fr 90px 20px; gap:6px; font-weight:bold; margin-bottom:8px; color:#475569; font-size:11px;">
+                                <span>Từ</span>
+                                <span>Đến</span>
+                                <span>Chính sách vận chuyển</span>
+                                <span>Hỗ trợ (đ)</span>
+                                <span></span>
+                            </div>
+                            <div id="new_cfg_shipping_customer_container" style="display:flex; flex-direction:column; gap:8px;">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -2768,7 +2822,7 @@ function _ctvOpenNewConfigForm(editId = null) {
     `;
     modal.style.display = 'flex';
     _ctvRenderSurchargeRows(cfg.surcharges);
-    _ctvRenderShippingRows(cfg.print_prices?.shipping);
+    _ctvRenderShippingRows(cfg.print_prices?.shipping, cfg.print_prices?.shipping_customer);
 }
 
 function _ctvOn3dCostChange(val) {
@@ -2874,35 +2928,48 @@ function _ctvRenderSurchargeRows(surchargesObj) {
     }).join('');
 }
 
-function _ctvRenderShippingRows(shippingList) {
+function _ctvRenderShippingRows(shippingList, shippingCustomerList) {
     const container = document.getElementById('new_cfg_shipping_container');
-    if (!container) return;
-    container.innerHTML = '';
+    const containerCust = document.getElementById('new_cfg_shipping_customer_container');
     
-    const list = shippingList || [
-        { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
-        { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
-    ];
+    if (container) {
+        container.innerHTML = '';
+        const list = shippingList || [
+            { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
+            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
+        ];
+        list.forEach(item => {
+            _ctvAddShippingRowInput('ctv', item.min_qty, item.max_qty, item.desc, item.value);
+        });
+    }
     
-    list.forEach(item => {
-        _ctvAddShippingRowInput(item.min_qty, item.max_qty, item.desc, item.value);
-    });
+    if (containerCust) {
+        containerCust.innerHTML = '';
+        const listCust = shippingCustomerList || shippingList || [
+            { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
+            { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
+        ];
+        listCust.forEach(item => {
+            _ctvAddShippingRowInput('customer', item.min_qty, item.max_qty, item.desc, item.value);
+        });
+    }
 }
 
-function _ctvAddShippingRowInput(min_qty = '', max_qty = '', desc = '', value = 0) {
-    const container = document.getElementById('new_cfg_shipping_container');
+function _ctvAddShippingRowInput(target = 'ctv', min_qty = '', max_qty = '', desc = '', value = 0) {
+    const containerId = target === 'customer' ? 'new_cfg_shipping_customer_container' : 'new_cfg_shipping_container';
+    const container = document.getElementById(containerId);
     if (!container) return;
     
     const div = document.createElement('div');
     div.className = 'ctv-shipping-row';
-    div.style.cssText = 'display:grid; grid-template-columns: 80px 80px 1fr 120px 30px; gap:8px; align-items:center;';
+    div.style.cssText = 'display:grid; grid-template-columns: 80px 80px 1fr 90px 20px; gap:6px; align-items:center;';
     div.innerHTML = `
-        <input type="text" class="ctv-input shipping-min" value="${min_qty}" placeholder="Từ">
-        <input type="text" class="ctv-input shipping-max" value="${max_qty}" placeholder="Đến">
-        <input type="text" class="ctv-input shipping-desc" value="${desc}" placeholder="Chính sách vận chuyển" style="font-size:12px;">
-        <input type="text" class="ctv-input shipping-value" value="${value}" placeholder="Hỗ trợ" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+        <input type="text" class="ctv-input shipping-min" value="${min_qty}" placeholder="Từ" style="padding:4px; font-size:12px;">
+        <input type="text" class="ctv-input shipping-max" value="${max_qty}" placeholder="Đến" style="padding:4px; font-size:12px;">
+        <input type="text" class="ctv-input shipping-desc" value="${desc}" placeholder="Chính sách vận chuyển" style="font-size:11px; padding:4px;">
+        <input type="text" class="ctv-input shipping-value" value="${value}" placeholder="Hỗ trợ" oninput="this.value = this.value.replace(/[^0-9.]/g, '')" style="padding:4px; font-size:12px; text-align:center;">
         <div style="text-align:right;">
-            <button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>
+            <button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none; padding:0; line-height:1;">×</button>
         </div>
     `;
     container.appendChild(div);
@@ -3103,6 +3170,17 @@ async function _ctvSaveNewConfigVersion() {
             shipping: (function() {
                 const list = [];
                 document.querySelectorAll('#new_cfg_shipping_container .ctv-shipping-row').forEach(row => {
+                    const min_qty = row.querySelector('.shipping-min').value.trim();
+                    const max_qty = row.querySelector('.shipping-max').value.trim();
+                    const desc = row.querySelector('.shipping-desc').value.trim();
+                    const value = parseFloat(row.querySelector('.shipping-value').value) || 0;
+                    list.push({ min_qty, max_qty, desc, value });
+                });
+                return list;
+            })(),
+            shipping_customer: (function() {
+                const list = [];
+                document.querySelectorAll('#new_cfg_shipping_customer_container .ctv-shipping-row').forEach(row => {
                     const min_qty = row.querySelector('.shipping-min').value.trim();
                     const max_qty = row.querySelector('.shipping-max').value.trim();
                     const desc = row.querySelector('.shipping-desc').value.trim();
