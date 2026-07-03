@@ -29,7 +29,7 @@ var _ctvState = {
     activeConfig: null,
     customers: [],
     selectedCustomer: null,
-    quantity: 10,
+    quantity: '',
     selectedMaterialIndex: 0,
     surcharges: {
         collar: false,
@@ -704,7 +704,11 @@ function _ctvClearCustomer() {
 }
 
 function _ctvOnQuantityChange(val) {
-    _ctvState.quantity = Math.max(1, Number(val) || 1);
+    if (val === '') {
+        _ctvState.quantity = '';
+    } else {
+        _ctvState.quantity = Math.max(1, parseInt(val) || 1);
+    }
     _ctvUpdateCalculations();
 }
 
@@ -1094,7 +1098,7 @@ function _ctvCalculateAllCosts() {
     const surchargesBreakdown = [];
     
     // Auto surcharge for low quantity < 20
-    if (qty < 20) {
+    if (qty > 0 && qty < 20) {
         const priceInfo = _ctvGetPriceInfo(config.surcharges.qty_under_20);
         surchargeTotal += priceInfo.value;
         surchargesBreakdown.push({
@@ -1181,7 +1185,10 @@ function _ctvCalculateAllCosts() {
         const threshold = configScreen.qty_threshold || 20;
         let singleScreenPrice = 0;
         
-        if (qty < threshold) {
+        if (qty === 0) {
+            singleScreenPrice = 0;
+            printBreakdown.push({ label: `In lưới (${colors} màu, chưa nhập số lượng)`, price: 0 });
+        } else if (qty < threshold) {
             const totalOrderCost = configScreen.price_low * colors;
             singleScreenPrice = Math.round(totalOrderCost / qty);
             printBreakdown.push({ label: `In lưới dưới hạn (${colors} màu, phân bổ đơn)`, price: singleScreenPrice });
@@ -1259,7 +1266,7 @@ function _ctvUpdateCalculations() {
         </div>
         <div class="ctv-result-row">
             <span>Số lượng đơn:</span>
-            <strong style="color:white;">${_ctvState.quantity} áo</strong>
+            <strong style="color:white;">${_ctvState.quantity ? _ctvState.quantity + ' áo' : '<span style="color:#ef4444; font-weight:700;">Chưa nhập số lượng</span>'}</strong>
         </div>
         
         <div style="border-top:1px solid rgba(255,255,255,0.1); margin:12px 0; padding-top:12px;">

@@ -28,7 +28,7 @@ var _mState = {
     activeConfig: null,
     customers: [],
     selectedCustomer: null,
-    quantity: 10,
+    quantity: '',
     selectedMaterialIndex: 0,
     surcharges: {
         collar: false,
@@ -259,7 +259,11 @@ function _mClearCustomer() {
 }
 
 function _mOnQuantityChange(val) {
-    _mState.quantity = Math.max(1, Number(val) || 1);
+    if (val === '') {
+        _mState.quantity = '';
+    } else {
+        _mState.quantity = Math.max(1, parseInt(val) || 1);
+    }
     _mUpdateCalculations();
 }
 
@@ -552,7 +556,7 @@ function _mCalculateAllCosts() {
     let surchargeTotal = 0;
     const surchargesBreakdown = [];
     
-    if (qty < 20) {
+    if (qty > 0 && qty < 20) {
         const priceInfo = _mGetPriceInfo(config.surcharges.qty_under_20);
         surchargeTotal += priceInfo.value;
         surchargesBreakdown.push({
@@ -634,13 +638,17 @@ function _mCalculateAllCosts() {
         const threshold = configScreen.qty_threshold || 20;
         let singleScreenPrice = 0;
         
-        if (qty < threshold) {
+        if (qty === 0) {
+            singleScreenPrice = 0;
+            printBreakdown.push({ label: `In lưới (${colors} màu, chưa nhập số lượng)`, price: 0 });
+        } else if (qty < threshold) {
             singleScreenPrice = Math.round((configScreen.price_low * colors) / qty);
+            printBreakdown.push({ label: `In lưới (${colors} màu)`, price: singleScreenPrice });
         } else {
             singleScreenPrice = (colors <= 3 ? configScreen.price_high_1_3 : configScreen.price_high_4_plus) * colors;
+            printBreakdown.push({ label: `In lưới (${colors} màu)`, price: singleScreenPrice });
         }
         printCost = singleScreenPrice;
-        printBreakdown.push({ label: `In lưới (${colors} màu)`, price: singleScreenPrice });
     } else if (pt === 'embroidery') {
         const embInfo = _mGetEmbPriceInfo(_mState.embroideryCost);
         if (embInfo.isContact) {
@@ -706,7 +714,7 @@ function _mUpdateCalculations() {
         </div>
         <div class="m-result-row">
             <span>Số lượng:</span>
-            <strong style="color:white;">${_mState.quantity} áo</strong>
+            <strong style="color:white;">${_mState.quantity ? _mState.quantity + ' áo' : '<span style="color:#ef4444;">Chưa nhập số lượng</span>'}</strong>
         </div>
         <div class="m-result-row">
             <span>Chất liệu vải:</span>
