@@ -1083,6 +1083,64 @@ function _ctvGetEmbPriceInfo(val) {
     return { isContact: true, value: 0, text: cleanVal || 'Liên hệ' };
 }
 
+function _ctvParseShippingLimit(val) {
+    const str = String(val || '').toLowerCase();
+    let num = parseInt(str.replace(/[^0-9]/g, '')) || 0;
+    if (str.includes('triệu') || str.includes('tr') || str.includes('m') || (num > 0 && num < 1000 && !str.includes('áo') && !str.includes('pcs'))) {
+        num = num * 1000000;
+    }
+    return num;
+}
+
+function _ctvFormatShippingRange(minStr, maxStr) {
+    const min = _ctvParseShippingLimit(minStr);
+    const max = _ctvParseShippingLimit(maxStr) || 999999999;
+    
+    if (max < 10000) {
+        if (min === 0 && max === 19) {
+            return 'Dưới 20 áo';
+        } else if (max >= 99999) {
+            return `Từ ${min} áo trở lên`;
+        } else {
+            return `Từ ${min} - ${max} áo`;
+        }
+    }
+    
+    const formatMil = (num) => {
+        if (num >= 1000000) {
+            const mil = num / 1000000;
+            return Number.isInteger(mil) ? `${mil} triệu` : `${mil.toFixed(1)} triệu`;
+        }
+        return num.toLocaleString('vi-VN') + 'đ';
+    };
+    
+    if (min === 0) {
+        const roundedMax = Math.round((max + 1) / 100000) * 100000;
+        return `Đơn dưới ${formatMil(roundedMax)}`;
+    } else if (max >= 999999999) {
+        return `Đơn từ ${formatMil(min)} trở lên`;
+    } else {
+        return `Đơn từ ${formatMil(min)} - ${formatMil(max)}`;
+    }
+}
+
+function _ctvMatchShippingPolicy(shippingList, qty, grandTotal) {
+    if (!shippingList || shippingList.length === 0) return null;
+    
+    const isMoneyBased = shippingList.some(s => {
+        const max = _ctvParseShippingLimit(s.max_qty);
+        return max >= 10000;
+    });
+    
+    const valueToCompare = isMoneyBased ? grandTotal : qty;
+    
+    return shippingList.find(s => {
+        const min = _ctvParseShippingLimit(s.min_qty);
+        const max = _ctvParseShippingLimit(s.max_qty) || 999999999;
+        return valueToCompare >= min && valueToCompare <= max;
+    });
+}
+
 function _ctvCalculateAllCosts() {
     const config = _ctvState.activeConfig;
     if (!config) return null;
@@ -1219,18 +1277,12 @@ function _ctvCalculateAllCosts() {
     const grandTotal = finalPricePerShirt * qty;
     
     const shippingList = _ctvState.activeConfig?.print_prices?.shipping || [
-        { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
-        { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 },
-        { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
-        { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
+        { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
+        { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
     ];
     let matchedShipping = null;
     if (qty > 0) {
-        matchedShipping = shippingList.find(s => {
-            const min = parseInt(String(s.min_qty).replace(/[^0-9]/g, '')) || 0;
-            const max = parseInt(String(s.max_qty).replace(/[^0-9]/g, '')) || 999999;
-            return qty >= min && qty <= max;
-        });
+        matchedShipping = _ctvMatchShippingPolicy(shippingList, qty, grandTotal);
     }
     
     return {
@@ -2169,25 +2221,23 @@ function _ctvPreviewConfigDetails(id) {
                                         { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
                                         { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
                                     ]).map(s => {
-                                        const min = parseInt(String(s.min_qty).replace(/[^0-9]/g, '')) || 0;
-                                        const max = parseInt(String(s.max_qty).replace(/[^0-9]/g, '')) || 999999;
-                                        let qtyRange = '';
-                                        if (min === 0 && max === 19) {
-                                            qtyRange = 'Dưới 20 áo';
-                                        } else if (max >= 99999) {
-                                            qtyRange = `Từ ${min} áo trở lên`;
-                                        } else {
-                                            qtyRange = `Từ ${min} - ${max} áo`;
-                                        }
+                                        const qtyRange = _ctvFormatShippingRange(s.min_qty, s.max_qty);
                                         
                                         let badgeHTML = '';
                                         let detailsHTML = '';
-                                        if (s.value > 0) {
-                                            badgeHTML = `<span style="color:#0f766e; font-weight:800; font-size:10px; background:#ccfbf1; padding:2px 6px; border-radius:4px; border:1px solid #99f6e4; display:inline-block; margin-top:2px;">Miễn Phí Ship Thường</span>`;
-                                            detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">J&T / Viettel Post (Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)</span>`;
+                                        const descLower = String(s.desc).toLowerCase();
+                                        const isFree = descLower.includes('miễn phí') || descLower.includes('free') || s.value > 0;
+                                        
+                                        if (isFree) {
+                                            badgeHTML = `<span style="color:#0f766e; font-weight:800; font-size:10px; background:#ccfbf1; padding:2px 6px; border-radius:4px; border:1px solid #99f6e4; display:inline-block; margin-top:2px;">Miễn Phí Ship</span>`;
+                                            if (s.value > 0) {
+                                                detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${s.desc} (Khác hỗ trợ <strong>${s.value.toLocaleString('vi-VN')}đ</strong>)</span>`;
+                                            } else {
+                                                detailsHTML = `<span style="font-size:10px; color:#475569; display:block; margin-top:2px;">${s.desc}</span>`;
+                                            }
                                         } else {
                                             badgeHTML = `<span style="color:#64748b; font-weight:700; font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1; display:inline-block; margin-top:2px;">Không hỗ trợ</span>`;
-                                            detailsHTML = `<span style="font-size:10px; color:#64748b; display:block; margin-top:2px;">Cộng tác viên tự thanh toán phí ship</span>`;
+                                            detailsHTML = `<span style="font-size:10px; color:#64748b; display:block; margin-top:2px;">${s.desc}</span>`;
                                         }
                                         
                                         return `
@@ -2427,8 +2477,8 @@ function _ctvOpenNewConfigForm(editId = null) {
                 </h4>
                 <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
                     <div style="display:grid; grid-template-columns: 80px 80px 1fr 120px 30px; gap:8px; font-weight:bold; margin-bottom:8px; color:#475569; font-size:12px;">
-                        <span>Từ (áo)</span>
-                        <span>Đến (áo)</span>
+                        <span>Từ</span>
+                        <span>Đến</span>
                         <span>Chính sách vận chuyển</span>
                         <span>Hỗ trợ VC khác (đ)</span>
                         <span></span>
@@ -2563,10 +2613,8 @@ function _ctvRenderShippingRows(shippingList) {
     container.innerHTML = '';
     
     const list = shippingList || [
-        { min_qty: "0", max_qty: "19", desc: "Không hỗ trợ vận chuyển", value: 0 },
-        { min_qty: "20", max_qty: "100", desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 50k)", value: 50000 },
-        { min_qty: "101", max_qty: "499", desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 100k)", value: 100000 },
-        { min_qty: "500", max_qty: "999999", desc: "Miễn phí ship thường J&T / Viettel Post (Khác hỗ trợ 200k)", value: 200000 }
+        { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
+        { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
     ];
     
     list.forEach(item => {

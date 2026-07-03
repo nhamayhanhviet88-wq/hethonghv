@@ -544,6 +544,32 @@ function _mCalcPetPlacement(W_sheet, H_sheet, w, h, s) {
     return { aligned, optimized };
 }
 
+function _mParseShippingLimit(val) {
+    const str = String(val || '').toLowerCase();
+    let num = parseInt(str.replace(/[^0-9]/g, '')) || 0;
+    if (str.includes('triệu') || str.includes('tr') || str.includes('m') || (num > 0 && num < 1000 && !str.includes('áo') && !str.includes('pcs'))) {
+        num = num * 1000000;
+    }
+    return num;
+}
+
+function _mMatchShippingPolicy(shippingList, qty, grandTotal) {
+    if (!shippingList || shippingList.length === 0) return null;
+    
+    const isMoneyBased = shippingList.some(s => {
+        const max = _mParseShippingLimit(s.max_qty);
+        return max >= 10000;
+    });
+    
+    const valueToCompare = isMoneyBased ? grandTotal : qty;
+    
+    return shippingList.find(s => {
+        const min = _mParseShippingLimit(s.min_qty);
+        const max = _mParseShippingLimit(s.max_qty) || 999999999;
+        return valueToCompare >= min && valueToCompare <= max;
+    });
+}
+
 function _mCalculateAllCosts() {
     const config = _mState.activeConfig;
     if (!config) return null;
@@ -666,18 +692,12 @@ function _mCalculateAllCosts() {
     const grandTotal = finalPricePerShirt * qty;
     
     const shippingList = _mState.activeConfig?.print_prices?.shipping || [
-        { min_qty: 0, max_qty: 19, desc: "Không Miễn Phí Vận Chuyển", value: 0 },
-        { min_qty: 20, max_qty: 100, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 50.000đ", value: 50000 },
-        { min_qty: 101, max_qty: 499, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 100.000đ", value: 100000 },
-        { min_qty: 500, max_qty: 999999, desc: "Miễn Phí Vận Chuyển Thường J&T / Viettel Post - Vận Chuyển khác hỗ trợ 200.000đ", value: 200000 }
+        { min_qty: "0", max_qty: "9.999.999", desc: "Không hỗ trợ vận chuyển (Nhận hàng tại xưởng)", value: 0 },
+        { min_qty: "10.000.000", max_qty: "Trở lên", desc: "Miễn phí ship 1 chiều", value: 0 }
     ];
     let matchedShipping = null;
     if (qty > 0) {
-        matchedShipping = shippingList.find(s => {
-            const min = parseInt(String(s.min_qty).replace(/[^0-9]/g, '')) || 0;
-            const max = parseInt(String(s.max_qty).replace(/[^0-9]/g, '')) || 999999;
-            return qty >= min && qty <= max;
-        });
+        matchedShipping = _mMatchShippingPolicy(shippingList, qty, grandTotal);
     }
     
     return {
