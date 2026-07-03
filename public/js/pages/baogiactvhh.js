@@ -2773,11 +2773,10 @@ function _ctvOpenNewConfigForm(editId = null) {
                             <button type="button" class="ctv-btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="_ctvAddShippingRowInput('ctv')">+ Thêm</button>
                         </h4>
                         <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; background: #fafafa;">
-                            <div style="display:grid; grid-template-columns: 80px 80px 1fr 120px 30px; gap:8px; font-weight:bold; margin-bottom:8px; color:#475569; font-size:12px;">
+                            <div style="display:grid; grid-template-columns: 80px 80px 1fr 30px; gap:8px; font-weight:bold; margin-bottom:8px; color:#475569; font-size:12px;">
                                 <span>Từ</span>
                                 <span>Đến</span>
                                 <span>Chính sách vận chuyển</span>
-                                <span>Hỗ trợ (đ)</span>
                                 <span></span>
                             </div>
                             <div id="new_cfg_shipping_container" style="display:flex; flex-direction:column; gap:8px;">
@@ -2962,16 +2961,29 @@ function _ctvAddShippingRowInput(target = 'ctv', min_qty = '', max_qty = '', des
     
     const div = document.createElement('div');
     div.className = 'ctv-shipping-row';
-    div.style.cssText = 'display:grid; grid-template-columns: 80px 80px 1fr 120px 30px; gap:8px; align-items:center;';
-    div.innerHTML = `
-        <input type="text" class="ctv-input shipping-min" value="${min_qty}" placeholder="Từ">
-        <input type="text" class="ctv-input shipping-max" value="${max_qty}" placeholder="Đến">
-        <input type="text" class="ctv-input shipping-desc" value="${desc}" placeholder="Chính sách vận chuyển" style="font-size:12px;">
-        <input type="text" class="ctv-input shipping-value" value="${value}" placeholder="Hỗ trợ" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
-        <div style="text-align:right;">
-            <button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>
-        </div>
-    `;
+    
+    if (target === 'ctv') {
+        div.style.cssText = 'display:grid; grid-template-columns: 80px 80px 1fr 30px; gap:8px; align-items:center;';
+        div.innerHTML = `
+            <input type="text" class="ctv-input shipping-min" value="${min_qty}" placeholder="Từ">
+            <input type="text" class="ctv-input shipping-max" value="${max_qty}" placeholder="Đến">
+            <input type="text" class="ctv-input shipping-desc" value="${desc}" placeholder="Chính sách vận chuyển" style="font-size:12px;">
+            <div style="text-align:right;">
+                <button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>
+            </div>
+        `;
+    } else {
+        div.style.cssText = 'display:grid; grid-template-columns: 80px 80px 1fr 120px 30px; gap:8px; align-items:center;';
+        div.innerHTML = `
+            <input type="text" class="ctv-input shipping-min" value="${min_qty}" placeholder="Từ">
+            <input type="text" class="ctv-input shipping-max" value="${max_qty}" placeholder="Đến">
+            <input type="text" class="ctv-input shipping-desc" value="${desc}" placeholder="Chính sách vận chuyển" style="font-size:12px;">
+            <input type="text" class="ctv-input shipping-value" value="${value}" placeholder="Hỗ trợ" oninput="this.value = this.value.replace(/[^0-9.]/g, '')">
+            <div style="text-align:right;">
+                <button type="button" class="ctv-remove-btn" onclick="this.parentElement.parentElement.remove()" style="cursor:pointer; color:#ef4444; font-size:16px; border:none; background:none;">×</button>
+            </div>
+        `;
+    }
     container.appendChild(div);
 }
 
@@ -3173,7 +3185,8 @@ async function _ctvSaveNewConfigVersion() {
                     const min_qty = row.querySelector('.shipping-min').value.trim();
                     const max_qty = row.querySelector('.shipping-max').value.trim();
                     const desc = row.querySelector('.shipping-desc').value.trim();
-                    const value = parseFloat(row.querySelector('.shipping-value').value) || 0;
+                    const valEl = row.querySelector('.shipping-value');
+                    const value = valEl ? (parseFloat(valEl.value) || 0) : 0;
                     list.push({ min_qty, max_qty, desc, value });
                 });
                 return list;
@@ -3184,7 +3197,8 @@ async function _ctvSaveNewConfigVersion() {
                     const min_qty = row.querySelector('.shipping-min').value.trim();
                     const max_qty = row.querySelector('.shipping-max').value.trim();
                     const desc = row.querySelector('.shipping-desc').value.trim();
-                    const value = parseFloat(row.querySelector('.shipping-value').value) || 0;
+                    const valEl = row.querySelector('.shipping-value');
+                    const value = valEl ? (parseFloat(valEl.value) || 0) : 0;
                     list.push({ min_qty, max_qty, desc, value });
                 });
                 return list;
