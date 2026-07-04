@@ -3369,7 +3369,14 @@ window._bggRenderFormulaRows = function() {
     const summaryCont = document.getElementById('bgg_formula_summary_text_container');
     if (summaryCont) {
         const typeText = _bgg.formulaType || 'Tem';
-        const validItems = [];
+        
+        let filmItems = [];
+        let whiteInkItems = [];
+        let vanishInkItems = [];
+        let colorInkQty = 0;
+        let colorInkUnit = 'Chai';
+        let colorInkHas = false;
+
         rows.forEach(row => {
             if (row.material_id && Number(row.quantity) > 0) {
                 const selectedMat = _bgg.formulaMaterials.find(m => Number(m.id) === Number(row.material_id));
@@ -3377,13 +3384,44 @@ window._bggRenderFormulaRows = function() {
                     const unit = selectedMat.unit || 'đơn vị';
                     const qtyVal = parseFloat(row.quantity);
                     const qtyStr = isNaN(qtyVal) ? row.quantity : String(qtyVal);
-                    validItems.push(`<strong>${qtyStr} ${unit} ${selectedMat.name}</strong>`);
+                    const name = selectedMat.name || '';
+                    const nameLower = name.toLowerCase();
+
+                    if (nameLower.includes('màng') || nameLower.includes('bột')) {
+                        filmItems.push(`<strong>${qtyStr} ${unit} ${name}</strong>`);
+                    } else if (nameLower.includes('mực') && nameLower.includes('trắng')) {
+                        whiteInkItems.push(`<strong>${qtyStr} ${unit} ${name}</strong>`);
+                    } else if (nameLower.includes('mực') && nameLower.includes('vanish')) {
+                        vanishInkItems.push(`<strong>${qtyStr} ${unit} ${name}</strong>`);
+                    } else if (nameLower.includes('mực')) {
+                        colorInkQty += qtyVal;
+                        colorInkUnit = unit;
+                        colorInkHas = true;
+                    } else {
+                        filmItems.push(`<strong>${qtyStr} ${unit} ${name}</strong>`);
+                    }
                 }
             }
         });
-        if (validItems.length > 0) {
+
+        const lines = [];
+        if (filmItems.length > 0) {
+            lines.push(filmItems.join(' + '));
+        }
+        if (whiteInkItems.length > 0) {
+            lines.push(whiteInkItems.join(' + '));
+        }
+        if (vanishInkItems.length > 0) {
+            lines.push(vanishInkItems.join(' + '));
+        }
+        if (colorInkHas) {
+            const roundedQty = Math.ceil(colorInkQty);
+            lines.push(`<strong>${roundedQty} ${colorInkUnit} Mực Màu</strong>`);
+        }
+
+        if (lines.length > 0) {
             summaryCont.style.display = 'block';
-            summaryCont.innerHTML = `🧪 Công thức 100 mét ${typeText} cần: ${validItems.join(' + ')}`;
+            summaryCont.innerHTML = `🧪 Công thức 100 mét ${typeText} cần:<br>` + lines.join('<br>');
         } else {
             summaryCont.style.display = 'none';
             summaryCont.innerHTML = '';
