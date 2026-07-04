@@ -262,9 +262,10 @@ async function pancakeRoutes(fastify, options) {
                 }
 
                 // Call Pancake API to assign member
-                if (page.page_access_token && conversationId && assignedPancakeStaffId) {
+                const tokenToUse = page.page_access_token || config.pancake_token;
+                if (tokenToUse && conversationId && assignedPancakeStaffId) {
                     try {
-                        const assignUrl = `https://pages.fm/api/v1/pages/${pageId}/conversations/${conversationId}/assign?access_token=${page.page_access_token}`;
+                        const assignUrl = `https://pages.fm/api/v1/pages/${pageId}/conversations/${conversationId}/assign?access_token=${tokenToUse}`;
                         // We use a custom fetch implementation since standard is Node 18+
                         const fetch = require('node-fetch');
                         const assignRes = await fetch(assignUrl, {
@@ -396,9 +397,9 @@ async function pancakeRoutes(fastify, options) {
             return reply.code(400).send({ error: `Không tìm thấy cấu hình Fanpage ID ${pageId}` });
         }
 
-        const token = page.page_access_token;
+        const token = page.page_access_token || config.pancake_token;
         if (!token) {
-            return reply.code(400).send({ error: `Chưa cấu hình Page Access Token cho Fanpage ${page.name}` });
+            return reply.code(400).send({ error: `Chưa cấu hình Page Access Token hoặc Token chung cho Fanpage ${page.name}` });
         }
 
         try {
