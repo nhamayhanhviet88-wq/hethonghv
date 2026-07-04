@@ -435,38 +435,23 @@ async function _nxhvlOpenCreateReturnModal() {
                             <textarea id="nxhvl_m_notes" class="form-control" placeholder="Nhập lý do hoàn trả, tình trạng vật liệu..." style="width:100%; height:40px; font-size:12px; padding:6px 10px; resize:none;"></textarea>
                         </div>
 
-                        <!-- Postpone area -->
+                        <!-- Proof Image upload/paste area only -->
                         <div style="border-top:1px dashed #cbd5e1; padding-top:10px;">
                             <label style="display:inline-flex; align-items:center; gap:8px; font-weight:800; color:#b45309; font-size:12px; margin-bottom:6px;">
-                                ⏳ HẸN LỊCH HOÀN NCC (BẮT BUỘC)
+                                📸 ẢNH VẬT LIỆU HOÀN TRẢ (BẮT BUỘC)
                             </label>
                             
                             <div id="postponePasteArea" style="border: 2px dashed #cbd5e1; border-radius:8px; padding:15px; text-align:center; color:#64748b; cursor:pointer; background:#fff; font-size:11px; margin-bottom:10px;" tabindex="0">
                                 <div id="postponePastePlaceholder">
-                                    <span style="font-size:20px; display:block; margin-bottom:4px;">📋</span>
-                                    <span>Click vào đây rồi Ctrl+V để dán ảnh chứng minh</span>
+                                    <span style="font-size:20px; display:block; margin-bottom:4px;">📸</span>
+                                    <span>Click vào đây rồi Ctrl+V để dán ảnh vật liệu hoàn trả</span>
                                 </div>
                                 <div id="postponeImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">
                                     <img id="postponeImagePreview" style="max-height:120px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; object-fit:contain;" />
                                     <button id="btnPostponeClearImg" type="button" class="btn" style="position:absolute; top:2px; right:2px; padding:1px 6px; font-size:9px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer;" onclick="event.stopPropagation(); _nxhvlClearPostponeImage()">❌ Xóa</button>
                                 </div>
                             </div>
-                            
-                            <div>
-                                <label style="font-weight:700; display:block; margin-bottom:4px;">Chọn ngày hẹn hoàn trả:</label>
-                                <div id="postponeCustomCalendar" style="border: 1px solid #cbd5e1; border-radius:10px; padding:10px; background:#fff; box-shadow: 0 4px 10px rgba(0,0,0,0.03);">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                        <button type="button" id="calPrevMonth" style="background:none; border:none; cursor:pointer; font-size:14px; font-weight:700; color:#475569; padding: 2px 6px;">&lt;</button>
-                                        <span id="calMonthYear" style="font-weight:800; font-size:12px; color:#1e293b;"></span>
-                                        <button type="button" id="calNextMonth" style="background:none; border:none; cursor:pointer; font-size:14px; font-weight:700; color:#475569; padding: 2px 6px;">&gt;</button>
-                                    </div>
-                                    <div style="display:grid; grid-template-columns: repeat(7, 1fr); text-align:center; font-weight:700; font-size:10px; color:#64748b; margin-bottom:6px; border-bottom:1px solid #f1f5f9; padding-bottom:4px;">
-                                        <div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div style="color:#ef4444;">CN</div>
-                                    </div>
-                                    <div id="calDaysGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; text-align:center; font-size:10px;"></div>
-                                </div>
-                                <input type="hidden" id="postponeDate" value="" />
-                            </div>
+                            <input type="hidden" id="postponeDate" value="" />
                         </div>
 
                     </div>
@@ -506,9 +491,7 @@ async function _nxhvlOpenCreateReturnModal() {
         if (pasteArea) {
             pasteArea.addEventListener('paste', _nxhvl_postponePasteHandler);
         }
-
-        _nxhvlInitCustomCalendar(14, _nxhvl_postponeHolidays); // Let them reschedule up to 14 days ahead
-
+        
     } catch (e) {
         showToast('Lỗi: ' + e.message, 'error');
     }
@@ -915,9 +898,8 @@ async function _nxhvlSubmitCreateReturn() {
         }
     }
     
-    var targetDate = document.getElementById('postponeDate').value;
-    if (!targetDate) {
-        showToast('Vui lòng chọn ngày hẹn hoàn trả vật liệu.', 'error');
+    if (!_nxhvl_postponeImageBlob) {
+        showToast('Vui lòng dán ảnh chụp thực tế vật liệu hoàn trả (bắt buộc).', 'error');
         return;
     }
     
@@ -954,10 +936,11 @@ async function _nxhvlSubmitCreateReturn() {
             quantity: totalQty,
             price: avgPrice,
             notes: notes,
-            is_postponed: true,
-            postponed_target_date: targetDate,
+            is_postponed: false,
+            postponed_target_date: null,
             postponed_notes: notes,
             postponed_images: postponeImgUrl ? [postponeImgUrl] : [],
+            bill_images: postponeImgUrl ? [postponeImgUrl] : [],
             material_items: _nxhvl_retSelectedItems
         };
 
