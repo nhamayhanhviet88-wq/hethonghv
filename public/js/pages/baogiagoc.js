@@ -3129,8 +3129,8 @@ window._bggOpenFormulaModal = async function(type) {
 
         const isTem = type === 'Tem';
         const summaryBg = isTem ? '#f0fdf4' : '#fff7ed';
-        const summaryBorder = isTem ? '#bbf7d0' : '#ffedd5';
-        const summaryColor = isTem ? '#166534' : '#c2410c';
+        const summaryBorder = isTem ? '#86efac' : '#fed7aa';
+        const summaryColor = isTem ? '#14532d' : '#7c2d12';
 
         const modal = document.createElement('div');
         modal.id = 'bgg_formula_modal';
@@ -3148,7 +3148,7 @@ window._bggOpenFormulaModal = async function(type) {
                         Định nghĩa các vật tư cần tiêu thụ để hoàn thành <strong>100 mét</strong> đầu ra. Giá gốc của từng vật tư sẽ tự động lấy từ nguồn có giá rẻ nhất trong hệ thống nhập hàng.
                     </p>
                     
-                    <div id="bgg_formula_summary_text_container" style="background: ${summaryBg}; border: 1px solid ${summaryBorder}; padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; color: ${summaryColor}; line-height: 1.6; display: none; word-break: break-word;"></div>
+                    <div id="bgg_formula_summary_text_container" style="background: ${summaryBg}; border: 1.5px solid ${summaryBorder}; padding: 14px 18px; border-radius: 10px; font-size: 14.5px; font-weight: 500; color: ${summaryColor}; line-height: 1.7; display: none; word-break: break-word;"></div>
                     
                     <div id="bgg_formula_rows_list" style="display: flex; flex-direction: column; gap: 10px;">
                         <!-- Rendered rows -->
@@ -3377,7 +3377,7 @@ window._bggRenderFormulaRows = function() {
                     const unit = selectedMat.unit || 'đơn vị';
                     const qtyVal = parseFloat(row.quantity);
                     const qtyStr = isNaN(qtyVal) ? row.quantity : String(qtyVal);
-                    validItems.push(`${qtyStr} ${unit} ${selectedMat.name}`);
+                    validItems.push(`<strong>${qtyStr} ${unit} ${selectedMat.name}</strong>`);
                 }
             }
         });
