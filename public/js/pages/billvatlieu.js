@@ -235,7 +235,20 @@ function _bvlRenderSb() {
     if (t && t.sources) {
         t.sources.forEach(function (s) {
             var active = f.source_id == s.id;
-            h += '<div class="bvl-sb-src' + (active ? ' active' : '') + '" onclick="_bvlFilter(' + s.id + ')"><span class="sn" style="color:' + _bvlGetSourceColor(s.name) + ';font-weight:700">🏪 ' + s.name + '</span><span class="sc" style="color:' + _bvlGetSourceColor(s.name) + '">[' + s.count + ']</span><span class="sm">' + _bvlFM(s.sum_total) + '₫</span>' + (u.role === 'giam_doc' ? '<span class="del-btn" onclick="event.stopPropagation();_bvlDelSrc(' + s.id + ', \'' + s.name + '\')" style="margin-left: 8px; color: #ef4444; font-weight: bold; cursor: pointer;" title="Xóa nguồn">❌</span>' : '') + '</div>';
+            var color = _bvlGetSourceColor(s.name);
+            h += '<div class="bvl-sb-src' + (active ? ' active' : '') + '" onclick="_bvlFilter(' + s.id + ')" style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f0f0f0">'
+                + '<div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">'
+                + '<div style="display:flex;justify-content:space-between;align-items:center">'
+                + '<span class="sn" style="color:' + color + ';font-weight:700;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🏪 ' + s.name + '</span>'
+                + '<span class="sc" style="color:' + color + ';font-size:10px;font-weight:800;margin-left:4px">[' + s.count + ']</span>'
+                + '</div>'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#64748b">'
+                + '<span>💰 ' + _bvlFM(s.sum_total) + '</span>'
+                + (Number(s.sum_debt) > 0 ? '<span style="color:#ef4444;font-weight:800">🔴 Nợ: ' + _bvlFM(s.sum_debt) + '</span>' : '<span style="color:#10b981;font-weight:800">✅ Đã TT</span>')
+                + '</div>'
+                + '</div>'
+                + (u.role === 'giam_doc' ? '<span class="del-btn" onclick="event.stopPropagation();_bvlDelSrc(' + s.id + ', \'' + s.name + '\')" style="margin-left: 8px; color: #ef4444; font-weight: bold; cursor: pointer; font-size:12px" title="Xóa nguồn">❌</span>' : '')
+                + '</div>';
         });
     }
     sb.innerHTML = h;

@@ -105,7 +105,19 @@ h+='<div class="bnh-sb-total" onclick="_bnhFilter()"><div style="display:flex;ju
 var u=window._currentUser||window.currentUser||{};if(u.role==='giam_doc'||u.role==='quan_ly_cap_cao')h+='<div class="bnh-add-src" onclick="_bnhAddSrc()">➕ Thêm nguồn cung cấp</div>';
 if(t&&t.sources)t.sources.forEach(function(s){var active=f.source_id==s.id;
 var color=_bnhGetSourceColor(s.name);
-h+='<div class="bnh-sb-src'+(active?' active':'')+'" onclick="_bnhFilter('+s.id+')"><span class="sn" style="color:'+color+';font-weight:700">🏪 '+s.name+'</span><span class="sc" style="color:'+color+'">['+s.count+']</span><span class="sm">'+_bnhFM(s.sum_total)+'₫</span>' + (u.role === 'giam_doc' ? '<span class="del-btn" onclick="event.stopPropagation();_bnhDelSrc('+s.id+', \''+s.name+'\')" style="margin-left: 8px; color: #ef4444; font-weight: bold; cursor: pointer;" title="Xóa nguồn">❌</span>' : '') + '</div>';});
+h+='<div class="bnh-sb-src'+(active?' active':'')+'" onclick="_bnhFilter('+s.id+')" style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f0f0f0">'
+  +'<div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">'
+  +'<div style="display:flex;justify-content:space-between;align-items:center">'
+  +'<span class="sn" style="color:'+color+';font-weight:700;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🏪 '+s.name+'</span>'
+  +'<span class="sc" style="color:'+color+';font-size:10px;font-weight:800;margin-left:4px">['+s.count+']</span>'
+  +'</div>'
+  +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#64748b">'
+  +'<span>💰 '+_bnhFM(s.sum_total)+'</span>'
+  +(Number(s.sum_debt)>0?'<span style="color:#ef4444;font-weight:800">🔴 Nợ: '+_bnhFM(s.sum_debt)+'</span>':'<span style="color:#10b981;font-weight:800">✅ Đã TT</span>')
+  +'</div>'
+  +'</div>'
+  +(u.role === 'giam_doc' ? '<span class="del-btn" onclick="event.stopPropagation();_bnhDelSrc('+s.id+', \''+s.name+'\')" style="margin-left: 8px; color: #ef4444; font-weight: bold; cursor: pointer; font-size:12px" title="Xóa nguồn">❌</span>' : '')
+  +'</div>';});
 
 if(u.role==='giam_doc'){
     var checked = _bnh.requireRollPhoto !== false ? 'checked' : '';
