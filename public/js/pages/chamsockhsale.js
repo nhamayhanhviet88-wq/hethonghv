@@ -802,32 +802,119 @@ function _saleRenderSidebar() {
     const list = document.getElementById('saleSidebarList');
     if (!list) return;
 
-    let html = `<div onclick="_saleSelectSidebarUser(null)" style="padding:10px 14px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;background:${_saleSidebarSelectedUserId === null ? 'var(--navy)' : 'transparent'};color:${_saleSidebarSelectedUserId === null ? '#fff' : '#475569'};transition:all 0.15s;">👥 Tất Cả Nhân Viên</div>`;
+    const isAllActive = _saleSidebarSelectedUserId === null;
+    const _isTP = currentUser.role === 'truong_phong';
 
-    const deptMap = {};
-    _saleSidebarUsers.forEach(u => {
-        if (u.department_id) {
-            if (!deptMap[u.department_id]) deptMap[u.department_id] = [];
-            deptMap[u.department_id].push(u);
-        }
-    });
+    let topBtn = `<div onclick="_saleSelectSidebarUser(null)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:10px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#fad24c,#f59e0b);color:#122546;box-shadow:0 4px 12px rgba(250,210,76,0.3);font-weight:700;' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
+        <span style="font-size:20px;">👥</span>
+        <div style="flex:1;">
+            <div style="font-size:12px;font-weight:800;">Tổng Bộ Phận Sale</div>
+            <div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div>
+        </div>
+    </div>`;
 
+    // Find "PHÒNG SALE" department (id = 4 or name contains "SALE")
+    const saleDept = _saleSidebarDepts.find(d => d.id === 4) || 
+                     _saleSidebarDepts.find(d => d.name && d.name.toUpperCase() === 'PHÒNG SALE') || 
+                     _saleSidebarDepts.find(d => d.name && d.name.toUpperCase().includes('SALE') && !d.name.toUpperCase().includes('XƯỞNG') && d.parent_id !== 4);
+    if (!saleDept) {
+        list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không tìm thấy Phòng Sale</div>';
+        return;
+    }
+
+    // Collect all dept IDs under PHÒNG SALE (itself + child teams)
+    const saleDeptIds = new Set([saleDept.id]);
     _saleSidebarDepts.forEach(d => {
-        const staff = deptMap[d.id] || [];
-        if (staff.length === 0) return;
-        html += `<div style="margin-bottom:10px;">
-            <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;padding:4px 8px;letter-spacing:0.5px;">🏢 ${d.name}</div>`;
-        staff.forEach(u => {
-            const active = _saleSidebarSelectedUserId === u.id;
-            html += `<div onclick="_saleSelectSidebarUser(${u.id})" style="padding:8px 12px;border-radius:6px;font-size:12px;cursor:pointer;margin:2px 0;display:flex;align-items:center;gap:8px;background:${active ? '#fad24c' : 'transparent'};color:${active ? '#122546' : '#475569'};font-weight:${active ? '700' : '500'};transition:all 0.15s;" onmouseover="this.style.background='${active ? '#fad24c' : 'rgba(0,0,0,0.03)'}'" onmouseout="this.style.background='${active ? '#fad24c' : 'transparent'}'">
-                <div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;color:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${u.full_name.split(' ').pop().slice(0,2).toUpperCase()}</div>
-                <div style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
-            </div>`;
-        });
-        html += `</div>`;
+        if (d.parent_id === saleDept.id) saleDeptIds.add(d.id);
     });
 
-    list.innerHTML = html;
+    // Filter users: only staff in Sale dept tree
+    const excludeRoles = ['hoa_hong', 'ctv', 'tkaffiliate', 'nuoi_duong', 'sinh_vien'];
+    let saleUsers = _saleSidebarUsers.filter(u => saleDeptIds.has(u.department_id) && !excludeRoles.includes(u.role));
+
+    // Trưởng Phòng: only see their own team/members
+    if (_isTP && currentUser.department_id) {
+        saleUsers = saleUsers.filter(u => u.department_id === currentUser.department_id);
+    }
+
+    if (saleUsers.length === 0) {
+        list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không có NV trong Phòng Sale</div>';
+        return;
+    }
+
+    // Helper functions for rendering
+    function avatarColor(n) {
+        let h = 0;
+        for (let i = 0; i < (n || '').length; i++) h = n.charCodeAt(i) + ((h << 5) - h);
+        return ['#3b82f6', '#059669', '#f59e0b', '#8b5cf6', '#06b6d4', '#f43f5e', '#ec4899', '#6366f1'][Math.abs(h) % 8];
+    }
+    function initials(n) {
+        if (!n) return '?';
+        const p = n.trim().split(/\s+/);
+        return p.length > 1 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : n.substring(0, 2).toUpperCase();
+    }
+    function sortMembers(users) {
+        const roleOrder = { giam_doc: 0, quan_ly_cap_cao: 1, quan_ly: 2, truong_phong: 3, nhan_vien: 4, part_time: 5 };
+        return [...users].sort((a, b) => {
+            const orderA = roleOrder[a.role] !== undefined ? roleOrder[a.role] : 99;
+            const orderB = roleOrder[b.role] !== undefined ? roleOrder[b.role] : 99;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.full_name.localeCompare(b.full_name);
+        });
+    }
+    function roleBadge(role) {
+        const roleColors = { giam_doc: '#ef4444', quan_ly_cap_cao: '#f59e0b', quan_ly: '#3b82f6', truong_phong: '#8b5cf6', nhan_vien: '#10b981', part_time: '#6b7280' };
+        const roleLabels = { giam_doc: 'GĐ', quan_ly_cap_cao: 'QLCC', quan_ly: 'QL', truong_phong: 'TP', nhan_vien: 'NV', part_time: 'PT' };
+        const color = roleColors[role] || '#6b7280';
+        const label = roleLabels[role] || role;
+        return ` <span style="background:${color};color:white;font-size:8px;padding:1px 4px;border-radius:4px;font-weight:700;vertical-align:middle;margin-left:4px;text-transform:uppercase;">${label}</span>`;
+    }
+
+    function renderSidebarUser(u, indent) {
+        const active = u.id === _saleSidebarSelectedUserId;
+        const c = avatarColor(u.full_name || u.username);
+        const deptMap = {};
+        _saleSidebarDepts.forEach(d => { deptMap[d.id] = d.name; });
+        const dName = deptMap[u.department_id] || '';
+        const badge = roleBadge(u.role);
+        return `<div onclick="_saleSelectSidebarUser(${u.id})" style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:10px;margin-bottom:3px;margin-left:${indent}px;transition:all 0.15s;${active ? 'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);' : 'background:white;border:1px solid #e5e7eb;color:#374151;'}">
+            <span style="background:${active ? 'rgba(255,255,255,0.2)' : c};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;">${initials(u.full_name || u.username)}</span>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}${badge}</div>
+                <div style="font-size:9px;opacity:0.6;">${dName}</div>
+            </div>
+        </div>`;
+    }
+
+    // Separate direct members and child teams
+    const directUsers = sortMembers(saleUsers.filter(u => u.department_id === saleDept.id));
+    let childTeams = _saleSidebarDepts.filter(d => d.parent_id === saleDept.id).sort((a, b) => (a.display_order || 0) - (b.display_order || 0) || a.name.localeCompare(b.name));
+
+    // Trưởng Phòng: only show their own team
+    if (_isTP && currentUser.department_id) {
+        childTeams = childTeams.filter(t => t.id === currentUser.department_id);
+    }
+
+    let html = '';
+
+    // Render PHÒNG SALE parent header and direct members
+    if (directUsers.length > 0 && !_isTP) {
+        html += `<div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;"><span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${saleDept.name}</span></div>`;
+        directUsers.forEach(u => { html += renderSidebarUser(u, 8); });
+    } else if (!_isTP) {
+        // Even if no direct users, render the parent header "PHÒNG SALE"
+        html += `<div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;"><span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${saleDept.name}</span></div>`;
+    }
+
+    // Render child teams (e.g. Sale Bứt Phá) and their members
+    childTeams.forEach(team => {
+        const teamUsers = sortMembers(saleUsers.filter(u => u.department_id === team.id));
+        if (teamUsers.length === 0) return;
+        html += `<div style="padding:3px 8px 3px 8px;margin:6px 0 2px;"><span style="font-size:10px;font-weight:700;color:#64748b;">└ ${team.name}</span></div>`;
+        teamUsers.forEach(u => { html += renderSidebarUser(u, 16); });
+    });
+
+    list.innerHTML = topBtn + html;
 }
 
 function _saleSelectSidebarUser(userId) {
