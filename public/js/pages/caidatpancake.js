@@ -193,11 +193,21 @@ function renderPagesTable() {
 
         const rosterCount = page.staff_assignments ? page.staff_assignments.length : 0;
 
+        let adsManagerName = '—';
+        if (page.ads_manager_id) {
+            const matchedUser = _allUsers.find(u => u.id === Number(page.ads_manager_id));
+            if (matchedUser) adsManagerName = matchedUser.full_name;
+        }
+
         return `
             <tr style="border-bottom: 1px solid var(--gray-150); hover: background-color: var(--gray-50);">
                 <td style="padding: 14px 16px;">
-                    <div style="font-weight: 700; color: var(--gray-800);">${page.name}</div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-weight: 700; color: var(--gray-800);">${page.name}</span>
+                        ${page.page_link ? `<a href="${page.page_link}" target="_blank" title="Xem Trang" style="text-decoration: none; font-size: 12px;">🔗</a>` : ''}
+                    </div>
                     <div style="font-size: 11px; color: var(--gray-400); font-family: monospace; margin-top: 2px;">ID: ${page.id}</div>
+                    ${page.ads_manager_id ? `<div style="font-size: 11px; color: #4f46e5; font-weight: 600; margin-top: 4px;">📢 Ads: ${adsManagerName}</div>` : ''}
                 </td>
                 <td style="padding: 14px 16px; text-align: center;">${crmLabel}</td>
                 <td style="padding: 14px 16px; font-weight: 600; color: var(--gray-700);">${sourceName}</td>
@@ -307,7 +317,9 @@ function showPageConfigModal(index = null) {
         is_active: true,
         page_access_token: '',
         bot_tele: '',
-        fallback_user_id: ''
+        fallback_user_id: '',
+        page_link: '',
+        ads_manager_id: ''
     };
 
     const modalBody = `
@@ -320,6 +332,20 @@ function showPageConfigModal(index = null) {
                 <div>
                     <label style="display: block; font-weight: 700; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">Tên Trang (Page Name) *</label>
                     <input type="text" id="modalPageName" class="form-control" value="${pageData.name || ''}" placeholder="VD: Fanpage Đồng Phục HV" style="height: 38px; border-radius: 8px;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label style="display: block; font-weight: 700; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">Link trang Page</label>
+                    <input type="text" id="modalPageLink" class="form-control" value="${pageData.page_link || ''}" placeholder="VD: https://facebook.com/page-id" style="height: 38px; border-radius: 8px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 700; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">Người phụ trách Ads</label>
+                    <select id="modalPageAdsManager" class="form-control" style="height: 38px; border-radius: 8px; padding: 0 35px 0 16px;">
+                        <option value="">-- Chọn người phụ trách Ads --</option>
+                        ${_allUsers.map(u => `<option value="${u.id}" ${Number(pageData.ads_manager_id) === u.id ? 'selected' : ''}>${u.full_name} (${u.username})</option>`).join('')}
+                    </select>
                 </div>
             </div>
             
@@ -385,6 +411,8 @@ async function savePageConfigFromModal(index = null) {
     const sourceId = document.getElementById('modalPageSourceId').value;
     const pageAccessToken = document.getElementById('modalPageAccessToken').value.trim();
     const botTele = document.getElementById('modalPageBotTele').value.trim();
+    const pageLink = document.getElementById('modalPageLink').value.trim();
+    const adsManagerId = document.getElementById('modalPageAdsManager').value;
 
     if (!pageId) { showToast('Vui lòng nhập Pancake Page ID!', 'error'); return; }
     if (!pageName) { showToast('Vui lòng nhập Tên Page!', 'error'); return; }
@@ -399,6 +427,8 @@ async function savePageConfigFromModal(index = null) {
         page_access_token: pageAccessToken,
         bot_tele: botTele,
         fallback_user_id: '',
+        page_link: pageLink,
+        ads_manager_id: adsManagerId ? Number(adsManagerId) : '',
         is_active: isEdit ? _pancakeConfig.pages[index].is_active : true,
         staff_assignments: isEdit ? (_pancakeConfig.pages[index].staff_assignments || []) : [],
         last_assigned_index: isEdit ? (_pancakeConfig.pages[index].last_assigned_index != null ? _pancakeConfig.pages[index].last_assigned_index : -1) : -1
