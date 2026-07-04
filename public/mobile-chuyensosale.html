@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>📱 Chuyển Số — Đồng Phục HV</title>
-    <meta name="description" content="Chuyển số khách hàng nhanh trên điện thoại">
+    <title>📱 Chuyển Số Sale — Đồng Phục HV</title>
+    <meta name="description" content="Chuyển số khách hàng Sale nhanh trên điện thoại">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -142,7 +142,7 @@
 <body>
     <div class="m-header">
         <img src="/images/logo.png" alt="Logo">
-        <h1>📱 CHUYỂN SỐ</h1>
+        <h1>📱 CHUYỂN SỐ SALE</h1>
         <span class="m-user" id="mUserBadge">...</span>
     </div>
 
@@ -183,12 +183,12 @@
             if (!auth.user) { window.location.href = '/index.html'; return; }
             currentUser = auth.user;
             
-        if (currentUser.role !== 'giam_doc' && (!currentUser.permissions || !currentUser.permissions.chuyen_so || !currentUser.permissions.chuyen_so.can_view)) {
-            sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Chuyển Số!');
-            window.location.href = '/';
-            return;
-        }
-    document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
+            if (currentUser.role !== 'giam_doc' && (!currentUser.permissions || !currentUser.permissions.chuyen_so_sale || !currentUser.permissions.chuyen_so_sale.can_view)) {
+                sessionStorage.setItem('unauthorized_redirect_toast', '🔒 Bạn không có quyền truy cập trang mobile Chuyển Số Sale!');
+                window.location.href = '/';
+                return;
+            }
+            document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
             await mRenderForm();
         } catch(e) {
             document.getElementById('mContent').innerHTML = '<div class="m-loading">❌ Lỗi kết nối server</div>';
@@ -197,13 +197,13 @@
 
     async function mRenderForm() {
         const [sourcesAll, sourcesCSO, promotions, industries, usersData, deptData, configData] = await Promise.all([
-            apiCall('/api/settings/sources'),
-            apiCall('/api/settings/sources-chuyenso'),
+            apiCall('/api/settings/sources?crm_type=sale'),
+            apiCall('/api/settings/sources-chuyensale'),
             apiCall('/api/settings/promotions'),
             apiCall('/api/settings/industries'),
             apiCall('/api/users/dropdown'),
             apiCall('/api/departments'),
-            apiCall('/api/app-config/chuyenso_allowed_depts')
+            apiCall('/api/app-config/chuyensosale_allowed_depts')
         ]);
 
         const allDepts = deptData.departments || [];
@@ -222,9 +222,15 @@
             receiverUsers = allUsers.filter(u => u.id === currentUser.id);
         } else if (isAffiliate) {
             receiverUsers = allUsers.filter(u => u.id === currentUser.managed_by_user_id);
-        } else if (allowedDeptIds && allowedDeptIds.length > 0) {
-            let visibleDeptIds = [];
-            allowedDeptIds.forEach(id => visibleDeptIds.push(...getAllChildDeptIds(id)));
+        } else {
+            const saleDeptIds = getAllChildDeptIds(4); // PHÒNG SALE = id 4
+            let visibleDeptIds = saleDeptIds;
+            if (allowedDeptIds && allowedDeptIds.length > 0) {
+                let configDeptIds = [];
+                allowedDeptIds.forEach(id => configDeptIds.push(...getAllChildDeptIds(id)));
+                visibleDeptIds = saleDeptIds.filter(id => configDeptIds.includes(id));
+            }
+
             receiverUsers = allUsers.filter(u => {
                 if (u.role === 'giam_doc') return currentUser.role === 'giam_doc';
                 return u.department_id && visibleDeptIds.includes(u.department_id);
@@ -232,7 +238,7 @@
         }
 
         function userLabel(u) {
-            let label = `${u.full_name} (${ROLE_LABELS[u.role] || u.role})`;
+            let label = `${u.full_name} (${ROLE_LABELS[u.role] || r => u.role})`;
             const dn = getDeptName(u.department_id);
             if (dn) label += ` — ${dn}`;
             return label;
@@ -245,7 +251,7 @@
         <div class="m-card">
             <div class="m-card-header">
                 <span style="font-size:24px;">📱</span>
-                <h2>Chuyển Số Khách Hàng</h2>
+                <h2>Chuyển Số Sale</h2>
             </div>
             <div class="m-card-body">
                 <form id="mForm">
@@ -253,13 +259,11 @@
                         <div class="m-form-group">
                             <label>CRM <span class="req">*</span></label>
                             <select id="mCrm" class="m-select" required>
-                                <option value="">-- Chọn CRM --</option>
-                                <option value="nhu_cau">Chăm Sóc KH Nhu Cầu</option>
-                                <option value="ctv_hoa_hong">Chăm Sóc Affiliate</option>
+                                <option value="sale" selected>Chăm Sóc Khách Sale</option>
                             </select>
                         </div>
                         <div class="m-form-group">
-                            <label>Nguồn Khách <span class="req">*</span></label>
+                            <label>Nguồn Khách Sale <span class="req">*</span></label>
                             <select id="mSource" class="m-select" required>
                                 <option value="">-- Chọn nguồn --</option>
                                 ${sources.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
@@ -323,7 +327,7 @@
                 </form>
             </div>
         </div>
-        <a href="/chuyen-so" class="m-back">← Về trang Desktop</a>
+        <a href="/chuyensosale" class="m-back">← Về trang Desktop</a>
         `;
 
         // Form submit
@@ -377,7 +381,7 @@
                         document.getElementById('mReceiver').value = receiverUsers[0]?.id || currentUser.id;
                     }
                 } else if (data.error === 'duplicate_customer_warning' && data.duplicates && data.duplicates.length > 0) {
-                    // ★ SĐT trùng KH → Hiện popup Gửi Lại
+                    // ★ SĐT trùng KH → Hiện popup Gửi Lại (dùng KH trùng đầu tiên)
                     _mShowDuplicatePopup(data.duplicates[0], body.notes);
                 } else {
                     mToast(data.error || data.message || 'Lỗi', 'error');
@@ -392,7 +396,7 @@
     // ========== POPUP GỬI LẠI SỐ TRÙNG (MOBILE) ==========
     function _mShowDuplicatePopup(dup, formNotes) {
         document.getElementById('mDupOverlay')?.remove();
-        const CRM_LABELS = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL' };
+        const CRM_LABELS = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL', sale: 'Sale' };
         const STATUS_LABELS = { dang_tu_van: 'Đang Tư Vấn', bao_gia: 'Báo Giá', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', san_xuat: 'Sản Xuất', giao_hang: 'Giao Hàng', hoan_thanh: 'Hoàn Thành' };
 
         const overlay = document.createElement('div');

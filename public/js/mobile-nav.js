@@ -20,6 +20,7 @@ const MOBILE_MENU_CONFIG = [
     { id: 'bophanhoanthien', label: 'Bộ Phận Hoàn Thiện', icon: '✅', href: '/m/bophanhoanthienhv', permKey: 'bo_phan_hoan_thien' },
     { id: 'trasoatdonhang', label: 'Tra Soát Đơn Hàng', icon: '🔍', href: '/m/trasoatdonhang', permKey: 'tra_soat_don_hang' },
     { id: 'chuyenso', label: 'Chuyển Số NV Kinh Doanh', icon: '📱', href: '/m/chuyen-so', permKey: 'chuyen_so' },
+    { id: 'chuyensosale', label: 'Chuyển Số Sale', icon: '📱', href: '/m/chuyensosale', permKey: 'chuyen_so_sale' },
     { id: 'donhangchuathutien', label: 'Đơn Hàng Chưa Thu Tiền', icon: '💰', href: '/m/donhangchuathutien', permKey: 'don_hang_chua_thu_tien' },
     { id: 'donhanghomnayqlx', label: 'Đơn Hôm Nay QLX', icon: '🏭', href: '/m/donhanghomnayqlx', permKey: 'don_hang_hom_nay_qlx' },
     { id: 'timkiem', label: 'Tìm Kiếm KH', icon: '🔍', href: '/m/tim-kiem', permKey: 'tim_kiem_kh' },

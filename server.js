@@ -1517,6 +1517,11 @@ async function start() {
         return reply.sendFile('mobile-chuyenso.html');
     });
 
+    // Mobile Chuyển Số Sale — standalone touch-optimized page
+    fastify.get('/m/chuyensosale', async (request, reply) => {
+        return reply.sendFile('mobile-chuyensosale.html');
+    });
+
     // Mobile Đơn Hàng Chưa Thu Tiền — standalone touch-optimized page
     fastify.get('/m/donhangchuathutien', async (request, reply) => {
         return reply.sendFile('mobile-donhangchuathutien.html');

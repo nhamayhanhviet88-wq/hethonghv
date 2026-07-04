@@ -12,6 +12,7 @@ async function renderSettingsPage(container) {
                 <div class="tabs" style="flex-wrap:wrap;">
                     <div class="tab active" data-tab="commission-tiers" onclick="switchSettingTab('commission-tiers', this)">💰 Tầng Hoa Hồng</div>
                     <div class="tab" data-tab="sources" onclick="switchSettingTab('sources', this)">📍 Nguồn Khách NV Kinh Doanh</div>
+                    <div class="tab" data-tab="sources-sale" onclick="switchSettingTab('sources-sale', this)">📍 Nguồn Khách Sale</div>
                     <div class="tab" data-tab="promotions" onclick="switchSettingTab('promotions', this)">🎁 Khuyến Mãi</div>
                     <div class="tab" data-tab="industries" onclick="switchSettingTab('industries', this)">🏭 Lĩnh Vực</div>
                     <div class="tab" data-tab="dht-carriers" onclick="switchSettingTab('dht-carriers', this)">🚚 Nhà Vận Chuyển</div>
@@ -78,7 +79,7 @@ async function loadSettingsTab(type) {
     const data = await apiCall(`/api/settings/${type}`);
     const contentDiv = document.getElementById('settingsContent');
     const isCommission = type === 'commission-tiers';
-    const isSources = type === 'sources';
+    const isSources = type === 'sources' || type === 'sources-sale';
 
     let html = `<ul class="setting-list">`;
 
@@ -135,7 +136,7 @@ async function toggleChuyenSo(id) {
     const res = await apiCall(`/api/source-chuyenso-toggle/${id}`, 'PUT');
     if (res.success) {
         showToast(res.message);
-        await loadSettingsTab('sources');
+        await loadSettingsTab(currentSettingTab);
     } else {
         showToast(res.error || 'Lỗi', 'error');
     }

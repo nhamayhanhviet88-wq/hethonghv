@@ -11,6 +11,8 @@ async function settingsRoutes(fastify, options) {
     try {
         await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);
         await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS show_in_chuyenso BOOLEAN DEFAULT false`);
+        await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS crm_type TEXT DEFAULT 'nhu_cau'`);
+        await db.run(`UPDATE settings_sources SET crm_type = 'nhu_cau' WHERE crm_type IS NULL`);
         // Initialize sort_order for existing rows that have 0
         const rows = await db.all('SELECT id FROM settings_sources WHERE sort_order = 0 OR sort_order IS NULL ORDER BY id ASC');
         for (let i = 0; i < rows.length; i++) {
@@ -20,7 +22,8 @@ async function settingsRoutes(fastify, options) {
 
     const tables = {
         'commission-tiers': { table: 'commission_tiers', fields: ['name', 'percentage', 'parent_percentage'], label: 'Tầng hoa hồng' },
-        'sources': { table: 'settings_sources', fields: ['name'], label: 'Nguồn khách NV Kinh Doanh' },
+        'sources': { table: 'settings_sources', fields: ['name'], label: 'Nguồn khách NV Kinh Doanh', crm_type: 'nhu_cau' },
+        'sources-sale': { table: 'settings_sources', fields: ['name'], label: 'Nguồn khách Sale', crm_type: 'sale' },
         'promotions': { table: 'settings_promotions', fields: ['name'], label: 'Khuyến mãi' },
         'industries': { table: 'settings_industries', fields: ['name'], label: 'Lĩnh vực' }
     };
@@ -53,8 +56,14 @@ async function settingsRoutes(fastify, options) {
         const config = tables[request.params.type];
         if (!config) return reply.code(404).send({ error: 'Loại cài đặt không tồn tại' });
 
-        const orderCol = config.table === 'settings_sources' ? 'sort_order ASC, id ASC' : 'id ASC';
-        const items = await db.all(`SELECT * FROM ${config.table} ORDER BY ${orderCol}`);
+        let items;
+        if (config.table === 'settings_sources') {
+            const crmType = config.crm_type || 'nhu_cau';
+            items = await db.all(`SELECT * FROM settings_sources WHERE crm_type = ? ORDER BY sort_order ASC, id ASC`, [crmType]);
+        } else {
+            const orderCol = 'id ASC';
+            items = await db.all(`SELECT * FROM ${config.table} ORDER BY ${orderCol}`);
+        }
         return { items, label: config.label };
     });
 
@@ -74,12 +83,18 @@ async function settingsRoutes(fastify, options) {
 
         // For sources, set sort_order = MAX + 1
         if (config.table === 'settings_sources') {
-            const maxRow = await db.get('SELECT COALESCE(MAX(sort_order),0) as mx FROM settings_sources');
+            const crmType = config.crm_type || 'nhu_cau';
+            const maxRow = await db.get('SELECT COALESCE(MAX(sort_order),0) as mx FROM settings_sources WHERE crm_type = ?', [crmType]);
             const nextOrder = (maxRow?.mx || 0) + 1;
-            values.push(nextOrder);
+            
+            const fieldsList = [...config.fields, 'crm_type'];
+            const valuesList = [...values, crmType];
+            const phs = fieldsList.map(() => '?').join(', ');
+            const names = fieldsList.join(', ');
+
             const result = await db.run(
-                `INSERT INTO ${config.table} (${fieldNames}, sort_order) VALUES (${placeholders}, ?)`,
-                values
+                `INSERT INTO ${config.table} (${names}, sort_order) VALUES (${phs}, ?)`,
+                [...valuesList, nextOrder]
             );
             const item = await db.get(`SELECT * FROM ${config.table} WHERE id = ?`, [result.lastInsertRowid]);
             return { success: true, item, message: `Thêm ${config.label} thành công` };
@@ -126,14 +141,14 @@ async function settingsRoutes(fastify, options) {
         const { id, direction } = request.body || {};
         if (!id || !direction) return reply.code(400).send({ error: 'Thiếu id hoặc direction' });
 
-        const current = await db.get('SELECT id, sort_order FROM settings_sources WHERE id = $1', [id]);
+        const current = await db.get('SELECT id, sort_order, crm_type FROM settings_sources WHERE id = $1', [id]);
         if (!current) return reply.code(404).send({ error: 'Không tìm thấy' });
 
         let neighbor;
         if (direction === 'up') {
-            neighbor = await db.get('SELECT id, sort_order FROM settings_sources WHERE sort_order < $1 ORDER BY sort_order DESC LIMIT 1', [current.sort_order]);
+            neighbor = await db.get('SELECT id, sort_order FROM settings_sources WHERE crm_type = $1 AND sort_order < $2 ORDER BY sort_order DESC LIMIT 1', [current.crm_type, current.sort_order]);
         } else {
-            neighbor = await db.get('SELECT id, sort_order FROM settings_sources WHERE sort_order > $1 ORDER BY sort_order ASC LIMIT 1', [current.sort_order]);
+            neighbor = await db.get('SELECT id, sort_order FROM settings_sources WHERE crm_type = $1 AND sort_order > $2 ORDER BY sort_order ASC LIMIT 1', [current.crm_type, current.sort_order]);
         }
         if (!neighbor) return reply.code(400).send({ error: direction === 'up' ? 'Đã ở đầu danh sách' : 'Đã ở cuối danh sách' });
 
@@ -156,7 +171,13 @@ async function settingsRoutes(fastify, options) {
 
     // ===== Get sources visible in Chuyển Số =====
     fastify.get('/api/settings/sources-chuyenso', { preHandler: [authenticate] }, async (request, reply) => {
-        const items = await db.all('SELECT * FROM settings_sources WHERE show_in_chuyenso = true ORDER BY sort_order ASC, id ASC');
+        const items = await db.all("SELECT * FROM settings_sources WHERE show_in_chuyenso = true AND crm_type = 'nhu_cau' ORDER BY sort_order ASC, id ASC");
+        return { items };
+    });
+
+    // ===== Get Sales sources visible in Chuyển Số Sale =====
+    fastify.get('/api/settings/sources-chuyensale', { preHandler: [authenticate] }, async (request, reply) => {
+        const items = await db.all("SELECT * FROM settings_sources WHERE show_in_chuyenso = true AND crm_type = 'sale' ORDER BY sort_order ASC, id ASC");
         return { items };
     });
 
