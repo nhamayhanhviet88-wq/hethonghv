@@ -62,11 +62,11 @@ async function renderCaidatpancakePage(container) {
                             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
                                 <thead>
                                     <tr style="background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
-                                        <th style="padding: 14px 16px; font-weight: 700; color: var(--gray-600); width: 220px;">Page Name / ID</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: var(--gray-600); width: 140px; text-align: center;">Phân Hệ CRM</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: var(--gray-600); width: 200px;">Nguồn Khách Mặc Định</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: var(--gray-600); width: 120px; text-align: center;">Trạng Thái</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: var(--gray-600); text-align: center; width: 100px;">Thao Tác</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 220px;">Page Name / ID</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 140px; text-align: center;">Phân Hệ CRM</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 200px;">Nguồn Khách Mặc Định</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 120px; text-align: center;">Trạng Thái</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; text-align: center; width: 100px;">Thao Tác</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pancakePagesTableBody">
