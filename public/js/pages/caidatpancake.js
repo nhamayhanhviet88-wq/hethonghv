@@ -72,12 +72,12 @@ async function renderCaidatpancakePage(container) {
                         <div style="overflow-x: auto; border: 1px solid var(--gray-200); border-radius: 12px; background: #fff;">
                             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
                                 <thead>
-                                    <tr style="background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #334155; width: 220px;">Page Name / ID</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #334155; width: 140px; text-align: center;">Phân Hệ CRM</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #334155; width: 200px;">Nguồn Mặc Định</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #334155; width: 120px; text-align: center;">Trạng Thái</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #334155; text-align: center; width: 160px;">Thao Tác</th>
+                                    <tr style="background: #1e293b; border-bottom: 1px solid var(--gray-200);">
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 220px;">Page Name / ID</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 140px; text-align: center;">Phân Hệ CRM</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 200px;">Nguồn Mặc Định</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 120px; text-align: center;">Trạng Thái</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; text-align: center; width: 160px;">Thao Tác</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pancakePagesTableBody">
@@ -493,13 +493,13 @@ async function showRosterModal(index) {
             <div style="border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; background: #fff; margin-bottom: 12px;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px;">
                     <thead>
-                        <tr style="background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
-                            <th style="padding: 12px; font-weight: 700; color: #475569; width: 200px;">Nhân Viên CRM</th>
-                            <th style="padding: 12px; font-weight: 700; color: #475569; width: 220px;">ID Nhân Viên Pancake</th>
-                            <th style="padding: 12px; font-weight: 700; color: #475569; width: 90px; text-align: center;">Hạn Mức/Ngày</th>
-                            <th style="padding: 12px; font-weight: 700; color: #475569; width: 210px; text-align: center;">Thứ Nhận Lead</th>
-                            <th style="padding: 12px; font-weight: 700; color: #475569; width: 140px; text-align: center;">Ngoại Lệ (Lịch/Nghỉ)</th>
-                            <th style="padding: 12px; font-weight: 700; color: #475569; text-align: center; width: 60px;">Xóa</th>
+                        <tr style="background: #1e293b; border-bottom: 1px solid var(--gray-200);">
+                            <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 200px;">Nhân Viên CRM</th>
+                            <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 220px;">ID Nhân Viên Pancake</th>
+                            <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 90px; text-align: center;">Hạn Mức/Ngày</th>
+                            <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 210px; text-align: center;">Thứ Nhận Lead</th>
+                            <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 140px; text-align: center;">Ngoại Lệ (Lịch/Nghỉ)</th>
+                            <th style="padding: 12px; font-weight: 700; color: #ffffff; text-align: center; width: 60px;">Xóa</th>
                         </tr>
                     </thead>
                     <tbody id="rosterTableBody">
