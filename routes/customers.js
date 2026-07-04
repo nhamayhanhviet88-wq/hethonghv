@@ -213,7 +213,7 @@ async function customersRoutes(fastify, options) {
         if (industryName) tgParts.push(industryName);
         let tgMessage = tgParts.join(' - ');
         if (notes && notes.trim()) {
-            tgMessage += `\n💬 ${notes.trim()}`;
+            tgMessage += ` - 💬 ${notes.trim()}`;
         }
         notifyTelegram(actualReceiverId, 'chuyen_so', tgMessage);
 
