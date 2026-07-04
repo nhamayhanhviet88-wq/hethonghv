@@ -2112,6 +2112,41 @@ function _mOpenExportModal(mode = null) {
                     <strong id="m_printed_creator_name" style="color:#1e3a8a;">${creatorName}</strong>
                 </div>
             </div>
+            
+            <!-- Notes & Payment Terms (Mobile version, stacked layout) -->
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 10.5px; line-height: 1.45; color: #475569; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                <!-- Notes Section -->
+                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                    <h4 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+                        <span>📌</span> GHI CHÚ QUAN TRỌNG
+                    </h4>
+                    <ul style="margin: 0; padding-left: 14px; display: flex; flex-direction: column; gap: 3px; list-style-type: disc;">
+                        <li><strong>Thời gian sản xuất:</strong> 5 - 9 ngày làm việc kể từ sau ngày quý khách hàng chốt đơn và tạm ứng lần 1 (trừ chủ nhật, ngày lễ, tết và thời gian vận chuyển).</li>
+                        <li><strong>Thời gian giao hàng:</strong> 2 - 4 ngày vận chuyển với ngoại tỉnh, 1 ngày với nội thành Hà Nội.</li>
+                        <li><strong>Quy cách sản phẩm:</strong> Đúng chất liệu và thiết kế, maket đã được duyệt bởi khách hàng (nếu có áo đã đặt trước đó vui lòng gửi về xưởng để tránh tình trạng lô vải trước, lô vải sau có độ chênh lệch màu).</li>
+                    </ul>
+                </div>
+                <!-- Payment Terms Section -->
+                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                    <h4 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+                        <span>💳</span> ĐIỀU KHOẢN THANH TOÁN
+                    </h4>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; gap: 5px; align-items: start;">
+                            <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; flex-shrink: 0; margin-top: 1px;">1</span>
+                            <div>
+                                <strong style="color: #0f172a;">Lần 1 (Tạm ứng):</strong> Đặt cọc <strong>50%</strong> trên tổng đơn hàng cho Đồng Phục HV.
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 5px; align-items: start; border-top: 1px dashed #e2e8f0; padding-top: 6px; margin-top: 2px;">
+                            <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; flex-shrink: 0; margin-top: 1px;">2</span>
+                            <div>
+                                <strong style="color: #0f172a;">Lần 2 (Tất toán):</strong> Thanh toán số tiền còn lại ngay khi nhận hàng.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
     

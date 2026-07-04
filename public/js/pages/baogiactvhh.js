@@ -3031,6 +3031,43 @@ function _ctvOpenExportModal(mode = null) {
                         </div>
                     </div>
                     
+                    <!-- Notes & Payment Terms -->
+                    <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 15px; margin-bottom: 25px; font-size: 11px; line-height: 1.5; color: #475569; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                        <!-- Notes Section -->
+                        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px 14px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                            <h4 style="margin: 0 0 8px 0; color: #1e3a8a; font-size: 12px; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 13px;">📌</span> GHI CHÚ QUAN TRỌNG
+                            </h4>
+                            <ul style="margin: 0; padding-left: 14px; display: flex; flex-direction: column; gap: 4px; list-style-type: disc;">
+                                <li><strong>Thời gian sản xuất:</strong> 5 - 9 ngày làm việc kể từ sau ngày quý khách hàng chốt đơn và tạm ứng lần 1 (trừ chủ nhật, ngày lễ, tết và thời gian vận chuyển).</li>
+                                <li><strong>Thời gian giao hàng:</strong> 2 - 4 ngày vận chuyển với ngoại tỉnh, 1 ngày với nội thành Hà Nội.</li>
+                                <li><strong>Quy cách sản phẩm:</strong> Đúng chất liệu và thiết kế, maket đã được duyệt bởi khách hàng (nếu có áo đã đặt trước đó vui lòng gửi về xưởng để tránh tình trạng lô vải trước, lô vải sau có độ chênh lệch màu).</li>
+                            </ul>
+                        </div>
+                        <!-- Payment Terms Section -->
+                        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px 14px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                            <h4 style="margin: 0 0 8px 0; color: #1e3a8a; font-size: 12px; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 13px;">💳</span> ĐIỀU KHOẢN THANH TOÁN
+                            </h4>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <div style="display: flex; gap: 6px; align-items: start;">
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; margin-top: 1px;">1</span>
+                                    <div>
+                                        <strong style="color: #0f172a;">Lần 1 (Tạm ứng):</strong>
+                                        <div style="margin-top: 1px;">Khách hàng đặt cọc <strong>50%</strong> trên tổng đơn hàng cho Đồng Phục HV.</div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 6px; align-items: start; border-top: 1px dashed #e2e8f0; padding-top: 8px;">
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; margin-top: 1px;">2</span>
+                                    <div>
+                                        <strong style="color: #0f172a;">Lần 2 (Tất toán):</strong>
+                                        <div style="margin-top: 1px;">Thanh toán số tiền còn lại ngay khi nhận hàng.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Footer signatures -->
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; text-align:center; font-size:13px; margin-top:40px;">
                         <div>
