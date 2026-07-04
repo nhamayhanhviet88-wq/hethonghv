@@ -124,10 +124,16 @@ async function checkChuyenSo(today, mins) {
     const unprocessed = await db.all(`
         SELECT c.id, c.customer_name, c.phone, c.crm_type, c.assigned_to_id,
                c.daily_order_number, c.effective_date, c.appointment_date,
-               c.created_at, c.updated_at,
-               u.full_name as staff_name
+               c.created_at, c.updated_at, c.notes,
+               u.full_name as staff_name,
+               s.name as source_name,
+               p.name as promo_name,
+               ind.name as industry_name
         FROM customers c
         LEFT JOIN users u ON u.id = c.assigned_to_id
+        LEFT JOIN settings_sources s ON s.id = c.source_id
+        LEFT JOIN settings_promotions p ON p.id = c.promotion_id
+        LEFT JOIN settings_industries ind ON ind.id = c.industry_id
         WHERE (
             (c.effective_date = $1::date AND c.created_at::date = $1::date AND c.created_at <= NOW() - INTERVAL '${interval}')
             OR
@@ -158,10 +164,18 @@ async function checkChuyenSo(today, mins) {
 
         const isResend = row.appointment_date === today && row.effective_date !== today;
         const code = buildCode(row);
-        const crmLabel = crmLabels[row.crm_type] || row.crm_type;
-        const resendSuffix = isResend ? ' (Gửi Lại)' : '';
 
-        const msg = `⏰ Xử lí số : <b>${code}</b> : <code>${row.customer_name || '?'}</code> - ${crmLabel}${resendSuffix}`;
+        const tgParts = [`⏰ Xử lí số : <b>${code}</b> : <code>${row.customer_name || '?'}</code> - ${row.phone || 'N/A'}`];
+        if (row.source_name) tgParts.push(row.source_name);
+        if (row.promo_name) tgParts.push(row.promo_name);
+        if (row.industry_name) tgParts.push(row.industry_name);
+        let msg = tgParts.join(' - ');
+        if (row.notes && row.notes.trim()) {
+            msg += ` - 💬 ${row.notes.trim()}`;
+        }
+        if (isResend) {
+            msg += ' (Gửi Lại)';
+        }
 
         notifyTelegram(Number(userId), 'chuyen_so', msg);
         _lastReminded.set(cacheKey, now);
