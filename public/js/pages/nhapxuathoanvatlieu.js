@@ -283,7 +283,7 @@ function _nxhvlRender() {
             
             if (items.length > 0) {
                 nameHtml = items.map(function(it) {
-                    return '• <b>' + escapeHtml(it.material_name) + '</b><br><span style="font-size:9.5px;color:#94a3b8">Gốc: <a href="javascript:void(0)" onclick="event.stopPropagation(); _nxhvlOpenImportBill(' + it.import_record_id + ')" style="color:#4f46e5;text-decoration:underline;font-weight:700">#' + (it.original_import_code || it.import_record_id) + '</a></span>';
+                    return '• <b>' + _nxhvlEscapeHtml(it.material_name) + '</b><br><span style="font-size:9.5px;color:#94a3b8">Gốc: <a href="javascript:void(0)" onclick="event.stopPropagation(); _nxhvlOpenImportBill(' + it.import_record_id + ')" style="color:#4f46e5;text-decoration:underline;font-weight:700">#' + (it.original_import_code || it.import_record_id) + '</a></span>';
                 }).join('<br>');
                 
                 qtyHtml = items.map(function(it) {
@@ -296,13 +296,13 @@ function _nxhvlRender() {
                 }).join('<br>');
                 
                 priceHtml = items.map(function(it) { return '• ' + _nxhvlFN(it.price); }).join('<br>');
-                unitHtml = items.map(function(it) { return '• ' + escapeHtml(it.unit || '—'); }).join('<br>');
+                unitHtml = items.map(function(it) { return '• ' + _nxhvlEscapeHtml(it.unit || '—'); }).join('<br>');
             } else {
                 var origCodeHtml = '—';
                 if (r.import_record_id) {
                     origCodeHtml = '<a href="javascript:void(0)" onclick="event.stopPropagation(); _nxhvlOpenImportBill(' + r.import_record_id + ')" style="color:#4f46e5;text-decoration:underline;font-weight:700">#' + (r.original_import_code || r.import_record_id) + '</a>';
                 }
-                nameHtml = (escapeHtml(r.material_name) || '—') + '<br><span style="font-size:9.5px;color:#94a3b8">Gốc: ' + origCodeHtml + '</span>';
+                nameHtml = (_nxhvlEscapeHtml(r.material_name) || '—') + '<br><span style="font-size:9.5px;color:#94a3b8">Gốc: ' + origCodeHtml + '</span>';
                 
                 var qtyValStr = _nxhvlFN(r.quantity);
                 if (r.initial_quantity && Number(r.initial_quantity) !== Number(r.quantity)) {
@@ -310,7 +310,7 @@ function _nxhvlRender() {
                 }
                 qtyHtml = qtyValStr;
                 priceHtml = _nxhvlFN(r.price);
-                unitHtml = escapeHtml(r.unit) || '—';
+                unitHtml = _nxhvlEscapeHtml(r.unit) || '—';
             }
 
             return '<tr' + rowStyle + clickHandler + '><td style="text-align:center;font-weight:700;color:#94a3b8">' + (i + 1) + '</td>'
@@ -351,6 +351,7 @@ async function _nxhvlTog(id, action) {
 var _nxhvl_retImportItems = [];
 var _nxhvl_retFilteredItems = [];
 var _nxhvl_retUniqueSources = [];
+var _nxhvl_retSelectedItems = [];
 
 async function _nxhvlOpenCreateReturnModal() {
     showToast('Đang tải dữ liệu nhập vật liệu...', 'info');
@@ -520,7 +521,7 @@ function _nxhvlOnSourceChanged(val) {
     if (_nxhvl_retSelectedItems.length > 0) {
         _nxhvl_retSelectedItems = [];
         showToast('Đã đổi Nhà cung cấp, danh sách vật liệu hoàn trả được làm mới.', 'info');
-        renderSelectedItemsList();
+        _nxhvlRenderSelectedItemsList();
     }
 
     if (!val) {
@@ -535,10 +536,10 @@ function _nxhvlOnSourceChanged(val) {
         searchInput.disabled = false;
         searchInput.placeholder = '🔍 Tìm tên vật liệu, mã bill...';
     }
-    _retFilteredItems = _retImportItems.filter(function(item) {
+    _nxhvl_retFilteredItems = _nxhvl_retImportItems.filter(function(item) {
         return Number(item.source_id) === Number(val);
     });
-    renderImportItemsList();
+    _nxhvlRenderImportItemsList();
 }
 
 function _nxhvlOnSearchImportItems(val) {
@@ -1158,26 +1159,6 @@ async function _nxhvlOpenViewReturnModal(id) {
             <div>
                 <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú Đề Xuất:</label>
                 <textarea class="form-control" readonly style="width:100%; height:36px; font-size:12px; padding:6px 10px; background:#f1f5f9; resize:none;">${_nxhvlEscapeHtml(r.notes) || ''}</textarea>
-            </div>
-            ${confirmHTML}
-        </div>
-    `;
-    
-    var footerHTML = `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`;
-    openModal('🔄 Chi Tiết Giao Dịch Hoàn Vật Liệu', bodyHTML, footerHTML);
-}round:#f1f5f9;" />
-                </div>
-                <div>
-                    <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Đề Xuất:</label>
-                    <input type="text" value="${escapeHtml(r.staff_name) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
-                </div>
-            </div>
-            
-            ${itemsHTML}
-
-            <div>
-                <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú Đề Xuất:</label>
-                <textarea class="form-control" readonly style="width:100%; height:36px; font-size:12px; padding:6px 10px; background:#f1f5f9; resize:none;">${escapeHtml(r.notes) || ''}</textarea>
             </div>
             ${confirmHTML}
         </div>
