@@ -176,9 +176,11 @@ function renderPagesTable() {
     }
 
     tbody.innerHTML = pages.map((page, index) => {
-        const crmLabel = page.crm_type === 'sale' 
-            ? '<span style="background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">💼 SALE</span>'
-            : '<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🏢 KINH DOANH</span>';
+        const crmLabel = page.crm_type === 'ca_hai'
+            ? '<span style="background: #f3e8ff; color: #6b21a8; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🏢💼 CẢ 2 PHÒNG</span>'
+            : (page.crm_type === 'sale' 
+                ? '<span style="background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">💼 SALE</span>'
+                : '<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🏢 KINH DOANH</span>');
         
         const statusLabel = page.is_active
             ? '<span style="color: #10b981; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">● Hoạt động</span>'
@@ -187,7 +189,9 @@ function renderPagesTable() {
         // Find source name
         let sourceName = '—';
         const srcId = Number(page.source_id);
-        const sourceList = page.crm_type === 'sale' ? _saleSources : _kdSources;
+        const sourceList = page.crm_type === 'ca_hai'
+            ? [..._kdSources, ..._saleSources]
+            : (page.crm_type === 'sale' ? _saleSources : _kdSources);
         const matchedSrc = sourceList.find(s => s.id === srcId);
         if (matchedSrc) sourceName = matchedSrc.name;
 
@@ -367,6 +371,7 @@ function showPageConfigModal(index = null) {
                     <select id="modalPageCrmType" class="form-control" onchange="onCrmTypeChange(this.value)" style="height: 38px; border-radius: 8px; padding: 0 35px 0 16px;">
                         <option value="nhu_cau" ${pageData.crm_type === 'nhu_cau' ? 'selected' : ''}>🏢 Phòng Kinh Doanh (nhu_cau)</option>
                         <option value="sale" ${pageData.crm_type === 'sale' ? 'selected' : ''}>💼 Phòng Sale (sale)</option>
+                        <option value="ca_hai" ${pageData.crm_type === 'ca_hai' ? 'selected' : ''}>🏢💼 Cả 2 phòng (ca_hai)</option>
                     </select>
                 </div>
                 <div>
@@ -396,7 +401,9 @@ function onCrmTypeChange(crmType, selectedSourceId = null) {
     const select = document.getElementById('modalPageSourceId');
     if (!select) return;
 
-    const sourceList = crmType === 'sale' ? _saleSources : _kdSources;
+    const sourceList = crmType === 'ca_hai'
+        ? [..._kdSources, ..._saleSources]
+        : (crmType === 'sale' ? _saleSources : _kdSources);
     
     select.innerHTML = `
         <option value="">-- Chọn nguồn khách --</option>

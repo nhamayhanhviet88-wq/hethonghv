@@ -125,13 +125,36 @@ async function pancakeRoutes(fastify, options) {
                     if (!userId) continue;
 
                     // 1. Check if user is active in users table
-                    const userRow = await db.get("SELECT status FROM users WHERE id = $1", [userId]);
+                    const userRow = await db.get("SELECT status, role, department_id, source_crm_type FROM users WHERE id = $1", [userId]);
                     if (!userRow || userRow.status !== 'active') continue;
 
+                    // Determine user CRM type
+                    let userCrmType = 'nhu_cau';
+                    if (userRow.source_crm_type === 'sale') {
+                        userCrmType = 'sale';
+                    } else if (userRow.department_id) {
+                        const parentDeptRow = await db.get(`
+                            WITH RECURSIVE dept_path AS (
+                                SELECT id, parent_id FROM departments WHERE id = $1
+                                UNION ALL
+                                SELECT d.id, d.parent_id FROM departments d
+                                INNER JOIN dept_path dp ON d.id = dp.parent_id
+                            )
+                            SELECT 1 FROM dept_path WHERE id = 4 LIMIT 1
+                        `, [userRow.department_id]);
+                        if (parentDeptRow) {
+                            userCrmType = 'sale';
+                        }
+                    }
+
+                    // Store userCrmType in staffMap / sa for downstream use
+                    sa.userCrmType = userCrmType;
+
                     // 2. Check if user is active in telesale_active_members (if registered)
+                    const targetCrmType = page.crm_type === 'ca_hai' ? userCrmType : (page.crm_type || 'nhu_cau');
                     const tamRow = await db.get(
                         "SELECT is_active FROM telesale_active_members WHERE user_id = $1 AND crm_type = $2",
-                        [userId, page.crm_type || 'nhu_cau']
+                        [userId, targetCrmType]
                     );
                     if (tamRow && !tamRow.is_active) continue;
 
@@ -237,6 +260,9 @@ async function pancakeRoutes(fastify, options) {
                 );
                 const dailyNum = (maxNum?.mx || 0) + 1;
 
+                // Determine lead CRM type
+                const leadCrmType = staffMap[assignedUserId]?.userCrmType || 'nhu_cau';
+
                 // Create customer
                 const custResult = await db.get(
                     `INSERT INTO customers (
@@ -246,7 +272,7 @@ async function pancakeRoutes(fastify, options) {
                      )
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'dang_tu_van', NOW(), NOW()) RETURNING id`,
                     [
-                        tsUid, page.crm_type || 'nhu_cau', customerName, phone, conversationLink,
+                        tsUid, leadCrmType, customerName, phone, conversationLink,
                         assignedUserId, assignedUserId, dailyNum, assignedUserId, 
                         page.name, appointmentDate, page.source_id
                     ]
@@ -299,6 +325,17 @@ async function pancakeRoutes(fastify, options) {
 
                 processedCount++;
             } else {
+                // Determine lead CRM type from source for unassigned lead
+                let leadCrmType = 'nhu_cau';
+                if (page.crm_type === 'ca_hai') {
+                    const srcRow = await db.get("SELECT crm_type FROM settings_sources WHERE id = $1", [page.source_id]);
+                    if (srcRow && srcRow.crm_type) {
+                        leadCrmType = srcRow.crm_type;
+                    }
+                } else {
+                    leadCrmType = page.crm_type || 'nhu_cau';
+                }
+
                 // Save customer with NULL assigned_to_id (unassigned/waiting lead)
                 const custResult = await db.get(
                     `INSERT INTO customers (
@@ -308,7 +345,7 @@ async function pancakeRoutes(fastify, options) {
                      )
                      VALUES ($1, $2, $3, $4, $5, NULL, NULL, 0, NULL, $6, NULL, $7, 'dang_tu_van', NOW(), NOW()) RETURNING id`,
                     [
-                        tsUid, page.crm_type || 'nhu_cau', customerName, phone, conversationLink,
+                        tsUid, leadCrmType, customerName, phone, conversationLink,
                         page.name, page.source_id
                     ]
                 );
@@ -342,10 +379,10 @@ async function pancakeRoutes(fastify, options) {
                         const staffChatId = staffChatIdRow?.chat_id || (await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [sa.crm_user_id]))?.telegram_group_id;
 
                         if (staffChatId) {
-                            const alertMsg = `📢 <b>Yêu cầu nhận số từ Pancake!</b>\n` +
+                            const alertMsg = `📢 <b>Cảnh báo Pancake: Hiện tại không ai bật nhận số!</b>\n` +
                                 `━━━━━━━━━━━━━━━━━━━━\n` +
-                                `Hiện tại đang có <b>${unassignedCount}</b> khách hàng từ nguồn <b>${page.name}</b> đang chờ xử lý.\n` +
-                                `⚠️ <b>Vui lòng bật nhận số để xử lý khách hàng!</b>`;
+                                `Đang có <b>${unassignedCount}</b> khách hàng từ nguồn <b>${page.name}</b> đang chờ xử lý.\n` +
+                                `⚠️ <b>Yêu cầu nhân viên hãy BẬT NHẬN SỐ để xử lý khách!</b>`;
                             await sendTelegramMessage(staffChatId, alertMsg, page.bot_tele);
                         }
                     }
@@ -439,10 +476,10 @@ async function pancakeRoutes(fastify, options) {
                         const staffChatId = staffChatIdRow?.chat_id || (await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [sa.crm_user_id]))?.telegram_group_id;
 
                         if (staffChatId) {
-                            const alertMsg = `📢 <b>Yêu cầu nhận số từ Pancake! (Nhắc nhở)</b>\n` +
+                            const alertMsg = `📢 <b>Cảnh báo Pancake: Hiện tại không ai bật nhận số! (Nhắc nhở 15 phút)</b>\n` +
                                 `━━━━━━━━━━━━━━━━━━━━\n` +
-                                `Hiện tại đang có <b>${cnt}</b> khách hàng từ nguồn <b>${page.name}</b> đang chờ xử lý.\n` +
-                                `⚠️ <b>Bạn hãy bật nhận số để hệ thống tiếp tục chia khách!</b>`;
+                                `Đang có <b>${cnt}</b> khách hàng từ nguồn <b>${page.name}</b> đang chờ xử lý.\n` +
+                                `⚠️ <b>Yêu cầu nhân viên hãy BẬT NHẬN SỐ để xử lý khách!</b>`;
                             await sendTelegramMessage(staffChatId, alertMsg, page.bot_tele);
                         }
                     }
