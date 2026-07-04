@@ -525,7 +525,7 @@ module.exports = async function (fastify) {
             );
 
             // Also create customer record in target CRM
-            const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong: 'Chăm Sóc Affiliate' };
+            const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong: 'Chăm Sóc Affiliate', sale: 'Chăm Sóc Khách Sale' };
             // Get category name for Lĩnh Vực
             let catName = null;
             if (entry.category_id) {

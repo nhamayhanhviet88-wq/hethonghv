@@ -17,7 +17,8 @@ const CRM_TYPE_LABELS = {
     'nhu_cau': 'Chăm Sóc Nhu Cầu',
     'ctv': 'Chăm Sóc CTV',
     'ctv_hoa_hong': 'Chăm Sóc Affiliate',
-    'kol_koc': 'Chăm Sóc KOC/KOL'
+    'kol_koc': 'Chăm Sóc KOC/KOL',
+    'sale': 'Chăm Sóc Khách Sale'
 };
 function crmLabel(code) {
     if (!code) return code;

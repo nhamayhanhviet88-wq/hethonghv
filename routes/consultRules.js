@@ -6,9 +6,38 @@ module.exports = async function (fastify) {
     // GET all consult types (public - no auth needed)
     fastify.get('/api/consult-types', async (req, reply) => {
         const crmMenu = req.query.crm_menu || 'nhu_cau';
-        const rows = await db.all(
+        let rows = await db.all(
             `SELECT * FROM consult_type_configs WHERE crm_menu = $1 ORDER BY sort_order`, [crmMenu]
         );
+        if (rows.length === 0) {
+            const defaults = await db.all(
+                `SELECT * FROM consult_type_configs WHERE crm_menu = 'nhu_cau' ORDER BY sort_order`
+            );
+            if (defaults.length > 0) {
+                for (const d of defaults) {
+                    await db.run(
+                        `INSERT INTO consult_type_configs (key, label, icon, color, text_color, sort_order, is_active, stage, rule_phase, section_order, section_group, section_group_label, crm_menu)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                         ON CONFLICT (key, crm_menu) DO NOTHING`,
+                        [d.key, d.label, d.icon, d.color, d.text_color, d.sort_order, d.is_active, d.stage, d.rule_phase, d.section_order, d.section_group, d.section_group_label, crmMenu]
+                    );
+                }
+                const flowDefaults = await db.all(
+                    `SELECT * FROM consult_flow_rules WHERE crm_menu = 'nhu_cau'`
+                );
+                for (const f of flowDefaults) {
+                    await db.run(
+                        `INSERT INTO consult_flow_rules (from_status, to_type_key, delay_days, is_default, sort_order, crm_menu)
+                         VALUES ($1, $2, $3, $4, $5, $6)
+                         ON CONFLICT (from_status, to_type_key, crm_menu) DO NOTHING`,
+                        [f.from_status, f.to_type_key, f.delay_days, f.is_default, f.sort_order, crmMenu]
+                    );
+                }
+                rows = await db.all(
+                    `SELECT * FROM consult_type_configs WHERE crm_menu = $1 ORDER BY sort_order`, [crmMenu]
+                );
+            }
+        }
         return { types: rows };
     });
 

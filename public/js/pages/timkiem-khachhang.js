@@ -29,7 +29,8 @@ const _TKKH_CRM_PAGE = {
     nhu_cau: 'crm-nhu-cau',
     ctv_hoa_hong: 'cham-soc-affiliate',
     ctv: 'crm-ctv',
-    koc_tiktok: 'cham-soc-koc-kol'
+    koc_tiktok: 'cham-soc-koc-kol',
+    sale: 'chamsockhsale'
 };
 
 function _tkkhGoTo(pageId, customerId) {
@@ -100,7 +101,7 @@ function _tkkhRenderResults(data, query) {
         </div>
     </div>`;
 
-    const CRM_LABELS = { nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong:'Chăm Sóc Affiliate', ctv:'Chăm Sóc CTV', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok' };
+    const CRM_LABELS = { nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong:'Chăm Sóc Affiliate', ctv:'Chăm Sóc CTV', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok', sale:'Chăm Sóc Khách Sale' };
 
     // CRM Results
     if (crm.length > 0) {

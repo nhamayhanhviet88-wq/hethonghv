@@ -103,7 +103,8 @@ const crmLabels = {
     nhu_cau: 'Chăm Sóc KH Nhu Cầu',
     ctv: 'Chăm Sóc CTV',
     ctv_hoa_hong: 'Chăm Sóc Affiliate',
-    koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok'
+    koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok',
+    sale: 'Chăm Sóc Khách Sale'
 };
 
 /**

@@ -1121,7 +1121,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                         [customerId, customer.created_at, customer.updated_at]
                     );
                     if (Number(prevCount?.cnt || 0) === 1) {
-                        const _crmL = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOL/KOC Tiktok' };
+                        const _crmL = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOL/KOC Tiktok', sale: 'Sale' };
                         const _conL = { goi_dien: 'Gọi Điện', nhan_tin: 'Nhắn Tin', gap_truc_tiep: 'Gặp Trực Tiếp', gui_bao_gia: 'Gửi Báo Giá', gui_mau: 'Gửi Mẫu', thiet_ke: 'Thiết Kế', bao_sua: 'Báo Sửa', lam_quen_tuong_tac: 'Làm Quen', gui_stk_coc: 'Gửi STK Cọc', giuc_coc: 'Giục Cọc', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', sau_ban_hang: 'Sau Bán Hàng', hoan_thanh: 'Hoàn Thành', tuong_tac_ket_noi: 'Tương Tác', gui_ct_kh_cu: 'CT KH Cũ', giam_gia: 'Giảm Giá', cap_cuu_sep: 'Cấp Cứu Sếp', huy: 'Hủy KH', huy_don_tra_coc: 'Hủy Đơn TC' };
                         let custCode = '?';
                         if (customer.daily_order_number && customer.effective_date) {

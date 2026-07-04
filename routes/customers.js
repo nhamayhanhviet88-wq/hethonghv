@@ -207,7 +207,7 @@ async function customersRoutes(fastify, options) {
         const promoName = promotion_id ? (await db.get('SELECT name FROM settings_promotions WHERE id = ?', [Number(promotion_id)]))?.name : '';
         const industryName = industry_id ? (await db.get('SELECT name FROM settings_industries WHERE id = ?', [Number(industry_id)]))?.name : '';
         const receiverUser = actualReceiverId ? await db.get('SELECT full_name, telegram_group_id FROM users WHERE id = ?', [actualReceiverId]) : null;
-        const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
+        const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok', sale: 'Chăm Sóc Khách Sale' };
 
         const tgParts = [`📱 <b>${code}</b> : <code>${customer_name}</code> - ${normalizedPhone || 'N/A'} - ${crmLabels[crm_type] || crm_type}`];
         if (sourceName) tgParts.push(sourceName);
@@ -264,7 +264,7 @@ async function customersRoutes(fastify, options) {
         // Thông báo gửi lại chỉ qua Telegram
 
         // Gửi Telegram
-        const crmLabels = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL Tiktok' };
+        const crmLabels = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL Tiktok', sale: 'Sale' };
         const tgMessage = `🔄 <b>GỬI LẠI SỐ</b>\n` +
             `📱 <b>${originalCode || '?'}</b> : <code>${customer.customer_name}</code> - ${customer.phone}\n` +
             `🏷️ CRM: ${crmLabels[customer.crm_type] || customer.crm_type}\n` +

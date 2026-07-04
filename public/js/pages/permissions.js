@@ -21,6 +21,10 @@ const PERM_FEATURES = [
     { key: 'nhom_spam_zalo', label: 'Nhóm Spam Zalo', perms: ['view','create'], section: 'CÔNG VIỆC NV KINH DOANH' },
     { key: 'tuyen_dung_sv', label: 'Tuyển Dụng SV KD', perms: ['view','create','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
 
+    // ===== BỘ PHẬN SALE =====
+    { key: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
+    { key: 'sokhachsale', label: 'Sổ Khách Sale', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
+
     // ===== KINH DOANH CHĂM SÓC =====
     { key: 'crm_nhu_cau', label: 'Chăm Sóc KH Nhu Cầu', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },
     { key: 'crm_ctv', label: 'Chăm Sóc CTV', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },

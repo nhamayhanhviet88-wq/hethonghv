@@ -89,7 +89,8 @@ const CRM_LABELS = {
     nhu_cau: 'Chăm Sóc KH Nhu Cầu',
     ctv_hoa_hong: 'Chăm Sóc Affiliate',
     ctv: 'Chăm Sóc CTV',
-    koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok'
+    koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok',
+    sale: 'Chăm Sóc Khách Sale'
 };
 
 const MENU_CONFIG = [
@@ -99,7 +100,8 @@ const MENU_CONFIG = [
     { id: 'tong-doanh-so-sale', label: 'Tổng Doanh Số Sale KD', icon: '📊', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/tongdoansosale', permKey: 'tong_doanh_so_sale' },
     { id: 'camketcuochop', label: 'Cam Kết Cuộc Họp', icon: '📝', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/camketcuochop', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'cam_ket_cuoc_hop' },
     { id: 'timkiemkhachhang', label: 'Tìm Kiếm Khách Hàng', icon: '🔍', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/timkiemkhachhanghv', permKey: 'tim_kiem_kh' },
-    { id: 'sale-placeholder', label: 'Chờ cập nhật menu...', icon: '⏳', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE' },
+    { id: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/chamsockhsale', permKey: 'chamsockhsale' },
+    { id: 'sokhachsale', label: 'Sổ Khách Sale', icon: '📖', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/sokhachsale', permKey: 'sokhachsale' },
     { id: 'goidien', label: 'Gọi Điện Telesale', icon: '📞', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/goidien', permKey: 'goi_dien' },
     { id: 'hethonggoidien', label: 'Hệ Thống Phân Chia Gọi Điện', icon: '📡', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/hethonggoidien', permKey: 'he_thong_goi_dien' },
     { id: 'nhantintimdoitackh', label: 'Nhắn Tìm Đối Tác KH KOL Tiktok', icon: '💬', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/nhantintimdoitackh', permKey: 'nhan_tin_doi_tac' },
@@ -1983,6 +1985,8 @@ async function handleRoute() {
             case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
             case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
             case 'crm-ctv': renderCRMCtvPage(content); break;
+            case 'chamsockhsale': renderChamsockhsalePage(content); break;
+            case 'sokhachsale': renderSokhachsalePage(content); break;
             case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;
             case 'cham-soc-koc-kol': case 'chamsockockol': renderCRMKocKolPage(content); break;
             case 'chap-nhan-ctv-affiliate': case 'chapnhanctvaffliate': renderChapNhanCTVAffiliatePage(content); break;
