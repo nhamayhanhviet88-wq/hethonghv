@@ -1479,6 +1479,7 @@ async function start() {
     fastify.register(require('./routes/trasoat'));
     fastify.register(require('./routes/donhanghomnayqlx'));
     fastify.register(require('./routes/ctv-quotations'));
+    fastify.register(require('./routes/pancake'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
