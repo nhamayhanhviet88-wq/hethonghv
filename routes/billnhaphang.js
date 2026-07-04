@@ -301,9 +301,13 @@ module.exports = async function(fastify) {
         let params = [];
         let idx = 1;
         if (record_type) {
-            sourcesQuery += ` AND r.record_type = $${idx}`;
-            params.push(record_type);
-            idx++;
+            if (record_type === 'fabric') {
+                sourcesQuery += ` AND r.record_type IN ('fabric', 'refund')`;
+            } else {
+                sourcesQuery += ` AND r.record_type = $${idx}`;
+                params.push(record_type);
+                idx++;
+            }
             // Filter sources list to match the record_type
             whereSources.push(`s.source_type = $${idx}`);
             params.push(record_type === 'general' ? 'material' : 'fabric');
@@ -329,9 +333,13 @@ module.exports = async function(fastify) {
         let tIdx = 1;
         let totalsWhere = [];
         if (record_type) {
-            totalsWhere.push(`record_type = $${tIdx}`);
-            totalsParams.push(record_type);
-            tIdx++;
+            if (record_type === 'fabric') {
+                totalsWhere.push(`record_type IN ('fabric', 'refund')`);
+            } else {
+                totalsWhere.push(`record_type = $${tIdx}`);
+                totalsParams.push(record_type);
+                tIdx++;
+            }
         }
         if (warehouse_id) {
             totalsWhere.push(`warehouse_id = $${tIdx}`);
@@ -362,7 +370,14 @@ module.exports = async function(fastify) {
     fastify.get('/api/import/records', { preHandler: [authenticate] }, async (req) => {
         const { source_id, year, month, status, search, record_type, warehouse_id } = req.query;
         let where = 'WHERE 1=1', params = [], idx = 1;
-        if (record_type) { where += ` AND ir.record_type=$${idx++}`; params.push(record_type); }
+        if (record_type) {
+            if (record_type === 'fabric') {
+                where += ` AND ir.record_type IN ('fabric', 'refund')`;
+            } else {
+                where += ` AND ir.record_type=$${idx++}`;
+                params.push(record_type);
+            }
+        }
         if (warehouse_id) { where += ` AND ir.warehouse_id=$${idx++}`; params.push(Number(warehouse_id)); }
         if (source_id) { where += ` AND ir.source_id=$${idx++}`; params.push(Number(source_id)); }
         if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(ir.import_date,ir.created_at))=$${idx++}`; params.push(Number(year)); }

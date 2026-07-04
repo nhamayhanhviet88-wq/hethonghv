@@ -614,7 +614,7 @@ module.exports = async function(fastify) {
              ) RETURNING id`,
             [
                 refundCode,
-                tx.tx_date || now,
+                now, // Use current approval date as import_date to sort refund to the top of ledger
                 sourceId,
                 userId,
                 `Hoàn vải chất liệu - màu vải: ${tx.material_name || ''} - ${tx.color_name || ''}`,
@@ -624,7 +624,7 @@ module.exports = async function(fastify) {
                 totalRefundAmt,
                 -totalRefundAmt,
                 billImg,
-                `Hoàn trả từ giao dịch hoàn vải #${tx.id}`,
+                `Hoàn trả từ giao dịch hoàn vải #${tx.id} (Yêu cầu ngày ${tx.tx_date || ''})`,
                 now
             ]
         );
