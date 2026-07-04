@@ -192,15 +192,12 @@ async function renderChamsockhsalePage(container) {
                         <th style="min-width:110px">Link Khách Hàng</th>
                         <th style="min-width:130px">Địa Chỉ</th>
                         <th style="min-width:100px">Nguồn</th>
-                        <th style="min-width:120px">Người GT</th>
-                        <th style="min-width:70px;text-align:center" title="Hoa Hồng Affiliate đơn tiếp theo">HH AFF</th>
-                        <th style="min-width:110px">CRM Người GT</th>
                         <th style="min-width:100px">Lĩnh Vực</th>
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
                     </tr></thead>
-                    <tbody id="saleTbody"><tr><td colspan="21" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
+                    <tbody id="saleTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
                 <div id="salePagination" class="crm-pagination"></div>
             </div>
@@ -509,7 +506,7 @@ function _saleRenderFilteredTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="21"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="18"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
         document.getElementById('salePagination').innerHTML = '';
         return;
     }
@@ -635,11 +632,6 @@ function _saleRenderCustomerRow(c, stats, stt) {
         <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">🔗 FB</a>' : '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.source_name || '—'}</td>
-        <td style="font-size:12px;${currentUser.role === 'giam_doc' ? 'cursor:pointer;' : ''}" onclick="${currentUser.role === 'giam_doc' && !c.referrer_id ? '_saleOpenReferrerSearch(' + c.id + ')' : ''}">
-            ${c.referrer_id ? `<span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();_saleOpenAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>` : (currentUser.role === 'giam_doc' ? '<span style="color:var(--gray-500)" title="Click để tìm">🔍 Tìm</span>' : '<span style="color:var(--gray-500)">—</span>')}
-        </td>
-        <td style="text-align:center;font-size:11px;font-weight:700;">${(() => { const r = c.next_aff_rate || 0; if (r >= 15) return '<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:10px;">15%</span>'; if (r >= 10) return '<span style="background:#fff7ed;color:#ea580c;padding:2px 8px;border-radius:10px;">10%</span>'; if (r >= 5) return '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:10px;">5%</span>'; return '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:10px;">0%</span>'; })()}</td>
-        <td style="font-size:11px">${(c.referrer_user_crm_type || c.referrer_crm_type) ? (CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type) : '—'}</td>
         <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
