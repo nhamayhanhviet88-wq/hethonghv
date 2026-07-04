@@ -1066,11 +1066,11 @@ async function _saleOpenConsultModal(customerId) {
             <input type="text" id="consultSampleOrderCodeSale" class="form-control" readonly style="background:var(--gray-100);font-weight:700;color:var(--navy);font-size:16px;cursor:not-allowed;border:2px solid var(--gold);">
         </div>
         <div class="form-group" id="consultContentGroupSale">
-            <label>Nội Dung Tư Vấn <span style="color:var(--danger)">*</span></label>
+            <label>Nội Dung Tư Vấn</label>
             <textarea id="consultContentSale" class="form-control" rows="3" placeholder="Nhập nội dung tư vấn..."></textarea>
         </div>
         <div class="form-group" id="consultImageGroupSale">
-            <label>Hình Ảnh <span id="consultImageReqSale" style="color:var(--danger)">*</span> (Ctrl+V để dán)</label>
+            <label>Hình Ảnh (Ctrl+V để dán)</label>
             <div id="consultImageAreaSale" class="image-paste-area" tabindex="0" style="border:2px dashed #cbd5e1;padding:20px;text-align:center;border-radius:8px;cursor:pointer;position:relative;outline:none;">
                 <div id="consultImagePlaceholderSale">📋 Click vào đây rồi Ctrl+V để dán hình ảnh</div>
                 <img id="consultImagePreviewSale" style="display:none;max-width:100%;max-height:200px;border-radius:8px;margin:0 auto;">
@@ -1087,7 +1087,7 @@ async function _saleOpenConsultModal(customerId) {
             </select>
         </div>
         <div class="form-group" id="consultAppointmentGroupSale">
-            <label>Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span></label>
+            <label>Ngày Hẹn Tiếp Theo</label>
             <input type="hidden" id="consultAppointmentSale">
             <div id="consultCalendarContainerSale"></div>
         </div>
@@ -1333,7 +1333,7 @@ function _saleOnConsultTypeChange() {
             updateHolidayCalendarMinMax('consultCalendarContainerSale', tomorrowStr, maxDateStr);
         }
         const apptLabelEl = appointmentGroup?.querySelector('label');
-        if (apptLabelEl) apptLabelEl.innerHTML = `Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#f59e0b;font-weight:600;">(tối đa ${maxDays} ngày)</span>`;
+        if (apptLabelEl) apptLabelEl.innerHTML = `Ngày Hẹn Tiếp Theo <span style="font-size:10px;color:#f59e0b;font-weight:600;">(tối đa ${maxDays} ngày)</span>`;
     } else {
         if (typeof updateHolidayCalendarMinMax === 'function') {
             updateHolidayCalendarMinMax('consultCalendarContainerSale', tomorrowStr, null);
@@ -1378,16 +1378,10 @@ async function _saleSubmitConsultLog(customerId) {
     let appt = document.getElementById('consultAppointmentSale')?.value;
 
     if (!type) { showToast('Vui lòng chọn loại tư vấn', 'error'); return; }
-    if (!content) { showToast('Vui lòng nhập nội dung tư vấn', 'error'); return; }
-
-    if (type !== 'huy' && type !== 'cap_cuu_sep' && type !== 'chot_don' && !appt) {
-        showToast('Vui lòng chọn ngày hẹn tiếp theo', 'error');
-        return;
-    }
 
     const payload = new FormData();
     payload.append('log_type', type);
-    payload.append('content', content);
+    payload.append('content', content || '');
     if (appt) payload.append('appointment_date', appt);
 
     if (window._saleImageBlob) {
