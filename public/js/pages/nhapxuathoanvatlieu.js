@@ -249,8 +249,8 @@ function _nxhvlRender() {
             var billHoanCode = '—';
             if (r.tx_type === 'HOAN') {
                 var num = r.seq_num || r.id;
-                var badgeBg = r.is_canceled ? '#94a3b8' : '#059669';
-                billHoanCode = '<span style="background:' + badgeBg + '; color:#fff; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px; display:inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Hoàn Vật Liệu #' + num + '</span>';
+                var badgeBg = r.is_canceled ? '#94a3b8' : '#4f46e5';
+                billHoanCode = '<span style="background:' + badgeBg + '; color:#fff; padding:4px 10px; border-radius:12px; font-weight:800; font-size:11px; display:inline-block; box-shadow: 0 2px 4px rgba(79,70,229,0.15); letter-spacing:0.3px;">Hoàn Vật Liệu #' + num + '</span>';
             }
 
             var postponeDateStr = '—';
