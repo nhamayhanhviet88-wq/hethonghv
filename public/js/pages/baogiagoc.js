@@ -3127,6 +3127,11 @@ window._bggOpenFormulaModal = async function(type) {
         const existing = document.getElementById('bgg_formula_modal');
         if (existing) existing.remove();
 
+        const isTem = type === 'Tem';
+        const summaryBg = isTem ? '#f0fdf4' : '#fff7ed';
+        const summaryBorder = isTem ? '#bbf7d0' : '#ffedd5';
+        const summaryColor = isTem ? '#166534' : '#c2410c';
+
         const modal = document.createElement('div');
         modal.id = 'bgg_formula_modal';
         modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 11000; padding: 16px;';
@@ -3142,6 +3147,8 @@ window._bggOpenFormulaModal = async function(type) {
                     <p style="margin: 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">
                         Định nghĩa các vật tư cần tiêu thụ để hoàn thành <strong>100 mét</strong> đầu ra. Giá gốc của từng vật tư sẽ tự động lấy từ nguồn có giá rẻ nhất trong hệ thống nhập hàng.
                     </p>
+                    
+                    <div id="bgg_formula_summary_text_container" style="background: ${summaryBg}; border: 1px solid ${summaryBorder}; padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; color: ${summaryColor}; line-height: 1.6; display: none; word-break: break-word;"></div>
                     
                     <div id="bgg_formula_rows_list" style="display: flex; flex-direction: column; gap: 10px;">
                         <!-- Rendered rows -->
@@ -3255,6 +3262,11 @@ window._bggRenderFormulaRows = function() {
         `;
         document.getElementById('bgg_formula_total_cost').textContent = '0 đ';
         document.getElementById('bgg_formula_per_meter').textContent = '0 đ / mét';
+        const summaryCont = document.getElementById('bgg_formula_summary_text_container');
+        if (summaryCont) {
+            summaryCont.style.display = 'none';
+            summaryCont.innerHTML = '';
+        }
         return;
     }
     
@@ -3352,6 +3364,31 @@ window._bggRenderFormulaRows = function() {
     const perMeter = Math.round(totalCost / 100);
     document.getElementById('bgg_formula_total_cost').textContent = Math.round(totalCost).toLocaleString('vi-VN') + ' đ';
     document.getElementById('bgg_formula_per_meter').textContent = perMeter.toLocaleString('vi-VN') + ' đ / mét';
+
+    // Generate formula summary text
+    const summaryCont = document.getElementById('bgg_formula_summary_text_container');
+    if (summaryCont) {
+        const typeText = _bgg.formulaType || 'Tem';
+        const validItems = [];
+        rows.forEach(row => {
+            if (row.material_id && Number(row.quantity) > 0) {
+                const selectedMat = _bgg.formulaMaterials.find(m => Number(m.id) === Number(row.material_id));
+                if (selectedMat) {
+                    const unit = selectedMat.unit || 'đơn vị';
+                    const qtyVal = parseFloat(row.quantity);
+                    const qtyStr = isNaN(qtyVal) ? row.quantity : String(qtyVal);
+                    validItems.push(`${qtyStr} ${unit} ${selectedMat.name}`);
+                }
+            }
+        });
+        if (validItems.length > 0) {
+            summaryCont.style.display = 'block';
+            summaryCont.innerHTML = `🧪 Công thức 100 mét ${typeText} cần: ${validItems.join(' + ')}`;
+        } else {
+            summaryCont.style.display = 'none';
+            summaryCont.innerHTML = '';
+        }
+    }
 };
 
 window._bggSaveFormulaModal = async function() {

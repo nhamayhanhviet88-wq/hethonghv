@@ -2749,6 +2749,11 @@ window._mOpenFormulaModal = async function(type) {
 
         const isDirector = typeof window.currentUser !== 'undefined' && window.currentUser && window.currentUser.role === 'giam_doc';
         
+        const isTem = formattedType.toLowerCase() === 'tem';
+        const summaryBg = isTem ? '#f0fdf4' : '#fff7ed';
+        const summaryBorder = isTem ? '#bbf7d0' : '#ffedd5';
+        const summaryColor = isTem ? '#166534' : '#c2410c';
+
         // Remove existing modal if any
         const existing = document.getElementById('m_formula_modal');
         if (existing) existing.remove();
@@ -2768,6 +2773,8 @@ window._mOpenFormulaModal = async function(type) {
                     <p style="margin: 0; font-size: 11.5px; color: #64748b; font-weight: 500; line-height: 1.4;">
                         Định nghĩa vật tư để in <strong>100 mét</strong> ${formattedType.toUpperCase()}. Giá tự động lấy từ nguồn rẻ nhất.
                     </p>
+                    
+                    <div id="m_formula_summary_text_container" style="background: ${summaryBg}; border: 1px solid ${summaryBorder}; padding: 10px 14px; border-radius: 8px; font-size: 11.5px; font-weight: 700; color: ${summaryColor}; line-height: 1.5; display: none; word-break: break-word;"></div>
                     
                     <div id="m_formula_rows_list" style="display: flex; flex-direction: column; gap: 10px;">
                         <!-- Rendered rows -->
@@ -2908,6 +2915,11 @@ window._mRenderFormulaRows = function() {
         `;
         document.getElementById('m_formula_total_cost').textContent = '0 đ';
         document.getElementById('m_formula_per_meter').textContent = '0 đ / mét';
+        const summaryCont = document.getElementById('m_formula_summary_text_container');
+        if (summaryCont) {
+            summaryCont.style.display = 'none';
+            summaryCont.innerHTML = '';
+        }
         return;
     }
     
@@ -3011,6 +3023,31 @@ window._mRenderFormulaRows = function() {
     const perMeter = Math.round(totalCost / 100);
     document.getElementById('m_formula_total_cost').textContent = Math.round(totalCost).toLocaleString('vi-VN') + ' đ';
     document.getElementById('m_formula_per_meter').textContent = perMeter.toLocaleString('vi-VN') + ' đ / mét';
+
+    // Generate formula summary text
+    const summaryCont = document.getElementById('m_formula_summary_text_container');
+    if (summaryCont) {
+        const typeText = _mobileBgg.formulaType || 'Tem';
+        const validItems = [];
+        rows.forEach(row => {
+            if (row.material_id && Number(row.quantity) > 0) {
+                const selectedMat = _mobileBgg.formulaMaterials.find(m => Number(m.id) === Number(row.material_id));
+                if (selectedMat) {
+                    const unit = selectedMat.unit || 'đơn vị';
+                    const qtyVal = parseFloat(row.quantity);
+                    const qtyStr = isNaN(qtyVal) ? row.quantity : String(qtyVal);
+                    validItems.push(`${qtyStr} ${unit} ${selectedMat.name}`);
+                }
+            }
+        });
+        if (validItems.length > 0) {
+            summaryCont.style.display = 'block';
+            summaryCont.innerHTML = `🧪 Công thức 100 mét ${typeText} cần: ${validItems.join(' + ')}`;
+        } else {
+            summaryCont.style.display = 'none';
+            summaryCont.innerHTML = '';
+        }
+    }
 };
 
 window._mSaveFormulaModal = async function() {
