@@ -280,18 +280,18 @@ function showPageConfigModal(index = null) {
             </div>
             <div>
                 <label style="display: block; font-weight: 700; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">Tên Trang (Page Name) *</label>
-                <input type="text" id="modalPageName" class="form-control" value="${pageData.name}" placeholder="VD: Đồng Phục Hải Anh" style="height: 38px; border-radius: 8px;">
+                <input type="text" id="modalPageName" class="form-control" value="${pageData.name}" placeholder="VD: Đồng Phục HV" style="height: 38px; border-radius: 8px;">
             </div>
             <div>
                 <label style="display: block; font-weight: 700; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">Phân Hệ CRM Nhận Lead *</label>
-                <select id="modalPageCrmType" class="form-control" onchange="onCrmTypeChange(this.value)" style="height: 38px; border-radius: 8px;">
+                <select id="modalPageCrmType" class="form-control" onchange="onCrmTypeChange(this.value)" style="height: 38px; border-radius: 8px; padding: 0 35px 0 16px;">
                     <option value="nhu_cau" ${pageData.crm_type === 'nhu_cau' ? 'selected' : ''}>🏢 Phòng Kinh Doanh (crm_type='nhu_cau')</option>
                     <option value="sale" ${pageData.crm_type === 'sale' ? 'selected' : ''}>💼 Phòng Sale (crm_type='sale')</option>
                 </select>
             </div>
             <div>
                 <label style="display: block; font-weight: 700; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">Nguồn Khách Mặc Định *</label>
-                <select id="modalPageSourceId" class="form-control" style="height: 38px; border-radius: 8px;">
+                <select id="modalPageSourceId" class="form-control" style="height: 38px; border-radius: 8px; padding: 0 35px 0 16px;">
                     <!-- Filled dynamically -->
                 </select>
             </div>
