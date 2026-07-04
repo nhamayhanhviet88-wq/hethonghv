@@ -192,12 +192,11 @@ async function renderChamsockhsalePage(container) {
                         <th style="min-width:110px">Link Khách Hàng</th>
                         <th style="min-width:130px">Địa Chỉ</th>
                         <th style="min-width:100px">Nguồn</th>
-                        <th style="min-width:100px">Lĩnh Vực</th>
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
                     </tr></thead>
-                    <tbody id="saleTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
+                    <tbody id="saleTbody"><tr><td colspan="17" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
                 <div id="salePagination" class="crm-pagination"></div>
             </div>
@@ -506,7 +505,7 @@ function _saleRenderFilteredTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="18"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="17"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
         document.getElementById('salePagination').innerHTML = '';
         return;
     }
@@ -632,7 +631,6 @@ function _saleRenderCustomerRow(c, stats, stt) {
         <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">🔗 FB</a>' : '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.source_name || '—'}</td>
-        <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
         <td style="text-align:center;padding:4px 2px;">
