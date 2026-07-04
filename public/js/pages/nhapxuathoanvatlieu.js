@@ -173,10 +173,22 @@ function _nxhvlRender() {
     if (_nxhvl.search) {
         var q = _nxhvl.search.toLowerCase();
         all = all.filter(function (r) {
+            var inItems = false;
+            if (r.material_items) {
+                try {
+                    var items = typeof r.material_items === 'string' ? JSON.parse(r.material_items) : r.material_items;
+                    if (Array.isArray(items)) {
+                        inItems = items.some(function(it) {
+                            return (it.material_name || '').toLowerCase().indexOf(q) >= 0 ||
+                                   (it.original_import_code || '').toLowerCase().indexOf(q) >= 0;
+                        });
+                    }
+                } catch(e) {}
+            }
             return (r.material_name || '').toLowerCase().indexOf(q) >= 0 ||
                 (r.source_name || '').toLowerCase().indexOf(q) >= 0 ||
                 (r.original_import_code || '').toLowerCase().indexOf(q) >= 0 ||
-                (r.id && r.id.toString().indexOf(q) >= 0);
+                (r.id && r.id.toString().indexOf(q) >= 0) || inItems;
         });
     }
     var tot = all.length, sumTA = 0, sumDebt = 0, sumPay = 0;
@@ -258,14 +270,47 @@ function _nxhvlRender() {
                 }
             }
 
-            var qtyStr = _nxhvlFN(r.quantity);
-            if (r.initial_quantity && Number(r.initial_quantity) !== Number(r.quantity)) {
-                qtyStr = '<span style="text-decoration:line-through;color:#94a3b8;font-size:9.5px">' + _nxhvlFN(r.initial_quantity) + '</span><br><strong style="color:#0f766e">' + _nxhvlFN(r.quantity) + '</strong>';
+            var items = [];
+            if (r.material_items) {
+                try { items = typeof r.material_items === 'string' ? JSON.parse(r.material_items) : r.material_items; } catch(e) {}
             }
-
-            var origCodeHtml = '—';
-            if (r.import_record_id) {
-                origCodeHtml = `<a href="javascript:void(0)" onclick="event.stopPropagation(); _nxhvlOpenImportBill(${r.import_record_id})" style="color:#4f46e5;text-decoration:underline;font-weight:700">#${r.original_import_code || r.import_record_id}</a>`;
+            if (!Array.isArray(items)) items = [];
+            
+            var nameHtml = '';
+            var qtyHtml = '';
+            var priceHtml = '';
+            var unitHtml = '';
+            
+            if (items.length > 0) {
+                nameHtml = items.map(function(it) {
+                    return '• <b>' + escapeHtml(it.material_name) + '</b><br><span style="font-size:9.5px;color:#94a3b8">Gốc: <a href="javascript:void(0)" onclick="event.stopPropagation(); _nxhvlOpenImportBill(' + it.import_record_id + ')" style="color:#4f46e5;text-decoration:underline;font-weight:700">#' + (it.original_import_code || it.import_record_id) + '</a></span>';
+                }).join('<br>');
+                
+                qtyHtml = items.map(function(it) {
+                    var itQtyStr = _nxhvlFN(it.quantity);
+                    var itInit = Number(it.initial_quantity || it.quantity || 0);
+                    if (itInit && itInit !== it.quantity) {
+                        itQtyStr = '<span style="text-decoration:line-through;color:#94a3b8;font-size:9px">' + _nxhvlFN(itInit) + '</span><br><strong style="color:#0f766e">' + _nxhvlFN(it.quantity) + '</strong>';
+                    }
+                    return '• ' + itQtyStr;
+                }).join('<br>');
+                
+                priceHtml = items.map(function(it) { return '• ' + _nxhvlFN(it.price); }).join('<br>');
+                unitHtml = items.map(function(it) { return '• ' + escapeHtml(it.unit || '—'); }).join('<br>');
+            } else {
+                var origCodeHtml = '—';
+                if (r.import_record_id) {
+                    origCodeHtml = '<a href="javascript:void(0)" onclick="event.stopPropagation(); _nxhvlOpenImportBill(' + r.import_record_id + ')" style="color:#4f46e5;text-decoration:underline;font-weight:700">#' + (r.original_import_code || r.import_record_id) + '</a>';
+                }
+                nameHtml = (escapeHtml(r.material_name) || '—') + '<br><span style="font-size:9.5px;color:#94a3b8">Gốc: ' + origCodeHtml + '</span>';
+                
+                var qtyValStr = _nxhvlFN(r.quantity);
+                if (r.initial_quantity && Number(r.initial_quantity) !== Number(r.quantity)) {
+                    qtyValStr = '<span style="text-decoration:line-through;color:#94a3b8;font-size:9.5px">' + _nxhvlFN(r.initial_quantity) + '</span><br><strong style="color:#0f766e">' + _nxhvlFN(r.quantity) + '</strong>';
+                }
+                qtyHtml = qtyValStr;
+                priceHtml = _nxhvlFN(r.price);
+                unitHtml = escapeHtml(r.unit) || '—';
             }
 
             return '<tr' + rowStyle + clickHandler + '><td style="text-align:center;font-weight:700;color:#94a3b8">' + (i + 1) + '</td>'
@@ -274,14 +319,14 @@ function _nxhvlRender() {
                 + '<td style="text-align:center;font-weight:700;color:#d97706">' + postponeDateStr + '</td>'
                 + '<td style="font-size:10px;font-weight:600;text-align:center">' + formatDateTimeHM(r.created_at) + '</td>'
                 + '<td style="font-size:10px;color:#0891b2;font-weight:700">' + (r.source_name || '—') + '</td>'
-                + '<td style="font-weight:600;color:#1e293b">' + (r.material_name || '—') + '<br><span style="font-size:9.5px;color:#94a3b8">Gốc: ' + origCodeHtml + '</span></td>'
-                + '<td style="font-size:10px;color:#6366f1;font-weight:600;text-align:center">' + (r.unit || '—') + '</td>'
-                + '<td style="font-size:12px;font-weight:800;color:#0f172a;text-align:center">' + qtyStr + '</td>'
-                + '<td style="text-align:right;font-weight:600;color:#f59e0b">' + _nxhvlFN(r.price) + '</td>'
-                + '<td style="text-align:right;font-weight:800;color:#1e293b">' + _nxhvlFN(r.total_amount) + '</td>'
-                + '<td style="text-align:center">' + dB + '</td>'
-                + '<td style="text-align:right;color:#059669;font-weight:700">' + _nxhvlFN(r.payment) + '</td>'
-                + '<td style="font-size:9px;color:#6b7280">' + upd + '</td></tr>';
+                + '<td style="font-weight:600;color:#1e293b;vertical-align:middle;line-height:1.4;">' + nameHtml + '</td>'
+                + '<td style="font-size:10px;color:#6366f1;font-weight:600;text-align:center;vertical-align:middle;line-height:1.4;">' + unitHtml + '</td>'
+                + '<td style="font-size:12px;font-weight:800;color:#0f172a;text-align:center;vertical-align:middle;line-height:1.4;">' + qtyHtml + '</td>'
+                + '<td style="text-align:right;font-weight:600;color:#f59e0b;vertical-align:middle;line-height:1.4;">' + priceHtml + '</td>'
+                + '<td style="text-align:right;font-weight:800;color:#1e293b;vertical-align:middle;">' + _nxhvlFN(r.total_amount) + '</td>'
+                + '<td style="text-align:center;vertical-align:middle;">' + dB + '</td>'
+                + '<td style="text-align:right;color:#059669;font-weight:700;vertical-align:middle;">' + _nxhvlFN(r.payment) + '</td>'
+                + '<td style="font-size:9px;color:#6b7280;vertical-align:middle;">' + upd + '</td></tr>';
         }).join('');
     }
     var el = document.getElementById('nxhvlInfo'); if (el) {
@@ -310,6 +355,7 @@ var _retUniqueSources = [];
 async function openCreateReturnModal() {
     showToast('Đang tải dữ liệu nhập vật liệu...', 'info');
 
+    _retSelectedItems = [];
     if (_postponePasteHandler) {
         document.removeEventListener('paste', _postponePasteHandler);
         _postponePasteHandler = null;
@@ -336,10 +382,6 @@ async function openCreateReturnModal() {
         _retUniqueSources = Object.keys(srcMap).map(function(id) {
             return { id: Number(id), name: srcMap[id] };
         }).sort((a,b) => a.name.localeCompare(b.name));
-
-        var isGDOrTrinh = isGdOrTrinhFront();
-        var priceReadonlyAttr = isGDOrTrinh ? '' : 'readonly';
-        var priceBgStyle = isGDOrTrinh ? 'background:#fff;' : 'background:#f1f5f9; cursor:not-allowed;';
 
         var bodyHTML = `
             <div class="nxhvl-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">
@@ -369,41 +411,21 @@ async function openCreateReturnModal() {
 
                     <!-- Col 2: Refund Details & Scheduling -->
                     <div>
-                        <span style="font-size:13px; font-weight:800; color:#0891b2; display:block; margin-bottom:8px;">📋 BƯỚC 2: Thông tin hoàn trả</span>
+                        <span style="font-size:13px; font-weight:800; color:#0891b2; display:block; margin-bottom:8px;">📋 BƯỚC 2: Danh sách vật liệu hoàn trả</span>
                         
-                        <!-- Selected Item Preview -->
-                        <div id="nxhvl_selected_item_preview" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; margin-bottom:10px; display:none;">
-                            <strong id="preview_mat_name" style="font-size:13px; color:#15803d; display:block; margin-bottom:2px;"></strong>
-                            <span id="preview_import_code" style="font-size:11px; color:#166534; font-weight:600;"></span>
-                        </div>
-
                         <input type="hidden" id="nxhvl_m_import_record_id" value="" />
                         <input type="hidden" id="nxhvl_m_material_item_id" value="" />
+                        <input type="hidden" id="nxhvl_m_qty_orig" value="" />
+                        <input type="hidden" id="nxhvl_m_unit_preview" value="" />
+                        <input type="hidden" id="nxhvl_m_quantity" value="" />
+                        <input type="hidden" id="nxhvl_m_price" value="" />
 
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-                            <div>
-                                <label style="font-weight:700; display:block; margin-bottom:4px;">Số Lượng Nhập Gốc:</label>
-                                <input type="text" id="nxhvl_m_qty_orig" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
-                            </div>
-                            <div>
-                                <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Vị Tính:</label>
-                                <input type="text" id="nxhvl_m_unit_preview" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; text-align:center;" />
-                            </div>
-                        </div>
-
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-                            <div>
-                                <label style="font-weight:700; display:block; margin-bottom:4px; color:#dc2626;">Số Lượng Hoàn Trả *:</label>
-                                <input type="number" id="nxhvl_m_quantity" class="form-control" style="width:100%; font-size:12px; padding:6px 10px; font-weight:700;" placeholder="Nhập SL..." oninput="updateFinValues()" />
-                            </div>
-                            <div>
-                                <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn *:</label>
-                                <input type="number" id="nxhvl_m_price" class="form-control" value="0" ${priceReadonlyAttr} style="width:100%; font-size:12px; padding:6px 10px; font-weight:700; ${priceBgStyle}" oninput="updateFinValues()" />
-                            </div>
+                        <div id="nxhvl_selected_items_list" style="max-height:220px; overflow-y:auto; border:1px dashed #cbd5e1; border-radius:8px; padding:10px; background:#f8fafc; margin-bottom:12px; display:flex; flex-direction:column; gap:8px;">
+                            <div style="text-align:center; color:#94a3b8; padding:30px 10px; font-weight:600; font-size:11px;">⚠️ Chưa chọn mặt hàng nào cần hoàn trả...</div>
                         </div>
 
                         <div style="background:#fee2e2; border:1px solid #fecaca; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                            <strong style="color:#b91c1c;">💰 THÀNH TIỀN HOÀN TRẢ:</strong>
+                            <strong style="color:#b91c1c;">💰 TỔNG TIỀN HOÀN TRẢ:</strong>
                             <strong id="nxhvl_m_total_val" style="color:#b91c1c; font-size:15px;">0₫</strong>
                         </div>
 
@@ -493,6 +515,14 @@ async function openCreateReturnModal() {
 
 function onSourceChanged(val) {
     var searchInput = document.getElementById('nxhvl_m_search_items');
+    
+    // Clear selected items when supplier changes
+    if (_retSelectedItems.length > 0) {
+        _retSelectedItems = [];
+        showToast('Đã đổi Nhà cung cấp, danh sách vật liệu hoàn trả được làm mới.', 'info');
+        renderSelectedItemsList();
+    }
+
     if (!val) {
         if (searchInput) {
             searchInput.value = '';
@@ -549,6 +579,15 @@ function renderImportItemsList() {
 }
 
 function selectImportItem(importId, itemId, name, quantity, price, unit, code) {
+    var exists = _retSelectedItems.some(function(it) {
+        return Number(it.import_record_id) === Number(importId) && Number(it.material_item_id) === Number(itemId);
+    });
+    if (exists) {
+        showToast('Mặt hàng này đã có trong danh sách hoàn trả.', 'warning');
+        return;
+    }
+
+    // Populate hidden inputs for any legacy functions that read them
     document.getElementById('nxhvl_m_import_record_id').value = importId;
     document.getElementById('nxhvl_m_material_item_id').value = itemId;
     document.getElementById('nxhvl_m_qty_orig').value = quantity;
@@ -556,31 +595,98 @@ function selectImportItem(importId, itemId, name, quantity, price, unit, code) {
     document.getElementById('nxhvl_m_quantity').value = quantity;
     document.getElementById('nxhvl_m_price').value = price;
 
-    var previewWrap = document.getElementById('nxhvl_selected_item_preview');
-    previewWrap.style.display = 'block';
-    document.getElementById('preview_mat_name').textContent = '📦 ' + name;
-    document.getElementById('preview_import_code').textContent = 'Hóa đơn gốc: #' + (code || importId) + ' (SL: ' + _nxhvlFN(quantity) + ' ' + unit + ')';
+    _retSelectedItems.push({
+        import_record_id: Number(importId),
+        material_item_id: Number(itemId),
+        material_name: name,
+        orig_qty: Number(quantity),
+        quantity: Number(quantity),
+        price: Number(price),
+        unit: unit || '',
+        original_import_code: code || String(importId)
+    });
 
-    // Highlight selected item in the picker
-    var rows = document.getElementById('nxhvl_m_items_container').children;
-    for (var i = 0; i < rows.length; i++) {
-        rows[i].style.borderColor = '#cbd5e1';
-        rows[i].style.background = '#fff';
+    showToast('Đã thêm: ' + name, 'success');
+    renderSelectedItemsList();
+}
+
+function removeSelectedRetItem(idx) {
+    _retSelectedItems.splice(idx, 1);
+    renderSelectedItemsList();
+}
+
+function updateRetItemQty(idx, val) {
+    _retSelectedItems[idx].quantity = Number(val) || 0;
+    updateFinValues();
+    // Render only the totals rather than full refresh to avoid losing cursor focus
+    var rowTotalEl = document.querySelectorAll('.selected-ret-item-row')[idx]?.querySelector('strong[style*="color:#b91c1c"]');
+    if (rowTotalEl) {
+        rowTotalEl.textContent = _nxhvlFN(_retSelectedItems[idx].quantity * _retSelectedItems[idx].price) + 'đ';
     }
-    if (event && event.currentTarget) {
-        event.currentTarget.style.borderColor = '#10b981';
-        event.currentTarget.style.background = '#f0fdf4';
+}
+
+function updateRetItemPrice(idx, val) {
+    _retSelectedItems[idx].price = Number(val) || 0;
+    updateFinValues();
+    var rowTotalEl = document.querySelectorAll('.selected-ret-item-row')[idx]?.querySelector('strong[style*="color:#b91c1c"]');
+    if (rowTotalEl) {
+        rowTotalEl.textContent = _nxhvlFN(_retSelectedItems[idx].quantity * _retSelectedItems[idx].price) + 'đ';
     }
+}
+
+function renderSelectedItemsList() {
+    var container = document.getElementById('nxhvl_selected_items_list');
+    if (!container) return;
+
+    if (_retSelectedItems.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:30px 10px; font-weight:600; font-size:11px;">⚠️ Chưa chọn mặt hàng nào cần hoàn trả...</div>';
+        document.getElementById('nxhvl_m_submit').disabled = true;
+        updateFinValues();
+        return;
+    }
+
+    var isGDOrTrinh = isGdOrTrinhFront();
+    var priceReadonlyAttr = isGDOrTrinh ? '' : 'readonly';
+    var priceBgStyle = isGDOrTrinh ? 'background:#fff;' : 'background:#f1f5f9; cursor:not-allowed;';
+
+    container.innerHTML = _retSelectedItems.map(function(item, idx) {
+        return `
+            <div class="selected-ret-item-row" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <strong style="color:#0f766e; font-size:11px;">${escapeHtml(item.material_name)}</strong>
+                        <div style="font-size:10px; color:#64748b; margin-top:2px;">Bill gốc: #${item.original_import_code} (SL gốc: ${_nxhvlFN(item.orig_qty)} ${item.unit})</div>
+                    </div>
+                    <button type="button" class="btn" style="padding:1px 5px; font-size:9px; background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:4px; cursor:pointer;" onclick="removeSelectedRetItem(${idx})">❌ Xóa</button>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; align-items:center;">
+                    <div>
+                        <label style="font-weight:700; font-size:9.5px; color:#b45309; display:block; margin-bottom:2px;">SL hoàn:</label>
+                        <input type="number" value="${item.quantity}" class="form-control" style="padding:4px; font-size:11px; font-weight:700; height:24px; border-color:#d97706;" min="0.01" step="any" oninput="updateRetItemQty(${idx}, this.value)" />
+                    </div>
+                    <div>
+                        <label style="font-weight:700; font-size:9.5px; color:#475569; display:block; margin-bottom:2px;">Đơn giá:</label>
+                        <input type="number" value="${item.price}" ${priceReadonlyAttr} class="form-control" style="padding:4px; font-size:11px; font-weight:700; height:24px; ${priceBgStyle}" oninput="updateRetItemPrice(${idx}, this.value)" />
+                    </div>
+                    <div style="text-align:right;">
+                        <label style="font-weight:700; font-size:9.5px; color:#475569; display:block; margin-bottom:2px;">Thành tiền:</label>
+                        <strong style="color:#b91c1c; font-size:11.5px;">${_nxhvlFN(item.quantity * item.price)}đ</strong>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
 
     document.getElementById('nxhvl_m_submit').disabled = false;
     updateFinValues();
 }
 
 function updateFinValues() {
-    var qty = Number(document.getElementById('nxhvl_m_quantity').value) || 0;
-    var prc = Number(document.getElementById('nxhvl_m_price').value) || 0;
-    var total = qty * prc;
-    document.getElementById('nxhvl_m_total_val').textContent = _nxhvlFN(total) + '₫';
+    var total = _retSelectedItems.reduce(function(sum, item) {
+        return sum + (item.quantity * item.price);
+    }, 0);
+    var el = document.getElementById('nxhvl_m_total_val');
+    if (el) el.textContent = _nxhvlFN(total) + '₫';
 }
 
 function escapeHtml(text) {
@@ -795,26 +901,27 @@ function clearPostponeImage() {
 }
 
 async function submitCreateReturn() {
-    var importId = document.getElementById('nxhvl_m_import_record_id').value;
-    var itemId = document.getElementById('nxhvl_m_material_item_id').value;
-    var qty = Number(document.getElementById('nxhvl_m_quantity').value) || 0;
-    var prc = Number(document.getElementById('nxhvl_m_price').value) || 0;
-    var notes = document.getElementById('nxhvl_m_notes').value || '';
+    if (_retSelectedItems.length === 0) {
+        showToast('Vui lòng chọn ít nhất một mặt hàng cần hoàn trả.', 'error');
+        return;
+    }
+    
+    // Validate quantities
+    for (var i = 0; i < _retSelectedItems.length; i++) {
+        if (_retSelectedItems[i].quantity <= 0) {
+            showToast('Số lượng hoàn trả của ' + _retSelectedItems[i].material_name + ' phải lớn hơn 0.', 'error');
+            return;
+        }
+    }
+    
     var targetDate = document.getElementById('postponeDate').value;
-
-    if (!importId || !itemId) {
-        showToast('Vui lòng chọn vật liệu cần hoàn trả.', 'error');
-        return;
-    }
-    if (qty <= 0) {
-        showToast('Số lượng hoàn trả phải lớn hơn 0.', 'error');
-        return;
-    }
     if (!targetDate) {
         showToast('Vui lòng chọn ngày hẹn hoàn trả vật liệu.', 'error');
         return;
     }
-
+    
+    var notes = document.getElementById('nxhvl_m_notes').value || '';
+    
     var submitBtn = document.getElementById('nxhvl_m_submit');
     if (submitBtn) submitBtn.disabled = true;
 
@@ -835,17 +942,22 @@ async function submitCreateReturn() {
             }
         }
 
+        var totalQty = _retSelectedItems.reduce(function(sum, item) { return sum + item.quantity; }, 0);
+        var totalCost = _retSelectedItems.reduce(function(sum, item) { return sum + (item.quantity * item.price); }, 0);
+        var avgPrice = totalQty > 0 ? (totalCost / totalQty) : 0;
+
         var postData = {
             tx_type: 'HOAN',
-            material_item_id: itemId,
-            import_record_id: importId,
-            quantity: qty,
-            price: prc,
+            material_item_id: _retSelectedItems[0].material_item_id,
+            import_record_id: _retSelectedItems[0].import_record_id,
+            quantity: totalQty,
+            price: avgPrice,
             notes: notes,
             is_postponed: true,
             postponed_target_date: targetDate,
             postponed_notes: notes,
-            postponed_images: postponeImgUrl ? [postponeImgUrl] : []
+            postponed_images: postponeImgUrl ? [postponeImgUrl] : [],
+            material_items: _retSelectedItems
         };
 
         var res = await apiCall('/api/materialtx/records', 'POST', postData);
@@ -864,6 +976,8 @@ async function submitCreateReturn() {
 }
 
 // ========== VIEW / CONFIRM 2-STEP Lifecycles ==========
+var _c2Items = [];
+
 async function openViewReturnModal(id) {
     var r = _nxhvl.records.find(item => item.id === id);
     if (!r) {
@@ -951,27 +1065,53 @@ async function openViewReturnModal(id) {
         `;
     }
 
-    var bodyHTML = `
-        <div class="nxhvl-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
-                <div>
-                    <label style="font-weight:700; display:block; margin-bottom:4px;">Nguồn Vật Liệu:</label>
-                    <input type="text" value="${r.source_name || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
-                </div>
-                <div>
-                    <label style="font-weight:700; display:block; margin-bottom:4px;">Ngày Hẹn Hoàn:</label>
-                    <input type="text" value="${r.postponed_target_date || '—'}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
-                </div>
-                <div>
-                    <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Đề Xuất:</label>
-                    <input type="text" value="${r.staff_name || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+    var items = [];
+    if (r.material_items) {
+        try { items = typeof r.material_items === 'string' ? JSON.parse(r.material_items) : r.material_items; } catch(e) {}
+    }
+    if (!Array.isArray(items)) items = [];
+
+    var itemsHTML = '';
+    if (items.length > 0) {
+        itemsHTML = `
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:700; display:block; margin-bottom:4px; color:#0f766e;">📦 Chi Tiết Danh Sách Vật Liệu Hoàn Trả:</label>
+                <div style="overflow-x:auto; border:1px solid #cbd5e1; border-radius:8px; background:#fff;">
+                    <table class="table" style="width:100%; margin:0; font-size:11.5px; border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f8fafc; border-bottom:1px solid #cbd5e1; text-align:left;">
+                                <th style="padding:6px 8px; font-weight:700; color:#475569;">Tên vật liệu</th>
+                                <th style="padding:6px 8px; font-weight:700; color:#475569;">Bill gốc</th>
+                                <th style="padding:6px 8px; font-weight:700; color:#475569; text-align:center;">Số lượng gốc</th>
+                                <th style="padding:6px 8px; font-weight:700; color:#475569; text-align:center;">Số lượng hoàn</th>
+                                <th style="padding:6px 8px; font-weight:700; color:#475569; text-align:right;">Đơn giá</th>
+                                <th style="padding:6px 8px; font-weight:700; color:#475569; text-align:right;">Thành tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(function(it) {
+                                return `
+                                    <tr style="border-bottom:1px solid #f1f5f9;">
+                                        <td style="padding:6px 8px; font-weight:600; color:#1e293b;">${escapeHtml(it.material_name)}</td>
+                                        <td style="padding:6px 8px; color:#4f46e5; font-weight:700;">#${it.original_import_code || it.import_record_id}</td>
+                                        <td style="padding:6px 8px; text-align:center; color:#64748b;">${_nxhvlFN(it.orig_qty || it.initial_quantity || it.quantity)} ${escapeHtml(it.unit || '')}</td>
+                                        <td style="padding:6px 8px; text-align:center; font-weight:700; color:#0f766e;">${_nxhvlFN(it.quantity)} ${escapeHtml(it.unit || '')}</td>
+                                        <td style="padding:6px 8px; text-align:right; color:#f59e0b; font-weight:600;">${_nxhvlFN(it.price)}đ</td>
+                                        <td style="padding:6px 8px; text-align:right; font-weight:700; color:#1e293b;">${_nxhvlFN(it.quantity * it.price)}đ</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            
+        `;
+    } else {
+        itemsHTML = `
             <div style="display:grid; grid-template-columns:2fr 1fr; gap:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Tên Vật Liệu:</label>
-                    <input type="text" value="${r.material_name || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                    <input type="text" value="${escapeHtml(r.material_name) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Hóa Đơn Nhập Gốc:</label>
@@ -982,7 +1122,7 @@ async function openViewReturnModal(id) {
             <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Số Lượng Đề Xuất:</label>
-                    <input type="text" value="${_nxhvlFN(r.quantity)} ${r.unit || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                    <input type="text" value="${_nxhvlFN(r.quantity)} ${escapeHtml(r.unit) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>
@@ -993,10 +1133,31 @@ async function openViewReturnModal(id) {
                     <input type="text" value="${_nxhvlFN(r.total_amount)}đ" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9; font-weight:700;" />
                 </div>
             </div>
+        `;
+    }
+
+    var bodyHTML = `
+        <div class="nxhvl-modal-form" style="display:flex; flex-direction:column; gap:12px; font-size:12px; color:#1e293b; text-align:left;">
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:4px;">Nguồn Vật Liệu:</label>
+                    <input type="text" value="${escapeHtml(r.source_name) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                </div>
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:4px;">Ngày Hẹn Hoàn:</label>
+                    <input type="text" value="${r.postponed_target_date || '—'}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                </div>
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Đề Xuất:</label>
+                    <input type="text" value="${escapeHtml(r.staff_name) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                </div>
+            </div>
+            
+            ${itemsHTML}
 
             <div>
                 <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú Đề Xuất:</label>
-                <textarea class="form-control" readonly style="width:100%; height:36px; font-size:12px; padding:6px 10px; background:#f1f5f9; resize:none;">${r.notes || ''}</textarea>
+                <textarea class="form-control" readonly style="width:100%; height:36px; font-size:12px; padding:6px 10px; background:#f1f5f9; resize:none;">${escapeHtml(r.notes) || ''}</textarea>
             </div>
             ${confirmHTML}
         </div>
@@ -1112,9 +1273,51 @@ function openConfirm2Modal(id) {
     if (!r) return;
 
     _postponeImageBlob = null;
-    var bodyHTML = `
-        <div style="font-size:12px; text-align:left; color:#1e293b;">
-            <p>👉 <b>Xác nhận lần 2 (Kế toán chốt):</b> Nhập số lượng thực tế bàn giao hoàn trả để tính toán khấu trừ công nợ.</p>
+    
+    var items = [];
+    if (r.material_items) {
+        try { items = typeof r.material_items === 'string' ? JSON.parse(r.material_items) : r.material_items; } catch(e) {}
+    }
+    if (!Array.isArray(items)) items = [];
+    
+    _c2Items = items.map(function(it) {
+        return {
+            material_item_id: Number(it.material_item_id),
+            import_record_id: Number(it.import_record_id),
+            material_name: it.material_name,
+            initial_quantity: Number(it.initial_quantity || it.quantity || 0),
+            actual_quantity: Number(it.actual_quantity !== undefined && it.actual_quantity !== null ? it.actual_quantity : (it.quantity || 0)),
+            price: Number(it.price || 0),
+            unit: it.unit || '',
+            original_import_code: it.original_import_code || ''
+        };
+    });
+
+    var c2ListHTML = '';
+    if (_c2Items.length > 0) {
+        c2ListHTML = `
+            <div style="border: 1px solid #cbd5e1; border-radius:8px; padding:10px; background:#f8fafc; margin-bottom:12px; max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+                ${_c2Items.map(function(it, idx) {
+                    return `
+                        <div class="c2-item-row" style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:8px; display:flex; flex-direction:column; gap:6px;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div>
+                                    <strong style="color:#0f766e; font-size:11.5px;">${escapeHtml(it.material_name)}</strong>
+                                    <div style="font-size:10px; color:#64748b; margin-top:2px;">Bill gốc: #${it.original_import_code}</div>
+                                </div>
+                                <span style="font-size:10px; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:700;">SL gốc: ${_nxhvlFN(it.initial_quantity)} ${it.unit}</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <label style="font-weight:700; font-size:11px; color:#b45309; white-space:nowrap; margin-bottom:0;">Số lượng thực tế:</label>
+                                <input type="number" value="${it.actual_quantity}" class="form-control" style="font-weight:700; height:26px; font-size:12px; border-color:#d97706; padding:2px 8px; flex:1;" oninput="onC2ItemQtyChanged(${idx}, this.value)" />
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    } else {
+        c2ListHTML = `
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Số lượng ban đầu:</label>
@@ -1122,9 +1325,17 @@ function openConfirm2Modal(id) {
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#b45309;">Số lượng thực tế bàn giao *:</label>
-                    <input type="number" id="c2_actual_quantity" value="${r.quantity}" class="form-control" style="font-weight:700; border-color:#d97706;" oninput="onC2QtyInput(${r.quantity})" />
+                    <input type="number" id="c2_actual_quantity" value="${r.actual_quantity !== null && r.actual_quantity !== undefined ? r.actual_quantity : r.quantity}" class="form-control" style="font-weight:700; border-color:#d97706;" oninput="onC2QtyInput(${r.quantity})" />
                 </div>
             </div>
+        `;
+    }
+
+    var bodyHTML = `
+        <div style="font-size:12px; text-align:left; color:#1e293b;">
+            <p>👉 <b>Xác nhận lần 2 (Kế toán chốt):</b> Nhập số lượng thực tế bàn giao hoàn trả để tính toán khấu trừ công nợ.</p>
+            
+            ${c2ListHTML}
 
             <!-- Discrepancy Alert & Upload Photo Zone -->
             <div id="c2_discrepancy_area" style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:10px; margin-bottom:12px; display:none;">
@@ -1142,7 +1353,7 @@ function openConfirm2Modal(id) {
 
             <div style="margin-bottom:10px;">
                 <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi chú đối chiếu thực tế:</label>
-                <textarea id="c2_notes" class="form-control" placeholder="Ghi chú thêm về tình trạng hao hụt..." style="width:100%; height:45px; resize:none;"></textarea>
+                <textarea id="c2_notes" class="form-control" placeholder="Ghi chú thêm về tình trạng hao hụt..." style="width:100%; height:45px; resize:none;">${escapeHtml(r.actual_quantity_notes) || ''}</textarea>
             </div>
         </div>
     `;
@@ -1153,6 +1364,13 @@ function openConfirm2Modal(id) {
     `;
 
     openModal('🟨 Xác Nhận Lần 2: Kế Toán Chốt Số Lượng', bodyHTML, footerHTML);
+
+    // Initial check for discrepancy if there's loaded state
+    if (_c2Items.length > 0) {
+        onC2ItemQtyChanged(0, _c2Items[0].actual_quantity);
+    } else {
+        onC2QtyInput(r.quantity);
+    }
 
     var pasteArea = document.getElementById('confirm2PasteArea');
     if (pasteArea) {
@@ -1187,11 +1405,37 @@ function openConfirm2Modal(id) {
     }
 }
 
+function onC2ItemQtyChanged(idx, val) {
+    if (idx !== undefined && val !== undefined) {
+        _c2Items[idx].actual_quantity = Number(val) || 0;
+    }
+    
+    var totalInitial = _c2Items.reduce((sum, it) => sum + it.initial_quantity, 0);
+    var totalActual = _c2Items.reduce((sum, it) => sum + it.actual_quantity, 0);
+    var diff = totalActual - totalInitial;
+    
+    var area = document.getElementById('c2_discrepancy_area');
+    var msg = document.getElementById('c2_discrepancy_msg');
+    if (!area || !msg) return;
+
+    if (Math.abs(diff) > 0.001) {
+        area.style.display = 'block';
+        if (diff < 0) {
+            msg.textContent = `⚠️ Tổng thực tế ít hơn ban đầu: ${totalActual.toFixed(2)} < ${totalInitial.toFixed(2)} (Lệch: ${diff.toFixed(2)}). Giao dịch sẽ chuyển sang chờ Quản lý duyệt sai lệch!`;
+        } else {
+            msg.textContent = `⚠️ Tổng thực tế nhiều hơn ban đầu: ${totalActual.toFixed(2)} > ${totalInitial.toFixed(2)} (Lệch: +${diff.toFixed(2)}).`;
+        }
+    } else {
+        area.style.display = 'none';
+    }
+}
+
 function onC2QtyInput(origQty) {
     var actQty = Number(document.getElementById('c2_actual_quantity').value) || 0;
     var diff = actQty - origQty;
     var area = document.getElementById('c2_discrepancy_area');
     var msg = document.getElementById('c2_discrepancy_msg');
+    if (!area || !msg) return;
     
     if (Math.abs(diff) > 0.001) {
         area.style.display = 'block';
@@ -1206,12 +1450,65 @@ function onC2QtyInput(origQty) {
 }
 
 async function submitConfirm2(id) {
-    var actQty = Number(document.getElementById('c2_actual_quantity').value) || 0;
+    var actQty = 0;
     var notes = document.getElementById('c2_notes').value || '';
+    var postData = {};
+    var isDiscrepancy = false;
 
-    if (actQty <= 0) {
-        showToast('Số lượng thực tế chốt phải lớn hơn 0', 'error');
-        return;
+    if (_c2Items.length > 0) {
+        var totalInitial = _c2Items.reduce((sum, it) => sum + it.initial_quantity, 0);
+        var totalActual = _c2Items.reduce((sum, it) => sum + it.actual_quantity, 0);
+
+        for (var i = 0; i < _c2Items.length; i++) {
+            if (_c2Items[i].actual_quantity <= 0) {
+                showToast('Số lượng thực tế của ' + _c2Items[i].material_name + ' phải lớn hơn 0', 'error');
+                return;
+            }
+        }
+
+        var diff = totalActual - totalInitial;
+        if (Math.abs(diff) > 0.001) {
+            isDiscrepancy = true;
+        }
+
+        if (isDiscrepancy && !_postponeImageBlob) {
+            showToast('Sai lệch số lượng thực tế so với ban đầu. Bắt buộc phải có hình ảnh chụp thực tế để chứng minh!', 'error');
+            return;
+        }
+
+        actQty = totalActual;
+        postData = {
+            actual_quantity: totalActual,
+            actual_items: _c2Items.map(it => ({
+                material_item_id: it.material_item_id,
+                import_record_id: it.import_record_id,
+                actual_quantity: it.actual_quantity
+            })),
+            notes: notes
+        };
+    } else {
+        actQty = Number(document.getElementById('c2_actual_quantity').value) || 0;
+        if (actQty <= 0) {
+            showToast('Số lượng thực tế chốt phải lớn hơn 0', 'error');
+            return;
+        }
+
+        var r = _nxhvl.records.find(item => item.id === id);
+        var origQty = r ? Number(r.quantity) : 0;
+        var diff = actQty - origQty;
+        if (Math.abs(diff) > 0.001) {
+            isDiscrepancy = true;
+        }
+
+        if (isDiscrepancy && !_postponeImageBlob) {
+            showToast('Sai lệch số lượng thực tế so với ban đầu. Bắt buộc phải có hình ảnh chụp thực tế để chứng minh!', 'error');
+            return;
+        }
+
+        postData = {
+            actual_quantity: actQty,
+            notes: notes
+        };
     }
 
     var btn = document.getElementById('btnConfirm2Submit');
@@ -1233,11 +1530,7 @@ async function submitConfirm2(id) {
             }
         }
 
-        var postData = {
-            actual_quantity: actQty,
-            notes: notes,
-            image_data: actImgUrl
-        };
+        postData.image_data = actImgUrl;
 
         var res = await apiCall('/api/materialtx/confirm2/' + id, 'POST', postData);
         if (res.error) {

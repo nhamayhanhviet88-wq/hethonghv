@@ -34,7 +34,9 @@ module.exports = async function(fastify) {
             'postponed_by INTEGER REFERENCES users(id)',
             'postponed_images JSONB DEFAULT \'[]\'::jsonb',
             'postponed_notes TEXT',
-            'postponed_target_date DATE'
+            'postponed_target_date DATE',
+            'material_items JSONB DEFAULT \'[]\'::jsonb',
+            'updated_at TIMESTAMPTZ DEFAULT NOW()'
         ];
         for (const col of cols) {
             try {
@@ -214,6 +216,11 @@ module.exports = async function(fastify) {
         const b = req.body || {}, now = vnNow();
         if (!b.tx_type || !TX_TYPES.includes(b.tx_type)) return { error: 'Loại nghiệp vụ không hợp lệ' };
         
+        let qty = Number(b.quantity) || 0;
+        let prc = Number(b.price) || 0;
+        let total = qty * prc;
+        let matItems = b.material_items || [];
+
         if (b.tx_type === 'HOAN') {
             const canReturn = req.user && (
                 req.user.role === 'giam_doc' || 
@@ -224,14 +231,50 @@ module.exports = async function(fastify) {
             if (!canReturn) {
                 return { error: 'Bạn không có quyền thực hiện hoàn trả vật liệu.' };
             }
-            if (!b.material_item_id || !b.import_record_id) {
-                return { error: 'Thiếu vật liệu hoặc bill nhập vật liệu gốc' };
+
+            if (matItems && matItems.length > 0) {
+                // Populate aggregate values
+                b.material_item_id = matItems[0].material_item_id;
+                b.import_record_id = matItems[0].import_record_id;
+                
+                total = matItems.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0);
+                qty = matItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+                prc = qty > 0 ? (total / qty) : 0;
+                
+                // Map/ensure necessary keys inside each item
+                matItems = matItems.map(item => ({
+                    material_item_id: Number(item.material_item_id),
+                    import_record_id: Number(item.import_record_id),
+                    material_name: item.material_name || '',
+                    quantity: Number(item.quantity) || 0,
+                    initial_quantity: Number(item.quantity) || 0,
+                    actual_quantity: Number(item.quantity) || 0,
+                    price: Number(item.price) || 0,
+                    total_amount: (Number(item.quantity) || 0) * (Number(item.price) || 0),
+                    unit: item.unit || '',
+                    original_import_code: item.original_import_code || ''
+                }));
+            } else {
+                if (!b.material_item_id || !b.import_record_id) {
+                    return { error: 'Thiếu vật liệu hoặc bill nhập vật liệu gốc' };
+                }
+                // Construct single item for backward compatibility
+                const matNameRes = await db.get('SELECT name, unit FROM material_items WHERE id = $1', [b.material_item_id]);
+                const origCodeRes = await db.get('SELECT fabric_import_code FROM import_records WHERE id = $1', [b.import_record_id]);
+                matItems = [{
+                    material_item_id: Number(b.material_item_id),
+                    import_record_id: Number(b.import_record_id),
+                    material_name: matNameRes?.name || '',
+                    quantity: qty,
+                    initial_quantity: qty,
+                    actual_quantity: qty,
+                    price: prc,
+                    total_amount: total,
+                    unit: matNameRes?.unit || '',
+                    original_import_code: origCodeRes?.fabric_import_code || ''
+                }];
             }
         }
-
-        const qty = Number(b.quantity) || 0;
-        const prc = Number(b.price) || 0;
-        const total = qty * prc;
         
         const isPostponed = !!b.is_postponed;
         const postponedAt = isPostponed ? now : null;
@@ -259,11 +302,13 @@ module.exports = async function(fastify) {
         const r = await db.get(`INSERT INTO material_transactions
             (tx_type, performed_at, performed_by, material_item_id, import_record_id,
              quantity, price, total_amount, notes, bill_images,
-             is_postponed, postponed_at, postponed_by, postponed_images, postponed_notes, postponed_target_date)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14::jsonb, $15, $16) RETURNING id`,
-            [b.tx_type, b.tx_date||now, req.user.id, b.material_item_id, b.import_record_id||null,
+             is_postponed, postponed_at, postponed_by, postponed_images, postponed_notes, postponed_target_date,
+             material_items)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14::jsonb, $15, $16, $17::jsonb) RETURNING id`,
+            [b.tx_type, b.tx_date||now, req.user.id, b.material_item_id||null, b.import_record_id||null,
              qty, prc, total, b.notes||null, JSON.stringify(b.bill_images||[]),
-             isPostponed, postponedAt, postponedBy, postponedImages, postponedNotes, postponedTargetDate]);
+             isPostponed, postponedAt, postponedBy, postponedImages, postponedNotes, postponedTargetDate,
+             JSON.stringify(matItems)]);
         
         await db.run(`INSERT INTO material_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [r.id, 'create', isPostponed ? `Tạo ${TX_LABELS[b.tx_type]} (Có hẹn lịch lùi)` : `Tạo ${TX_LABELS[b.tx_type]}`, req.user.id, now]);
@@ -465,25 +510,83 @@ module.exports = async function(fastify) {
 
     // ========== HELPER TO CREATE REFUND BILL FOR MATERIALS IN import_records ==========
     async function createMaterialRefundBill(client, tx, actQty, price, userId, now) {
-        // Find source_id and warehouse_id from original import_record
-        const origImport = await client.query(
-            `SELECT source_id, warehouse_id FROM import_records WHERE id = $1`,
-            [tx.import_record_id]
-        );
-        if (origImport.rows.length === 0) {
-            throw new Error('Không tìm thấy hóa đơn nhập gốc');
+        let fabricItems = [];
+        let source_id = null;
+        let warehouse_id = null;
+        let materialName = '';
+        let totalRefundAmt = 0;
+        let totalQty = 0;
+
+        let matItems = [];
+        if (tx.material_items) {
+            try {
+                matItems = typeof tx.material_items === 'string' ? JSON.parse(tx.material_items) : tx.material_items;
+            } catch (e) {}
         }
-        const { source_id, warehouse_id } = origImport.rows[0];
 
-        // Fetch material item name
-        const matRes = await client.query(
-            `SELECT name, unit FROM material_items WHERE id = $1`,
-            [tx.material_item_id]
-        );
-        const materialName = matRes.rows[0]?.name || 'Vật liệu';
-        const unit = matRes.rows[0]?.unit || '';
+        if (Array.isArray(matItems) && matItems.length > 0) {
+            // Find source_id and warehouse_id from first item's import_record_id
+            const firstImpId = matItems[0].import_record_id;
+            const origImport = await client.query(
+                `SELECT source_id, warehouse_id FROM import_records WHERE id = $1`,
+                [firstImpId]
+            );
+            if (origImport.rows.length === 0) {
+                throw new Error('Không tìm thấy hóa đơn nhập gốc');
+            }
+            source_id = origImport.rows[0].source_id;
+            warehouse_id = origImport.rows[0].warehouse_id;
 
-        const totalRefundAmt = Number(actQty) * Number(price);
+            fabricItems = matItems.map(it => {
+                const itemQty = Number(it.actual_quantity);
+                const itemCost = itemQty * Number(it.price);
+                totalQty += itemQty;
+                totalRefundAmt += itemCost;
+                return {
+                    material_item_id: it.material_item_id,
+                    material_item_name: it.material_name,
+                    quantity: itemQty,
+                    unit: it.unit || '',
+                    price: Number(it.price),
+                    cost: itemCost
+                };
+            });
+            materialName = matItems.map(it => it.material_name).join(', ');
+        } else {
+            // Fallback for backward compatibility
+            const origImport = await client.query(
+                `SELECT source_id, warehouse_id FROM import_records WHERE id = $1`,
+                [tx.import_record_id]
+            );
+            if (origImport.rows.length === 0) {
+                throw new Error('Không tìm thấy hóa đơn nhập gốc');
+            }
+            source_id = origImport.rows[0].source_id;
+            warehouse_id = origImport.rows[0].warehouse_id;
+
+            // Fetch material item name
+            const matRes = await client.query(
+                `SELECT name, unit FROM material_items WHERE id = $1`,
+                [tx.material_item_id]
+            );
+            materialName = matRes.rows[0]?.name || 'Vật liệu';
+            const unit = matRes.rows[0]?.unit || '';
+
+            totalQty = Number(actQty);
+            totalRefundAmt = totalQty * Number(price);
+
+            fabricItems = [
+                {
+                    material_item_id: tx.material_item_id,
+                    material_item_name: materialName,
+                    quantity: totalQty,
+                    unit: unit,
+                    price: Number(price),
+                    cost: totalRefundAmt
+                }
+            ];
+        }
+
         const refundCode = `HVVL-${tx.id}`;
 
         let billImg = null;
@@ -495,18 +598,6 @@ module.exports = async function(fastify) {
                 }
             } catch (e) {}
         }
-
-        // Construct fabric_items array matching general import style
-        const fabricItems = [
-            {
-                material_item_id: tx.material_item_id,
-                material_item_name: materialName,
-                quantity: actQty,
-                unit: unit,
-                price: price,
-                cost: totalRefundAmt
-            }
-        ];
 
         const importResult = await client.query(
             `INSERT INTO import_records (
@@ -522,13 +613,13 @@ module.exports = async function(fastify) {
              ) RETURNING id`,
             [
                 refundCode,
-                now, // Sorting refund on top
+                now,
                 source_id,
                 warehouse_id,
                 userId,
                 JSON.stringify(fabricItems),
-                materialName,
-                actQty,
+                materialName.substring(0, 250), // prevent too long name
+                totalQty,
                 totalRefundAmt,
                 totalRefundAmt,
                 -totalRefundAmt,
@@ -642,7 +733,7 @@ module.exports = async function(fastify) {
 
     // ========== CONFIRM 2 (XÁC NHẬN LẦN 2) ==========
     fastify.post('/api/materialtx/confirm2/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), { actual_quantity, image_data, notes } = req.body || {}, now = vnNow();
+        const id = Number(req.params.id), { actual_quantity, actual_items, image_data, notes } = req.body || {}, now = vnNow();
 
         if (!(await isAccountantOrMgmt(req))) {
             return reply.code(403).send({ error: 'Chỉ Kế toán, Giám đốc, hoặc Lê Việt Trinh mới có quyền thực hiện xác nhận lần 2!' });
@@ -655,12 +746,84 @@ module.exports = async function(fastify) {
         if (tx.is_approved) return reply.code(400).send({ error: 'Giao dịch đã được xác nhận lần 2' });
         if (tx.is_canceled) return reply.code(400).send({ error: 'Giao dịch đã bị hủy' });
 
-        const actQty = Number(actual_quantity);
-        if (isNaN(actQty) || actQty <= 0) {
-            return reply.code(400).send({ error: 'Số lượng thực tế không hợp lệ' });
+        let currentItems = [];
+        if (tx.material_items) {
+            try {
+                currentItems = typeof tx.material_items === 'string' ? JSON.parse(tx.material_items) : tx.material_items;
+            } catch (e) {}
+        }
+        if (!Array.isArray(currentItems)) currentItems = [];
+
+        let actQty = 0;
+        let initialQty = 0;
+        let totalAmount = 0;
+        let isDiscrepancyLess = false;
+        let updatedItems = [];
+
+        if (Array.isArray(actual_items) && actual_items.length > 0 && currentItems.length > 0) {
+            // Multi-item path
+            updatedItems = currentItems.map(item => {
+                const match = actual_items.find(ai => 
+                    Number(ai.material_item_id) === Number(item.material_item_id) && 
+                    Number(ai.import_record_id) === Number(item.import_record_id)
+                );
+                const itemActQty = match ? Number(match.actual_quantity) : Number(item.quantity);
+                const itemInitialQty = Number(item.initial_quantity || item.quantity);
+                
+                if (itemActQty < itemInitialQty) {
+                    isDiscrepancyLess = true;
+                }
+
+                actQty += itemActQty;
+                initialQty += itemInitialQty;
+                totalAmount += itemActQty * Number(item.price);
+
+                return {
+                    ...item,
+                    actual_quantity: itemActQty,
+                    total_amount: itemActQty * Number(item.price)
+                };
+            });
+        } else {
+            // Single-item path fallback
+            actQty = Number(actual_quantity);
+            if (isNaN(actQty) || actQty <= 0) {
+                return reply.code(400).send({ error: 'Số lượng thực tế không hợp lệ' });
+            }
+            initialQty = Number(tx.quantity);
+            if (actQty < initialQty) {
+                isDiscrepancyLess = true;
+            }
+            totalAmount = actQty * Number(tx.price);
+
+            if (currentItems.length > 0) {
+                updatedItems = currentItems.map(item => {
+                    const itemInitialQty = Number(item.initial_quantity || item.quantity);
+                    if (actQty < itemInitialQty) {
+                        isDiscrepancyLess = true;
+                    }
+                    return {
+                        ...item,
+                        actual_quantity: actQty,
+                        total_amount: actQty * Number(item.price)
+                    };
+                });
+            } else {
+                updatedItems = [{
+                    material_item_id: tx.material_item_id,
+                    import_record_id: tx.import_record_id,
+                    material_name: '',
+                    quantity: tx.quantity,
+                    initial_quantity: initialQty,
+                    actual_quantity: actQty,
+                    price: tx.price,
+                    total_amount: totalAmount,
+                    unit: '',
+                    original_import_code: ''
+                }];
+            }
         }
 
-        const initialQty = Number(tx.quantity);
         const qtyDiff = actQty - initialQty;
 
         // If weight differs, proof photo is mandatory
@@ -687,7 +850,7 @@ module.exports = async function(fastify) {
         }
 
         // Case 2: Actual qty is LESS than initial -> Require discrepancy approval
-        if (actQty < initialQty) {
+        if (isDiscrepancyLess) {
             let actualImages = [];
             if (imageUrl) actualImages.push(imageUrl);
             else if (tx.actual_quantity_images) {
@@ -699,9 +862,10 @@ module.exports = async function(fastify) {
                  SET needs_discrepancy_approval = true, discrepancy_approved = false,
                      initial_quantity = $1, actual_quantity = $2,
                      actual_quantity_images = $3::jsonb, actual_quantity_notes = $4,
+                     material_items = $5::jsonb,
                      updated_at = NOW()
-                 WHERE id = $5`,
-                [initialQty, actQty, JSON.stringify(actualImages), notes || null, id]
+                 WHERE id = $6`,
+                [initialQty, actQty, JSON.stringify(actualImages), notes || null, JSON.stringify(updatedItems), id]
             );
 
             await db.run(
@@ -745,8 +909,6 @@ module.exports = async function(fastify) {
         }
 
         // Case 1: Actual >= initial weight -> Complete immediately
-        const totalAmount = actQty * Number(tx.price);
-
         const pool = db.getDB();
         const client = await pool.connect();
         try {
@@ -765,13 +927,18 @@ module.exports = async function(fastify) {
                      initial_quantity = $3, actual_quantity = $4,
                      actual_quantity_images = $5::jsonb, actual_quantity_notes = $6,
                      quantity = $4, total_amount = $7, updated_at = NOW(),
-                     needs_discrepancy_approval = false, discrepancy_approved = false
-                 WHERE id = $8`,
-                [now, req.user.id, initialQty, actQty, JSON.stringify(actualImages), notes || null, totalAmount, id]
+                     needs_discrepancy_approval = false, discrepancy_approved = false,
+                     material_items = $8::jsonb
+                 WHERE id = $9`,
+                [now, req.user.id, initialQty, actQty, JSON.stringify(actualImages), notes || null, totalAmount, JSON.stringify(updatedItems), id]
             );
 
+            // Fetch the freshly updated tx so it has the correct updated material_items JSON
+            const updatedTxResult = await client.query('SELECT * FROM material_transactions WHERE id = $1', [id]);
+            const updatedTx = updatedTxResult.rows[0];
+
             // 2. Auto-create refund bill in import_records
-            await createMaterialRefundBill(client, tx, actQty, tx.price, req.user.id, now);
+            await createMaterialRefundBill(client, updatedTx, actQty, tx.price, req.user.id, now);
 
             // 3. History
             await client.query(
@@ -835,7 +1002,21 @@ module.exports = async function(fastify) {
         if (tx.is_approved) return reply.code(400).send({ error: 'Giao dịch đã được duyệt trước đó' });
 
         const actQty = Number(tx.actual_quantity);
-        const totalAmount = actQty * Number(tx.price);
+        
+        let currentItems = [];
+        if (tx.material_items) {
+            try {
+                currentItems = typeof tx.material_items === 'string' ? JSON.parse(tx.material_items) : tx.material_items;
+            } catch (e) {}
+        }
+        if (!Array.isArray(currentItems)) currentItems = [];
+
+        let totalAmount = 0;
+        if (currentItems.length > 0) {
+            totalAmount = currentItems.reduce((sum, item) => sum + (Number(item.actual_quantity || item.quantity) * Number(item.price || 0)), 0);
+        } else {
+            totalAmount = actQty * Number(tx.price);
+        }
 
         const pool = db.getDB();
         const client = await pool.connect();
@@ -853,8 +1034,12 @@ module.exports = async function(fastify) {
                 [now, req.user.id, actQty, totalAmount, id]
             );
 
+            // Fetch the updated tx record so createMaterialRefundBill has access to the updated material_items JSON
+            const updatedTxRes = await client.query('SELECT * FROM material_transactions WHERE id = $1', [id]);
+            const updatedTx = updatedTxRes.rows[0];
+
             // 2. Auto-create refund bill in import_records
-            await createMaterialRefundBill(client, tx, actQty, tx.price, req.user.id, now);
+            await createMaterialRefundBill(client, updatedTx, actQty, tx.price, req.user.id, now);
 
             // 3. History
             await client.query(
