@@ -2121,9 +2121,9 @@ function _mOpenExportModal(mode = null) {
                         <span>📌</span> GHI CHÚ QUAN TRỌNG
                     </h4>
                     <ul style="margin: 0; padding-left: 14px; display: flex; flex-direction: column; gap: 3px; list-style-type: disc;">
-                        <li><strong>Thời gian sản xuất:</strong> 5 - 9 ngày làm việc kể từ sau ngày quý khách hàng chốt đơn và tạm ứng lần 1 (trừ chủ nhật, ngày lễ, tết và thời gian vận chuyển).</li>
+                        <li><strong>Thời gian sản xuất:</strong> 5 - 12 ngày làm việc (tùy theo số lượng) kể từ sau ngày quý khách hàng chốt đơn và tạm ứng lần 1 (trừ chủ nhật, ngày lễ, tết và thời gian vận chuyển).</li>
                         <li><strong>Thời gian giao hàng:</strong> 2 - 4 ngày vận chuyển với ngoại tỉnh, 1 ngày với nội thành Hà Nội.</li>
-                        <li><strong>Quy cách sản phẩm:</strong> Đúng chất liệu và thiết kế, maket đã được duyệt bởi khách hàng (nếu có áo đã đặt trước đó vui lòng gửi về xưởng để tránh tình trạng lô vải trước, lô vải sau có độ chênh lệch màu).</li>
+                        <li><strong>Quy cách sản phẩm:</strong> Đúng chất liệu và thiết kế, maket đã được duyệt bởi khách hàng <span style="color: #dc2626; font-weight: 600;">(nếu có áo đã đặt trước đó vui lòng gửi về xưởng để tránh tình trạng lô vải trước, lô vải sau có độ chênh lệch màu)</span>.</li>
                     </ul>
                 </div>
                 <!-- Payment Terms Section -->
