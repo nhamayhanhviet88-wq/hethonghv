@@ -211,7 +211,10 @@ async function customersRoutes(fastify, options) {
         if (sourceName) tgParts.push(sourceName);
         if (promoName) tgParts.push(promoName);
         if (industryName) tgParts.push(industryName);
-        const tgMessage = tgParts.join(' - ');
+        let tgMessage = tgParts.join(' - ');
+        if (notes && notes.trim()) {
+            tgMessage += `\n💬 ${notes.trim()}`;
+        }
         notifyTelegram(actualReceiverId, 'chuyen_so', tgMessage);
 
         // Auto-update partner_outreach_entries: mark as transferred
