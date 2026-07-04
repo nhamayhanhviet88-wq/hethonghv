@@ -147,38 +147,25 @@ async function checkChuyenSo(today, mins) {
 
     if (unprocessed.length === 0) return;
 
-    // Group by staff
-    const grouped = {};
-    for (const row of unprocessed) {
-        const uid = row.assigned_to_id;
-        if (!grouped[uid]) grouped[uid] = { staffName: row.staff_name, items: [] };
-        grouped[uid].items.push(row);
-    }
-
     const now = Date.now();
     const cooldownMs = mins.chuyen_so * 60 * 1000;
 
-    for (const [userId, data] of Object.entries(grouped)) {
-        const cacheKey = `chuyen_so:${userId}`;
+    for (const row of unprocessed) {
+        const userId = row.assigned_to_id;
+        const cacheKey = `chuyen_so:${userId}:${row.id}`;
         const lastTime = _lastReminded.get(cacheKey) || 0;
         if (now - lastTime < cooldownMs) continue;
 
-        const lines = data.items.map(row => {
-            const isResend = row.appointment_date === today && row.effective_date !== today;
-            const icon = isResend ? '🔄' : '📱';
-            const code = buildCode(row);
-            const crmLabel = crmLabels[row.crm_type] || row.crm_type;
-            return `${icon} <b>${code}</b> : <code>${row.customer_name || '?'}</code> - ${crmLabel}${isResend ? ' (Gửi Lại)' : ''}`;
-        });
+        const isResend = row.appointment_date === today && row.effective_date !== today;
+        const code = buildCode(row);
+        const crmLabel = crmLabels[row.crm_type] || row.crm_type;
+        const resendSuffix = isResend ? ' (Gửi Lại)' : '';
 
-        const msg = `⏰ <b>NHẮC XỬ LÝ SỐ</b>\n\n` +
-            `Bạn có <b>${data.items.length} số</b> chưa xử lý hôm nay:\n\n` +
-            lines.join('\n') +
-            `\n\n⚡ <b>Hãy tư vấn ngay!</b>`;
+        const msg = `⏰ Xử lí số : <b>${code}</b> : <code>${row.customer_name || '?'}</code> - ${crmLabel}${resendSuffix}`;
 
         notifyTelegram(Number(userId), 'chuyen_so', msg);
         _lastReminded.set(cacheKey, now);
-        console.log(`[Reminder] ⏰ Nhắc Chuyển Số: ${data.staffName} (id=${userId}): ${data.items.length} số`);
+        console.log(`[Reminder] ⏰ Nhắc Chuyển Số riêng: ${row.staff_name} (id=${userId}) - khách: ${row.customer_name} (${code})`);
     }
 }
 
