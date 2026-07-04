@@ -4160,19 +4160,18 @@ module.exports = async function(fastify) {
             
             const statsRows = await db.all(statsQuery, params);
 
-            // 3. Get materials and colors
+            // 3. Get materials and colors (including inactive ones)
             const materials = await db.all(`
-                SELECT m.id, m.name, w.name as warehouse_name, w.unit, m.active_segments
+                SELECT m.id, m.name, w.name as warehouse_name, w.unit, m.active_segments, m.is_active
                 FROM kv_materials m
                 JOIN kv_warehouses w ON m.warehouse_id = w.id
-                WHERE m.is_active = true
+                WHERE w.is_active = true
                 ORDER BY w.display_order, m.display_order, m.name
             `);
             
             const colors = await db.all(`
-                SELECT id, material_id, color_name 
+                SELECT id, material_id, color_name, is_active
                 FROM kv_fabric_colors 
-                WHERE is_active = true
                 ORDER BY color_name ASC
             `);
 

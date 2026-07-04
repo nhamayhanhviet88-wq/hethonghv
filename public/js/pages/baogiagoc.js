@@ -2657,8 +2657,8 @@ window._bggRenderMaterialDropdown = function(filteredList) {
     }
     
     dropdown.innerHTML = list.map(m => `
-        <div onmousedown="_bggSelectMaterial('${m.id}', '${m.name.replace(/'/g, "\\'")}')" style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
-            ${m.name}
+        <div onmousedown="_bggSelectMaterial('${m.id}', '${m.name.replace(/'/g, "\\'")}')" style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: ${m.is_active === false || m.is_active === 0 ? '#94a3b8' : '#1e293b'}; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
+            ${m.name}${m.is_active === false || m.is_active === 0 ? ' <span style="color: #dc2626; font-size: 11px; font-weight: bold;">[DỪNG BÁN]</span>' : ''}
         </div>
     `).join('');
 };
@@ -2745,8 +2745,8 @@ window._bggRenderColorDropdown = function(filteredList) {
     }
     
     dropdown.innerHTML = list.map(c => `
-        <div onmousedown="_bggSelectColor('${c.id}', '${c.color_name.replace(/'/g, "\\'")}')" style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
-            ${c.color_name}
+        <div onmousedown="_bggSelectColor('${c.id}', '${c.color_name.replace(/'/g, "\\'")}')" style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: ${c.is_active === false || c.is_active === 0 ? '#94a3b8' : '#1e293b'}; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
+            ${c.color_name}${c.is_active === false || c.is_active === 0 ? ' <span style="color: #dc2626; font-size: 11px; font-weight: bold;">[DỪNG BÁN]</span>' : ''}
         </div>
     `).join('');
 };

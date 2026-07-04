@@ -1282,9 +1282,12 @@ function _tlcgRenderGrid() {
         `).join('');
 
         return `
-            <div class="tlcg-mat-card" onclick="_tlcgOpenMaterialDrawer(${m.id})">
+            <div class="tlcg-mat-card" onclick="_tlcgOpenMaterialDrawer(${m.id})" style="${m.is_active === false || m.is_active === 0 ? 'opacity: 0.8; border-color: #fca5a5; background: #fff5f5;' : ''}">
                 <span class="tlcg-mat-badge">${m.unit || 'kg'}</span>
-                <h4 class="tlcg-mat-name">${m.name}</h4>
+                <h4 class="tlcg-mat-name" style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                    <span>${m.name}</span>
+                    ${m.is_active === false || m.is_active === 0 ? '<span style="color: #dc2626; font-size: 10px; font-weight: bold; background: #fee2e2; padding: 2px 6px; border-radius: 4px; display: inline-block;">DỪNG BÁN</span>' : ''}
+                </h4>
                 ${segmentsHtml}
             </div>
         `;
