@@ -47,6 +47,11 @@ module.exports = async function(fastify) {
         // Set non-HOAN (NHAP, XUAT) transactions to approved by default
         await db.run(`UPDATE material_transactions SET is_approved = true WHERE tx_type IN ('NHAP', 'XUAT') AND is_approved = false`);
 
+        // Ensure record_type in import_records is long enough for 'refund_material'
+        try {
+            await db.exec(`ALTER TABLE import_records ALTER COLUMN record_type TYPE VARCHAR(50)`);
+        } catch(e) { console.error('[NXHVL] alter import_records record_type error:', e.message); }
+
     } catch(e) { console.error('[NXHVL] tx migration error:', e.message); }
 
     try {
@@ -299,21 +304,117 @@ module.exports = async function(fastify) {
             }
         }
 
-        const r = await db.get(`INSERT INTO material_transactions
-            (tx_type, performed_at, performed_by, material_item_id, import_record_id,
-             quantity, price, total_amount, notes, bill_images,
-             is_postponed, postponed_at, postponed_by, postponed_images, postponed_notes, postponed_target_date,
-             material_items)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14::jsonb, $15, $16, $17::jsonb) RETURNING id`,
-            [b.tx_type, b.tx_date||now, req.user.id, b.material_item_id||null, b.import_record_id||null,
-             qty, prc, total, b.notes||null, JSON.stringify(b.bill_images||[]),
-             isPostponed, postponedAt, postponedBy, postponedImages, postponedNotes, postponedTargetDate,
-             JSON.stringify(matItems)]);
-        
-        await db.run(`INSERT INTO material_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [r.id, 'create', isPostponed ? `Tạo ${TX_LABELS[b.tx_type]} (Có hẹn lịch lùi)` : `Tạo ${TX_LABELS[b.tx_type]}`, req.user.id, now]);
-        
-        return { success: true, id: r.id };
+        let createdId = null;
+        if (b.tx_type === 'HOAN') {
+            const pool = db.getDB();
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+
+                let finalBillImages = b.bill_images || [];
+                if (finalBillImages.length === 0 && b.postponed_images && b.postponed_images.length > 0) {
+                    finalBillImages = b.postponed_images;
+                }
+
+                const insertRes = await client.query(
+                    `INSERT INTO material_transactions
+                    (tx_type, performed_at, performed_by, material_item_id, import_record_id,
+                     quantity, price, total_amount, notes, bill_images,
+                     is_postponed, postponed_at, postponed_by, postponed_images, postponed_notes, postponed_target_date,
+                     material_items,
+                     is_approved_1, approved_1_at, approved_1_by,
+                     is_approved, approved_at, approved_by,
+                     initial_quantity, actual_quantity)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14::jsonb, $15, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25) RETURNING *`,
+                    [
+                        b.tx_type, b.tx_date || now, req.user.id, b.material_item_id || null, b.import_record_id || null,
+                        qty, prc, total, b.notes || null, JSON.stringify(finalBillImages),
+                        isPostponed, postponedAt, postponedBy, JSON.stringify(b.postponed_images || []), postponedNotes, postponedTargetDate,
+                        JSON.stringify(matItems),
+                        true, now, req.user.id, // is_approved_1, approved_1_at, approved_1_by
+                        true, now, req.user.id, // is_approved, approved_at, approved_by
+                        qty, qty // initial_quantity, actual_quantity
+                    ]
+                );
+                const insertedTx = insertRes.rows[0];
+                createdId = insertedTx.id;
+
+                // 2. Auto-create refund bill in import_records
+                await createMaterialRefundBill(client, insertedTx, qty, prc, req.user.id, now);
+
+                // 3. History
+                await client.query(
+                    `INSERT INTO material_tx_history (tx_id, action, details, performed_by, performed_at)
+                     VALUES ($1, 'create', $2, $3, $4)`,
+                    [createdId, `Tạo giao dịch hoàn vật liệu & tự động hoàn tất (đã trừ công nợ)`, req.user.id, now]
+                );
+
+                await client.query('COMMIT');
+            } catch (err) {
+                await client.query('ROLLBACK');
+                console.error('[NXHVL Create HOAN Error]', err.message);
+                return { error: err.message || 'Lỗi khi tạo và tự động duyệt giao dịch hoàn vật liệu' };
+            } finally {
+                client.release();
+            }
+
+            // Send Telegram Notification
+            try {
+                const { sendTelegramPhoto, getBotToken } = require('../utils/telegram');
+                const token = await getBotToken();
+                const tgConfigRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_global_hoan_vai'");
+                const chatId = tgConfigRow?.value?.trim();
+
+                if (chatId) {
+                    const formattedNow = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+                    const matName = await db.get('SELECT name FROM material_items WHERE id = $1', [b.material_item_id]);
+                    const caption = `✅ <b>HOÀN VẬT LIỆU THÀNH CÔNG</b>\n` +
+                                    `━━━━━━━━━━━━━━━━━\n` +
+                                    `📦 <b>Mã giao dịch:</b> Bill Hoàn #${createdId}\n` +
+                                    `👕 <b>Vật liệu:</b> ${matName?.name || '—'}\n` +
+                                    `⚖️ <b>Số lượng:</b> ${qty.toLocaleString('vi-VN')}\n` +
+                                    `💰 <b>Thành tiền:</b> ${total.toLocaleString('vi-VN')}đ\n` +
+                                    `👤 <b>Kế toán thực hiện:</b> ${req.user.full_name}\n` +
+                                    `📆 <b>Thời gian:</b> ${formattedNow}\n\n` +
+                                    `✅ <b>Giao dịch đã được đối chiếu và hoàn tất, công nợ đã được khấu trừ!</b>`;
+
+                    let proofImg = '';
+                    let fpath = '';
+                    if (b.postponed_images && b.postponed_images.length > 0) {
+                        proofImg = b.postponed_images[0];
+                        if (proofImg.startsWith('/uploads/')) {
+                            fpath = path.join(__dirname, '..', proofImg);
+                        }
+                    }
+                    if (proofImg && fpath && fs.existsSync(fpath)) {
+                        await sendTelegramPhoto(chatId, fpath, caption);
+                    } else {
+                        const { sendTelegramMessage } = require('../utils/telegram');
+                        await sendTelegramMessage(chatId, caption);
+                    }
+                }
+            } catch(tgErr) {
+                console.error('[NXHVL Create Auto-Approve TG Error]', tgErr.message);
+            }
+
+            return { success: true, id: createdId };
+        } else {
+            const r = await db.get(`INSERT INTO material_transactions
+                (tx_type, performed_at, performed_by, material_item_id, import_record_id,
+                 quantity, price, total_amount, notes, bill_images,
+                 is_postponed, postponed_at, postponed_by, postponed_images, postponed_notes, postponed_target_date,
+                 material_items)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14::jsonb, $15, $16, $17::jsonb) RETURNING id`,
+                [b.tx_type, b.tx_date||now, req.user.id, b.material_item_id||null, b.import_record_id||null,
+                 qty, prc, total, b.notes||null, JSON.stringify(b.bill_images||[]),
+                 isPostponed, postponedAt, postponedBy, postponedImages, postponedNotes, postponedTargetDate,
+                 JSON.stringify(matItems)]);
+            
+            await db.run(`INSERT INTO material_tx_history (tx_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                [r.id, 'create', `Tạo ${TX_LABELS[b.tx_type]}`, req.user.id, now]);
+            
+            return { success: true, id: r.id };
+        }
     });
 
     // ========== TOGGLE APPROVE (For manual count adjustments) ==========
