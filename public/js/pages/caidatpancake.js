@@ -462,6 +462,8 @@ async function savePageConfigFromModal(index = null) {
 // ========== ROSTER CONFIGURATION MODAL ==========
 let _activeRosterIndex = null;
 let _activeRosterPageMembers = [];
+let _activeRosterPageTags = [];
+const _pancakeTagsCache = {};
 
 async function showRosterModal(index) {
     _activeRosterIndex = index;
@@ -473,7 +475,7 @@ async function showRosterModal(index) {
         `👥 Phân Công Roster - ${page.name}`,
         `<div style="text-align: center; padding: 40px; color: var(--gray-500);">
             <div style="font-size: 24px; animation: spin 1s linear infinite; display: inline-block;">⏳</div>
-            <div style="margin-top: 10px;">Đang tải danh sách nhân viên từ Pancake...</div>
+            <div style="margin-top: 10px;">Đang tải danh sách nhân viên & nhãn từ Pancake...</div>
          </div>`,
         `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>`
     );
@@ -481,7 +483,7 @@ async function showRosterModal(index) {
     // Dynamic width adjustments for App.js Modal container
     const container = document.getElementById('modalContainer');
     if (container) {
-        container.style.maxWidth = '960px';
+        container.style.maxWidth = '1000px';
         container.style.width = '95%';
     }
 
@@ -505,6 +507,26 @@ async function showRosterModal(index) {
     }
     _activeRosterPageMembers = pageMembers;
 
+    // Load Pancake page tags (with cache check)
+    let pageTags = [];
+    if (_pancakeTagsCache[page.id]) {
+        pageTags = _pancakeTagsCache[page.id];
+    } else {
+        try {
+            const tokenToUse = page.page_access_token || _pancakeConfig.pancake_token;
+            if (tokenToUse) {
+                const res = await apiCall(`/api/pancake/tags/${page.id}`);
+                if (res && res.tags) {
+                    pageTags = res.tags;
+                    _pancakeTagsCache[page.id] = pageTags;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch Pancake tags for page roster:', e);
+        }
+    }
+    _activeRosterPageTags = pageTags;
+
     // Roster UI Body
     const assignments = page.staff_assignments || [];
     
@@ -521,8 +543,8 @@ async function showRosterModal(index) {
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px;">
                     <thead>
                         <tr style="background: #1e293b; border-bottom: 1px solid var(--gray-200);">
-                            <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 200px;">Nhân Viên CRM</th>
-                            <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 220px;">ID Nhân Viên Pancake</th>
+                            <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 180px;">Nhân Viên CRM</th>
+                            <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 260px;">ID & Tag Nhân Viên Pancake</th>
                             <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 90px; text-align: center;">Hạn Mức/Ngày</th>
                             <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 210px; text-align: center;">Thứ Nhận Lead</th>
                             <th style="padding: 12px; font-weight: 700; color: #ffffff; width: 140px; text-align: center;">Ngoại Lệ (Lịch/Nghỉ)</th>
@@ -595,14 +617,26 @@ function appendRosterRow(sa = {}, idx = null) {
     const hasPancakeMembers = _activeRosterPageMembers.length > 0;
     const isManualMode = sa.pancake_staff_id && !_activeRosterPageMembers.some(m => String(m.id) === String(sa.pancake_staff_id));
 
+    const hasPancakeTags = _activeRosterPageTags.length > 0;
+    const isTagManualMode = sa.pancake_tag_id && !_activeRosterPageTags.some(t => String(t.id) === String(sa.pancake_tag_id));
+
     const pancakeSelectHTML = `
         <div style="display: flex; flex-direction: column; gap: 4px;">
-            <select class="form-control staff-pancake-select" onchange="onPancakeSelectChange(this)" style="height: 34px; font-size: 12px; border-radius: 6px; padding: 0 10px;">
+            <div style="font-size: 10px; font-weight: 700; color: var(--gray-500); margin-bottom: 2px;">👤 Tài khoản Pancake:</div>
+            <select class="form-control staff-pancake-select" onchange="onPancakeSelectChange(this)" style="height: 34px; font-size: 12px; border-radius: 6px; padding: 0 10px; width: 100%;">
                 <option value="">-- Chọn NV Pancake --</option>
                 ${_activeRosterPageMembers.map(m => `<option value="${m.id}" ${String(m.id) === String(sa.pancake_staff_id) ? 'selected' : ''}>${m.name} (${m.id})</option>`).join('')}
                 <option value="manual_input" ${isManualMode || !hasPancakeMembers ? 'selected' : ''}>Nhập ID thủ công...</option>
             </select>
-            <input type="text" class="form-control staff-pancake-manual" value="${sa.pancake_staff_id || ''}" placeholder="Nhập ID Pancake..." style="height: 34px; font-size: 12px; border-radius: 6px; display: ${isManualMode || !hasPancakeMembers ? 'block' : 'none'};">
+            <input type="text" class="form-control staff-pancake-manual" value="${sa.pancake_staff_id || ''}" placeholder="Nhập ID Pancake..." style="height: 34px; font-size: 12px; border-radius: 6px; display: ${isManualMode || !hasPancakeMembers ? 'block' : 'none'}; width: 100%;">
+            
+            <div style="font-size: 10px; font-weight: 700; color: var(--gray-500); margin-top: 6px; margin-bottom: 2px;">🏷️ Thẻ nhân viên (Pancake Tag):</div>
+            <select class="form-control staff-tag-select" onchange="onTagSelectChange(this)" style="height: 34px; font-size: 12px; border-radius: 6px; padding: 0 10px; width: 100%;">
+                <option value="">-- Chọn Tag Pancake --</option>
+                ${_activeRosterPageTags.map(t => `<option value="${t.id}" ${String(t.id) === String(sa.pancake_tag_id) ? 'selected' : ''}>${t.name} (${t.id})</option>`).join('')}
+                <option value="manual_input" ${isTagManualMode || !hasPancakeTags ? 'selected' : ''}>Nhập Tag ID thủ công...</option>
+            </select>
+            <input type="text" class="form-control staff-tag-manual" value="${sa.pancake_tag_id || ''}" placeholder="Nhập Tag ID Pancake..." style="height: 34px; font-size: 12px; border-radius: 6px; display: ${isTagManualMode || !hasPancakeTags ? 'block' : 'none'}; width: 100%;">
         </div>
     `;
 
@@ -692,6 +726,16 @@ function toggleRosterDayBadge(badge) {
 }
 
 function onPancakeSelectChange(select) {
+    const manualInput = select.nextElementSibling;
+    if (select.value === 'manual_input') {
+        manualInput.style.display = 'block';
+    } else {
+        manualInput.style.display = 'none';
+        manualInput.value = select.value;
+    }
+}
+
+function onTagSelectChange(select) {
     const manualInput = select.nextElementSibling;
     if (select.value === 'manual_input') {
         manualInput.style.display = 'block';
@@ -808,6 +852,10 @@ async function saveRosterConfig() {
             return;
         }
 
+        const tagSelect = row.querySelector('.staff-tag-select');
+        const tagManual = row.querySelector('.staff-tag-manual');
+        const pancakeTagId = tagSelect.value === 'manual_input' ? tagManual.value.trim() : tagSelect.value.trim();
+
         const limitInput = row.querySelector('.staff-limit');
         const dailyLimit = Number(limitInput.value);
         if (isNaN(dailyLimit) || dailyLimit < 1) {
@@ -835,6 +883,7 @@ async function saveRosterConfig() {
         assignments.push({
             crm_user_id: Number(crmUserId),
             pancake_staff_id: pancakeStaffId,
+            pancake_tag_id: pancakeTagId,
             daily_limit: dailyLimit,
             working_days: workingDays,
             exceptions: exceptions

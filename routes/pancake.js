@@ -215,10 +215,9 @@ async function pancakeRoutes(fastify, options) {
                     eligibleUsers.push(userId);
                     staffMap[userId] = sa;
                 }
-            }
-
-            let assignedUserId = null;
+            }            let assignedUserId = null;
             let assignedPancakeStaffId = null;
+            let assignedPancakeTagId = null;
 
             if (eligibleUsers.length > 0) {
                 // Round-robin selection
@@ -233,6 +232,7 @@ async function pancakeRoutes(fastify, options) {
                         nextIndex = idx;
                         assignedUserId = sa.crm_user_id;
                         assignedPancakeStaffId = sa.pancake_staff_id;
+                        assignedPancakeTagId = sa.pancake_tag_id;
                         break;
                     }
                 }
@@ -269,7 +269,7 @@ async function pancakeRoutes(fastify, options) {
                         customer_uid, crm_type, customer_name, phone, facebook_link, 
                         assigned_to_id, receiver_id, daily_order_number, created_by, 
                         job, appointment_date, source_id, order_status, created_at, updated_at
-                     )
+                    )
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'dang_tu_van', NOW(), NOW()) RETURNING id`,
                     [
                         tsUid, leadCrmType, customerName, phone, conversationLink,
@@ -287,24 +287,44 @@ async function pancakeRoutes(fastify, options) {
                     );
                 }
 
-                // Call Pancake API to assign member
+                // Call Pancake API to assign member and tag
                 const tokenToUse = page.page_access_token || config.pancake_token;
-                if (tokenToUse && conversationId && assignedPancakeStaffId) {
-                    try {
-                        const assignUrl = `https://pages.fm/api/v1/pages/${pageId}/conversations/${conversationId}/assign?access_token=${tokenToUse}`;
-                        // We use a custom fetch implementation since standard is Node 18+
-                        const fetch = require('node-fetch');
-                        const assignRes = await fetch(assignUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ member_ids: [assignedPancakeStaffId] })
-                        });
-                        const assignData = await assignRes.json();
-                        console.log('[Pancake Webhook] Assigned on Pancake:', assignData);
-                    } catch (e) {
-                        console.error('[Pancake Webhook] Pancake API error:', e.message);
+                if (tokenToUse && conversationId) {
+                    const fetch = require('node-fetch');
+                    if (assignedPancakeStaffId) {
+                        try {
+                            const assignUrl = `https://pages.fm/api/v1/pages/${pageId}/conversations/${conversationId}/assign?access_token=${tokenToUse}`;
+                            const assignRes = await fetch(assignUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ member_ids: [assignedPancakeStaffId] })
+                            });
+                            const assignData = await assignRes.json();
+                            console.log('[Pancake Webhook] Assigned on Pancake:', assignData);
+                        } catch (e) {
+                            console.error('[Pancake Webhook] Pancake API error:', e.message);
+                        }
                     }
-                }
+
+                    if (assignedPancakeTagId) {
+                        try {
+                            const tagUrl = `https://pages.fm/api/v1/pages/${pageId}/conversations/${conversationId}/tags?access_token=${tokenToUse}`;
+                            const tagRes = await fetch(tagUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    tag_ids: [assignedPancakeTagId],
+                                    tags: [assignedPancakeTagId],
+                                    tag_id: assignedPancakeTagId
+                                })
+                            });
+                            const tagData = await tagRes.json();
+                            console.log('[Pancake Webhook] Tagged on Pancake:', tagData);
+                        } catch (e) {
+                            console.error('[Pancake Webhook] Pancake API tag error:', e.message);
+                        }
+                    }
+                }        }
 
                 // Notify Telegram to the staff member
                 const staffChatIdRow = await db.get(
@@ -429,6 +449,45 @@ async function pancakeRoutes(fastify, options) {
             }
             const members = Array.isArray(data) ? data : (data.members || data.data || []);
             return { members };
+        } catch (err) {
+            return reply.code(500).send({ error: `Không thể kết nối Pancake API: ${err.message}` });
+        }
+    });
+
+    // ========== GET: Fetch Pancake Page Tags ==========
+    fastify.get('/api/pancake/tags/:pageId', { preHandler: [authenticate] }, async (request, reply) => {
+        const { pageId } = request.params;
+        const configRow = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+        if (!configRow || !configRow.value) {
+            return reply.code(400).send({ error: 'Chưa cấu hình Pancake' });
+        }
+
+        let config;
+        try {
+            config = JSON.parse(configRow.value);
+        } catch (e) {
+            return reply.code(500).send({ error: 'Cấu hình Pancake không hợp lệ' });
+        }
+
+        const page = config.pages?.find(p => String(p.id) === pageId);
+        if (!page) {
+            return reply.code(400).send({ error: `Không tìm thấy cấu hình Fanpage ID ${pageId}` });
+        }
+
+        const token = page.page_access_token || config.pancake_token;
+        if (!token) {
+            return reply.code(400).send({ error: `Chưa cấu hình Page Access Token hoặc Token chung cho Fanpage ${page.name}` });
+        }
+
+        try {
+            const fetch = require('node-fetch');
+            const res = await fetch(`https://pages.fm/api/v1/pages/${pageId}/tags?access_token=${token}`);
+            const data = await res.json();
+            if (data.error) {
+                return reply.code(400).send({ error: data.error.message || 'Lỗi từ Pancake API' });
+            }
+            const tags = Array.isArray(data) ? data : (data.tags || data.data || []);
+            return { tags };
         } catch (err) {
             return reply.code(500).send({ error: `Không thể kết nối Pancake API: ${err.message}` });
         }
