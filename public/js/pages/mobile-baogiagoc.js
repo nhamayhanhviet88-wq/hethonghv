@@ -215,6 +215,8 @@ async function loadInitialDataMobile() {
         if (colSearchInput) colSearchInput.value = '';
         if (colHiddenInput) colHiddenInput.value = '';
         
+        updateStatusBadgesMobile();
+        
         // Populate segments
         const segSelect = document.getElementById('m_segment');
         if (segSelect) {
@@ -1180,6 +1182,39 @@ function getPetCostsMobile() {
     };
 }
 
+function updateStatusBadgesMobile() {
+    const matId = document.getElementById('m_material_id')?.value;
+    const colId = document.getElementById('m_color_id')?.value;
+    
+    const matBadge = document.getElementById('m_material_status_badge');
+    if (matBadge) {
+        if (matId) {
+            const mat = _mobileBgg.materials.find(m => String(m.id) === String(matId));
+            if (mat && (mat.is_active === false || mat.is_active === 0)) {
+                matBadge.style.display = 'inline-block';
+            } else {
+                matBadge.style.display = 'none';
+            }
+        } else {
+            matBadge.style.display = 'none';
+        }
+    }
+    
+    const colBadge = document.getElementById('m_color_status_badge');
+    if (colBadge) {
+        if (colId) {
+            const col = _mobileBgg.colors.find(c => String(c.id) === String(colId));
+            if (col && (col.is_active === false || col.is_active === 0)) {
+                colBadge.style.display = 'inline-block';
+            } else {
+                colBadge.style.display = 'none';
+            }
+        } else {
+            colBadge.style.display = 'none';
+        }
+    }
+}
+
 function handleMaterialChangeMobile(matId) {
     const segmentSelect = document.getElementById('m_segment');
     if (!segmentSelect) return;
@@ -1189,6 +1224,8 @@ function handleMaterialChangeMobile(matId) {
     const colorIdInput = document.getElementById('m_color_id');
     if (colorSearch) colorSearch.value = '';
     if (colorIdInput) colorIdInput.value = '';
+    
+    updateStatusBadgesMobile();
     
     if (!matId) {
         segmentSelect.innerHTML = `
@@ -2318,6 +2355,7 @@ function validateMaterialSearchMobile() {
             document.getElementById('m_material_id').value = '';
             handleMaterialChangeMobile('');
             closeMaterialDropdownMobile();
+            updateStatusBadgesMobile();
             return;
         }
         
@@ -2338,6 +2376,7 @@ function validateMaterialSearchMobile() {
             }
         }
         closeMaterialDropdownMobile();
+        updateStatusBadgesMobile();
     }, 200);
 }
 
@@ -2402,6 +2441,7 @@ function selectColorMobile(id, name) {
         searchInput.value = name;
     }
     closeColorDropdownMobile();
+    updateStatusBadgesMobile();
 }
 
 function validateColorSearchMobile() {
@@ -2412,6 +2452,7 @@ function validateColorSearchMobile() {
         if (query === '') {
             document.getElementById('m_color_id').value = '';
             closeColorDropdownMobile();
+            updateStatusBadgesMobile();
             return;
         }
         
@@ -2431,6 +2472,7 @@ function validateColorSearchMobile() {
             }
         }
         closeColorDropdownMobile();
+        updateStatusBadgesMobile();
     }, 200);
 }
 

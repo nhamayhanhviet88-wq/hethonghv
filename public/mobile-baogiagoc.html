@@ -177,7 +177,10 @@
             </div>
             
             <div class="m-form-group">
-                <label>Chất liệu *</label>
+                <label style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <span>Chất liệu *</span>
+                    <span id="m_material_status_badge" style="color: #dc2626; font-size: 11px; font-weight: bold; background: #fee2e2; padding: 2px 6px; border-radius: 4px; display: none;">DỪNG BÁN</span>
+                </label>
                 <div style="position: relative;" id="m_material_autocomplete_container">
                     <input type="text" id="m_material_search" class="m-input" placeholder="Gõ để tìm chất liệu..." autocomplete="off" onfocus="showMaterialDropdownMobile()" oninput="filterMaterialsMobile(this.value)" onblur="validateMaterialSearchMobile()">
                     <input type="hidden" id="m_material_id" value="">
@@ -186,7 +189,10 @@
             </div>
             
             <div class="m-form-group">
-                <label>Màu sắc</label>
+                <label style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <span>Màu sắc</span>
+                    <span id="m_color_status_badge" style="color: #dc2626; font-size: 11px; font-weight: bold; background: #fee2e2; padding: 2px 6px; border-radius: 4px; display: none;">DỪNG BÁN</span>
+                </label>
                 <div style="position: relative;" id="m_color_autocomplete_container">
                     <input type="text" id="m_color_search" class="m-input" placeholder="Gõ để tìm màu sắc..." autocomplete="off" onfocus="showColorDropdownMobile()" oninput="filterColorsMobile(this.value)" onblur="validateColorSearchMobile()">
                     <input type="hidden" id="m_color_id" value="">
@@ -321,7 +327,7 @@
     <!-- Toast container -->
     <div id="toastContainer" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; width: 90%; max-width: 350px;"></div>
 
-    <script src="/js/pages/mobile-baogiagoc.js?v=20260704_inactive_visible"></script>
+    <script src="/js/pages/mobile-baogiagoc.js?v=20260704_inactive_badge"></script>
     <script src="/js/mobile-nav.js?v=20260702_bgg_v1"></script>
 </body>
 </html>

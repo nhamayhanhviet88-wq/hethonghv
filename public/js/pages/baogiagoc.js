@@ -219,7 +219,10 @@ async function renderBaogiagocPage(content) {
                     <h3 class="bgg-card-title">⚙️ Thông tin báo giá</h3>
                     
                     <div class="bgg-form-group">
-                        <label>Chất liệu *</label>
+                        <label style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                            <span>Chất liệu *</span>
+                            <span id="bgg_material_status_badge" style="color: #dc2626; font-size: 11px; font-weight: bold; background: #fee2e2; padding: 2px 6px; border-radius: 4px; display: none;">DỪNG BÁN</span>
+                        </label>
                         <div style="position: relative;" id="bgg_material_autocomplete_container">
                             <input type="text" id="bgg_material_search" class="bgg-input" placeholder="Gõ để tìm chất liệu..." autocomplete="off" onfocus="_bggShowMaterialDropdown()" oninput="_bggFilterMaterials(this.value)" onblur="_bggValidateMaterialSearch()">
                             <input type="hidden" id="bgg_material_id" value="">
@@ -228,7 +231,10 @@ async function renderBaogiagocPage(content) {
                     </div>
                     
                     <div class="bgg-form-group">
-                        <label>Màu sắc</label>
+                        <label style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                            <span>Màu sắc</span>
+                            <span id="bgg_color_status_badge" style="color: #dc2626; font-size: 11px; font-weight: bold; background: #fee2e2; padding: 2px 6px; border-radius: 4px; display: none;">DỪNG BÁN</span>
+                        </label>
                         <div style="position: relative;" id="bgg_color_autocomplete_container">
                             <input type="text" id="bgg_color_search" class="bgg-input" placeholder="Gõ để tìm màu sắc..." autocomplete="off" onfocus="_bggShowColorDropdown()" oninput="_bggFilterColors(this.value)" onblur="_bggValidateColorSearch()">
                             <input type="hidden" id="bgg_color_id" value="">
@@ -461,6 +467,8 @@ async function _bggLoadData() {
         const colHiddenInput = document.getElementById('bgg_color_id');
         if (colSearchInput) colSearchInput.value = '';
         if (colHiddenInput) colHiddenInput.value = '';
+        
+        _bggUpdateStatusBadges();
         
         // Populate segments
         const segSelect = document.getElementById('bgg_segment');
@@ -1229,6 +1237,39 @@ function _bggGetPetCosts() {
     };
 }
 
+function _bggUpdateStatusBadges() {
+    const matId = document.getElementById('bgg_material_id')?.value;
+    const colId = document.getElementById('bgg_color_id')?.value;
+    
+    const matBadge = document.getElementById('bgg_material_status_badge');
+    if (matBadge) {
+        if (matId) {
+            const mat = _bgg.materials.find(m => String(m.id) === String(matId));
+            if (mat && (mat.is_active === false || mat.is_active === 0)) {
+                matBadge.style.display = 'inline-block';
+            } else {
+                matBadge.style.display = 'none';
+            }
+        } else {
+            matBadge.style.display = 'none';
+        }
+    }
+    
+    const colBadge = document.getElementById('bgg_color_status_badge');
+    if (colBadge) {
+        if (colId) {
+            const col = _bgg.colors.find(c => String(c.id) === String(colId));
+            if (col && (col.is_active === false || col.is_active === 0)) {
+                colBadge.style.display = 'inline-block';
+            } else {
+                colBadge.style.display = 'none';
+            }
+        } else {
+            colBadge.style.display = 'none';
+        }
+    }
+}
+
 function _bggHandleMaterialChange(matId) {
     const segmentSelect = document.getElementById('bgg_segment');
     if (!segmentSelect) return;
@@ -1238,6 +1279,8 @@ function _bggHandleMaterialChange(matId) {
     const colorIdInput = document.getElementById('bgg_color_id');
     if (colorSearch) colorSearch.value = '';
     if (colorIdInput) colorIdInput.value = '';
+    
+    _bggUpdateStatusBadges();
     
     if (!matId) {
         segmentSelect.innerHTML = `
@@ -2702,6 +2745,7 @@ window._bggValidateMaterialSearch = function() {
             document.getElementById('bgg_material_id').value = '';
             _bggHandleMaterialChange('');
             _bggCloseMaterialDropdown();
+            _bggUpdateStatusBadges();
             return;
         }
         
@@ -2722,6 +2766,7 @@ window._bggValidateMaterialSearch = function() {
             }
         }
         _bggCloseMaterialDropdown();
+        _bggUpdateStatusBadges();
     }, 200);
 };
 
@@ -2779,6 +2824,7 @@ window._bggSelectColor = function(id, name) {
         searchInput.value = name;
     }
     _bggCloseColorDropdown();
+    _bggUpdateStatusBadges();
 };
 
 window._bggValidateColorSearch = function() {
@@ -2789,6 +2835,7 @@ window._bggValidateColorSearch = function() {
         if (query === '') {
             document.getElementById('bgg_color_id').value = '';
             _bggCloseColorDropdown();
+            _bggUpdateStatusBadges();
             return;
         }
         
@@ -2808,6 +2855,7 @@ window._bggValidateColorSearch = function() {
             }
         }
         _bggCloseColorDropdown();
+        _bggUpdateStatusBadges();
     }, 200);
 };
 
