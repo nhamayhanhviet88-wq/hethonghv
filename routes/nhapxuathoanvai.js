@@ -542,7 +542,7 @@ module.exports = async function(fastify) {
                 const formattedNow = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
                 const caption = `🔄 <b>HOÀN VẢI (XÁC NHẬN LẦN 1)</b>\n` +
                                 `━━━━━━━━━━━━━━━━━\n` +
-                                `📦 <b>Mã giao dịch:</b> Bill Hoàn #${tx.id}\n` +
+                                `📦 <b>Mã giao dịch:</b> Hoàn Vải #${tx.id}\n` +
                                 `🏢 <b>Nhà cung cấp:</b> ${tx.source_name || '—'}\n` +
                                 `👕 <b>Chất liệu:</b> ${tx.material_name || '—'}\n` +
                                 `🎨 <b>Màu vải:</b> ${tx.color_name || '—'}\n` +
@@ -815,7 +815,7 @@ module.exports = async function(fastify) {
                 
                 const caption = `✅ <b>HOÀN VẢI THÀNH CÔNG (XÁC NHẬN LẦN 2)</b>\n` +
                                 `━━━━━━━━━━━━━━━━━\n` +
-                                `📦 <b>Mã giao dịch:</b> Bill Hoàn #${tx.id}\n` +
+                                `📦 <b>Mã giao dịch:</b> Hoàn Vải #${tx.id}\n` +
                                 `🏢 <b>Nhà cung cấp:</b> ${tx.source_name || '—'}\n` +
                                 `👕 <b>Chất liệu:</b> ${tx.material_name || '—'}\n` +
                                 `🎨 <b>Màu vải:</b> ${tx.color_name || '—'}\n` +
@@ -920,7 +920,7 @@ module.exports = async function(fastify) {
 
                 const caption = `✅ <b>QUẢN LÝ DUYỆT SAI LỆCH HOÀN VẢI THÀNH CÔNG</b>\n` +
                                 `━━━━━━━━━━━━━━━━━\n` +
-                                `📦 <b>Mã giao dịch:</b> Bill Hoàn #${tx.id}\n` +
+                                `📦 <b>Mã giao dịch:</b> Hoàn Vải #${tx.id}\n` +
                                 `🏢 <b>Nhà cung cấp:</b> ${tx.source_name || '—'}\n` +
                                 `👕 <b>Chất liệu:</b> ${tx.material_name || '—'}\n` +
                                 `🎨 <b>Màu vải:</b> ${tx.color_name || '—'}\n` +

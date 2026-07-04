@@ -41,7 +41,7 @@ function renderNhapxuathoanvaiPage(content){
     content.innerHTML='<div class="nxhv-wrap"><div class="nxhv-sb" id="nxhvSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="nxhv-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvInfo" style="font-size:12px"></div><div id="nxhvStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div>' + configBtnHtml + '<button id="btnNxhvCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vải</button><input id="nxhvSearch" placeholder="🔍 Tìm chất liệu / màu / nguồn..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none" value="' + (_nxhv.search || '') + '"></div>'
     +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="nxhvTable"><thead><tr style="background:var(--gray-800)">'
-    +'<th style="text-align:center">STT</th><th style="text-align:center">Mã Bill Hoàn</th><th style="text-align:center">✅</th><th style="text-align:center">Ngày Hẹn Hoàn</th><th style="text-align:center">Ngày Lên Bill</th><th>Nguồn Vải</th><th>Chất Liệu</th><th>Màu Vải</th><th>Kệ</th><th>Các Cây</th><th style="text-align:right">Giá</th><th style="text-align:right">Thành Tiền</th><th style="text-align:center">Công Nợ</th><th style="text-align:right">Thanh Toán</th><th>Cập Nhật</th>'
+    +'<th style="text-align:center">STT</th><th style="text-align:center">Mã Hoàn Vải</th><th style="text-align:center">✅</th><th style="text-align:center">Ngày Hẹn Hoàn</th><th style="text-align:center">Ngày Lên Bill</th><th>Nguồn Vải</th><th>Chất Liệu</th><th>Màu Vải</th><th>Kệ</th><th>Các Cây</th><th style="text-align:right">Giá</th><th style="text-align:right">Thành Tiền</th><th style="text-align:center">Công Nợ</th><th style="text-align:right">Thanh Toán</th><th>Cập Nhật</th>'
     +'</tr></thead><tbody id="nxhvTb"><tr><td colspan="15" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _t;document.getElementById('nxhvSearch').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){_nxhv.search=document.getElementById('nxhvSearch').value||'';_nxhvRender();},300);});
     _nxhvLoadAll();
@@ -203,7 +203,7 @@ function _nxhvRender(){
         if (r.tx_type === 'HOAN') {
             var num = r.seq_num || 0;
             var badgeBg = r.is_canceled ? '#94a3b8' : '#059669';
-            billHoanCode = '<span style="background:' + badgeBg + '; color:#fff; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px; display:inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Bill Hoàn #' + num + '</span>';
+            billHoanCode = '<span style="background:' + badgeBg + '; color:#fff; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px; display:inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Hoàn Vải #' + num + '</span>';
         }
         
         var postponeDateStr = '—';
@@ -1016,7 +1016,7 @@ async function openViewReturnModal(id) {
         if (ia && ia.length) {
             imgsHTML = `
                 <div style="margin-top:8px;">
-                    <span style="font-weight:700; display:block; margin-bottom:4px; font-size:11px; color:#1e40af;">📸 Ảnh Hóa Đơn / Bill Hoàn:</span>
+                    <span style="font-weight:700; display:block; margin-bottom:4px; font-size:11px; color:#1e40af;">📸 Ảnh Hóa Đơn / Hoàn Vải:</span>
                     <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         ${ia.map(url => `
                             <a href="${url}" target="_blank">
