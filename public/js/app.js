@@ -135,6 +135,7 @@ const MENU_CONFIG = [
     { id: 'huy-khach', label: 'Hủy Khách Hàng', icon: '❌', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'huy_khach' },
     { id: 'chuyen-so', label: 'Chuyển Số NV Kinh Doanh', icon: '📱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time','hoa_hong','tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'chuyen_so' },
     { id: 'chuyensosale', label: 'Chuyển Số Sale', icon: '📱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time','hoa_hong','tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/chuyensosale', permKey: 'chuyen_so_sale' },
+    { id: 'caidatpancake', label: 'Cài Đặt Pancake', icon: '⚙️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time','hoa_hong','tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/caidatpancake', permKey: 'cai_dat_pancake' },
     { id: 'quanlytkhethongaff', label: 'QL Hệ Thống Affiliate', icon: '📊', roles: ['tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/quanlytkhethongaff', strictRoles: true },
     { id: 'mo-khoa-tk-phat', label: 'Mở Khóa Phạt Tài Khoản', icon: '🔓', roles: ['giam_doc','quan_ly_cap_cao','quan_ly'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/mokhoatkphat', permKey: 'mo_khoa_tk_phat' },
     { id: 'accounts', label: 'Tài Khoản Nhân Viên', icon: '👥', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', permKey: 'nhan_vien' },
@@ -1982,6 +1983,7 @@ async function handleRoute() {
             case 'dashboard': renderDashboardPage(content); break;
             case 'chuyen-so': renderChuyenSoPage(content); break;
             case 'chuyensosale': renderChuyensosalePage(content); break;
+            case 'caidatpancake': renderCaidatpancakePage(content); break;
             case 'tu-van-khach-aff': renderBaoCaoHoaHongPage(content, 'nhu_cau'); break;
             case 'theo-doi-tu-van-aff': renderBaoCaoHoaHongPage(content, 'ctv_hoa_hong'); break;
             case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
