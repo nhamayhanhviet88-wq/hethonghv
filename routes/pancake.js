@@ -299,56 +299,38 @@ async function pancakeRoutes(fastify, options) {
 
                 processedCount++;
             } else {
-                // Fallback action: Assign to fallback user
-                const fallbackUserId = page.fallback_user_id;
-                if (fallbackUserId) {
-                    const appointmentDate = await getNextWorkingDay(now, fallbackUserId);
-                    const maxNum = await db.get(
-                        "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = ?::date AND assigned_to_id = ?",
-                        [vnDateStr(now), fallbackUserId]
+                // Save customer with NULL assigned_to_id (unassigned/waiting lead)
+                const custResult = await db.get(
+                    `INSERT INTO customers (
+                        customer_uid, crm_type, customer_name, phone, facebook_link, 
+                        assigned_to_id, receiver_id, daily_order_number, created_by, 
+                        job, appointment_date, source_id, order_status, created_at, updated_at
+                     )
+                     VALUES ($1, $2, $3, $4, $5, NULL, NULL, 0, NULL, $6, NULL, $7, 'dang_tu_van', NOW(), NOW()) RETURNING id`,
+                    [
+                        tsUid, page.crm_type || 'nhu_cau', customerName, phone, conversationLink,
+                        page.name, page.source_id
+                    ]
+                );
+                const customerId = custResult?.id;
+
+                if (customerId) {
+                    await db.run(
+                        `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
+                         VALUES ($1, 'goi_dien', $2, NULL, NOW())`,
+                        [customerId, `Đồng bộ từ Pancake (Chưa phân công) (Page: ${page.name})`]
                     );
-                    const dailyNum = (maxNum?.mx || 0) + 1;
-
-                    const custResult = await db.get(
-                        `INSERT INTO customers (
-                            customer_uid, crm_type, customer_name, phone, facebook_link, 
-                            assigned_to_id, receiver_id, daily_order_number, created_by, 
-                            job, appointment_date, source_id, order_status, created_at, updated_at
-                         )
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'dang_tu_van', NOW(), NOW()) RETURNING id`,
-                        [
-                            tsUid, page.crm_type || 'nhu_cau', customerName, phone, conversationLink,
-                            fallbackUserId, fallbackUserId, dailyNum, fallbackUserId, 
-                            page.name, appointmentDate, page.source_id
-                        ]
-                    );
-                    const customerId = custResult?.id;
-
-                    if (customerId) {
-                        await db.run(
-                            `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
-                             VALUES ($1, 'goi_dien', $2, $3, NOW())`,
-                            [customerId, `Đồng bộ từ Pancake (Dự phòng) (Page: ${page.name})`, fallbackUserId]
-                        );
-                    }
-
-                    // Notify fallback user
-                    const fbChatIdRow = await db.get(
-                        `SELECT chat_id FROM telegram_notifications WHERE user_id = $1 AND event_type = 'chuyen_so' AND enabled = true`,
-                        [fallbackUserId]
-                    );
-                    const fbChatId = fbChatIdRow?.chat_id || (await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [fallbackUserId]))?.telegram_group_id;
-
-                    if (fbChatId) {
-                        const notifyMsg = `🥞 ⚠️ <b>Số mới Pancake (Dự Phòng)!</b>\n` +
-                            `━━━━━━━━━━━━━━━━━━━━\n` +
-                            `👤 Khách hàng: <b>${customerName}</b>\n` +
-                            `📱 SĐT: <b>${phone || '—'}</b>\n` +
-                            `📄 Nguồn: <b>${page.name}</b>\n` +
-                            `🔗 Chi tiết: <a href="${conversationLink}">Xem hội thoại</a>`;
-                        await sendTelegramMessage(fbChatId, notifyMsg, page.bot_tele);
-                    }
                 }
+
+                // Count currently unassigned leads for this source in the last 24 hours
+                const countRow = await db.get(
+                    `SELECT COUNT(*) as cnt FROM customers 
+                     WHERE assigned_to_id IS NULL 
+                       AND source_id = $1 
+                       AND created_at >= NOW() - INTERVAL '24 hours'`,
+                    [page.source_id]
+                );
+                const unassignedCount = countRow ? parseInt(countRow.cnt) : 1;
 
                 // Broadcast alert to ALL staff members in the assignment list
                 if (page.staff_assignments && Array.isArray(page.staff_assignments)) {
@@ -362,9 +344,8 @@ async function pancakeRoutes(fastify, options) {
                         if (staffChatId) {
                             const alertMsg = `📢 <b>Yêu cầu nhận số từ Pancake!</b>\n` +
                                 `━━━━━━━━━━━━━━━━━━━━\n` +
-                                `Hiện tại có khách hàng mới từ nguồn <b>${page.name}</b> cần xử lý.\n` +
-                                `Tuy nhiên hệ thống không có nhân viên trực hoặc mọi người đã hết hạn mức hôm nay.\n` +
-                                `⚠️ <b>Vui lòng kiểm tra và bật nhận số để xử lý khách hàng!</b>`;
+                                `Hiện tại đang có <b>${unassignedCount}</b> khách hàng từ nguồn <b>${page.name}</b> đang chờ xử lý.\n` +
+                                `⚠️ <b>Vui lòng bật nhận số để xử lý khách hàng!</b>`;
                             await sendTelegramMessage(staffChatId, alertMsg, page.bot_tele);
                         }
                     }
@@ -415,6 +396,67 @@ async function pancakeRoutes(fastify, options) {
             return reply.code(500).send({ error: `Không thể kết nối Pancake API: ${err.message}` });
         }
     });
+
+    // ========== BACKGROUND WORKER: Check and alert unassigned Pancake leads every 15 minutes ==========
+    async function checkUnassignedPancakeLeads() {
+        try {
+            const configRow = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+            if (!configRow || !configRow.value) return;
+
+            let config;
+            try {
+                config = JSON.parse(configRow.value);
+            } catch (e) {
+                return;
+            }
+
+            if (!config.is_active || !config.pages) return;
+
+            for (const page of config.pages) {
+                if (!page.is_active || !page.source_id) continue;
+
+                // Count unassigned leads for this page's source in the last 24 hours
+                const countRow = await db.get(
+                    `SELECT COUNT(*) as cnt FROM customers 
+                     WHERE assigned_to_id IS NULL 
+                       AND source_id = $1 
+                       AND created_at >= NOW() - INTERVAL '24 hours'`,
+                    [page.source_id]
+                );
+                const cnt = countRow ? parseInt(countRow.cnt) : 0;
+
+                if (cnt > 0 && page.staff_assignments && Array.isArray(page.staff_assignments)) {
+                    console.log(`[Pancake Cron] Page ${page.name} has ${cnt} unassigned leads. Notifying roster staff.`);
+                    
+                    // Broadcast to all staff in roster
+                    for (const sa of page.staff_assignments) {
+                        if (!sa.crm_user_id) continue;
+                        
+                        const staffChatIdRow = await db.get(
+                            `SELECT chat_id FROM telegram_notifications WHERE user_id = $1 AND event_type = 'chuyen_so' AND enabled = true`,
+                            [sa.crm_user_id]
+                        );
+                        const staffChatId = staffChatIdRow?.chat_id || (await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [sa.crm_user_id]))?.telegram_group_id;
+
+                        if (staffChatId) {
+                            const alertMsg = `📢 <b>Yêu cầu nhận số từ Pancake! (Nhắc nhở)</b>\n` +
+                                `━━━━━━━━━━━━━━━━━━━━\n` +
+                                `Hiện tại đang có <b>${cnt}</b> khách hàng từ nguồn <b>${page.name}</b> đang chờ xử lý.\n` +
+                                `⚠️ <b>Bạn hãy bật nhận số để hệ thống tiếp tục chia khách!</b>`;
+                            await sendTelegramMessage(staffChatId, alertMsg, page.bot_tele);
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[Pancake Cron] Error checking unassigned leads:', err);
+        }
+    }
+
+    // Start 15-minute interval check
+    setInterval(() => {
+        checkUnassignedPancakeLeads().catch(err => console.error('[Pancake Interval Error]', err));
+    }, 15 * 60 * 1000);
 }
 
 module.exports = pancakeRoutes;

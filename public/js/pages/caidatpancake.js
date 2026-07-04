@@ -349,16 +349,7 @@ function showPageConfigModal(index = null) {
                         <!-- Filled dynamically -->
                     </select>
                 </div>
-            </div>
-
-            <div>
-                <label style="display: block; font-weight: 700; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">Nhân Viên Nhận Dự Phòng (Fallback) khi hết quota/lịch nghỉ</label>
-                <select id="modalPageFallbackUser" class="form-control" style="height: 38px; border-radius: 8px; padding: 0 35px 0 16px;">
-                    <option value="">-- Chọn nhân viên dự phòng --</option>
-                    ${_allUsers.map(u => `<option value="${u.id}" ${Number(pageData.fallback_user_id) === u.id ? 'selected' : ''}>${u.full_name} (${u.username})</option>`).join('')}
-                </select>
-                <small style="color: var(--gray-400); font-size: 10px; display: block; margin-top: 4px;">Khách hàng sẽ được phân cho người này nếu không có nhân viên trực nào hợp lệ.</small>
-            </div>
+            </div>            
         </div>
     `;
 
@@ -394,7 +385,6 @@ async function savePageConfigFromModal(index = null) {
     const sourceId = document.getElementById('modalPageSourceId').value;
     const pageAccessToken = document.getElementById('modalPageAccessToken').value.trim();
     const botTele = document.getElementById('modalPageBotTele').value.trim();
-    const fallbackUserId = document.getElementById('modalPageFallbackUser').value;
 
     if (!pageId) { showToast('Vui lòng nhập Pancake Page ID!', 'error'); return; }
     if (!pageName) { showToast('Vui lòng nhập Tên Page!', 'error'); return; }
@@ -408,7 +398,7 @@ async function savePageConfigFromModal(index = null) {
         source_id: Number(sourceId),
         page_access_token: pageAccessToken,
         bot_tele: botTele,
-        fallback_user_id: fallbackUserId ? Number(fallbackUserId) : '',
+        fallback_user_id: '',
         is_active: isEdit ? _pancakeConfig.pages[index].is_active : true,
         staff_assignments: isEdit ? (_pancakeConfig.pages[index].staff_assignments || []) : [],
         last_assigned_index: isEdit ? (_pancakeConfig.pages[index].last_assigned_index != null ? _pancakeConfig.pages[index].last_assigned_index : -1) : -1
