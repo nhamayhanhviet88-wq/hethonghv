@@ -344,7 +344,7 @@ function showPageConfigModal(index = null) {
                     <label style="display: block; font-weight: 700; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">Người phụ trách Ads</label>
                     <select id="modalPageAdsManager" class="form-control" style="height: 38px; border-radius: 8px; padding: 0 35px 0 16px;">
                         <option value="">-- Chọn người phụ trách Ads --</option>
-                        ${_allUsers.map(u => `<option value="${u.id}" ${Number(pageData.ads_manager_id) === u.id ? 'selected' : ''}>${u.full_name} (${u.username})</option>`).join('')}
+                        ${_allUsers.filter(u => u.role === 'giam_doc' || (Number(u.department_id) === 6 && (u.role === 'nhan_vien' || u.role === 'truong_phong')) || Number(pageData.ads_manager_id) === u.id).map(u => `<option value="${u.id}" ${Number(pageData.ads_manager_id) === u.id ? 'selected' : ''}>${u.full_name} (${u.username})</option>`).join('')}
                     </select>
                 </div>
             </div>
