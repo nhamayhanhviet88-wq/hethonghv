@@ -303,6 +303,8 @@ module.exports = async function(fastify) {
         if (record_type) {
             if (record_type === 'fabric') {
                 sourcesQuery += ` AND r.record_type IN ('fabric', 'refund')`;
+            } else if (record_type === 'general') {
+                sourcesQuery += ` AND r.record_type IN ('general', 'refund_material')`;
             } else {
                 sourcesQuery += ` AND r.record_type = $${idx}`;
                 params.push(record_type);
@@ -336,6 +338,8 @@ module.exports = async function(fastify) {
         if (record_type) {
             if (record_type === 'fabric') {
                 totalsWhere.push(`record_type IN ('fabric', 'refund')`);
+            } else if (record_type === 'general') {
+                totalsWhere.push(`record_type IN ('general', 'refund_material')`);
             } else {
                 totalsWhere.push(`record_type = $${tIdx}`);
                 totalsParams.push(record_type);
@@ -374,6 +378,8 @@ module.exports = async function(fastify) {
         if (record_type) {
             if (record_type === 'fabric') {
                 where += ` AND ir.record_type IN ('fabric', 'refund')`;
+            } else if (record_type === 'general') {
+                where += ` AND ir.record_type IN ('general', 'refund_material')`;
             } else {
                 where += ` AND ir.record_type=$${idx++}`;
                 params.push(record_type);
@@ -975,8 +981,8 @@ module.exports = async function(fastify) {
         }
 
         // Calculate total source debt (all bills same source) excluding unapproved ones
-        const sourceDebtRow = await db.get('SELECT COALESCE(SUM(debt), 0)::numeric AS total_debt FROM import_records WHERE source_id=$1 AND debt > 0 AND NOT (requires_price_approval = true AND price_approved_at IS NULL)', [rec.source_id]);
-        const totalSourceDebt = Number(sourceDebtRow?.total_debt) || 0;
+        const sourceDebtRow = await db.get('SELECT COALESCE(SUM(debt), 0)::numeric AS total_debt FROM import_records WHERE source_id=$1 AND NOT (requires_price_approval = true AND price_approved_at IS NULL)', [rec.source_id]);
+        const totalSourceDebt = Math.max(0, Number(sourceDebtRow?.total_debt) || 0);
         if (payAmt > totalSourceDebt) {
             return reply.code(400).send({ error: 'Số tiền vượt Tổng Công Nợ còn lại (' + totalSourceDebt.toLocaleString('vi-VN') + '₫). Vui lòng kiểm tra lại!' });
         }
