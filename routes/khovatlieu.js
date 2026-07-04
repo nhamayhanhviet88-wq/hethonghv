@@ -200,11 +200,36 @@ module.exports = async function(fastify) {
         const items = await db.all(`
             SELECT 
                 mi.id, mi.name, mi.warehouse_id, mi.unit, mi.display_order,
-                COALESCE(SUM(CASE WHEN mt.tx_type = 'NHAP' THEN mt.quantity ELSE 0 END), 0) -
-                COALESCE(SUM(CASE WHEN mt.tx_type = 'XUAT' THEN mt.quantity ELSE 0 END), 0) -
-                COALESCE(SUM(CASE WHEN mt.tx_type = 'HOAN' THEN mt.quantity ELSE 0 END), 0) AS remaining_stock
+                COALESCE(SUM(
+                    CASE WHEN mt.tx_type = 'NHAP' AND mt.material_item_id = mi.id THEN mt.quantity ELSE 0 END
+                ), 0) -
+                COALESCE(SUM(
+                    CASE WHEN mt.tx_type = 'XUAT' AND mt.material_item_id = mi.id THEN mt.quantity ELSE 0 END
+                ), 0) -
+                COALESCE(SUM(
+                    CASE 
+                        WHEN mt.tx_type = 'HOAN' THEN
+                            CASE 
+                                WHEN mt.material_items IS NOT NULL AND jsonb_typeof(mt.material_items) = 'array' THEN
+                                    COALESCE((
+                                        SELECT SUM((elem->>'quantity')::numeric)
+                                        FROM jsonb_array_elements(mt.material_items) AS elem
+                                        WHERE (elem->>'material_item_id')::int = mi.id
+                                    ), 0)
+                                ELSE
+                                    CASE WHEN mt.material_item_id = mi.id THEN mt.quantity ELSE 0 END
+                            END
+                        ELSE 0
+                    END
+                ), 0) AS remaining_stock
             FROM material_items mi
-            LEFT JOIN material_transactions mt ON mi.id = mt.material_item_id
+            LEFT JOIN material_transactions mt ON (
+                mt.material_item_id = mi.id OR
+                (mt.tx_type = 'HOAN' AND mt.material_items IS NOT NULL AND jsonb_typeof(mt.material_items) = 'array' AND EXISTS (
+                    SELECT 1 FROM jsonb_array_elements(mt.material_items) AS elem
+                    WHERE (elem->>'material_item_id')::int = mi.id
+                ))
+            )
             WHERE mi.is_active = true
             GROUP BY mi.id, mi.name, mi.warehouse_id, mi.unit, mi.display_order
             ORDER BY mi.warehouse_id, mi.display_order, mi.name
@@ -250,15 +275,53 @@ module.exports = async function(fastify) {
         const summaries = await db.all(`
             SELECT 
                 mi.id, mi.name, mi.unit, mi.warehouse_id, w.name AS warehouse_name,
-                COALESCE(SUM(CASE WHEN mt.tx_type = 'NHAP' THEN mt.quantity ELSE 0 END), 0)::numeric AS total_import,
-                COALESCE(SUM(CASE WHEN mt.tx_type = 'XUAT' THEN mt.quantity ELSE 0 END), 0)::numeric AS total_export,
-                COALESCE(SUM(CASE WHEN mt.tx_type = 'HOAN' THEN mt.quantity ELSE 0 END), 0)::numeric AS total_refund,
-                (COALESCE(SUM(CASE WHEN mt.tx_type = 'NHAP' THEN mt.quantity ELSE 0 END), 0) -
-                 COALESCE(SUM(CASE WHEN mt.tx_type = 'XUAT' THEN mt.quantity ELSE 0 END), 0) -
-                 COALESCE(SUM(CASE WHEN mt.tx_type = 'HOAN' THEN mt.quantity ELSE 0 END), 0))::numeric AS remaining_stock
+                COALESCE(SUM(CASE WHEN mt.tx_type = 'NHAP' AND mt.material_item_id = mi.id THEN mt.quantity ELSE 0 END), 0)::numeric AS total_import,
+                COALESCE(SUM(CASE WHEN mt.tx_type = 'XUAT' AND mt.material_item_id = mi.id THEN mt.quantity ELSE 0 END), 0)::numeric AS total_export,
+                COALESCE(SUM(
+                    CASE 
+                        WHEN mt.tx_type = 'HOAN' THEN
+                            CASE 
+                                WHEN mt.material_items IS NOT NULL AND jsonb_typeof(mt.material_items) = 'array' THEN
+                                    COALESCE((
+                                        SELECT SUM((elem->>'quantity')::numeric)
+                                        FROM jsonb_array_elements(mt.material_items) AS elem
+                                        WHERE (elem->>'material_item_id')::int = mi.id
+                                    ), 0)
+                                ELSE
+                                    CASE WHEN mt.material_item_id = mi.id THEN mt.quantity ELSE 0 END
+                            END
+                        ELSE 0
+                    END
+                ), 0)::numeric AS total_refund,
+                (
+                    COALESCE(SUM(CASE WHEN mt.tx_type = 'NHAP' AND mt.material_item_id = mi.id THEN mt.quantity ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN mt.tx_type = 'XUAT' AND mt.material_item_id = mi.id THEN mt.quantity ELSE 0 END), 0) -
+                    COALESCE(SUM(
+                        CASE 
+                            WHEN mt.tx_type = 'HOAN' THEN
+                                CASE 
+                                    WHEN mt.material_items IS NOT NULL AND jsonb_typeof(mt.material_items) = 'array' THEN
+                                        COALESCE((
+                                            SELECT SUM((elem->>'quantity')::numeric)
+                                            FROM jsonb_array_elements(mt.material_items) AS elem
+                                            WHERE (elem->>'material_item_id')::int = mi.id
+                                        ), 0)
+                                    ELSE
+                                        CASE WHEN mt.material_item_id = mi.id THEN mt.quantity ELSE 0 END
+                                END
+                            ELSE 0
+                        END
+                    ), 0)
+                )::numeric AS remaining_stock
             FROM material_items mi
             LEFT JOIN material_warehouses w ON mi.warehouse_id = w.id
-            LEFT JOIN material_transactions mt ON mi.id = mt.material_item_id
+            LEFT JOIN material_transactions mt ON (
+                mt.material_item_id = mi.id OR
+                (mt.tx_type = 'HOAN' AND mt.material_items IS NOT NULL AND jsonb_typeof(mt.material_items) = 'array' AND EXISTS (
+                    SELECT 1 FROM jsonb_array_elements(mt.material_items) AS elem
+                    WHERE (elem->>'material_item_id')::int = mi.id
+                ))
+            )
             ${whereClause}
             GROUP BY mi.id, mi.name, mi.unit, mi.warehouse_id, w.name
             ORDER BY w.name, mi.name
@@ -322,14 +385,18 @@ module.exports = async function(fastify) {
             SELECT 
                 mt.id, mt.tx_type, mt.quantity, mt.price, mt.total_amount, 
                 mt.performed_at, mt.notes, mt.import_record_id, mt.printing_record_id,
-                mt.parent_tx_id,
+                mt.parent_tx_id, mt.material_items,
                 u.full_name AS performer_name,
                 s.name AS supplier_name
             FROM material_transactions mt
             LEFT JOIN users u ON mt.performed_by = u.id
             LEFT JOIN import_records ir ON mt.import_record_id = ir.id
             LEFT JOIN import_sources s ON ir.source_id = s.id
-            WHERE mt.material_item_id = $1
+            WHERE mt.material_item_id = $1 OR
+                  (mt.tx_type = 'HOAN' AND mt.material_items IS NOT NULL AND jsonb_typeof(mt.material_items) = 'array' AND EXISTS (
+                      SELECT 1 FROM jsonb_array_elements(mt.material_items) AS elem
+                      WHERE (elem->>'material_item_id')::int = $1
+                  ))
             ORDER BY mt.performed_at ASC, mt.id ASC
         `, [Number(material_item_id)]);
 
@@ -339,9 +406,25 @@ module.exports = async function(fastify) {
         let totalImportQuantity = 0;
 
         const mappedTx = transactions.map(tx => {
-            const qty = Number(tx.quantity);
-            const price = Number(tx.price);
-            const amt = Number(tx.total_amount);
+            let qty = Number(tx.quantity);
+            let price = Number(tx.price);
+            let amt = Number(tx.total_amount);
+
+            // For HOAN transactions, if it has a JSONB array, extract the specific quantity and cost for this item
+            if (tx.tx_type === 'HOAN' && tx.material_items) {
+                let matItems = [];
+                try {
+                    matItems = typeof tx.material_items === 'string' ? JSON.parse(tx.material_items) : tx.material_items;
+                } catch(e) {}
+                if (Array.isArray(matItems) && matItems.length > 0) {
+                    const specificItem = matItems.find(it => Number(it.material_item_id) === Number(material_item_id));
+                    if (specificItem) {
+                        qty = Number(specificItem.actual_quantity || specificItem.quantity || 0);
+                        price = Number(specificItem.price || 0);
+                        amt = qty * price;
+                    }
+                }
+            }
 
             if (tx.tx_type === 'NHAP') {
                 runningBalance += qty;
@@ -471,7 +554,25 @@ module.exports = async function(fastify) {
                     mt.id, mt.performed_at, mt.quantity::numeric AS quantity, mt.price::numeric AS price, mt.notes,
                     s.name AS source_name,
                     seq_list.seq,
-                    (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0))::numeric AS remaining_qty
+                    (mt.quantity 
+                     - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)
+                     - COALESCE((
+                         SELECT SUM((elem->>'quantity')::numeric)
+                         FROM material_transactions mt2,
+                              jsonb_array_elements(mt2.material_items) AS elem
+                         WHERE mt2.tx_type = 'HOAN'
+                           AND (elem->>'import_record_id')::int = mt.import_record_id
+                           AND (elem->>'material_item_id')::int = mt.material_item_id
+                       ), 0)
+                     - COALESCE((
+                         SELECT SUM(mt2.quantity)
+                         FROM material_transactions mt2
+                         WHERE mt2.tx_type = 'HOAN'
+                           AND (mt2.material_items IS NULL OR jsonb_typeof(mt2.material_items) != 'array')
+                           AND mt2.import_record_id = mt.import_record_id
+                           AND mt2.material_item_id = mt.material_item_id
+                       ), 0)
+                    )::numeric AS remaining_qty
                 FROM material_transactions mt
                 LEFT JOIN import_records ir ON mt.import_record_id = ir.id
                 LEFT JOIN import_sources s ON ir.source_id = s.id
