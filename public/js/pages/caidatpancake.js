@@ -615,7 +615,7 @@ function appendRosterRow(sa = {}, idx = null) {
     
     // Build select box for Pancake member
     const hasPancakeMembers = _activeRosterPageMembers.length > 0;
-    const isManualMode = sa.pancake_staff_id && !_activeRosterPageMembers.some(m => String(m.id) === String(sa.pancake_staff_id));
+    const isManualMode = sa.pancake_staff_id && !_activeRosterPageMembers.some(m => String(m.id) === String(sa.pancake_staff_id) || String(m.fb_id) === String(sa.pancake_staff_id));
 
     const hasPancakeTags = _activeRosterPageTags.length > 0;
     const isTagManualMode = sa.pancake_tag_id && !_activeRosterPageTags.some(t => String(t.id) === String(sa.pancake_tag_id));
@@ -625,7 +625,10 @@ function appendRosterRow(sa = {}, idx = null) {
             <div style="font-size: 10px; font-weight: 700; color: var(--gray-500); margin-bottom: 2px;">👤 Tài khoản Pancake:</div>
             <select class="form-control staff-pancake-select" onchange="onPancakeSelectChange(this)" style="height: 34px; font-size: 12px; border-radius: 6px; padding: 0 10px; width: 100%;">
                 <option value="">-- Chọn NV Pancake --</option>
-                ${_activeRosterPageMembers.map(m => `<option value="${m.id}" ${String(m.id) === String(sa.pancake_staff_id) ? 'selected' : ''}>${m.name} (${m.id})</option>`).join('')}
+                ${_activeRosterPageMembers.map(m => {
+                    const isSelected = String(m.id) === String(sa.pancake_staff_id) || String(m.fb_id) === String(sa.pancake_staff_id);
+                    return `<option value="${m.id}" ${isSelected ? 'selected' : ''}>${m.name} (${m.id}${m.fb_id ? ' / ' + m.fb_id : ''})</option>`;
+                }).join('')}
                 <option value="manual_input" ${isManualMode || !hasPancakeMembers ? 'selected' : ''}>Nhập ID thủ công...</option>
             </select>
             <input type="text" class="form-control staff-pancake-manual" value="${sa.pancake_staff_id || ''}" placeholder="Nhập ID Pancake..." style="height: 34px; font-size: 12px; border-radius: 6px; display: ${isManualMode || !hasPancakeMembers ? 'block' : 'none'}; width: 100%;">

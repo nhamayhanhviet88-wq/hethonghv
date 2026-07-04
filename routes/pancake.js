@@ -290,10 +290,9 @@ async function pancakeRoutes(fastify, options) {
                 // Call Pancake API to assign member and tag
                 const tokenToUse = page.page_access_token || config.pancake_token;
                 if (tokenToUse && conversationId) {
-                    const fetch = require('node-fetch');
                     if (assignedPancakeStaffId) {
                         try {
-                            const assignUrl = `https://pages.fm/api/v1/pages/${pageId}/conversations/${conversationId}/assign?access_token=${tokenToUse}`;
+                            const assignUrl = `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${conversationId}/assign?access_token=${tokenToUse}`;
                             const assignRes = await fetch(assignUrl, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -308,7 +307,7 @@ async function pancakeRoutes(fastify, options) {
 
                     if (assignedPancakeTagId) {
                         try {
-                            const tagUrl = `https://pages.fm/api/v1/pages/${pageId}/conversations/${conversationId}/tags?access_token=${tokenToUse}`;
+                            const tagUrl = `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${conversationId}/tags?access_token=${tokenToUse}`;
                             const tagRes = await fetch(tagUrl, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -324,7 +323,7 @@ async function pancakeRoutes(fastify, options) {
                             console.error('[Pancake Webhook] Pancake API tag error:', e.message);
                         }
                     }
-                }        }
+                }
 
                 // Notify Telegram to the staff member
                 const staffChatIdRow = await db.get(
@@ -441,13 +440,17 @@ async function pancakeRoutes(fastify, options) {
         }
 
         try {
-            const fetch = require('node-fetch');
-            const res = await fetch(`https://pages.fm/api/v1/pages/${pageId}/members?access_token=${token}`);
+            const res = await fetch(`https://pages.fm/api/public_api/v1/pages/${pageId}/users?access_token=${token}`);
             const data = await res.json();
-            if (data.error) {
-                return reply.code(400).send({ error: data.error.message || 'Lỗi từ Pancake API' });
+            if (data.error || data.success === false) {
+                return reply.code(400).send({ error: data.message || (data.error && data.error.message) || 'Lỗi từ Pancake API' });
             }
-            const members = Array.isArray(data) ? data : (data.members || data.data || []);
+            const rawUsers = data.users || data.data || [];
+            const members = rawUsers.map(u => ({
+                id: u.id,
+                fb_id: u.fb_id,
+                name: u.name
+            }));
             return { members };
         } catch (err) {
             return reply.code(500).send({ error: `Không thể kết nối Pancake API: ${err.message}` });
@@ -480,13 +483,16 @@ async function pancakeRoutes(fastify, options) {
         }
 
         try {
-            const fetch = require('node-fetch');
-            const res = await fetch(`https://pages.fm/api/v1/pages/${pageId}/tags?access_token=${token}`);
+            const res = await fetch(`https://pages.fm/api/public_api/v1/pages/${pageId}/tags?access_token=${token}`);
             const data = await res.json();
-            if (data.error) {
-                return reply.code(400).send({ error: data.error.message || 'Lỗi từ Pancake API' });
+            if (data.error || data.success === false) {
+                return reply.code(400).send({ error: data.message || (data.error && data.error.message) || 'Lỗi từ Pancake API' });
             }
-            const tags = Array.isArray(data) ? data : (data.tags || data.data || []);
+            const rawTags = data.tags || data.data || [];
+            const tags = rawTags.map(t => ({
+                id: t.id,
+                name: t.text || t.name
+            }));
             return { tags };
         } catch (err) {
             return reply.code(500).send({ error: `Không thể kết nối Pancake API: ${err.message}` });
