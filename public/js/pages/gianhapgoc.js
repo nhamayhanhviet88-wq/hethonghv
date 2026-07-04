@@ -2042,7 +2042,7 @@ function _gngOpenHistoryBill(itemType, importId) {
             runDetail();
         } else {
             var s = document.createElement('script');
-            s.src = '/js/pages/billvatlieu.js?v=20260704_debt_layout_v1';
+            s.src = '/js/pages/billvatlieu.js?v=20260704_debt_layout_v2';
             s.onload = runDetail;
             document.head.appendChild(s);
         }

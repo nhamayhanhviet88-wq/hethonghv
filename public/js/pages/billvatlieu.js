@@ -240,7 +240,6 @@ function _bvlRenderSb() {
                 + '<div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">'
                 + '<div style="display:flex;justify-content:space-between;align-items:center">'
                 + '<span class="sn" style="color:' + color + ';font-weight:700;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🏪 ' + s.name + '</span>'
-                + '<span class="sc" style="color:' + color + ';font-size:10px;font-weight:800;margin-left:4px">[' + s.count + ']</span>'
                 + '</div>'
                 + '<div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#64748b">'
                 + '<span>💰 ' + _bvlFM(s.sum_total) + '</span>'
