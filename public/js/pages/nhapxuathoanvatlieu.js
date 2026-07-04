@@ -250,7 +250,7 @@ function _nxhvlRender() {
             if (r.tx_type === 'HOAN') {
                 var num = r.seq_num || r.id;
                 var badgeBg = r.is_canceled ? '#94a3b8' : '#059669';
-                billHoanCode = '<span style="background:' + badgeBg + '; color:#fff; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px; display:inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Bill Hoàn #' + num + '</span>';
+                billHoanCode = '<span style="background:' + badgeBg + '; color:#fff; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px; display:inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Hoàn Vật Liệu #' + num + '</span>';
             }
 
             var postponeDateStr = '—';
@@ -977,7 +977,7 @@ async function _nxhvlOpenViewReturnModal(id) {
         if (ia && ia.length) {
             imgsHTML = `
                 <div style="margin-top:8px;">
-                    <span style="font-weight:700; display:block; margin-bottom:4px; font-size:11px; color:#1e40af;">📸 Ảnh Hóa Đơn / Bill Hoàn:</span>
+                    <span style="font-weight:700; display:block; margin-bottom:4px; font-size:11px; color:#1e40af;">📸 Ảnh Hóa Đơn / Hoàn Vật Liệu:</span>
                     <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         ${ia.map(url => `
                             <a href="${url}" target="_blank">

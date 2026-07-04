@@ -370,7 +370,7 @@ module.exports = async function(fastify) {
                     const matName = await db.get('SELECT name FROM material_items WHERE id = $1', [b.material_item_id]);
                     const caption = `✅ <b>HOÀN VẬT LIỆU THÀNH CÔNG</b>\n` +
                                     `━━━━━━━━━━━━━━━━━\n` +
-                                    `📦 <b>Mã giao dịch:</b> Bill Hoàn #${createdId}\n` +
+                                    `📦 <b>Mã giao dịch:</b> Hoàn Vật Liệu #${createdId}\n` +
                                     `👕 <b>Vật liệu:</b> ${matName?.name || '—'}\n` +
                                     `⚖️ <b>Số lượng:</b> ${qty.toLocaleString('vi-VN')}\n` +
                                     `💰 <b>Thành tiền:</b> ${total.toLocaleString('vi-VN')}đ\n` +
@@ -735,7 +735,7 @@ module.exports = async function(fastify) {
         await client.query(
             `INSERT INTO import_history (import_id, action, details, performed_by, performed_at)
              VALUES ($1, 'create_refund_material', $2, $3, $4)`,
-            [refundRecordId, `Tự động tạo bill hoàn vật liệu từ giao dịch hoàn #${tx.id}`, userId, now]
+            [refundRecordId, `Tự động tạo hoàn vật liệu từ giao dịch hoàn #${tx.id}`, userId, now]
         );
         
         return refundRecordId;
@@ -811,7 +811,7 @@ module.exports = async function(fastify) {
                 const matName = await db.get('SELECT name FROM material_items WHERE id = $1', [tx.material_item_id]);
                 const caption = `🔄 <b>HOÀN VẬT LIỆU (XÁC NHẬN LẦN 1)</b>\n` +
                                 `━━━━━━━━━━━━━━━━━\n` +
-                                `📦 <b>Mã giao dịch:</b> Bill Hoàn #${tx.id}\n` +
+                                `📦 <b>Mã giao dịch:</b> Hoàn Vật Liệu #${tx.id}\n` +
                                 `👕 <b>Vật liệu:</b> ${matName?.name || '—'}\n` +
                                 `⚖️ <b>Số lượng:</b> ${Number(tx.quantity).toLocaleString('vi-VN')}\n` +
                                 `👤 <b>Người thực hiện:</b> ${req.user.full_name}\n` +
@@ -987,7 +987,7 @@ module.exports = async function(fastify) {
                     const matName = await db.get('SELECT name FROM material_items WHERE id = $1', [tx.material_item_id]);
                     const caption = `⚠️ <b>YÊU CẦU DUYỆT SAI LỆCH HOÀN VẬT LIỆU (THỰC TẾ ÍT HƠN)</b>\n` +
                                     `━━━━━━━━━━━━━━━━━\n` +
-                                    `📦 <b>Mã giao dịch:</b> Bill Hoàn #${id}\n` +
+                                    `📦 <b>Mã giao dịch:</b> Hoàn Vật Liệu #${id}\n` +
                                     `👕 <b>Vật liệu:</b> ${matName?.name || '—'}\n` +
                                     `⚖️ <b>Số lượng ban đầu:</b> ${initialQty.toLocaleString('vi-VN')}\n` +
                                     `⚖️ <b>Số lượng thực tế:</b> ${actQty.toLocaleString('vi-VN')}\n` +
@@ -1069,7 +1069,7 @@ module.exports = async function(fastify) {
                 const matName = await db.get('SELECT name FROM material_items WHERE id = $1', [tx.material_item_id]);
                 const caption = `✅ <b>HOÀN VẬT LIỆU THÀNH CÔNG (XÁC NHẬN LẦN 2)</b>\n` +
                                 `━━━━━━━━━━━━━━━━━\n` +
-                                `📦 <b>Mã giao dịch:</b> Bill Hoàn #${tx.id}\n` +
+                                `📦 <b>Mã giao dịch:</b> Hoàn Vật Liệu #${tx.id}\n` +
                                 `👕 <b>Vật liệu:</b> ${matName?.name || '—'}\n` +
                                 `⚖️ <b>Số lượng chốt:</b> ${actQty.toLocaleString('vi-VN')} (Ban đầu: ${initialQty.toLocaleString('vi-VN')})\n` +
                                 `💰 <b>Thành tiền:</b> ${totalAmount.toLocaleString('vi-VN')}đ\n` +
@@ -1184,7 +1184,7 @@ module.exports = async function(fastify) {
 
                 const caption = `✅ <b>QUẢN LÝ DUYỆT SAI LỆCH HOÀN VẬT LIỆU THÀNH CÔNG</b>\n` +
                                 `━━━━━━━━━━━━━━━━━\n` +
-                                `📦 <b>Mã giao dịch:</b> Bill Hoàn #${tx.id}\n` +
+                                `📦 <b>Mã giao dịch:</b> Hoàn Vật Liệu #${tx.id}\n` +
                                 `👕 <b>Vật liệu:</b> ${matName?.name || '—'}\n` +
                                 `⚖️ <b>Số lượng thực tế chốt:</b> ${actQty.toLocaleString('vi-VN')} (Ban đầu: ${Number(tx.quantity).toLocaleString('vi-VN')})\n` +
                                 `📊 <b>Sai lệch hao hụt:</b> ${qtyDiff.toFixed(2)}\n` +
