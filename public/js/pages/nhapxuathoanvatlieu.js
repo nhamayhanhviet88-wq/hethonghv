@@ -38,7 +38,7 @@ function renderNhapxuathoanvatlieuPage(content) {
         document.head.appendChild(st);
     }
     
-    var createBtnHtml = '<button id="btnNxhvlCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="openCreateReturnModal()">🔄 Tạo Hoàn Vật Liệu</button>';
+    var createBtnHtml = '<button id="btnNxhvlCreateReturn" class="btn btn-primary" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:#059669;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="_nxhvlOpenCreateReturnModal()">🔄 Tạo Hoàn Vật Liệu</button>';
 
     content.innerHTML = '<div class="nxhvl-wrap"><div class="nxhvl-sb" id="nxhvlSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="nxhvl-main">'
         + '<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="nxhvlInfo" style="font-size:12px"></div><div id="nxhvlStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div>' + createBtnHtml + '<input id="nxhvlSearch" placeholder="🔍 Tìm vật liệu / nguồn / bill..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:220px;outline:none" value="' + (_nxhvl.search || '') + '"></div>'
@@ -208,7 +208,7 @@ function _nxhvlRender() {
             var cl = _nxhvlCL[r.tx_type] || '#0891b2';
             var debt = Number(r.debt) || 0; var dB = debt > 0 ? '<span class="nxhvl-debt red">🔴 ' + _nxhvlFN(debt) + '</span>' : '<span class="nxhvl-debt green">✅ 0</span>';
             var upd = ''; if (r.last_update_at) { upd = _nxhvlFD(r.last_update_at); if (r.last_update_by) upd += '<br><span style="color:#0891b2;font-size:9px">' + r.last_update_by + '</span>'; }
-            var clickHandler = r.tx_type === 'HOAN' ? ' style="cursor:pointer" onclick="if(event.target.tagName !== \'BUTTON\' && !event.target.closest(\'button\')) openViewReturnModal(' + r.id + ')"' : '';
+            var clickHandler = r.tx_type === 'HOAN' ? ' style="cursor:pointer" onclick="if(event.target.tagName !== \'BUTTON\' && !event.target.closest(\'button\')) _nxhvlOpenViewReturnModal(' + r.id + ')"' : '';
             var rowStyle = r.is_canceled ? ' style="opacity: 0.65; background-color: #f1f5f9;"' : '';
             var btnHTML = '';
             if (r.is_canceled) {
@@ -217,9 +217,9 @@ function _nxhvlRender() {
                 if (r.tx_type === 'HOAN') {
                     var buttonsWrap = '';
                     if (!r.is_approved_1) {
-                        buttonsWrap = '<button class="nxhvl-ib" onclick="event.stopPropagation(); openConfirm1Modal(' + r.id + ')" title="Xác nhận lần 1 (Đã bàn giao NCC)">⬜</button>';
+                        buttonsWrap = '<button class="nxhvl-ib" onclick="event.stopPropagation(); _nxhvlOpenConfirm1Modal(' + r.id + ')" title="Xác nhận lần 1 (Đã bàn giao NCC)">⬜</button>';
                     } else if (!r.is_approved) {
-                        buttonsWrap = '<button class="nxhvl-ib" style="background:#eab308; border-color:#eab308; color:#fff;" onclick="event.stopPropagation(); openConfirm2Modal(' + r.id + ')" title="Xác nhận lần 2 (Kế toán đối chiếu thực tế)">🟨</button>';
+                        buttonsWrap = '<button class="nxhvl-ib" style="background:#eab308; border-color:#eab308; color:#fff;" onclick="event.stopPropagation(); _nxhvlOpenConfirm2Modal(' + r.id + ')" title="Xác nhận lần 2 (Kế toán đối chiếu thực tế)">🟨</button>';
                     } else {
                         buttonsWrap = '<span style="font-size:16px; color:#10b981;" title="Đã hoàn tất xác nhận 2 bước">✅</span>';
                     }
@@ -228,7 +228,7 @@ function _nxhvlRender() {
                         var pEmoji = r.is_postponed ? '⏳' : '📅';
                         var pClass = r.is_postponed ? ' postpone on' : ' postpone';
                         var pTitle = r.is_postponed ? 'Đã lùi lịch hoàn vật liệu (Xem chi tiết/Hủy)' : 'Lùi lịch hoàn vật liệu';
-                        buttonsWrap += '<button class="nxhvl-ib' + pClass + '" style="margin-left:5px" onclick="event.stopPropagation(); openPostponeModal(' + r.id + ')" title="' + pTitle + '">' + pEmoji + '</button>';
+                        buttonsWrap += '<button class="nxhvl-ib' + pClass + '" style="margin-left:5px" onclick="event.stopPropagation(); _nxhvlOpenPostponeModal(' + r.id + ')" title="' + pTitle + '">' + pEmoji + '</button>';
                     }
 
                     btnHTML = '<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;">' +
@@ -237,7 +237,7 @@ function _nxhvlRender() {
                     if (r.is_approved_1 && !r.is_approved && r.needs_discrepancy_approval) {
                         btnHTML += '<span style="color:#d97706;font-size:9.5px;font-weight:700;display:block;white-space:normal;line-height:1.2;max-width:140px;text-align:center;">⚠️ Chờ QL duyệt sai lệch</span>';
                         if (isGdOrTrinhFront()) {
-                            btnHTML += '<button class="nxhvl-ib" style="background:#10b981; border-color:#10b981; color:#fff; padding:3px 8px; font-size:10px; font-weight:700; border-radius:4px; height:auto; width:auto; line-height:1.2; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); approveDiscrepancy(' + r.id + ')" title="Duyệt sai lệch số lượng">🔔 Duyệt</button>';
+                            btnHTML += '<button class="nxhvl-ib" style="background:#10b981; border-color:#10b981; color:#fff; padding:3px 8px; font-size:10px; font-weight:700; border-radius:4px; height:auto; width:auto; line-height:1.2; display:inline-flex; align-items:center; gap:2px;" onclick="event.stopPropagation(); _nxhvlApproveDiscrepancy(' + r.id + ')" title="Duyệt sai lệch số lượng">🔔 Duyệt</button>';
                         }
                     }
                     btnHTML += '</div>';
@@ -348,20 +348,20 @@ async function _nxhvlTog(id, action) {
 }
 
 // ========== CREATE MATERIAL RETURN (HOÀN VẬT LIỆU) MODAL ==========
-var _retImportItems = [];
-var _retFilteredItems = [];
-var _retUniqueSources = [];
+var _nxhvl_retImportItems = [];
+var _nxhvl_retFilteredItems = [];
+var _nxhvl_retUniqueSources = [];
 
-async function openCreateReturnModal() {
+async function _nxhvlOpenCreateReturnModal() {
     showToast('Đang tải dữ liệu nhập vật liệu...', 'info');
 
-    _retSelectedItems = [];
-    if (_postponePasteHandler) {
-        document.removeEventListener('paste', _postponePasteHandler);
-        _postponePasteHandler = null;
+    _nxhvl_retSelectedItems = [];
+    if (_nxhvl_postponePasteHandler) {
+        document.removeEventListener('paste', _nxhvl_postponePasteHandler);
+        _nxhvl_postponePasteHandler = null;
     }
-    _postponeImageBlob = null;
-    _postponeHolidays = [];
+    _nxhvl_postponeImageBlob = null;
+    _nxhvl_postponeHolidays = [];
 
     try {
         var [impRes, holidayRes] = await Promise.all([
@@ -369,17 +369,17 @@ async function openCreateReturnModal() {
             apiCall('/api/penalty/holidays')
         ]);
         
-        _retImportItems = impRes.items || [];
-        _postponeHolidays = holidayRes.holidays || [];
+        _nxhvl_retImportItems = impRes.items || [];
+        _nxhvl_postponeHolidays = holidayRes.holidays || [];
 
         // Group unique sources
         var srcMap = {};
-        _retImportItems.forEach(function(item) {
+        _nxhvl_retImportItems.forEach(function(item) {
             if (item.source_id && item.source_name) {
                 srcMap[item.source_id] = item.source_name;
             }
         });
-        _retUniqueSources = Object.keys(srcMap).map(function(id) {
+        _nxhvl_retUniqueSources = Object.keys(srcMap).map(function(id) {
             return { id: Number(id), name: srcMap[id] };
         }).sort((a,b) => a.name.localeCompare(b.name));
 
@@ -392,15 +392,15 @@ async function openCreateReturnModal() {
                         
                         <div style="margin-bottom:10px;">
                             <label style="font-weight:700; display:block; margin-bottom:4px;">1. Chọn Nhà Cung Cấp:</label>
-                            <select id="nxhvl_m_source_select" class="form-control" onchange="onSourceChanged(this.value)" style="width:100%; font-size:12px; padding:6px 10px;">
+                            <select id="nxhvl_m_source_select" class="form-control" onchange="_nxhvlOnSourceChanged(this.value)" style="width:100%; font-size:12px; padding:6px 10px;">
                                 <option value="">— Chọn Nhà Cung Cấp —</option>
-                                ${_retUniqueSources.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                                ${_nxhvl_retUniqueSources.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
                             </select>
                         </div>
 
                         <div style="margin-bottom:10px;">
                             <label style="font-weight:700; display:block; margin-bottom:4px;">2. Tìm nhanh Vật Liệu đã nhập:</label>
-                            <input type="text" id="nxhvl_m_search_items" class="form-control" placeholder="Tìm tên vật liệu, mã bill..." style="width:100%; font-size:12px; padding:6px 10px;" oninput="onSearchImportItems(this.value)" disabled />
+                            <input type="text" id="nxhvl_m_search_items" class="form-control" placeholder="Tìm tên vật liệu, mã bill..." style="width:100%; font-size:12px; padding:6px 10px;" oninput="_nxhvlOnSearchImportItems(this.value)" disabled />
                         </div>
 
                         <label style="font-weight:700; display:block; margin-bottom:4px;">3. Chọn một mặt hàng cụ thể dưới đây:</label>
@@ -447,7 +447,7 @@ async function openCreateReturnModal() {
                                 </div>
                                 <div id="postponeImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">
                                     <img id="postponeImagePreview" style="max-height:120px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; object-fit:contain;" />
-                                    <button id="btnPostponeClearImg" type="button" class="btn" style="position:absolute; top:2px; right:2px; padding:1px 6px; font-size:9px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer;" onclick="event.stopPropagation(); clearPostponeImage()">❌ Xóa</button>
+                                    <button id="btnPostponeClearImg" type="button" class="btn" style="position:absolute; top:2px; right:2px; padding:1px 6px; font-size:9px; background:#ef4444; border:none; color:#fff; border-radius:4px; cursor:pointer;" onclick="event.stopPropagation(); _nxhvlClearPostponeImage()">❌ Xóa</button>
                                 </div>
                             </div>
                             
@@ -475,7 +475,7 @@ async function openCreateReturnModal() {
 
         var footerHTML = `
             <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-            <button class="btn btn-primary" id="nxhvl_m_submit" style="background:#059669; border:none; color:#fff;" onclick="submitCreateReturn()" disabled>🔄 Tạo Hoàn Vật Liệu</button>
+            <button class="btn btn-primary" id="nxhvl_m_submit" style="background:#059669; border:none; color:#fff;" onclick="_nxhvlSubmitCreateReturn()" disabled>🔄 Tạo Hoàn Vật Liệu</button>
         `;
 
         openModal('🔄 Tạo Giao Dịch Hoàn Vật Liệu', bodyHTML, footerHTML);
@@ -487,7 +487,7 @@ async function openCreateReturnModal() {
         }
 
         // Add Paste handler
-        _postponePasteHandler = function (e) {
+        _nxhvl_postponePasteHandler = function (e) {
             var items = (e.clipboardData || e.originalEvent.clipboardData).items;
             var imageItem = null;
             for (var i = 0; i < items.length; i++) {
@@ -498,27 +498,27 @@ async function openCreateReturnModal() {
             }
             if (imageItem) {
                 var blob = imageItem.getAsFile();
-                processAndPreviewPostponeImage(blob);
+                _nxhvlProcessAndPreviewPostponeImage(blob);
             }
         };
         var pasteArea = document.getElementById('postponePasteArea');
         if (pasteArea) {
-            pasteArea.addEventListener('paste', _postponePasteHandler);
+            pasteArea.addEventListener('paste', _nxhvl_postponePasteHandler);
         }
 
-        initCustomCalendar(14, _postponeHolidays); // Let them reschedule up to 14 days ahead
+        _nxhvlInitCustomCalendar(14, _nxhvl_postponeHolidays); // Let them reschedule up to 14 days ahead
 
     } catch (e) {
         showToast('Lỗi: ' + e.message, 'error');
     }
 }
 
-function onSourceChanged(val) {
+function _nxhvlOnSourceChanged(val) {
     var searchInput = document.getElementById('nxhvl_m_search_items');
     
     // Clear selected items when supplier changes
-    if (_retSelectedItems.length > 0) {
-        _retSelectedItems = [];
+    if (_nxhvl_retSelectedItems.length > 0) {
+        _nxhvl_retSelectedItems = [];
         showToast('Đã đổi Nhà cung cấp, danh sách vật liệu hoàn trả được làm mới.', 'info');
         renderSelectedItemsList();
     }
@@ -541,30 +541,30 @@ function onSourceChanged(val) {
     renderImportItemsList();
 }
 
-function onSearchImportItems(val) {
+function _nxhvlOnSearchImportItems(val) {
     var searchVal = val.toLowerCase().trim();
     var sourceId = document.getElementById('nxhvl_m_source_select').value;
-    _retFilteredItems = _retImportItems.filter(function(item) {
+    _nxhvl_retFilteredItems = _nxhvl_retImportItems.filter(function(item) {
         var matchesSrc = Number(item.source_id) === Number(sourceId);
         if (!matchesSrc) return false;
         if (!searchVal) return true;
         return (item.material_item_name || '').toLowerCase().indexOf(searchVal) >= 0 ||
                (item.fabric_import_code || '').toLowerCase().indexOf(searchVal) >= 0;
     });
-    renderImportItemsList();
+    _nxhvlRenderImportItemsList();
 }
 
-function renderImportItemsList() {
+function _nxhvlRenderImportItemsList() {
     var container = document.getElementById('nxhvl_m_items_container');
     if (!container) return;
-    if (!_retFilteredItems.length) {
+    if (!_nxhvl_retFilteredItems.length) {
         container.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px; font-size:11px;">Không tìm thấy vật liệu nào đã nhập</div>';
         return;
     }
-    container.innerHTML = _retFilteredItems.map(function(item, idx) {
+    container.innerHTML = _nxhvl_retFilteredItems.map(function(item, idx) {
         var dateStr = _nxhvlFD(item.import_date);
         return `
-            <div class="import-item-row" style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:6px 10px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:all 0.15s;" onclick="selectImportItem(${item.import_record_id}, ${item.material_item_id}, '${escapeHtml(item.material_item_name)}', ${item.quantity}, ${item.price}, '${escapeHtml(item.unit || '')}', '${escapeHtml(item.fabric_import_code || '')}')">
+            <div class="import-item-row" style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:6px 10px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:all 0.15s;" onclick="_nxhvlSelectImportItem(${item.import_record_id}, ${item.material_item_id}, '${_nxhvlEscapeHtml(item.material_item_name)}', ${item.quantity}, ${item.price}, '${_nxhvlEscapeHtml(item.unit || '')}', '${_nxhvlEscapeHtml(item.fabric_import_code || '')}')">
                 <div>
                     <strong style="color:#0f766e; font-size:12px;">${item.material_item_name}</strong>
                     <div style="font-size:10px; color:#64748b; margin-top:2px;">Bill: <b>${item.fabric_import_code || '—'}</b> - Ngày: <b>${dateStr}</b></div>
@@ -578,8 +578,8 @@ function renderImportItemsList() {
     }).join('');
 }
 
-function selectImportItem(importId, itemId, name, quantity, price, unit, code) {
-    var exists = _retSelectedItems.some(function(it) {
+function _nxhvlSelectImportItem(importId, itemId, name, quantity, price, unit, code) {
+    var exists = _nxhvl_retSelectedItems.some(function(it) {
         return Number(it.import_record_id) === Number(importId) && Number(it.material_item_id) === Number(itemId);
     });
     if (exists) {
@@ -595,7 +595,7 @@ function selectImportItem(importId, itemId, name, quantity, price, unit, code) {
     document.getElementById('nxhvl_m_quantity').value = quantity;
     document.getElementById('nxhvl_m_price').value = price;
 
-    _retSelectedItems.push({
+    _nxhvl_retSelectedItems.push({
         import_record_id: Number(importId),
         material_item_id: Number(itemId),
         material_name: name,
@@ -607,41 +607,41 @@ function selectImportItem(importId, itemId, name, quantity, price, unit, code) {
     });
 
     showToast('Đã thêm: ' + name, 'success');
-    renderSelectedItemsList();
+    _nxhvlRenderSelectedItemsList();
 }
 
-function removeSelectedRetItem(idx) {
-    _retSelectedItems.splice(idx, 1);
-    renderSelectedItemsList();
+function _nxhvlRemoveSelectedRetItem(idx) {
+    _nxhvl_retSelectedItems.splice(idx, 1);
+    _nxhvlRenderSelectedItemsList();
 }
 
-function updateRetItemQty(idx, val) {
-    _retSelectedItems[idx].quantity = Number(val) || 0;
-    updateFinValues();
+function _nxhvlUpdateRetItemQty(idx, val) {
+    _nxhvl_retSelectedItems[idx].quantity = Number(val) || 0;
+    _nxhvlUpdateFinValues();
     // Render only the totals rather than full refresh to avoid losing cursor focus
     var rowTotalEl = document.querySelectorAll('.selected-ret-item-row')[idx]?.querySelector('strong[style*="color:#b91c1c"]');
     if (rowTotalEl) {
-        rowTotalEl.textContent = _nxhvlFN(_retSelectedItems[idx].quantity * _retSelectedItems[idx].price) + 'đ';
+        rowTotalEl.textContent = _nxhvlFN(_nxhvl_retSelectedItems[idx].quantity * _nxhvl_retSelectedItems[idx].price) + 'đ';
     }
 }
 
-function updateRetItemPrice(idx, val) {
-    _retSelectedItems[idx].price = Number(val) || 0;
-    updateFinValues();
+function _nxhvlUpdateRetItemPrice(idx, val) {
+    _nxhvl_retSelectedItems[idx].price = Number(val) || 0;
+    _nxhvlUpdateFinValues();
     var rowTotalEl = document.querySelectorAll('.selected-ret-item-row')[idx]?.querySelector('strong[style*="color:#b91c1c"]');
     if (rowTotalEl) {
-        rowTotalEl.textContent = _nxhvlFN(_retSelectedItems[idx].quantity * _retSelectedItems[idx].price) + 'đ';
+        rowTotalEl.textContent = _nxhvlFN(_nxhvl_retSelectedItems[idx].quantity * _nxhvl_retSelectedItems[idx].price) + 'đ';
     }
 }
 
-function renderSelectedItemsList() {
+function _nxhvlRenderSelectedItemsList() {
     var container = document.getElementById('nxhvl_selected_items_list');
     if (!container) return;
 
-    if (_retSelectedItems.length === 0) {
+    if (_nxhvl_retSelectedItems.length === 0) {
         container.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:30px 10px; font-weight:600; font-size:11px;">⚠️ Chưa chọn mặt hàng nào cần hoàn trả...</div>';
         document.getElementById('nxhvl_m_submit').disabled = true;
-        updateFinValues();
+        _nxhvlUpdateFinValues();
         return;
     }
 
@@ -649,24 +649,24 @@ function renderSelectedItemsList() {
     var priceReadonlyAttr = isGDOrTrinh ? '' : 'readonly';
     var priceBgStyle = isGDOrTrinh ? 'background:#fff;' : 'background:#f1f5f9; cursor:not-allowed;';
 
-    container.innerHTML = _retSelectedItems.map(function(item, idx) {
+    container.innerHTML = _nxhvl_retSelectedItems.map(function(item, idx) {
         return `
             <div class="selected-ret-item-row" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <div>
-                        <strong style="color:#0f766e; font-size:11px;">${escapeHtml(item.material_name)}</strong>
+                        <strong style="color:#0f766e; font-size:11px;">${_nxhvlEscapeHtml(item.material_name)}</strong>
                         <div style="font-size:10px; color:#64748b; margin-top:2px;">Bill gốc: #${item.original_import_code} (SL gốc: ${_nxhvlFN(item.orig_qty)} ${item.unit})</div>
                     </div>
-                    <button type="button" class="btn" style="padding:1px 5px; font-size:9px; background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:4px; cursor:pointer;" onclick="removeSelectedRetItem(${idx})">❌ Xóa</button>
+                    <button type="button" class="btn" style="padding:1px 5px; font-size:9px; background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:4px; cursor:pointer;" onclick="_nxhvlRemoveSelectedRetItem(${idx})">❌ Xóa</button>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; align-items:center;">
                     <div>
                         <label style="font-weight:700; font-size:9.5px; color:#b45309; display:block; margin-bottom:2px;">SL hoàn:</label>
-                        <input type="number" value="${item.quantity}" class="form-control" style="padding:4px; font-size:11px; font-weight:700; height:24px; border-color:#d97706;" min="0.01" step="any" oninput="updateRetItemQty(${idx}, this.value)" />
+                        <input type="number" value="${item.quantity}" class="form-control" style="padding:4px; font-size:11px; font-weight:700; height:24px; border-color:#d97706;" min="0.01" step="any" oninput="_nxhvlUpdateRetItemQty(${idx}, this.value)" />
                     </div>
                     <div>
                         <label style="font-weight:700; font-size:9.5px; color:#475569; display:block; margin-bottom:2px;">Đơn giá:</label>
-                        <input type="number" value="${item.price}" ${priceReadonlyAttr} class="form-control" style="padding:4px; font-size:11px; font-weight:700; height:24px; ${priceBgStyle}" oninput="updateRetItemPrice(${idx}, this.value)" />
+                        <input type="number" value="${item.price}" ${priceReadonlyAttr} class="form-control" style="padding:4px; font-size:11px; font-weight:700; height:24px; ${priceBgStyle}" oninput="_nxhvlUpdateRetItemPrice(${idx}, this.value)" />
                     </div>
                     <div style="text-align:right;">
                         <label style="font-weight:700; font-size:9.5px; color:#475569; display:block; margin-bottom:2px;">Thành tiền:</label>
@@ -678,18 +678,18 @@ function renderSelectedItemsList() {
     }).join('');
 
     document.getElementById('nxhvl_m_submit').disabled = false;
-    updateFinValues();
+    _nxhvlUpdateFinValues();
 }
 
-function updateFinValues() {
-    var total = _retSelectedItems.reduce(function(sum, item) {
+function _nxhvlUpdateFinValues() {
+    var total = _nxhvl_retSelectedItems.reduce(function(sum, item) {
         return sum + (item.quantity * item.price);
     }, 0);
     var el = document.getElementById('nxhvl_m_total_val');
     if (el) el.textContent = _nxhvlFN(total) + '₫';
 }
 
-function escapeHtml(text) {
+function _nxhvlEscapeHtml(text) {
     if (!text) return '';
     return text
         .replace(/&/g, "&amp;")
@@ -700,15 +700,15 @@ function escapeHtml(text) {
 }
 
 // Custom calendar logic
-var _calCurrentYear = new Date().getFullYear();
-var _calCurrentMonth = new Date().getMonth();
-var _calSelectedDate = '';
-var _calAllowedDates = [];
-var _postponeHolidays = [];
-var _postponeImageBlob = null;
-var _postponePasteHandler = null;
+var _nxhvlCalCurrentYear = new Date().getFullYear();
+var _nxhvlCalCurrentMonth = new Date().getMonth();
+var _nxhvlCalSelectedDate = '';
+var _nxhvlCalAllowedDates = [];
+var _nxhvl_postponeHolidays = [];
+var _nxhvl_postponeImageBlob = null;
+var _nxhvl_postponePasteHandler = null;
 
-function getAllowedPostponeDates(maxDays, holidays) {
+function _nxhvlGetAllowedPostponeDates(maxDays, holidays) {
     var list = [];
     var current = new Date();
     current.setHours(0,0,0,0);
@@ -735,13 +735,13 @@ function getAllowedPostponeDates(maxDays, holidays) {
     return list;
 }
 
-function initCustomCalendar(maxDays, holidays) {
-    _calAllowedDates = getAllowedPostponeDates(maxDays, holidays);
+function _nxhvlInitCustomCalendar(maxDays, holidays) {
+    _nxhvlCalAllowedDates = _nxhvlGetAllowedPostponeDates(maxDays, holidays);
     var now = new Date();
-    _calCurrentYear = now.getFullYear();
-    _calCurrentMonth = now.getMonth();
-    _calSelectedDate = '';
-    renderCustomCalendar();
+    _nxhvlCalCurrentYear = now.getFullYear();
+    _nxhvlCalCurrentMonth = now.getMonth();
+    _nxhvlCalSelectedDate = '';
+    _nxhvlRenderCustomCalendar();
 
     setTimeout(function() {
         var prevBtn = document.getElementById('calPrevMonth');
@@ -749,33 +749,33 @@ function initCustomCalendar(maxDays, holidays) {
         if (prevBtn) {
             prevBtn.onclick = function(e) {
                 e.preventDefault(); e.stopPropagation();
-                if (_calCurrentMonth === 0) { _calCurrentMonth = 11; _calCurrentYear--; } else { _calCurrentMonth--; }
-                renderCustomCalendar();
+                if (_nxhvlCalCurrentMonth === 0) { _nxhvlCalCurrentYear--; _nxhvlCalCurrentMonth = 11; } else { _nxhvlCalCurrentMonth--; }
+                _nxhvlRenderCustomCalendar();
             };
         }
         if (nextBtn) {
             nextBtn.onclick = function(e) {
                 e.preventDefault(); e.stopPropagation();
-                if (_calCurrentMonth === 11) { _calCurrentMonth = 0; _calCurrentYear++; } else { _calCurrentMonth++; }
-                renderCustomCalendar();
+                if (_nxhvlCalCurrentMonth === 11) { _nxhvlCalCurrentYear++; _nxhvlCalCurrentMonth = 0; } else { _nxhvlCalCurrentMonth++; }
+                _nxhvlRenderCustomCalendar();
             };
         }
     }, 50);
 }
 
-function renderCustomCalendar() {
+function _nxhvlRenderCustomCalendar() {
     var monthYearText = document.getElementById('calMonthYear');
     if (monthYearText) {
-        monthYearText.textContent = 'Tháng ' + (_calCurrentMonth + 1) + ' / ' + _calCurrentYear;
+        monthYearText.textContent = 'Tháng ' + (_nxhvlCalCurrentMonth + 1) + ' / ' + _nxhvlCalCurrentYear;
     }
     
     var grid = document.getElementById('calDaysGrid');
     if (!grid) return;
     grid.innerHTML = '';
     
-    var firstDay = new Date(_calCurrentYear, _calCurrentMonth, 1);
+    var firstDay = new Date(_nxhvlCalCurrentYear, _nxhvlCalCurrentMonth, 1);
     var startOffset = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-    var totalDays = new Date(_calCurrentYear, _calCurrentMonth + 1, 0).getDate();
+    var totalDays = new Date(_nxhvlCalCurrentYear, _nxhvlCalCurrentMonth + 1, 0).getDate();
     
     for (var i = 0; i < startOffset; i++) {
         var blank = document.createElement('div');
@@ -793,9 +793,9 @@ function renderCustomCalendar() {
         dayDiv.style.fontSize = '11px';
         dayDiv.style.transition = 'all 0.15s ease';
         
-        var dateStr = _calCurrentYear + '-' + String(_calCurrentMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-        var allowedInfo = _calAllowedDates.find(function(item) { return item.dateStr === dateStr; });
-        var dateObj = new Date(_calCurrentYear, _calCurrentMonth, day);
+        var dateStr = _nxhvlCalCurrentYear + '-' + String(_nxhvlCalCurrentMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+        var allowedInfo = _nxhvlCalAllowedDates.find(function(item) { return item.dateStr === dateStr; });
+        var dateObj = new Date(_nxhvlCalCurrentYear, _nxhvlCalCurrentMonth, day);
         var isSunday = dateObj.getDay() === 0;
         
         dayDiv.textContent = day;
@@ -823,13 +823,13 @@ function renderCustomCalendar() {
             (function(dStr) {
                 dayDiv.onclick = function(e) {
                     e.preventDefault(); e.stopPropagation();
-                    _calSelectedDate = dStr;
+                    _nxhvlCalSelectedDate = dStr;
                     document.getElementById('postponeDate').value = dStr;
-                    renderCustomCalendar();
+                    _nxhvlRenderCustomCalendar();
                 };
             })(dateStr);
             
-            if (_calSelectedDate === dateStr) {
+            if (_nxhvlCalSelectedDate === dateStr) {
                 dayDiv.style.background = '#059669';
                 dayDiv.style.color = '#fff';
                 dayDiv.style.borderColor = '#059669';
@@ -850,7 +850,7 @@ function renderCustomCalendar() {
     }
 }
 
-function processAndPreviewPostponeImage(file) {
+function _nxhvlProcessAndPreviewPostponeImage(file) {
     var reader = new FileReader();
     reader.onload = function(event) {
         var img = new Image();
@@ -869,7 +869,7 @@ function processAndPreviewPostponeImage(file) {
             ctx.drawImage(img, 0, 0, width, height);
             
             canvas.toBlob(function(blob) {
-                _postponeImageBlob = blob;
+                _nxhvl_postponeImageBlob = blob;
                 var previewUrl = URL.createObjectURL(blob);
                 var imgEl = document.getElementById('postponeImagePreview');
                 var placeholderEl = document.getElementById('postponePastePlaceholder');
@@ -888,8 +888,8 @@ function processAndPreviewPostponeImage(file) {
     reader.readAsDataURL(file);
 }
 
-function clearPostponeImage() {
-    _postponeImageBlob = null;
+function _nxhvlClearPostponeImage() {
+    _nxhvl_postponeImageBlob = null;
     var imgEl = document.getElementById('postponeImagePreview');
     var placeholderEl = document.getElementById('postponePastePlaceholder');
     var wrapEl = document.getElementById('postponeImgPreviewWrap');
@@ -900,16 +900,16 @@ function clearPostponeImage() {
     if (pasteArea) pasteArea.style.borderColor = '#cbd5e1';
 }
 
-async function submitCreateReturn() {
-    if (_retSelectedItems.length === 0) {
+async function _nxhvlSubmitCreateReturn() {
+    if (_nxhvl_retSelectedItems.length === 0) {
         showToast('Vui lòng chọn ít nhất một mặt hàng cần hoàn trả.', 'error');
         return;
     }
     
     // Validate quantities
-    for (var i = 0; i < _retSelectedItems.length; i++) {
-        if (_retSelectedItems[i].quantity <= 0) {
-            showToast('Số lượng hoàn trả của ' + _retSelectedItems[i].material_name + ' phải lớn hơn 0.', 'error');
+    for (var i = 0; i < _nxhvl_retSelectedItems.length; i++) {
+        if (_nxhvl_retSelectedItems[i].quantity <= 0) {
+            showToast('Số lượng hoàn trả của ' + _nxhvl_retSelectedItems[i].material_name + ' phải lớn hơn 0.', 'error');
             return;
         }
     }
@@ -927,10 +927,10 @@ async function submitCreateReturn() {
 
     try {
         var postponeImgUrl = '';
-        if (_postponeImageBlob) {
+        if (_nxhvl_postponeImageBlob) {
             // Upload proof photo
             var fd = new FormData();
-            fd.append('file', _postponeImageBlob, 'proof.webp');
+            fd.append('file', _nxhvl_postponeImageBlob, 'proof.webp');
             var uploadRes = await fetch('/api/materialtx/upload-postpone/0', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
@@ -942,14 +942,14 @@ async function submitCreateReturn() {
             }
         }
 
-        var totalQty = _retSelectedItems.reduce(function(sum, item) { return sum + item.quantity; }, 0);
-        var totalCost = _retSelectedItems.reduce(function(sum, item) { return sum + (item.quantity * item.price); }, 0);
+        var totalQty = _nxhvl_retSelectedItems.reduce(function(sum, item) { return sum + item.quantity; }, 0);
+        var totalCost = _nxhvl_retSelectedItems.reduce(function(sum, item) { return sum + (item.quantity * item.price); }, 0);
         var avgPrice = totalQty > 0 ? (totalCost / totalQty) : 0;
 
         var postData = {
             tx_type: 'HOAN',
-            material_item_id: _retSelectedItems[0].material_item_id,
-            import_record_id: _retSelectedItems[0].import_record_id,
+            material_item_id: _nxhvl_retSelectedItems[0].material_item_id,
+            import_record_id: _nxhvl_retSelectedItems[0].import_record_id,
             quantity: totalQty,
             price: avgPrice,
             notes: notes,
@@ -957,7 +957,7 @@ async function submitCreateReturn() {
             postponed_target_date: targetDate,
             postponed_notes: notes,
             postponed_images: postponeImgUrl ? [postponeImgUrl] : [],
-            material_items: _retSelectedItems
+            material_items: _nxhvl_retSelectedItems
         };
 
         var res = await apiCall('/api/materialtx/records', 'POST', postData);
@@ -976,9 +976,9 @@ async function submitCreateReturn() {
 }
 
 // ========== VIEW / CONFIRM 2-STEP Lifecycles ==========
-var _c2Items = [];
+var _nxhvl_c2Items = [];
 
-async function openViewReturnModal(id) {
+async function _nxhvlOpenViewReturnModal(id) {
     var r = _nxhvl.records.find(item => item.id === id);
     if (!r) {
         showToast('Không tìm thấy giao dịch', 'error');
@@ -1035,7 +1035,7 @@ async function openViewReturnModal(id) {
                                 return '<a href="' + url + '" target="_blank">' +
                                        '<img src="' + url + '" style="width:80px; height:80px; object-fit:cover; border-radius:6px; border:1px solid #fcd34d;" />' +
                                        '</a>';
-                             }).join('') +
+                              }).join('') +
                         '</div>' +
                     '</div>';
                 }
@@ -1092,10 +1092,10 @@ async function openViewReturnModal(id) {
                             ${items.map(function(it) {
                                 return `
                                     <tr style="border-bottom:1px solid #f1f5f9;">
-                                        <td style="padding:6px 8px; font-weight:600; color:#1e293b;">${escapeHtml(it.material_name)}</td>
+                                        <td style="padding:6px 8px; font-weight:600; color:#1e293b;">${_nxhvlEscapeHtml(it.material_name)}</td>
                                         <td style="padding:6px 8px; color:#4f46e5; font-weight:700;">#${it.original_import_code || it.import_record_id}</td>
-                                        <td style="padding:6px 8px; text-align:center; color:#64748b;">${_nxhvlFN(it.orig_qty || it.initial_quantity || it.quantity)} ${escapeHtml(it.unit || '')}</td>
-                                        <td style="padding:6px 8px; text-align:center; font-weight:700; color:#0f766e;">${_nxhvlFN(it.quantity)} ${escapeHtml(it.unit || '')}</td>
+                                        <td style="padding:6px 8px; text-align:center; color:#64748b;">${_nxhvlFN(it.orig_qty || it.initial_quantity || it.quantity)} ${_nxhvlEscapeHtml(it.unit || '')}</td>
+                                        <td style="padding:6px 8px; text-align:center; font-weight:700; color:#0f766e;">${_nxhvlFN(it.quantity)} ${_nxhvlEscapeHtml(it.unit || '')}</td>
                                         <td style="padding:6px 8px; text-align:right; color:#f59e0b; font-weight:600;">${_nxhvlFN(it.price)}đ</td>
                                         <td style="padding:6px 8px; text-align:right; font-weight:700; color:#1e293b;">${_nxhvlFN(it.quantity * it.price)}đ</td>
                                     </tr>
@@ -1111,7 +1111,7 @@ async function openViewReturnModal(id) {
             <div style="display:grid; grid-template-columns:2fr 1fr; gap:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Tên Vật Liệu:</label>
-                    <input type="text" value="${escapeHtml(r.material_name) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                    <input type="text" value="${_nxhvlEscapeHtml(r.material_name) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Hóa Đơn Nhập Gốc:</label>
@@ -1122,7 +1122,7 @@ async function openViewReturnModal(id) {
             <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Số Lượng Đề Xuất:</label>
-                    <input type="text" value="${_nxhvlFN(r.quantity)} ${escapeHtml(r.unit) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                    <input type="text" value="${_nxhvlFN(r.quantity)} ${_nxhvlEscapeHtml(r.unit) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Đơn Giá Hoàn:</label>
@@ -1141,11 +1141,31 @@ async function openViewReturnModal(id) {
             <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Nguồn Vật Liệu:</label>
-                    <input type="text" value="${escapeHtml(r.source_name) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                    <input type="text" value="${_nxhvlEscapeHtml(r.source_name) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Ngày Hẹn Hoàn:</label>
                     <input type="text" value="${r.postponed_target_date || '—'}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                </div>
+                <div>
+                    <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Đề Xuất:</label>
+                    <input type="text" value="${_nxhvlEscapeHtml(r.staff_name) || ''}" class="form-control" readonly style="width:100%; font-size:12px; padding:6px 10px; background:#f1f5f9;" />
+                </div>
+            </div>
+            
+            ${itemsHTML}
+ 
+            <div>
+                <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi Chú Đề Xuất:</label>
+                <textarea class="form-control" readonly style="width:100%; height:36px; font-size:12px; padding:6px 10px; background:#f1f5f9; resize:none;">${_nxhvlEscapeHtml(r.notes) || ''}</textarea>
+            </div>
+            ${confirmHTML}
+        </div>
+    `;
+    
+    var footerHTML = `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`;
+    openModal('🔄 Chi Tiết Giao Dịch Hoàn Vật Liệu', bodyHTML, footerHTML);
+}round:#f1f5f9;" />
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px;">Nhân Viên Đề Xuất:</label>
@@ -1168,8 +1188,8 @@ async function openViewReturnModal(id) {
 }
 
 // Step 1 Confirmation Modal
-function openConfirm1Modal(id) {
-    _postponeImageBlob = null;
+function _nxhvlOpenConfirm1Modal(id) {
+    _nxhvl_postponeImageBlob = null;
     var bodyHTML = `
         <div style="font-size:12px; text-align:left; color:#1e293b;">
             <p style="margin-bottom:12px;">👉 <b>Xác nhận lần 1:</b> Bạn xác nhận đã bàn giao vật liệu hoàn trả cho nhà cung cấp mang đi.</p>
@@ -1190,7 +1210,7 @@ function openConfirm1Modal(id) {
     
     var footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-        <button class="btn btn-primary" id="btnConfirm1Submit" style="background:#1e40af; border:none;" onclick="submitConfirm1(${id})" disabled>✅ Xác Nhận Bàn Giao</button>
+        <button class="btn btn-primary" id="btnConfirm1Submit" style="background:#1e40af; border:none;" onclick="_nxhvlSubmitConfirm1(${id})" disabled>✅ Xác Nhận Bàn Giao</button>
     `;
     
     openModal('⬜ Xác Nhận Lần 1: Bàn Giao Nhà Cung Cấp', bodyHTML, footerHTML);
@@ -1212,7 +1232,7 @@ function openConfirm1Modal(id) {
                             var ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                             canvas.toBlob(function(b) {
-                                _postponeImageBlob = b;
+                                _nxhvl_postponeImageBlob = b;
                                 document.getElementById('c1ImagePreview').src = URL.createObjectURL(b);
                                 document.getElementById('c1PastePlaceholder').style.display = 'none';
                                 document.getElementById('c1ImgPreviewWrap').style.display = 'flex';
@@ -1229,8 +1249,8 @@ function openConfirm1Modal(id) {
     }
 }
 
-async function submitConfirm1(id) {
-    if (!_postponeImageBlob) {
+async function _nxhvlSubmitConfirm1(id) {
+    if (!_nxhvl_postponeImageBlob) {
         showToast('Vui lòng chụp dán ảnh bàn giao', 'error');
         return;
     }
@@ -1239,7 +1259,7 @@ async function submitConfirm1(id) {
 
     try {
         var fd = new FormData();
-        fd.append('file', _postponeImageBlob, 'confirm1.webp');
+        fd.append('file', _nxhvl_postponeImageBlob, 'confirm1.webp');
         var uploadRes = await fetch('/api/materialtx/upload/' + id, {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
@@ -1268,11 +1288,11 @@ async function submitConfirm1(id) {
 }
 
 // Step 2 Confirmation Modal (Kế Toán Chốt)
-function openConfirm2Modal(id) {
+function _nxhvlOpenConfirm2Modal(id) {
     var r = _nxhvl.records.find(item => item.id === id);
     if (!r) return;
 
-    _postponeImageBlob = null;
+    _nxhvl_postponeImageBlob = null;
     
     var items = [];
     if (r.material_items) {
@@ -1280,7 +1300,7 @@ function openConfirm2Modal(id) {
     }
     if (!Array.isArray(items)) items = [];
     
-    _c2Items = items.map(function(it) {
+    _nxhvl_c2Items = items.map(function(it) {
         return {
             material_item_id: Number(it.material_item_id),
             import_record_id: Number(it.import_record_id),
@@ -1294,22 +1314,22 @@ function openConfirm2Modal(id) {
     });
 
     var c2ListHTML = '';
-    if (_c2Items.length > 0) {
+    if (_nxhvl_c2Items.length > 0) {
         c2ListHTML = `
             <div style="border: 1px solid #cbd5e1; border-radius:8px; padding:10px; background:#f8fafc; margin-bottom:12px; max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
-                ${_c2Items.map(function(it, idx) {
+                ${_nxhvl_c2Items.map(function(it, idx) {
                     return `
                         <div class="c2-item-row" style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:8px; display:flex; flex-direction:column; gap:6px;">
                             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                                 <div>
-                                    <strong style="color:#0f766e; font-size:11.5px;">${escapeHtml(it.material_name)}</strong>
+                                    <strong style="color:#0f766e; font-size:11.5px;">${_nxhvlEscapeHtml(it.material_name)}</strong>
                                     <div style="font-size:10px; color:#64748b; margin-top:2px;">Bill gốc: #${it.original_import_code}</div>
                                 </div>
                                 <span style="font-size:10px; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:700;">SL gốc: ${_nxhvlFN(it.initial_quantity)} ${it.unit}</span>
                             </div>
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <label style="font-weight:700; font-size:11px; color:#b45309; white-space:nowrap; margin-bottom:0;">Số lượng thực tế:</label>
-                                <input type="number" value="${it.actual_quantity}" class="form-control" style="font-weight:700; height:26px; font-size:12px; border-color:#d97706; padding:2px 8px; flex:1;" oninput="onC2ItemQtyChanged(${idx}, this.value)" />
+                                <input type="number" value="${it.actual_quantity}" class="form-control" style="font-weight:700; height:26px; font-size:12px; border-color:#d97706; padding:2px 8px; flex:1;" oninput="_nxhvlOnC2ItemQtyChanged(${idx}, this.value)" />
                             </div>
                         </div>
                     `;
@@ -1325,7 +1345,7 @@ function openConfirm2Modal(id) {
                 </div>
                 <div>
                     <label style="font-weight:700; display:block; margin-bottom:4px; color:#b45309;">Số lượng thực tế bàn giao *:</label>
-                    <input type="number" id="c2_actual_quantity" value="${r.actual_quantity !== null && r.actual_quantity !== undefined ? r.actual_quantity : r.quantity}" class="form-control" style="font-weight:700; border-color:#d97706;" oninput="onC2QtyInput(${r.quantity})" />
+                    <input type="number" id="c2_actual_quantity" value="${r.actual_quantity !== null && r.actual_quantity !== undefined ? r.actual_quantity : r.quantity}" class="form-control" style="font-weight:700; border-color:#d97706;" oninput="_nxhvlOnC2QtyInput(${r.quantity})" />
                 </div>
             </div>
         `;
@@ -1336,7 +1356,7 @@ function openConfirm2Modal(id) {
             <p>👉 <b>Xác nhận lần 2 (Kế toán chốt):</b> Nhập số lượng thực tế bàn giao hoàn trả để tính toán khấu trừ công nợ.</p>
             
             ${c2ListHTML}
-
+ 
             <!-- Discrepancy Alert & Upload Photo Zone -->
             <div id="c2_discrepancy_area" style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:10px; margin-bottom:12px; display:none;">
                 <span id="c2_discrepancy_msg" style="color:#d97706; font-weight:700; display:block; margin-bottom:6px;"></span>
@@ -1350,28 +1370,28 @@ function openConfirm2Modal(id) {
                     </div>
                 </div>
             </div>
-
+ 
             <div style="margin-bottom:10px;">
                 <label style="font-weight:700; display:block; margin-bottom:4px;">Ghi chú đối chiếu thực tế:</label>
-                <textarea id="c2_notes" class="form-control" placeholder="Ghi chú thêm về tình trạng hao hụt..." style="width:100%; height:45px; resize:none;">${escapeHtml(r.actual_quantity_notes) || ''}</textarea>
+                <textarea id="c2_notes" class="form-control" placeholder="Ghi chú thêm về tình trạng hao hụt..." style="width:100%; height:45px; resize:none;">${_nxhvlEscapeHtml(r.actual_quantity_notes) || ''}</textarea>
             </div>
         </div>
     `;
-
+ 
     var footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-        <button class="btn btn-primary" id="btnConfirm2Submit" style="background:#d97706; border:none; color:#fff;" onclick="submitConfirm2(${id})">✅ Xác Nhận Lần 2</button>
+        <button class="btn btn-primary" id="btnConfirm2Submit" style="background:#d97706; border:none; color:#fff;" onclick="_nxhvlSubmitConfirm2(${id})">✅ Xác Nhận Lần 2</button>
     `;
-
+ 
     openModal('🟨 Xác Nhận Lần 2: Kế Toán Chốt Số Lượng', bodyHTML, footerHTML);
-
+ 
     // Initial check for discrepancy if there's loaded state
-    if (_c2Items.length > 0) {
-        onC2ItemQtyChanged(0, _c2Items[0].actual_quantity);
+    if (_nxhvl_c2Items.length > 0) {
+        _nxhvlOnC2ItemQtyChanged(0, _nxhvl_c2Items[0].actual_quantity);
     } else {
-        onC2QtyInput(r.quantity);
+        _nxhvlOnC2QtyInput(r.quantity);
     }
-
+ 
     var pasteArea = document.getElementById('confirm2PasteArea');
     if (pasteArea) {
         pasteArea.addEventListener('paste', function(e) {
@@ -1389,7 +1409,7 @@ function openConfirm2Modal(id) {
                             var ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                             canvas.toBlob(function(b) {
-                                _postponeImageBlob = b;
+                                _nxhvl_postponeImageBlob = b;
                                 document.getElementById('c2ImagePreview').src = URL.createObjectURL(b);
                                 document.getElementById('c2PastePlaceholder').style.display = 'none';
                                 document.getElementById('c2ImgPreviewWrap').style.display = 'flex';
@@ -1404,20 +1424,20 @@ function openConfirm2Modal(id) {
         });
     }
 }
-
-function onC2ItemQtyChanged(idx, val) {
+ 
+function _nxhvlOnC2ItemQtyChanged(idx, val) {
     if (idx !== undefined && val !== undefined) {
-        _c2Items[idx].actual_quantity = Number(val) || 0;
+        _nxhvl_c2Items[idx].actual_quantity = Number(val) || 0;
     }
     
-    var totalInitial = _c2Items.reduce((sum, it) => sum + it.initial_quantity, 0);
-    var totalActual = _c2Items.reduce((sum, it) => sum + it.actual_quantity, 0);
+    var totalInitial = _nxhvl_c2Items.reduce((sum, it) => sum + it.initial_quantity, 0);
+    var totalActual = _nxhvl_c2Items.reduce((sum, it) => sum + it.actual_quantity, 0);
     var diff = totalActual - totalInitial;
     
     var area = document.getElementById('c2_discrepancy_area');
     var msg = document.getElementById('c2_discrepancy_msg');
     if (!area || !msg) return;
-
+ 
     if (Math.abs(diff) > 0.001) {
         area.style.display = 'block';
         if (diff < 0) {
@@ -1429,8 +1449,8 @@ function onC2ItemQtyChanged(idx, val) {
         area.style.display = 'none';
     }
 }
-
-function onC2QtyInput(origQty) {
+ 
+function _nxhvlOnC2QtyInput(origQty) {
     var actQty = Number(document.getElementById('c2_actual_quantity').value) || 0;
     var diff = actQty - origQty;
     var area = document.getElementById('c2_discrepancy_area');
@@ -1448,38 +1468,38 @@ function onC2QtyInput(origQty) {
         area.style.display = 'none';
     }
 }
-
-async function submitConfirm2(id) {
+ 
+async function _nxhvlSubmitConfirm2(id) {
     var actQty = 0;
     var notes = document.getElementById('c2_notes').value || '';
     var postData = {};
     var isDiscrepancy = false;
-
-    if (_c2Items.length > 0) {
-        var totalInitial = _c2Items.reduce((sum, it) => sum + it.initial_quantity, 0);
-        var totalActual = _c2Items.reduce((sum, it) => sum + it.actual_quantity, 0);
-
-        for (var i = 0; i < _c2Items.length; i++) {
-            if (_c2Items[i].actual_quantity <= 0) {
-                showToast('Số lượng thực tế của ' + _c2Items[i].material_name + ' phải lớn hơn 0', 'error');
+ 
+    if (_nxhvl_c2Items.length > 0) {
+        var totalInitial = _nxhvl_c2Items.reduce((sum, it) => sum + it.initial_quantity, 0);
+        var totalActual = _nxhvl_c2Items.reduce((sum, it) => sum + it.actual_quantity, 0);
+ 
+        for (var i = 0; i < _nxhvl_c2Items.length; i++) {
+            if (_nxhvl_c2Items[i].actual_quantity <= 0) {
+                showToast('Số lượng thực tế của ' + _nxhvl_c2Items[i].material_name + ' phải lớn hơn 0', 'error');
                 return;
             }
         }
-
+ 
         var diff = totalActual - totalInitial;
         if (Math.abs(diff) > 0.001) {
             isDiscrepancy = true;
         }
-
-        if (isDiscrepancy && !_postponeImageBlob) {
+ 
+        if (isDiscrepancy && !_nxhvl_postponeImageBlob) {
             showToast('Sai lệch số lượng thực tế so với ban đầu. Bắt buộc phải có hình ảnh chụp thực tế để chứng minh!', 'error');
             return;
         }
-
+ 
         actQty = totalActual;
         postData = {
             actual_quantity: totalActual,
-            actual_items: _c2Items.map(it => ({
+            actual_items: _nxhvl_c2Items.map(it => ({
                 material_item_id: it.material_item_id,
                 import_record_id: it.import_record_id,
                 actual_quantity: it.actual_quantity
@@ -1492,15 +1512,15 @@ async function submitConfirm2(id) {
             showToast('Số lượng thực tế chốt phải lớn hơn 0', 'error');
             return;
         }
-
+ 
         var r = _nxhvl.records.find(item => item.id === id);
         var origQty = r ? Number(r.quantity) : 0;
         var diff = actQty - origQty;
         if (Math.abs(diff) > 0.001) {
             isDiscrepancy = true;
         }
-
-        if (isDiscrepancy && !_postponeImageBlob) {
+ 
+        if (isDiscrepancy && !_nxhvl_postponeImageBlob) {
             showToast('Sai lệch số lượng thực tế so với ban đầu. Bắt buộc phải có hình ảnh chụp thực tế để chứng minh!', 'error');
             return;
         }
@@ -1516,9 +1536,9 @@ async function submitConfirm2(id) {
 
     try {
         var actImgUrl = '';
-        if (_postponeImageBlob) {
+        if (_nxhvl_postponeImageBlob) {
             var fd = new FormData();
-            fd.append('file', _postponeImageBlob, 'confirm2.webp');
+            fd.append('file', _nxhvl_postponeImageBlob, 'confirm2.webp');
             var uploadRes = await fetch('/api/materialtx/upload/' + id, {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
@@ -1550,9 +1570,7 @@ async function submitConfirm2(id) {
         if (btn) btn.disabled = false;
     }
 }
-
-// Approve discrepancy by manager
-async function approveDiscrepancy(id) {
+async function _nxhvlApproveDiscrepancy(id) {
     if (!confirm('Bạn có chắc chắn muốn duyệt chênh lệch sai số hao hụt cho giao dịch này không?')) return;
     try {
         var res = await apiCall('/api/materialtx/approve-discrepancy/' + id, 'POST');
@@ -1568,11 +1586,11 @@ async function approveDiscrepancy(id) {
 }
 
 // ========== POSTPONE RETURN (LÙI LỊCH HOÀN TRẢ) ==========
-function openPostponeModal(id) {
+function _nxhvlOpenPostponeModal(id) {
     var r = _nxhvl.records.find(item => item.id === id);
     if (!r) return;
 
-    _postponeImageBlob = null;
+    _nxhvl_postponeImageBlob = null;
     var postponeHistHtml = '';
     if (r.is_postponed) {
         var postAt = r.postponed_at ? formatDateTimeHM(r.postponed_at) : '—';
@@ -1593,7 +1611,7 @@ function openPostponeModal(id) {
                         ${postImgs.map(url => `<a href="${url}" target="_blank"><img src="${url}" style="width:60px; height:60px; object-fit:cover; border-radius:4px;" /></a>`).join('')}
                     </div>
                 ` : ''}
-                <button class="btn" style="margin-top:8px; background:#ef4444; color:#fff; border:none; padding:4px 10px; font-size:10px; border-radius:4px; font-weight:700;" onclick="cancelPostpone(${id})">❌ HỦY LÙI LỊCH (Trở lại lịch hẹn gốc)</button>
+                <button class="btn" style="margin-top:8px; background:#ef4444; color:#fff; border:none; padding:4px 10px; font-size:10px; border-radius:4px; font-weight:700;" onclick="_nxhvlCancelPostpone(${id})">❌ HỦY LÙI LỊCH (Trở lại lịch hẹn gốc)</button>
             </div>
         `;
     }
@@ -1610,7 +1628,7 @@ function openPostponeModal(id) {
                 </div>
                 <div id="postponeImgPreviewWrap" style="display:none; position:relative; width:100%; justify-content:center; align-items:center;">
                     <img id="postponeImagePreview" style="max-height:120px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1;" />
-                    <button id="btnPostponeClearImg" type="button" class="btn" style="position:absolute; top:2px; right:2px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px;" onclick="event.stopPropagation(); clearPostponeImage()">❌ Xóa</button>
+                    <button id="btnPostponeClearImg" type="button" class="btn" style="position:absolute; top:2px; right:2px; padding:2px 8px; font-size:10px; background:#ef4444; border:none; color:#fff; border-radius:4px;" onclick="event.stopPropagation(); _nxhvlClearPostponeImage()">❌ Xóa</button>
                 </div>
             </div>
             
@@ -1639,28 +1657,28 @@ function openPostponeModal(id) {
 
     var footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-        <button class="btn btn-primary" id="btnConfirmPostpone" style="background:#b45309; border:none; color:#fff;" onclick="submitPostpone(${id})">📅 Lưu Lùi Lịch</button>
+        <button class="btn btn-primary" id="btnConfirmPostpone" style="background:#b45309; border:none; color:#fff;" onclick="_nxhvlSubmitPostpone(${id})">📅 Lưu Lùi Lịch</button>
     `;
 
     openModal('📅 Hẹn Lùi Lịch Hoàn Vật Liệu', bodyHTML, footerHTML);
 
-    _postponePasteHandler = function (e) {
+    _nxhvl_postponePasteHandler = function (e) {
         var items = (e.clipboardData || e.originalEvent.clipboardData).items;
         for (var i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') !== -1) {
                 var blob = items[i].getAsFile();
-                processAndPreviewPostponeImage(blob);
+                _nxhvlProcessAndPreviewPostponeImage(blob);
                 break;
             }
         }
     };
     var pasteArea = document.getElementById('postponePasteArea');
-    if (pasteArea) pasteArea.addEventListener('paste', _postponePasteHandler);
+    if (pasteArea) pasteArea.addEventListener('paste', _nxhvl_postponePasteHandler);
 
-    initCustomCalendar(14, _postponeHolidays);
+    _nxhvlInitCustomCalendar(14, _nxhvl_postponeHolidays);
 }
 
-async function submitPostpone(id) {
+async function _nxhvlSubmitPostpone(id) {
     var date = document.getElementById('postponeDate').value;
     var notes = document.getElementById('postponeNotes').value || '';
 
@@ -1678,9 +1696,9 @@ async function submitPostpone(id) {
 
     try {
         var postponeImgUrl = '';
-        if (_postponeImageBlob) {
+        if (_nxhvl_postponeImageBlob) {
             var fd = new FormData();
-            fd.append('file', _postponeImageBlob, 'proof.webp');
+            fd.append('file', _nxhvl_postponeImageBlob, 'proof.webp');
             var uploadRes = await fetch('/api/materialtx/upload-postpone/' + id, {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
@@ -1713,7 +1731,7 @@ async function submitPostpone(id) {
     }
 }
 
-async function cancelPostpone(id) {
+async function _nxhvlCancelPostpone(id) {
     if (!confirm('Bạn có chắc chắn muốn hủy trạng thái lùi lịch cho giao dịch này không?')) return;
     try {
         var res = await apiCall('/api/materialtx/unpostpone/' + id, 'POST');
@@ -1750,24 +1768,22 @@ function _nxhvlOpenImportBill(importId) {
 window.renderNhapxuathoanvatlieuPage = renderNhapxuathoanvatlieuPage;
 window._nxhvlFilter = _nxhvlFilter;
 window._nxhvlTog = _nxhvlTog;
-window.openCreateReturnModal = openCreateReturnModal;
-window.onSourceChanged = onSourceChanged;
-window.onSearchImportItems = onSearchImportItems;
-window.selectImportItem = selectImportItem;
-window.updateFinValues = updateFinValues;
-window.clearPostponeImage = clearPostponeImage;
-window.submitCreateReturn = submitCreateReturn;
-window.openViewReturnModal = openViewReturnModal;
-window.openConfirm1Modal = openConfirm1Modal;
-window.submitConfirm1 = submitConfirm1;
-window.openConfirm2Modal = openConfirm2Modal;
-window.submitConfirm2 = submitConfirm2;
-window.onC2QtyInput = onC2QtyInput;
-window.approveDiscrepancy = approveDiscrepancy;
-window.openPostponeModal = openPostponeModal;
-window.submitPostpone = submitPostpone;
-window.cancelPostpone = cancelPostpone;
+window._nxhvlOpenCreateReturnModal = _nxhvlOpenCreateReturnModal;
+window._nxhvlOnSourceChanged = _nxhvlOnSourceChanged;
+window._nxhvlOnSearchImportItems = _nxhvlOnSearchImportItems;
+window._nxhvlSelectImportItem = _nxhvlSelectImportItem;
+window._nxhvlUpdateFinValues = _nxhvlUpdateFinValues;
+window._nxhvlClearPostponeImage = _nxhvlClearPostponeImage;
+window._nxhvlSubmitCreateReturn = _nxhvlSubmitCreateReturn;
+window._nxhvlOpenViewReturnModal = _nxhvlOpenViewReturnModal;
+window._nxhvlOpenConfirm1Modal = _nxhvlOpenConfirm1Modal;
+window._nxhvlSubmitConfirm1 = _nxhvlSubmitConfirm1;
+window._nxhvlOpenConfirm2Modal = _nxhvlOpenConfirm2Modal;
+window._nxhvlSubmitConfirm2 = _nxhvlSubmitConfirm2;
+window._nxhvlOnC2QtyInput = _nxhvlOnC2QtyInput;
+window._nxhvlOnC2ItemQtyChanged = _nxhvlOnC2ItemQtyChanged;
+window._nxhvlApproveDiscrepancy = _nxhvlApproveDiscrepancy;
+window._nxhvlOpenPostponeModal = _nxhvlOpenPostponeModal;
+window._nxhvlSubmitPostpone = _nxhvlSubmitPostpone;
+window._nxhvlCancelPostpone = _nxhvlCancelPostpone;
 window._nxhvlOpenImportBill = _nxhvlOpenImportBill;
-window.onSourceChanged = onSourceChanged;
-window.onSearchImportItems = onSearchImportItems;
-window.selectImportItem = selectImportItem;
