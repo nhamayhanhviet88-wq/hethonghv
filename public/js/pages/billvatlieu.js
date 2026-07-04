@@ -326,7 +326,7 @@ function _bvlRender() {
     all.forEach(function (r) {
         var isPending = r.requires_price_approval && !r.price_approved_at;
         sumCost += Number(r.cost) || 0;
-        sumTotal += Number(r.total_amount) || 0;
+        sumTotal += (r.record_type === 'refund' || r.record_type === 'refund_material') ? -(Number(r.refund) || 0) : (Number(r.total_amount) || 0);
         sumPaid += Number(r.paid) || 0;
         sumDebt += isPending ? 0 : (Number(r.debt) || 0);
         sumQty += Number(r.fabric_quantity) || 0;

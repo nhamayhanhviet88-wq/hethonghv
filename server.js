@@ -1471,6 +1471,7 @@ async function start() {
     fastify.register(require('./routes/billnhaphang'));
     fastify.register(require('./routes/kiemkho'));
     fastify.register(require('./routes/nhapxuathoanvai'));
+    fastify.register(require('./routes/nhapxuathoanvatlieu'));
     fastify.register(require('./routes/vatlieutempet'));
     fastify.register(require('./routes/khovatlieu'));
     fastify.register(require('./routes/worktickets'));

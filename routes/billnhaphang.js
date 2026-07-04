@@ -292,7 +292,7 @@ module.exports = async function(fastify) {
         let sourcesQuery = `
             SELECT s.id, s.name, 
                    COUNT(r.id) FILTER (WHERE r.id IS NOT NULL)::int AS count, 
-                   COALESCE(SUM(r.total_amount),0)::numeric AS sum_total,
+                   COALESCE(SUM(CASE WHEN r.record_type IN ('refund', 'refund_material') THEN -r.refund ELSE r.total_amount END),0)::numeric AS sum_total,
                    COALESCE(SUM(CASE WHEN r.requires_price_approval = true AND r.price_approved_at IS NULL THEN 0 ELSE r.debt END),0)::numeric AS sum_debt
             FROM import_sources s 
             LEFT JOIN import_records r ON s.id=r.source_id
@@ -325,7 +325,8 @@ module.exports = async function(fastify) {
         const sources = await db.all(sourcesQuery, params);
 
         let totalsQuery = `
-            SELECT COUNT(*)::int AS total, COALESCE(SUM(total_amount),0)::numeric AS sum_total,
+            SELECT COUNT(*)::int AS total, 
+            COALESCE(SUM(CASE WHEN record_type IN ('refund', 'refund_material') THEN -refund ELSE total_amount END),0)::numeric AS sum_total,
             COALESCE(SUM(CASE WHEN requires_price_approval = true AND price_approved_at IS NULL THEN 0 ELSE debt END),0)::numeric AS sum_debt, COALESCE(SUM(paid),0)::numeric AS sum_paid
             FROM import_records
         `;

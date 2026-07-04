@@ -162,7 +162,10 @@ function _bnhRender(){
     var sumCost=0,sumTotal=0,sumPaid=0,sumDebt=0,sumTrees=0,sumQtyByUnit={};
     all.forEach(function(r){
         var isPending = r.requires_price_approval && !r.price_approved_at;
-        sumCost+=Number(r.cost)||0;sumTotal+=Number(r.total_amount)||0;sumPaid+=Number(r.paid)||0;sumDebt+=isPending ? 0 : (Number(r.debt)||0);
+        sumCost+=Number(r.cost)||0;
+        sumTotal+=(r.record_type==='refund' || r.record_type==='refund_material') ? -(Number(r.refund)||0) : (Number(r.total_amount)||0);
+        sumPaid+=Number(r.paid)||0;
+        sumDebt+=isPending ? 0 : (Number(r.debt)||0);
         var info=_bnhTreeInfo(r);sumTrees+=info.trees;
         if(info.byUnit){Object.keys(info.byUnit).forEach(function(u){sumQtyByUnit[u]=(sumQtyByUnit[u]||0)+info.byUnit[u];});}
     });
