@@ -202,16 +202,13 @@ async function customersRoutes(fastify, options) {
              request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null, effectiveDate, effectiveDate]
         );
 
-        const code = `${dailyNum}-${_d}-${_m}`;
+        const code = `${dailyNum}-${_d}-${_m}-Y${String(_y).slice(-2)}`;
         const sourceName = resolvedSourceId ? (await db.get('SELECT name FROM settings_sources WHERE id = ?', [resolvedSourceId]))?.name : '';
         const promoName = promotion_id ? (await db.get('SELECT name FROM settings_promotions WHERE id = ?', [Number(promotion_id)]))?.name : '';
         const industryName = industry_id ? (await db.get('SELECT name FROM settings_industries WHERE id = ?', [Number(industry_id)]))?.name : '';
-        const receiverUser = actualReceiverId ? await db.get('SELECT full_name, telegram_group_id FROM users WHERE id = ?', [actualReceiverId]) : null;
-        const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok', sale: 'Chăm Sóc Khách Sale' };
 
-        const tgParts = [`📱 <b>${code}</b> : <code>${customer_name}</code> - ${normalizedPhone || 'N/A'} - ${crmLabels[crm_type] || crm_type}`];
+        const tgParts = [`<b>${code}</b> : <code>${customer_name}</code> - ${normalizedPhone || 'N/A'}`];
         if (sourceName) tgParts.push(sourceName);
-        if (receiverUser?.full_name) tgParts.push(receiverUser.full_name);
         if (promoName) tgParts.push(promoName);
         if (industryName) tgParts.push(industryName);
         const tgMessage = tgParts.join(' - ');
