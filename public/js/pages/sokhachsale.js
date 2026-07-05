@@ -496,11 +496,11 @@ async function sksLoadCustomers() {
         const data = await apiCall(url);
         _sksAllCustomers = data.customers || [];
         _sksTotalCustomers = _sksAllCustomers.length;
-        _sksRenderTable();
+        sksRenderTable();
     } catch (e) {
         console.error('Error fetching customers:', e);
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--danger)">❌ Lỗi tải dữ liệu khách hàng!</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--danger)">❌ Lỗi tải dữ liệu khách hàng:<br>${e.message}<br>${e.stack}</td></tr>`;
         }
     }
 }
@@ -509,51 +509,56 @@ function sksRenderTable() {
     const tbody = document.getElementById('sksTbody');
     if (!tbody) return;
 
-    if (_sksAllCustomers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có khách hàng</h3></div></td></tr>`;
-        document.getElementById('sksPagination').innerHTML = '';
-        return;
+    try {
+        if (_sksAllCustomers.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có khách hàng</h3></div></td></tr>`;
+            document.getElementById('sksPagination').innerHTML = '';
+            return;
+        }
+
+        const totalPages = Math.ceil(_sksAllCustomers.length / _sksPageSize);
+        if (_sksCurrentPage > totalPages) _sksCurrentPage = totalPages;
+        const startIdx = (_sksCurrentPage - 1) * _sksPageSize;
+        const paged = _sksAllCustomers.slice(startIdx, startIdx + _sksPageSize);
+
+        tbody.innerHTML = paged.map(c => {
+            const statusBadge = typeof getStatusBadge === 'function' ? getStatusBadge(c.order_status) : c.order_status;
+            const custCode = typeof getCustomerCode === 'function' ? getCustomerCode(c) : c.id;
+            const formattedDate = typeof formatDate === 'function' ? formatDate(c.created_at) : c.created_at;
+
+            return `<tr>
+                <td><strong style="color:var(--gold)">${custCode}</strong></td>
+                <td>${typeof _crmIsBirthdayToday === 'function' && _crmIsBirthdayToday(c.birthday) ? '🎂🎉 ' : ''}${c.customer_name}</td>
+                <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
+                <td>${c.source_name || '-'}</td>
+                <td>${c.assigned_to_name || '-'}</td>
+                <td>${statusBadge}</td>
+                <td>${formattedDate}</td>
+                <td>
+                    <button class="btn btn-sm" onclick="showCustomerDetail(${c.id})" title="Chi tiết">👁️</button>
+                    ${!c.readonly && ['giam_doc','quan_ly','truong_phong','nhan_vien'].includes(currentUser.role)
+                        ? `<button class="btn btn-sm" onclick="showEditStatus(${c.id}, '${c.order_status}')" title="Cập nhật">📝</button>`
+                        : ''}
+                </td>
+            </tr>`;
+        }).join('');
+
+        // Pagination
+        const pgEl = document.getElementById('sksPagination');
+        if (!pgEl) return;
+        if (totalPages <= 1) { pgEl.innerHTML = ''; return; }
+        
+        let pgHtml = '<button ' + (_sksCurrentPage <= 1 ? 'disabled' : '') + ' onclick="sksGoToPage(' + (_sksCurrentPage - 1) + ')">◀</button>';
+        for (let p = 1; p <= totalPages; p++) {
+            pgHtml += '<button class="' + (p === _sksCurrentPage ? 'active' : '') + '" onclick="sksGoToPage(' + p + ')">' + p + '</button>';
+        }
+        pgHtml += '<button ' + (_sksCurrentPage >= totalPages ? 'disabled' : '') + ' onclick="sksGoToPage(' + (_sksCurrentPage + 1) + ')">▶</button>';
+        pgHtml += '<span class="pg-info">' + (startIdx + 1) + '–' + Math.min(startIdx + _sksPageSize, _sksAllCustomers.length) + ' / ' + _sksAllCustomers.length + '</span>';
+        pgEl.innerHTML = pgHtml;
+    } catch(err) {
+        console.error('Error rendering table:', err);
+        tbody.innerHTML = `<tr><td colspan="8" style="color:red;padding:20px;font-size:12px;">Lỗi render table:<br>${err.message}<br>${err.stack}</td></tr>`;
     }
-
-    const totalPages = Math.ceil(_sksAllCustomers.length / _sksPageSize);
-    if (_sksCurrentPage > totalPages) _sksCurrentPage = totalPages;
-    const startIdx = (_sksCurrentPage - 1) * _sksPageSize;
-    const paged = _sksAllCustomers.slice(startIdx, startIdx + _sksPageSize);
-
-    tbody.innerHTML = paged.map(c => {
-        const statusBadge = typeof getStatusBadge === 'function' ? getStatusBadge(c.order_status) : c.order_status;
-        const custCode = typeof getCustomerCode === 'function' ? getCustomerCode(c) : c.id;
-        const formattedDate = typeof formatDate === 'function' ? formatDate(c.created_at) : c.created_at;
-
-        return `<tr>
-            <td><strong style="color:var(--gold)">${custCode}</strong></td>
-            <td>${typeof _crmIsBirthdayToday === 'function' && _crmIsBirthdayToday(c.birthday) ? '🎂🎉 ' : ''}${c.customer_name}</td>
-            <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
-            <td>${c.source_name || '-'}</td>
-            <td>${c.assigned_to_name || '-'}</td>
-            <td>${statusBadge}</td>
-            <td>${formattedDate}</td>
-            <td>
-                <button class="btn btn-sm" onclick="showCustomerDetail(${c.id})" title="Chi tiết">👁️</button>
-                ${!c.readonly && ['giam_doc','quan_ly','truong_phong','nhan_vien'].includes(currentUser.role)
-                    ? `<button class="btn btn-sm" onclick="showEditStatus(${c.id}, '${c.order_status}')" title="Cập nhật">📝</button>`
-                    : ''}
-            </td>
-        </tr>`;
-    }).join('');
-
-    // Pagination
-    const pgEl = document.getElementById('sksPagination');
-    if (!pgEl) return;
-    if (totalPages <= 1) { pgEl.innerHTML = ''; return; }
-    
-    let pgHtml = '<button ' + (_sksCurrentPage <= 1 ? 'disabled' : '') + ' onclick="sksGoToPage(' + (_sksCurrentPage - 1) + ')">◀</button>';
-    for (let p = 1; p <= totalPages; p++) {
-        pgHtml += '<button class="' + (p === _sksCurrentPage ? 'active' : '') + '" onclick="sksGoToPage(' + p + ')">' + p + '</button>';
-    }
-    pgHtml += '<button ' + (_sksCurrentPage >= totalPages ? 'disabled' : '') + ' onclick="sksGoToPage(' + (_sksCurrentPage + 1) + ')">▶</button>';
-    pgHtml += '<span class="pg-info">' + (startIdx + 1) + '–' + Math.min(startIdx + _sksPageSize, _sksAllCustomers.length) + ' / ' + _sksAllCustomers.length + '</span>';
-    pgEl.innerHTML = pgHtml;
 }
 
 function sksGoToPage(page) {
