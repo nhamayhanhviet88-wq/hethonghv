@@ -331,6 +331,20 @@ async function pancakeRoutes(fastify, options) {
     }
 
     // ========== PUBLIC: Webhook receiver from Pancake ==========
+    fastify.get('/api/webhooks/pancake', async (request, reply) => {
+        const mode = request.query['hub.mode'];
+        const token = request.query['hub.verify_token'];
+        const challenge = request.query['hub.challenge'];
+
+        if (mode && token) {
+            if (mode === 'subscribe') {
+                console.log('[Pancake Webhook] Facebook hub verification request received.');
+                return challenge;
+            }
+        }
+        return { status: "active", message: "Pancake Webhook receiver is running successfully. Please use POST method to send data." };
+    });
+
     fastify.post('/api/webhooks/pancake', async (request, reply) => {
         const payload = request.body || {};
         console.log('[Pancake Webhook] Received payload:', JSON.stringify(payload));
