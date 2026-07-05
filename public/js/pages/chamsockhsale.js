@@ -263,9 +263,13 @@ function _saleGetCategory(c, stats) {
 
     let consultedToday = false;
     if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm' && s.lastLog.log_type !== 'tao_tk_affiliate' && s.lastLog.log_type !== 'gui_lai_so') {
-        const logDate = new Date(s.lastLog.created_at);
-        const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
-        consultedToday = (logStr === todayStr);
+        const content = s.lastLog.content || '';
+        const isAutoPancakeLog = (s.lastLog.logged_by === null || !s.lastLog.logged_by) && (content.includes('Pancake') || content.includes('Đồng bộ'));
+        if (!isAutoPancakeLog) {
+            const logDate = new Date(s.lastLog.created_at);
+            const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
+            consultedToday = (logStr === todayStr);
+        }
     }
 
     if (consultedToday) return 'da_xu_ly';
@@ -627,7 +631,13 @@ function _saleRenderCustomerRow(c, stats, stt) {
                 return `<span onclick="_saleOpenCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span><span onclick="event.stopPropagation();_crmCopyText('${c.customer_name.replace(/'/g, "\\'")}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>`;
             })()}
         </td>
-        <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}${c.phone && !c.readonly ? '<span onclick="event.stopPropagation();_crmCopyText(\'' + c.phone + '\',this,\'SĐT\')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color=\'#3b82f6\'" onmouseout="this.style.color=\'#94a3b8\'" title="Copy SĐT">📋</span>' : ''}</td>
+        <td>${(() => {
+            const hasRealPhone = c.phone && !c.phone.startsWith('pancake_');
+            if (!hasRealPhone) return '';
+            const copyBtn = !c.readonly ? `<span onclick="event.stopPropagation();_crmCopyText('${c.phone}',this,'SĐT')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy SĐT">📋</span>` : '';
+            const phoneEl = c.readonly ? `<span style="color:var(--gray-400)">${c.phone}</span>` : `<a href="tel:${c.phone}" style="color:var(--info)">${c.phone}</a>`;
+            return phoneEl + copyBtn;
+        })()}</td>
         <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">🔗 FB</a>' : '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.source_name || '—'}</td>
@@ -1115,7 +1125,7 @@ async function _saleOpenConsultModal(customerId) {
             </div>
             <div class="form-group">
                 <label>SĐT Khách Hàng</label>
-                <input type="text" id="consultPhoneSale" class="form-control" value="${customerInfo.phone || ''}" maxlength="10" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" placeholder="10 chữ số">
+                <input type="text" id="consultPhoneSale" class="form-control" value="${(customerInfo.phone && !customerInfo.phone.startsWith('pancake_')) ? customerInfo.phone : ''}" maxlength="10" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" placeholder="10 chữ số">
             </div>
             <div class="form-group">
                 <label>Đơn Hàng <span style="color:var(--danger)">*</span></label>
@@ -1492,7 +1502,11 @@ async function _saleOpenCustomerDetail(customerId) {
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📞 SĐT</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.readonly ? '<span style="color:#94a3b8">' + (c.phone || '—') + '</span>' : '<a href="tel:' + c.phone + '" style="color:#3b82f6;text-decoration:none;">' + c.phone + '</a>'}</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${(() => {
+                            const hasRealPhone = c.phone && !c.phone.startsWith('pancake_');
+                            if (!hasRealPhone) return '—';
+                            return c.readonly ? '<span style="color:#94a3b8">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:#3b82f6;text-decoration:none;">' + c.phone + '</a>';
+                        })()}</div>
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">🏠 Địa chỉ</div>
@@ -1606,7 +1620,7 @@ async function _saleOpenCustomerInfo(customerId) {
             </div>
             <div class="form-group">
                 <label>SĐT</label>
-                <input type="text" id="editCustPhoneSale" class="form-control" value="${c.phone || ''}">
+                <input type="text" id="editCustPhoneSale" class="form-control" value="${(c.phone && !c.phone.startsWith('pancake_')) ? c.phone : ''}">
             </div>
             <div class="form-group">
                 <label>Link Facebook</label>
