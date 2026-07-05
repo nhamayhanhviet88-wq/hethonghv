@@ -65,6 +65,22 @@ async function renderCaidatpancakePage(container) {
                             <small style="color: var(--gray-400); display: block; margin-top: 6px; font-size: 11px;">Thời gian tối đa để tự động cập nhật SĐT muộn vào thẻ khách hàng đã chia (mặc định 15 phút).</small>
                         </div>
                     </div>
+
+                    <!-- Settings Row 3: Reminder Time Windows -->
+                    <div style="margin-bottom: 24px; border: 1.5px solid var(--gray-200); border-radius: 12px; padding: 18px; background: #fafafa;">
+                        <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 12px;">⏰ Khung Giờ Gửi Cảnh Báo Telegram ("Không ai bật nhận số")</label>
+                        <div id="pancakeReminderWindowsWrapper" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+                            <!-- Dynamic rendering of reminder windows -->
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 12px; font-weight: 700; color: var(--gray-600);">Thêm mới:</span>
+                            <input type="time" id="newRemindStart" class="form-control" style="width: 100px; height: 32px; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 700; border: 1.5px solid var(--gray-200);">
+                            <span style="font-size: 12px; color: var(--gray-400);">đến</span>
+                            <input type="time" id="newRemindEnd" class="form-control" style="width: 100px; height: 32px; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 700; border: 1.5px solid var(--gray-200);">
+                            <button type="button" onclick="addPancakeReminderWindow()" class="btn btn-sm" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; height: 32px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(255,126,95,0.15);">Thêm</button>
+                        </div>
+                        <small style="color: var(--gray-400); display: block; margin-top: 8px; font-size: 11px;">Hệ thống chỉ gửi thông báo nhắc nhở Telegram trong các khung giờ này. Ngoài khung giờ này (hoặc nếu không cấu hình khung giờ nào), cảnh báo sẽ không được gửi.</small>
+                    </div>
                     
                     <!-- Global Working Days Config -->
                     <div style="margin-bottom: 24px; border: 1.5px solid var(--gray-200); border-radius: 12px; padding: 18px; background: #fafafa; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
@@ -229,6 +245,9 @@ async function loadPancakeData() {
         document.getElementById('pancakeDelaySecondsInput').value = _pancakeConfig.delay_assignment_seconds;
         document.getElementById('pancakeUpdateLimitInput').value = _pancakeConfig.update_phone_limit_minutes;
         document.getElementById('pancakeActiveSwitch').checked = !!_pancakeConfig.is_active;
+
+        if (!_pancakeConfig.reminder_windows) _pancakeConfig.reminder_windows = [];
+        renderReminderWindowsList();
 
         renderPagesTable();
     } catch(e) {
@@ -477,6 +496,66 @@ function toggleTokenVisibility() {
     } else {
         input.type = 'password';
     }
+}
+
+function renderReminderWindowsList() {
+    const wrapper = document.getElementById('pancakeReminderWindowsWrapper');
+    if (!wrapper) return;
+
+    const windows = _pancakeConfig.reminder_windows || [];
+    if (windows.length === 0) {
+        wrapper.innerHTML = `<span style="font-size: 12px; color: var(--gray-400); font-style: italic;">Chưa cấu hình khung giờ (Mặc định: Gửi cảnh báo 24/7)</span>`;
+        return;
+    }
+
+    wrapper.innerHTML = windows.map((win, idx) => `
+        <div class="remind-window-badge" style="background: rgba(255, 126, 95, 0.08); color: #FF7E5F; border: 1.5px solid rgba(255, 126, 95, 0.2); padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 12px; display: inline-flex; align-items: center; gap: 8px;">
+            <span>${win.start} - ${win.end}</span>
+            <span onclick="deletePancakeReminderWindow(${idx})" style="cursor: pointer; color: var(--gray-400); font-weight: bold; font-size: 14px; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--gray-400)'" title="Xóa">×</span>
+        </div>
+    `).join('');
+}
+
+function addPancakeReminderWindow() {
+    const startVal = document.getElementById('newRemindStart').value;
+    const endVal = document.getElementById('newRemindEnd').value;
+
+    if (!startVal || !endVal) {
+        showToast('Vui lòng chọn đầy đủ Giờ bắt đầu và Giờ kết thúc!', 'error');
+        return;
+    }
+
+    if (startVal >= endVal) {
+        showToast('Giờ kết thúc phải lớn hơn Giờ bắt đầu!', 'error');
+        return;
+    }
+
+    if (!_pancakeConfig.reminder_windows) {
+        _pancakeConfig.reminder_windows = [];
+    }
+
+    // Check duplicate
+    const exists = _pancakeConfig.reminder_windows.some(win => win.start === startVal && win.end === endVal);
+    if (exists) {
+        showToast('Khung giờ này đã được thêm trước đó!', 'error');
+        return;
+    }
+
+    _pancakeConfig.reminder_windows.push({ start: startVal, end: endVal });
+    // Sort windows chronologically
+    _pancakeConfig.reminder_windows.sort((a, b) => a.start.localeCompare(b.start));
+
+    renderReminderWindowsList();
+
+    // Reset inputs
+    document.getElementById('newRemindStart').value = '';
+    document.getElementById('newRemindEnd').value = '';
+}
+
+function deletePancakeReminderWindow(idx) {
+    if (!_pancakeConfig.reminder_windows) return;
+    _pancakeConfig.reminder_windows.splice(idx, 1);
+    renderReminderWindowsList();
 }
 
 async function saveGlobalPancakeSettings() {

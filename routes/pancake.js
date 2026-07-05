@@ -30,6 +30,25 @@ async function pancakeRoutes(fastify, options) {
         console.error('[Pancake Init] Migration error:', e.message);
     }
 
+    function isWithinPancakeReminderHours(config) {
+        const windows = config.reminder_windows;
+        if (!windows || !Array.isArray(windows) || windows.length === 0) {
+            return true; // default to 24/7 if not configured
+        }
+        const now = vnNow();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        
+        return windows.some(win => {
+            if (!win.start || !win.end) return false;
+            const [sh, sm] = win.start.split(':').map(Number);
+            const [eh, em] = win.end.split(':').map(Number);
+            if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return false;
+            const startMinutes = sh * 60 + sm;
+            const endMinutes = eh * 60 + em;
+            return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+        });
+    }
+
     // Helper: assign a lead (either with real phone or temporary phone)
     async function assignPancakeLead(page, config, customerId, customerName, conversationId, conversationLink, phone) {
         // 1. Calculate virtual date
@@ -315,8 +334,8 @@ async function pancakeRoutes(fastify, options) {
             );
             const unassignedCount = countRow ? parseInt(countRow.cnt) : 1;
 
-            // Broadcast alert to ALL staff members in the assignment list
-            if (page.staff_assignments && Array.isArray(page.staff_assignments)) {
+            // Broadcast alert to ALL staff members in the assignment list if within reminder hours
+            if (isWithinPancakeReminderHours(config) && page.staff_assignments && Array.isArray(page.staff_assignments)) {
                 for (const sa of page.staff_assignments) {
                     const staffChatIdRow = await db.get(
                         `SELECT chat_id FROM telegram_notifications WHERE user_id = $1 AND event_type = 'chuyen_so' AND enabled = true`,
@@ -684,6 +703,7 @@ async function pancakeRoutes(fastify, options) {
             }
 
             if (!config.is_active || !config.pages) return;
+            if (!isWithinPancakeReminderHours(config)) return;
 
             for (const page of config.pages) {
                 if (!page.is_active || !page.source_id) continue;
