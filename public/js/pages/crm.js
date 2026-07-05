@@ -276,48 +276,95 @@ async function showCustomerDetail(id) {
     const grandTotal = items.reduce((s, i) => s + (i.total || 0), 0);
 
     let bodyHTML = `
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom:16px;">
-            <div><strong>Mã:</strong> <span style="color:var(--gold)">${getCustomerCode(c)}</span></div>
-            <div><strong>CRM:</strong> ${CRM_LABELS[c.crm_type] || c.crm_type}</div>
-            <div><strong>Khách hàng:</strong> ${c.customer_name}</div>
-            <div><strong>SĐT:</strong> <a href="tel:${c.phone}">${c.phone}</a></div>
-            <div><strong>Nguồn:</strong> ${c.source_name || '-'}</div>
-            <div><strong>Khuyến mãi:</strong> ${c.promotion_name || '-'}</div>
-            <div><strong>Lĩnh vực:</strong> ${c.industry_name || '-'}</div>
-            <div><strong>Người nhận:</strong> ${c.assigned_to_name || '-'}</div>
-            <div><strong>Trạng thái:</strong> ${getStatusBadge(c.order_status)}</div>
-            <div><strong>Ngày bàn giao:</strong> ${formatDate(c.handover_date)}</div>
-            ${c.referrer_name ? `<div><strong>CTV giới thiệu:</strong> ${c.referrer_name}</div>` : ''}
-            ${c.notes ? `<div style="grid-column:1/-1"><strong>Ghi chú:</strong> ${c.notes}</div>` : ''}
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; display:grid; grid-template-columns: 1fr 1fr; gap:16px 20px; margin-bottom:20px; box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);">
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Mã Khách Hàng</span>
+                <span style="font-size:13px; font-weight:700; color:#0f172a; background:#e2e8f0; padding:2px 8px; border-radius:4px; width:fit-content; font-family:monospace;">${getCustomerCode(c)}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">CRM Phân Hệ</span>
+                <span style="font-size:13.5px; font-weight:600; color:#1e293b;">${CRM_LABELS[c.crm_type] || c.crm_type}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Tên Khách Hàng</span>
+                <span style="font-size:14px; font-weight:700; color:#0f172a;">${c.customer_name}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Số Điện Thoại</span>
+                <span>
+                    <a href="tel:${c.phone}" style="display:inline-flex;align-items:center;gap:5px;color:#2563eb;font-family:monospace;font-weight:700;text-decoration:none;font-size:13.5px;padding:2px 6px;border-radius:4px;background:rgba(37,99,235,0.05);transition:all 0.15s;" onmouseover="this.style.background='rgba(37,99,235,0.1)'" onmouseout="this.style.background='rgba(37,99,235,0.05)'">📞 ${c.phone}</a>
+                </span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Nguồn Số</span>
+                <span style="font-size:13px; font-weight:600; color:#334155;">${c.source_name || '-'}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Chương Trình Khuyến Mãi</span>
+                <span style="font-size:13px; font-weight:600; color:#334155;">${c.promotion_name || '-'}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Lĩnh Vực Hoạt Động</span>
+                <span style="font-size:13px; font-weight:600; color:#334155;">${c.industry_name || '-'}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Nhân Viên Phụ Trách</span>
+                <span style="font-size:13px; font-weight:600; color:#334155;">${c.assigned_to_name || '-'}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Trạng Thái Hiện Tại</span>
+                <span style="width:fit-content;display:block;">${getStatusBadge(c.order_status)}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Ngày Bàn Giao Hệ Thống</span>
+                <span style="font-size:13px; font-weight:600; color:#334155;">${formatDate(c.handover_date)}</span>
+            </div>
+            ${c.referrer_name ? `
+            <div style="display:flex; flex-direction:column; gap:4px; grid-column: 1/-1;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Cộng Tác Viên Giới Thiệu</span>
+                <span style="font-size:13px; font-weight:600; color:#334155;">🤝 ${c.referrer_name}</span>
+            </div>` : ''}
+            ${c.notes ? `
+            <div style="display:flex; flex-direction:column; gap:4px; grid-column: 1/-1; border-top: 1px dashed #e2e8f0; padding-top:10px;">
+                <span style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Ghi Chú Tư Vấn</span>
+                <span style="font-size:13px; color:#334155; line-height:1.5; white-space:pre-line;">${c.notes}</span>
+            </div>` : ''}
         </div>
-        <hr style="border-color: var(--gray-700); margin: 16px 0;">
-        <h4 style="margin-bottom: 12px;">📦 Chi Tiết Đơn Hàng</h4>
+        <h4 style="margin:24px 0 12px 0; font-size:15px; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:8px;">📦 Chi Tiết Sản Phẩm & Đơn Hàng</h4>
         <div id="orderItemsArea">
-            <table class="table" style="font-size:13px;" id="orderItemsTable">
-                <thead><tr><th>Mô tả</th><th style="width:80px">SL</th><th style="width:120px">Đơn giá</th><th style="width:120px">Thành tiền</th><th style="width:50px"></th></tr></thead>
+            <table class="table" style="font-size:13px; width:100%; border-collapse:collapse; margin-bottom:12px;" id="orderItemsTable">
+                <thead>
+                    <tr style="border-bottom:2px solid #e2e8f0;">
+                        <th style="padding:10px 8px; text-align:left; color:#475569; font-weight:600;">Mô tả sản phẩm</th>
+                        <th style="padding:10px 8px; text-align:right; color:#475569; font-weight:600; width:80px">SL</th>
+                        <th style="padding:10px 8px; text-align:right; color:#475569; font-weight:600; width:120px">Đơn giá</th>
+                        <th style="padding:10px 8px; text-align:right; color:#475569; font-weight:600; width:120px">Thành tiền</th>
+                        <th style="padding:10px 8px; text-align:center; color:#475569; font-weight:600; width:50px"></th>
+                    </tr>
+                </thead>
                 <tbody>
-                    ${items.length > 0 ? items.map((it, i) => `<tr>
-                        <td><input class="form-control oi-desc" value="${it.description || ''}" style="font-size:13px;padding:6px 8px;"></td>
-                        <td><input type="number" class="form-control oi-qty" value="${it.quantity || 0}" min="0" style="font-size:13px;padding:6px 8px;"></td>
-                        <td><input type="number" class="form-control oi-price" value="${it.unit_price || 0}" min="0" style="font-size:13px;padding:6px 8px;"></td>
-                        <td class="oi-total" style="text-align:right;font-weight:600">${formatCurrency(it.total)}</td>
-                        <td><button class="btn btn-sm" onclick="this.closest('tr').remove();calcOrderTotal();" style="color:var(--danger)">✕</button></td>
+                    ${items.length > 0 ? items.map((it, i) => `<tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:8px 6px;"><input class="form-control oi-desc" value="${it.description || ''}" style="font-size:13px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1;" placeholder="Ví dụ: Áo thun HV"></td>
+                        <td style="padding:8px 6px;"><input type="number" class="form-control oi-qty" value="${it.quantity || 0}" min="0" style="font-size:13px; padding:6px 10px; text-align:right; border-radius:6px; border:1px solid #cbd5e1;"></td>
+                        <td style="padding:8px 6px;"><input type="number" class="form-control oi-price" value="${it.unit_price || 0}" min="0" style="font-size:13px; padding:6px 10px; text-align:right; border-radius:6px; border:1px solid #cbd5e1;"></td>
+                        <td class="oi-total" style="text-align:right; font-weight:700; color:#1e293b; padding:8px 6px; font-size:13.5px;">${formatCurrency(it.total)}</td>
+                        <td style="padding:8px 6px; text-align:center;"><button class="btn btn-sm" onclick="this.closest('tr').remove();calcOrderTotal();" style="color:#ef4444; background:none; border:none; padding:4px 8px; font-size:14px; cursor:pointer; font-weight:bold;">✕</button></td>
                     </tr>`).join('') : ''}
                 </tbody>
             </table>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                <button class="btn btn-sm" onclick="addOrderItemRow()" style="font-size:12px;">➕ Thêm dòng</button>
-                <div style="font-size:16px;font-weight:700;">Tổng: <span id="orderGrandTotal" style="color:var(--gold)">${formatCurrency(grandTotal)}</span> VNĐ</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; background:#f8fafc; padding:10px 16px; border-radius:10px; border:1px solid #e2e8f0;">
+                <button class="btn btn-sm" onclick="addOrderItemRow()" style="font-size:12.5px; font-weight:600; background:#fff; color:#334155; border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; transition:all 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">➕ Thêm dòng mới</button>
+                <div style="font-size:14px; font-weight:600; color:#475569;">Tổng cộng: <span id="orderGrandTotal" style="color:#1e3a8a; font-size:18px; font-weight:800; margin-left:4px;">${formatCurrency(grandTotal)}</span> VNĐ</div>
             </div>
         </div>
     `;
 
     const isReadonly = c.readonly;
     const footerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+        <button class="btn" onclick="closeModal()" style="background:#fff; color:#475569; border:1px solid #cbd5e1; border-radius:8px; padding:10px 20px; font-weight:600; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">Đóng</button>
         ${!isReadonly && ['giam_doc','quan_ly','truong_phong','nhan_vien'].includes(currentUser.role)
-            ? `<button class="btn btn-primary" onclick="saveOrderItems(${c.id})" style="width:auto;">💾 Lưu Đơn Hàng</button>
-               <button class="btn" onclick="requestCancel(${c.id})" style="width:auto;background:var(--danger);color:white;">❌ Hủy KH</button>`
+            ? `<button class="btn" onclick="saveOrderItems(${c.id})" style="width:auto; background:#10b981; color:#fff; border-radius:8px; padding:10px 20px; font-weight:700; box-shadow:0 2px 8px rgba(16,185,129,0.25); cursor:pointer; border:none; transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">💾 Lưu Đơn Hàng</button>
+               <button class="btn" onclick="requestCancel(${c.id})" style="width:auto; background:#ef4444; color:#fff; border-radius:8px; padding:10px 20px; font-weight:700; box-shadow:0 2px 8px rgba(239,68,68,0.25); cursor:pointer; border:none; transition:all 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">❌ Hủy Khách</button>`
             : ''}
     `;
 
@@ -334,12 +381,13 @@ async function showCustomerDetail(id) {
 function addOrderItemRow() {
     const tbody = document.querySelector('#orderItemsTable tbody');
     const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #f1f5f9';
     tr.innerHTML = `
-        <td><input class="form-control oi-desc" value="" style="font-size:13px;padding:6px 8px;" placeholder="Mô tả sản phẩm"></td>
-        <td><input type="number" class="form-control oi-qty" value="0" min="0" style="font-size:13px;padding:6px 8px;"></td>
-        <td><input type="number" class="form-control oi-price" value="0" min="0" style="font-size:13px;padding:6px 8px;"></td>
-        <td class="oi-total" style="text-align:right;font-weight:600">0</td>
-        <td><button class="btn btn-sm" onclick="this.closest('tr').remove();calcOrderTotal();" style="color:var(--danger)">✕</button></td>
+        <td style="padding:8px 6px;"><input class="form-control oi-desc" value="" style="font-size:13px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1;" placeholder="Ví dụ: Áo thun HV"></td>
+        <td style="padding:8px 6px;"><input type="number" class="form-control oi-qty" value="0" min="0" style="font-size:13px; padding:6px 10px; text-align:right; border-radius:6px; border:1px solid #cbd5e1;"></td>
+        <td style="padding:8px 6px;"><input type="number" class="form-control oi-price" value="0" min="0" style="font-size:13px; padding:6px 10px; text-align:right; border-radius:6px; border:1px solid #cbd5e1;"></td>
+        <td class="oi-total" style="text-align:right; font-weight:700; color:#1e293b; padding:8px 6px; font-size:13.5px;">0</td>
+        <td style="padding:8px 6px; text-align:center;"><button class="btn btn-sm" onclick="this.closest('tr').remove();calcOrderTotal();" style="color:#ef4444; background:none; border:none; padding:4px 8px; font-size:14px; cursor:pointer; font-weight:bold;">✕</button></td>
     `;
     tbody.appendChild(tr);
     tr.querySelectorAll('.oi-qty, .oi-price').forEach(el => el.addEventListener('input', calcOrderTotal));

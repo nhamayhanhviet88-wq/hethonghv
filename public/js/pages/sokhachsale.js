@@ -65,75 +65,284 @@ async function renderSokhachsalePage(container) {
 
     container.innerHTML = `
         <style>
-            .sks-container { display:flex; height:calc(100vh - 120px); gap:0; font-family:'Segoe UI',system-ui,sans-serif; }
-            .sks-sidebar { width:260px; min-width:260px; background:linear-gradient(180deg,#f8fafc,#f1f5f9); border-right:1.5px solid #e2e8f0; display:flex; flex-direction:column; overflow:hidden; }
-            .sks-main { flex:1; overflow:auto; padding:16px 20px; background:#fff; }
+            .sks-container { 
+                display: flex; 
+                height: calc(100vh - 120px); 
+                gap: 20px; 
+                font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                background: #f8fafc; 
+                padding: 10px;
+            }
+            .sks-sidebar { 
+                width: 280px; 
+                min-width: 280px; 
+                background: #ffffff; 
+                border-radius: 16px;
+                border: 1px solid #e2e8f0; 
+                display: flex; 
+                flex-direction: column; 
+                overflow: hidden; 
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            }
+            .sks-main { 
+                flex: 1; 
+                overflow: auto; 
+                padding: 24px; 
+                background: #ffffff; 
+                border-radius: 16px;
+                border: 1px solid #e2e8f0; 
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+                display: flex;
+                flex-direction: column;
+            }
             
+            /* Sidebar User Card */
+            .sks-user-item {
+                display: flex;
+                flex-direction: column;
+                padding: 12px;
+                cursor: pointer;
+                border-radius: 12px;
+                margin-bottom: 6px;
+                transition: all 0.2s ease;
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+            }
+            .sks-user-item:hover {
+                background: #f8fafc;
+                border-color: #cbd5e1;
+                transform: translateY(-1px);
+            }
+            .sks-user-item.active {
+                background: linear-gradient(135deg, #1e293b, #0f172a);
+                color: #ffffff;
+                border-color: #0f172a;
+                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+            }
+
             /* Tree CSS styling */
-            .sks-tree-container { margin-top: 6px; padding-left: 8px; border-left: 1.5px dashed #cbd5e1; display: flex; flex-direction: column; gap: 3px; }
-            .sks-tree-node { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; }
-            .sks-tree-node:hover { background: #f1f5f9; color: #0f172a; }
-            .sks-tree-node.active { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8; font-weight: 700; box-shadow: inset 0 0 0 1px rgba(59,130,246,0.1); }
-            .sks-tree-node .node-label { display: flex; align-items: center; gap: 6px; flex: 1; text-align: left; }
-            .sks-tree-node .node-badge { background: #e2e8f0; color: #475569; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 10px; flex-shrink: 0; }
-            .sks-tree-node.active .node-badge { background: #3b82f6; color: white; }
-            .sks-tree-children { display: flex; flex-direction: column; gap: 3px; padding-left: 12px; }
+            .sks-tree-container { 
+                margin-top: 10px; 
+                padding-left: 10px; 
+                border-left: 2px solid rgba(255, 255, 255, 0.15); 
+                display: flex; 
+                flex-direction: column; 
+                gap: 6px; 
+            }
+            .sks-user-item:not(.active) .sks-tree-container {
+                border-left-color: #cbd5e1;
+            }
+            
+            .sks-tree-node { 
+                display: flex; 
+                align-items: center; 
+                justify-content: space-between; 
+                padding: 8px 10px; 
+                border-radius: 8px; 
+                cursor: pointer; 
+                font-size: 11.5px; 
+                font-weight: 600; 
+                transition: all 0.15s; 
+                background: rgba(255, 255, 255, 0.05); 
+                border: 1px solid rgba(255, 255, 255, 0.1); 
+                color: rgba(255, 255, 255, 0.8); 
+            }
+            .sks-user-item:not(.active) .sks-tree-node {
+                background: #f8fafc;
+                border-color: #e2e8f0;
+                color: #475569;
+            }
+            .sks-tree-node:hover { 
+                background: rgba(255, 255, 255, 0.15); 
+                color: #ffffff; 
+            }
+            .sks-user-item:not(.active) .sks-tree-node:hover {
+                background: #f1f5f9;
+                color: #0f172a;
+            }
+            
+            .sks-tree-node.active { 
+                background: #fad24c !important; 
+                border-color: #fad24c !important; 
+                color: #0f172a !important; 
+                font-weight: 700; 
+                box-shadow: 0 2px 8px rgba(250, 210, 76, 0.3); 
+            }
+            .sks-user-item:not(.active) .sks-tree-node.active {
+                background: #3b82f6 !important;
+                border-color: #3b82f6 !important;
+                color: #ffffff !important;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            }
+            
+            .sks-tree-node .node-label { 
+                display: flex; 
+                align-items: center; 
+                gap: 6px; 
+                flex: 1; 
+                text-align: left; 
+            }
+            .sks-tree-node .node-badge { 
+                background: rgba(255, 255, 255, 0.2); 
+                color: #ffffff; 
+                font-size: 9.5px; 
+                font-weight: 800; 
+                padding: 2px 6px; 
+                border-radius: 20px; 
+                flex-shrink: 0; 
+            }
+            .sks-user-item:not(.active) .sks-tree-node .node-badge {
+                background: #cbd5e1;
+                color: #334155;
+            }
+            .sks-tree-node.active .node-badge { 
+                background: #0f172a !important; 
+                color: #fad24c !important; 
+            }
+            .sks-user-item:not(.active) .sks-tree-node.active .node-badge {
+                background: #ffffff !important;
+                color: #3b82f6 !important;
+            }
+            
+            .sks-tree-children { 
+                display: flex; 
+                flex-direction: column; 
+                gap: 5px; 
+                padding-left: 12px; 
+            }
             .sks-tree-year { font-weight: 700; }
             .sks-tree-month { font-weight: 600; }
             .sks-tree-day { font-weight: 500; }
             
+            /* Table Styling */
+            .sks-table-card {
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                margin-top: 10px;
+                background: #ffffff;
+            }
+            table.sks-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+            table.sks-table thead th {
+                background: #0f172a !important;
+                color: #ffffff !important;
+                padding: 14px 16px;
+                font-weight: 700;
+                font-size: 11.5px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border: none;
+            }
+            table.sks-table thead th:first-child {
+                border-top-left-radius: 12px;
+                border-bottom-left-radius: 12px;
+            }
+            table.sks-table thead th:last-child {
+                border-top-right-radius: 12px;
+                border-bottom-right-radius: 12px;
+            }
+            table.sks-table tbody td {
+                padding: 14px 16px;
+                border-bottom: 1px solid #f1f5f9;
+                vertical-align: middle;
+            }
+            table.sks-table tbody tr {
+                transition: all 0.2s ease;
+            }
+            table.sks-table tbody tr:hover {
+                background: #f8fafc;
+            }
+            table.sks-table tbody tr:last-child td {
+                border-bottom: none;
+            }
+
             /* Pagination */
-            .crm-pagination { display:flex; align-items:center; justify-content:center; gap:6px; padding:12px 0; flex-wrap:wrap; }
-            .crm-pagination button { min-width:36px; height:36px; border:1px solid #334155; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; }
-            .crm-pagination button:hover { background:#334155; color:white; }
-            .crm-pagination button.active { background:linear-gradient(135deg,#3b82f6,#2563eb); color:white; border-color:#3b82f6; box-shadow:0 2px 8px rgba(59,130,246,.4); }
+            .crm-pagination { display:flex; align-items:center; justify-content:center; gap:6px; padding:16px 0; flex-wrap:wrap; }
+            .crm-pagination button { 
+                min-width: 36px; 
+                height: 36px; 
+                border: 1px solid #cbd5e1; 
+                background: #ffffff; 
+                color: #475569; 
+                border-radius: 8px; 
+                font-size: 13px; 
+                font-weight: 600; 
+                cursor: pointer; 
+                transition: all 0.2s; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+            }
+            .crm-pagination button:hover { 
+                background: #f1f5f9; 
+                color: #0f172a; 
+                border-color: #cbd5e1;
+            }
+            .crm-pagination button.active { 
+                background: linear-gradient(135deg, #1e293b, #0f172a); 
+                color: white; 
+                border-color: #0f172a; 
+                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15); 
+            }
             .crm-pagination button:disabled { opacity:.4; cursor:not-allowed; }
-            .crm-pagination .pg-info { color:#94a3b8; font-size:12px; font-weight:600; margin:0 8px; }
+            .crm-pagination .pg-info { color:#64748b; font-size:12px; font-weight:600; margin:0 8px; }
         </style>
         <div class="sks-container">
             <!-- LEFT SIDEBAR -->
             <div class="sks-sidebar">
-                <div style="padding:14px;border-bottom:1.5px solid #e2e8f0;">
-                    <h4 style="margin:0;color:#122546;font-size:14px;font-weight:800;">💼 Bộ Phận Sale</h4>
+                <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0; background:linear-gradient(135deg,#1e293b,#0f172a); color:white;">
+                    <h4 style="margin:0;font-size:14px;font-weight:800;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">💼 BỘ PHẬN SALE</h4>
                 </div>
-                <div id="sksSidebarList" style="flex:1;overflow:auto;padding:8px;"></div>
+                <div id="sksSidebarList" style="flex:1;overflow:auto;padding:12px;background:#f8fafc;display:flex;flex-direction:column;gap:4px;"></div>
             </div>
 
             <!-- RIGHT MAIN CONTENT -->
             <div class="sks-main">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                    <h3 style="margin:0;font-size:18px;font-weight:800;color:#122546;">📖 Sổ Khách Sale</h3>
-                    <div id="sksFilterInfo" style="font-size:13px;font-weight:700;color:#2563eb;background:#eff6ff;padding:4px 12px;border-radius:20px;border:1px solid #bfdbfe;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:24px;">📖</span>
+                        <h3 style="margin:0;font-size:19px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Sổ Khách Sale</h3>
+                    </div>
+                    <div id="sksFilterInfo" style="font-size:12.5px;font-weight:700;color:#2563eb;background:#eff6ff;padding:6px 14px;border-radius:20px;border:1px solid #bfdbfe;box-shadow:0 1px 2px rgba(37,99,235,0.05)">
                         Đang tải...
                     </div>
                 </div>
 
                 <!-- Filters area -->
-                <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
-                    <select id="sksFilterStatus" class="form-control" style="width:auto;min-width:160px;">
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="dang_tu_van">Đang Tư Vấn</option>
-                        <option value="bao_gia">Báo Giá</option>
-                        <option value="dat_coc">Đã Đặt Cọc</option>
-                        <option value="chot_don">Chốt Đơn</option>
-                        <option value="san_xuat">Sản Xuất</option>
-                        <option value="giao_hang">Giao Hàng</option>
-                        <option value="hoan_thanh">Hoàn Thành</option>
-                    </select>
-                    <input type="text" id="sksSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:250px;">
+                <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
+                    <div style="position:relative; display:flex; align-items:center;">
+                        <span style="position:absolute; left:12px; color:#64748b; font-size:14px; pointer-events:none;">🎯</span>
+                        <select id="sksFilterStatus" class="form-control" style="width:auto;min-width:180px; padding-left:34px; border-radius:10px; border:1px solid #cbd5e1; height:40px; font-size:13px; font-weight:600; color:#334155; box-shadow:0 1px 2px rgba(0,0,0,0.02)">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="dang_tu_van">Đang Tư Vấn</option>
+                            <option value="bao_gia">Báo Giá</option>
+                            <option value="dat_coc">Đã Đặt Cọc</option>
+                            <option value="chot_don">Chốt Đơn</option>
+                            <option value="san_xuat">Sản Xuất</option>
+                            <option value="giao_hang">Giao Hàng</option>
+                            <option value="hoan_thanh">Hoàn Thành</option>
+                        </select>
+                    </div>
+                    <div style="position:relative; display:flex; align-items:center; flex:1; max-width:320px;">
+                        <span style="position:absolute; left:12px; color:#64748b; font-size:14px; pointer-events:none;">🔍</span>
+                        <input type="text" id="sksSearch" class="form-control" placeholder="Tìm tên hoặc SĐT..." style="width:100%; padding-left:34px; border-radius:10px; border:1px solid #cbd5e1; height:40px; font-size:13px; font-weight:500; box-shadow:0 1px 2px rgba(0,0,0,0.02)">
+                    </div>
                 </div>
 
                 <!-- Customers table -->
-                <div class="card">
-                    <div class="card-body" style="overflow-x:auto;">
-                        <table class="table" id="sksTable">
-                            <thead><tr>
-                                <th>Mã</th><th>Khách Hàng</th><th>SĐT</th><th>Nguồn</th>
-                                <th>Người Nhận</th><th>Trạng Thái</th><th>Ngày tạo</th><th>Thao Tác</th>
-                            </tr></thead>
-                            <tbody id="sksTbody"><tr><td colspan="8" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
-                        </table>
-                    </div>
+                <div class="sks-table-card" style="flex:1; overflow-y:auto;">
+                    <table class="sks-table" id="sksTable">
+                        <thead><tr>
+                            <th>Mã</th><th>Khách Hàng</th><th>SĐT</th><th>Nguồn</th>
+                            <th>Người Nhận</th><th>Trạng Thái</th><th>Ngày tạo</th><th>Thao Tác</th>
+                        </tr></thead>
+                        <tbody id="sksTbody"><tr><td colspan="8" style="text-align:center;padding:40px;color:#64748b;">⏳ Đang tải...</td></tr></tbody>
+                    </table>
                 </div>
 
                 <!-- Pagination -->
@@ -170,12 +379,12 @@ function sksRenderSidebar() {
     let topBtn = '';
     // Only managers/directors/admins can view "Tổng bộ phận"
     if (['giam_doc', 'quan_ly', 'quan_ly_cap_cao'].includes(currentUser.role)) {
-        topBtn = `<div onclick="sksSelectUser(null)" style="display:flex;flex-direction:column;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:10px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#fad24c,#f59e0b);color:#122546;box-shadow:0 4px 12px rgba(250,210,76,0.3);font-weight:700;' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
+        topBtn = `<div onclick="sksSelectUser(null)" class="sks-user-item ${isAllActive ? 'active' : ''}">
             <div style="display:flex;align-items:center;gap:10px;">
-                <span style="font-size:20px;">👥</span>
+                <span style="font-size:16px;background:${isAllActive ? 'rgba(255,255,255,0.15)' : '#e2e8f0'};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">👥</span>
                 <div style="flex:1;">
-                    <div style="font-size:12px;font-weight:800;">Tổng Bộ Phận Sale</div>
-                    <div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div>
+                    <div style="font-size:12px;font-weight:800;letter-spacing:-0.2px;">Tổng Bộ Phận Sale</div>
+                    <div style="font-size:9.5px;opacity:0.75;">Xem tổng hợp tất cả NV</div>
                 </div>
             </div>
             ${isAllActive ? `<div id="sksTreeContainer_null" style="margin-top:8px;" onclick="event.stopPropagation()">${sksRenderTreeHTML(null)}</div>` : ''}
@@ -186,7 +395,7 @@ function sksRenderSidebar() {
                      _sksSidebarDepts.find(d => d.name && d.name.toUpperCase() === 'PHÒNG SALE') || 
                      _sksSidebarDepts.find(d => d.name && d.name.toUpperCase().includes('SALE') && !d.name.toUpperCase().includes('XƯỞNG') && d.parent_id !== 4);
     if (!saleDept) {
-        list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không tìm thấy Phòng Sale</div>';
+        list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;font-weight:600;">Không tìm thấy Phòng Sale</div>';
         return;
     }
 
@@ -203,7 +412,7 @@ function sksRenderSidebar() {
     }
 
     if (saleUsers.length === 0 && !topBtn) {
-        list.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không có NV trong Phòng Sale</div>';
+        list.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;font-weight:600;">Không có NV trong Phòng Sale</div>';
         return;
     }
 
@@ -231,7 +440,7 @@ function sksRenderSidebar() {
         const roleLabels = { giam_doc: 'GĐ', quan_ly_cap_cao: 'QLCC', quan_ly: 'QL', truong_phong: 'TP', nhan_vien: 'NV', part_time: 'PT' };
         const color = roleColors[role] || '#6b7280';
         const label = roleLabels[role] || role;
-        return ` <span style="background:${color};color:white;font-size:8px;padding:1px 4px;border-radius:4px;font-weight:700;vertical-align:middle;margin-left:4px;text-transform:uppercase;">${label}</span>`;
+        return ` <span style="background:${color};color:white;font-size:8px;padding:2px 5px;border-radius:4px;font-weight:700;vertical-align:middle;margin-left:4px;text-transform:uppercase;">${label}</span>`;
     }
 
     function renderSidebarUser(u, indent) {
@@ -241,12 +450,12 @@ function sksRenderSidebar() {
         _sksSidebarDepts.forEach(d => { deptMap[d.id] = d.name; });
         const dName = deptMap[u.department_id] || '';
         const badge = roleBadge(u.role);
-        return `<div style="display:flex;flex-direction:column;padding:8px 10px;cursor:pointer;border-radius:10px;margin-bottom:3px;margin-left:${indent}px;transition:all 0.15s;${active ? 'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);' : 'background:white;border:1px solid #e5e7eb;color:#374151;'}" onclick="sksSelectUser(${u.id})">
+        return `<div class="sks-user-item ${active ? 'active' : ''}" style="margin-left:${indent}px;" onclick="sksSelectUser(${u.id})">
             <div style="display:flex;align-items:center;gap:10px;">
                 <span style="background:${active ? 'rgba(255,255,255,0.2)' : c};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;">${initials(u.full_name || u.username)}</span>
                 <div style="flex:1;min-width:0;">
-                    <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}${badge}</div>
-                    <div style="font-size:9px;opacity:0.6;">${dName}</div>
+                    <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.1px;">${u.full_name || u.username}${badge}</div>
+                    <div style="font-size:9.5px;opacity:0.65;font-weight:500;">${dName}</div>
                 </div>
             </div>
             ${active ? `<div id="sksTreeContainer_${u.id}" style="margin-top:8px;" onclick="event.stopPropagation()">${sksRenderTreeHTML(u.id)}</div>` : ''}
@@ -263,17 +472,26 @@ function sksRenderSidebar() {
     let html = '';
 
     if (directUsers.length > 0 && !_isTP) {
-        html += `<div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;"><span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${saleDept.name}</span></div>`;
-        directUsers.forEach(u => { html += renderSidebarUser(u, 8); });
+        html += `<div style="padding:6px 12px;margin:8px 0 4px;font-size:10px;font-weight:800;color:#64748b;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3b82f6;"></span>
+            ${saleDept.name}
+        </div>`;
+        directUsers.forEach(u => { html += renderSidebarUser(u, 0); });
     } else if (!_isTP) {
-        html += `<div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;"><span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${saleDept.name}</span></div>`;
+        html += `<div style="padding:6px 12px;margin:8px 0 4px;font-size:10px;font-weight:800;color:#64748b;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3b82f6;"></span>
+            ${saleDept.name}
+        </div>`;
     }
 
     childTeams.forEach(team => {
         const teamUsers = sortMembers(saleUsers.filter(u => u.department_id === team.id));
         if (teamUsers.length === 0) return;
-        html += `<div style="padding:3px 8px 3px 8px;margin:6px 0 2px;"><span style="font-size:10px;font-weight:700;color:#64748b;">└ ${team.name}</span></div>`;
-        teamUsers.forEach(u => { html += renderSidebarUser(u, 16); });
+        html += `<div style="padding:6px 12px;margin:12px 0 4px;font-size:10px;font-weight:800;color:#64748b;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981;"></span>
+            ${team.name}
+        </div>`;
+        teamUsers.forEach(u => { html += renderSidebarUser(u, 0); });
     });
 
     list.innerHTML = topBtn + html;
@@ -526,19 +744,44 @@ function sksRenderTable() {
             const custCode = typeof getCustomerCode === 'function' ? getCustomerCode(c) : c.id;
             const formattedDate = typeof formatDate === 'function' ? formatDate(c.created_at) : c.created_at;
 
+            let phoneHTML = '';
+            if (c.phone && c.phone.startsWith('pancake_')) {
+                const shortId = c.phone.substring(8, 14);
+                if (c.facebook_link) {
+                    phoneHTML = `<a href="${c.facebook_link}" target="_blank" title="${c.phone}" style="display:inline-flex;align-items:center;gap:6px;color:#2563eb;text-decoration:none;font-weight:600;background:#dbeafe;padding:4px 10px;border-radius:20px;font-size:11px;border:1px solid #93c5fd;transition:all 0.2s;" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">
+                        <span style="font-size:12px;">💬</span> Pancake Chat
+                    </a>`;
+                } else {
+                    phoneHTML = `<span title="${c.phone}" style="display:inline-flex;align-items:center;gap:6px;color:#475569;background:#f1f5f9;padding:4px 10px;border-radius:20px;font-size:11px;border:1px solid #e2e8f0;font-family:monospace;">
+                        💬 Pancake (${shortId}...)
+                    </span>`;
+                }
+            } else if (c.phone) {
+                const displayPhone = c.readonly && typeof _maskPhone === 'function' ? _maskPhone(c.phone) : c.phone;
+                phoneHTML = c.readonly 
+                    ? `<span style="color:#64748b;font-family:monospace;font-weight:500;font-size:12.5px;">${displayPhone}</span>`
+                    : `<a href="tel:${c.phone}" style="display:inline-flex;align-items:center;gap:5px;color:#2563eb;font-family:monospace;font-weight:700;text-decoration:none;font-size:12.5px;padding:3px 8px;border-radius:6px;background:rgba(37,99,235,0.05);border:1px solid rgba(37,99,235,0.1);transition:all 0.2s;" onmouseover="this.style.background='rgba(37,99,235,0.12)';this.style.borderColor='rgba(37,99,235,0.3)'" onmouseout="this.style.background='rgba(37,99,235,0.05)';this.style.borderColor='rgba(37,99,235,0.1)'">
+                        📞 ${displayPhone}
+                    </a>`;
+            } else {
+                phoneHTML = '<span style="color:#94a3b8">-</span>';
+            }
+
             return `<tr>
-                <td><strong style="color:var(--gold)">${custCode}</strong></td>
-                <td>${typeof _crmIsBirthdayToday === 'function' && _crmIsBirthdayToday(c.birthday) ? '🎂🎉 ' : ''}${c.customer_name}</td>
-                <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
-                <td>${c.source_name || '-'}</td>
-                <td>${c.assigned_to_name || '-'}</td>
+                <td><span style="color:#0f172a;background:#f1f5f9;border:1px solid #cbd5e1;padding:4px 8px;border-radius:6px;font-family:monospace;font-size:12px;font-weight:700;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.05)">${custCode}</span></td>
+                <td><span style="font-weight:600;color:#1e293b;font-size:13.5px;">${typeof _crmIsBirthdayToday === 'function' && _crmIsBirthdayToday(c.birthday) ? '🎂🎉 ' : ''}${c.customer_name}</span></td>
+                <td>${phoneHTML}</td>
+                <td><span style="font-weight:500;color:#475569">${c.source_name || '-'}</span></td>
+                <td><span style="font-weight:500;color:#475569">${c.assigned_to_name || '-'}</span></td>
                 <td>${statusBadge}</td>
-                <td>${formattedDate}</td>
+                <td><span style="color:#64748b;font-size:12px;font-weight:500">${formattedDate}</span></td>
                 <td>
-                    <button class="btn btn-sm" onclick="showCustomerDetail(${c.id})" title="Chi tiết">👁️</button>
-                    ${!c.readonly && ['giam_doc','quan_ly','truong_phong','nhan_vien'].includes(currentUser.role)
-                        ? `<button class="btn btn-sm" onclick="showEditStatus(${c.id}, '${c.order_status}')" title="Cập nhật">📝</button>`
-                        : ''}
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button class="btn btn-sm" onclick="showCustomerDetail(${c.id})" title="Chi tiết" style="padding:6px 10px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:6px;transition:all 0.2s;font-weight:500;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">👁️ Chi tiết</button>
+                        ${!c.readonly && ['giam_doc','quan_ly','truong_phong','nhan_vien'].includes(currentUser.role)
+                            ? `<button class="btn btn-sm" onclick="showEditStatus(${c.id}, '${c.order_status}')" title="Cập nhật" style="padding:6px 10px;background:#fff;color:#2563eb;border:1px solid #3b82f6;border-radius:6px;transition:all 0.2s;font-weight:500;" onmouseover="this.style.background='rgba(59,130,246,0.05)'" onmouseout="this.style.background='#fff'">📝 Cập nhật</button>`
+                            : ''}
+                    </div>
                 </td>
             </tr>`;
         }).join('');
