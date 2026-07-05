@@ -192,11 +192,10 @@ async function renderChamsockhsalePage(container) {
                         <th style="min-width:110px">Link KH</th>
                         <th style="min-width:130px">Địa Chỉ</th>
                         <th style="min-width:100px">Nguồn</th>
-                        <th style="min-width:70px;text-align:center">Lần Đặt</th>
-                        <th style="min-width:110px;text-align:right">Doanh Số</th>
+                        <th style="min-width:120px;text-align:center">Đơn/Doanh Số</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
                     </tr></thead>
-                    <tbody id="saleTbody"><tr><td colspan="17" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
+                    <tbody id="saleTbody"><tr><td colspan="16" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
                 <div id="salePagination" class="crm-pagination"></div>
             </div>
@@ -531,11 +530,11 @@ function _saleRenderFilteredTable() {
         let html = '';
         let stt = startIdx + 1;
         if (moiChuyenRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="21"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="16"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
             html += moiChuyenRows.map(c => _saleRenderCustomerRow(c, stats, stt++)).join('');
         }
         if (phaiXuLyRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="21"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="16"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
             html += phaiXuLyRows.map(c => _saleRenderCustomerRow(c, stats, stt++)).join('');
         }
         tbody.innerHTML = html;
@@ -664,8 +663,11 @@ function _saleRenderCustomerRow(c, stats, stt) {
         <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">🔗 FB</a>' : '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.source_name || '—'}</td>
-        <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
-        <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
+        <td style="text-align:center;font-weight:700;font-size:13px;white-space:nowrap;">
+            <span style="color:#122546;">${s.chotDonCount}</span>
+            <span style="color:#cbd5e1;margin:0 4px;">/</span>
+            <span style="color:var(--success);">${s.revenue > 0 ? formatCurrency(s.revenue) + 'đ' : '0'}</span>
+        </td>
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && canEditCrm && c.cancel_approved !== 1 ? (() => {
                 if (_salePendingCtvIds.includes(c.id)) {
