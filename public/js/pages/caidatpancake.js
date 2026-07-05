@@ -69,15 +69,15 @@ async function renderCaidatpancakePage(container) {
                                 <span>➕</span> Thêm Cấu Hình Page
                             </button>
                         </div>
-                        <div style="overflow-x: auto; border: 1px solid var(--gray-200); border-radius: 12px; background: #fff;">
+                        <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.02);">
                             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
                                 <thead>
-                                    <tr style="background: #1e293b; border-bottom: 1px solid var(--gray-200);">
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 220px;">Page Name / ID</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 140px; text-align: center;">Phân Hệ CRM</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 200px;">Nguồn Mặc Định</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; width: 120px; text-align: center;">Trạng Thái</th>
-                                        <th style="padding: 14px 16px; font-weight: 700; color: #ffffff; text-align: center; width: 160px;">Thao Tác</th>
+                                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 240px;">Page Name / ID</th>
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 150px; text-align: center;">Phân Hệ CRM</th>
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 180px;">Nguồn Mặc Định</th>
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 130px; text-align: center;">Trạng Thái</th>
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; width: 200px;">Thao Tác</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pancakePagesTableBody">
@@ -177,14 +177,14 @@ function renderPagesTable() {
 
     tbody.innerHTML = pages.map((page, index) => {
         const crmLabel = page.crm_type === 'ca_hai'
-            ? '<span style="background: #f3e8ff; color: #6b21a8; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🏢💼 CẢ 2 PHÒNG</span>'
+            ? '<span style="background: rgba(147, 51, 234, 0.08); color: #7c3aed; border: 1.5px solid rgba(147, 51, 234, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #7c3aed;"></span> Cả 2 phòng</span>'
             : (page.crm_type === 'sale' 
-                ? '<span style="background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">💼 SALE</span>'
-                : '<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🏢 KINH DOANH</span>');
+                ? '<span style="background: rgba(37, 99, 235, 0.08); color: #2563eb; border: 1.5px solid rgba(37, 99, 235, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #2563eb;"></span> Phòng Sale</span>'
+                : '<span style="background: rgba(217, 119, 6, 0.08); color: #d97706; border: 1.5px solid rgba(217, 119, 6, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #d97706;"></span> Kinh Doanh</span>');
         
         const statusLabel = page.is_active
-            ? '<span style="color: #10b981; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">● Hoạt động</span>'
-            : '<span style="color: var(--gray-400); font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">○ Tắt</span>';
+            ? '<span style="background: rgba(16, 185, 129, 0.08); color: #059669; border: 1.5px solid rgba(16, 185, 129, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span> Hoạt động</span>'
+            : '<span style="background: rgba(148, 163, 184, 0.08); color: #64748b; border: 1.5px solid rgba(148, 163, 184, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #94a3b8;"></span> Tạm dừng</span>';
 
         // Find source name
         let sourceName = '—';
@@ -204,24 +204,28 @@ function renderPagesTable() {
         }
 
         return `
-            <tr style="border-bottom: 1px solid var(--gray-150); hover: background-color: var(--gray-50);">
-                <td style="padding: 14px 16px;">
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#fafafa'" onmouseout="this.style.backgroundColor='transparent'">
+                <td style="padding: 16px 20px; vertical-align: middle;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-weight: 700; color: var(--gray-800);">${page.name}</span>
-                        ${page.page_link ? `<a href="${page.page_link}" target="_blank" title="Xem Trang" style="text-decoration: none; font-size: 12px;">🔗</a>` : ''}
+                        <span style="font-weight: 700; color: #1e293b; font-size: 14px;">${page.name}</span>
+                        ${page.page_link ? `<a href="${page.page_link}" target="_blank" title="Xem Trang" style="text-decoration: none; font-size: 12px; transition: transform 0.2s; display: inline-flex;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'">🔗</a>` : ''}
                     </div>
-                    <div style="font-size: 11px; color: var(--gray-400); font-family: monospace; margin-top: 2px;">ID: ${page.id}</div>
-                    ${page.ads_manager_id ? `<div style="font-size: 11px; color: #4f46e5; font-weight: 600; margin-top: 4px;">📢 Ads: ${adsManagerName}</div>` : ''}
+                    <div style="font-size: 11px; color: #94a3b8; font-family: monospace; margin-top: 4px; background: #f8fafc; padding: 2px 6px; border-radius: 4px; display: inline-block; border: 1px solid #e2e8f0;">ID: ${page.id}</div>
+                    ${page.ads_manager_id ? `<br><div style="display: inline-flex; align-items: center; gap: 6px; font-size: 11px; background: rgba(79, 70, 229, 0.08); color: #4f46e5; border: 1.5px solid rgba(79, 70, 229, 0.15); padding: 3px 8px; border-radius: 6px; font-weight: 700; margin-top: 6px; vertical-align: middle;"><span>📢</span> Ads: ${adsManagerName}</div>` : ''}
                 </td>
-                <td style="padding: 14px 16px; text-align: center;">${crmLabel}</td>
-                <td style="padding: 14px 16px; font-weight: 600; color: var(--gray-700);">${sourceName}</td>
-                <td style="padding: 14px 16px; text-align: center; cursor: pointer;" onclick="togglePageStatus(${index})">${statusLabel}</td>
-                <td style="padding: 14px 16px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <button onclick="showRosterModal(${index})" class="btn btn-sm btn-info" style="border-radius: 6px; padding: 4px 10px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" title="Cấu hình chia số Roster">
-                        👥 Roster (${rosterCount})
-                    </button>
-                    <button onclick="showEditPageModal(${index})" class="btn btn-sm" style="background: none; border: none; cursor: pointer; font-size: 15px; padding: 4px;" title="Sửa thông tin Page">✏️</button>
-                    <button onclick="deletePageConfig(${index})" class="btn btn-sm" style="background: none; border: none; cursor: pointer; font-size: 15px; padding: 4px;" title="Xóa cấu hình Page">🗑️</button>
+                <td style="padding: 16px 20px; text-align: center; vertical-align: middle;">${crmLabel}</td>
+                <td style="padding: 16px 20px; vertical-align: middle;">
+                    <div style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #334155; font-size: 12px; background: #f1f5f9; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;"><span>📍</span> ${sourceName}</div>
+                </td>
+                <td style="padding: 16px 20px; text-align: center; cursor: pointer; vertical-align: middle;" onclick="togglePageStatus(${index})">${statusLabel}</td>
+                <td style="padding: 16px 20px; text-align: center; vertical-align: middle;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <button onclick="showRosterModal(${index})" class="btn" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; border-radius: 8px; padding: 6px 14px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 10px rgba(59,130,246,0.15); height: 32px; outline: none;">
+                            👥 Roster (${rosterCount})
+                        </button>
+                        <button onclick="showEditPageModal(${index})" class="btn" style="background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 12px;" title="Sửa thông tin Page" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">✏️</button>
+                        <button onclick="deletePageConfig(${index})" class="btn" style="background: #fef2f2; border: 1px solid #fee2e2; color: #ef4444; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 12px;" title="Xóa cấu hình Page" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">🗑️</button>
+                    </div>
                 </td>
             </tr>
         `;
