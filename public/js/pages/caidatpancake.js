@@ -72,12 +72,12 @@ async function renderCaidatpancakePage(container) {
                         <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.02);">
                             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
                                 <thead>
-                                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 240px;">Page Name / ID</th>
-                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 150px; text-align: center;">Phân Hệ CRM</th>
-                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 180px;">Nguồn Mặc Định</th>
-                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 130px; text-align: center;">Trạng Thái</th>
-                                        <th style="padding: 16px 20px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; width: 200px;">Thao Tác</th>
+                                    <tr style="background: #1e293b; border-bottom: 2px solid #0f172a;">
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #ffffff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 240px;">Page Name / ID</th>
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #ffffff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 150px; text-align: center;">Phân Hệ CRM</th>
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #ffffff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 180px;">Nguồn Mặc Định</th>
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #ffffff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; width: 130px; text-align: center;">Trạng Thái</th>
+                                        <th style="padding: 16px 20px; font-weight: 700; color: #ffffff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; width: 200px;">Thao Tác</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pancakePagesTableBody">
