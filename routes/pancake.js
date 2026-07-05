@@ -31,6 +31,56 @@ async function pancakeRoutes(fastify, options) {
         console.error('[Pancake Init] Migration error:', e.message);
     }
 
+    async function isStaffWorkingToday(userId, config, now, page) {
+        try {
+            const user = await db.get("SELECT is_active FROM users WHERE id = $1", [userId]);
+            if (!user || !user.is_active) return false;
+
+            const dateStr = vnDateStr(now);
+            const holidayRow = await db.get("SELECT id FROM holidays WHERE holiday_date::text = $1", [dateStr]);
+            if (holidayRow) return false;
+
+            const { isUserOnLeave } = require('../utils/workingDay');
+            const onLeave = await isUserOnLeave(userId, dateStr);
+            if (onLeave) return false;
+
+            // Check staff assignment exceptions
+            let isOff = false;
+            let isForce = false;
+            if (page && page.staff_assignments) {
+                const sa = page.staff_assignments.find(x => x.crm_user_id === userId);
+                if (sa && sa.exceptions) {
+                    const matchException = sa.exceptions.find(e => e.date === dateStr);
+                    if (matchException) {
+                        if (matchException.type === 'all_day') {
+                            isOff = true;
+                        } else if (matchException.type === 'morning_off') {
+                            if (now.getHours() < 14) isOff = true;
+                        } else if (matchException.type === 'afternoon_off') {
+                            if (now.getHours() >= 11) isOff = true;
+                        } else if (matchException.type === 'force_receive') {
+                            isForce = true;
+                        }
+                    }
+                }
+            }
+
+            if (isForce) return true;
+            if (isOff) return false;
+
+            const dayOfWeek = now.getDay();
+            const globalWorkingDays = config.global_working_days || {};
+            let workingDays = [1, 2, 3, 4, 5, 6]; // default Mon-Sat
+            if (globalWorkingDays[userId] !== undefined) {
+                workingDays = globalWorkingDays[userId].map(Number);
+            }
+            return workingDays.includes(dayOfWeek);
+        } catch (err) {
+            console.error('[Pancake Roster Check] Error:', err.message);
+            return false;
+        }
+    }
+
     // Helper: assign a lead (either with real phone or temporary phone)
     async function assignPancakeLead(page, config, customerId, customerName, conversationId, conversationLink, phone) {
         // 1. Calculate virtual date
@@ -320,6 +370,9 @@ async function pancakeRoutes(fastify, options) {
             const inHours = await isWithinReminderHours();
             if (inHours && page.staff_assignments && Array.isArray(page.staff_assignments)) {
                 for (const sa of page.staff_assignments) {
+                    const isWorking = await isStaffWorkingToday(sa.crm_user_id, config, now, page);
+                    if (!isWorking) continue;
+
                     const staffChatIdRow = await db.get(
                         `SELECT chat_id FROM telegram_notifications WHERE user_id = $1 AND event_type = 'chuyen_so' AND enabled = true`,
                         [sa.crm_user_id]
@@ -688,6 +741,7 @@ async function pancakeRoutes(fastify, options) {
             if (!config.is_active || !config.pages) return;
             const inHours = await isWithinReminderHours();
             if (!inHours) return;
+            const now = vnNow();
 
             for (const page of config.pages) {
                 if (!page.is_active || !page.source_id) continue;
@@ -708,7 +762,10 @@ async function pancakeRoutes(fastify, options) {
                     // Broadcast to all staff in roster
                     for (const sa of page.staff_assignments) {
                         if (!sa.crm_user_id) continue;
-                        
+
+                        const isWorking = await isStaffWorkingToday(sa.crm_user_id, config, now, page);
+                        if (!isWorking) continue;
+
                         const staffChatIdRow = await db.get(
                             `SELECT chat_id FROM telegram_notifications WHERE user_id = $1 AND event_type = 'chuyen_so' AND enabled = true`,
                             [sa.crm_user_id]

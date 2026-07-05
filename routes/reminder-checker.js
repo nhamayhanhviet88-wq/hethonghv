@@ -4,7 +4,7 @@
 
 const db = require('../db/pool');
 const { notifyTelegram } = require('../utils/telegram');
-const { getVNTimeInfo, getVNToday } = require('../utils/workingDay');
+const { getVNTimeInfo, getVNToday, getHolidays, isUserOnLeave } = require('../utils/workingDay');
 
 // ========== ANTI-SPAM: Track last reminder per type+staff ==========
 const _lastReminded = new Map(); // "type:userId" → timestamp
@@ -84,6 +84,38 @@ async function isWithinReminderHours() {
     return slots.some(slot => currentMinutes >= slot.start && currentMinutes <= slot.end);
 }
 
+async function isUserWorkingToday(userId, dateStr) {
+    try {
+        const user = await db.get("SELECT is_active FROM users WHERE id = $1", [userId]);
+        if (!user || !user.is_active) return false;
+
+        const holidays = await getHolidays();
+        if (holidays.has(dateStr)) return false;
+
+        const onLeave = await isUserOnLeave(userId, dateStr);
+        if (onLeave) return false;
+
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const dayOfWeek = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = CN, 1 = T2, etc.
+
+        let globalWorkingDays = {};
+        const configRow = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+        if (configRow?.value) {
+            const config = typeof configRow.value === 'string' ? JSON.parse(configRow.value) : configRow.value;
+            globalWorkingDays = config.global_working_days || {};
+        }
+
+        let workingDays = [1, 2, 3, 4, 5, 6]; // default Mon-Sat
+        if (globalWorkingDays[userId] !== undefined) {
+            workingDays = globalWorkingDays[userId].map(Number);
+        }
+        return workingDays.includes(dayOfWeek);
+    } catch (err) {
+        console.error('[Reminder Working Day Check] Error:', err.message);
+        return false;
+    }
+}
+
 /**
  * Load configurable reminder minutes from app_config
  */
@@ -160,6 +192,9 @@ async function checkChuyenSo(today, mins) {
 
     for (const row of unprocessed) {
         const userId = row.assigned_to_id;
+        const isWorking = await isUserWorkingToday(userId, today);
+        if (!isWorking) continue;
+
         const cacheKey = `chuyen_so:${userId}:${row.id}`;
         const lastTime = _lastReminded.get(cacheKey) || 0;
         if (now - lastTime < cooldownMs) continue;
