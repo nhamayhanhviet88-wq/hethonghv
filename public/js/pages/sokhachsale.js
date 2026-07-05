@@ -317,7 +317,7 @@ async function renderSokhachsalePage(container) {
                 <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
                     <div style="position:relative; display:flex; align-items:center;">
                         <span style="position:absolute; left:12px; color:#64748b; font-size:14px; pointer-events:none;">🎯</span>
-                        <select id="sksFilterStatus" class="form-control" style="width:auto;min-width:180px; padding-left:34px; border-radius:10px; border:1px solid #cbd5e1; height:40px; font-size:13px; font-weight:600; color:#334155; box-shadow:0 1px 2px rgba(0,0,0,0.02)">
+                        <select id="sksFilterStatus" class="form-control" style="width:auto;min-width:180px; padding: 0 35px 0 34px; border-radius:10px; border:1px solid #cbd5e1; height:40px; font-size:13px; font-weight:600; color:#334155; box-shadow:0 1px 2px rgba(0,0,0,0.02)">
                             <option value="">Tất cả trạng thái</option>
                             <option value="dang_tu_van">Đang Tư Vấn</option>
                             <option value="bao_gia">Báo Giá</option>
@@ -330,7 +330,7 @@ async function renderSokhachsalePage(container) {
                     </div>
                     <div style="position:relative; display:flex; align-items:center; flex:1; max-width:320px;">
                         <span style="position:absolute; left:12px; color:#64748b; font-size:14px; pointer-events:none;">🔍</span>
-                        <input type="text" id="sksSearch" class="form-control" placeholder="Tìm tên hoặc SĐT..." style="width:100%; padding-left:34px; border-radius:10px; border:1px solid #cbd5e1; height:40px; font-size:13px; font-weight:500; box-shadow:0 1px 2px rgba(0,0,0,0.02)">
+                        <input type="text" id="sksSearch" class="form-control" placeholder="Tìm tên hoặc SĐT..." style="width:100%; padding: 0 12px 0 34px; border-radius:10px; border:1px solid #cbd5e1; height:40px; font-size:13px; font-weight:500; box-shadow:0 1px 2px rgba(0,0,0,0.02)">
                     </div>
                 </div>
 
