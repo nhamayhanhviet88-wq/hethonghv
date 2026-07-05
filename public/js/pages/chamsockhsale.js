@@ -610,7 +610,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
         <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="_saleOpenCustomerDetail(${c.id}).then(()=>setTimeout(()=>_saleSwitchCDTab('history'),100))" title="${lastContent}">
             ${shortContent || '<span style="color:var(--gray-500)">—</span>'}
         </td>
-        <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount}</td>
+        <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount > 0 ? s.consultCount : '<span style="color:#ef4444;font-weight:normal;font-size:12px;">chưa chăm</span>'}</td>
         <td style="font-size:12px;">
             ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
         </td>
@@ -1485,7 +1485,17 @@ async function _saleOpenCustomerDetail(customerId) {
                         </div>
                     </div>
                     <div style="text-align:right;flex-shrink:0;">
-                        <div style="font-size:22px;font-weight:800;color:#fad24c;">${logs.length}</div>
+                        <div style="font-size:22px;font-weight:800;color:#fad24c;">
+                            ${(() => {
+                                const realLogs = logs.filter(l => {
+                                    const content = l.content || '';
+                                    return !['chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly'].includes(l.log_type) &&
+                                           !content.includes('Pancake') &&
+                                           !content.includes('Đồng bộ');
+                                });
+                                return realLogs.length;
+                            })()}
+                        </div>
                         <div style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:600;">LẦN CHĂM</div>
                     </div>
                 </div>

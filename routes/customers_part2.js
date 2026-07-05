@@ -1116,8 +1116,9 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     // Đếm log thật kể từ lần chuyển/gửi lại (khớp logic reminder-checker)
                     const prevCount = await db.get(
                         `SELECT COUNT(*) as cnt FROM consultation_logs
-                         WHERE customer_id = $1 AND log_type NOT IN ('khong_xu_ly')
-                         AND created_at >= LEAST($2::timestamp, COALESCE($3::timestamp, $2::timestamp)) - INTERVAL '1 minute'`,
+                         WHERE customer_id = $1 AND log_type NOT IN ('khong_xu_ly', 'chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so')
+                           AND content NOT LIKE '%Pancake%' AND content NOT LIKE '%Đồng bộ%'
+                           AND created_at >= LEAST($2::timestamp, COALESCE($3::timestamp, $2::timestamp)) - INTERVAL '1 minute'`,
                         [customerId, customer.created_at, customer.updated_at]
                     );
                     if (Number(prevCount?.cnt || 0) === 1) {
@@ -1203,7 +1204,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
         }
 
-        const consultCount = (await db.get('SELECT COUNT(*) as cnt FROM consultation_logs WHERE customer_id = ?', [customerId]))?.cnt || 0;
+        const consultCount = (await db.get("SELECT COUNT(*) as cnt FROM consultation_logs WHERE customer_id = ? AND log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly') AND content NOT LIKE '%Pancake%' AND content NOT LIKE '%Đồng bộ%'", [customerId]))?.cnt || 0;
         return { success: true, message: 'Đã ghi nhận tư vấn!', consultCount };
     });
 
@@ -1283,6 +1284,9 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     LEFT JOIN last_ht lh ON c.id = lh.customer_id
                     LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
                         AND (lh.id IS NULL OR cl.id > lh.id)
+                        AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly')
+                        AND cl.content NOT LIKE '%Pancake%'
+                        AND cl.content NOT LIKE '%Đồng bộ%'
                     WHERE c.id IN (${placeholders})
                     GROUP BY c.id
                 `, [...ids, ...ids]),

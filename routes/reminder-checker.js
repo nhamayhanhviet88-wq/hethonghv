@@ -145,7 +145,9 @@ async function checkChuyenSo(today, mins) {
             SELECT 1 FROM consultation_logs cl
             WHERE cl.customer_id = c.id
             AND cl.created_at >= LEAST(c.created_at, COALESCE(c.updated_at, c.created_at)) - INTERVAL '1 minute'
-            AND cl.log_type NOT IN ('khong_xu_ly')
+            AND cl.log_type NOT IN ('khong_xu_ly', 'chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so')
+            AND cl.content NOT LIKE '%Pancake%'
+            AND cl.content NOT LIKE '%Đồng bộ%'
         )
         AND c.assigned_to_id IS NOT NULL
         ORDER BY c.assigned_to_id, c.daily_order_number
