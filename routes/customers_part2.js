@@ -1,6 +1,6 @@
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram, notifyTelegram } = require('../utils/telegram');
-const { getNextWorkingDay, getVNToday } = require('../utils/workingDay');
+const { getNextWorkingDay, getVNToday, getNextFollowUpDate } = require('../utils/workingDay');
 const { calculateRealDeadline } = require('./deadline-checker');
 const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
@@ -1140,6 +1140,10 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         if (customer.is_pinned) {
             const nextWorkDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay, customerId]);
+        } else if (customer.crm_type === 'sale' && !['huy', 'cap_cuu_sep', 'chot_don'].includes(log_type)) {
+            // SALE CRM: auto-calculate next follow-up date based on rotation cycle
+            const nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id);
+            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextFollowUp, customerId]);
         } else if (fields.appointment_date) {
             // ★ VALIDATE: appointment_date must be AFTER today (never today or past)
             const vnToday = getVNToday();
@@ -1418,5 +1422,20 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             );
             return { success: true, is_pinned: false, message: 'Đã bỏ pin khách hàng' };
         }
+    });
+
+    // ========== GET NEXT FOLLOW-UP DATE ==========
+    fastify.get('/api/customers/:id/next-followup', { preHandler: [authenticate] }, async (request, reply) => {
+        const customerId = Number(request.params.id);
+        const customer = await db.get('SELECT * FROM customers WHERE id = ?', [customerId]);
+        if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
+
+        let nextFollowUp;
+        if (customer.is_pinned) {
+            nextFollowUp = await getNextWorkingDay(new Date(), customer.assigned_to_id);
+        } else {
+            nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id);
+        }
+        return { success: true, nextFollowUp };
     });
 };

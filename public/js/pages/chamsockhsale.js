@@ -961,11 +961,12 @@ async function _saleOpenConsultModal(customerId) {
     let existingItems = [];
     let consultLogs = [];
     try {
-        const [pendingData, hData, custData, logData] = await Promise.all([
+        const [pendingData, hData, custData, logData, followupData] = await Promise.all([
             apiCall(`/api/emergencies/pending/${customerId}`).catch(() => ({})),
             apiCall('/api/emergencies/handlers').catch(() => ({})),
             apiCall(`/api/customers/${customerId}`).catch(() => ({})),
-            apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({}))
+            apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({})),
+            apiCall(`/api/customers/${customerId}/next-followup`).catch(() => ({}))
         ]);
         if (pendingData.hasPending) pendingEmergency = pendingData.emergency;
         const ROLE_LABELS_H = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng' };
@@ -976,6 +977,7 @@ async function _saleOpenConsultModal(customerId) {
         existingItems = custData.items || [];
         window._currentConsultCustomerPinned = !!customerInfo.is_pinned;
         consultLogs = logData.logs || [];
+        var nextFollowUp = followupData?.nextFollowUp || '';
     } catch(e) {}
     const grandTotal = existingItems.reduce((s, i) => s + (i.total || 0), 0);
 
@@ -1126,9 +1128,15 @@ async function _saleOpenConsultModal(customerId) {
             </select>
         </div>
         <div class="form-group" id="consultAppointmentGroupSale">
-            <label>Ngày Hẹn Tiếp Theo</label>
-            <input type="hidden" id="consultAppointmentSale">
-            <div id="consultCalendarContainerSale"></div>
+            <label>Ngày Hẹn Tiếp Theo <span style="color:#10b981;font-weight:800;">(Tự Động)</span></label>
+            <div style="background:rgba(34,197,94,0.08);border:1.5px solid rgba(34,197,94,0.3);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-top:6px;">
+                <span style="font-size:24px;">📅</span>
+                <div>
+                    <div style="font-size:14px;font-weight:800;color:#16a34a;" id="autoFollowUpDateDisplaySale">Đang tính toán...</div>
+                    <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">Hệ thống tự động hẹn lịch theo lịch trực và xoay vòng chăm sóc.</div>
+                </div>
+            </div>
+            <input type="hidden" id="consultAppointmentSale" value="${nextFollowUp}">
         </div>
         <div class="form-group" id="consultCancelGroupSale" style="display:none">
             <label>Lý Do Hủy <span style="color:var(--danger)">*</span></label>
@@ -1227,16 +1235,28 @@ async function _saleOpenConsultModal(customerId) {
         const _tomorrow = new Date(_today); _tomorrow.setDate(_tomorrow.getDate() + 1);
         const _tomorrowStr = _tomorrow.getFullYear() + '-' + String(_tomorrow.getMonth()+1).padStart(2,'0') + '-' + String(_tomorrow.getDate()).padStart(2,'0');
         if (typeof initHolidayCalendar === 'function') {
-            initHolidayCalendar({
-                containerId: 'consultCalendarContainerSale',
-                hiddenInputId: 'consultAppointmentSale',
-                minDate: _tomorrowStr
-            });
+            const calContainer = document.getElementById('consultCalendarContainerSale');
+            if (calContainer) {
+                initHolidayCalendar({
+                    containerId: 'consultCalendarContainerSale',
+                    hiddenInputId: 'consultAppointmentSale',
+                    minDate: _tomorrowStr
+                });
+            }
             initHolidayCalendar({
                 containerId: 'consultSBHCalendarContainerSale',
                 hiddenInputId: 'consultSBHDateSale',
                 minDate: _tomorrowStr
             });
+        }
+        if (nextFollowUp) {
+            const d = new Date(nextFollowUp);
+            const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            const disp = document.getElementById('autoFollowUpDateDisplaySale');
+            if (disp) disp.textContent = `${days[d.getDay()]} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+        } else {
+            const disp = document.getElementById('autoFollowUpDateDisplaySale');
+            if (disp) disp.textContent = 'Chưa có lịch hẹn';
         }
         _saleOnConsultTypeChange();
     }, 100);

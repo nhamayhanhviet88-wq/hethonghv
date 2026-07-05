@@ -140,6 +140,58 @@ function getVNTimeInfo() {
     return { hour, minute, dayOfWeek };
 }
 
+/**
+ * Tính ngày chăm sóc tiếp theo (dựa trên lịch nhận lead và xoay vòng chăm sóc)
+ * @param {Date} startDate - Ngày bắt đầu
+ * @param {number|null} userId - ID nhân viên
+ * @returns {string} - YYYY-MM-DD ngày chăm sóc tiếp theo
+ */
+async function getNextFollowUpDate(startDate, userId) {
+    const configRow = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+    let globalWorkingDays = {};
+    if (configRow && configRow.value) {
+        try {
+            const config = typeof configRow.value === 'string' ? JSON.parse(configRow.value) : configRow.value;
+            globalWorkingDays = config.global_working_days || {};
+        } catch (e) {
+            console.error('[getNextFollowUpDate] Parse pancake_settings error:', e.message);
+        }
+    }
+
+    let workingDays = [0, 1, 3, 4, 6]; // Default lead-receiving days: CN, T2, T4, T5, T7
+    if (userId && globalWorkingDays[userId] !== undefined) {
+        workingDays = globalWorkingDays[userId].map(Number);
+    }
+    const careDays = [0, 1, 2, 3, 4, 5, 6].filter(d => !workingDays.includes(d));
+
+    // Fallback: if no care days defined (e.g. working 7 days/week), use next working day
+    if (careDays.length === 0) {
+        return getNextWorkingDay(startDate, userId);
+    }
+
+    const holidays = await getHolidays();
+    const vnDateStr = toDateStr(startDate instanceof Date ? startDate : new Date());
+    const [y, m, day] = vnDateStr.split('-').map(Number);
+    
+    // Find first care day in the future
+    let current = new Date(Date.UTC(y, m - 1, day + 1));
+    let maxIter = 30;
+    while (maxIter-- > 0) {
+        const ds = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')}`;
+        const dayOfWeek = current.getUTCDay(); // 0 = CN, 1 = T2, etc.
+        const isHoliday = holidays.has(ds);
+        const onLeave = userId ? await isUserOnLeave(userId, ds) : false;
+
+        if (careDays.includes(dayOfWeek) && !isHoliday && !onLeave) {
+            return ds;
+        }
+        current.setUTCDate(current.getUTCDate() + 1);
+    }
+
+    // Fallback
+    return getNextWorkingDay(startDate, userId);
+}
+
 module.exports = {
     getHolidays,
     isUserOnLeave,
@@ -148,5 +200,6 @@ module.exports = {
     getVNHour,
     getVNTimeInfo,
     getNextWorkingDay,
-    getEffectiveWorkingDay
+    getEffectiveWorkingDay,
+    getNextFollowUpDate
 };
