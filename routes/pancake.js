@@ -425,7 +425,15 @@ async function pancakeRoutes(fastify, options) {
                 });
             }
             let textToParse = '';
-            if (event.message) {
+            const isPageSender = event.is_page_sender === true || 
+                                 event.message?.is_page_sender === true || 
+                                 event.message?.is_echo === true || 
+                                 String(event.sender_id || '') === pageId || 
+                                 String(event.from_id || '') === pageId || 
+                                 String(event.message?.from?.id || '') === pageId;
+
+            // Only extract phone number from message content if it was NOT sent by the page/bot/staff
+            if (!isPageSender && event.message) {
                 if (typeof event.message === 'string') {
                     textToParse = event.message;
                 } else if (typeof event.message === 'object' && event.message.text) {
