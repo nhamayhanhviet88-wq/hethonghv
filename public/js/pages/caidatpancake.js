@@ -10,6 +10,7 @@ let _pancakeConfig = {
 let _kdSources = [];
 let _saleSources = [];
 let _allUsers = [];
+let _kdAndSaleUsers = [];
 let _pancakeMembersCache = {}; // Cache pancake members by pageId
 
 async function renderCaidatpancakePage(container) {
@@ -66,25 +67,17 @@ async function renderCaidatpancakePage(container) {
                     </div>
                     
                     <!-- Global Working Days Config -->
-                    <div style="margin-bottom: 24px; border: 1.5px solid var(--gray-200); border-radius: 12px; padding: 18px; background: #fafafa;">
-                        <h4 style="margin: 0 0 12px 0; font-size: 13.5px; font-weight: 800; color: #FF7E5F; display: flex; align-items: center; gap: 6px;">
-                            📅 Cấu hình Thứ Nhận Lead của Nhân Viên (Áp dụng toàn bộ Page)
-                        </h4>
-                        <div style="max-height: 250px; overflow-y: auto; background: white; border: 1px solid var(--gray-200); border-radius: 10px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.02);">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;">
-                                <thead>
-                                    <tr style="background: #1e293b; border-bottom: 1.5px solid #0f172a;">
-                                        <th style="padding: 10px 16px; font-weight: 700; color: #ffffff; width: 40%;">Nhân viên CRM</th>
-                                        <th style="padding: 10px 16px; font-weight: 700; color: #ffffff; width: 60%; text-align: center;">Thứ Nhận Lead</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="globalWorkingDaysTableBody">
-                                    <tr>
-                                        <td colspan="2" style="text-align: center; padding: 20px; color: var(--gray-400);">Đang tải danh sách nhân viên...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <div style="margin-bottom: 24px; border: 1.5px solid var(--gray-200); border-radius: 12px; padding: 18px; background: #fafafa; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">📅</span>
+                            <div>
+                                <h4 style="margin: 0; font-size: 13.5px; font-weight: 800; color: #FF7E5F;">Cấu hình Thứ Nhận Lead của Nhân Viên (Toàn bộ Page)</h4>
+                                <p style="margin: 4px 0 0 0; font-size: 11.5px; color: var(--gray-400);">Thiết lập lịch trực nhận số của nhân viên thuộc Phòng Kinh Doanh & Phòng Sale</p>
+                            </div>
                         </div>
+                        <button type="button" onclick="showGlobalWorkingDaysModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
+                            ⚙️ Thiết Lập
+                        </button>
                     </div>
                     
                     <div style="text-align: right; margin-bottom: 24px;">
@@ -168,6 +161,51 @@ async function loadPancakeData() {
         const usersRes = await apiCall('/api/users/dropdown');
         _allUsers = Array.isArray(usersRes) ? usersRes : (usersRes.users || []);
 
+        // Load departments list
+        let departments = [];
+        try {
+            const deptRes = await apiCall('/api/departments');
+            departments = deptRes.departments || [];
+        } catch(e) {
+            console.error('Failed to load departments:', e);
+        }
+
+        // Identify department IDs for Kinh Doanh & Sale
+        const targetDeptIds = [];
+        if (departments.length > 0) {
+            const activeDepts = departments.filter(d => d.status === 'active');
+            const targets = activeDepts.filter(d => {
+                const nameUpper = (d.name || '').toUpperCase();
+                const codeUpper = (d.code || '').toUpperCase();
+                return codeUpper === 'KINHDOANH' || 
+                       codeUpper === 'PHONGSALE' || 
+                       nameUpper.includes('KINH DOANH') || 
+                       nameUpper.includes('PHÒNG SALE') ||
+                       nameUpper.includes('PHONG SALE');
+            });
+            const resultIds = new Set(targets.map(t => t.id));
+            let added = true;
+            while (added) {
+                added = false;
+                for (const dept of activeDepts) {
+                    if (dept.parent_id && resultIds.has(dept.parent_id) && !resultIds.has(dept.id)) {
+                        resultIds.add(dept.id);
+                        added = true;
+                    }
+                }
+            }
+            targetDeptIds.push(...Array.from(resultIds));
+        }
+
+        // Filter users to only KINH DOANH and SALE
+        if (targetDeptIds.length > 0) {
+            _kdAndSaleUsers = _allUsers.filter(u => targetDeptIds.includes(Number(u.department_id)));
+        } else {
+            // Fallback to standard IDs if department list fails/is empty
+            const fallbackIds = [1, 2, 3, 22, 23, 4, 27];
+            _kdAndSaleUsers = _allUsers.filter(u => fallbackIds.includes(Number(u.department_id)));
+        }
+
         // Load pancake settings
         const configRes = await apiCall('/api/app-config/pancake_settings');
         if (configRes && configRes.value) {
@@ -193,7 +231,6 @@ async function loadPancakeData() {
         document.getElementById('pancakeActiveSwitch').checked = !!_pancakeConfig.is_active;
 
         renderPagesTable();
-        renderGlobalWorkingDaysTable();
     } catch(e) {
         console.error('Error loading Pancake configs:', e);
         showToast('Không thể tải cấu hình Pancake!', 'error');
@@ -278,7 +315,7 @@ function renderGlobalWorkingDaysTable() {
     const tbody = document.getElementById('globalWorkingDaysTableBody');
     if (!tbody) return;
 
-    const users = _allUsers || [];
+    const users = _kdAndSaleUsers || [];
     if (users.length === 0) {
         tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 20px; color: var(--gray-400);">Không có nhân viên nào.</td></tr>`;
         return;
@@ -336,6 +373,53 @@ function toggleGlobalWorkingDayBadge(badge, userId) {
     } else {
         _pancakeConfig.global_working_days[userId] = arr.filter(d => d !== day);
     }
+}
+
+function showGlobalWorkingDaysModal() {
+    const modalBody = `
+        <div style="margin-bottom: 16px; font-size: 13px; color: var(--gray-600); font-weight: 500; line-height: 1.5;">
+            Thiết lập ngày trong tuần (Thứ nhận Lead) áp dụng chung cho toàn bộ Fanpage. Nhấp chọn các ngày nhân viên trực nhận số.
+        </div>
+        <div style="max-height: 400px; overflow-y: auto; border: 1.5px solid var(--gray-200); border-radius: 12px; background: white; box-shadow: inset 0 2px 8px rgba(0,0,0,0.02); margin-bottom: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;">
+                <thead>
+                    <tr style="background: #1e293b; border-bottom: 1.5px solid #0f172a;">
+                        <th style="padding: 12px 16px; font-weight: 700; color: #ffffff; width: 45%;">Nhân viên CRM</th>
+                        <th style="padding: 12px 16px; font-weight: 700; color: #ffffff; width: 55%; text-align: center;">Thứ Nhận Lead</th>
+                    </tr>
+                </thead>
+                <tbody id="globalWorkingDaysTableBody">
+                    <tr>
+                        <td colspan="2" style="text-align: center; padding: 20px; color: var(--gray-400);">Đang tải danh sách nhân viên...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    const modalFooter = `
+        <button class="btn btn-secondary" onclick="closeModal()" style="border-radius: 8px; padding: 8px 16px;">Hủy</button>
+        <button class="btn" onclick="saveGlobalWorkingDaysFromModal()" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 24px; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(255,126,95,0.2);">
+            💾 Lưu Lịch Trực
+        </button>
+    `;
+
+    openModal('📅 Thiết Lập Thứ Nhận Lead Toàn Cục', modalBody, modalFooter);
+    
+    // Adjust modal width for comfortable table viewing
+    const container = document.getElementById('modalContainer');
+    if (container) {
+        container.style.maxWidth = '650px';
+        container.style.width = '90%';
+    }
+
+    renderGlobalWorkingDaysTable();
+}
+
+async function saveGlobalWorkingDaysFromModal() {
+    await savePancakeConfigToDB();
+    closeModal();
+    showToast('✅ Đã lưu lịch trực toàn cục của nhân viên!');
 }
 
 function onRosterCrmUserChange(select) {
@@ -787,7 +871,7 @@ function appendRosterRow(sa = {}, idx = null) {
         <td style="padding: 12px; vertical-align: top;">
             <select class="form-control staff-crm-select" onchange="onRosterCrmUserChange(this)" style="height: 34px; font-size: 12px; border-radius: 6px; padding: 0 10px; font-weight: 600;">
                 <option value="">-- Chọn nhân viên --</option>
-                ${_allUsers.map(u => `<option value="${u.id}" ${Number(sa.crm_user_id) === u.id ? 'selected' : ''}>${u.full_name} (${u.username})</option>`).join('')}
+                ${_kdAndSaleUsers.map(u => `<option value="${u.id}" ${Number(sa.crm_user_id) === u.id ? 'selected' : ''}>${u.full_name} (${u.username})</option>`).join('')}
             </select>
         </td>
         <td style="padding: 12px; vertical-align: top;">
