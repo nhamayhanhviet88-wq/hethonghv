@@ -180,7 +180,7 @@ async function renderChamsockhsalePage(container) {
                     <thead><tr>
                         <th style="min-width:30px;text-align:center;padding:4px 2px" title="Pin khách">📌</th>
                         <th style="min-width:45px;text-align:center">STT</th>
-                        <th style="min-width:100px">NV Phụ Trách</th>
+                        <th style="min-width:100px">Sale</th>
                         <th style="min-width:80px">Mã Đơn</th>
                         <th style="min-width:120px">Nút Tư Vấn</th>
                         <th style="min-width:160px">Nội Dung TV</th>
@@ -577,15 +577,16 @@ function _saleRenderCustomerRow(c, stats, stt) {
     if (c.appointment_date) {
         const d = new Date(c.appointment_date);
         const days = ['CN','T2','T3','T4','T5','T6','T7'];
-        appointDisplay = `<span style="color:#e65100;font-weight:600">${days[d.getDay()]} - ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}</span>`;
+        appointDisplay = `<span style="color:#e65100;font-weight:600">${days[d.getDay()]} - ${d.getDate()}/${d.getMonth()+1}/${String(d.getFullYear()).slice(-2)}</span>`;
     }
 
     const _pinClass = c.is_pinned ? ' crm-row-pinned' : '';
     const canEditCrm = canDo('sale', 'edit');
+    const canPinCrm = canEditCrm || ['nhan_vien', 'truong_phong', 'thu_viec', 'part_time'].includes(currentUser?.role);
 
     return `<tr class="${_pinClass}" data-customer-id="${c.id}">
         <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly && canEditCrm ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_saleTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
+            ${!c.readonly && canPinCrm ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_saleTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
         <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
