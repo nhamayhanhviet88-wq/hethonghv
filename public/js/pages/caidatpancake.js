@@ -658,7 +658,7 @@ function appendRosterRow(sa = {}, idx = null) {
             ${pancakeSelectHTML}
         </td>
         <td style="padding: 12px; vertical-align: top; text-align: center;">
-            <input type="number" class="form-control staff-limit" value="${sa.daily_limit != null ? sa.daily_limit : 20}" min="1" max="999" style="height: 34px; font-size: 12px; border-radius: 6px; text-align: center; width: 70px; display: inline-block;">
+            <input type="number" class="form-control staff-limit" value="${sa.daily_limit != null ? (sa.daily_limit === 0 ? '' : sa.daily_limit) : 20}" placeholder="Vô hạn" min="0" max="999" style="height: 34px; font-size: 12px; border-radius: 6px; text-align: center; width: 70px; display: inline-block;">
         </td>
         <td style="padding: 12px; vertical-align: top; text-align: center;">
             <div class="day-badges-container" style="display: inline-block;">
@@ -864,9 +864,9 @@ async function saveRosterConfig() {
         const pancakeTagId = tagSelect.value === 'manual_input' ? tagManual.value.trim() : tagSelect.value.trim();
 
         const limitInput = row.querySelector('.staff-limit');
-        const dailyLimit = Number(limitInput.value);
-        if (isNaN(dailyLimit) || dailyLimit < 1) {
-            showToast(`Dòng thứ ${i + 1}: Hạn mức ngày phải là số lớn hơn hoặc bằng 1!`, 'error');
+        const dailyLimit = limitInput.value === '' ? 0 : Number(limitInput.value);
+        if (isNaN(dailyLimit) || dailyLimit < 0) {
+            showToast(`Dòng thứ ${i + 1}: Hạn mức ngày phải là số lớn hơn hoặc bằng 0 (0 hoặc bỏ trống nghĩa là vô hạn)!`, 'error');
             return;
         }
 

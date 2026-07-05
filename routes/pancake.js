@@ -195,21 +195,23 @@ async function pancakeRoutes(fastify, options) {
                     if (isOff) continue;
 
                     // 6. Quota limit check (virtual day window)
-                    const [hour, min] = cutoff.split(':').map(Number);
-                    const totalCutoffMinutes = hour * 60 + min;
-                    const dayMinutes = 24 * 60;
-                    const shiftMinutes = dayMinutes - totalCutoffMinutes;
+                    if (sa.daily_limit && sa.daily_limit > 0) {
+                        const [hour, min] = cutoff.split(':').map(Number);
+                        const totalCutoffMinutes = hour * 60 + min;
+                        const dayMinutes = 24 * 60;
+                        const shiftMinutes = dayMinutes - totalCutoffMinutes;
 
-                    const assignedCountRow = await db.get(
-                        `SELECT COUNT(*) as cnt FROM customers 
-                         WHERE assigned_to_id = $1 
-                           AND source_id = $2 
-                           AND ((created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') + ($3 || ' minutes')::interval)::date = $4::date`,
-                        [userId, page.source_id, String(shiftMinutes), virtualDateStr]
-                    );
-                    const assignedCount = assignedCountRow ? parseInt(assignedCountRow.cnt) : 0;
-                    if (assignedCount >= (sa.daily_limit || 0)) {
-                        continue; // Over quota
+                        const assignedCountRow = await db.get(
+                            `SELECT COUNT(*) as cnt FROM customers 
+                             WHERE assigned_to_id = $1 
+                               AND source_id = $2 
+                               AND ((created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') + ($3 || ' minutes')::interval)::date = $4::date`,
+                            [userId, page.source_id, String(shiftMinutes), virtualDateStr]
+                        );
+                        const assignedCount = assignedCountRow ? parseInt(assignedCountRow.cnt) : 0;
+                        if (assignedCount >= sa.daily_limit) {
+                            continue; // Over quota
+                        }
                     }
 
                     eligibleUsers.push(userId);
