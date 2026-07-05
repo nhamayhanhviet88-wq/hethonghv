@@ -221,7 +221,7 @@ async function pancakeRoutes(fastify, options) {
                         await fetch(assignUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ member_ids: [assignedPancakeStaffId] })
+                            body: JSON.stringify({ assignee_ids: [assignedPancakeStaffId] })
                         });
                     } catch (e) {
                         console.error('[Pancake Webhook] Pancake API error:', e.message);
@@ -235,8 +235,7 @@ async function pancakeRoutes(fastify, options) {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                tag_ids: [assignedPancakeTagId],
-                                tags: [assignedPancakeTagId],
+                                action: 'add',
                                 tag_id: assignedPancakeTagId
                             })
                         });
