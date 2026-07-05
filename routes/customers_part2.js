@@ -1438,4 +1438,112 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         }
         return { success: true, nextFollowUp };
     });
+
+    // ========== GET CUSTOMERS STATISTICS TREE (for Sổ Khách Sale) ==========
+    fastify.get('/api/customers/statistics-tree', { preHandler: [authenticate] }, async (request, reply) => {
+        const { employee_id, crm_type = 'sale' } = request.query;
+        const user = request.user;
+
+        let query = `
+            SELECT 
+                EXTRACT(YEAR FROM created_at)::int as year,
+                EXTRACT(MONTH FROM created_at)::int as month,
+                EXTRACT(DAY FROM created_at)::int as day,
+                COUNT(*)::int as count
+            FROM customers
+            WHERE crm_type = ?
+        `;
+        const params = [crm_type];
+
+        // Phân quyền giống y hệt /api/customers
+        if (user.role === 'nhan_vien') {
+            query += ` AND assigned_to_id = ?`;
+            params.push(user.id);
+        } else if (employee_id) {
+            // Check nếu là trưởng phòng/quản lý có quyền xem employee_id này không
+            if (['truong_phong', 'quan_ly'].includes(user.role)) {
+                const managedDeptIds = await getManagedDeptIds(user.id);
+                const empDept = await db.get('SELECT department_id FROM users WHERE id = ?', [Number(employee_id)]);
+                if (!empDept || !managedDeptIds.includes(empDept.department_id)) {
+                    return reply.code(403).send({ error: 'Không có quyền truy cập dữ liệu nhân viên này' });
+                }
+            }
+            query += ` AND assigned_to_id = ?`;
+            params.push(Number(employee_id));
+        } else {
+            // Không có employee_id -> Xem tổng bộ phận
+            if (user.role === 'truong_phong' || user.role === 'quan_ly') {
+                const managedDeptIds = await getManagedDeptIds(user.id);
+                if (managedDeptIds.length > 0) {
+                    const managedUserIds = (await db.all(
+                        `SELECT id FROM users WHERE department_id IN (${managedDeptIds.map(() => '?').join(',')}) AND status = 'active'`,
+                        managedDeptIds
+                    )).map(u => u.id);
+                    if (!managedUserIds.includes(user.id)) managedUserIds.push(user.id);
+                    const placeholders = managedUserIds.map(() => '?').join(',');
+                    query += ` AND assigned_to_id IN (${placeholders})`;
+                    params.push(...managedUserIds);
+                } else {
+                    query += ` AND assigned_to_id = ?`;
+                    params.push(user.id);
+                }
+            }
+        }
+
+        // Production Mode: ẩn dữ liệu test
+        const _cutoff = await getProductionCutoff();
+        const _testIds = await getTestAccountIds();
+        const _prodFilter = buildProductionFilter(_cutoff, _testIds, 'created_at', 'created_by');
+        if (_prodFilter) {
+            query += _prodFilter;
+        }
+
+        query += ` GROUP BY year, month, day ORDER BY year DESC, month DESC, day DESC`;
+
+        const rows = await db.all(query, params);
+
+        // Build tree
+        const yearsMap = {};
+        for (const r of rows) {
+            const y = r.year;
+            const m = r.month;
+            const d = r.day;
+            const cnt = r.count;
+
+            if (!yearsMap[y]) {
+                yearsMap[y] = { year: y, count: 0, monthsMap: {} };
+            }
+            yearsMap[y].count += cnt;
+
+            if (!yearsMap[y].monthsMap[m]) {
+                yearsMap[y].monthsMap[m] = { month: m, count: 0, days: [] };
+            }
+            yearsMap[y].monthsMap[m].count += cnt;
+            yearsMap[y].monthsMap[m].days.push({
+                day: d,
+                count: cnt,
+                dateStr: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+            });
+        }
+
+        const tree = Object.values(yearsMap).map(yData => {
+            const months = Object.values(yData.monthsMap).map(mData => {
+                mData.days.sort((a, b) => b.day - a.day);
+                return {
+                    month: mData.month,
+                    count: mData.count,
+                    days: mData.days
+                };
+            });
+            months.sort((a, b) => b.month - a.month);
+            return {
+                year: yData.year,
+                count: yData.count,
+                months
+            };
+        });
+        tree.sort((a, b) => b.year - a.year);
+
+        return { success: true, tree };
+    });
 };
