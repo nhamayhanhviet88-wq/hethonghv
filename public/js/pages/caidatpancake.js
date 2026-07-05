@@ -51,6 +51,20 @@ async function renderCaidatpancakePage(container) {
                         </div>
                     </div>
                     
+                    <!-- Settings Row 2 -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+                        <div>
+                            <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">⏳ Thời Gian Chờ Có SĐT (Giây)</label>
+                            <input type="number" id="pancakeDelaySecondsInput" class="form-control" min="0" placeholder="VD: 60" style="height: 42px; border-radius: 10px; border: 1.5px solid var(--gray-200); font-size: 13px; font-weight: 700;">
+                            <small style="color: var(--gray-400); display: block; margin-top: 6px; font-size: 11px;">Thời gian tối đa chờ khách hàng gửi SĐT. Hết số giây này sẽ tự động chia số (mặc định 60 giây).</small>
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">🔄 Thời Hạn Cập Nhật SĐT Muộn (Phút)</label>
+                            <input type="number" id="pancakeUpdateLimitInput" class="form-control" min="0" placeholder="VD: 15" style="height: 42px; border-radius: 10px; border: 1.5px solid var(--gray-200); font-size: 13px; font-weight: 700;">
+                            <small style="color: var(--gray-400); display: block; margin-top: 6px; font-size: 11px;">Thời gian tối đa để tự động cập nhật SĐT muộn vào thẻ khách hàng đã chia (mặc định 15 phút).</small>
+                        </div>
+                    </div>
+                    
                     <div style="text-align: right; margin-bottom: 24px;">
                         <button onclick="saveGlobalPancakeSettings()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 0 24px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; height: 42px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(255,126,95,0.2);">Lưu Cấu Hình Chung</button>
                     </div>
@@ -145,10 +159,14 @@ async function loadPancakeData() {
         // Set default values if empty
         if (!_pancakeConfig.cutoff_time) _pancakeConfig.cutoff_time = '18:15';
         if (!_pancakeConfig.pages) _pancakeConfig.pages = [];
+        if (_pancakeConfig.delay_assignment_seconds === undefined) _pancakeConfig.delay_assignment_seconds = 60;
+        if (_pancakeConfig.update_phone_limit_minutes === undefined) _pancakeConfig.update_phone_limit_minutes = 15;
 
         // Set inputs
         document.getElementById('pancakeTokenInput').value = _pancakeConfig.pancake_token || '';
         document.getElementById('pancakeCutoffInput').value = _pancakeConfig.cutoff_time || '18:15';
+        document.getElementById('pancakeDelaySecondsInput').value = _pancakeConfig.delay_assignment_seconds;
+        document.getElementById('pancakeUpdateLimitInput').value = _pancakeConfig.update_phone_limit_minutes;
         document.getElementById('pancakeActiveSwitch').checked = !!_pancakeConfig.is_active;
 
         renderPagesTable();
@@ -267,9 +285,13 @@ function toggleTokenVisibility() {
 async function saveGlobalPancakeSettings() {
     const token = document.getElementById('pancakeTokenInput').value.trim();
     const cutoff = document.getElementById('pancakeCutoffInput').value.trim() || '18:15';
+    const delaySecs = parseInt(document.getElementById('pancakeDelaySecondsInput').value.trim()) || 0;
+    const updateLimit = parseInt(document.getElementById('pancakeUpdateLimitInput').value.trim()) || 0;
     
     _pancakeConfig.pancake_token = token;
     _pancakeConfig.cutoff_time = cutoff;
+    _pancakeConfig.delay_assignment_seconds = delaySecs;
+    _pancakeConfig.update_phone_limit_minutes = updateLimit;
     
     await savePancakeConfigToDB();
     showToast('✅ Đã lưu cấu hình Pancake chung!');
