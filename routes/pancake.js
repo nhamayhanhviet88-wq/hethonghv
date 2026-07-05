@@ -460,47 +460,48 @@ async function pancakeRoutes(fastify, options) {
             if (phone) {
                 // --- CASE 1: Webhook contains a phone number ---
                 
-                // A. Check if this customer is already in the database as a temporary lead within X minutes limit
+                // A. Check if this customer is already in the database
                 // Default to 1440 minutes (24 hours) to prevent duplicates when customers reply late
                 const updateLimitMin = config.update_phone_limit_minutes || 1440;
                 const existingCust = await db.get(
                     `SELECT id, assigned_to_id, phone, customer_name, created_at 
                      FROM customers 
                      WHERE (pancake_customer_id = $1 OR pancake_conversation_id = $2) 
-                       AND phone LIKE 'pancake_%'
                        AND created_at >= NOW() - ($3 || ' minutes')::interval
                      ORDER BY id DESC LIMIT 1`,
                     [customerId, conversationId, String(updateLimitMin)]
                 );
 
                 if (existingCust) {
-                    // Update phone number on existing customer card
-                    await db.run(
-                        `UPDATE customers SET phone = $1, updated_at = NOW() WHERE id = $2`,
-                        [phone, existingCust.id]
-                    );
-
-                    await db.run(
-                        `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
-                         VALUES ($1, 'goi_dien', $2, NULL, NOW())`,
-                        [existingCust.id, `Cập nhật số điện thoại tự động từ Pancake: ${phone}`]
-                    );
-
-                    // Notify assigned salesperson via Telegram
-                    if (existingCust.assigned_to_id) {
-                        const staffChatIdRow = await db.get(
-                            `SELECT chat_id FROM telegram_notifications WHERE user_id = $1 AND event_type = 'chuyen_so' AND enabled = true`,
-                            [existingCust.assigned_to_id]
+                    // Only update and notify if the phone number has changed (different from existing)
+                    if (existingCust.phone !== phone) {
+                        await db.run(
+                            `UPDATE customers SET phone = $1, updated_at = NOW() WHERE id = $2`,
+                            [phone, existingCust.id]
                         );
-                        const staffChatId = staffChatIdRow?.chat_id || (await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [existingCust.assigned_to_id]))?.telegram_group_id;
 
-                        if (staffChatId) {
-                            const sourceRow = await db.get("SELECT name FROM settings_sources WHERE id = $1", [page.source_id]);
-                            const sourceName = sourceRow?.name || page.name;
-                            const sourceDisplay = sourceName.startsWith('📍') ? sourceName : `📍${sourceName}`;
+                        await db.run(
+                            `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
+                             VALUES ($1, 'goi_dien', $2, NULL, NOW())`,
+                            [existingCust.id, `Cập nhật số điện thoại tự động từ Pancake: ${phone}`]
+                        );
 
-                            const updateMsg = `🥞 <b>Cập nhật SĐT : ${customerName} - ${phone} - ${sourceDisplay}</b>`;
-                            await sendTelegramMessage(staffChatId, updateMsg, page.bot_tele);
+                        // Notify assigned salesperson via Telegram
+                        if (existingCust.assigned_to_id) {
+                            const staffChatIdRow = await db.get(
+                                `SELECT chat_id FROM telegram_notifications WHERE user_id = $1 AND event_type = 'chuyen_so' AND enabled = true`,
+                                [existingCust.assigned_to_id]
+                            );
+                            const staffChatId = staffChatIdRow?.chat_id || (await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [existingCust.assigned_to_id]))?.telegram_group_id;
+
+                            if (staffChatId) {
+                                const sourceRow = await db.get("SELECT name FROM settings_sources WHERE id = $1", [page.source_id]);
+                                const sourceName = sourceRow?.name || page.name;
+                                const sourceDisplay = sourceName.startsWith('📍') ? sourceName : `📍${sourceName}`;
+
+                                const updateMsg = `🥞 <b>Cập nhật SĐT : ${customerName} - ${phone} - ${sourceDisplay}</b>`;
+                                await sendTelegramMessage(staffChatId, updateMsg, page.bot_tele);
+                            }
                         }
                     }
 
