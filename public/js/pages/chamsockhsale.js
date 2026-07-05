@@ -580,7 +580,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
     }
 
     const _pinClass = c.is_pinned ? ' crm-row-pinned' : '';
-    const canEditCrm = canDo('sale', 'edit');
+    const canEditCrm = canDo('chamsockhsale', 'edit');
     const canPinCrm = canEditCrm || ['nhan_vien', 'truong_phong', 'thu_viec', 'part_time'].includes(currentUser?.role);
 
     return `<tr class="${_pinClass}" data-customer-id="${c.id}">
