@@ -401,19 +401,51 @@ async function pancakeRoutes(fastify, options) {
                 (conversationId ? `https://pages.fm/p/${pageId}/c/${conversationId}` : '');
             const customerName = event.customer?.name || event.name || event.customer_name || event.page_customer?.name || 'Khách hàng Pancake';
 
-            // Extract phone number
-            let phone = event.phone || event.phone_number || event.customer?.phone || '';
-            if (!phone && event.message?.text) {
-                // Try to parse phone number from text
-                const match = event.message.text.match(/(0|\+84)\d{9}/);
-                if (match) phone = match[0];
+            // Extract phone number from multiple possible fields/formats in Pancake webhook
+            let phone = '';
+            const possiblePhones = [];
+            if (event.phone) possiblePhones.push(String(event.phone));
+            if (event.phone_number) possiblePhones.push(String(event.phone_number));
+            if (event.bill_phone_number) possiblePhones.push(String(event.bill_phone_number));
+            if (event.customer?.phone) possiblePhones.push(String(event.customer.phone));
+            if (event.customer?.phone_number) possiblePhones.push(String(event.customer.phone_number));
+            if (Array.isArray(event.customer?.phone_numbers)) {
+                event.customer.phone_numbers.forEach(p => possiblePhones.push(String(p)));
+            }
+            if (Array.isArray(event.phone_numbers)) {
+                event.phone_numbers.forEach(p => possiblePhones.push(String(p)));
+            }
+            if (event.shipping_address?.phone_number) {
+                possiblePhones.push(String(event.shipping_address.phone_number));
+            }
+            if (event.page_customer?.recent_phone_numbers && Array.isArray(event.page_customer.recent_phone_numbers)) {
+                event.page_customer.recent_phone_numbers.forEach(item => {
+                    if (item.phone_number) possiblePhones.push(String(item.phone_number));
+                    if (item.captured) possiblePhones.push(String(item.captured));
+                });
+            }
+            let textToParse = '';
+            if (event.message) {
+                if (typeof event.message === 'string') {
+                    textToParse = event.message;
+                } else if (typeof event.message === 'object' && event.message.text) {
+                    textToParse = String(event.message.text);
+                }
+            }
+            if (textToParse) {
+                const match = textToParse.match(/(0|\+84)\d{9}/);
+                if (match) possiblePhones.push(match[0]);
             }
 
-            // Clean phone number format
-            if (phone) {
-                phone = phone.replace(/[\s\-\.]/g, '');
-                if (phone.startsWith('+84')) {
-                    phone = '0' + phone.substring(3);
+            for (let rawPhone of possiblePhones) {
+                if (!rawPhone) continue;
+                rawPhone = rawPhone.replace(/[\s\-\.]/g, '');
+                if (rawPhone.startsWith('+84')) {
+                    rawPhone = '0' + rawPhone.substring(3);
+                }
+                if (/^0\d{9}$/.test(rawPhone)) {
+                    phone = rawPhone;
+                    break;
                 }
             }
 
@@ -421,15 +453,16 @@ async function pancakeRoutes(fastify, options) {
                 // --- CASE 1: Webhook contains a phone number ---
                 
                 // A. Check if this customer is already in the database as a temporary lead within X minutes limit
-                const updateLimitMin = config.update_phone_limit_minutes || 15;
+                // Default to 1440 minutes (24 hours) to prevent duplicates when customers reply late
+                const updateLimitMin = config.update_phone_limit_minutes || 1440;
                 const existingCust = await db.get(
                     `SELECT id, assigned_to_id, phone, customer_name, created_at 
                      FROM customers 
-                     WHERE pancake_customer_id = $1 
+                     WHERE (pancake_customer_id = $1 OR pancake_conversation_id = $2) 
                        AND phone LIKE 'pancake_%'
-                       AND created_at >= NOW() - ($2 || ' minutes')::interval
+                       AND created_at >= NOW() - ($3 || ' minutes')::interval
                      ORDER BY id DESC LIMIT 1`,
-                    [customerId, String(updateLimitMin)]
+                    [customerId, conversationId, String(updateLimitMin)]
                 );
 
                 if (existingCust) {
@@ -465,8 +498,9 @@ async function pancakeRoutes(fastify, options) {
 
                     // Update status in pending list if any
                     await db.run(
-                        `UPDATE pancake_pending_leads SET status = 'processed_with_phone' WHERE customer_id = $1 AND status = 'pending'`,
-                        [customerId]
+                        `UPDATE pancake_pending_leads SET status = 'processed_with_phone' 
+                         WHERE (customer_id = $1 OR conversation_id = $2) AND status = 'pending'`,
+                        [customerId, conversationId]
                     );
 
                     processedCount++;
@@ -491,8 +525,9 @@ async function pancakeRoutes(fastify, options) {
 
                 // Cancel pending lead if any
                 await db.run(
-                    `UPDATE pancake_pending_leads SET status = 'processed_with_phone' WHERE customer_id = $1 AND status = 'pending'`,
-                    [customerId]
+                    `UPDATE pancake_pending_leads SET status = 'processed_with_phone' 
+                     WHERE (customer_id = $1 OR conversation_id = $2) AND status = 'pending'`,
+                    [customerId, conversationId]
                 );
 
                 await assignPancakeLead(page, config, customerId, customerName, conversationId, conversationLink, phone);
@@ -501,7 +536,10 @@ async function pancakeRoutes(fastify, options) {
                 // --- CASE 2: Webhook does NOT contain a phone number ---
                 
                 // Check if customer already exists in CRM
-                const exists = await db.get("SELECT id FROM customers WHERE pancake_customer_id = $1", [customerId]);
+                const exists = await db.get(
+                    "SELECT id FROM customers WHERE pancake_customer_id = $1 OR pancake_conversation_id = $2",
+                    [customerId, conversationId]
+                );
                 if (exists) {
                     skippedCount++;
                     continue;
@@ -509,8 +547,8 @@ async function pancakeRoutes(fastify, options) {
 
                 // Check if already in pending leads queue
                 const pendingExists = await db.get(
-                    "SELECT id FROM pancake_pending_leads WHERE customer_id = $1 AND status = 'pending'",
-                    [customerId]
+                    "SELECT id FROM pancake_pending_leads WHERE (customer_id = $1 OR conversation_id = $2) AND status = 'pending'",
+                    [customerId, conversationId]
                 );
                 if (pendingExists) {
                     skippedCount++;
@@ -700,7 +738,10 @@ async function pancakeRoutes(fastify, options) {
                 if (!page || !page.is_active) continue;
 
                 // Check if customer already exists in CRM
-                const exists = await db.get("SELECT id FROM customers WHERE pancake_customer_id = $1", [row.customer_id]);
+                const exists = await db.get(
+                    "SELECT id FROM customers WHERE pancake_customer_id = $1 OR pancake_conversation_id = $2",
+                    [row.customer_id, row.conversation_id]
+                );
                 if (exists) {
                     continue; // Already processed
                 }
