@@ -1,7 +1,8 @@
 // ========== TELEGRAM SETTINGS ROUTES ==========
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { TELEGRAM_EVENTS, sendTelegramMessage, getBotToken, clearTokenCache } = require('../utils/telegram');
+const { TELEGRAM_EVENTS, sendTelegramMessage, getBotToken, clearTokenCache, sendTelegramReply, setTelegramWebhook } = require('../utils/telegram');
+const { getNextFollowUpDate } = require('../utils/workingDay');
 
 async function telegramRoutes(fastify, options) {
     // ===== Migration: Create telegram_notifications table =====
@@ -17,6 +18,13 @@ async function telegramRoutes(fastify, options) {
             UNIQUE(user_id, event_type)
         )`);
     } catch (e) { /* already exists */ }
+
+    // Auto register webhook on startup
+    getBotToken().then(token => {
+        if (token) {
+            setTelegramWebhook(token).catch(err => console.error('[Telegram Webhook Auto-Reg] Error:', err.message));
+        }
+    });
 
     // ===== GET /api/telegram/events — Danh sách event types =====
     fastify.get('/api/telegram/events', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
@@ -50,12 +58,17 @@ async function telegramRoutes(fastify, options) {
 
         // Save bot token
         if (bot_token !== undefined) {
+            const trimmedToken = bot_token.trim();
             await db.run(
                 `INSERT INTO app_config (key, value, updated_at) VALUES ('telegram_bot_token', $1, NOW())
                  ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
-                [bot_token.trim()]
+                [trimmedToken]
             );
             clearTokenCache();
+            // Trigger webhook set
+            if (trimmedToken) {
+                await setTelegramWebhook(trimmedToken).catch(err => console.error('[Telegram Webhook Save] Error:', err.message));
+            }
         }
 
         // Save global group configs
@@ -214,6 +227,200 @@ async function telegramRoutes(fastify, options) {
         }
 
         return { success: true, message: `Đã gán nhóm Telegram cho ${count} nhân viên!` };
+    });
+
+    // ===== POST /api/webhooks/telegram — Telegram Webhook Interceptor =====
+    fastify.post('/api/webhooks/telegram', async (request, reply) => {
+        try {
+            const { message } = request.body || {};
+            if (!message) {
+                return reply.code(200).send({ ok: true });
+            }
+
+            const text = (message.text || '').trim();
+            // Detect command prefix ";"
+            if (!text.startsWith(';')) {
+                return reply.code(200).send({ ok: true });
+            }
+
+            // Extract consultation content
+            const consultContent = text.slice(1).trim();
+
+            // Validate that we have a reply target
+            if (!message.reply_to_message) {
+                await sendTelegramReply(
+                    message.chat.id,
+                    `⚠️ <b>Lỗi:</b> Bạn phải trả lời (Reply) trực tiếp vào tin nhắn chuyển số hoặc nhắc nhở số để cập nhật tư vấn!`,
+                    message.message_id
+                );
+                return reply.code(200).send({ ok: true });
+            }
+
+            // Get replied message text or caption
+            const replyText = message.reply_to_message.text || message.reply_to_message.caption || '';
+            
+            // Regex to extract customer code: e.g. 1-6-7-Y26 or 1-6-7
+            const codeRegex = /\b(\d+-\d+-\d+(?:-Y\d+)?)\b/;
+            const match = replyText.match(codeRegex);
+
+            if (!match) {
+                await sendTelegramReply(
+                    message.chat.id,
+                    `⚠️ <b>Lỗi:</b> Không tìm thấy mã số khách hàng (dạng STT-ngày-tháng) trong tin nhắn được phản hồi!`,
+                    message.message_id
+                );
+                return reply.code(200).send({ ok: true });
+            }
+
+            const rawCode = match[1];
+            const parts = rawCode.split('-');
+            const dailyOrderNum = parseInt(parts[0], 10);
+            const day = parseInt(parts[1], 10);
+            const month = parseInt(parts[2], 10);
+            let year = new Date().getFullYear(); // default to current year
+            if (parts[3] && parts[3].startsWith('Y')) {
+                year = 2000 + parseInt(parts[3].slice(1), 10);
+            }
+            const effectiveDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            // Lookup customer matching the code
+            const customers = await db.all(
+                `SELECT * FROM customers WHERE daily_order_number = $1 AND effective_date = $2`,
+                [dailyOrderNum, effectiveDateStr]
+            );
+
+            if (customers.length === 0) {
+                await sendTelegramReply(
+                    message.chat.id,
+                    `⚠️ <b>Lỗi:</b> Không tìm thấy khách hàng nào có mã số <b>${rawCode}</b> vào ngày ${effectiveDateStr} trên CRM!`,
+                    message.message_id
+                );
+                return reply.code(200).send({ ok: true });
+            }
+
+            let customer = null;
+            if (customers.length === 1) {
+                customer = customers[0];
+            } else {
+                // Resolve assignee from chat ID
+                const chatIdStr = String(message.chat.id);
+                let assigneeId = null;
+                const notificationRow = await db.get(
+                    `SELECT user_id FROM telegram_notifications WHERE chat_id = $1 AND enabled = true LIMIT 1`,
+                    [chatIdStr]
+                );
+                if (notificationRow) {
+                    assigneeId = notificationRow.user_id;
+                } else {
+                    const userRow = await db.get(`SELECT id FROM users WHERE telegram_group_id = $1 LIMIT 1`, [chatIdStr]);
+                    if (userRow) assigneeId = userRow.id;
+                }
+
+                if (assigneeId) {
+                    customer = customers.find(c => c.assigned_to_id === assigneeId);
+                }
+
+                if (!customer) {
+                    // Fallback matching by username or full name in text
+                    for (const cust of customers) {
+                        const staff = await db.get(`SELECT username, full_name FROM users WHERE id = $1`, [cust.assigned_to_id]);
+                        if (staff) {
+                            const staffNameEscaped = staff.full_name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                            const usernameEscaped = staff.username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                            const nameRegex = new RegExp(`\\b(${staffNameEscaped}|${usernameEscaped})\\b`, 'i');
+                            if (nameRegex.test(replyText)) {
+                                customer = cust;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!customer) {
+                await sendTelegramReply(
+                    message.chat.id,
+                    `⚠️ <b>Lỗi:</b> Phát hiện nhiều khách hàng trùng mã số <b>${rawCode}</b>. Không thể xác định chính xác khách hàng cho nhóm chat này!`,
+                    message.message_id
+                );
+                return reply.code(200).send({ ok: true });
+            }
+
+            // Validate content
+            if (!consultContent) {
+                await sendTelegramReply(
+                    message.chat.id,
+                    `⚠️ <b>Lỗi:</b> Vui lòng nhập nội dung tư vấn sau dấu ";" (Ví dụ: <code>; đang tư vấn, hẹn ngày mai gọi lại</code>)`,
+                    message.message_id
+                );
+                return reply.code(200).send({ ok: true });
+            }
+
+            // Calculate next appointment date (reschedule date)
+            const nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id);
+
+            // Perform DB updates in transaction
+            await db.run('BEGIN TRANSACTION');
+            try {
+                // Insert consultation log
+                await db.run(
+                    `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) 
+                     VALUES ($1, 'nhan_tin', $2, $3)`,
+                    [customer.id, consultContent, customer.assigned_to_id]
+                );
+
+                // Update customer status & appointment date
+                await db.run(
+                    `UPDATE customers 
+                     SET order_status = 'dang_tu_van', appointment_date = $1, updated_at = NOW() 
+                     WHERE id = $2`,
+                    [nextFollowUp, customer.id]
+                );
+
+                // Reset cancel requests if active
+                if (customer.cancel_approved === 1 || customer.cancel_approved === -2) {
+                    await db.run(
+                        `UPDATE customers 
+                         SET cancel_requested = 0, cancel_approved = 0, cancel_reason = NULL, 
+                             cancel_requested_by = NULL, cancel_requested_at = NULL, 
+                             cancel_approved_by = NULL, cancel_approved_at = NULL 
+                         WHERE id = $1`,
+                        [customer.id]
+                    );
+                }
+
+                await db.run('COMMIT');
+            } catch (dbErr) {
+                await db.run('ROLLBACK');
+                throw dbErr;
+            }
+
+            // Send confirmation reply
+            const confirmMsg = `✅ <b>Đã ghi nhận tư vấn qua Telegram</b>\n` +
+                               `👤 Khách: <code>${customer.customer_name}</code>\n` +
+                               `📝 Nội dung: <i>${consultContent}</i>\n` +
+                               `📅 Hẹn chăm lại: <b>${nextFollowUp}</b>\n` +
+                               `💻 CRM: Trạng thái chuyển sang "Đang Tư Vấn" & được ghi nhận "Đã Xử Lý Hôm Nay".`;
+            await sendTelegramReply(message.chat.id, confirmMsg, message.message_id);
+
+        } catch (err) {
+            console.error('[Telegram Webhook Error]:', err);
+            // Reply with error if possible
+            try {
+                const { message } = request.body || {};
+                if (message && message.chat && message.message_id) {
+                    await sendTelegramReply(
+                        message.chat.id,
+                        `❌ <b>Lỗi Hệ Thống:</b> Không thể cập nhật tư vấn. Chi tiết: ${err.message}`,
+                        message.message_id
+                    );
+                }
+            } catch (tgErr) {
+                console.error('[Telegram Webhook Error Feedback Fail]:', tgErr);
+            }
+        }
+
+        return reply.code(200).send({ ok: true });
     });
 }
 

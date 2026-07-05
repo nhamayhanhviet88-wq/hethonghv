@@ -235,6 +235,104 @@ async function sendTelegramPhoto(chatId, filePath, caption) {
     });
 }
 
+async function sendTelegramReply(chatId, message, replyToMessageId, token) {
+    const botToken = token || await getBotToken();
+    if (!botToken || !chatId) {
+        console.log('[Telegram] Reply skipped (no token or chatId):', message?.substring(0, 80));
+        return false;
+    }
+
+    return new Promise((resolve) => {
+        const data = JSON.stringify({
+            chat_id: chatId,
+            text: message,
+            parse_mode: 'HTML',
+            reply_parameters: {
+                message_id: replyToMessageId
+            }
+        });
+
+        const options = {
+            hostname: 'api.telegram.org',
+            port: 443,
+            path: `/bot${botToken}/sendMessage`,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(data)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', (chunk) => body += chunk);
+            res.on('end', () => {
+                if (res.statusCode === 200) {
+                    console.log('[Telegram] ✅ Replied to message', replyToMessageId, 'in chat', chatId);
+                    resolve(true);
+                } else {
+                    console.log('[Telegram] ❌ Reply Error:', body);
+                    resolve(false);
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            console.log('[Telegram] ❌ Reply Request error:', err.message);
+            resolve(false);
+        });
+
+        req.write(data);
+        req.end();
+    });
+}
+
+async function setTelegramWebhook(token) {
+    if (process.env.NODE_ENV !== 'production' && !process.env.FORCE_WEBHOOK) {
+        console.log('[Telegram Webhook] Webhook set skipped (not in production mode)');
+        return false;
+    }
+    const webhookUrl = 'https://hethonghv.top/api/webhooks/telegram';
+    return new Promise((resolve) => {
+        const data = JSON.stringify({
+            url: webhookUrl
+        });
+
+        const options = {
+            hostname: 'api.telegram.org',
+            port: 443,
+            path: `/bot${token}/setWebhook`,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(data)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', (chunk) => body += chunk);
+            res.on('end', () => {
+                if (res.statusCode === 200) {
+                    console.log('[Telegram Webhook] ✅ Registered webhook successfully to', webhookUrl);
+                    resolve(true);
+                } else {
+                    console.error('[Telegram Webhook] ❌ Failed to register webhook:', body);
+                    resolve(false);
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            console.error('[Telegram Webhook] ❌ Webhook registration request error:', err.message);
+            resolve(false);
+        });
+
+        req.write(data);
+        req.end();
+    });
+}
+
 module.exports = {
     TELEGRAM_EVENTS,
     sendTelegramMessage,
@@ -242,5 +340,7 @@ module.exports = {
     broadcastTelegram,
     notifyTelegram,
     getBotToken,
-    clearTokenCache
+    clearTokenCache,
+    sendTelegramReply,
+    setTelegramWebhook
 };
