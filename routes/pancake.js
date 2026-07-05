@@ -252,13 +252,22 @@ async function pancakeRoutes(fastify, options) {
             const staffChatId = staffChatIdRow?.chat_id || (await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [assignedUserId]))?.telegram_group_id;
 
             if (staffChatId) {
-                const phoneDisplay = phone.startsWith('pancake_') ? 'Chưa có SĐT' : phone;
-                const notifyMsg = `🥞 <b>Số mới từ Pancake!</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `👤 Khách hàng: <b>${customerName}</b>\n` +
-                    `📱 SĐT: <b>${phoneDisplay}</b>\n` +
-                    `📄 Nguồn: <b>${page.name}</b>\n` +
-                    `🔗 Chi tiết: <a href="${conversationLink}">Xem hội thoại</a>`;
+                const hasPhone = phone && !phone.startsWith('pancake_') && phone !== 'Chưa có SĐT';
+                const phonePart = hasPhone ? ` - ${phone}` : '';
+                const sourceRow = await db.get("SELECT name FROM settings_sources WHERE id = $1", [page.source_id]);
+                const sourceName = sourceRow?.name || page.name;
+                const sourceDisplay = sourceName.startsWith('📍') ? sourceName : `📍${sourceName}`;
+
+                const d = vnNow();
+                const day = d.getDate();
+                const month = d.getMonth() + 1;
+                const yearTwoDigits = String(d.getFullYear()).slice(-2);
+                const serialPrefix = `${dailyNum}-${day}-${month}-Y${yearTwoDigits}`;
+
+                let notifyMsg = `🥞 <b>${serialPrefix} : ${customerName}${phonePart} - ${sourceDisplay}</b>`;
+                if (conversationLink) {
+                    notifyMsg += `\n🔗 Chi tiết: <a href="${conversationLink}">Xem hội thoại</a>`;
+                }
                 await sendTelegramMessage(staffChatId, notifyMsg, page.bot_tele);
             }
             return true;
@@ -393,7 +402,7 @@ async function pancakeRoutes(fastify, options) {
             const conversationId = String(event.conversation_id || event.id || '');
             const conversationLink = event.customer?.fb_link || 
                 (conversationId ? `https://pages.fm/p/${pageId}/c/${conversationId}` : '');
-            const customerName = event.customer?.name || event.customer_name || 'Khách hàng Pancake';
+            const customerName = event.customer?.name || event.name || event.customer_name || event.page_customer?.name || 'Khách hàng Pancake';
 
             // Extract phone number
             let phone = event.phone || event.phone_number || event.customer?.phone || '';
@@ -448,12 +457,11 @@ async function pancakeRoutes(fastify, options) {
                         const staffChatId = staffChatIdRow?.chat_id || (await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [existingCust.assigned_to_id]))?.telegram_group_id;
 
                         if (staffChatId) {
-                            const updateMsg = `🥞 <b>Cập nhật SĐT từ Pancake!</b>\n` +
-                                `━━━━━━━━━━━━━━━━━━━━\n` +
-                                `👤 Khách hàng: <b>${customerName}</b>\n` +
-                                `📱 SĐT vừa nhận: <b>${phone}</b>\n` +
-                                `📄 Nguồn: <b>${page.name}</b>\n` +
-                                `🔗 Chi tiết: <a href="${conversationLink}">Xem hội thoại</a>`;
+                            const sourceRow = await db.get("SELECT name FROM settings_sources WHERE id = $1", [page.source_id]);
+                            const sourceName = sourceRow?.name || page.name;
+                            const sourceDisplay = sourceName.startsWith('📍') ? sourceName : `📍${sourceName}`;
+
+                            const updateMsg = `🥞 <b>Cập nhật SĐT : ${customerName} - ${phone} - ${sourceDisplay}</b>\n🔗 Chi tiết: <a href="${conversationLink}">Xem hội thoại</a>`;
                             await sendTelegramMessage(staffChatId, updateMsg, page.bot_tele);
                         }
                     }
