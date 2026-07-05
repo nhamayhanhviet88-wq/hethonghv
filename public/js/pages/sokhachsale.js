@@ -778,9 +778,6 @@ function sksRenderTable() {
                 <td>
                     <div style="display:flex;gap:6px;align-items:center;">
                         <button class="btn btn-sm" onclick="showCustomerDetail(${c.id})" title="Chi tiết" style="padding:6px 10px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:6px;transition:all 0.2s;font-weight:500;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">👁️ Chi tiết</button>
-                        ${!c.readonly && ['giam_doc','quan_ly','truong_phong','nhan_vien'].includes(currentUser.role)
-                            ? `<button class="btn btn-sm" onclick="showEditStatus(${c.id}, '${c.order_status}')" title="Cập nhật" style="padding:6px 10px;background:#fff;color:#2563eb;border:1px solid #3b82f6;border-radius:6px;transition:all 0.2s;font-weight:500;" onmouseover="this.style.background='rgba(59,130,246,0.05)'" onmouseout="this.style.background='#fff'">📝 Cập nhật</button>`
-                            : ''}
                     </div>
                 </td>
             </tr>`;

@@ -334,38 +334,30 @@ async function showCustomerDetail(id) {
         <div id="orderItemsArea">
             <table class="table" style="font-size:13px; width:100%; border-collapse:collapse; margin-bottom:12px;" id="orderItemsTable">
                 <thead>
-                    <tr style="border-bottom:2px solid #e2e8f0;">
-                        <th style="padding:10px 8px; text-align:left; color:#475569; font-weight:600;">Mô tả sản phẩm</th>
-                        <th style="padding:10px 8px; text-align:right; color:#475569; font-weight:600; width:80px">SL</th>
-                        <th style="padding:10px 8px; text-align:right; color:#475569; font-weight:600; width:120px">Đơn giá</th>
-                        <th style="padding:10px 8px; text-align:right; color:#475569; font-weight:600; width:120px">Thành tiền</th>
-                        <th style="padding:10px 8px; text-align:center; color:#475569; font-weight:600; width:50px"></th>
+                    <tr style="border-bottom:2px solid #cbd5e1;">
+                        <th style="padding:10px 8px; text-align:left; color:#475569; font-weight:700;">Mô tả sản phẩm</th>
+                        <th style="padding:10px 8px; text-align:right; color:#475569; font-weight:700; width:100px;">SL</th>
+                        <th style="padding:10px 8px; text-align:right; color:#475569; font-weight:700; width:140px;">Đơn giá</th>
+                        <th style="padding:10px 8px; text-align:right; color:#475569; font-weight:700; width:140px;">Thành tiền</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${items.length > 0 ? items.map((it, i) => `<tr style="border-bottom:1px solid #f1f5f9;">
-                        <td style="padding:8px 6px;"><input class="form-control oi-desc" value="${it.description || ''}" style="font-size:13px; padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1;" placeholder="Ví dụ: Áo thun HV"></td>
-                        <td style="padding:8px 6px;"><input type="number" class="form-control oi-qty" value="${it.quantity || 0}" min="0" style="font-size:13px; padding:6px 10px; text-align:right; border-radius:6px; border:1px solid #cbd5e1;"></td>
-                        <td style="padding:8px 6px;"><input type="number" class="form-control oi-price" value="${it.unit_price || 0}" min="0" style="font-size:13px; padding:6px 10px; text-align:right; border-radius:6px; border:1px solid #cbd5e1;"></td>
-                        <td class="oi-total" style="text-align:right; font-weight:700; color:#1e293b; padding:8px 6px; font-size:13.5px;">${formatCurrency(it.total)}</td>
-                        <td style="padding:8px 6px; text-align:center;"><button class="btn btn-sm" onclick="this.closest('tr').remove();calcOrderTotal();" style="color:#ef4444; background:none; border:none; padding:4px 8px; font-size:14px; cursor:pointer; font-weight:bold;">✕</button></td>
-                    </tr>`).join('') : ''}
+                    ${items.length > 0 ? items.map((it) => `<tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:10px 8px; color:#1e293b; font-weight:600;">${it.description || ''}</td>
+                        <td style="padding:10px 8px; text-align:right; color:#475569; font-weight:700;">${it.quantity || 0}</td>
+                        <td style="padding:10px 8px; text-align:right; color:#475569; font-weight:700;">${formatCurrency(it.unit_price)}</td>
+                        <td style="padding:10px 8px; text-align:right; font-weight:800; color:#0f172a;">${formatCurrency(it.total)}</td>
+                    </tr>`).join('') : `<tr><td colspan="4" style="text-align:center; padding:24px; color:#64748b; font-weight:600;">Chưa có sản phẩm & đơn hàng</td></tr>`}
                 </tbody>
             </table>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; background:#f8fafc; padding:10px 16px; border-radius:10px; border:1px solid #e2e8f0;">
-                <button class="btn btn-sm" onclick="addOrderItemRow()" style="font-size:12.5px; font-weight:600; background:#fff; color:#334155; border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; transition:all 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">➕ Thêm dòng mới</button>
-                <div style="font-size:14px; font-weight:600; color:#475569;">Tổng cộng: <span id="orderGrandTotal" style="color:#1e3a8a; font-size:18px; font-weight:800; margin-left:4px;">${formatCurrency(grandTotal)}</span> VNĐ</div>
+            <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:16px; background:#f8fafc; padding:12px 20px; border-radius:10px; border:1px solid #e2e8f0;">
+                <div style="font-size:14px; font-weight:700; color:#475569;">Tổng đơn hàng: <span id="orderGrandTotal" style="color:#1e3a8a; font-size:19px; font-weight:800; margin-left:4px;">${formatCurrency(grandTotal)}</span> VNĐ</div>
             </div>
         </div>
     `;
 
-    const isReadonly = c.readonly;
     const footerHTML = `
         <button class="btn" onclick="closeModal()" style="background:#fff; color:#475569; border:1px solid #cbd5e1; border-radius:8px; padding:10px 20px; font-weight:600; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">Đóng</button>
-        ${!isReadonly && ['giam_doc','quan_ly','truong_phong','nhan_vien'].includes(currentUser.role)
-            ? `<button class="btn" onclick="saveOrderItems(${c.id})" style="width:auto; background:#10b981; color:#fff; border-radius:8px; padding:10px 20px; font-weight:700; box-shadow:0 2px 8px rgba(16,185,129,0.25); cursor:pointer; border:none; transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">💾 Lưu Đơn Hàng</button>
-               <button class="btn" onclick="requestCancel(${c.id})" style="width:auto; background:#ef4444; color:#fff; border-radius:8px; padding:10px 20px; font-weight:700; box-shadow:0 2px 8px rgba(239,68,68,0.25); cursor:pointer; border:none; transition:all 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">❌ Hủy Khách</button>`
-            : ''}
     `;
 
     openModal(`📋 Chi Tiết Khách Hàng #${getCustomerCode(c)}`, bodyHTML, footerHTML);
