@@ -145,6 +145,54 @@ async function calculateRealDeadline(createdAt, userId, deadlineHour = 23) {
     return deadline;
 }
 
+// Cache pancake settings to avoid multiple db lookups in the same loop
+let _cachedPancakeConfig = null;
+let _cachedPancakeConfigTime = 0;
+async function getPancakeSettingsCached() {
+    const now = Date.now();
+    if (_cachedPancakeConfig && now - _cachedPancakeConfigTime < 300000) { // cache 5 min
+        return _cachedPancakeConfig;
+    }
+    try {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+        if (row && row.value) {
+            _cachedPancakeConfig = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+        } else {
+            _cachedPancakeConfig = {};
+        }
+    } catch (e) {
+        console.error('Error fetching pancake settings:', e.message);
+        _cachedPancakeConfig = {};
+    }
+    _cachedPancakeConfigTime = now;
+    return _cachedPancakeConfig;
+}
+
+// Check if a specific user is scheduled to work on a date (checks holidays, leaves, and custom shifts)
+async function isUserWorkingOnDate(userId, dateStr) {
+    // 1. Check holidays
+    const holidays = await getHolidays();
+    if (holidays.has(dateStr)) return false;
+
+    // 2. Check user leave
+    const onLeave = await isUserOnLeave(userId, dateStr);
+    if (onLeave) return false;
+
+    // 3. Check custom schedule in pancake settings
+    const d = new Date(dateStr + 'T00:00:00Z');
+    const dayOfWeek = d.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
+
+    const config = await getPancakeSettingsCached();
+    const globalWorkingDays = config.global_working_days || {};
+    
+    let workingDays = [1, 2, 3, 4, 5, 6]; // Default Monday to Saturday
+    if (globalWorkingDays[userId] !== undefined) {
+        workingDays = globalWorkingDays[userId].map(Number);
+    }
+
+    return workingDays.includes(dayOfWeek);
+}
+
 // ===== MAIN CHECKER =====
 async function runDeadlineCheck(forceFullCheck = false) {
     // ★ Dùng VN timezone cho tất cả logic ngày/giờ
@@ -1273,9 +1321,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 targetDate = toDateStr(now);
             }
             const today = targetDate;
-            const todayOff = await isDayOff(today);
+            const holidays = await getHolidays();
+            const todayIsHoliday = holidays.has(today);
 
-            if (!todayOff) {
+            if (!todayIsHoliday) {
                 console.log('  📋 [KH Chưa XL] Kiểm tra khách phải xử lý hôm nay...');
 
                 // Lấy tất cả khách có appointment_date = hôm nay, nhóm theo user + crm_type
@@ -1316,10 +1365,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     // Skip GĐ — Giám Đốc miễn phạt
                     if (group.user_role === 'giam_doc') continue;
 
-                    // Skip nếu user đang nghỉ phép
-                    const onLeave = await isUserOnLeave(userId, today);
-                    if (onLeave) {
-                        console.log(`  ⏭️ [KH Chưa XL] Skip user=${userId} (đang nghỉ phép)`);
+                    // Check if scheduled to work today (checks holidays, leave, and weekly shift roster)
+                    const isWorkingToday = await isUserWorkingOnDate(userId, today);
+                    if (!isWorkingToday) {
+                        console.log(`  ⏭️ [KH Chưa XL] Skip user=${userId} (không có lịch trực hôm nay)`);
                         continue;
                     }
 
@@ -1387,9 +1436,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 alYesterday.setUTCDate(alYesterday.getUTCDate() - 1);
                 alToday = toDateStr(alYesterday);
             }
-            const alTodayOff = await isDayOff(alToday);
+            const holidays = await getHolidays();
+            const alTodayIsHoliday = holidays.has(alToday);
 
-            if (!alTodayOff) {
+            if (!alTodayIsHoliday) {
                 // Lấy tất cả KH có appointment_date <= hôm nay, chưa được tư vấn hôm nay
                 const unhandledCustomers = await db.all(
                     `SELECT c.id, c.customer_name, c.phone, c.assigned_to_id, c.appointment_date
@@ -1410,9 +1460,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
                 let autoLogCount = 0;
                 for (const uc of unhandledCustomers) {
-                    // Skip nếu NV nghỉ phép
-                    const onLeave = await isUserOnLeave(uc.assigned_to_id, alToday);
-                    if (onLeave) continue;
+                    // Skip if NV is not working today (checks leave, holidays, and schedule)
+                    const isWorking = await isUserWorkingOnDate(uc.assigned_to_id, alToday);
+                    if (!isWorking) continue;
 
                     // Kiểm tra đã ghi log "khong_xu_ly" cho ngày này chưa (tránh duplicate)
                     const alreadyLogged = await db.get(
@@ -1461,9 +1511,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 treYesterday.setUTCDate(treYesterday.getUTCDate() - 1);
                 treToday = toDateStr(treYesterday);
             }
-            const treTodayOff = await isDayOff(treToday);
+            const holidays = await getHolidays();
+            const treTodayIsHoliday = holidays.has(treToday);
 
-            if (!treTodayOff) {
+            if (!treTodayIsHoliday) {
                 console.log('  📋 [KH Xử Lý Trễ] Kiểm tra khách xử lý trễ...');
 
                 // Lấy tất cả KH có appointment_date < hôm nay (trễ), nhóm theo user + crm_type
@@ -1504,10 +1555,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     // Skip GĐ — Giám Đốc miễn phạt
                     if (group.user_role === 'giam_doc') continue;
 
-                    // Skip nếu user đang nghỉ phép
-                    const onLeave = await isUserOnLeave(userId, treToday);
-                    if (onLeave) {
-                        console.log(`  ⏭️ [KH Xử Lý Trễ] Skip user=${userId} (đang nghỉ phép)`);
+                    // Skip if NV is not working today (checks leave, holidays, and schedule)
+                    const isWorking = await isUserWorkingOnDate(userId, treToday);
+                    if (!isWorking) {
+                        console.log(`  ⏭️ [KH Xử Lý Trễ] Skip user=${userId} (không có lịch trực hôm nay)`);
                         continue;
                     }
 
@@ -1575,8 +1626,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
             await syncLedgerForDate(blockTargetStr);
         } catch(e) {}
 
-        const yesterdayOff = await isDayOff(blockTargetStr);
-        if (!yesterdayOff) {
+        const holidays = await getHolidays();
+        const yesterdayIsHoliday = holidays.has(blockTargetStr);
+        if (!yesterdayIsHoliday) {
             // Đọc TẤT CẢ vi phạm từ ledger cho ngày hôm qua
             const ledgerRows = await db.all(
                 `SELECT dpl.user_id, dpl.task_name, dpl.penalty_date::text as task_date,
@@ -1636,7 +1688,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 console.log('  ✅ [Access Block 00:00] Không có user nào cần chặn');
             }
         } else {
-            console.log('  ⏭️ [Access Block 00:00] Bỏ qua — hôm qua là ngày nghỉ');
+            console.log(`  ⏭️ [Access Block 00:00] Bỏ qua — ngày ${blockTargetStr} là ngày lễ`);
         }
     }
 

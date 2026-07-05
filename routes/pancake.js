@@ -183,7 +183,7 @@ async function pancakeRoutes(fastify, options) {
         const tsUid = 'K' + nanoid(19);
 
         if (assignedUserId !== null) {
-            const appointmentDate = await getNextWorkingDay(now, assignedUserId);
+            const appointmentDate = virtualDateStr;
             const maxNum = await db.get(
                 "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = ?::date AND assigned_to_id = ?",
                 [vnDateStr(now), assignedUserId]
