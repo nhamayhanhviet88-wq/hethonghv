@@ -106,7 +106,10 @@ async function pancakeRoutes(fastify, options) {
                 }
 
                 if (!isForce && !isOff) {
-                    const workingDays = sa.working_days || [];
+                    const globalWorkingDays = config.global_working_days || {};
+                    const workingDays = globalWorkingDays[userId] !== undefined 
+                        ? globalWorkingDays[userId].map(Number)
+                        : (sa.working_days ? sa.working_days.map(Number) : [1, 2, 3, 4, 5, 6]);
                     if (!workingDays.includes(dayOfWeek)) {
                         isOff = true;
                     }

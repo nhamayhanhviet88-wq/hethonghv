@@ -65,6 +65,28 @@ async function renderCaidatpancakePage(container) {
                         </div>
                     </div>
                     
+                    <!-- Global Working Days Config -->
+                    <div style="margin-bottom: 24px; border: 1.5px solid var(--gray-200); border-radius: 12px; padding: 18px; background: #fafafa;">
+                        <h4 style="margin: 0 0 12px 0; font-size: 13.5px; font-weight: 800; color: #FF7E5F; display: flex; align-items: center; gap: 6px;">
+                            📅 Cấu hình Thứ Nhận Lead của Nhân Viên (Áp dụng toàn bộ Page)
+                        </h4>
+                        <div style="max-height: 250px; overflow-y: auto; background: white; border: 1px solid var(--gray-200); border-radius: 10px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.02);">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;">
+                                <thead>
+                                    <tr style="background: #1e293b; border-bottom: 1.5px solid #0f172a;">
+                                        <th style="padding: 10px 16px; font-weight: 700; color: #ffffff; width: 40%;">Nhân viên CRM</th>
+                                        <th style="padding: 10px 16px; font-weight: 700; color: #ffffff; width: 60%; text-align: center;">Thứ Nhận Lead</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="globalWorkingDaysTableBody">
+                                    <tr>
+                                        <td colspan="2" style="text-align: center; padding: 20px; color: var(--gray-400);">Đang tải danh sách nhân viên...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
                     <div style="text-align: right; margin-bottom: 24px;">
                         <button onclick="saveGlobalPancakeSettings()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 0 24px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; height: 42px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(255,126,95,0.2);">Lưu Cấu Hình Chung</button>
                     </div>
@@ -161,6 +183,7 @@ async function loadPancakeData() {
         if (!_pancakeConfig.pages) _pancakeConfig.pages = [];
         if (_pancakeConfig.delay_assignment_seconds === undefined) _pancakeConfig.delay_assignment_seconds = 60;
         if (_pancakeConfig.update_phone_limit_minutes === undefined) _pancakeConfig.update_phone_limit_minutes = 15;
+        _pancakeConfig.global_working_days = _pancakeConfig.global_working_days || {};
 
         // Set inputs
         document.getElementById('pancakeTokenInput').value = _pancakeConfig.pancake_token || '';
@@ -170,6 +193,7 @@ async function loadPancakeData() {
         document.getElementById('pancakeActiveSwitch').checked = !!_pancakeConfig.is_active;
 
         renderPagesTable();
+        renderGlobalWorkingDaysTable();
     } catch(e) {
         console.error('Error loading Pancake configs:', e);
         showToast('Không thể tải cấu hình Pancake!', 'error');
@@ -246,6 +270,95 @@ function renderPagesTable() {
                     </div>
                 </td>
             </tr>
+        `;
+    }).join('');
+}
+
+function renderGlobalWorkingDaysTable() {
+    const tbody = document.getElementById('globalWorkingDaysTableBody');
+    if (!tbody) return;
+
+    const users = _allUsers || [];
+    if (users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 20px; color: var(--gray-400);">Không có nhân viên nào.</td></tr>`;
+        return;
+    }
+
+    const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    
+    tbody.innerHTML = users.map(u => {
+        const workingDays = _pancakeConfig.global_working_days && _pancakeConfig.global_working_days[u.id] !== undefined
+            ? _pancakeConfig.global_working_days[u.id]
+            : [1, 2, 3, 4, 5, 6]; // Default Monday to Saturday
+        
+        const daysBadgeHTML = dayLabels.map((label, dIdx) => {
+            const isChecked = workingDays.includes(dIdx);
+            return `
+                <span class="day-badge ${isChecked ? 'active' : ''}" 
+                      data-day="${dIdx}" 
+                      onclick="toggleGlobalWorkingDayBadge(this, ${u.id})" 
+                      style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; transition: all 0.15s; user-select: none;">
+                    ${label}
+                </span>
+            `;
+        }).join('');
+
+        return `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 10px 16px; font-weight: 700; color: #334155; vertical-align: middle;">${u.full_name} (${u.username})</td>
+                <td style="padding: 10px 16px; text-align: center; vertical-align: middle;">
+                    <div style="display: inline-block;">
+                        ${daysBadgeHTML}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function toggleGlobalWorkingDayBadge(badge, userId) {
+    badge.classList.toggle('active');
+    const isActive = badge.classList.contains('active');
+    
+    badge.style.border = `1px solid ${isActive ? '#FF7E5F' : '#e2e8f0'}`;
+    badge.style.background = isActive ? '#fff0eb' : '#fff';
+    badge.style.color = isActive ? '#FF7E5F' : '#64748b';
+
+    const day = parseInt(badge.getAttribute('data-day'));
+    if (!_pancakeConfig.global_working_days) _pancakeConfig.global_working_days = {};
+    if (!_pancakeConfig.global_working_days[userId]) {
+        _pancakeConfig.global_working_days[userId] = [1, 2, 3, 4, 5, 6]; // default
+    }
+
+    let arr = _pancakeConfig.global_working_days[userId];
+    if (isActive) {
+        if (!arr.includes(day)) arr.push(day);
+    } else {
+        _pancakeConfig.global_working_days[userId] = arr.filter(d => d !== day);
+    }
+}
+
+function onRosterCrmUserChange(select) {
+    const userId = Number(select.value);
+    const row = select.closest('.roster-staff-row');
+    if (!row) return;
+
+    const badgesContainer = row.querySelector('.day-badges-container');
+    if (!badgesContainer) return;
+
+    const workingDays = _pancakeConfig.global_working_days && _pancakeConfig.global_working_days[userId] !== undefined
+        ? _pancakeConfig.global_working_days[userId]
+        : [1, 2, 3, 4, 5, 6];
+
+    const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    badgesContainer.innerHTML = dayLabels.map((label, dIdx) => {
+        const isChecked = workingDays.includes(dIdx);
+        return `
+            <span class="day-badge ${isChecked ? 'active' : ''}" 
+                  data-day="${dIdx}"
+                  style="display: inline-block; padding: 4px 6px; margin: 2px; border-radius: 4px; font-size: 10px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; opacity: 0.85; user-select: none;">
+                ${label}
+            </span>
         `;
     }).join('');
 }
@@ -618,16 +731,17 @@ function appendRosterRow(sa = {}, idx = null) {
 
     const rowId = idx !== null ? idx : tbody.children.length;
 
-    // Days logic
-    const workingDays = sa.working_days || [1, 2, 3, 4, 5, 6]; // Default Mon-Sat
+    // Days logic (Look up from global working days map first)
+    const workingDays = _pancakeConfig.global_working_days && _pancakeConfig.global_working_days[sa.crm_user_id] !== undefined
+        ? _pancakeConfig.global_working_days[sa.crm_user_id]
+        : (sa.working_days || [1, 2, 3, 4, 5, 6]);
     const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
     const daysBadgeHTML = dayLabels.map((label, dIdx) => {
         const isChecked = workingDays.includes(dIdx);
         return `
             <span class="day-badge ${isChecked ? 'active' : ''}" 
                   data-day="${dIdx}" 
-                  onclick="toggleRosterDayBadge(this)" 
-                  style="display: inline-block; cursor: pointer; padding: 4px 6px; margin: 2px; border-radius: 4px; font-size: 10px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; transition: all 0.15s; user-select: none;">
+                  style="display: inline-block; padding: 4px 6px; margin: 2px; border-radius: 4px; font-size: 10px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; opacity: 0.85; user-select: none;">
                 ${label}
             </span>
         `;
@@ -671,7 +785,7 @@ function appendRosterRow(sa = {}, idx = null) {
 
     tr.innerHTML = `
         <td style="padding: 12px; vertical-align: top;">
-            <select class="form-control staff-crm-select" style="height: 34px; font-size: 12px; border-radius: 6px; padding: 0 10px; font-weight: 600;">
+            <select class="form-control staff-crm-select" onchange="onRosterCrmUserChange(this)" style="height: 34px; font-size: 12px; border-radius: 6px; padding: 0 10px; font-weight: 600;">
                 <option value="">-- Chọn nhân viên --</option>
                 ${_allUsers.map(u => `<option value="${u.id}" ${Number(sa.crm_user_id) === u.id ? 'selected' : ''}>${u.full_name} (${u.username})</option>`).join('')}
             </select>
