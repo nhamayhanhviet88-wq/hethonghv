@@ -610,7 +610,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
         <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="_saleOpenCustomerDetail(${c.id}).then(()=>setTimeout(()=>_saleSwitchCDTab('history'),100))" title="${lastContent}">
             ${shortContent || '<span style="color:var(--gray-500)">—</span>'}
         </td>
-        <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount > 0 ? s.consultCount : '<span style="color:#ef4444;font-weight:normal;font-size:12px;">chưa chăm</span>'}</td>
+        <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount || 0}</td>
         <td style="font-size:12px;">
             ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
         </td>
