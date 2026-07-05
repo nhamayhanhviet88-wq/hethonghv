@@ -99,15 +99,22 @@ async function isUserWorkingToday(userId, dateStr) {
         const dayOfWeek = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = CN, 1 = T2, etc.
 
         let globalWorkingDays = {};
+        let config = {};
         const configRow = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
         if (configRow?.value) {
-            const config = typeof configRow.value === 'string' ? JSON.parse(configRow.value) : configRow.value;
+            config = typeof configRow.value === 'string' ? JSON.parse(configRow.value) : configRow.value;
             globalWorkingDays = config.global_working_days || {};
+        }
+
+        if (dayOfWeek === 0) {
+            const schedule = config.sunday_duty_schedule || {};
+            const assignedUsers = schedule[dateStr] || [];
+            return assignedUsers.includes(Number(userId));
         }
 
         let workingDays = [1, 2, 3, 4, 5, 6]; // default Mon-Sat
         if (globalWorkingDays[userId] !== undefined) {
-            workingDays = globalWorkingDays[userId].map(Number);
+            workingDays = globalWorkingDays[userId].map(Number).filter(x => x !== 0);
         }
         return workingDays.includes(dayOfWeek);
     } catch (err) {

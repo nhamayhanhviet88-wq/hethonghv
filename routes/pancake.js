@@ -69,10 +69,16 @@ async function pancakeRoutes(fastify, options) {
             if (isOff) return false;
 
             const dayOfWeek = now.getDay();
+            if (dayOfWeek === 0) {
+                const schedule = config.sunday_duty_schedule || {};
+                const assignedUsers = schedule[dateStr] || [];
+                return assignedUsers.includes(Number(userId));
+            }
+
             const globalWorkingDays = config.global_working_days || {};
             let workingDays = [1, 2, 3, 4, 5, 6]; // default Mon-Sat
             if (globalWorkingDays[userId] !== undefined) {
-                workingDays = globalWorkingDays[userId].map(Number);
+                workingDays = globalWorkingDays[userId].map(Number).filter(d => d !== 0);
             }
             return workingDays.includes(dayOfWeek);
         } catch (err) {
@@ -157,12 +163,20 @@ async function pancakeRoutes(fastify, options) {
                 }
 
                 if (!isForce && !isOff) {
-                    const globalWorkingDays = config.global_working_days || {};
-                    const workingDays = globalWorkingDays[userId] !== undefined 
-                        ? globalWorkingDays[userId].map(Number)
-                        : (sa.working_days ? sa.working_days.map(Number) : [1, 2, 3, 4, 5, 6]);
-                    if (!workingDays.includes(dayOfWeek)) {
-                        isOff = true;
+                    if (dayOfWeek === 0) {
+                        const schedule = config.sunday_duty_schedule || {};
+                        const assignedUsers = schedule[virtualDateStr] || [];
+                        if (!assignedUsers.includes(Number(userId))) {
+                            isOff = true;
+                        }
+                    } else {
+                        const globalWorkingDays = config.global_working_days || {};
+                        const workingDays = globalWorkingDays[userId] !== undefined 
+                            ? globalWorkingDays[userId].map(Number).filter(d => d !== 0)
+                            : (sa.working_days ? sa.working_days.map(Number).filter(d => d !== 0) : [1, 2, 3, 4, 5, 6]);
+                        if (!workingDays.includes(dayOfWeek)) {
+                            isOff = true;
+                        }
                     }
 
                     const holidayRow = await db.get(

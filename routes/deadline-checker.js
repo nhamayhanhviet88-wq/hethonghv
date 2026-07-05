@@ -183,11 +183,18 @@ async function isUserWorkingOnDate(userId, dateStr) {
     const dayOfWeek = d.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
 
     const config = await getPancakeSettingsCached();
+
+    if (dayOfWeek === 0) {
+        const schedule = config.sunday_duty_schedule || {};
+        const assignedUsers = schedule[dateStr] || [];
+        return assignedUsers.includes(Number(userId));
+    }
+
     const globalWorkingDays = config.global_working_days || {};
     
     let workingDays = [1, 2, 3, 4, 5, 6]; // Default Monday to Saturday
     if (globalWorkingDays[userId] !== undefined) {
-        workingDays = globalWorkingDays[userId].map(Number);
+        workingDays = globalWorkingDays[userId].map(Number).filter(x => x !== 0);
     }
 
     return workingDays.includes(dayOfWeek);

@@ -83,15 +83,37 @@ async function getNextWorkingDay(startDate, userId) {
     // Get VN date string then parse → use UTC methods to avoid any timezone drift
     const vnDateStr = toDateStr(startDate instanceof Date ? startDate : new Date());
     const [y, m, day] = vnDateStr.split('-').map(Number);
+
+    // Load pancake_settings to check Sunday duty
+    let sundayDutySchedule = {};
+    if (userId) {
+        try {
+            const configRow = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+            if (configRow?.value) {
+                const config = typeof configRow.value === 'string' ? JSON.parse(configRow.value) : configRow.value;
+                sundayDutySchedule = config.sunday_duty_schedule || {};
+            }
+        } catch (e) {
+            console.error('[getNextWorkingDay] Error loading pancake settings:', e.message);
+        }
+    }
+
     // Use UTC to avoid local timezone shifting during date math
     let current = new Date(Date.UTC(y, m - 1, day + 1)); // tomorrow
     let maxIter = 30;
     while (maxIter-- > 0) {
         const ds = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')}`;
-        const isSunday = current.getUTCDay() === 0;
+        const dayOfWeek = current.getUTCDay();
+        
+        let isWorkingDay = true;
+        if (dayOfWeek === 0) {
+            const assignedUsers = sundayDutySchedule[ds] || [];
+            isWorkingDay = userId ? assignedUsers.includes(Number(userId)) : false;
+        }
+
         const isHoliday = holidays.has(ds);
         const onLeave = userId ? await isUserOnLeave(userId, ds) : false;
-        if (!isSunday && !isHoliday && !onLeave) return ds;
+        if (isWorkingDay && !isHoliday && !onLeave) return ds;
         current.setUTCDate(current.getUTCDate() + 1);
     }
     // Fallback: tomorrow
@@ -105,14 +127,36 @@ async function getNextWorkingDay(startDate, userId) {
 async function getEffectiveWorkingDay(originalDate, userId, holidays) {
     const vnDateStr = toDateStr(originalDate instanceof Date ? originalDate : new Date(originalDate));
     const [y, m, day] = vnDateStr.split('-').map(Number);
+    
+    // Load pancake_settings to check Sunday duty
+    let sundayDutySchedule = {};
+    if (userId) {
+        try {
+            const configRow = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+            if (configRow?.value) {
+                const config = typeof configRow.value === 'string' ? JSON.parse(configRow.value) : configRow.value;
+                sundayDutySchedule = config.sunday_duty_schedule || {};
+            }
+        } catch (e) {
+            console.error('[getEffectiveWorkingDay] Error loading pancake settings:', e.message);
+        }
+    }
+
     let current = new Date(Date.UTC(y, m - 1, day));
     let maxIter = 30;
     while (maxIter-- > 0) {
         const ds = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')}`;
-        const isSunday = current.getUTCDay() === 0;
+        const dayOfWeek = current.getUTCDay();
+        
+        let isWorkingDay = true;
+        if (dayOfWeek === 0) {
+            const assignedUsers = sundayDutySchedule[ds] || [];
+            isWorkingDay = userId ? assignedUsers.includes(Number(userId)) : false;
+        }
+
         const isHoliday = holidays.has(ds);
         const onLeave = userId ? await isUserOnLeave(userId, ds) : false;
-        if (!isSunday && !isHoliday && !onLeave) return ds;
+        if (isWorkingDay && !isHoliday && !onLeave) return ds;
         current.setUTCDate(current.getUTCDate() + 1);
     }
     return vnDateStr;

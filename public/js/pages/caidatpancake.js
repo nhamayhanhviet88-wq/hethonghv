@@ -75,9 +75,14 @@ async function renderCaidatpancakePage(container) {
                                 <p style="margin: 4px 0 0 0; font-size: 11.5px; color: var(--gray-400);">Thiết lập lịch trực nhận số của nhân viên thuộc Phòng Kinh Doanh & Phòng Sale</p>
                             </div>
                         </div>
-                        <button type="button" onclick="showGlobalWorkingDaysModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
-                            ⚙️ Thiết Lập
-                        </button>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" onclick="showGlobalWorkingDaysModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
+                                ⚙️ Thiết Lập Thứ Nhận Lead
+                            </button>
+                            <button type="button" onclick="showSundayRosterModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
+                                📅 Lịch Trực Chủ Nhật
+                            </button>
+                        </div>
                     </div>
                     
                     <div style="text-align: right; margin-bottom: 24px;">
@@ -311,6 +316,18 @@ function renderPagesTable() {
     }).join('');
 }
 
+function getUpcomingSundayDate() {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = (7 - day) % 7;
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() + diff);
+    const y = sunday.getFullYear();
+    const m = String(sunday.getMonth() + 1).padStart(2, '0');
+    const d = String(sunday.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 function renderGlobalWorkingDaysTable() {
     const tbody = document.getElementById('globalWorkingDaysTableBody');
     if (!tbody) return;
@@ -322,14 +339,35 @@ function renderGlobalWorkingDaysTable() {
     }
 
     const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const upcomingSundayStr = getUpcomingSundayDate();
     
     tbody.innerHTML = users.map(u => {
         const workingDays = _pancakeConfig.global_working_days && _pancakeConfig.global_working_days[u.id] !== undefined
-            ? _pancakeConfig.global_working_days[u.id]
+            ? _pancakeConfig.global_working_days[u.id].filter(d => d !== 0) // exclude static Sunday
             : [1, 2, 3, 4, 5, 6]; // Default Monday to Saturday
+        
+        const isAssignedThisSunday = !!(_pancakeConfig.sunday_duty_schedule && 
+                                     _pancakeConfig.sunday_duty_schedule[upcomingSundayStr] && 
+                                     _pancakeConfig.sunday_duty_schedule[upcomingSundayStr].includes(u.id));
+        
+        if (isAssignedThisSunday) {
+            workingDays.push(0);
+        }
         
         const daysBadgeHTML = dayLabels.map((label, dIdx) => {
             const isChecked = workingDays.includes(dIdx);
+            if (dIdx === 0) {
+                const formattedSunday = upcomingSundayStr.split('-').reverse().join('/');
+                return `
+                    <span class="day-badge ${isChecked ? 'active' : ''}" 
+                          data-day="${dIdx}" 
+                          onclick="showToast('Lịch Chủ Nhật được tự động bật dựa trên Lịch Trực ngày ${formattedSunday}. Vui lòng phân công ở Lịch Trực Chủ Nhật!', 'info')" 
+                          style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; transition: all 0.15s; user-select: none;"
+                          title="Trực Chủ Nhật ${formattedSunday}: ${isChecked ? 'BẬT' : 'TẮT'}">
+                        ${label}
+                    </span>
+                `;
+            }
             return `
                 <span class="day-badge ${isChecked ? 'active' : ''}" 
                       data-day="${dIdx}" 
@@ -354,6 +392,9 @@ function renderGlobalWorkingDaysTable() {
 }
 
 function toggleGlobalWorkingDayBadge(badge, userId) {
+    const day = parseInt(badge.getAttribute('data-day'));
+    if (day === 0) return; // Prevent manual toggle of Sunday
+
     badge.classList.toggle('active');
     const isActive = badge.classList.contains('active');
     
@@ -361,18 +402,18 @@ function toggleGlobalWorkingDayBadge(badge, userId) {
     badge.style.background = isActive ? '#fff0eb' : '#fff';
     badge.style.color = isActive ? '#FF7E5F' : '#64748b';
 
-    const day = parseInt(badge.getAttribute('data-day'));
     if (!_pancakeConfig.global_working_days) _pancakeConfig.global_working_days = {};
     if (!_pancakeConfig.global_working_days[userId]) {
         _pancakeConfig.global_working_days[userId] = [1, 2, 3, 4, 5, 6]; // default
     }
 
-    let arr = _pancakeConfig.global_working_days[userId];
+    let arr = _pancakeConfig.global_working_days[userId].filter(d => d !== 0); // exclude 0
     if (isActive) {
         if (!arr.includes(day)) arr.push(day);
     } else {
-        _pancakeConfig.global_working_days[userId] = arr.filter(d => d !== day);
+        arr = arr.filter(d => d !== day);
     }
+    _pancakeConfig.global_working_days[userId] = arr;
 }
 
 function showGlobalWorkingDaysModal() {
@@ -1142,4 +1183,199 @@ function copyWebhookUrl() {
     const code = document.getElementById('pancakeWebhookUrl');
     navigator.clipboard.writeText(code.textContent);
     showToast('📋 Đã sao chép URL Webhook!');
+}
+
+function canEditSundayRoster() {
+    if (!currentUser) return false;
+    return currentUser.role === 'giam_doc' || currentUser.role === 'quan_ly_cap_cao' || currentUser.username === 'leviettrinh';
+}
+
+let _sundayRosterDates = [];
+
+function getUpcomingSundays(count = 5) {
+    const list = [];
+    const now = new Date();
+    const day = now.getDay();
+    const diffToThisSunday = (7 - day) % 7;
+    const thisSunday = new Date(now);
+    thisSunday.setDate(now.getDate() + diffToThisSunday);
+    
+    const startSunday = new Date(thisSunday);
+    startSunday.setDate(thisSunday.getDate() - 7); // start from last Sunday
+    
+    for (let i = 0; i < count; i++) {
+        const d = new Date(startSunday);
+        d.setDate(startSunday.getDate() + i * 7);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dateStr = String(d.getDate()).padStart(2, '0');
+        list.push(`${y}-${m}-${dateStr}`);
+    }
+    return list;
+}
+
+function showSundayRosterModal() {
+    _sundayRosterDates = getUpcomingSundays(5);
+    
+    if (_pancakeConfig.sunday_duty_schedule) {
+        Object.keys(_pancakeConfig.sunday_duty_schedule).forEach(dateStr => {
+            if (!_sundayRosterDates.includes(dateStr)) {
+                _sundayRosterDates.push(dateStr);
+            }
+        });
+        _sundayRosterDates.sort();
+    }
+    
+    renderSundayRosterModalContent();
+}
+
+function renderSundayRosterModalContent() {
+    const editAllowed = canEditSundayRoster();
+    const modalBody = `
+        <div style="margin-bottom: 16px; font-size: 13px; color: var(--gray-600); font-weight: 500; line-height: 1.5;">
+            Phân công lịch trực Chủ Nhật theo ngày cụ thể. Chỉ các bạn Sale/KD được tích chọn mới được Bật nhận số và gửi Nhắc xử lý số vào ngày đó.
+        </div>
+        <div style="max-height: 420px; overflow-y: auto; border: 1.5px solid var(--gray-200); border-radius: 12px; background: white; box-shadow: inset 0 2px 8px rgba(0,0,0,0.02); margin-bottom: 16px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;">
+                <thead>
+                    <tr style="background: #1e293b; border-bottom: 1.5px solid #0f172a;">
+                        <th style="padding: 12px 16px; font-weight: 700; color: #ffffff; width: 35%;">Ngày Chủ Nhật</th>
+                        <th style="padding: 12px 16px; font-weight: 700; color: #ffffff; width: 65%;">Nhân viên trực (Click để bật/tắt)</th>
+                    </tr>
+                </thead>
+                <tbody id="sundayRosterTableBody">
+                </tbody>
+            </table>
+        </div>
+        ${editAllowed ? `
+        <div style="text-align: left; margin-bottom: 8px;">
+            <button type="button" class="btn btn-sm" onclick="addNextSundayRosterDate()" style="background: #10b981; color: white; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                ➕ Thêm Chủ Nhật tiếp theo
+            </button>
+        </div>` : ''}
+    `;
+
+    const modalFooter = `
+        <button class="btn btn-secondary" onclick="closeModal()" style="border-radius: 8px; padding: 8px 16px;">Đóng</button>
+        ${editAllowed ? `
+        <button class="btn" onclick="saveSundayRosterFromModal()" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 24px; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(255,126,95,0.2);">
+            💾 Lưu Lịch Trực
+        </button>` : ''}
+    `;
+
+    openModal('📅 Phân Lịch Trực Chủ Nhật', modalBody, modalFooter);
+
+    const container = document.getElementById('modalContainer');
+    if (container) {
+        container.style.maxWidth = '750px';
+        container.style.width = '95%';
+    }
+
+    renderSundayRosterTableRows();
+}
+
+function renderSundayRosterTableRows() {
+    const tbody = document.getElementById('sundayRosterTableBody');
+    if (!tbody) return;
+
+    const users = _kdAndSaleUsers || [];
+    if (users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 20px; color: var(--gray-400);">Không có nhân viên nào.</td></tr>`;
+        return;
+    }
+
+    const schedule = _pancakeConfig.sunday_duty_schedule || {};
+    const editAllowed = canEditSundayRoster();
+
+    tbody.innerHTML = _sundayRosterDates.map(dateStr => {
+        const assignedIds = schedule[dateStr] || [];
+        const formattedDate = dateStr.split('-').reverse().join('/');
+        
+        const pillsHTML = users.map(u => {
+            const isAssigned = assignedIds.includes(u.id);
+            const clickHandler = editAllowed 
+                ? `onclick="toggleSundayStaffRoster(this)"` 
+                : `onclick="showToast('Bạn không có quyền chỉnh sửa lịch trực. Chỉ Giám Đốc và Quản Lý Cấp Cao Lê Việt Trinh mới được quyền chỉnh sửa.', 'error')"`;
+            
+            return `
+                <span class="sunday-staff-pill ${isAssigned ? 'active' : ''}" 
+                      data-date="${dateStr}" 
+                      data-user-id="${u.id}" 
+                      ${clickHandler}
+                      style="display: inline-block; cursor: ${editAllowed ? 'pointer' : 'default'}; padding: 4px 8px; margin: 3px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid ${isAssigned ? '#10b981' : '#e2e8f0'}; background: ${isAssigned ? '#ecfdf5' : '#f8fafc'}; color: ${isAssigned ? '#10b981' : '#64748b'}; transition: all 0.15s; user-select: none;">
+                    ${isAssigned ? '🟢' : '⚪'} ${u.full_name}
+                </span>
+            `;
+        }).join('');
+
+        return `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 16px; font-weight: 700; color: #1e293b; vertical-align: middle;">
+                    📅 CN, ${formattedDate}
+                </td>
+                <td style="padding: 12px 16px; vertical-align: middle;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                        ${pillsHTML}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function toggleSundayStaffRoster(pill) {
+    pill.classList.toggle('active');
+    const isActive = pill.classList.contains('active');
+    
+    pill.style.border = `1px solid ${isActive ? '#10b981' : '#e2e8f0'}`;
+    pill.style.background = isActive ? '#ecfdf5' : '#f8fafc';
+    pill.style.color = isActive ? '#10b981' : '#64748b';
+    pill.innerHTML = `${isActive ? '🟢' : '⚪'} ${pill.textContent.substring(2).trim()}`;
+    
+    const dateStr = pill.getAttribute('data-date');
+    const userId = Number(pill.getAttribute('data-user-id'));
+    
+    if (!_pancakeConfig.sunday_duty_schedule) _pancakeConfig.sunday_duty_schedule = {};
+    if (!_pancakeConfig.sunday_duty_schedule[dateStr]) _pancakeConfig.sunday_duty_schedule[dateStr] = [];
+    
+    let arr = _pancakeConfig.sunday_duty_schedule[dateStr];
+    if (isActive) {
+        if (!arr.includes(userId)) arr.push(userId);
+    } else {
+        _pancakeConfig.sunday_duty_schedule[dateStr] = arr.filter(id => id !== userId);
+    }
+}
+
+function addNextSundayRosterDate() {
+    let lastSunday = new Date();
+    if (_sundayRosterDates.length > 0) {
+        const sorted = [..._sundayRosterDates].sort();
+        const [y, m, d] = sorted[sorted.length - 1].split('-').map(Number);
+        lastSunday = new Date(Date.UTC(y, m - 1, d));
+    }
+    
+    const nextSunday = new Date(lastSunday);
+    nextSunday.setDate(lastSunday.getDate() + 7);
+    
+    const y = nextSunday.getUTCFullYear();
+    const m = String(nextSunday.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(nextSunday.getUTCDate()).padStart(2, '0');
+    const nextSundayStr = `${y}-${m}-${d}`;
+    
+    if (!_sundayRosterDates.includes(nextSundayStr)) {
+        _sundayRosterDates.push(nextSundayStr);
+        _sundayRosterDates.sort();
+        renderSundayRosterTableRows();
+        showToast('➕ Đã thêm ngày Chủ Nhật tiếp theo!');
+    }
+}
+
+async function saveSundayRosterFromModal() {
+    try {
+        await savePancakeConfigToDB();
+        closeModal();
+        showToast('✅ Đã lưu lịch trực Chủ Nhật thành công!');
+    } catch (e) {
+        showToast('Lỗi khi lưu lịch trực!', 'error');
+    }
 }
