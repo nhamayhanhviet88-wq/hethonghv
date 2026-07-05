@@ -1301,6 +1301,7 @@ function renderSundayRosterTableRows() {
                 <span class="sunday-staff-pill ${isAssigned ? 'active' : ''}" 
                       data-date="${dateStr}" 
                       data-user-id="${u.id}" 
+                      data-user-name="${u.full_name}"
                       ${clickHandler}
                       style="display: inline-block; cursor: ${editAllowed ? 'pointer' : 'default'}; padding: 4px 8px; margin: 3px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid ${isAssigned ? '#10b981' : '#e2e8f0'}; background: ${isAssigned ? '#ecfdf5' : '#f8fafc'}; color: ${isAssigned ? '#10b981' : '#64748b'}; transition: all 0.15s; user-select: none;">
                     ${isAssigned ? '🟢' : '⚪'} ${u.full_name}
@@ -1330,7 +1331,9 @@ function toggleSundayStaffRoster(pill) {
     pill.style.border = `1px solid ${isActive ? '#10b981' : '#e2e8f0'}`;
     pill.style.background = isActive ? '#ecfdf5' : '#f8fafc';
     pill.style.color = isActive ? '#10b981' : '#64748b';
-    pill.innerHTML = `${isActive ? '🟢' : '⚪'} ${pill.textContent.substring(2).trim()}`;
+    
+    const userName = pill.getAttribute('data-user-name') || '';
+    pill.innerHTML = `${isActive ? '🟢' : '⚪'} ${userName}`;
     
     const dateStr = pill.getAttribute('data-date');
     const userId = Number(pill.getAttribute('data-user-id'));
