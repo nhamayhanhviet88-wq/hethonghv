@@ -637,7 +637,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
             ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
         </td>
         <td><strong style="color:#e65100">${getCustomerCode(c)}</strong><br>${getCustomerUidBadge(c)}</td>
-        <td>
+        <td style="white-space:nowrap;">
             ${!c.readonly && canEditCrm ? '<button class="btn btn-sm" onclick="event.stopPropagation();_saleOpenCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
             ${(() => {
                 const _colors = [
@@ -653,7 +653,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
                 return `<span onclick="_saleOpenCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span><span onclick="event.stopPropagation();_crmCopyText('${c.customer_name.replace(/'/g, "\\'")}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>`;
             })()}
         </td>
-        <td>${(() => {
+        <td style="white-space:nowrap;">${(() => {
             const hasRealPhone = c.phone && !c.phone.startsWith('pancake_');
             if (!hasRealPhone) return '';
             const copyBtn = !c.readonly ? `<span onclick="event.stopPropagation();_crmCopyText('${c.phone}',this,'SĐT')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy SĐT">📋</span>` : '';
