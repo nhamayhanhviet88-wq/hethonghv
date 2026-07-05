@@ -162,7 +162,7 @@ async function getNextFollowUpDate(startDate, userId) {
     if (userId && globalWorkingDays[userId] !== undefined) {
         workingDays = globalWorkingDays[userId].map(Number);
     }
-    const careDays = [0, 1, 2, 3, 4, 5, 6].filter(d => !workingDays.includes(d));
+    const careDays = [1, 2, 3, 4, 5, 6].filter(d => !workingDays.includes(d));
 
     // Fallback: if no care days defined (e.g. working 7 days/week), use next working day
     if (careDays.length === 0) {
