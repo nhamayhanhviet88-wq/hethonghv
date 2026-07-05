@@ -339,34 +339,37 @@ function renderGlobalWorkingDaysTable() {
     }
 
     const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-    const upcomingSundayStr = getUpcomingSundayDate();
     
     tbody.innerHTML = users.map(u => {
         const workingDays = _pancakeConfig.global_working_days && _pancakeConfig.global_working_days[u.id] !== undefined
             ? _pancakeConfig.global_working_days[u.id].filter(d => d !== 0) // exclude static Sunday
             : [1, 2, 3, 4, 5, 6]; // Default Monday to Saturday
         
-        const isAssignedThisSunday = !!(_pancakeConfig.sunday_duty_schedule && 
-                                     _pancakeConfig.sunday_duty_schedule[upcomingSundayStr] && 
-                                     _pancakeConfig.sunday_duty_schedule[upcomingSundayStr].includes(u.id));
-        
-        if (isAssignedThisSunday) {
+        // Find all future Sundays (today onwards) assigned to this user
+        const todayStr = typeof vnDateStr === 'function' ? vnDateStr() : new Date().toISOString().split('T')[0];
+        const schedule = _pancakeConfig.sunday_duty_schedule || {};
+        const futureSundays = Object.keys(schedule).filter(dateStr => {
+            return dateStr >= todayStr && Array.isArray(schedule[dateStr]) && schedule[dateStr].includes(u.id);
+        }).sort();
+
+        const isAssignedSunday = futureSundays.length > 0;
+        if (isAssignedSunday) {
             workingDays.push(0);
         }
         
         const daysBadgeHTML = dayLabels.map((label, dIdx) => {
             const isChecked = workingDays.includes(dIdx);
             if (dIdx === 0) {
-                const formattedSunday = upcomingSundayStr.split('-').reverse().join('/');
+                const formattedSundays = futureSundays.map(d => d.split('-').reverse().join('/')).join(', ');
                 const toastMsg = isChecked
-                    ? `Không ấn được trực tiếp tại đây vì ${u.full_name} có lịch trực vào ngày CN, ${formattedSunday}. Muốn hủy trực thì hãy vào 📅 Phân Lịch Trực Chủ Nhật để chuyển cho người khác.`
-                    : `Không ấn được trực tiếp tại đây vì ${u.full_name} không có lịch trực vào ngày CN, ${formattedSunday}. Muốn bật trực thì hãy vào 📅 Phân Lịch Trực Chủ Nhật để phân công.`;
+                    ? `Không ấn được trực tiếp tại đây vì ${u.full_name} có lịch trực vào ngày CN, ${formattedSundays}. Muốn hủy trực thì hãy vào 📅 Phân Lịch Trực Chủ Nhật để chuyển cho người khác.`
+                    : `Không ấn được trực tiếp tại đây vì ${u.full_name} không có lịch trực vào các ngày Chủ Nhật sắp tới. Muốn bật trực thì hãy vào 📅 Phân Lịch Trực Chủ Nhật để phân công.`;
                 return `
                     <span class="day-badge ${isChecked ? 'active' : ''}" 
                           data-day="${dIdx}" 
                           onclick="showToast('${toastMsg}', 'warning')" 
                           style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; transition: all 0.15s; user-select: none;"
-                          title="Trực Chủ Nhật ${formattedSunday}: ${isChecked ? 'BẬT' : 'TẮT'}">
+                          title="Trực Chủ Nhật: ${isChecked ? 'BẬT (' + formattedSundays + ')' : 'TẮT'}">
                         ${label}
                     </span>
                 `;
