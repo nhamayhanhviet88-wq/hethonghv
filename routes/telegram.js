@@ -377,8 +377,8 @@ async function telegramRoutes(fastify, options) {
                     [nextFollowUp, customer.id]
                 );
 
-                // Reset cancel requests if active
-                if (customer.cancel_approved === 1 || customer.cancel_approved === -2) {
+                // Reset cancel requests if active or pending
+                if (customer.cancel_requested === 1 || customer.cancel_approved !== 0) {
                     await db.run(
                         `UPDATE customers 
                          SET cancel_requested = 0, cancel_approved = 0, cancel_reason = NULL, 
