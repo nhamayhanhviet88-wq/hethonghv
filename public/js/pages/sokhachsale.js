@@ -637,60 +637,45 @@ function sksAutoSelectDefaultTime() {
     const now = new Date();
     const curYear = now.getFullYear();
     const curMonth = now.getMonth() + 1;
-    const curDay = now.getDate();
 
-    // Default expand current Year and Month
+    // Clear expanded nodes first to keep sidebar clean
+    _sksExpandedNodes.clear();
+
+    // Default expand current Year
     _sksExpandedNodes.add(`year_${curYear}`);
-    _sksExpandedNodes.add(`month_${curYear}_${curMonth}`);
 
-    let todayNode = null;
-    let fallbackNode = null;
+    let activeYear = curYear;
+    let activeMonth = curMonth;
 
     if (_sksTreeData && _sksTreeData.length > 0) {
-        // Find latest available node as fallback
-        const latestYearData = _sksTreeData[0];
-        if (latestYearData.months && latestYearData.months.length > 0) {
-            const latestMonthData = latestYearData.months[0];
-            if (latestMonthData.days && latestMonthData.days.length > 0) {
-                const latestDayData = latestMonthData.days[0];
-                fallbackNode = {
-                    year: latestYearData.year,
-                    month: latestMonthData.month,
-                    day: latestDayData.day
-                };
-            }
-        }
-
-        // Check if today exists in the tree data
+        // Find if current year exists in tree data
         const yData = _sksTreeData.find(y => y.year === curYear);
-        if (yData && yData.months) {
-            const mData = yData.months.find(m => m.month === curMonth);
-            if (mData && mData.days) {
-                const dData = mData.days.find(d => d.day === curDay);
-                if (dData) {
-                    todayNode = { year: curYear, month: curMonth, day: curDay };
-                }
+        if (yData) {
+            activeYear = curYear;
+            const mData = yData.months ? yData.months.find(m => m.month === curMonth) : null;
+            if (mData) {
+                activeMonth = curMonth;
+            } else if (yData.months && yData.months.length > 0) {
+                activeMonth = yData.months[0].month;
+            } else {
+                activeMonth = null;
+            }
+        } else {
+            // Fallback to the latest available year in data
+            const latestYearData = _sksTreeData[0];
+            activeYear = latestYearData.year;
+            _sksExpandedNodes.add(`year_${activeYear}`);
+            if (latestYearData.months && latestYearData.months.length > 0) {
+                activeMonth = latestYearData.months[0].month;
+            } else {
+                activeMonth = null;
             }
         }
     }
 
-    if (todayNode) {
-        _sksSelectedYear = todayNode.year;
-        _sksSelectedMonth = todayNode.month;
-        _sksSelectedDay = todayNode.day;
-    } else if (fallbackNode) {
-        _sksSelectedYear = fallbackNode.year;
-        _sksSelectedMonth = fallbackNode.month;
-        _sksSelectedDay = fallbackNode.day;
-        
-        // Auto expand year and month of the fallback node
-        _sksExpandedNodes.add(`year_${fallbackNode.year}`);
-        _sksExpandedNodes.add(`month_${fallbackNode.year}_${fallbackNode.month}`);
-    } else {
-        _sksSelectedYear = null;
-        _sksSelectedMonth = null;
-        _sksSelectedDay = null;
-    }
+    _sksSelectedYear = activeYear;
+    _sksSelectedMonth = activeMonth;
+    _sksSelectedDay = null; // Always display up to Month level by default
 }
 
 async function sksLoadCustomers() {
