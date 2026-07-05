@@ -1140,10 +1140,6 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         if (customer.is_pinned) {
             const nextWorkDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay, customerId]);
-        } else if (customer.crm_type === 'sale' && !['huy', 'cap_cuu_sep', 'chot_don'].includes(log_type)) {
-            // SALE CRM: auto-calculate next follow-up date based on rotation cycle
-            const nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id);
-            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextFollowUp, customerId]);
         } else if (fields.appointment_date) {
             // ★ VALIDATE: appointment_date must be AFTER today (never today or past)
             const vnToday = getVNToday();
@@ -1154,6 +1150,10 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             } else {
                 await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [fields.appointment_date, customerId]);
             }
+        } else if (customer.crm_type === 'sale' && !['huy', 'cap_cuu_sep', 'chot_don'].includes(log_type)) {
+            // SALE CRM: auto-calculate next follow-up date based on rotation cycle (fallback)
+            const nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id);
+            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextFollowUp, customerId]);
         }
 
         // Auto-set appointment to next business day for 'Hoàn thành cấp cứu'

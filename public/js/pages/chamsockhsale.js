@@ -1128,15 +1128,15 @@ async function _saleOpenConsultModal(customerId) {
             </select>
         </div>
         <div class="form-group" id="consultAppointmentGroupSale">
-            <label>Ngày Hẹn Tiếp Theo <span style="color:#10b981;font-weight:800;">(Tự Động)</span></label>
-            <div style="background:rgba(34,197,94,0.08);border:1.5px solid rgba(34,197,94,0.3);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-top:6px;">
-                <span style="font-size:24px;">📅</span>
-                <div>
-                    <div style="font-size:14px;font-weight:800;color:#16a34a;" id="autoFollowUpDateDisplaySale">Đang tính toán...</div>
-                    <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">Hệ thống tự động hẹn lịch theo lịch trực và xoay vòng chăm sóc.</div>
-                </div>
+            <label>Ngày Hẹn Tiếp Theo</label>
+            
+            <div id="autoFollowUpNoteSale" style="background:rgba(34,197,94,0.06);border:1px dashed rgba(34,197,94,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:#15803d;margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:8px;">
+                <span>💡</span>
+                <div>Nếu không chọn ngày bên dưới, khách sẽ tự động hẹn vào: <span id="autoFollowUpDateTextSale" style="font-weight:800;text-decoration:underline;color:#16a34a;">Đang tính...</span></div>
             </div>
-            <input type="hidden" id="consultAppointmentSale" value="${nextFollowUp}">
+
+            <input type="hidden" id="consultAppointmentSale" value="">
+            <div id="consultCalendarContainerSale"></div>
         </div>
         <div class="form-group" id="consultCancelGroupSale" style="display:none">
             <label>Lý Do Hủy <span style="color:var(--danger)">*</span></label>
@@ -1252,10 +1252,10 @@ async function _saleOpenConsultModal(customerId) {
         if (nextFollowUp) {
             const d = new Date(nextFollowUp);
             const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-            const disp = document.getElementById('autoFollowUpDateDisplaySale');
+            const disp = document.getElementById('autoFollowUpDateTextSale');
             if (disp) disp.textContent = `${days[d.getDay()]} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()}`;
         } else {
-            const disp = document.getElementById('autoFollowUpDateDisplaySale');
+            const disp = document.getElementById('autoFollowUpDateTextSale');
             if (disp) disp.textContent = 'Chưa có lịch hẹn';
         }
         _saleOnConsultTypeChange();
