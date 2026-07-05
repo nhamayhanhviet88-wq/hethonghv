@@ -358,10 +358,13 @@ function renderGlobalWorkingDaysTable() {
             const isChecked = workingDays.includes(dIdx);
             if (dIdx === 0) {
                 const formattedSunday = upcomingSundayStr.split('-').reverse().join('/');
+                const toastMsg = isChecked
+                    ? `Không ấn được trực tiếp tại đây vì ${u.full_name} có lịch trực vào ngày CN, ${formattedSunday}. Muốn hủy trực thì hãy vào 📅 Phân Lịch Trực Chủ Nhật để chuyển cho người khác.`
+                    : `Không ấn được trực tiếp tại đây vì ${u.full_name} không có lịch trực vào ngày CN, ${formattedSunday}. Muốn bật trực thì hãy vào 📅 Phân Lịch Trực Chủ Nhật để phân công.`;
                 return `
                     <span class="day-badge ${isChecked ? 'active' : ''}" 
                           data-day="${dIdx}" 
-                          onclick="showToast('Lịch Chủ Nhật được tự động bật dựa trên Lịch Trực ngày ${formattedSunday}. Vui lòng phân công ở Lịch Trực Chủ Nhật!', 'info')" 
+                          onclick="showToast('${toastMsg}', 'warning')" 
                           style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; transition: all 0.15s; user-select: none;"
                           title="Trực Chủ Nhật ${formattedSunday}: ${isChecked ? 'BẬT' : 'TẮT'}">
                         ${label}
