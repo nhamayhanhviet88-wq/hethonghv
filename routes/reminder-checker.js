@@ -353,4 +353,4 @@ function startReminderChecker() {
     setInterval(() => checkAndRemind(), 60 * 1000);
 }
 
-module.exports = { startReminderChecker };
+module.exports = { startReminderChecker, isWithinReminderHours };
