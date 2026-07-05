@@ -264,10 +264,7 @@ async function pancakeRoutes(fastify, options) {
                 const yearTwoDigits = String(d.getFullYear()).slice(-2);
                 const serialPrefix = `${dailyNum}-${day}-${month}-Y${yearTwoDigits}`;
 
-                let notifyMsg = `🥞 <b>${serialPrefix} : ${customerName}${phonePart} - ${sourceDisplay}</b>`;
-                if (conversationLink) {
-                    notifyMsg += `\n🔗 Chi tiết: <a href="${conversationLink}">Xem hội thoại</a>`;
-                }
+                const notifyMsg = `🥞 <b>${serialPrefix} : ${customerName}${phonePart} - ${sourceDisplay}</b>`;
                 await sendTelegramMessage(staffChatId, notifyMsg, page.bot_tele);
             }
             return true;
@@ -461,7 +458,7 @@ async function pancakeRoutes(fastify, options) {
                             const sourceName = sourceRow?.name || page.name;
                             const sourceDisplay = sourceName.startsWith('📍') ? sourceName : `📍${sourceName}`;
 
-                            const updateMsg = `🥞 <b>Cập nhật SĐT : ${customerName} - ${phone} - ${sourceDisplay}</b>\n🔗 Chi tiết: <a href="${conversationLink}">Xem hội thoại</a>`;
+                            const updateMsg = `🥞 <b>Cập nhật SĐT : ${customerName} - ${phone} - ${sourceDisplay}</b>`;
                             await sendTelegramMessage(staffChatId, updateMsg, page.bot_tele);
                         }
                     }
