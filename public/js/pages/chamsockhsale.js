@@ -185,7 +185,7 @@ async function renderChamsockhsalePage(container) {
                         <th style="min-width:120px">Nút Tư Vấn</th>
                         <th style="min-width:160px">Nội Dung TV</th>
                         <th style="min-width:70px;text-align:center">Lần Chăm</th>
-                        <th style="min-width:140px">Ngày Hẹn</th>
+                        <th style="min-width:100px">Hẹn</th>
                         <th style="min-width:80px">Mã KH</th>
                         <th style="min-width:150px">Tên KH</th>
                         <th style="min-width:110px">SĐT</th>
@@ -576,7 +576,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
     if (c.appointment_date) {
         const d = new Date(c.appointment_date);
         const days = ['CN','T2','T3','T4','T5','T6','T7'];
-        appointDisplay = `<span style="color:#e65100;font-weight:600">${days[d.getDay()]} - ${d.getDate()}/${d.getMonth()+1}/${String(d.getFullYear()).slice(-2)}</span>`;
+        appointDisplay = `<span style="color:#e65100;font-weight:600">${days[d.getDay()]} - ${d.getDate()}/${d.getMonth()+1}</span>`;
     }
 
     const _pinClass = c.is_pinned ? ' crm-row-pinned' : '';
