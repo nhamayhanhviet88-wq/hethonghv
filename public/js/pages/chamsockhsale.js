@@ -292,7 +292,7 @@ function _saleGetCategory(c, stats) {
         createdToday = (cStr === todayStr);
     }
 
-    if (createdToday) return 'phai_xu_ly';
+    if (createdToday) return 'moi_chuyen';
     if (appointIsToday || isBirthdayToday) return 'phai_xu_ly';
     if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
     if (appointIsFuture) return 'cho_xu_ly';
@@ -307,7 +307,10 @@ function _saleUpdateConsultTypeDropdown(filteredList) {
 
     let custs = filteredList || _saleAllCustomers;
     if (!filteredList && _saleActiveCat) {
-        custs = _saleAllCustomers.filter(c => _saleGetCategory(c, _saleAllStats) === _saleActiveCat);
+        custs = _saleAllCustomers.filter(c => {
+            const cat = _saleGetCategory(c, _saleAllStats);
+            return cat === _saleActiveCat || (_saleActiveCat === 'phai_xu_ly' && cat === 'moi_chuyen');
+        });
     }
 
     const typeCounts = {};
@@ -438,7 +441,10 @@ function _saleRenderFilteredTable() {
 
     let filtered = customers;
     if (_saleActiveCat) {
-        filtered = customers.filter(c => _saleGetCategory(c, stats) === _saleActiveCat);
+        filtered = customers.filter(c => {
+            const cat = _saleGetCategory(c, stats);
+            return cat === _saleActiveCat || (_saleActiveCat === 'phai_xu_ly' && cat === 'moi_chuyen');
+        });
     }
 
     const dr = _saleGetDateRange();
@@ -519,7 +525,23 @@ function _saleRenderFilteredTable() {
     const startIdx = (_saleCurrentPage - 1) * _salePageSize;
     const paged = filtered.slice(startIdx, startIdx + _salePageSize);
 
-    tbody.innerHTML = paged.map((c, idx) => _saleRenderCustomerRow(c, stats, startIdx + idx + 1)).join('');
+    if (_saleActiveCat === 'phai_xu_ly') {
+        const moiChuyenRows = paged.filter(c => _saleGetCategory(c, stats) === 'moi_chuyen');
+        const phaiXuLyRows = paged.filter(c => _saleGetCategory(c, stats) === 'phai_xu_ly');
+        let html = '';
+        let stt = startIdx + 1;
+        if (moiChuyenRows.length > 0) {
+            html += `<tr class="crm-section-header"><td colspan="21"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
+            html += moiChuyenRows.map(c => _saleRenderCustomerRow(c, stats, stt++)).join('');
+        }
+        if (phaiXuLyRows.length > 0) {
+            html += `<tr class="crm-section-header"><td colspan="21"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
+            html += phaiXuLyRows.map(c => _saleRenderCustomerRow(c, stats, stt++)).join('');
+        }
+        tbody.innerHTML = html;
+    } else {
+        tbody.innerHTML = paged.map((c, idx) => _saleRenderCustomerRow(c, stats, startIdx + idx + 1)).join('');
+    }
 
     const pgEl = document.getElementById('salePagination');
     if (totalPages <= 1) { pgEl.innerHTML = ''; return; }
@@ -696,14 +718,14 @@ async function _saleLoadData() {
     _saleAllCustomers = customers;
     _saleAllStats = stats;
 
-    const counts = { phai_xu_ly: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0, gui_hang_hoan_thanh: 0 };
+    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0, gui_hang_hoan_thanh: 0 };
     customers.forEach(c => { 
         const cat = _saleGetCategory(c, stats); 
         if (counts[cat] !== undefined) counts[cat]++; 
     });
 
     const el = (id) => document.getElementById(id);
-    if (el('saleStatPhaiXuLy')) el('saleStatPhaiXuLy').textContent = counts.phai_xu_ly;
+    if (el('saleStatPhaiXuLy')) el('saleStatPhaiXuLy').textContent = counts.phai_xu_ly + counts.moi_chuyen;
     if (el('saleStatDaXuLy')) el('saleStatDaXuLy').textContent = counts.da_xu_ly;
     if (el('saleStatXuLyTre')) el('saleStatXuLyTre').textContent = counts.xu_ly_tre;
     if (el('saleStatChoXuLy')) el('saleStatChoXuLy').textContent = counts.cho_xu_ly;
@@ -724,7 +746,8 @@ async function _saleLoadData() {
         const tid = parseInt(targetId);
         const targetCustomer = _saleAllCustomers.find(c => c.id === tid);
         if (targetCustomer) {
-            const targetCat = _saleGetCategory(targetCustomer, _saleAllStats);
+            let targetCat = _saleGetCategory(targetCustomer, _saleAllStats);
+            if (targetCat === 'moi_chuyen') targetCat = 'phai_xu_ly';
             _saleActiveCat = targetCat;
             
             document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
@@ -740,7 +763,10 @@ async function _saleLoadData() {
             const ctFilter = document.getElementById('saleFilterConsultType');
             if (ctFilter) ctFilter.value = '';
             
-            let filtered = _saleAllCustomers.filter(c => _saleGetCategory(c, _saleAllStats) === targetCat);
+            let filtered = _saleAllCustomers.filter(c => {
+                const cat = _saleGetCategory(c, _saleAllStats);
+                return cat === targetCat || (targetCat === 'phai_xu_ly' && cat === 'moi_chuyen');
+            });
             filtered = [...filtered].sort((a, b) => {
                 const pinA = a.is_pinned ? 1 : 0, pinB = b.is_pinned ? 1 : 0;
                 if (pinA !== pinB) return pinB - pinA;
