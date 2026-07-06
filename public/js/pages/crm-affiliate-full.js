@@ -2749,3 +2749,11 @@ function _affShowTelegramOnlyMessage(customerId) {
     openModal("🔒 Yêu Cầu Báo Telegram", bodyHTML, footerHTML);
 }
 
+document.addEventListener('click', function(e) {
+    const dd = document.getElementById('consultDepositDropdown');
+    const inp = document.getElementById('consultDepositSearch');
+    if (dd && inp && !inp.contains(e.target) && !dd.contains(e.target)) {
+        dd.style.display = 'none';
+    }
+});
+

@@ -2069,3 +2069,11 @@ function _saleShowTelegramOnlyMessage(customerId) {
         `<button class="btn btn-secondary" onclick="closeModal()" style="width:100%;padding:10px;border-radius:8px;font-weight:700;">ĐÃ HIỂU</button>`
     );
 }
+
+document.addEventListener('click', function(e) {
+    const dd = document.getElementById('consultDepositDropdownSale');
+    const inp = document.getElementById('consultDepositSearchSale');
+    if (dd && inp && !inp.contains(e.target) && !dd.contains(e.target)) {
+        dd.style.display = 'none';
+    }
+});

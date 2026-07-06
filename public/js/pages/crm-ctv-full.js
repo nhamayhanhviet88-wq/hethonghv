@@ -2681,3 +2681,11 @@ async function _ctvSubmitEditAffFromCrm(userId) {
         _ctvOpenAffiliateDetail(userId);
     } catch (err) { showToast('Lỗi cập nhật', 'error'); }
 }
+
+document.addEventListener('click', function(e) {
+    const dd = document.getElementById('consultDepositDropdown');
+    const inp = document.getElementById('consultDepositSearch');
+    if (dd && inp && !inp.contains(e.target) && !dd.contains(e.target)) {
+        dd.style.display = 'none';
+    }
+});
