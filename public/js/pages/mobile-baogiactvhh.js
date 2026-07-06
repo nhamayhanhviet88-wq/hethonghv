@@ -197,7 +197,7 @@ function _mRenderCalculator(container) {
                             : Number(m.price);
                         return `
                             <option value="${idx}" ${idx === _mState.selectedMaterialIndex ? 'selected' : ''}>
-                                ${m.name} - ${price.toLocaleString('vi-VN')}đ${m.is_best_seller ? ' - 🔥 Bán Chạy' : ''}
+                                ${m.name} - ${price.toLocaleString('vi-VN')}đ${m.is_best_seller ? ' - 🔥 Được Chọn Nhiều Nhất' : ''}
                             </option>
                         `;
                     }).join('')}
@@ -399,7 +399,7 @@ function _mSelectTargetType(type) {
                 ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
                 : Number(m.price);
             return `<option value="${idx}" ${idx === currentIdx ? 'selected' : ''}>
-                ${m.name} - ${price.toLocaleString('vi-VN')}đ${m.is_best_seller ? ' - 🔥 Bán Chạy' : ''}
+                ${m.name} - ${price.toLocaleString('vi-VN')}đ${m.is_best_seller ? ' - 🔥 Được Chọn Nhiều Nhất' : ''}
             </option>`;
         }).join('');
     }
@@ -1097,7 +1097,7 @@ function _mCalculateAllCosts() {
     const qty = _mState.quantity;
     const m = config.materials[_mState.selectedMaterialIndex];
     const basePrice = m ? Number(m.price) : 0;
-    const materialName = m ? (m.name + (m.is_best_seller ? ' - 🔥 Bán Chạy' : '')) : 'Unknown';
+    const materialName = m ? (m.name + (m.is_best_seller ? ' - 🔥 Được Chọn Nhiều Nhất' : '')) : 'Unknown';
     
     let surchargeTotal = 0;
     const surchargesBreakdown = [];
@@ -2701,7 +2701,7 @@ function _mShowConfigDetailPopup(id, mode = 'ctv') {
                         const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
                         return `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 8px; border: 1px solid #f1f5f9;">
-                                <span style="font-weight: 600; color: #334155; font-size: 12px;">${m.name}${m.is_best_seller ? ' - 🔥 Bán Chạy' : ''}</span>
+                                <span style="font-weight: 600; color: #334155; font-size: 12px;">${m.name}${m.is_best_seller ? ' - 🔥 Được Chọn Nhiều Nhất' : ''}</span>
                                 <span style="background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 6px; font-weight: 750; font-size: 11px;">
                                     ${displayPrice.toLocaleString('vi-VN')}đ
                                 </span>

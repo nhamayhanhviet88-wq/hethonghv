@@ -670,7 +670,7 @@ function _ctvRenderCalculator(container) {
                                     : Number(m.price);
                                 return `
                                     <option value="${idx}" ${idx === _ctvState.selectedMaterialIndex ? 'selected' : ''}>
-                                        ${m.name} - ${price.toLocaleString('vi-VN')} đ${m.is_best_seller ? ' - 🔥 Bán Chạy' : ''}
+                                        ${m.name} - ${price.toLocaleString('vi-VN')} đ${m.is_best_seller ? ' - 🔥 Được Chọn Nhiều Nhất' : ''}
                                     </option>
                                 `;
                             }).join('')}
@@ -886,7 +886,7 @@ function _ctvSelectTargetType(type) {
                 ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
                 : Number(m.price);
             return `<option value="${idx}" ${idx === currentIdx ? 'selected' : ''}>
-                ${m.name} - ${price.toLocaleString('vi-VN')} đ${m.is_best_seller ? ' - 🔥 Bán Chạy' : ''}
+                ${m.name} - ${price.toLocaleString('vi-VN')} đ${m.is_best_seller ? ' - 🔥 Được Chọn Nhiều Nhất' : ''}
             </option>`;
         }).join('');
     }
@@ -1756,7 +1756,7 @@ function _ctvCalculateAllCosts() {
     // 1. Phôi trơn base price
     const m = config.materials[_ctvState.selectedMaterialIndex];
     const basePrice = m ? Number(m.price) : 0;
-    const materialName = m ? (m.name + (m.is_best_seller ? ' - 🔥 Bán Chạy' : '')) : 'Unknown';
+    const materialName = m ? (m.name + (m.is_best_seller ? ' - 🔥 Được Chọn Nhiều Nhất' : '')) : 'Unknown';
     
     // 2. Surcharges
     let surchargeTotal = 0;
@@ -3560,7 +3560,7 @@ async function _ctvLoadConfigVersionsList() {
                                     <td>${c.creator_name || 'Hệ thống'}</td>
                                     <td>
                                         <div style="font-size:12px; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                            ${mats.map(m => `${m.name}${m.is_best_seller ? ' - 🔥 Bán Chạy' : ''}: ${Number(m.price).toLocaleString('vi-VN')}đ`).join(', ')}
+                                            ${mats.map(m => `${m.name}${m.is_best_seller ? ' - 🔥 Được Chọn Nhiều Nhất' : ''}: ${Number(m.price).toLocaleString('vi-VN')}đ`).join(', ')}
                                         </div>
                                     </td>
                                     <td>
@@ -3752,7 +3752,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                     const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
                                     return `
                                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
-                                            <span style="font-weight: 700; color: #334155; font-size:12.5px;">${m.name}${m.is_best_seller ? ' - 🔥 Bán Chạy' : ''}</span>
+                                            <span style="font-weight: 700; color: #334155; font-size:12.5px;">${m.name}${m.is_best_seller ? ' - 🔥 Được Chọn Nhiều Nhất' : ''}</span>
                                             <span style="background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid #dbeafe;">
                                                 ${displayPrice.toLocaleString('vi-VN')}đ
                                             </span>
