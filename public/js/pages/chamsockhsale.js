@@ -1816,8 +1816,13 @@ async function _saleFilterDepositList() {
     if (_salePaymentRecords.length === 0) {
         dropdown.innerHTML = '<div style="padding:10px;color:#94a3b8;font-size:12px;">⏳ Đang tải danh sách tiền...</div>';
         try {
-            const data = await apiCall('/api/so-ghi-nhan-tien/available-deposits');
-            _salePaymentRecords = data.records || [];
+            const data = await apiCall('/api/dht/available-deposits');
+            _salePaymentRecords = (data.deposits || []).map(r => ({
+                id: r.id,
+                code: r.payment_code,
+                amount: Number(r.amount),
+                content: r.description
+            }));
         } catch(e) {
             dropdown.innerHTML = '<div style="padding:10px;color:#ef4444;font-size:12px;">❌ Lỗi tải danh sách tiền</div>';
             return;
