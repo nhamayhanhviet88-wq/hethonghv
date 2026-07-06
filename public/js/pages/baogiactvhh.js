@@ -670,7 +670,7 @@ function _ctvRenderCalculator(container) {
                                     : Number(m.price);
                                 return `
                                     <option value="${idx}" ${idx === _ctvState.selectedMaterialIndex ? 'selected' : ''}>
-                                        ${m.name} - ${price.toLocaleString('vi-VN')} đ (May cổ tròn)
+                                        ${m.is_best_seller ? '🔥 ' : ''}${m.name} - ${price.toLocaleString('vi-VN')} đ (May cổ tròn)
                                     </option>
                                 `;
                             }).join('')}
@@ -886,7 +886,7 @@ function _ctvSelectTargetType(type) {
                 ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
                 : Number(m.price);
             return `<option value="${idx}" ${idx === currentIdx ? 'selected' : ''}>
-                ${m.name} - ${price.toLocaleString('vi-VN')} đ (May cổ tròn)
+                ${m.is_best_seller ? '🔥 ' : ''}${m.name} - ${price.toLocaleString('vi-VN')} đ (May cổ tròn)
             </option>`;
         }).join('');
     }
@@ -1756,7 +1756,7 @@ function _ctvCalculateAllCosts() {
     // 1. Phôi trơn base price
     const m = config.materials[_ctvState.selectedMaterialIndex];
     const basePrice = m ? Number(m.price) : 0;
-    const materialName = m ? m.name : 'Unknown';
+    const materialName = m ? (m.name + (m.is_best_seller ? ' 🔥 (Bán chạy nhất)' : '')) : 'Unknown';
     
     // 2. Surcharges
     let surchargeTotal = 0;
@@ -3560,7 +3560,7 @@ async function _ctvLoadConfigVersionsList() {
                                     <td>${c.creator_name || 'Hệ thống'}</td>
                                     <td>
                                         <div style="font-size:12px; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                            ${mats.map(m => `${m.name}: ${Number(m.price).toLocaleString('vi-VN')}đ`).join(', ')}
+                                            ${mats.map(m => `${m.is_best_seller ? '🔥 ' : ''}${m.name}: ${Number(m.price).toLocaleString('vi-VN')}đ`).join(', ')}
                                         </div>
                                     </td>
                                     <td>
@@ -3752,7 +3752,7 @@ function _ctvPreviewConfigDetails(id, mode = 'ctv') {
                                     const displayPrice = mode === 'customer' ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) : Number(m.price);
                                     return `
                                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;">
-                                            <span style="font-weight: 700; color: #334155; font-size:12.5px;">${m.name}</span>
+                                            <span style="font-weight: 700; color: #334155; font-size:12.5px;">${m.is_best_seller ? '🔥 ' : ''}${m.name}</span>
                                             <span style="background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 1px solid #dbeafe;">
                                                 ${displayPrice.toLocaleString('vi-VN')}đ
                                             </span>
@@ -4804,6 +4804,10 @@ function _ctvOpenNewConfigForm(editId = null) {
                 <input type="text" class="ctv-input" placeholder="Tên chất liệu" value="${m.name}" style="flex-grow:1;">
                 <input type="number" class="ctv-input ctv-price-input" placeholder="Giá CTV" value="${m.price}" style="width:110px;">
                 <input type="number" class="ctv-input customer-price-input" placeholder="Giá Khách" value="${custPrice}" style="width:110px; font-weight:700; color:#ea580c;">
+                <label style="display:flex; align-items:center; gap:2px; font-size:12px; font-weight:700; color:#f97316; cursor:pointer; user-select:none; margin-left: 4px; margin-right: 4px;" title="Đánh dấu bán chạy nhất">
+                    <input type="checkbox" class="ctv-mat-best-seller" ${m.is_best_seller ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer; accent-color:#f97316;">
+                    <span>🔥</span>
+                </label>
                 <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
             </div>
         `;
@@ -4828,7 +4832,7 @@ function _ctvOpenNewConfigForm(editId = null) {
                     <button class="ctv-btn-secondary" style="padding:2px 8px; font-size:11px;" onclick="_ctvAddMatRowInput()">+ Thêm chất liệu</button>
                 </h4>
                 
-                <div style="display:flex; gap:8px; margin-bottom:6px; font-weight:800; color:#475569; font-size:11px; padding-left:28px; padding-right:32px; border-bottom:1px dashed #e2e8f0; padding-bottom:4px;">
+                <div style="display:flex; gap:8px; margin-bottom:6px; font-weight:800; color:#475569; font-size:11px; padding-left:28px; padding-right:72px; border-bottom:1px dashed #e2e8f0; padding-bottom:4px;">
                     <div style="flex-grow:1;">Tên chất liệu vải</div>
                     <div style="width:110px; text-align:center;">Giá CTV</div>
                     <div style="width:110px; text-align:center;">Giá Khách hàng</div>
@@ -5265,7 +5269,7 @@ function _ctvUpdateAllCustomerPrices() {
     });
 }
 
-function _ctvAddMatRowInput(name = '', price = 75000, inactive = false) {
+function _ctvAddMatRowInput(name = '', price = 75000, inactive = false, is_best_seller = false) {
     const container = document.getElementById('new_cfg_mats_container');
     if (!container) return;
     
@@ -5278,10 +5282,14 @@ function _ctvAddMatRowInput(name = '', price = 75000, inactive = false) {
     div.style.marginBottom = '8px';
     div.style.alignItems = 'center';
     div.innerHTML = `
-        <input type="checkbox" class="ctv-mat-active" title="Cho phép bán" ${inactive ? '' : 'checked'} style="width:16px; height:16px; cursor:pointer;">
+        <input type="checkbox" class="ctv-mat-active" title="Cho phép bán" ${inactive ? '' : 'checked'} style="width:16px; height:16px; cursor:pointer;" onchange="this.parentElement.style.opacity = this.checked ? '1' : '0.5'">
         <input type="text" class="ctv-input" placeholder="Tên chất liệu" value="${name}" style="flex-grow:1;">
         <input type="number" class="ctv-input ctv-price-input" placeholder="Giá CTV" value="${price}" style="width:110px;">
         <input type="number" class="ctv-input customer-price-input" placeholder="Giá Khách" value="${custPrice}" style="width:110px; font-weight:700; color:#ea580c;">
+        <label style="display:flex; align-items:center; gap:2px; font-size:12px; font-weight:700; color:#f97316; cursor:pointer; user-select:none; margin-left: 4px; margin-right: 4px;" title="Đánh dấu bán chạy nhất">
+            <input type="checkbox" class="ctv-mat-best-seller" ${is_best_seller ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer; accent-color:#f97316;">
+            <span>🔥</span>
+        </label>
         <button type="button" class="ctv-remove-btn" onclick="this.parentElement.remove()">×</button>
     `;
     container.appendChild(div);
@@ -5298,13 +5306,15 @@ async function _ctvSaveNewConfigVersion() {
     document.querySelectorAll('#new_cfg_mats_container .ctv-mat-row').forEach(row => {
         const activeCheckbox = row.querySelector('.ctv-mat-active');
         const inactive = activeCheckbox ? !activeCheckbox.checked : false;
+        const bestSellerCheckbox = row.querySelector('.ctv-mat-best-seller');
+        const is_best_seller = bestSellerCheckbox ? bestSellerCheckbox.checked : false;
         const inputs = row.querySelectorAll('input:not([type="checkbox"])');
         if (inputs.length >= 3) {
             const name = inputs[0].value.trim();
             const price = parseFloat(inputs[1].value) || 0;
             const customer_price = parseFloat(inputs[2].value) || 0;
             if (name) {
-                materials.push({ name, price, customer_price, inactive });
+                materials.push({ name, price, customer_price, inactive, is_best_seller });
             }
         }
     });
