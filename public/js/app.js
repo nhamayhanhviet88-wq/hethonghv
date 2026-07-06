@@ -2595,6 +2595,7 @@ async function submitChangePassword() {
 
 // ========== API HELPER ==========
 async function apiCall(url, method = 'GET', body = null) {
+    console.log("[apiCall LOG] url:", url, "body:", body, "typeof body:", typeof body, "isFormData:", body && (body instanceof FormData), "hasAppend:", body && typeof body.append);
     const options = { method };
     if (body && typeof body.append === 'function') {
         options.body = body;
