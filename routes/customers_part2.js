@@ -51,11 +51,53 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const [yy, mm, dd] = today.split('-').map(Number);
         const yLabel = 'Y' + String(yy).slice(-2);
 
+        // Đếm STT hủy khách hôm nay (từ customers.cancel_requested_at — luôn được set)
+        const cancelCount = await db.get(
+            "SELECT COUNT(*) as cnt FROM customers WHERE cancel_requested_at IS NOT NULL AND cancel_requested_at::timestamptz::date = $1::date",
+            [today]
+        );
+        const cancelSTT = Number(cancelCount?.cnt || 0) + 1;
+        const cancelCode = `${cancelSTT}-${dd}-${mm}-${yLabel}`;
+
         // Helper: next working day (skip CN + lễ + nghỉ phép NV)
         const getNextBizDay = async () => getNextWorkingDay(new Date(), customer.assigned_to_id);
 
+        // ★ Helper: duyệt hủy trực tiếp
+        const _directCancel = async () => {
+            await db.run(
+                `UPDATE customers SET cancel_requested = 1, cancel_reason = ?,
+                 cancel_requested_by = ?, cancel_requested_at = NOW()::text,
+                 cancel_approved = 1, cancel_approved_by = ?, cancel_approved_at = NOW()::text,
+                 order_status = 'duyet_huy',
+                 appointment_date = NULL,
+                 is_pinned = false, pinned_at = NULL,
+                 updated_at = NOW() WHERE id = ?`,
+                [reason, request.user.id, request.user.id, custId]
+            );
+
+            // Ghi log tư vấn loại hủy để hiển thị lịch sử và nút Hủy Khách chính xác
+            await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
+                [custId, `❌ Hủy khách (duyệt trực tiếp): ${reason}`, request.user.id]);
+
+            const tgMsg = `❌ <b>${cancelCode} : HỦY KHÁCH TRỰC TIẾP</b> ❌\n\nKhách: <code>${customer.customer_name}</code>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
+            notifyTelegram(null, 'huy_khach', tgMsg);
+
+            // Khóa tài khoản Affiliate liên kết nếu có
+            const linkedUser = await db.get("SELECT id, full_name FROM users WHERE source_customer_id = ? AND status = 'active'", [custId]);
+            if (linkedUser) {
+                await db.run("UPDATE users SET status = 'locked', updated_at = NOW() WHERE id = ?", [linkedUser.id]);
+                notifyTelegram(null, 'huy_khach', `🔒 <b>Tài khoản bị khóa tự động</b>\nAffiliate: ${linkedUser.full_name}\nLý do: Khách hàng nguồn bị hủy`);
+            }
+
+            return { success: true, message: 'Khách hàng đã được hủy.' };
+        };
+
         // REPEAT cancel: auto-reverted (cancel_approved = -2), NV pressing Hủy Khách again
         if (customer.cancel_approved === -2 && customer.cancel_requested === 1) {
+            if (customer.crm_type === 'sale') {
+                return _directCancel();
+            }
+
             // Tìm STT gốc: đếm số hủy trong ngày đầu tiên cancel_requested_at
             const origDateStr = (customer.cancel_requested_at || '').substring(0, 10);
             const origCancelCount = await db.get(
@@ -65,24 +107,16 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             const origSTT = Number(origCancelCount?.cnt) || 1;
             const [oy, om, od] = (origDateStr || today).split('-').map(Number);
             const origY = 'Y' + String(oy).slice(-2);
-            const cancelCode = `${origSTT}-${od}-${om}-${origY}`;
+            const cancelCodeRepeat = `${origSTT}-${od}-${om}-${origY}`;
 
             await db.run(`UPDATE customers SET cancel_requested_at = NOW()::text, cancel_approved = 0, order_status = 'cho_duyet_huy', appointment_date = NULL, updated_at = NOW() WHERE id = ?`,
                 [custId]);
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
                 [custId, `❌ Nhắc lại hủy khách: ${reason}`, request.user.id]);
-            const tgMsg = `❌ <b>${cancelCode} : NHẮC LẠI HỦY KHÁCH</b> ❌\n\nKhách: <code>${customer.customer_name}</code>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
+            const tgMsg = `❌ <b>${cancelCodeRepeat} : NHẮC LẠI HỦY KHÁCH</b> ❌\n\nKhách: <code>${customer.customer_name}</code>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_khach', tgMsg);
             return { success: true, message: 'Đã nhắc lại yêu cầu hủy khách!' };
         }
-
-        // Đếm STT hủy khách hôm nay (từ customers.cancel_requested_at — luôn được set)
-        const cancelCount = await db.get(
-            "SELECT COUNT(*) as cnt FROM customers WHERE cancel_requested_at IS NOT NULL AND cancel_requested_at::timestamptz::date = $1::date",
-            [today]
-        );
-        const cancelSTT = Number(cancelCount?.cnt || 0) + 1;
-        const cancelCode = `${cancelSTT}-${dd}-${mm}-${yLabel}`;
 
         // ★ Helper: gửi yêu cầu hủy chờ duyệt
         const _sendCancelRequest = async (msg) => {
@@ -103,17 +137,10 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             return { success: true, message: msg || 'Yêu cầu hủy đã được gửi. Chờ duyệt.' };
         };
 
-        // ★ Helper: duyệt hủy trực tiếp
-        const _directCancel = async () => {
-            await db.run(
-                `UPDATE customers SET cancel_requested = 1, cancel_reason = ?,
-                 cancel_requested_by = ?, cancel_requested_at = NOW()::text,
-                 cancel_approved = 1, cancel_approved_by = ?, cancel_approved_at = NOW()::text,
-                 updated_at = NOW() WHERE id = ?`,
-                [reason, request.user.id, request.user.id, custId]
-            );
-            return { success: true, message: 'Khách hàng đã được hủy.' };
-        };
+        // ★ Sale CRM → tự động hủy luôn, không cần chờ duyệt
+        if (customer.crm_type === 'sale') {
+            return _directCancel();
+        }
 
         // ★ GĐ / QLCC → duyệt trực tiếp mọi khách
         if (['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
