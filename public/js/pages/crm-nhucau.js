@@ -923,7 +923,17 @@ function _crmRenderCustomerRow(c, stats, stt) {
         <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="openCustomerDetail(${c.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" title="${lastContent}">
             ${shortContent || '<span style="color:var(--gray-500)">—</span>'}
         </td>
-        <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount}</td>
+        <td style="text-align:center;vertical-align:middle;">
+            ${(() => {
+                const num = s.consultCount || 0;
+                if (num === 0) return `<span style="font-weight:normal;color:var(--gray-500);">0</span>`;
+                let bg, color;
+                if (num >= 1 && num <= 4) { bg = '#e0f2fe'; color = '#0369a1'; }
+                else if (num >= 5 && num <= 9) { bg = '#ffedd5'; color = '#c2410c'; }
+                else { bg = '#fee2e2'; color = '#b91c1c'; }
+                return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-weight:700;background:${bg};color:${color};font-size:11px;">${num}</span>`;
+            })()}
+        </td>
         <td style="font-size:12px;">
             ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
         </td>
