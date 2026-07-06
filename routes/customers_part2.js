@@ -889,8 +889,8 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         content = fields.content;
         if (!log_type) return reply.code(400).send({ error: 'Vui lòng chọn loại tư vấn' });
 
-        // Enforce Telegram Consultation for new leads of Sale CRM today
-        if (customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(request.user.role)) {
+        // Enforce Telegram Consultation for new leads of Sale, Affiliate, Nhu Cau CRM today
+        if (['sale', 'affiliate', 'nhu_cau'].includes(customer.crm_type) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(request.user.role)) {
             const vnToday = getVNToday();
             const createdToday = customer.created_at && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(customer.created_at)) === vnToday;
             

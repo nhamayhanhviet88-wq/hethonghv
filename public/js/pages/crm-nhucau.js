@@ -852,6 +852,7 @@ function _crmRenderCustomerRow(c, stats, stt) {
         appointDisplay = `<span style="color:#e65100;font-weight:600">${dayName} - ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}</span>`;
     }
 
+    const isMoiChuyen = _crmIsMoiChuyenClientSide(c, [s.lastLog].filter(Boolean)) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role);
     const _pinClass = c.is_pinned ? ' crm-row-pinned' : '';
     return `<tr class="${_pinClass}" data-customer-id="${c.id}">
         <td style="text-align:center;padding:4px 2px;">
@@ -878,7 +879,12 @@ function _crmRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
-            `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+            `) : isMoiChuyen ? `
+                <button class="btn btn-sm consult-btn" onclick="_crmShowTelegramOnlyMessage(${c.id})" 
+                    style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg, #cbd5e1, #94a3b8);color:white;cursor:pointer;">
+                    🔒 Báo Telegram
+                </button>
+            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </button>
@@ -1212,6 +1218,13 @@ async function openConsultModal(customerId) {
         existingItems = custData.items || [];
         window._currentConsultCustomerPinned = !!customerInfo.is_pinned;
         consultLogs = logData.logs || [];
+
+        const isMoiChuyen = _crmIsMoiChuyenClientSide(customerInfo, consultLogs) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role);
+        if (isMoiChuyen) {
+            closeModal();
+            _crmShowTelegramOnlyMessage(customerId);
+            return;
+        }
     } catch(e) {}
     const grandTotal = existingItems.reduce((s, i) => s + (i.total || 0), 0);
 
@@ -2240,9 +2253,14 @@ async function openConsultHistory(customerId) {
         </div>
     `;
 
+    const isMoiChuyen = _crmIsMoiChuyenClientSide(c, logs) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role);
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        <button class="btn btn-primary" onclick="openConsultModal(${c.id})" style="width:auto;">📝 Tư Vấn</button>
+        ${isMoiChuyen ? `
+            <button class="btn" onclick="_crmShowTelegramOnlyMessage(${c.id})" style="background:linear-gradient(135deg, #cbd5e1, #94a3b8);color:white;width:auto;font-weight:600;">🔒 Tư Vấn</button>
+        ` : `
+            <button class="btn btn-primary" onclick="openConsultModal(${c.id})" style="width:auto;">📝 Tư Vấn</button>
+        `}
         <button class="btn btn-primary" onclick="saveOrderItems(${c.id})" style="width:auto;">💾 Lưu Đơn</button>
         <button class="btn" onclick="requestCancel(${c.id})" style="width:auto;background:var(--danger);color:white;">❌ Hủy KH</button>
     `;
@@ -2674,11 +2692,16 @@ async function openCustomerDetail(customerId) {
 
     const consultBtnTextColor = lastConsultType?.textColor || 'white';
 
+    const isMoiChuyen = _crmIsMoiChuyenClientSide(c, logs) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role);
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        ${!c.cancel_requested && !c.cancel_approved ? `
-            <button class="btn btn-primary" onclick="closeModal();openConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
-        ` : ''}
+        ${!c.cancel_requested && !c.cancel_approved ? (
+            isMoiChuyen ? `
+                <button class="btn" onclick="_crmShowTelegramOnlyMessage(${customerId})" style="background:linear-gradient(135deg, #cbd5e1, #94a3b8);color:white;width:auto;font-weight:600;">🔒 TƯ VẤN</button>
+            ` : `
+                <button class="btn btn-primary" onclick="closeModal();openConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
+            `
+        ) : ''}
     `;
 
     openModal(``, bodyHTML, footerHTML);
@@ -2966,3 +2989,64 @@ async function submitEditAffFromCrm(userId) {
         showToast('Lỗi cập nhật', 'error');
     }
 }
+
+function _crmIsMoiChuyenClientSide(c, logs) {
+    if (c.cancel_requested === 1 && c.cancel_approved === 0) return false;
+    if (c.order_status === 'cho_duyet_huy_don') return false;
+    if (c.cancel_approved === 1) return false;
+
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+
+    let consultedToday = false;
+    if (logs && logs.length > 0) {
+        // Find manual logs today
+        const manualLog = logs.find(log => 
+            log.log_type !== 'chuyen_doi_crm' && 
+            log.log_type !== 'tao_tk_affiliate' && 
+            log.log_type !== 'gui_lai_so' &&
+            log.logged_by && 
+            !(log.content || '').includes('Pancake') && 
+            !(log.content || '').includes('Đồng bộ')
+        );
+        if (manualLog && manualLog.created_at) {
+            const logDate = new Date(manualLog.created_at);
+            const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
+            consultedToday = (logStr === todayStr);
+        }
+    }
+
+    if (consultedToday) return false;
+
+    let createdToday = false;
+    if (c.created_at) {
+        const cDate = new Date(c.created_at);
+        const cStr = cDate.getFullYear() + '-' + String(cDate.getMonth()+1).padStart(2,'0') + '-' + String(cDate.getDate()).padStart(2,'0');
+        createdToday = (cStr === todayStr);
+    }
+
+    return createdToday;
+}
+
+function _crmShowTelegramOnlyMessage(customerId) {
+    const bodyHTML = `
+        <div style="text-align: center; padding: 20px; font-family: 'Segoe UI', sans-serif;">
+            <div style="font-size: 50px; margin-bottom: 15px; animation: bounce 2s infinite;">🔒</div>
+            <h3 style="color: #1e293b; font-weight: 700; margin-bottom: 12px; font-size: 18px;">KHÁCH MỚI CHUYỂN HÔM NAY</h3>
+            <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                Để đảm bảo tính minh bạch và hiệu quả chăm sóc, bạn <strong>bắt buộc phải báo cáo tư vấn lần đầu tiên trên Telegram</strong> bằng cú pháp:
+            </p>
+            <div style="background: #f1f5f9; padding: 12px 15px; border-radius: 8px; font-family: monospace; font-size: 15px; color: #0f172a; margin-bottom: 20px; border-left: 4px solid #3b82f6; display: inline-block; text-align: left;">
+                ; [Nội dung tư vấn]
+            </div>
+            <p style="color: #64748b; font-size: 13px; line-height: 1.5; font-style: italic; background: #fffbeb; padding: 8px 12px; border-radius: 6px; border: 1px solid #fef3c7;">
+                Ví dụ: <strong>; KH dang can tu van gap ve dong phuc</strong> (khi trả lời tin nhắn của khách hàng trên Telegram)
+            </p>
+        </div>
+    `;
+    const footerHTML = `
+        <button class="btn btn-primary" onclick="closeModal()" style="width: 100%; font-weight: 700; background: #3b82f6; border: none; border-radius: 8px; padding: 10px 0;">Đã Hiểu</button>
+    `;
+    openModal("🔒 Yêu Cầu Báo Telegram", bodyHTML, footerHTML);
+}
+
