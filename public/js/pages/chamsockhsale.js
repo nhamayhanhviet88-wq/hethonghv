@@ -620,20 +620,41 @@ function _saleRenderCustomerRow(c, stats, stt) {
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </button>
             ` : (c.cancel_approved === -2) ? `
-                <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
-                    style="font-size:11px;padding:4px 8px;background:#dc2626;color:white;animation:emBlink 2s infinite;">
-                    ❌ Hủy Khách
-                </button>
+                <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
+                    <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
+                        style="font-size:11px;padding:4px 8px;background:#dc2626;color:white;animation:emBlink 2s infinite;flex-grow:1;">
+                        ❌ Hủy Khách
+                    </button>
+                    <button class="btn btn-sm btn-star-${c.id}" onclick="event.stopPropagation();_saleQuickRecare(${c.id})" 
+                        style="font-size:12px;padding:4px 8px;background:#fef08a;color:#ca8a04;border:1px solid #fde047;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;" 
+                        title="Chăm sóc nhanh" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                        ⭐
+                    </button>
+                </div>
             ` : (c.cancel_approved === -1) ? `
-                <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
-                    style="font-size:11px;padding:4px 8px;background:${lastType?.color || '#f59e0b'};color:${lastType?.textColor || 'white'};animation:emBlink 2s infinite;">
-                    ${lastType ? lastType.icon + ' ' + lastType.label : '🔄 Tư Vấn Lại'}
-                </button>
+                <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
+                    <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
+                        style="font-size:11px;padding:4px 8px;background:${lastType?.color || '#f59e0b'};color:${lastType?.textColor || 'white'};animation:emBlink 2s infinite;flex-grow:1;">
+                        ${lastType ? lastType.icon + ' ' + lastType.label : '🔄 Tư Vấn Lại'}
+                    </button>
+                    <button class="btn btn-sm btn-star-${c.id}" onclick="event.stopPropagation();_saleQuickRecare(${c.id})" 
+                        style="font-size:12px;padding:4px 8px;background:#fef08a;color:#ca8a04;border:1px solid #fde047;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;" 
+                        title="Chăm sóc nhanh" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                        ⭐
+                    </button>
+                </div>
             ` : `
-                <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
-                    style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};">
-                    ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
-                </button>
+                <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
+                    <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
+                        style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};flex-grow:1;">
+                        ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
+                    </button>
+                    <button class="btn btn-sm btn-star-${c.id}" onclick="event.stopPropagation();_saleQuickRecare(${c.id})" 
+                        style="font-size:12px;padding:4px 8px;background:#fef08a;color:#ca8a04;border:1px solid #fde047;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;" 
+                        title="Chăm sóc nhanh" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                        ⭐
+                    </button>
+                </div>
             `}
         </td>
         <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="_saleOpenCustomerDetail(${c.id}).then(()=>setTimeout(()=>_saleSwitchCDTab('history'),100))" title="${lastContent}">
@@ -831,6 +852,31 @@ async function _saleTogglePin(customerId) {
         }
     } catch(e) {
         showToast('Lỗi pin khách hàng!', 'error');
+    }
+}
+
+async function _saleQuickRecare(customerId) {
+    if (!customerId) return;
+    const btn = document.querySelector(`.btn-star-${customerId}`);
+    if (btn) btn.disabled = true;
+
+    if (!confirm('Bạn có chắc chắn muốn chăm sóc nhanh khách hàng này? (Sẽ tự động đặt lịch hẹn chăm sóc tiếp theo)')) {
+        if (btn) btn.disabled = false;
+        return;
+    }
+
+    try {
+        const res = await apiCall(`/api/customers/${customerId}/quick-recare`, 'POST');
+        if (res.success) {
+            showToast(res.message || 'Chăm sóc nhanh thành công!', 'success');
+            _saleLoadData();
+        } else {
+            showToast(res.error || 'Có lỗi xảy ra', 'error');
+            if (btn) btn.disabled = false;
+        }
+    } catch (e) {
+        showToast(e.message || 'Lỗi kết nối server', 'error');
+        if (btn) btn.disabled = false;
     }
 }
 

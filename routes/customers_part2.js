@@ -1619,4 +1619,63 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         return { success: true, tree };
     });
+
+    fastify.post('/api/customers/:id/quick-recare', { preHandler: [authenticate] }, async (request, reply) => {
+        const customerId = Number(request.params.id);
+        const customer = await db.get('SELECT * FROM customers WHERE id = ?', [customerId]);
+        if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
+
+        const user = request.user;
+        const isManager = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(user.role);
+        if (customer.assigned_to_id !== user.id && !isManager) {
+            return reply.code(403).send({ error: 'Bạn không có quyền xử lý khách hàng này' });
+        }
+
+        const vnToday = getVNToday();
+        const createdToday = customer.created_at && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(customer.created_at)) === vnToday;
+
+        if (createdToday && customer.crm_type === 'sale' && !isManager) {
+            const lastLog = await db.get(
+                `SELECT id FROM consultation_logs 
+                 WHERE customer_id = ?
+                   AND log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so')
+                   AND logged_by IS NOT NULL
+                   AND content NOT LIKE '%Pancake%'
+                   AND content NOT LIKE '%Đồng bộ%'
+                   AND created_at::date = ?::date
+                 LIMIT 1`,
+                [customerId, vnToday]
+            );
+            if (!lastLog) {
+                return reply.code(400).send({ error: 'Khách mới chuyển hôm nay chưa được tiếp nhận xử lý qua Telegram!' });
+            }
+        }
+
+        const nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id || user.id);
+
+        await db.run(
+            `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
+             VALUES (?, 'lam_quen_tuong_tac', '⭐ Chăm sóc nhanh', ?)`,
+            [customerId, user.id]
+        );
+
+        await db.run(
+            `UPDATE customers 
+             SET order_status = 'lam_quen_tuong_tac', 
+                 appointment_date = ?, 
+                 updated_at = NOW() 
+             WHERE id = ?`,
+            [nextFollowUp, customerId]
+        );
+
+        if (customer.cancel_approved === 1 || customer.cancel_approved === -2) {
+            await db.run('UPDATE customers SET cancel_requested = 0, cancel_approved = 0, cancel_reason = NULL, cancel_requested_by = NULL, cancel_requested_at = NULL, cancel_approved_by = NULL, cancel_approved_at = NULL WHERE id = ?', [customerId]);
+        }
+
+        return {
+            success: true,
+            next_appointment_date: nextFollowUp,
+            message: `✅ Đã chăm sóc nhanh! Lịch hẹn tiếp theo: ${nextFollowUp}`
+        };
+    });
 };
