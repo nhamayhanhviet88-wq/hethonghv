@@ -656,6 +656,51 @@ async function usersRoutes(fastify, options) {
         return { success: true, customers, affiliates, customerCount: customers.length, affiliateCount: affiliates.length };
     });
 
+    async function transferCustomersSafely(customerIds, newManagerId) {
+        if (!customerIds || customerIds.length === 0) return 0;
+        
+        // Fetch all customers to get their effective_date
+        const customers = await db.all(
+            `SELECT id, effective_date FROM customers WHERE id = ANY($1::int[])`,
+            [customerIds.map(Number)]
+        );
+        
+        // Group by effective_date
+        const groups = {};
+        for (const c of customers) {
+            const ed = c.effective_date || 'null';
+            if (!groups[ed]) groups[ed] = [];
+            groups[ed].push(c.id);
+        }
+        
+        let updatedCount = 0;
+        for (const [ed, ids] of Object.entries(groups)) {
+            if (ed === 'null') {
+                for (const id of ids) {
+                    await db.run('UPDATE customers SET assigned_to_id = ?, updated_at = NOW() WHERE id = ?', [newManagerId, id]);
+                    updatedCount++;
+                }
+            } else {
+                // Query current max daily_order_number for newManagerId on this effective_date
+                const maxRow = await db.get(
+                    "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
+                    [ed, newManagerId]
+                );
+                let currentMax = maxRow?.mx || 0;
+                
+                for (const id of ids) {
+                    currentMax++;
+                    await db.run(
+                        'UPDATE customers SET assigned_to_id = ?, daily_order_number = ?, updated_at = NOW() WHERE id = ?',
+                        [newManagerId, currentMax, id]
+                    );
+                    updatedCount++;
+                }
+            }
+        }
+        return updatedCount;
+    }
+
     // 1A: Single transfer - transfer one affiliate or customer to new manager
     fastify.put('/api/users/:id/transfer', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong')] }, async (request, reply) => {
         const userId = Number(request.params.id);
@@ -663,7 +708,7 @@ async function usersRoutes(fastify, options) {
         if (!newManagerId) return reply.code(400).send({ error: 'Chưa chọn nhân viên nhận' });
 
         if (type === 'customer') {
-            await db.run('UPDATE customers SET assigned_to_id = ?, updated_at = NOW() WHERE id = ?', [newManagerId, userId]);
+            await transferCustomersSafely([userId], newManagerId);
         } else {
             // affiliate
             await db.run('UPDATE users SET managed_by_user_id = ?, updated_at = NOW() WHERE id = ?', [newManagerId, userId]);
@@ -679,10 +724,12 @@ async function usersRoutes(fastify, options) {
         const { newManagerId } = request.body || {};
         if (!newManagerId) return reply.code(400).send({ error: 'Chưa chọn nhân viên nhận' });
 
-        const custResult = await db.run('UPDATE customers SET assigned_to_id = ?, updated_at = NOW() WHERE assigned_to_id = ?', [newManagerId, fromUserId]);
+        const custRows = await db.all('SELECT id FROM customers WHERE assigned_to_id = ?', [fromUserId]);
+        const customerIds = custRows.map(r => r.id);
+        const custCount = await transferCustomersSafely(customerIds, newManagerId);
+
         const affResult = await db.run('UPDATE users SET managed_by_user_id = ?, updated_at = NOW() WHERE managed_by_user_id = ? AND role IN (\'hoa_hong\',\'ctv\',\'nuoi_duong\',\'sinh_vien\',\'tkaffiliate\')', [newManagerId, fromUserId]);
 
-        const custCount = custResult?.changes || 0;
         const affCount = affResult?.changes || 0;
         const newManager = await db.get('SELECT full_name FROM users WHERE id = ?', [newManagerId]);
 
@@ -697,14 +744,23 @@ async function usersRoutes(fastify, options) {
         }
 
         let custCount = 0, affCount = 0;
+        const customerTransfersByManager = {};
         for (const t of transfers) {
             if (t.type === 'customer') {
-                await db.run('UPDATE customers SET assigned_to_id = ?, updated_at = NOW() WHERE id = ?', [t.newManagerId, t.id]);
+                const mgrId = Number(t.newManagerId);
+                if (!customerTransfersByManager[mgrId]) {
+                    customerTransfersByManager[mgrId] = [];
+                }
+                customerTransfersByManager[mgrId].push(Number(t.id));
                 custCount++;
             } else if (t.type === 'affiliate') {
                 await db.run('UPDATE users SET managed_by_user_id = ?, updated_at = NOW() WHERE id = ?', [t.newManagerId, t.id]);
                 affCount++;
             }
+        }
+
+        for (const [mgrId, ids] of Object.entries(customerTransfersByManager)) {
+            await transferCustomersSafely(ids, Number(mgrId));
         }
 
         return { success: true, message: `✅ Đã chuyển ${custCount} KH + ${affCount} affiliate`, custCount, affCount };

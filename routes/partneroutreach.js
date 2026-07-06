@@ -535,16 +535,31 @@ module.exports = async function (fastify) {
             const { nanoid } = require('nanoid');
             const poUid = 'K' + nanoid(19);
             const today = getVNToday();
-            const maxNum = await db.get(
-                "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
-                [today, req.user.id]
-            );
-            const dailyNum = (maxNum?.mx || 0) + 1;
-            await db.run(
-                `INSERT INTO customers (customer_uid, customer_name, phone, facebook_link, crm_type, assigned_to_id, receiver_id, daily_order_number, created_by, source_name, job, effective_date, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $6, $8, $9, $10, NOW(), NOW())`,
-                [poUid, entry.partner_name, entry.phone || '', entry.fb_link || '', targetCrmType, req.user.id, dailyNum, 'Nhắn Tìm Đối Tác', catName, today]
-            );
+            let dailyNum;
+            let attempts = 0;
+            const maxAttempts = 5;
+            while (attempts < maxAttempts) {
+                attempts++;
+                const maxNum = await db.get(
+                    "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
+                    [today, req.user.id]
+                );
+                dailyNum = (maxNum?.mx || 0) + 1;
+                try {
+                    await db.run(
+                        `INSERT INTO customers (customer_uid, customer_name, phone, facebook_link, crm_type, assigned_to_id, receiver_id, daily_order_number, created_by, source_name, job, effective_date, created_at, updated_at)
+                         VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $6, $8, $9, $10, NOW(), NOW())`,
+                        [poUid, entry.partner_name, entry.phone || '', entry.fb_link || '', targetCrmType, req.user.id, dailyNum, 'Nhắn Tìm Đối Tác', catName, today]
+                    );
+                    break;
+                } catch (err) {
+                    if (err.code === '23505' && attempts < maxAttempts) {
+                        console.log(`[CONCURRENCY RETRY] Partner outreach retry due to unique violation (attempt ${attempts})`);
+                        continue;
+                    }
+                    throw err;
+                }
+            }
         }
 
         // Mark as transferred

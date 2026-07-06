@@ -177,22 +177,37 @@ async function customersRoutes(fastify, options) {
         console.log('[CUTOFF DEBUG] FINAL effectiveDate:', effectiveDate);
 
         const [_y, _m, _d] = effectiveDate.split('-').map(Number);
-        const maxNum = await db.get(
-            "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
-            [effectiveDate, actualReceiverId]
-        );
-        const dailyNum = (maxNum?.mx || 0) + 1;
-
-        const result = await db.run(
-            `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, phone2, source_id, promotion_id,
-             industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec, effective_date, appointment_date)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [customerUid, crm_type, customer_name || null, normalizedPhone || null, phone2 || null,
-             resolvedSourceId, promotion_id ? Number(promotion_id) : null,
-             industry_id ? Number(industry_id) : null,
-             actualReceiverId, actualReceiverId, notes || null, dailyNum,
-             request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null, effectiveDate, effectiveDate]
-        );
+        let dailyNum;
+        let result;
+        let attempts = 0;
+        const maxAttempts = 5;
+        while (attempts < maxAttempts) {
+            attempts++;
+            const maxNum = await db.get(
+                "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
+                [effectiveDate, actualReceiverId]
+            );
+            dailyNum = (maxNum?.mx || 0) + 1;
+            try {
+                result = await db.run(
+                    `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, phone2, source_id, promotion_id,
+                     industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec, effective_date, appointment_date)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                    [customerUid, crm_type, customer_name || null, normalizedPhone || null, phone2 || null,
+                     resolvedSourceId, promotion_id ? Number(promotion_id) : null,
+                     industry_id ? Number(industry_id) : null,
+                     actualReceiverId, actualReceiverId, notes || null, dailyNum,
+                     request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null, effectiveDate, effectiveDate]
+                );
+                break;
+            } catch (err) {
+                if (err.code === '23505' && attempts < maxAttempts) {
+                    console.log(`[CONCURRENCY RETRY] /api/customers retry due to unique violation (attempt ${attempts})`);
+                    continue;
+                }
+                throw err;
+            }
+        }
 
         const code = `${dailyNum}-${_d}-${_m}-Y${String(_y).slice(-2)}`;
         const sourceName = resolvedSourceId ? (await db.get('SELECT name FROM settings_sources WHERE id = ?', [resolvedSourceId]))?.name : '';

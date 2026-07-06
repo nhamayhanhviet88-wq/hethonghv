@@ -1562,13 +1562,6 @@ async function telesaleRoutes(fastify) {
                 // Calculate next working day for appointment
                 const nextWorkDay = await _getNextWorkingDay(new Date(), req.user.id);
 
-                // Get daily order number for this user
-                const maxNum = await db.get(
-                    "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
-                    [today, req.user.id]
-                );
-                const dailyNum = (maxNum?.mx || 0) + 1;
-
                 // Get source name for job field
                 const srcName = src.name || (await db.get('SELECT name FROM telesale_sources WHERE id = ?', [source_id]))?.name || null;
 
@@ -1579,12 +1572,32 @@ async function telesaleRoutes(fastify) {
                 const { nanoid } = require('nanoid');
                 const tsUid = 'K' + nanoid(19);
 
-                // Create customer with appointment_date set to next working day
-                const custRow = await db.get(
-                    `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job, appointment_date, source_id, effective_date)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
-                    [tsUid, crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName, nextWorkDay, selfSearchSourceId, today]
-                );
+                let dailyNum;
+                let custRow;
+                let attempts = 0;
+                const maxAttempts = 5;
+                while (attempts < maxAttempts) {
+                    attempts++;
+                    const maxNum = await db.get(
+                        "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
+                        [today, req.user.id]
+                    );
+                    dailyNum = (maxNum?.mx || 0) + 1;
+                    try {
+                        custRow = await db.get(
+                            `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job, appointment_date, source_id, effective_date)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+                            [tsUid, crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName, nextWorkDay, selfSearchSourceId, today]
+                        );
+                        break;
+                    } catch (err) {
+                        if (err.code === '23505' && attempts < maxAttempts) {
+                            console.log(`[CONCURRENCY RETRY] Telesale self-search retry due to unique violation (attempt ${attempts})`);
+                            continue;
+                        }
+                        throw err;
+                    }
+                }
                 const customerId = custRow?.id;
 
                 // ★ Create consultation_log so customer shows in "Đã xử lý hôm nay"

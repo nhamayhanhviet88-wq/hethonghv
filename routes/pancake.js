@@ -280,28 +280,43 @@ async function pancakeRoutes(fastify, options) {
 
         if (assignedUserId !== null) {
             const appointmentDate = virtualDateStr;
-            const maxNum = await db.get(
-                "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
-                [virtualDateStr, assignedUserId]
-            );
-            const dailyNum = (maxNum?.mx || 0) + 1;
-            const leadCrmType = staffMap[assignedUserId]?.userCrmType || 'nhu_cau';
-
-            const custResult = await db.get(
-                `INSERT INTO customers (
-                    customer_uid, crm_type, customer_name, phone, facebook_link, 
-                    assigned_to_id, receiver_id, daily_order_number, created_by, 
-                    job, appointment_date, source_id, order_status, created_at, updated_at,
-                    pancake_customer_id, pancake_conversation_id, effective_date
-                )
-                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'dang_tu_van', NOW(), NOW(), $13, $14, $15) RETURNING id`,
-                [
-                    tsUid, leadCrmType, customerName, phone, conversationLink,
-                    assignedUserId, assignedUserId, dailyNum, assignedUserId, 
-                    page.name, appointmentDate, page.source_id, customerId, conversationId,
-                    virtualDateStr
-                ]
-            );
+            let dailyNum;
+            let custResult;
+            let attempts = 0;
+            const maxAttempts = 5;
+            while (attempts < maxAttempts) {
+                attempts++;
+                const maxNum = await db.get(
+                    "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
+                    [virtualDateStr, assignedUserId]
+                );
+                dailyNum = (maxNum?.mx || 0) + 1;
+                const leadCrmType = staffMap[assignedUserId]?.userCrmType || 'nhu_cau';
+                try {
+                    custResult = await db.get(
+                        `INSERT INTO customers (
+                            customer_uid, crm_type, customer_name, phone, facebook_link, 
+                            assigned_to_id, receiver_id, daily_order_number, created_by, 
+                            job, appointment_date, source_id, order_status, created_at, updated_at,
+                            pancake_customer_id, pancake_conversation_id, effective_date
+                        )
+                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'dang_tu_van', NOW(), NOW(), $13, $14, $15) RETURNING id`,
+                        [
+                            tsUid, leadCrmType, customerName, phone, conversationLink,
+                            assignedUserId, assignedUserId, dailyNum, assignedUserId, 
+                            page.name, appointmentDate, page.source_id, customerId, conversationId,
+                            virtualDateStr
+                        ]
+                    );
+                    break;
+                } catch (err) {
+                    if (err.code === '23505' && attempts < maxAttempts) {
+                        console.log(`[CONCURRENCY RETRY] Pancake webhook retry due to unique violation (attempt ${attempts})`);
+                        continue;
+                    }
+                    throw err;
+                }
+            }
             const dbCustId = custResult?.id;
 
             if (dbCustId) {
