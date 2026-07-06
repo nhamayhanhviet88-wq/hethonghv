@@ -376,7 +376,7 @@ async function telegramRoutes(fastify, options) {
                 
                 if (match && lowerText.includes('cọc')) {
                     const paymentCode = match[1].toUpperCase();
-                    const pr = await db.get('SELECT id, total_order_codes, order_tt_coc FROM payment_records WHERE UPPER(payment_code) = $1', [paymentCode]);
+                    const pr = await db.get('SELECT id, total_order_codes, order_tt_coc, amount, bank_name FROM payment_records WHERE UPPER(payment_code) = $1', [paymentCode]);
                     if (pr) {
                         const sender = message.from 
                             ? (message.from.username 
@@ -397,9 +397,12 @@ async function telegramRoutes(fastify, options) {
                             extraMsg = `\n⚠️ <i>Lưu ý: Mã tiền này đã được liên kết với đơn hàng trước đó.</i>`;
                         }
                         
+                        const amtFmt = Number(pr.amount || 0).toLocaleString('vi-VN');
+                        const bankName = pr.bank_name || '';
+                        
                         await sendTelegramReply(
                             message.chat.id,
-                            `✅ <b>Xác thực tiền cọc thành công!</b>\nMã tiền <code>${paymentCode}</code> đã được mở hiển thị trên CRM khi kinh doanh chọn ghi nhận cọc.\n👤 Nhân viên: ${sender}${extraMsg}`,
+                            `✅ <b>Xác thực tiền cọc thành công!</b>\nMã tiền <code>${paymentCode}</code> : <b>${amtFmt}đ ${bankName}</b> đã được mở hiển thị trên CRM để nhận cọc . Bạn hãy vào hệ thống nhận cọc luôn${extraMsg}`,
                             message.message_id
                         );
                         return reply.code(200).send({ ok: true });
