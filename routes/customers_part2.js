@@ -1754,19 +1754,22 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         const nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id || user.id);
 
+        const isSaleCrm = customer.crm_type === 'sale';
+        const targetLogType = isSaleCrm ? 'tuong_tac_ket_noi' : 'lam_quen_tuong_tac';
+
         await db.run(
             `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
-             VALUES (?, 'lam_quen_tuong_tac', '⭐ Chăm sóc nhanh', ?)`,
-            [customerId, user.id]
+             VALUES (?, ?, '⭐ Chăm sóc nhanh', ?)`,
+            [customerId, targetLogType, user.id]
         );
 
         await db.run(
             `UPDATE customers 
-             SET order_status = 'lam_quen_tuong_tac', 
+             SET order_status = ?, 
                  appointment_date = ?, 
                  updated_at = NOW() 
              WHERE id = ?`,
-            [nextFollowUp, customerId]
+            [targetLogType, nextFollowUp, customerId]
         );
 
         if (customer.cancel_approved === 1 || customer.cancel_approved === -2) {
