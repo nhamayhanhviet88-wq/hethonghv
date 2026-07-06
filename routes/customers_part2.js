@@ -19,7 +19,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 WITH last_boundary AS (
                     SELECT customer_id, MAX(id) as id
                     FROM consultation_logs
-                    WHERE log_type IN ('hoan_thanh', 'chot_don') AND customer_id = $1
+                    WHERE log_type IN ('hoan_thanh', 'chot_don', 'huy') AND customer_id = $1
                     GROUP BY customer_id
                 )
                 SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
@@ -958,7 +958,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 WITH last_boundary AS (
                     SELECT customer_id, MAX(id) as id
                     FROM consultation_logs
-                    WHERE log_type IN ('hoan_thanh', 'chot_don') AND customer_id = $1
+                    WHERE log_type IN ('hoan_thanh', 'chot_don', 'huy') AND customer_id = $1
                     GROUP BY customer_id
                 )
                 SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
@@ -1388,7 +1388,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             WITH last_boundary AS (
                 SELECT customer_id, MAX(id) as id
                 FROM consultation_logs
-                WHERE log_type IN ('hoan_thanh', 'chot_don') AND customer_id = $1
+                WHERE log_type IN ('hoan_thanh', 'chot_don', 'huy') AND customer_id = $1
                 GROUP BY customer_id
             )
             SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
@@ -1471,7 +1471,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     WITH last_boundary AS (
                         SELECT customer_id, MAX(id) as id
                         FROM consultation_logs
-                        WHERE log_type IN ('hoan_thanh', 'chot_don') AND customer_id IN (${placeholders})
+                        WHERE log_type IN ('hoan_thanh', 'chot_don', 'huy') AND customer_id IN (${placeholders})
                         GROUP BY customer_id
                     )
                     SELECT 
