@@ -619,7 +619,23 @@ function _saleRenderCustomerRow(c, stats, stt) {
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </button>
-            ` : (c.cancel_approved === -2) ? `
+            ` : (c.cancel_approved === -2) ? (() => {
+                const isBlocked = (s.consultCount < 5) && !['giam_doc', 'quan_ly_cap_cao'].includes(currentUser?.role);
+                if (isBlocked) {
+                    return `
+                    <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
+                        <button class="btn btn-sm consult-btn" onclick="event.stopPropagation(); showToast('⚠️ Yêu cầu chăm sóc đủ 5 lần mới được hủy khách! (Hiện tại: ${s.consultCount}/5 lần)', 'error')" 
+                            style="font-size:11px;padding:4px 8px;background:#94a3b8;color:white;opacity:0.6;cursor:not-allowed;flex-grow:1;">
+                            ❌ Hủy Khách
+                        </button>
+                        <button class="btn btn-sm btn-star-${c.id}" onclick="event.stopPropagation();_saleQuickRecare(${c.id})" 
+                            style="font-size:12px;padding:4px 8px;background:#fef08a;color:#ca8a04;border:1px solid #fde047;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;" 
+                            title="Chăm sóc nhanh" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                            ⭐
+                        </button>
+                    </div>`;
+                }
+                return `
                 <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
                     <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
                         style="font-size:11px;padding:4px 8px;background:#dc2626;color:white;animation:emBlink 2s infinite;flex-grow:1;">
@@ -630,8 +646,9 @@ function _saleRenderCustomerRow(c, stats, stt) {
                         title="Chăm sóc nhanh" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
                         ⭐
                     </button>
-                </div>
-            ` : (c.cancel_approved === -1) ? `
+                </div>`;
+            })()
+            : (c.cancel_approved === -1) ? `
                 <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
                     <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
                         style="font-size:11px;padding:4px 8px;background:${lastType?.color || '#f59e0b'};color:${lastType?.textColor || 'white'};animation:emBlink 2s infinite;flex-grow:1;">
@@ -1028,6 +1045,18 @@ async function _saleOpenConsultModal(customerId) {
         window._currentConsultCustomerPinned = !!customerInfo.is_pinned;
         consultLogs = logData.logs || [];
 
+        let currentCycleLogs = consultLogs;
+        const firstHoanThanhIdx = consultLogs.findIndex(l => l.log_type === 'hoan_thanh');
+        if (firstHoanThanhIdx !== -1) {
+            currentCycleLogs = consultLogs.slice(0, firstHoanThanhIdx);
+        }
+        const careCount = currentCycleLogs.filter(l => {
+            if (['chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly'].includes(l.log_type)) return false;
+            if (l.content && (l.content.includes('Pancake') || l.content.includes('Đồng bộ'))) return false;
+            return true;
+        }).length;
+        window._currentCustomerCareCount = careCount;
+
         const isMoiChuyen = _saleIsMoiChuyenClientSide(customerInfo, consultLogs) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role);
         if (isMoiChuyen) {
             closeModal();
@@ -1123,9 +1152,12 @@ async function _saleOpenConsultModal(customerId) {
     if (pendingEmergency) defaultType = 'cap_cuu_sep';
     if (customerInfo.cancel_approved === -2) defaultType = 'huy';
 
-    const typeOptions = allowedTypes.map(([k, v]) =>
-        `<option value="${k}" ${k === defaultType ? 'selected' : ''}>${v.icon} ${v.label}</option>`
-    ).join('');
+    const typeOptions = allowedTypes.map(([k, v]) => {
+        if (k === 'huy' && typeof window._currentCustomerCareCount === 'number' && window._currentCustomerCareCount < 5 && !['giam_doc', 'quan_ly_cap_cao'].includes(currentUser?.role)) {
+            return `<option value="${k}" style="color: #94a3b8; opacity: 0.6;" disabled>${v.icon} ${v.label} (Yêu cầu ≥ 5 lần chăm sóc - Hiện tại: ${window._currentCustomerCareCount}/5)</option>`;
+        }
+        return `<option value="${k}" ${k === defaultType ? 'selected' : ''}>${v.icon} ${v.label}</option>`;
+    }).join('');
 
     const historyHTML = consultLogs.length > 0 ? `
         <div style="margin-bottom:12px;">
@@ -1419,8 +1451,24 @@ function _saleRemoveConsultImage() {
 }
 
 function _saleOnConsultTypeChange() {
-    const type = document.getElementById('consultTypeSale')?.value;
-    if (!type) return;
+    const select = document.getElementById('consultTypeSale');
+    if (!select) return;
+    const type = select.value;
+
+    if (type === 'huy' && typeof window._currentCustomerCareCount === 'number' && window._currentCustomerCareCount < 5 && !['giam_doc', 'quan_ly_cap_cao'].includes(currentUser?.role)) {
+        showToast(`⚠️ Yêu cầu chăm sóc đủ 5 lần mới được hủy khách! (Hiện tại: ${window._currentCustomerCareCount}/5 lần)`, 'error');
+        let fallback = 'goi_dien';
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value !== 'huy' && !select.options[i].disabled) {
+                fallback = select.options[i].value;
+                break;
+            }
+        }
+        select.value = select.getAttribute('data-prev') || fallback;
+        _saleOnConsultTypeChange();
+        return;
+    }
+    select.setAttribute('data-prev', type);
     const cancelGroup = document.getElementById('consultCancelGroupSale');
     const contentGroup = document.getElementById('consultContentGroupSale');
     const imageGroup = document.getElementById('consultImageGroupSale');
@@ -1495,6 +1543,11 @@ async function _saleSubmitConsultLog(customerId) {
     let appt = document.getElementById('consultAppointmentSale')?.value;
 
     if (!type) { showToast('Vui lòng chọn loại tư vấn', 'error'); return; }
+
+    if (type === 'huy' && typeof window._currentCustomerCareCount === 'number' && window._currentCustomerCareCount < 5 && !['giam_doc', 'quan_ly_cap_cao'].includes(currentUser?.role)) {
+        showToast(`⚠️ Yêu cầu chăm sóc đủ 5 lần mới được hủy khách! (Hiện tại: ${window._currentCustomerCareCount}/5 lần)`, 'error');
+        return;
+    }
 
     const payload = new FormData();
     payload.append('log_type', type);

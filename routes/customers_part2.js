@@ -13,6 +13,34 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const customer = await db.get('SELECT * FROM customers WHERE id = ?', [custId]);
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
+        // Enforce min 5 consultation logs for Sale CRM (skip for Director/Senior Manager)
+        if (customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
+            const countRow = await db.get(`
+                WITH last_ht AS (
+                    SELECT customer_id, MAX(id) as id
+                    FROM consultation_logs
+                    WHERE log_type = 'hoan_thanh' AND customer_id = $1
+                    GROUP BY customer_id
+                )
+                SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
+                FROM customers c
+                LEFT JOIN last_ht lh ON c.id = lh.customer_id
+                LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
+                    AND (lh.id IS NULL OR cl.id > lh.id)
+                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly')
+                    AND cl.content NOT LIKE '%Pancake%'
+                    AND cl.content NOT LIKE '%Đồng bộ%'
+                WHERE c.id = $1
+                GROUP BY c.id
+            `, [custId]);
+            const consultCount = Number(countRow?.cnt || 0);
+            if (consultCount < 5) {
+                return reply.code(400).send({
+                    error: `Yêu cầu chăm sóc đủ 5 lần mới được hủy khách! (Hiện tại: ${consultCount}/5 lần)`
+                });
+            }
+        }
+
         // Block if pending cancel-order request
         if (customer.order_status === 'cho_duyet_huy_don') {
             return reply.code(400).send({ error: 'Khách đang chờ duyệt hủy đơn trả cọc. Không thể hủy khách.' });
@@ -897,6 +925,33 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         log_type = fields.log_type;
         content = fields.content;
         if (!log_type) return reply.code(400).send({ error: 'Vui lòng chọn loại tư vấn' });
+
+        if (log_type === 'huy' && customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
+            const countRow = await db.get(`
+                WITH last_ht AS (
+                    SELECT customer_id, MAX(id) as id
+                    FROM consultation_logs
+                    WHERE log_type = 'hoan_thanh' AND customer_id = $1
+                    GROUP BY customer_id
+                )
+                SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
+                FROM customers c
+                LEFT JOIN last_ht lh ON c.id = lh.customer_id
+                LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
+                    AND (lh.id IS NULL OR cl.id > lh.id)
+                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly')
+                    AND cl.content NOT LIKE '%Pancake%'
+                    AND cl.content NOT LIKE '%Đồng bộ%'
+                WHERE c.id = $1
+                GROUP BY c.id
+            `, [customerId]);
+            const consultCount = Number(countRow?.cnt || 0);
+            if (consultCount < 5) {
+                return reply.code(400).send({
+                    error: `Yêu cầu chăm sóc đủ 5 lần mới được hủy khách! (Hiện tại: ${consultCount}/5 lần)`
+                });
+            }
+        }
 
         // Enforce Telegram Consultation for new leads of Sale, Affiliate, Nhu Cau CRM today
         if (['sale', 'affiliate', 'nhu_cau'].includes(customer.crm_type) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(request.user.role)) {
