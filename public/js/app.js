@@ -2596,11 +2596,11 @@ async function submitChangePassword() {
 // ========== API HELPER ==========
 async function apiCall(url, method = 'GET', body = null) {
     const options = { method };
-    if (body && !(body instanceof FormData)) {
+    if (body && typeof body.append === 'function') {
+        options.body = body;
+    } else if (body) {
         options.headers = { 'Content-Type': 'application/json' };
         options.body = JSON.stringify(body);
-    } else if (body instanceof FormData) {
-        options.body = body;
     }
     const res = await fetch(url, options);
     return res.json();
