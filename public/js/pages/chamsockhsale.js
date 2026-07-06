@@ -191,9 +191,8 @@ async function renderChamsockhsalePage(container) {
                         <th style="min-width:180px">Khách Hàng</th>
                         <th style="min-width:180px">Liên Hệ</th>
                         <th style="min-width:200px">Nguồn & Giới Thiệu</th>
-                        <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
                     </tr></thead>
-                    <tbody id="saleTbody"><tr><td colspan="12" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
+                    <tbody id="saleTbody"><tr><td colspan="11" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
                 <div id="salePagination" class="crm-pagination"></div>
             </div>
@@ -508,7 +507,7 @@ async function _saleRenderFilteredTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
         document.getElementById('salePagination').innerHTML = '';
         return;
     }
@@ -534,11 +533,11 @@ async function _saleRenderFilteredTable() {
         let html = '';
         let stt = startIdx + 1;
         if (moiChuyenRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="12"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="11"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
             html += moiChuyenRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
         }
         if (phaiXuLyRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="12"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="11"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
             html += phaiXuLyRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
         }
         tbody.innerHTML = html;
@@ -755,18 +754,6 @@ function _saleRenderCustomerRow(c, stats, stt) {
         <!-- Column 11: Nguồn & Giới Thiệu -->
         <td style="font-size:12px;vertical-align:middle;">
             <div style="font-weight:700;color:#334155;">${c.source_name || '—'}</div>
-        </td>
-        <!-- Column 12: Đề xuất CTV -->
-        <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly && canEditCrm && c.cancel_approved !== 1 ? (() => {
-                if (_salePendingCtvIds.includes(c.id)) {
-                    return `<span title="Đang chờ duyệt chuyển CRM" style="font-size:10px;padding:3px 8px;border-radius:6px;background:#fef3c7;color:#92400e;font-weight:700;white-space:nowrap;cursor:default;">⏳ Chờ CTV</span>`;
-                }
-                if (c.referrer_id && !s.latestOrderCode) {
-                    return `<span title="🔒 Khách có nguồn giới thiệu từ Đối Tác — cần có đơn hàng mới được chuyển CRM" style="cursor:not-allowed;font-size:16px;opacity:0.35;">🔒</span>`;
-                }
-                return `<span onclick="event.stopPropagation();_saleOpenCrmTransferPopup(${c.id})" title="Đề Xuất Chuyển CRM" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>`;
-            })() : ''}
         </td>
     </tr>`;
 }
