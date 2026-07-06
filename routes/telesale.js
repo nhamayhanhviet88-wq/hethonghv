@@ -1564,7 +1564,7 @@ async function telesaleRoutes(fastify) {
 
                 // Get daily order number for this user
                 const maxNum = await db.get(
-                    "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = ?::date AND assigned_to_id = ?",
+                    "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
                     [today, req.user.id]
                 );
                 const dailyNum = (maxNum?.mx || 0) + 1;
@@ -1581,9 +1581,9 @@ async function telesaleRoutes(fastify) {
 
                 // Create customer with appointment_date set to next working day
                 const custRow = await db.get(
-                    `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job, appointment_date, source_id)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-                    [tsUid, crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName, nextWorkDay, selfSearchSourceId]
+                    `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job, appointment_date, source_id, effective_date)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+                    [tsUid, crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName, nextWorkDay, selfSearchSourceId, today]
                 );
                 const customerId = custRow?.id;
 

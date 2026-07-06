@@ -134,7 +134,7 @@ async function start() {
     try { await db.exec('ALTER TABLE customers ADD COLUMN cong_viec TEXT'); } catch(e) { /* exists */ }
     // Migration: effective_date — ngày hiệu lực (cutoff time logic)
     try { await db.exec('ALTER TABLE customers ADD COLUMN effective_date DATE'); } catch(e) { /* exists */ }
-    try { await db.exec("UPDATE customers SET effective_date = (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date WHERE effective_date IS NULL"); } catch(e) { /* already backfilled */ }
+    try { await db.exec("UPDATE customers SET effective_date = (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date WHERE effective_date IS NULL AND daily_order_number > 0"); } catch(e) { /* already backfilled */ }
 
     // Migration: force_approval — kiểm soát CV nhân viên yếu kém
     try { await db.exec('ALTER TABLE users ADD COLUMN force_approval BOOLEAN DEFAULT false'); } catch(e) { /* exists */ }
