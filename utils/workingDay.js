@@ -236,6 +236,54 @@ async function getNextFollowUpDate(startDate, userId) {
     return getNextWorkingDay(startDate, userId);
 }
 
+/**
+ * Lấy mốc giờ chuyển ngày (cutoff time) động dựa theo cấu hình Nhắc Xử Lý Số — Khung Giờ Hoạt Động
+ * @param {Date} startDate - Ngày cần check
+ * @returns {Promise<string>} - Chuỗi dạng "HH:MM" (vd: "18:15" hoặc "17:15")
+ */
+async function getDynamicCutoffTime(startDate) {
+    const d = startDate instanceof Date ? startDate : new Date();
+    const vnDateStr = toDateStr(d);
+    const [y, m, day] = vnDateStr.split('-').map(Number);
+    const dow = new Date(Date.UTC(y, m - 1, day)).getUTCDay(); // 0 = CN, 1 = T2, ..., 6 = T7
+
+    let configKey = 'reminder_hours_weekday';
+    let defaultCutoff = '18:15';
+
+    if (dow === 0) {
+        configKey = 'reminder_hours_sunday';
+        defaultCutoff = '17:15';
+    } else if (dow === 6) {
+        configKey = 'reminder_hours_saturday';
+        defaultCutoff = '17:15';
+    }
+
+    try {
+        const row = await db.get("SELECT value FROM app_config WHERE key = $1", [configKey]);
+        if (row && row.value && row.value.trim().toLowerCase() !== 'off') {
+            try {
+                const parsed = JSON.parse(row.value);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    const slots = parsed.map(slot => {
+                        const [eh, em] = (slot.end || '00:00').split(':').map(Number);
+                        return { raw: slot.end || '00:00', minutes: eh * 60 + em };
+                    });
+                    slots.sort((a, b) => a.minutes - b.minutes);
+                    return slots[slots.length - 1].raw;
+                }
+            } catch (jsonErr) {
+                const parts = row.value.trim().split('-');
+                if (parts.length === 2) {
+                    return parts[1];
+                }
+            }
+        }
+    } catch (e) {
+        console.error('[Dynamic Cutoff] Error parsing config:', e.message);
+    }
+    return defaultCutoff;
+}
+
 module.exports = {
     getHolidays,
     isUserOnLeave,
@@ -245,5 +293,6 @@ module.exports = {
     getVNTimeInfo,
     getNextWorkingDay,
     getEffectiveWorkingDay,
-    getNextFollowUpDate
+    getNextFollowUpDate,
+    getDynamicCutoffTime
 };

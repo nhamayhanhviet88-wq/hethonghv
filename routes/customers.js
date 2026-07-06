@@ -154,21 +154,13 @@ async function customersRoutes(fastify, options) {
             console.log('[CUTOFF DEBUG] Non-working day → effectiveDate:', effectiveDate);
         } else {
             // Bước 2: Kiểm tra giờ cutoff
+            const { getDynamicCutoffTime } = require('../utils/workingDay');
             let cutoffH = 18, cutoffM = 15;
             try {
-                if (vnTime.dayOfWeek === 6) {
-                    const cfgRow = await db.get("SELECT value FROM app_config WHERE key = 'chuyenso_cutoff_saturday'");
-                    console.log('[CUTOFF DEBUG] Saturday cfgRow:', JSON.stringify(cfgRow));
-                    const val = cfgRow?.value || '17:15';
-                    const [h, m] = val.split(':').map(Number);
-                    cutoffH = h; cutoffM = m;
-                } else {
-                    const cfgRow = await db.get("SELECT value FROM app_config WHERE key = 'chuyenso_cutoff_weekday'");
-                    console.log('[CUTOFF DEBUG] Weekday cfgRow:', JSON.stringify(cfgRow));
-                    const val = cfgRow?.value || '18:15';
-                    const [h, m] = val.split(':').map(Number);
-                    cutoffH = h; cutoffM = m;
-                }
+                const val = await getDynamicCutoffTime(new Date());
+                console.log('[CUTOFF DEBUG] Dynamic cutoff time:', val);
+                const [h, m] = val.split(':').map(Number);
+                cutoffH = h; cutoffM = m;
             } catch(e) { console.log('[CUTOFF DEBUG] Config error:', e.message); }
 
             const currentMinutes = vnTime.hour * 60 + vnTime.minute;

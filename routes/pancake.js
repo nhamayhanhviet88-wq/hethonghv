@@ -2,7 +2,7 @@
 const db = require('../db/pool');
 const { vnNow, vnDateStr, vnISOString } = require('../utils/timezone');
 const { sendTelegramMessage } = require('../utils/telegram');
-const { getNextWorkingDay } = require('../utils/workingDay');
+const { getNextWorkingDay, getDynamicCutoffTime } = require('../utils/workingDay');
 const { isWithinReminderHours } = require('./reminder-checker');
 const { nanoid } = require('nanoid');
 const { authenticate } = require('../middleware/auth');
@@ -94,7 +94,7 @@ async function pancakeRoutes(fastify, options) {
     // Helper: assign a lead (either with real phone or temporary phone)
     async function assignPancakeLead(page, config, customerId, customerName, conversationId, conversationLink, phone) {
         // 1. Calculate virtual date
-        const cutoff = config.cutoff_time || '18:15';
+        const cutoff = await getDynamicCutoffTime(vnNow());
         const [cutoffHour, cutoffMin] = cutoff.split(':').map(Number);
         const now = vnNow();
         let virtualDateStr = vnDateStr(now);

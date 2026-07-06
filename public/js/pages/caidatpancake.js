@@ -36,20 +36,13 @@ async function renderCaidatpancakePage(container) {
                 
                 <div class="card-body" style="padding: 30px; background: #fff;">
                     <!-- Settings Row -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
-                        <div>
-                            <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">🔑 Pancake API Access Token</label>
-                            <div style="position: relative;">
-                                <input type="password" id="pancakeTokenInput" class="form-control" placeholder="Nhập long-lived access token từ Pancake..." style="padding-right: 45px; height: 42px; border-radius: 10px; border: 1.5px solid var(--gray-200); font-family: monospace; font-size: 13px;">
-                                <button type="button" onclick="toggleTokenVisibility()" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px; color: var(--gray-400);">👁️</button>
-                            </div>
-                            <small style="color: var(--gray-400); display: block; margin-top: 6px; font-size: 11px;">Token này dùng để kết nối chung với Pancake.vn để đồng bộ hội thoại/leads.</small>
+                    <div style="margin-bottom: 24px;">
+                        <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">🔑 Pancake API Access Token</label>
+                        <div style="position: relative;">
+                            <input type="password" id="pancakeTokenInput" class="form-control" placeholder="Nhập long-lived access token từ Pancake..." style="padding-right: 45px; height: 42px; border-radius: 10px; border: 1.5px solid var(--gray-200); font-family: monospace; font-size: 13px;">
+                            <button type="button" onclick="toggleTokenVisibility()" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px; color: var(--gray-400);">👁️</button>
                         </div>
-                        <div>
-                            <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">⏰ Mốc Giờ Sang Ngày Mới</label>
-                            <input type="time" id="pancakeCutoffInput" class="form-control" style="height: 42px; border-radius: 10px; border: 1.5px solid var(--gray-200); font-size: 13px; font-weight: 700;">
-                            <small style="color: var(--gray-400); display: block; margin-top: 6px; font-size: 11px;">Sau mốc giờ này, số sẽ được chuyển sang danh sách phân công của ngày hôm sau (mặc định 18:15).</small>
-                        </div>
+                        <small style="color: var(--gray-400); display: block; margin-top: 6px; font-size: 11px;">Token này dùng để kết nối chung với Pancake.vn để đồng bộ hội thoại/leads.</small>
                     </div>
                     
                     <!-- Settings Row 2 -->
@@ -230,7 +223,6 @@ async function loadPancakeData() {
 
         // Set inputs
         document.getElementById('pancakeTokenInput').value = _pancakeConfig.pancake_token || '';
-        document.getElementById('pancakeCutoffInput').value = _pancakeConfig.cutoff_time || '18:15';
         document.getElementById('pancakeDelaySecondsInput').value = _pancakeConfig.delay_assignment_seconds;
         document.getElementById('pancakeUpdateLimitInput').value = _pancakeConfig.update_phone_limit_minutes;
         document.getElementById('pancakeActiveSwitch').checked = !!_pancakeConfig.is_active;
@@ -245,7 +237,6 @@ async function loadPancakeData() {
             }
         };
         document.getElementById('pancakeTokenInput').addEventListener('input', markUnsaved);
-        document.getElementById('pancakeCutoffInput').addEventListener('input', markUnsaved);
         document.getElementById('pancakeDelaySecondsInput').addEventListener('input', markUnsaved);
         document.getElementById('pancakeUpdateLimitInput').addEventListener('input', markUnsaved);
 
@@ -544,12 +535,10 @@ function toggleTokenVisibility() {
 
 async function saveGlobalPancakeSettings() {
     const token = document.getElementById('pancakeTokenInput').value.trim();
-    const cutoff = document.getElementById('pancakeCutoffInput').value.trim() || '18:15';
     const delaySecs = parseInt(document.getElementById('pancakeDelaySecondsInput').value.trim()) || 0;
     const updateLimit = parseInt(document.getElementById('pancakeUpdateLimitInput').value.trim()) || 0;
     
     _pancakeConfig.pancake_token = token;
-    _pancakeConfig.cutoff_time = cutoff;
     _pancakeConfig.delay_assignment_seconds = delaySecs;
     _pancakeConfig.update_phone_limit_minutes = updateLimit;
     
