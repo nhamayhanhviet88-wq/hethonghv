@@ -854,17 +854,46 @@ function _qtSaleRenderSectionAccordion(sec) {
 }
 
 // Edit max appointment days for a section
-async function _qtSaleEditMaxDays(key, currentVal) {
-    const val = prompt(`📅 Giới hạn ngày hẹn tối đa cho loại này?\n\n0 = Không giới hạn\nVD: 15 = Chỉ cho hẹn tối đa 15 ngày`, currentVal || 0);
-    if (val === null) return;
-    const days = parseInt(val) || 0;
-    if (days < 0) return showToast('Số ngày không hợp lệ', 'error');
-    try {
-        await apiCall(`/api/consult-types/${key}/max-appointment-days`, 'PATCH', { max_appointment_days: days, crm_menu: 'sale' });
-        showToast(`✅ Đã cập nhật giới hạn: ${days > 0 ? days + ' ngày' : 'Không giới hạn'}`);
-        _qtSaleLoadData();
-    } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
+function _qtSaleEditMaxDays(key, currentVal) {
+    const tp = _qtSaleAllTypes.find(x => x.key === key);
+    const label = tp ? `${tp.icon} ${tp.label}` : key;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'qt-modal-overlay';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+        <div class="qt-modal">
+            <h3>📅 Giới hạn ngày hẹn</h3>
+            <p style="font-size:12px;color:#64748b;margin-bottom:12px;">Thiết lập số ngày tối đa cho phép NV hẹn tiếp theo khi chọn nút <b>${label}</b>.</p>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:13px;font-weight:600;color:#334155;">Số ngày hẹn tối đa (0 = Không giới hạn):</label>
+                <input type="number" id="qtEditMaxDaysInput" value="${currentVal || 0}" min="0" max="90" style="width:100%;padding:10px;font-size:18px;font-weight:700;border:2px solid #3b82f6;border-radius:10px;text-align:center;margin-top:4px;">
+            </div>
+            <div class="qt-actions">
+                <button class="qt-btn qt-btn-secondary" onclick="this.closest('.qt-modal-overlay').remove()">Hủy</button>
+                <button class="qt-btn qt-btn-primary" onclick="_qtSaleSaveMaxDays('${key}')">💾 Lưu cấu hình</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => document.getElementById('qtEditMaxDaysInput')?.focus(), 100);
 }
+
+async function _qtSaleSaveMaxDays(key) {
+    const input = document.getElementById('qtEditMaxDaysInput');
+    const val = input ? parseInt(input.value) : 0;
+    if (isNaN(val) || val < 0) return showToast('Số ngày không hợp lệ', 'error');
+
+    try {
+        await apiCall(`/api/consult-types/${key}/max-appointment-days`, 'PATCH', { max_appointment_days: val, crm_menu: 'sale' });
+        showToast(`✅ Đã cập nhật giới hạn: ${val > 0 ? val + ' ngày' : 'Không giới hạn'}`, 'success');
+        document.querySelector('.qt-modal-overlay')?.remove();
+        await _qtSaleLoadData();
+    } catch(e) { 
+        showToast('Lỗi: ' + (e.message || ''), 'error'); 
+    }
+}
+
 
 // Get all keys in a section group
 function _qtSaleGetGroupKeys(groupId) {
