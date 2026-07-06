@@ -1777,7 +1777,7 @@ async function refreshMonthlyOffDaysList() {
                 return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #f0f0f0;">
                         <strong style="color: #ef4444; font-size: 11.5px;">📅 ${displayDate}</strong>
-                        <span style="font-weight: 700; color: var(--navy); font-size: 11.5px;">${d.full_name} (${d.username})</span>
+                        <span style="font-weight: 700; color: var(--navy); font-size: 11.5px;">${d.full_name}</span>
                     </div>
                 `;
             }).join('');
