@@ -2240,35 +2240,37 @@ function showQuickAddOverrideModal() {
         animation: fadeIn 0.2s ease;
     `;
     overlay.innerHTML = `
-        <div style="background: white; border-radius: 12px; padding: 20px; width: 340px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); animation: scaleUp 0.2s ease;">
-            <h4 style="margin: 0 0 15px 0; font-size: 14.5px; font-weight: 800; text-align: center; color: var(--gray-800);">
+        <div style="background: white; border-radius: 16px; padding: 30px; width: 600px; height: 600px; max-width: 95%; max-height: 95vh; box-shadow: 0 10px 25px rgba(0,0,0,0.15); display: flex; flex-direction: column; animation: scaleUp 0.2s ease; box-sizing: border-box;">
+            <h4 style="margin: 0 0 25px 0; font-size: 18px; font-weight: 800; text-align: center; color: var(--navy);">
                 ➕ Thêm Cấu Hình Trực
             </h4>
             
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-weight: 800; font-size: 11.5px; color: var(--gray-700); margin-bottom: 4px;">Chọn Nhân Viên</label>
-                <select id="quickAddStaffSelect" class="form-control" style="width: 100%; height: 38px; border-radius: 8px; font-weight: 600; padding: 6px 10px; font-size: 12px; border: 1.5px solid var(--gray-200);">
-                    <option value="">-- Chọn nhân viên --</option>
-                    ${users.map(u => `<option value="${u.id}">${u.full_name} (${u.username})</option>`).join('')}
-                </select>
+            <div style="flex: 1;">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">Chọn Nhân Viên</label>
+                    <select id="quickAddStaffSelect" class="form-control" style="width: 100%; height: 45px; border-radius: 8px; font-weight: 600; padding: 8px 12px; font-size: 13px; border: 1.5px solid var(--gray-200);">
+                        <option value="">-- Chọn nhân viên --</option>
+                        ${users.map(u => `<option value="${u.id}">${u.full_name} (${u.username})</option>`).join('')}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">Chọn Ngày</label>
+                    <input type="date" id="quickAddDate" min="${todayStr}" class="form-control" style="width: 100%; height: 45px; border-radius: 8px; font-weight: 600; padding: 8px 12px; font-size: 13px; border: 1.5px solid var(--gray-200); outline: none;">
+                </div>
+
+                <div style="margin-bottom: 25px;">
+                    <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">Trạng Thái</label>
+                    <select id="quickAddType" class="form-control" style="width: 100%; height: 45px; border-radius: 8px; font-weight: 600; padding: 8px 12px; font-size: 13px; border: 1.5px solid var(--gray-200);">
+                        <option value="off">🔴 Nghỉ làm (Tắt nhận Lead)</option>
+                        <option value="work">🟢 Đi làm (Force nhận Lead)</option>
+                    </select>
+                </div>
             </div>
 
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-weight: 800; font-size: 11.5px; color: var(--gray-700); margin-bottom: 4px;">Chọn Ngày</label>
-                <input type="date" id="quickAddDate" min="${todayStr}" class="form-control" style="width: 100%; height: 38px; border-radius: 8px; font-weight: 600; padding: 6px 10px; font-size: 12px; border: 1.5px solid var(--gray-200); outline: none;">
-            </div>
-
-            <div style="margin-bottom: 18px;">
-                <label style="display: block; font-weight: 800; font-size: 11.5px; color: var(--gray-700); margin-bottom: 4px;">Trạng Thái</label>
-                <select id="quickAddType" class="form-control" style="width: 100%; height: 38px; border-radius: 8px; font-weight: 600; padding: 6px 10px; font-size: 12px; border: 1.5px solid var(--gray-200);">
-                    <option value="off">🔴 Nghỉ làm (Tắt nhận Lead)</option>
-                    <option value="work">🟢 Đi làm (Force nhận Lead)</option>
-                </select>
-            </div>
-
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button class="btn btn-secondary" onclick="closeQuickAddOverride()" style="border-radius: 8px; padding: 8px 14px; font-size: 12px; cursor: pointer; border: 1px solid var(--gray-200); background: white; color: var(--gray-700);">Đóng</button>
-                <button class="btn btn-primary" onclick="submitQuickAddOverride()" style="background: var(--navy); border: none; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; color: white; cursor: pointer;">Thêm Vào</button>
+            <div style="display: flex; gap: 12px; justify-content: flex-end; border-top: 1.5px solid var(--gray-200); padding-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeQuickAddOverride()" style="border-radius: 8px; padding: 10px 20px; font-size: 13px; cursor: pointer; border: 1px solid var(--gray-300); background: white; color: var(--gray-700); font-weight: 700;">Đóng</button>
+                <button class="btn btn-primary" onclick="submitQuickAddOverride()" style="background: var(--navy); border: none; border-radius: 8px; padding: 10px 24px; font-size: 13px; font-weight: 700; color: white; cursor: pointer;">Thêm Vào</button>
             </div>
         </div>
     `;
