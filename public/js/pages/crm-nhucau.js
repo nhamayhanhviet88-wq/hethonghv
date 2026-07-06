@@ -956,9 +956,9 @@ function _crmRenderCustomerRow(c, stats, stt) {
                 if (!s.chotDonCount || s.chotDonCount === 0) {
                     return `<div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">(0 lần đặt)</div>`;
                 }
-                let bg = 'rgba(71, 85, 105, 0.08)';
-                let color = '#475569';
-                let border = 'rgba(71, 85, 105, 0.15)';
+                let bg = 'rgba(217, 119, 6, 0.12)';
+                let color = '#d97706';
+                let border = 'rgba(217, 119, 6, 0.25)';
                 if (s.chotDonCount >= 5) {
                     bg = 'rgba(219, 39, 119, 0.12)';
                     color = '#db2777';
