@@ -16,17 +16,17 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         // Enforce min 5 consultation logs for Sale CRM (skip for Director/Senior Manager)
         if (customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
             const countRow = await db.get(`
-                WITH last_ht AS (
+                WITH last_boundary AS (
                     SELECT customer_id, MAX(id) as id
                     FROM consultation_logs
-                    WHERE log_type = 'hoan_thanh' AND customer_id = $1
+                    WHERE log_type IN ('hoan_thanh', 'chot_don') AND customer_id = $1
                     GROUP BY customer_id
                 )
                 SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
                 FROM customers c
-                LEFT JOIN last_ht lh ON c.id = lh.customer_id
+                LEFT JOIN last_boundary lb ON c.id = lb.customer_id
                 LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
-                    AND (lh.id IS NULL OR cl.id > lh.id)
+                    AND (lb.id IS NULL OR cl.id > lb.id)
                     AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                     AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
                 WHERE c.id = $1
@@ -955,17 +955,17 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         if (log_type === 'huy' && customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
             const countRow = await db.get(`
-                WITH last_ht AS (
+                WITH last_boundary AS (
                     SELECT customer_id, MAX(id) as id
                     FROM consultation_logs
-                    WHERE log_type = 'hoan_thanh' AND customer_id = $1
+                    WHERE log_type IN ('hoan_thanh', 'chot_don') AND customer_id = $1
                     GROUP BY customer_id
                 )
                 SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
                 FROM customers c
-                LEFT JOIN last_ht lh ON c.id = lh.customer_id
+                LEFT JOIN last_boundary lb ON c.id = lb.customer_id
                 LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
-                    AND (lh.id IS NULL OR cl.id > lh.id)
+                    AND (lb.id IS NULL OR cl.id > lb.id)
                     AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                     AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
                 WHERE c.id = $1
@@ -1384,7 +1384,24 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
         }
 
-        const consultCount = (await db.get("SELECT COUNT(*) as cnt FROM consultation_logs WHERE customer_id = ? AND log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert') AND (content IS NULL OR (content NOT LIKE '%Pancake%' AND content NOT LIKE '%Đồng bộ%'))", [customerId]))?.cnt || 0;
+        const countRow = await db.get(`
+            WITH last_boundary AS (
+                SELECT customer_id, MAX(id) as id
+                FROM consultation_logs
+                WHERE log_type IN ('hoan_thanh', 'chot_don') AND customer_id = $1
+                GROUP BY customer_id
+            )
+            SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
+            FROM customers c
+            LEFT JOIN last_boundary lb ON c.id = lb.customer_id
+            LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
+                AND (lb.id IS NULL OR cl.id > lb.id)
+                AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
+                AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
+            WHERE c.id = $1
+            GROUP BY c.id
+        `, [customerId]);
+        const consultCount = Number(countRow?.cnt || 0);
         return { success: true, message: 'Đã ghi nhận tư vấn!', consultCount, orderCode: generatedOrderCode };
     });
 
@@ -1451,19 +1468,19 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         try {
             const [consultCounts, chotDons, lastLogs, revenues, latestOrderCodes] = await Promise.all([
                 db.all(`
-                    WITH last_ht AS (
+                    WITH last_boundary AS (
                         SELECT customer_id, MAX(id) as id
                         FROM consultation_logs
-                        WHERE log_type = 'hoan_thanh' AND customer_id IN (${placeholders})
+                        WHERE log_type IN ('hoan_thanh', 'chot_don') AND customer_id IN (${placeholders})
                         GROUP BY customer_id
                     )
                     SELECT 
                         c.id as customer_id,
                         COALESCE(COUNT(cl.id), 0)::int as cnt
                     FROM customers c
-                    LEFT JOIN last_ht lh ON c.id = lh.customer_id
+                    LEFT JOIN last_boundary lb ON c.id = lb.customer_id
                     LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
-                        AND (lh.id IS NULL OR cl.id > lh.id)
+                        AND (lb.id IS NULL OR cl.id > lb.id)
                         AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                         AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
                     WHERE c.id IN (${placeholders})
