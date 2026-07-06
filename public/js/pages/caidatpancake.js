@@ -1769,7 +1769,11 @@ async function refreshMonthlyOffDaysList() {
 
             const html = res.off_dates.map(d => {
                 const parts = d.off_date.split('-');
-                const displayDate = `${parts[2]}/${parts[1]}`;
+                const dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                const dayOfWeek = dateObj.getDay();
+                const weekdays = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                const weekdayName = weekdays[dayOfWeek];
+                const displayDate = `${weekdayName} - ${parts[2]}/${parts[1]}`;
                 return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #f0f0f0;">
                         <strong style="color: #ef4444; font-size: 11.5px;">📅 ${displayDate}</strong>
