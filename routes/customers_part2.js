@@ -27,7 +27,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 LEFT JOIN last_ht lh ON c.id = lh.customer_id
                 LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
                     AND (lh.id IS NULL OR cl.id > lh.id)
-                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly')
+                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                     AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
                 WHERE c.id = $1
                 GROUP BY c.id
@@ -966,7 +966,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 LEFT JOIN last_ht lh ON c.id = lh.customer_id
                 LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
                     AND (lh.id IS NULL OR cl.id > lh.id)
-                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly')
+                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                     AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
                 WHERE c.id = $1
                 GROUP BY c.id
@@ -1384,7 +1384,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
         }
 
-        const consultCount = (await db.get("SELECT COUNT(*) as cnt FROM consultation_logs WHERE customer_id = ? AND log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly') AND (content IS NULL OR (content NOT LIKE '%Pancake%' AND content NOT LIKE '%Đồng bộ%'))", [customerId]))?.cnt || 0;
+        const consultCount = (await db.get("SELECT COUNT(*) as cnt FROM consultation_logs WHERE customer_id = ? AND log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert') AND (content IS NULL OR (content NOT LIKE '%Pancake%' AND content NOT LIKE '%Đồng bộ%'))", [customerId]))?.cnt || 0;
         return { success: true, message: 'Đã ghi nhận tư vấn!', consultCount, orderCode: generatedOrderCode };
     });
 
@@ -1464,7 +1464,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     LEFT JOIN last_ht lh ON c.id = lh.customer_id
                     LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
                         AND (lh.id IS NULL OR cl.id > lh.id)
-                        AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly')
+                        AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                         AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
                     WHERE c.id IN (${placeholders})
                     GROUP BY c.id

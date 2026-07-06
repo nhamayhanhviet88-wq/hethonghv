@@ -1163,7 +1163,7 @@ async function _saleOpenConsultModal(customerId) {
             currentCycleLogs = consultLogs.slice(0, firstHoanThanhIdx);
         }
         const careCount = currentCycleLogs.filter(l => {
-            if (['chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly'].includes(l.log_type)) return false;
+            if (['chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert'].includes(l.log_type)) return false;
             if (l.content && (l.content.includes('Pancake') || l.content.includes('Đồng bộ'))) return false;
             return true;
         }).length;

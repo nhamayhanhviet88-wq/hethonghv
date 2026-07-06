@@ -23,7 +23,7 @@ async function searchRoutes(fastify, options) {
                    c.appointment_date, c.assigned_to_id,
                    u.full_name as created_by_name, u.username as created_by_username,
                    asgn.full_name as assigned_to_name,
-                   (SELECT COUNT(*) FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly') AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))) as consult_count,
+                   (SELECT COUNT(*) FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert') AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))) as consult_count,
                    (SELECT COUNT(*) FROM order_codes oc WHERE oc.customer_id = c.id) as order_count
             FROM customers c
             LEFT JOIN users u ON u.id = c.created_by
