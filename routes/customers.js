@@ -315,8 +315,7 @@ async function customersRoutes(fastify, options) {
                 WHERE cl.customer_id = c.id 
                 AND timezone('Asia/Ho_Chi_Minh', cl.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                 AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly')
-                AND cl.content NOT LIKE '%Pancake%'
-                AND cl.content NOT LIKE '%Đồng bộ%'
+                AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
             ) as consulted_today,
             (SELECT cl.log_type FROM consultation_logs cl 
              WHERE cl.customer_id = c.id AND cl.log_type != 'khong_xu_ly'
