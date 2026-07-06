@@ -1519,12 +1519,6 @@ async function showStaffOffDaysModal() {
                 from { transform: scale(0.95); opacity: 0; }
                 to { transform: scale(1); opacity: 1; }
             }
-            .off-days-tab {
-                border-bottom: 3px solid transparent;
-            }
-            .off-days-tab:hover {
-                color: #FF7E5F !important;
-            }
             .off-days-filter:hover {
                 background: var(--gray-100);
             }
@@ -1533,62 +1527,9 @@ async function showStaffOffDaysModal() {
     }
 
     const modalBody = `
-        <!-- Tab Navigation -->
-        <div style="display: flex; gap: 16px; border-bottom: 2.5px solid var(--gray-100); margin-bottom: 16px; padding-bottom: 4px;">
-            <div id="offDaysTabCalendar" class="off-days-tab" onclick="switchOffDaysTab('calendar')" style="padding: 8px 12px; font-weight: 800; font-size: 13px; color: #FF7E5F; border-bottom: 3px solid #FF7E5F; cursor: pointer; transition: all 0.2s;">
-                📅 Lập Lịch Theo Lịch Tháng
-            </div>
-            <div id="offDaysTabList" class="off-days-tab" onclick="switchOffDaysTab('list')" style="padding: 8px 12px; font-weight: 800; font-size: 13px; color: var(--gray-400); cursor: pointer; transition: all 0.2s;">
-                📋 Danh Sách Cấu Hình
-            </div>
-        </div>
-
-        <!-- Tab 1 Content: Calendar Setup -->
-        <div id="offDaysCalendarTabContent" style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; min-height: 480px;">
-            <!-- Left panel: Employee Selection -->
-            <div style="border-right: 1.5px solid var(--gray-200); padding-right: 16px; display: flex; flex-direction: column; justify-content: flex-start; gap: 15px;">
-                <div>
-                    <label style="display: block; font-weight: 800; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">👤 Chọn Nhân Viên</label>
-                    <select id="offDaysStaffSelect" class="form-control" onchange="onOffDaysStaffChange()" style="width: 100%; height: 42px; border-radius: 10px; border: 1.5px solid var(--gray-200); font-weight: 600; padding: 8px 12px;">
-                        <option value="">-- Chọn nhân viên --</option>
-                    </select>
-                </div>
-                <div id="offDaysStaffInfo" style="display: none; background: #fafafa; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 12.5px;">
-                    <!-- Filled dynamically -->
-                </div>
-                <div style="font-size: 11.5px; color: var(--gray-400); line-height: 1.4; border-top: 1.5px solid var(--gray-100); padding-top: 12px;">
-                    💡 <b>Chú thích màu lịch:</b><br>
-                    <span style="display: inline-block; width: 12px; height: 12px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> 🔴 Nghỉ làm (Tắt nhận Lead)<br>
-                    <span style="display: inline-block; width: 12px; height: 12px; background: #dcfce7; border: 1px solid #22c55e; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> 🟢 Đi làm (Force nhận Lead)<br>
-                    <span style="display: inline-block; width: 12px; height: 12px; background: #eff6ff; border: 1px solid #3b82f6; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> Hôm nay (Today)<br>
-                    <span style="display: inline-block; width: 12px; height: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> Ngày thường (Mặc định)<br>
-                </div>
-                <div style="flex: 1; display: flex; flex-direction: column; border-top: 1.5px solid var(--gray-100); padding-top: 12px; margin-top: 5px;">
-                    <label style="display: block; font-weight: 800; font-size: 12px; color: #FF7E5F; margin-bottom: 6px;">📋 Lịch Trong Tháng</label>
-                    <div id="monthlyOffDaysListContainer" style="flex: 1; overflow-y: auto; background: #fafafa; border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px; font-size: 12px; max-height: 160px;">
-                        <span style="color: var(--gray-400); font-style: italic;">Đang tải...</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Right panel: Calendar -->
-            <div id="offDaysCalendarContainer" style="display: flex; flex-direction: column;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="changeOffDaysMonth(-1)" style="height: 32px; border-radius: 6px; font-weight: 700; font-size: 12px;">◀ Tháng trước</button>
-                    <h4 id="offDaysCalendarTitle" style="margin: 0; font-size: 15px; font-weight: 800; color: var(--gray-800);">Tháng 7 / 2026</h4>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="changeOffDaysMonth(1)" style="height: 32px; border-radius: 6px; font-weight: 700; font-size: 12px;">Tháng sau ▶</button>
-                </div>
-                
-                <div id="offDaysCalendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; flex: 1; min-height: 300px;">
-                    <!-- Calendar days header (T2, T3... CN) and cells populated here -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab 2 Content: Configurations List (Images 3 & 4) -->
-        <div id="offDaysListTabContent" style="display: none; min-height: 480px;">
+        <div id="offDaysListTabContent" style="min-height: 480px;">
             <div style="display: grid; grid-template-columns: 200px 1fr; gap: 20px; min-height: 480px;">
-                <!-- Left Sidebar of Tab 2: Filters -->
+                <!-- Left Sidebar: Filters -->
                 <div style="border-right: 1.5px solid var(--gray-200); padding-right: 16px; display: flex; flex-direction: column; gap: 10px;">
                     <div id="filterListAll" class="off-days-filter active" onclick="filterOffDaysList('all')" style="padding: 10px; border-radius: 8px; font-weight: 700; font-size: 13px; color: var(--navy); cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; background: var(--gray-50);">
                         <span>Tất cả</span>
@@ -1604,7 +1545,7 @@ async function showStaffOffDaysModal() {
                     </div>
                 </div>
 
-                <!-- Right Area of Tab 2: Grid and Add button -->
+                <!-- Right Area: Grid and Add button -->
                 <div style="display: flex; flex-direction: column; gap: 12px; height: 100%; overflow: hidden;">
                     <!-- Top header: Search/Add -->
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1640,26 +1581,20 @@ async function showStaffOffDaysModal() {
     _offDaysSelectedUserId = null;
     _offDaysList = [];
     _currentListFilter = 'all';
+    window._offDaysUsersList = [];
 
-    // Load active users list into select dropdown
-    const select = document.getElementById('offDaysStaffSelect');
-    if (select) {
-        try {
-            const res = await apiCall('/api/settings/staff-off-dates/users');
-            if (res && res.users) {
-                select.innerHTML = `
-                    <option value="">-- Chọn nhân viên --</option>
-                    ${res.users.map(u => `<option value="${u.id}" data-dept="${u.department_name}" data-role="${u.role}" data-username="${u.username}">${u.full_name} (${u.username})</option>`).join('')}
-                `;
-            }
-        } catch(e) {
-            console.error('Error loading users for off days:', e);
-            showToast('Không thể tải danh sách nhân viên!', 'error');
+    // Load active users list
+    try {
+        const res = await apiCall('/api/settings/staff-off-dates/users');
+        if (res && res.users) {
+            window._offDaysUsersList = res.users;
         }
+    } catch(e) {
+        console.error('Error loading users for off days:', e);
     }
 
-    renderOffDaysCalendar();
-    refreshMonthlyOffDaysList();
+    await loadMonthlyAllOverrides();
+    renderOffDaysListGrid();
 }
 
 async function onOffDaysStaffChange() {
@@ -2127,10 +2062,7 @@ async function deleteOverride(userId, dateStr) {
 }
 
 function showQuickAddOverrideModal() {
-    const select = document.getElementById('offDaysStaffSelect');
-    if (!select) return;
-
-    const options = Array.from(select.options).filter(o => o.value !== "");
+    const users = window._offDaysUsersList || [];
 
     // Remove existing if any
     closeQuickAddOverride();
@@ -2155,7 +2087,7 @@ function showQuickAddOverrideModal() {
                 <label style="display: block; font-weight: 800; font-size: 11.5px; color: var(--gray-700); margin-bottom: 4px;">Chọn Nhân Viên</label>
                 <select id="quickAddStaffSelect" class="form-control" style="width: 100%; height: 38px; border-radius: 8px; font-weight: 600; padding: 6px 10px; font-size: 12px; border: 1.5px solid var(--gray-200);">
                     <option value="">-- Chọn nhân viên --</option>
-                    ${options.map(o => `<option value="${o.value}">${o.text}</option>`).join('')}
+                    ${users.map(u => `<option value="${u.id}">${u.full_name} (${u.username})</option>`).join('')}
                 </select>
             </div>
 
