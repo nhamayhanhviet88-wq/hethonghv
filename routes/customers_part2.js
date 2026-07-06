@@ -67,9 +67,8 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             const origY = 'Y' + String(oy).slice(-2);
             const cancelCode = `${origSTT}-${od}-${om}-${origY}`;
 
-            const nextBizDay = await getNextBizDay();
-            await db.run(`UPDATE customers SET cancel_requested_at = NOW()::text, cancel_approved = 0, order_status = 'cho_duyet_huy', appointment_date = ?, updated_at = NOW() WHERE id = ?`,
-                [nextBizDay, custId]);
+            await db.run(`UPDATE customers SET cancel_requested_at = NOW()::text, cancel_approved = 0, order_status = 'cho_duyet_huy', appointment_date = NULL, updated_at = NOW() WHERE id = ?`,
+                [custId]);
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
                 [custId, `❌ Nhắc lại hủy khách: ${reason}`, request.user.id]);
             const tgMsg = `❌ <b>${cancelCode} : NHẮC LẠI HỦY KHÁCH</b> ❌\n\nKhách: <code>${customer.customer_name}</code>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
@@ -92,6 +91,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                  cancel_requested_by = ?, cancel_requested_at = NOW()::text,
                  cancel_approved_by = NULL, cancel_approved_at = NULL,
                  order_status = 'cho_duyet_huy',
+                 appointment_date = NULL,
                  updated_at = NOW() WHERE id = ?`,
                 [reason, request.user.id, custId]
             );
@@ -347,6 +347,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                  cancel_approved_at = NOW()::text,
                  cancel_reason = cancel_reason || ?,
                  order_status = 'duyet_huy',
+                 appointment_date = NULL,
                  is_pinned = false, pinned_at = NULL,
                  updated_at = NOW() WHERE id = ?`,
                 [request.user.id, `\n📋 QL: ${manager_note}`, custId]

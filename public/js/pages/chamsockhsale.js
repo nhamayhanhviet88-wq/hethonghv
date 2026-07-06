@@ -581,7 +581,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
     const shortContent = lastContent.length > 30 ? lastContent.substring(0, 30) + '...' : lastContent;
 
     let appointDisplay = '';
-    if (c.appointment_date) {
+    if (c.appointment_date && _saleGetCategory(c, stats) !== 'huy_khach') {
         const d = new Date(c.appointment_date);
         const days = ['CN','T2','T3','T4','T5','T6','T7'];
         appointDisplay = `<span style="color:#e65100;font-weight:600">${days[d.getDay()]} - ${d.getDate()}/${d.getMonth()+1}</span>`;
