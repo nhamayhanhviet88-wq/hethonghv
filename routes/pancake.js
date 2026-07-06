@@ -236,12 +236,26 @@ async function pancakeRoutes(fastify, options) {
         let assignedPancakeTagId = null;
 
         if (eligibleUsers.length > 0) {
-            const lastAssignedIndex = page.last_assigned_index != null ? page.last_assigned_index : -1;
+            // Determine search start index based on global last assigned user ID
+            let startIndex = 0;
+            if (config.last_assigned_user_id) {
+                const prevIdx = page.staff_assignments.findIndex(sa => sa.crm_user_id === config.last_assigned_user_id);
+                if (prevIdx !== -1) {
+                    startIndex = (prevIdx + 1) % page.staff_assignments.length;
+                } else {
+                    const lastAssignedIndex = page.last_assigned_index != null ? page.last_assigned_index : -1;
+                    startIndex = (lastAssignedIndex + 1) % page.staff_assignments.length;
+                }
+            } else {
+                const lastAssignedIndex = page.last_assigned_index != null ? page.last_assigned_index : -1;
+                startIndex = (lastAssignedIndex + 1) % page.staff_assignments.length;
+            }
+
             const size = page.staff_assignments.length;
             let nextIndex = -1;
 
             for (let i = 0; i < size; i++) {
-                const idx = (lastAssignedIndex + 1 + i) % size;
+                const idx = (startIndex + i) % size;
                 const sa = page.staff_assignments[idx];
                 if (eligibleUsers.includes(sa.crm_user_id)) {
                     nextIndex = idx;
@@ -254,6 +268,7 @@ async function pancakeRoutes(fastify, options) {
 
             if (assignedUserId !== null) {
                 page.last_assigned_index = nextIndex;
+                config.last_assigned_user_id = assignedUserId; // Update globally
                 await db.run(
                     "INSERT INTO app_config (key, value, updated_at) VALUES ('pancake_settings', $1, NOW()) ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()",
                     [JSON.stringify(config)]
