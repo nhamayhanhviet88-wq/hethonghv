@@ -4,9 +4,17 @@ var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', 
 var _dhtProvinces = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hồ Chí Minh','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
 
 // === V4: Skip Step 1 — deposits are now selected in CRM ===
-async function _dhtShowCreate() {
+async function _dhtShowCreate(preselectedOrderCode) {
     _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [] };
     await _dhtGoStep2();
+    if (preselectedOrderCode) {
+        var codeObj = (_dhtCreate.availableCodes || []).find(function(x) { return x.order_code === preselectedOrderCode; });
+        if (codeObj) {
+            await _dhtPickOrderCode(codeObj.id);
+        } else {
+            console.warn('Preselected order code not found in available codes:', preselectedOrderCode);
+        }
+    }
 }
 
 function _dhtSelectDeposit(el) { /* V4: no longer used */ }

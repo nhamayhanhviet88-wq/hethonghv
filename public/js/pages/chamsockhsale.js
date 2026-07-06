@@ -1575,7 +1575,8 @@ function _saleOnConsultTypeChange() {
         const codeInput = document.getElementById('consultOrderCodeSale');
         if (codeInput && !codeInput.value) {
             codeInput.value = 'Đang tạo...';
-            apiCall('/api/orders/next-code').then(res => {
+            const custId = window._currentConsultCustomerId;
+            apiCall(`/api/order-codes/next${custId ? '?customer_id=' + custId : ''}`).then(res => {
                 if (res.order_code) codeInput.value = res.order_code;
             });
         }
@@ -1682,6 +1683,17 @@ async function _saleSubmitConsultLog(customerId) {
             showToast('Ghi nhận tư vấn thành công!');
             closeModal();
             _saleLoadData();
+            if (type === 'chot_don' && res.orderCode) {
+                showToast('Chốt đơn thành công! Hệ thống đang chuyển sang màn hình Tạo Đơn Hàng...', 'info');
+                setTimeout(() => {
+                    navigate('donhangtong');
+                    setTimeout(() => {
+                        if (typeof _dhtShowCreate === 'function') {
+                            _dhtShowCreate(res.orderCode);
+                        }
+                    }, 500);
+                }, 1000);
+            }
         } else {
             showToast(res.error || 'Lỗi ghi nhận!', 'error');
         }

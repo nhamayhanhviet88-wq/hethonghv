@@ -1090,6 +1090,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         if (log_type === 'chot_don' && !doneTypes.includes('dat_coc')) return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
 
         // Generate Order Code automatically if chot_don (unified request optimization)
+        let generatedOrderCode = null;
         if (log_type === 'chot_don') {
             const userId = request.user.id;
             const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
@@ -1151,6 +1152,9 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                           AND (order_tt_coc IS NULL OR order_tt_coc = '')
                     `, [orderCode, customer.phone]);
                 }
+                generatedOrderCode = orderCode;
+            } else {
+                generatedOrderCode = activeOrder.order_code;
             }
         }
 
@@ -1374,7 +1378,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         }
 
         const consultCount = (await db.get("SELECT COUNT(*) as cnt FROM consultation_logs WHERE customer_id = ? AND log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly') AND content NOT LIKE '%Pancake%' AND content NOT LIKE '%Đồng bộ%'", [customerId]))?.cnt || 0;
-        return { success: true, message: 'Đã ghi nhận tư vấn!', consultCount };
+        return { success: true, message: 'Đã ghi nhận tư vấn!', consultCount, orderCode: generatedOrderCode };
     });
 
     fastify.put('/api/customers/:id/appointment', { preHandler: [authenticate] }, async (request, reply) => {
