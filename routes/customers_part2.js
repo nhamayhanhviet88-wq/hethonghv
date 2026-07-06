@@ -889,6 +889,28 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         content = fields.content;
         if (!log_type) return reply.code(400).send({ error: 'Vui lòng chọn loại tư vấn' });
 
+        // ★ Server-side validation: appointment_date constraint for Sale CRM
+        if (fields.appointment_date && customer.crm_type === 'sale' && !['huy', 'cap_cuu_sep'].includes(log_type)) {
+            const typeConfig = await db.get(
+                'SELECT max_appointment_days FROM consult_type_configs WHERE key = ? AND crm_menu = ?',
+                [log_type, 'sale']
+            );
+            if (typeConfig && typeConfig.max_appointment_days > 0) {
+                const vnToday = getVNToday();
+                if (fields.appointment_date > vnToday) {
+                    const apptDate = new Date(fields.appointment_date);
+                    const todayDate = new Date(vnToday);
+                    const diffTime = apptDate.getTime() - todayDate.getTime();
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    if (diffDays > typeConfig.max_appointment_days) {
+                        return reply.code(400).send({
+                            error: `Ngày hẹn tiếp theo không được vượt quá ${typeConfig.max_appointment_days} ngày kể từ hôm nay (chọn: ${fields.appointment_date})`
+                        });
+                    }
+                }
+            }
+        }
+
         // Update customer details if sent in FormData (unified request optimization)
         const updates = [];
         const params = [];

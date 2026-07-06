@@ -1789,7 +1789,8 @@ function findPermissionMenuItem(pageId) {
         'quytacnuttuvancrmnhucau': 'crm-nhu-cau',
         'quytacnuttuvancrmctv': 'crm-ctv',
         'quytacnuttuvancrmaffiliate': 'cham-soc-affiliate',
-        'quytacnuttuvancrmkockol': 'cham-soc-koc-kol'
+        'quytacnuttuvancrmkockol': 'cham-soc-koc-kol',
+        'quytacnuttuvancrmsale': 'chamsockhsale'
     };
 
     var targetId = aliasMap[pageId] || pageId;
@@ -2027,6 +2028,7 @@ async function handleRoute() {
             case 'quytacnuttuvancrmctv': renderQuyTacTuVanCtvPage(content); break;
             case 'quytacnuttuvancrmaffiliate': renderQuyTacTuVanAffPage(content); break;
             case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
+            case 'quytacnuttuvancrmsale': renderQuyTacTuVanSalePage(content); break;
             case 'dailylinks': renderDailyLinksPage(content); break;
             case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _dlInit==='function')_dlInit();},50); break;
             case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;

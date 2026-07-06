@@ -1379,7 +1379,7 @@ function _saleOnConsultTypeChange() {
     if (imageGroup) imageGroup.style.display = 'block';
     if (appointmentGroup) appointmentGroup.style.display = 'block';
 
-    const maxDays = window._currentConsultMaxDays || 0;
+    const maxDays = _saleConsultTypes[type]?.maxAppointmentDays || 0;
     const today = new Date();
     const _tmr = new Date(today); _tmr.setDate(_tmr.getDate() + 1);
     const tomorrowStr = _tmr.getFullYear() + '-' + String(_tmr.getMonth()+1).padStart(2,'0') + '-' + String(_tmr.getDate()).padStart(2,'0');
