@@ -294,7 +294,18 @@ async function customersRoutes(fastify, options) {
             r.full_name as receiver_name, a.full_name as assigned_to_name,
             cb.full_name as created_by_name, ref.full_name as referrer_name, COALESCE((SELECT sc.crm_type FROM customers sc WHERE sc.id = ref.source_customer_id), CASE ref.role WHEN 'hoa_hong' THEN 'ctv_hoa_hong' WHEN 'tkaffiliate' THEN 'ctv_hoa_hong' WHEN 'ctv' THEN 'ctv' ELSE ref.source_crm_type END) as referrer_user_crm_type,
             crb.full_name as cancel_requested_by_name, cab.full_name as cancel_approved_by_name,
-            rc.customer_name as referrer_customer_name, rc.crm_type as referrer_crm_type, rc.phone as referrer_customer_phone
+            rc.customer_name as referrer_customer_name, rc.crm_type as referrer_crm_type, rc.phone as referrer_customer_phone,
+            EXISTS (
+                SELECT 1 FROM consultation_logs cl 
+                WHERE cl.customer_id = c.id 
+                AND timezone('Asia/Ho_Chi_Minh', cl.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly')
+                AND cl.content NOT LIKE '%Pancake%'
+                AND cl.content NOT LIKE '%Đồng bộ%'
+            ) as consulted_today,
+            (SELECT cl.log_type FROM consultation_logs cl 
+             WHERE cl.customer_id = c.id AND cl.log_type != 'khong_xu_ly'
+             ORDER BY cl.created_at DESC, cl.id DESC LIMIT 1) as last_consult_type
             FROM customers c
             LEFT JOIN settings_sources s ON c.source_id = s.id
             LEFT JOIN settings_promotions p ON c.promotion_id = p.id

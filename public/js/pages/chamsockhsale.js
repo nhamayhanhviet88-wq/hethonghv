@@ -260,16 +260,18 @@ function _saleGetCategory(c, stats) {
 
     const today = new Date();
     const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    const s = stats[c.id] || {};
 
-    let consultedToday = false;
-    if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm' && s.lastLog.log_type !== 'tao_tk_affiliate' && s.lastLog.log_type !== 'gui_lai_so') {
-        const content = s.lastLog.content || '';
-        const isAutoPancakeLog = (s.lastLog.logged_by === null || !s.lastLog.logged_by) && (content.includes('Pancake') || content.includes('Đồng bộ'));
-        if (!isAutoPancakeLog) {
-            const logDate = new Date(s.lastLog.created_at);
-            const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
-            consultedToday = (logStr === todayStr);
+    let consultedToday = c.consulted_today || false;
+    if (!consultedToday && stats) {
+        const s = stats[c.id] || {};
+        if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm' && s.lastLog.log_type !== 'tao_tk_affiliate' && s.lastLog.log_type !== 'gui_lai_so') {
+            const content = s.lastLog.content || '';
+            const isAutoPancakeLog = (s.lastLog.logged_by === null || !s.lastLog.logged_by) && (content.includes('Pancake') || content.includes('Đồng bộ'));
+            if (!isAutoPancakeLog) {
+                const logDate = new Date(s.lastLog.created_at);
+                const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
+                consultedToday = (logStr === todayStr);
+            }
         }
     }
 
@@ -318,8 +320,8 @@ function _saleUpdateConsultTypeDropdown(filteredList) {
     let noLogCount = 0;
     custs.forEach(c => {
         const s = _saleAllStats[c.id] || {};
-        if (s.lastLog && s.lastLog.log_type) {
-            const lt = s.lastLog.log_type;
+        const lt = c.last_consult_type || (s.lastLog && s.lastLog.log_type);
+        if (lt) {
             typeCounts[lt] = (typeCounts[lt] || 0) + 1;
         } else {
             noLogCount++;
@@ -434,7 +436,7 @@ function _saleApplyCustomDate() {
     _saleRenderFilteredTable();
 }
 
-function _saleRenderFilteredTable() {
+async function _saleRenderFilteredTable() {
     const customers = _saleAllCustomers;
     const stats = _saleAllStats;
     const tbody = document.getElementById('saleTbody');
@@ -478,15 +480,9 @@ function _saleRenderFilteredTable() {
     const consultTypeVal = document.getElementById('saleFilterConsultType')?.value;
     if (consultTypeVal) {
         if (consultTypeVal === '__none__') {
-            filtered = filtered.filter(c => {
-                const s = stats[c.id] || {};
-                return !s.lastLog || !s.lastLog.log_type;
-            });
+            filtered = filtered.filter(c => !c.last_consult_type);
         } else {
-            filtered = filtered.filter(c => {
-                const s = stats[c.id] || {};
-                return s.lastLog && s.lastLog.log_type === consultTypeVal;
-            });
+            filtered = filtered.filter(c => c.last_consult_type === consultTypeVal);
         }
     }
 
@@ -526,22 +522,32 @@ function _saleRenderFilteredTable() {
     const startIdx = (_saleCurrentPage - 1) * _salePageSize;
     const paged = filtered.slice(startIdx, startIdx + _salePageSize);
 
+    const pagedIds = paged.map(c => c.id).join(',');
+    if (pagedIds) {
+        try {
+            const statsData = await apiCall(`/api/customers/consult-stats?customer_ids=${pagedIds}`);
+            Object.assign(_saleAllStats, statsData.stats || {});
+        } catch (e) {
+            console.error('Error fetching page stats:', e);
+        }
+    }
+
     if (_saleActiveCat === 'phai_xu_ly') {
-        const moiChuyenRows = paged.filter(c => _saleGetCategory(c, stats) === 'moi_chuyen');
-        const phaiXuLyRows = paged.filter(c => _saleGetCategory(c, stats) === 'phai_xu_ly');
+        const moiChuyenRows = paged.filter(c => _saleGetCategory(c, _saleAllStats) === 'moi_chuyen');
+        const phaiXuLyRows = paged.filter(c => _saleGetCategory(c, _saleAllStats) === 'phai_xu_ly');
         let html = '';
         let stt = startIdx + 1;
         if (moiChuyenRows.length > 0) {
             html += `<tr class="crm-section-header"><td colspan="16"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
-            html += moiChuyenRows.map(c => _saleRenderCustomerRow(c, stats, stt++)).join('');
+            html += moiChuyenRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
         }
         if (phaiXuLyRows.length > 0) {
             html += `<tr class="crm-section-header"><td colspan="16"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
-            html += phaiXuLyRows.map(c => _saleRenderCustomerRow(c, stats, stt++)).join('');
+            html += phaiXuLyRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
         }
         tbody.innerHTML = html;
     } else {
-        tbody.innerHTML = paged.map((c, idx) => _saleRenderCustomerRow(c, stats, startIdx + idx + 1)).join('');
+        tbody.innerHTML = paged.map((c, idx) => _saleRenderCustomerRow(c, _saleAllStats, startIdx + idx + 1)).join('');
     }
 
     const pgEl = document.getElementById('salePagination');
@@ -738,12 +744,7 @@ async function _saleLoadData() {
     const data = await apiCall(url);
     const customers = data.customers || [];
 
-    const ids = customers.map(c => c.id).join(',');
     let stats = {};
-    if (ids) {
-        const statsData = await apiCall(`/api/customers/consult-stats?customer_ids=${ids}`);
-        stats = statsData.stats || {};
-    }
 
     try {
         const pendingData = await apiCall('/api/crm-conversion/pending-customers');
