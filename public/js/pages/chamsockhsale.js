@@ -1158,7 +1158,9 @@ async function _saleOpenConsultModal(customerId) {
         consultLogs = logData.logs || [];
 
         let currentCycleLogs = consultLogs;
-        const firstBoundaryIdx = consultLogs.findIndex(l => ['hoan_thanh', 'chot_don', 'huy'].includes(l.log_type));
+        const isCancelled = ['duyet_huy', 'cho_duyet_huy'].includes(customerInfo.order_status);
+        const boundaryTypes = isCancelled ? ['hoan_thanh', 'chot_don'] : ['hoan_thanh', 'chot_don', 'huy'];
+        const firstBoundaryIdx = consultLogs.findIndex(l => boundaryTypes.includes(l.log_type));
         if (firstBoundaryIdx !== -1) {
             currentCycleLogs = consultLogs.slice(0, firstBoundaryIdx);
         }

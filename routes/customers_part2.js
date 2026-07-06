@@ -17,10 +17,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         if (customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
             const countRow = await db.get(`
                 WITH last_boundary AS (
-                    SELECT customer_id, MAX(id) as id
-                    FROM consultation_logs
-                    WHERE log_type IN ('hoan_thanh', 'chot_don', 'huy') AND customer_id = $1
-                    GROUP BY customer_id
+                    SELECT cl.customer_id, MAX(cl.id) as id
+                    FROM consultation_logs cl
+                    JOIN customers c ON c.id = cl.customer_id
+                    WHERE cl.customer_id = $1
+                      AND (
+                        cl.log_type IN ('hoan_thanh', 'chot_don')
+                        OR (cl.log_type = 'huy' AND c.order_status NOT IN ('duyet_huy', 'cho_duyet_huy'))
+                      )
+                    GROUP BY cl.customer_id
                 )
                 SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
                 FROM customers c
@@ -956,10 +961,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         if (log_type === 'huy' && customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
             const countRow = await db.get(`
                 WITH last_boundary AS (
-                    SELECT customer_id, MAX(id) as id
-                    FROM consultation_logs
-                    WHERE log_type IN ('hoan_thanh', 'chot_don', 'huy') AND customer_id = $1
-                    GROUP BY customer_id
+                    SELECT cl.customer_id, MAX(cl.id) as id
+                    FROM consultation_logs cl
+                    JOIN customers c ON c.id = cl.customer_id
+                    WHERE cl.customer_id = $1
+                      AND (
+                        cl.log_type IN ('hoan_thanh', 'chot_don')
+                        OR (cl.log_type = 'huy' AND c.order_status NOT IN ('duyet_huy', 'cho_duyet_huy'))
+                      )
+                    GROUP BY cl.customer_id
                 )
                 SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
                 FROM customers c
@@ -1386,10 +1396,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         const countRow = await db.get(`
             WITH last_boundary AS (
-                SELECT customer_id, MAX(id) as id
-                FROM consultation_logs
-                WHERE log_type IN ('hoan_thanh', 'chot_don', 'huy') AND customer_id = $1
-                GROUP BY customer_id
+                SELECT cl.customer_id, MAX(cl.id) as id
+                FROM consultation_logs cl
+                JOIN customers c ON c.id = cl.customer_id
+                WHERE cl.customer_id = $1
+                  AND (
+                    cl.log_type IN ('hoan_thanh', 'chot_don')
+                    OR (cl.log_type = 'huy' AND c.order_status NOT IN ('duyet_huy', 'cho_duyet_huy'))
+                  )
+                GROUP BY cl.customer_id
             )
             SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
             FROM customers c
@@ -1469,10 +1484,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             const [consultCounts, chotDons, lastLogs, revenues, latestOrderCodes] = await Promise.all([
                 db.all(`
                     WITH last_boundary AS (
-                        SELECT customer_id, MAX(id) as id
-                        FROM consultation_logs
-                        WHERE log_type IN ('hoan_thanh', 'chot_don', 'huy') AND customer_id IN (${placeholders})
-                        GROUP BY customer_id
+                        SELECT cl.customer_id, MAX(cl.id) as id
+                        FROM consultation_logs cl
+                        JOIN customers c ON c.id = cl.customer_id
+                        WHERE cl.customer_id IN (${placeholders})
+                          AND (
+                            cl.log_type IN ('hoan_thanh', 'chot_don')
+                            OR (cl.log_type = 'huy' AND c.order_status NOT IN ('duyet_huy', 'cho_duyet_huy'))
+                          )
+                        GROUP BY cl.customer_id
                     )
                     SELECT 
                         c.id as customer_id,
