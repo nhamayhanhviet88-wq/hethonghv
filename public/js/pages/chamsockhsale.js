@@ -1264,12 +1264,17 @@ async function _saleOpenConsultModal(customerId) {
     if (pendingEmergency) defaultType = 'cap_cuu_sep';
     if (customerInfo.cancel_approved === -2) defaultType = 'huy';
 
+    // Override defaultType to 'goi_dien' if Hủy Khách is blocked for care count
+    if (defaultType === 'huy' && typeof window._currentCustomerCareCount === 'number' && window._currentCustomerCareCount < 5 && !['giam_doc', 'quan_ly_cap_cao'].includes(currentUser?.role)) {
+        defaultType = 'goi_dien';
+    }
+
     const typeOptions = allowedTypes.map(([k, v]) => {
         if (k === 'huy' && typeof window._currentCustomerCareCount === 'number' && window._currentCustomerCareCount < 5 && !['giam_doc', 'quan_ly_cap_cao'].includes(currentUser?.role)) {
-            return `<option value="${k}" style="color: #94a3b8; opacity: 0.6;" disabled>${v.icon} ${v.label} (Yêu cầu ≥ 5 lần chăm sóc - Hiện tại: ${window._currentCustomerCareCount}/5)</option>`;
+            return '';
         }
         return `<option value="${k}" ${k === defaultType ? 'selected' : ''}>${v.icon} ${v.label}</option>`;
-    }).join('');
+    }).filter(html => html !== '').join('');
 
     const historyHTML = consultLogs.length > 0 ? `
         <div style="margin-bottom:12px;">
@@ -1324,9 +1329,12 @@ async function _saleOpenConsultModal(customerId) {
         <div class="form-group" id="consultNextTypeGroupSale" style="display:none">
             <label>Tư Vấn Tiếp Theo <span style="color:var(--danger)">*</span></label>
             <select id="consultNextTypeSale" class="form-control" onchange="_saleUpdateApptLabel()">
-                ${Object.entries(_saleConsultTypes).filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','dat_coc','chot_don','cap_cuu_sep','huy'].includes(k)).map(([k, v]) =>
-                    `<option value="${k}" ${k === (lastLog?.next_consult_type || 'goi_dien') ? 'selected' : ''}>${v.icon} ${v.label}</option>`
-                ).join('')}
+                ${Object.entries(_saleConsultTypes).filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','dat_coc','chot_don','cap_cuu_sep','huy'].includes(k)).map(([k, v]) => {
+                    if (k === 'huy' && typeof window._currentCustomerCareCount === 'number' && window._currentCustomerCareCount < 5 && !['giam_doc', 'quan_ly_cap_cao'].includes(currentUser?.role)) {
+                        return '';
+                    }
+                    return `<option value="${k}" ${k === (lastLog?.next_consult_type || 'goi_dien') ? 'selected' : ''}>${v.icon} ${v.label}</option>`;
+                }).filter(html => html !== '').join('')}
             </select>
         </div>
         <div class="form-group" id="consultAppointmentGroupSale">
