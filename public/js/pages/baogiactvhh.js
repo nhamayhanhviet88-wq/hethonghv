@@ -670,7 +670,7 @@ function _ctvRenderCalculator(container) {
                                     : Number(m.price);
                                 return `
                                     <option value="${idx}" ${idx === _ctvState.selectedMaterialIndex ? 'selected' : ''}>
-                                        ${m.is_best_seller ? '🔥 Bán Chạy - ' : ''}${m.name} - ${price.toLocaleString('vi-VN')} đ (May cổ tròn)
+                                        ${m.is_best_seller ? '🔥 Bán Chạy - ' : ''}${m.name} - ${price.toLocaleString('vi-VN')} đ
                                     </option>
                                 `;
                             }).join('')}
@@ -886,7 +886,7 @@ function _ctvSelectTargetType(type) {
                 ? (m.customer_price !== undefined ? Number(m.customer_price) : Math.round(Number(m.price) * 1.15)) 
                 : Number(m.price);
             return `<option value="${idx}" ${idx === currentIdx ? 'selected' : ''}>
-                ${m.is_best_seller ? '🔥 Bán Chạy - ' : ''}${m.name} - ${price.toLocaleString('vi-VN')} đ (May cổ tròn)
+                ${m.is_best_seller ? '🔥 Bán Chạy - ' : ''}${m.name} - ${price.toLocaleString('vi-VN')} đ
             </option>`;
         }).join('');
     }
