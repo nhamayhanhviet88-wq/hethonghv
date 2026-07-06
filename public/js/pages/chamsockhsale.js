@@ -630,6 +630,10 @@ function _saleRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </span>
+            ` : (c.cancel_approved === 1) ? `
+                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:#dc2626;color:white;opacity:0.6;cursor:not-allowed;">
+                    ❌ Hủy Khách
+                </span>
             ` : (c.cancel_approved === -2) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:#dc2626;color:white;opacity:0.6;cursor:not-allowed;">
                     ❌ Hủy Khách (nhắc lại)
@@ -651,6 +655,18 @@ function _saleRenderCustomerRow(c, stats, stt) {
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </button>
+            ` : (c.cancel_approved === 1) ? `
+                <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
+                    <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
+                        style="font-size:11px;padding:4px 8px;background:#dc2626;color:white;flex-grow:1;">
+                        ❌ Hủy Khách
+                    </button>
+                    <button class="btn btn-sm btn-star-${c.id}" onclick="event.stopPropagation();_saleQuickRecare(${c.id})" 
+                        style="font-size:12px;padding:4px 8px;background:#fef08a;color:#ca8a04;border:1px solid #fde047;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;" 
+                        title="Chăm sóc nhanh" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                        ⭐
+                    </button>
+                </div>
             ` : (c.cancel_approved === -2) ? (() => {
                 const isBlocked = (s.consultCount < 5) && !['giam_doc', 'quan_ly_cap_cao'].includes(currentUser?.role);
                 if (isBlocked) {

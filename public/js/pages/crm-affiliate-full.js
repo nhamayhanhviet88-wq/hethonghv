@@ -698,6 +698,10 @@ function _affRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </span>
+            ` : (c.cancel_approved === 1) ? `
+                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:#dc2626;color:white;opacity:0.6;cursor:not-allowed;">
+                    ❌ Hủy Khách
+                </span>
             ` : (c.cancel_approved === -2) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:#dc2626;color:white;opacity:0.6;cursor:not-allowed;">
                     ❌ Hủy Khách (nhắc lại)
@@ -718,6 +722,11 @@ function _affRenderCustomerRow(c, stats, stt) {
             ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
+                </button>
+            ` : (c.cancel_approved === 1) ? `
+                <button class="btn btn-sm consult-btn" onclick="_affOpenConsultModal(${c.id})" 
+                    style="font-size:11px;padding:4px 8px;background:#dc2626;color:white;">
+                    ❌ Hủy Khách
                 </button>
             ` : (c.cancel_approved === -2) ? `
                 <button class="btn btn-sm consult-btn" onclick="_affOpenConsultModal(${c.id})" 
