@@ -1471,7 +1471,7 @@ async function showStaffOffDaysModal() {
             <div style="border-right: 1.5px solid var(--gray-200); padding-right: 16px; display: flex; flex-direction: column; justify-content: flex-start; gap: 15px;">
                 <div>
                     <label style="display: block; font-weight: 800; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">👤 Chọn Nhân Viên</label>
-                    <select id="offDaysStaffSelect" class="form-control" onchange="onOffDaysStaffChange()" style="width: 100%; height: 38px; border-radius: 8px; font-weight: 600; padding: 0 12px; line-height: 38px;">
+                    <select id="offDaysStaffSelect" class="form-control" onchange="onOffDaysStaffChange()" style="width: 100%; height: 42px; border-radius: 10px; border: 1.5px solid var(--gray-200); font-weight: 600; padding: 8px 12px;">
                         <option value="">-- Chọn nhân viên --</option>
                     </select>
                 </div>
