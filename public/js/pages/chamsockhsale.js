@@ -1582,6 +1582,8 @@ function _saleOnConsultTypeChange() {
     } else if (type === 'chot_don') {
         if (orderGroup) orderGroup.style.display = 'block';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
+        if (contentGroup) contentGroup.style.display = 'none';
+        if (imageGroup) imageGroup.style.display = 'none';
         if (ocGroup) ocGroup.style.display = 'block';
         if (oTableGroup) oTableGroup.style.display = 'none';
         if (totalWrap) totalWrap.style.display = 'none';
