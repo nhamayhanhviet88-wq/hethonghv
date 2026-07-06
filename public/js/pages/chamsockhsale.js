@@ -1351,9 +1351,6 @@ async function _saleOpenConsultModal(customerId) {
         <div class="form-group" id="consultCancelGroupSale" style="display:none">
             <label>Lý Do Hủy <span style="color:var(--danger)">*</span></label>
             <textarea id="consultCancelReasonSale" class="form-control" rows="3" placeholder="Nhập lý do hủy khách hàng..."></textarea>
-            <div style="margin-top:8px;padding:10px;background:rgba(220,38,38,0.15);border-radius:6px;border:1px solid rgba(220,38,38,0.3);font-size:12px;color:#fca5a5;">
-                ⚠️ Hủy khách hàng sẽ cần Quản Lý/Giám Đốc duyệt.
-            </div>
         </div>
         <div class="form-group" id="consultHandlerGroupSale" style="display:none">
             <label>Chọn Người Xử Lý <span style="color:var(--danger)">*</span></label>
