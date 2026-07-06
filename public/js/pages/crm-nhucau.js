@@ -913,7 +913,7 @@ function _crmRenderCustomerRow(c, stats, stt) {
         <!-- Column 8: Khách Hàng (Tên + Mã + UID) -->
         <td style="font-size:12px;">
             <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
-                ${!c.readonly && canDo('crm_nhu_cau', 'edit') ? '<button class="btn btn-sm" onclick="event.stopPropagation();openCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
+
                 ${(() => {
                     const _colors = [
                         {bg:'rgba(239,68,68,0.12)',text:'#dc2626',border:'rgba(239,68,68,0.25)'},
