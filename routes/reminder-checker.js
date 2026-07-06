@@ -209,7 +209,9 @@ async function checkChuyenSo(today, mins) {
         const isResend = row.appointment_date === today && row.effective_date !== today;
         const code = buildCode(row);
 
-        const tgParts = [`⏰ Xử lí số : <b>${code}</b> : <code>${row.customer_name || '?'}</code> - <code>${row.phone || 'N/A'}</code>`];
+        const hasPhone = row.phone && !row.phone.startsWith('pancake_') && row.phone !== 'Chưa có SĐT' && row.phone !== 'N/A';
+        const phonePart = hasPhone ? ` - <code>${row.phone}</code>` : '';
+        const tgParts = [`⏰ Xử lí số : <b>${code}</b> : <code>${row.customer_name || '?'}</code>${phonePart}`];
         if (row.source_name) tgParts.push(row.source_name);
         if (row.promo_name) tgParts.push(row.promo_name);
         if (row.industry_name) tgParts.push(row.industry_name);
