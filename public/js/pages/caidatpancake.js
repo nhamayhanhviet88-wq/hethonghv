@@ -11,6 +11,8 @@ let _kdSources = [];
 let _saleSources = [];
 let _allUsers = [];
 let _kdAndSaleUsers = [];
+let _departments = [];
+let _globalWorkingDaysSearchQuery = '';
 let _pancakeMembersCache = {}; // Cache pancake members by pageId
 let _offUsersToday = []; // Users off today
 let _offDaysCurrentDate = new Date();
@@ -173,6 +175,7 @@ async function loadPancakeData() {
         try {
             const deptRes = await apiCall('/api/departments');
             departments = deptRes.departments || [];
+            _departments = departments;
         } catch(e) {
             console.error('Failed to load departments:', e);
         }
@@ -362,30 +365,80 @@ function getDateOfWeekdayInCurrentWeek(targetDOW) {
     return `${y}-${m}-${d}`;
 }
 
+function getUserDeptCategory(user) {
+    if (!user.department_id) return 'other';
+    const deptId = Number(user.department_id);
+    
+    let currentId = deptId;
+    let visited = new Set();
+    while (currentId && !visited.has(currentId)) {
+        visited.add(currentId);
+        const dept = _departments.find(d => d.id === currentId);
+        if (!dept) break;
+        
+        const nameUpper = (dept.name || '').toUpperCase();
+        const codeUpper = (dept.code || '').toUpperCase();
+        
+        if (codeUpper === 'PHONGSALE' || nameUpper.includes('PHÒNG SALE') || nameUpper.includes('PHONG SALE') || nameUpper.includes('SALE')) {
+            if (!nameUpper.includes('XƯỞNG')) {
+                return 'sale';
+            }
+        }
+        
+        if (codeUpper === 'KINHDOANH' || nameUpper.includes('KINH DOANH')) {
+            return 'kinh_doanh';
+        }
+        
+        currentId = dept.parent_id;
+    }
+    
+    if (deptId === 4 || deptId === 27) {
+        return 'sale';
+    }
+    return 'kinh_doanh';
+}
+
+function onGlobalWorkingDaysSearch() {
+    const input = document.getElementById('globalWorkingDaysSearchInput');
+    _globalWorkingDaysSearchQuery = input ? input.value.trim().toLowerCase() : '';
+    renderGlobalWorkingDaysTable();
+}
+
 function renderGlobalWorkingDaysTable() {
     const tbody = document.getElementById('globalWorkingDaysTableBody');
     if (!tbody) return;
 
-    const users = _kdAndSaleUsers || [];
+    let users = _kdAndSaleUsers || [];
+    if (_globalWorkingDaysSearchQuery) {
+        users = users.filter(u => {
+            const fullName = (u.full_name || '').toLowerCase();
+            const username = (u.username || '').toLowerCase();
+            return fullName.includes(_globalWorkingDaysSearchQuery) || username.includes(_globalWorkingDaysSearchQuery);
+        });
+    }
+
     if (users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 20px; color: var(--gray-400);">Không có nhân viên nào.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 20px; color: var(--gray-400);">Không tìm thấy nhân viên nào phù hợp.</td></tr>`;
         return;
     }
 
+    const kdUsers = users.filter(u => getUserDeptCategory(u) === 'kinh_doanh');
+    const saleUsers = users.filter(u => getUserDeptCategory(u) === 'sale');
+    const otherUsers = users.filter(u => {
+        const cat = getUserDeptCategory(u);
+        return cat !== 'kinh_doanh' && cat !== 'sale';
+    });
+
     const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-    const today = new Date();
-    const todayDOW = today.getDay(); // 0 = CN, 1 = T2...
-    
-    tbody.innerHTML = users.map(u => {
+    const todayStr = typeof vnDateStr === 'function' ? vnDateStr() : new Date().toISOString().split('T')[0];
+    const schedule = _pancakeConfig.sunday_duty_schedule || {};
+
+    const renderUserRow = (u) => {
         const workingDays = _pancakeConfig.global_working_days && _pancakeConfig.global_working_days[u.id] !== undefined
             ? _pancakeConfig.global_working_days[u.id].filter(d => d !== 0) // exclude static Sunday
             : [1, 2, 3, 4, 5, 6]; // Default Monday to Saturday
         
-        const isOffToday = _offUsersToday.includes(u.id);
-
         // Find all future Sundays (today onwards) assigned to this user
-        const todayStr = typeof vnDateStr === 'function' ? vnDateStr() : new Date().toISOString().split('T')[0];
-        const schedule = _pancakeConfig.sunday_duty_schedule || {};
         const futureSundays = Object.keys(schedule).filter(dateStr => {
             return dateStr >= todayStr && Array.isArray(schedule[dateStr]) && schedule[dateStr].includes(u.id);
         }).sort();
@@ -459,7 +512,7 @@ function renderGlobalWorkingDaysTable() {
         }).join('');
 
         return `
-            <tr style="border-bottom: 1px solid #f1f5f9;">
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background-color 0.15s;" onmouseover="this.style.backgroundColor='#fafafa'" onmouseout="this.style.backgroundColor='transparent'">
                 <td style="padding: 10px 16px; font-weight: 700; color: #334155; vertical-align: middle;">${u.full_name} (${u.username})</td>
                 <td style="padding: 10px 16px; text-align: center; vertical-align: middle;">
                     <div style="display: inline-block;">
@@ -468,7 +521,38 @@ function renderGlobalWorkingDaysTable() {
                 </td>
             </tr>
         `;
-    }).join('');
+    };
+
+    let html = '';
+    
+    if (kdUsers.length > 0) {
+        html += `
+            <tr style="background: #f1f5f9; border-bottom: 1.5px solid #cbd5e1; border-top: 1.5px solid #cbd5e1;">
+                <td colspan="2" style="padding: 10px 16px; font-weight: 800; color: #1e293b; font-size: 13px;">🏢 PHÒNG KINH DOANH (${kdUsers.length})</td>
+            </tr>
+        `;
+        html += kdUsers.map(u => renderUserRow(u)).join('');
+    }
+
+    if (saleUsers.length > 0) {
+        html += `
+            <tr style="background: #f1f5f9; border-bottom: 1.5px solid #cbd5e1; border-top: 1.5px solid #cbd5e1;">
+                <td colspan="2" style="padding: 10px 16px; font-weight: 800; color: #1e293b; font-size: 13px;">💼 PHÒNG SALE (${saleUsers.length})</td>
+            </tr>
+        `;
+        html += saleUsers.map(u => renderUserRow(u)).join('');
+    }
+
+    if (otherUsers.length > 0) {
+        html += `
+            <tr style="background: #f1f5f9; border-bottom: 1.5px solid #cbd5e1; border-top: 1.5px solid #cbd5e1;">
+                <td colspan="2" style="padding: 10px 16px; font-weight: 800; color: #1e293b; font-size: 13px;">👥 KHÁC (${otherUsers.length})</td>
+            </tr>
+        `;
+        html += otherUsers.map(u => renderUserRow(u)).join('');
+    }
+
+    tbody.innerHTML = html;
 }
 
 function toggleGlobalWorkingDayBadge(badge, userId) {
@@ -497,9 +581,18 @@ function toggleGlobalWorkingDayBadge(badge, userId) {
 }
 
 async function showGlobalWorkingDaysModal() {
+    _globalWorkingDaysSearchQuery = '';
     const modalBody = `
         <div style="margin-bottom: 16px; font-size: 13px; color: var(--gray-600); font-weight: 500; line-height: 1.5;">
             Thiết lập ngày trong tuần (Thứ nhận Lead) áp dụng chung cho toàn bộ Fanpage. Nhấp chọn các ngày nhân viên trực nhận số.
+        </div>
+        <div style="margin-bottom: 14px; position: relative;">
+            <input type="text" id="globalWorkingDaysSearchInput" placeholder="🔍 Tìm tên hoặc tài khoản nhân viên..." 
+                   style="width: 100%; padding: 10px 14px 10px 36px; border-radius: 10px; border: 1.5px solid var(--gray-200); font-size: 13px; outline: none; transition: border-color 0.2s;"
+                   oninput="onGlobalWorkingDaysSearch()"
+                   onfocus="this.style.borderColor='#FF7E5F'"
+                   onblur="this.style.borderColor='var(--gray-200)'">
+            <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--gray-400); pointer-events: none;">🔍</span>
         </div>
         <div style="max-height: 320px; overflow-y: auto; border: 1.5px solid var(--gray-200); border-radius: 12px; background: white; box-shadow: inset 0 2px 8px rgba(0,0,0,0.02); margin-bottom: 12px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;">
