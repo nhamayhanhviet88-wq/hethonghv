@@ -464,7 +464,7 @@ async function renderCRMNhuCauPage(container) {
                         <th style="min-width:120px">Nút Tư Vấn</th>
                         <th style="min-width:160px">Nội Dung TV</th>
                         <th style="min-width:70px;text-align:center">Lần Chăm</th>
-                        <th style="min-width:140px">Ngày Hẹn</th>
+                        <th style="min-width:100px">Hẹn</th>
                         <th style="min-width:180px">Khách Hàng</th>
                         <th style="min-width:180px">Liên Hệ</th>
                         <th style="min-width:200px">Nguồn & Giới Thiệu</th>
@@ -841,7 +841,7 @@ function _crmRenderCustomerRow(c, stats, stt) {
         const d = new Date(c.appointment_date);
         const days = ['CN','T2','T3','T4','T5','T6','T7'];
         const dayName = days[d.getDay()];
-        appointDisplay = `<span style="color:#e65100;font-weight:600">${dayName} - ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}</span>`;
+        appointDisplay = `<span style="color:#e65100;font-weight:600">${dayName} - ${d.getDate()}/${d.getMonth()+1}</span>`;
     }
 
     const isMoiChuyen = _crmIsMoiChuyenClientSide(c, [s.lastLog].filter(Boolean)) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role);
