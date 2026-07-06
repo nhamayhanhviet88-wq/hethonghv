@@ -302,26 +302,31 @@ async function telegramRoutes(fastify, options) {
             if (customers.length === 1) {
                 customer = customers[0];
             } else {
-                // Resolve assignee from chat ID
-                const chatIdStr = String(message.chat.id);
-                let assigneeId = null;
-                const notificationRow = await db.get(
-                    `SELECT user_id FROM telegram_notifications WHERE chat_id = $1 AND enabled = true LIMIT 1`,
-                    [chatIdStr]
-                );
-                if (notificationRow) {
-                    assigneeId = notificationRow.user_id;
-                } else {
-                    const userRow = await db.get(`SELECT id FROM users WHERE telegram_group_id = $1 LIMIT 1`, [chatIdStr]);
-                    if (userRow) assigneeId = userRow.id;
-                }
+                // 1. Prioritize matching by customer name in the replied message text
+                customer = customers.find(c => c.customer_name && replyText.toLowerCase().includes(c.customer_name.toLowerCase()));
 
-                if (assigneeId) {
-                    customer = customers.find(c => c.assigned_to_id === assigneeId);
+                if (!customer) {
+                    // 2. Fallback to assignee ID check from chat ID
+                    const chatIdStr = String(message.chat.id);
+                    let assigneeId = null;
+                    const notificationRow = await db.get(
+                        `SELECT user_id FROM telegram_notifications WHERE chat_id = $1 AND enabled = true LIMIT 1`,
+                        [chatIdStr]
+                    );
+                    if (notificationRow) {
+                        assigneeId = notificationRow.user_id;
+                    } else {
+                        const userRow = await db.get(`SELECT id FROM users WHERE telegram_group_id = $1 LIMIT 1`, [chatIdStr]);
+                        if (userRow) assigneeId = userRow.id;
+                    }
+
+                    if (assigneeId) {
+                        customer = customers.find(c => c.assigned_to_id === assigneeId);
+                    }
                 }
 
                 if (!customer) {
-                    // Fallback matching by username or full name in text
+                    // 3. Fallback matching by username or full name of staff in text
                     for (const cust of customers) {
                         const staff = await db.get(`SELECT username, full_name FROM users WHERE id = $1`, [cust.assigned_to_id]);
                         if (staff) {
