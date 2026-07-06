@@ -86,7 +86,7 @@ async function renderCaidatpancakePage(container) {
                     </div>
                     
                     <div style="text-align: right; margin-bottom: 24px;">
-                        <button onclick="saveGlobalPancakeSettings()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 0 24px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; height: 42px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(255,126,95,0.2);">Lưu Cấu Hình Chung</button>
+                        <button id="saveGlobalSettingsBtn" onclick="saveGlobalPancakeSettings()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 0 24px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; height: 42px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(255,126,95,0.2);">Lưu Cấu Hình Chung</button>
                     </div>
 
                     <!-- Tabs configuration -->
@@ -234,6 +234,20 @@ async function loadPancakeData() {
         document.getElementById('pancakeDelaySecondsInput').value = _pancakeConfig.delay_assignment_seconds;
         document.getElementById('pancakeUpdateLimitInput').value = _pancakeConfig.update_phone_limit_minutes;
         document.getElementById('pancakeActiveSwitch').checked = !!_pancakeConfig.is_active;
+
+        // Visual helper for unsaved changes
+        const markUnsaved = () => {
+            const btn = document.getElementById('saveGlobalSettingsBtn');
+            if (btn) {
+                btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+                btn.innerHTML = '💾 Lưu Cấu Hình (Có thay đổi chưa lưu)';
+                btn.style.boxShadow = '0 4px 12px rgba(220,38,38,0.3)';
+            }
+        };
+        document.getElementById('pancakeTokenInput').addEventListener('input', markUnsaved);
+        document.getElementById('pancakeCutoffInput').addEventListener('input', markUnsaved);
+        document.getElementById('pancakeDelaySecondsInput').addEventListener('input', markUnsaved);
+        document.getElementById('pancakeUpdateLimitInput').addEventListener('input', markUnsaved);
 
         renderPagesTable();
     } catch(e) {
@@ -542,6 +556,12 @@ async function saveGlobalPancakeSettings() {
     const success = await savePancakeConfigToDB();
     if (success) {
         showToast('✅ Đã lưu cấu hình Pancake chung!');
+        const btn = document.getElementById('saveGlobalSettingsBtn');
+        if (btn) {
+            btn.style.background = 'linear-gradient(135deg, #FF7E5F, #FEB47B)';
+            btn.innerHTML = 'Lưu Cấu Hình Chung';
+            btn.style.boxShadow = '0 4px 12px rgba(255,126,95,0.2)';
+        }
     }
 }
 
