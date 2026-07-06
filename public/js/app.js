@@ -2378,7 +2378,15 @@ function setupEventListeners() {
         showChangePasswordModal();
     });
 
-    document.getElementById('modalClose').addEventListener('click', closeModal);
+    document.getElementById('modalClose').addEventListener('click', () => {
+        if (typeof window._dhtRestoreModalFn === 'function') {
+            const restore = window._dhtRestoreModalFn;
+            window._dhtRestoreModalFn = null;
+            restore();
+        } else {
+            closeModal();
+        }
+    });
 
     window.addEventListener('hashchange', handleRoute);
 

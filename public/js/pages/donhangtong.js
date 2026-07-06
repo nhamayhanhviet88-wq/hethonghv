@@ -2133,7 +2133,7 @@ async function _dhtShowDetail(id) {
         }
 
         const titleText = `📦 ${o.order_code} — ${fmt(finRemaining)}đ`;
-        const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 28px">Đóng</button>`;
+        const footerHTML = `<button class="btn btn-secondary" onclick="if(window._dhtRestoreModalFn){const r=window._dhtRestoreModalFn;window._dhtRestoreModalFn=null;r();}else{closeModal();}" style="padding:10px 28px">Đóng</button>`;
         openModal(titleText, bodyHTML, footerHTML);
 
         // Widen modal

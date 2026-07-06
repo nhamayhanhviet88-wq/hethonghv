@@ -1824,7 +1824,7 @@ function buildGroupedHistoryHTML(logs, options = {}) {
 }
 
 // ========== SHARED ORDER CARD BUILDER ==========
-function buildOrderCardHTML(codes, customer) {
+function buildOrderCardHTML(codes, items, customer) {
     if (codes.length === 0) return '<p style="color:#6b7280;text-align:center;padding:20px;">Chưa có mã đơn nào</p>';
 
     let allOrdersTotal = 0;
@@ -1853,7 +1853,7 @@ function buildOrderCardHTML(codes, customer) {
                 <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
                     <div style="min-width:90px;">
                         <div style="font-size:10px;color:#6b7280;">Mã Đơn</div>
-                        <div style="font-weight:700;color:#e65100;font-size:15px;">${oc.order_code}</div>
+                        <div style="font-weight:700;color:${hasDHT ? '#e65100' : '#475569'};font-size:15px;${hasDHT ? 'cursor:pointer;text-decoration:underline;' : ''}" ${hasDHT ? `onclick="window._dhtRestoreModalFn = () => openOrderCodesPopup(${customer.id}); _dhtShowDetail('${oc.dht_order_id}')"` : ''}>${oc.order_code}</div>
                     </div>
                     <div style="min-width:80px;">
                         <div style="font-size:10px;color:#6b7280;">NV Tạo</div>

@@ -591,7 +591,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
         <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
-        <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="openOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
+        <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_saleOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
         <td>
             ${c.readonly || !canEditCrm ? (
                 (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
@@ -1600,18 +1600,25 @@ async function _saleOpenCustomerDetail(customerId) {
         </div>
     `;
 
+    const saleOrderCodes = orderCodesData.codes || [];
     const orderTab = `
         <div style="max-height:350px;overflow-y:auto;">
             <table class="table" style="font-size:12px;">
                 <thead><tr><th>Mã đơn</th><th>Ngày tạo</th><th>Tổng tiền</th><th>Thành viên</th></tr></thead>
                 <tbody>
-                    ${orders.map(o => `<tr>
-                        <td><strong>${o.order_code || '—'}</strong></td>
-                        <td>${formatDate(o.created_at)}</td>
-                        <td>${formatCurrency(o.total)} VNĐ</td>
-                        <td>${o.created_by_name || '—'}</td>
-                    </tr>`).join('')}
-                    ${orders.length === 0 ? '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Chưa có đơn hàng</td></tr>' : ''}
+                    ${saleOrderCodes.map(o => {
+                        const hasDHT = !!o.dht_order_id;
+                        const totalAmount = o.dht_order_id ? (o.dht_total || 0) : (o.items || []).reduce((s, it) => s + (it.total || 0), 0);
+                        const linkStyle = hasDHT ? 'color:#e65100;text-decoration:underline;cursor:pointer;' : '';
+                        const clickHandler = hasDHT ? `onclick="window._dhtRestoreModalFn = () => _saleOpenOrderCodesPopup(${customerId}); _dhtShowDetail('${o.dht_order_id}')"` : '';
+                        return `<tr>
+                            <td><strong style="${linkStyle}" ${clickHandler}>${o.order_code || '—'}</strong></td>
+                            <td>${formatDate(o.created_at)}</td>
+                            <td>${formatCurrency(totalAmount)} VNĐ</td>
+                            <td>${o.user_name || '—'}</td>
+                        </tr>`;
+                    }).join('')}
+                    ${saleOrderCodes.length === 0 ? '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Chưa có đơn hàng</td></tr>' : ''}
                 </tbody>
             </table>
         </div>
@@ -1639,6 +1646,11 @@ async function _saleOpenCustomerDetail(customerId) {
     `;
 
     openModal(`Chi Tiết Khách Hàng (Sale)`, bodyHTML, footerHTML);
+}
+
+async function _saleOpenOrderCodesPopup(customerId) {
+    await _saleOpenCustomerDetail(customerId);
+    setTimeout(() => _saleSwitchCDTab('orders'), 100);
 }
 
 function _saleSwitchCDTab(tab) {
