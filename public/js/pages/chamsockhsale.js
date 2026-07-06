@@ -860,10 +860,7 @@ async function _saleQuickRecare(customerId) {
     const btn = document.querySelector(`.btn-star-${customerId}`);
     if (btn) btn.disabled = true;
 
-    if (!confirm('Bạn có chắc chắn muốn chăm sóc nhanh khách hàng này? (Sẽ tự động đặt lịch hẹn chăm sóc tiếp theo)')) {
-        if (btn) btn.disabled = false;
-        return;
-    }
+
 
     try {
         const res = await apiCall(`/api/customers/${customerId}/quick-recare`, 'POST');
