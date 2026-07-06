@@ -461,13 +461,13 @@ async function renderCRMNhuCauPage(container) {
                         <th style="min-width:30px;text-align:center;padding:4px 2px" title="Pin khách">📌</th>
                         <th style="min-width:45px;text-align:center">STT</th>
                         <th style="min-width:120px">Phụ Trách / Đơn</th>
+                        <th style="min-width:120px;text-align:right">Mua Hàng</th>
                         <th style="min-width:120px">Nút Tư Vấn</th>
                         <th style="min-width:160px">Nội Dung TV</th>
                         <th style="min-width:70px;text-align:center">Lần Chăm</th>
                         <th style="min-width:100px">Hẹn</th>
                         <th style="min-width:180px">Khách Hàng</th>
                         <th style="min-width:180px">Liên Hệ</th>
-                        <th style="min-width:120px;text-align:right">Mua Hàng</th>
                         <th style="min-width:200px">Nguồn & Giới Thiệu</th>
                         <th style="min-width:100px">Lĩnh Vực</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
@@ -858,6 +858,29 @@ function _crmRenderCustomerRow(c, stats, stt) {
             ${s.latestOrderCode ? `<div style="font-size:11px;font-weight:700;color:#2563eb;margin-top:2px;cursor:pointer;" onclick="openOrderCodesPopup(${c.id})">Đơn: ${s.latestOrderCode}</div>` : ''}
         </td>
 
+        <!-- Column 10: Mua Hàng (Doanh Số + Lần Đặt) -->
+        <td style="text-align:right;font-size:12px;vertical-align:middle;">
+            <div style="font-weight:800;color:${s.revenue > 0 ? 'var(--success)' : '#475569'};font-size:13px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</div>
+            ${(() => {
+                if (!s.chotDonCount || s.chotDonCount === 0) {
+                    return `<div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">(0 lần đặt)</div>`;
+                }
+                let bg = 'rgba(217, 119, 6, 0.12)';
+                let color = '#d97706';
+                let border = 'rgba(217, 119, 6, 0.25)';
+                if (s.chotDonCount >= 5) {
+                    bg = 'rgba(219, 39, 119, 0.12)';
+                    color = '#db2777';
+                    border = 'rgba(219, 39, 119, 0.25)';
+                } else if (s.chotDonCount >= 2) {
+                    bg = 'rgba(37, 99, 235, 0.12)';
+                    color = '#2563eb';
+                    border = 'rgba(37, 99, 235, 0.25)';
+                }
+                return `<div style="margin-top:4px;"><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap;">${s.chotDonCount} lần đặt</span></div>`;
+            })()}
+        </td>
+
         <td>
             ${c.readonly || !canDo('crm_nhu_cau', 'edit') ? (
                 (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
@@ -949,28 +972,6 @@ function _crmRenderCustomerRow(c, stats, stt) {
             ${c.address ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">📍 ${c.address}</div>` : ''}
         </td>
 
-        <!-- Column 10: Mua Hàng (Doanh Số + Lần Đặt) -->
-        <td style="text-align:right;font-size:12px;vertical-align:middle;">
-            <div style="font-weight:800;color:${s.revenue > 0 ? 'var(--success)' : '#475569'};font-size:13px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</div>
-            ${(() => {
-                if (!s.chotDonCount || s.chotDonCount === 0) {
-                    return `<div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">(0 lần đặt)</div>`;
-                }
-                let bg = 'rgba(217, 119, 6, 0.12)';
-                let color = '#d97706';
-                let border = 'rgba(217, 119, 6, 0.25)';
-                if (s.chotDonCount >= 5) {
-                    bg = 'rgba(219, 39, 119, 0.12)';
-                    color = '#db2777';
-                    border = 'rgba(219, 39, 119, 0.25)';
-                } else if (s.chotDonCount >= 2) {
-                    bg = 'rgba(37, 99, 235, 0.12)';
-                    color = '#2563eb';
-                    border = 'rgba(37, 99, 235, 0.25)';
-                }
-                return `<div style="margin-top:4px;"><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap;">${s.chotDonCount} lần đặt</span></div>`;
-            })()}
-        </td>
 
         <!-- Column 11: Nguồn & Giới Thiệu (Nguồn + Người GT + HH AFF + CRM Người GT) -->
         <td style="font-size:12px;">
