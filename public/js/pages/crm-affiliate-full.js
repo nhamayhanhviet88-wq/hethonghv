@@ -715,7 +715,7 @@ function _affRenderCustomerRow(c, stats, stt) {
                 </button>
             ` : `
                 <button class="btn btn-sm consult-btn" onclick="_affOpenConsultModal(${c.id})" 
-                    style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white';}">
+                    style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </button>
             `}
