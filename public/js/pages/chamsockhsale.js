@@ -182,22 +182,18 @@ async function renderChamsockhsalePage(container) {
                     <thead><tr>
                         <th style="min-width:30px;text-align:center;padding:4px 2px" title="Pin khách">📌</th>
                         <th style="min-width:45px;text-align:center">STT</th>
-                        <th style="min-width:100px">Sale</th>
-                        <th style="min-width:80px">Mã Đơn</th>
+                        <th style="min-width:120px">Phụ Trách / Đơn</th>
+                        <th style="min-width:120px;text-align:right">Mua Hàng</th>
                         <th style="min-width:120px">Nút Tư Vấn</th>
                         <th style="min-width:160px">Nội Dung TV</th>
                         <th style="min-width:70px;text-align:center">Lần Chăm</th>
                         <th style="min-width:100px">Hẹn</th>
-                        <th style="min-width:80px">Mã KH</th>
-                        <th style="min-width:150px">Tên KH</th>
-                        <th style="min-width:110px">SĐT</th>
-                        <th style="min-width:120px;text-align:center">Đơn/Doanh Số</th>
-                        <th style="min-width:100px">Nguồn</th>
-                        <th style="min-width:130px">Địa Chỉ</th>
-                        <th style="min-width:110px">Link KH</th>
+                        <th style="min-width:180px">Khách Hàng</th>
+                        <th style="min-width:180px">Liên Hệ</th>
+                        <th style="min-width:200px">Nguồn & Giới Thiệu</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
                     </tr></thead>
-                    <tbody id="saleTbody"><tr><td colspan="16" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
+                    <tbody id="saleTbody"><tr><td colspan="12" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
                 <div id="salePagination" class="crm-pagination"></div>
             </div>
@@ -512,7 +508,7 @@ async function _saleRenderFilteredTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="17"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
         document.getElementById('salePagination').innerHTML = '';
         return;
     }
@@ -538,11 +534,11 @@ async function _saleRenderFilteredTable() {
         let html = '';
         let stt = startIdx + 1;
         if (moiChuyenRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="16"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="12"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
             html += moiChuyenRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
         }
         if (phaiXuLyRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="16"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="12"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
             html += phaiXuLyRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
         }
         tbody.innerHTML = html;
@@ -596,8 +592,34 @@ function _saleRenderCustomerRow(c, stats, stt) {
             ${!c.readonly && canPinCrm ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_saleTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
-        <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
-        <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_saleOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
+        <!-- Column 3: Phụ Trách / Đơn -->
+        <td style="font-size:12px;vertical-align:middle;">
+            <div style="font-weight:600;margin-bottom:2px;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</div>
+            <div style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_saleOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</div>
+        </td>
+        <!-- Column 4: Mua Hàng (Doanh Số + Lần Đặt) -->
+        <td style="text-align:right;font-size:12px;vertical-align:middle;">
+            <div style="font-weight:800;color:${s.revenue > 0 ? 'var(--success)' : '#475569'};font-size:13px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</div>
+            ${(() => {
+                if (!s.chotDonCount || s.chotDonCount === 0) {
+                    return `<div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">(0 lần đặt)</div>`;
+                }
+                let bg = 'rgba(217, 119, 6, 0.12)';
+                let color = '#d97706';
+                let border = 'rgba(217, 119, 6, 0.25)';
+                if (s.chotDonCount >= 5) {
+                    bg = 'rgba(219, 39, 119, 0.12)';
+                    color = '#db2777';
+                    border = 'rgba(219, 39, 119, 0.25)';
+                } else if (s.chotDonCount >= 2) {
+                    bg = 'rgba(37, 99, 235, 0.12)';
+                    color = '#2563eb';
+                    border = 'rgba(37, 99, 235, 0.25)';
+                }
+                return `<div style="margin-top:4px;"><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap;">${s.chotDonCount} lần đặt</span></div>`;
+            })()}
+        </td>
+        <!-- Column 5: Nút Tư Vấn -->
         <td>
             ${c.readonly || !canEditCrm ? (
                 (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
@@ -680,16 +702,18 @@ function _saleRenderCustomerRow(c, stats, stt) {
                 </div>
             `}
         </td>
+        <!-- Column 6: Nội Dung TV -->
         <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="_saleOpenCustomerDetail(${c.id}).then(()=>setTimeout(()=>_saleSwitchCDTab('history'),100))" title="${lastContent}">
             ${shortContent || '<span style="color:var(--gray-500)">—</span>'}
         </td>
+        <!-- Column 7: Lần Chăm -->
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount || 0}</td>
+        <!-- Column 8: Hẹn -->
         <td style="font-size:12px;">
             ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
         </td>
-        <td><strong style="color:#e65100">${getCustomerCode(c)}</strong><br>${getCustomerUidBadge(c)}</td>
-        <td style="white-space:nowrap;">
-            ${!c.readonly && canEditCrm ? '<button class="btn btn-sm" onclick="event.stopPropagation();_saleOpenCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
+        <!-- Column 9: Khách Hàng -->
+        <td style="font-size:12px;vertical-align:middle;">
             ${(() => {
                 const _colors = [
                     {bg:'rgba(239,68,68,0.12)',text:'#dc2626',border:'rgba(239,68,68,0.25)'},
@@ -701,24 +725,38 @@ function _saleRenderCustomerRow(c, stats, stt) {
                 const _ci = (c.id || 0) % _colors.length;
                 const _cc = _colors[_ci];
                 const _bdayIcon = _saleIsBirthdayToday(c.birthday) ? '🎂🎉 ' : '';
-                return `<span onclick="_saleOpenCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span><span onclick="event.stopPropagation();_crmCopyText('${c.customer_name.replace(/'/g, "\\'")}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>`;
+                const _nameTitle = c.customer_name + (c.birthday ? ` (SN: ${c.birthday})` : '');
+                return `
+                <div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:700;" title="${_nameTitle}">
+                    <span onclick="_saleOpenCustomerDetail(${c.id})" style="cursor:pointer;color:${_cc.text};background:${_cc.bg};border:1px solid ${_cc.border};padding:3px 10px;border-radius:20px;">
+                        ${_bdayIcon}${c.customer_name}
+                    </span>
+                    <span onclick="event.stopPropagation();_crmCopyText('${c.customer_name.replace(/'/g, "\\'")}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>
+                </div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">Mã: ${getCustomerCode(c)}</div>
+                ${getCustomerUidBadge(c) ? `<div style="margin-top:2px;">${getCustomerUidBadge(c)}</div>` : ''}
+                `;
             })()}
         </td>
-        <td style="white-space:nowrap;">${(() => {
-            const hasRealPhone = c.phone && !c.phone.startsWith('pancake_');
-            if (!hasRealPhone) return '';
-            const copyBtn = !c.readonly ? `<span onclick="event.stopPropagation();_crmCopyText('${c.phone}',this,'SĐT')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy SĐT">📋</span>` : '';
-            const phoneEl = c.readonly ? `<span style="color:var(--gray-400)">${c.phone}</span>` : `<a href="tel:${c.phone}" style="color:var(--info)">${c.phone}</a>`;
-            return phoneEl + copyBtn;
-        })()}</td>
-        <td style="text-align:center;font-weight:700;font-size:13px;white-space:nowrap;">
-            <span style="color:#122546;">${s.chotDonCount}</span>
-            <span style="color:#cbd5e1;margin:0 4px;">/</span>
-            <span style="color:var(--success);">${s.revenue > 0 ? formatCurrency(s.revenue) + 'đ' : '0'}</span>
+        <!-- Column 10: Liên Hệ -->
+        <td style="font-size:12px;vertical-align:middle;">
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
+                ${(() => {
+                    const hasRealPhone = c.phone && !c.phone.startsWith('pancake_');
+                    if (!hasRealPhone) return '';
+                    const copyBtn = !c.readonly ? `<span onclick="event.stopPropagation();_crmCopyText('${c.phone}',this,'SĐT')" style="cursor:pointer;font-size:11px;color:#94a3b8;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy SĐT">📋</span>` : '';
+                    const phoneEl = c.readonly ? `<span style="color:var(--gray-400)">${c.phone}</span>` : `<a href="tel:${c.phone}" style="color:var(--info);font-weight:600;">${c.phone}</a>`;
+                    return phoneEl + copyBtn;
+                })()}
+                ${c.facebook_link ? `<a href="${c.facebook_link}" target="_blank" style="margin-left:6px;color:#1877F2;font-weight:700;font-size:11px;" title="${c.facebook_link}">🔗 FB</a>` : ''}
+            </div>
+            ${c.address ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">📍 ${c.address}</div>` : ''}
         </td>
-        <td style="font-size:12px">${c.source_name || '—'}</td>
-        <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
-        <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">🔗 FB</a>' : '<span style="color:var(--gray-600)">—</span>'}</td>
+        <!-- Column 11: Nguồn & Giới Thiệu -->
+        <td style="font-size:12px;vertical-align:middle;">
+            <div style="font-weight:700;color:#334155;">${c.source_name || '—'}</div>
+        </td>
+        <!-- Column 12: Đề xuất CTV -->
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && canEditCrm && c.cancel_approved !== 1 ? (() => {
                 if (_salePendingCtvIds.includes(c.id)) {
