@@ -534,8 +534,8 @@ function _ctvRenderPageLayout() {
         <div class="baogiactvhh-container">
             <div class="baogiactvhh-header">
                 <div>
-                    <h2>🤝 Báo Giá CTV/HH</h2>
-                    <p>Tính toán bảng giá may & in ấn chuyên nghiệp cho Cộng Tác Viên & Đại Lý</p>
+                    <h2>🤝 Báo Giá Khách / CTV</h2>
+                    <p>Tính toán bảng giá may & in ấn chuyên nghiệp cho Khách hàng & Cộng Tác Viên</p>
                 </div>
                 <div style="display:flex; align-items:center; gap:12px;">
                     <button class="ctv-btn-secondary" style="background:#fff; border:none; color:#1e3a8a; padding:8px 16px; border-radius:10px; font-size:12px; display:flex; align-items:center; gap:6px; font-weight:800; cursor:pointer; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 12px -2px rgba(0,0,0,0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.1)';" onclick="_ctvOpenCompanySettingsModal()">

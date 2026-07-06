@@ -180,7 +180,7 @@ const MENU_CONFIG = [
 
     // ========== BỘ PHẬN XƯỞNG SX ==========
     { id: 'bao-gia-goc', label: 'Báo Giá Gốc', icon: '🧮', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/baogiagoc', permKey: 'gia_nhap_goc' },
-    { id: 'bao-gia-ctv-hh', label: 'Báo Giá CTV/HH', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/baogiactvhh', permKey: 'gia_nhap_goc' },
+    { id: 'bao-gia-ctv-hh', label: 'Báo Giá Khách / CTV', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/baogiactvhh', permKey: 'gia_nhap_goc' },
     { id: 'gia-nhap-goc', label: 'Giá Nhập Gốc', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/gianhapgoc', permKey: 'gia_nhap_goc' },
     { id: 'ti-le-cat-goc', label: 'Tỉ Lệ Cắt Gốc', icon: '📏', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/tilecatgoc', permKey: 'ti_le_cat_goc' },
     { id: 'luong-san-xuat', label: 'Lương Sản Xuất', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/luongsanxuat', permKey: 'luong_san_xuat' },
