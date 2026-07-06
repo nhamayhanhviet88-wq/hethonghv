@@ -164,7 +164,7 @@ async function renderChamsockhsalePage(container) {
             <div class="crm-stat-card" data-cat="gui_hang_hoan_thanh" style="background:linear-gradient(135deg,#0d9488,#0f766e);color:white;" onclick="_saleFilterByCat('gui_hang_hoan_thanh')">
                 <div class="stat-icon">📦✅</div>
                 <div class="stat-count" id="saleStatGuiHangHT">0</div>
-                <div class="stat-label">Gửi Hàng & Hoàn Thành</div>
+                <div class="stat-label">Đã Chốt Đơn</div>
             </div>
         </div>
         <div id="saleDateChipsArea"></div>
