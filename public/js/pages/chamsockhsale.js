@@ -542,15 +542,39 @@ async function _saleRenderFilteredTable() {
     if (_saleActiveCat === 'phai_xu_ly') {
         const moiChuyenRows = paged.filter(c => _saleGetCategory(c, _saleAllStats) === 'moi_chuyen');
         const phaiXuLyRows = paged.filter(c => _saleGetCategory(c, _saleAllStats) === 'phai_xu_ly');
+        
+        const daTungDatHangRows = [];
+        const chuaDatHangRows = [];
+        phaiXuLyRows.forEach(c => {
+            const s = _saleAllStats[c.id] || {};
+            const hasOrdered = ['chot_don', 'hoan_thanh', 'sau_ban_hang'].includes(c.order_status) || (s.chotDonCount > 0);
+            if (hasOrdered) {
+                daTungDatHangRows.push(c);
+            } else {
+                chuaDatHangRows.push(c);
+            }
+        });
+
         let html = '';
         let stt = startIdx + 1;
         if (moiChuyenRows.length > 0) {
             html += `<tr class="crm-section-header"><td colspan="11"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
             html += moiChuyenRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
         }
-        if (phaiXuLyRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="11"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
-            html += phaiXuLyRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
+        if (daTungDatHangRows.length > 0) {
+            html += `
+                <tr class="crm-section-header-ordered">
+                    <td colspan="11" style="background: linear-gradient(135deg, #f59e0b, #d97706) !important; color: white !important; font-weight: 800 !important; font-size: 14px !important; letter-spacing: 0.8px; text-shadow: 0 1px 2px rgba(0,0,0,0.4); padding: 12px 16px !important; border: none;">
+                        <span class="section-icon" style="margin-right: 8px;">👑</span>Chăm Sóc Khách Đã Từng Đặt Hàng
+                        <span class="section-count" style="float: right; background: rgba(255, 255, 255, 0.25); padding: 2px 10px; border-radius: 12px; font-size: 11px; color: white; font-weight: bold;">${daTungDatHangRows.length}</span>
+                    </td>
+                </tr>
+            `;
+            html += daTungDatHangRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
+        }
+        if (chuaDatHangRows.length > 0) {
+            html += `<tr class="crm-section-header"><td colspan="11"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${chuaDatHangRows.length}</span></td></tr>`;
+            html += chuaDatHangRows.map(c => _saleRenderCustomerRow(c, _saleAllStats, stt++)).join('');
         }
         tbody.innerHTML = html;
     } else {
