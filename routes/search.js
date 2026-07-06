@@ -54,6 +54,12 @@ async function searchRoutes(fastify, options) {
             }
         }
 
+        for (const c of crm) {
+            if (c.facebook_link && (c.facebook_link.includes('pages.fm') || c.facebook_link.includes('pancake.vn'))) {
+                c.facebook_link = `/api/customers/facebook-redirect/${c.id}`;
+            }
+        }
+
         // ========== 2. Telesale ==========
         let telQuery = `
             SELECT td.id, td.customer_name, td.company_name, td.phone, td.fb_link, td.address,

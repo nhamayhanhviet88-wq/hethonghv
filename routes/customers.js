@@ -510,6 +510,12 @@ async function customersRoutes(fastify, options) {
             console.error('[cancel_deadline_at] Error:', e.message);
         }
 
+        for (const c of customers) {
+            if (c.facebook_link && (c.facebook_link.includes('pages.fm') || c.facebook_link.includes('pancake.vn'))) {
+                c.facebook_link = `/api/customers/facebook-redirect/${c.id}`;
+            }
+        }
+
         return { customers };
     });
 
@@ -1191,6 +1197,68 @@ async function customersRoutes(fastify, options) {
         } catch(e) { console.error('[SearchModules] cross-check error:', e.message); }
 
         return { results };
+    });
+
+    fastify.get('/api/customers/facebook-redirect/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const { id } = request.params;
+        const customer = await db.get("SELECT id, facebook_link, pancake_conversation_id, created_at FROM customers WHERE id = $1", [Number(id)]);
+        if (!customer) {
+            return reply.code(404).send({ error: "Không tìm thấy khách hàng" });
+        }
+
+        // 1. If it's already a business.facebook.com link, redirect immediately
+        if (customer.facebook_link && customer.facebook_link.includes('business.facebook.com')) {
+            return reply.redirect(customer.facebook_link);
+        }
+
+        // 2. If we have a pancake_conversation_id, resolve global_id
+        if (customer.pancake_conversation_id) {
+            try {
+                const parts = customer.pancake_conversation_id.split('_');
+                const pageId = parts[0];
+                const configRow = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+                if (configRow && configRow.value) {
+                    const config = JSON.parse(configRow.value);
+                    const page = config.pages?.find(p => String(p.id) === String(pageId));
+                    const token = page?.page_access_token || config.pancake_token;
+                    if (token) {
+                        const custDate = customer.created_at ? new Date(customer.created_at) : new Date();
+                        
+                        // Look inside a window of 3 days before and after customer creation date
+                        let since = Math.floor((custDate.getTime() - 3 * 24 * 60 * 60 * 1000) / 1000);
+                        let until = Math.floor((custDate.getTime() + 3 * 24 * 60 * 60 * 1000) / 1000);
+                        const nowTimestamp = Math.floor(Date.now() / 1000);
+                        if (until > nowTimestamp) until = nowTimestamp;
+                        if (since > until) since = until - 24 * 60 * 60;
+
+                        const url = `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations?access_token=${token}&since=${since}&until=${until}&page_number=1&limit=50`;
+                        const res = await fetch(url);
+                        if (res.ok) {
+                            const data = await res.json();
+                            const conversations = data.conversations || data.data || [];
+                            const match = conversations.find(c => c.id === customer.pancake_conversation_id);
+                            if (match && match.page_customer && match.page_customer.global_id) {
+                                const foundGlobalId = match.page_customer.global_id;
+                                const businessSuiteUrl = `https://business.facebook.com/latest/inbox/all?asset_id=${pageId}&selected_item_id=${foundGlobalId}&thread_type=FB_MESSAGE`;
+                                
+                                // Update database for immediate future redirection
+                                await db.run("UPDATE customers SET facebook_link = $1, updated_at = NOW() WHERE id = $2", [businessSuiteUrl, Number(id)]);
+                                return reply.redirect(businessSuiteUrl);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('[FB Redirect Resolution Error]', e.message);
+            }
+        }
+
+        // 3. Fallback: redirect to whatever link we currently have
+        if (customer.facebook_link) {
+            return reply.redirect(customer.facebook_link);
+        }
+
+        return reply.code(400).send({ error: "Không tìm thấy đường link Facebook của khách hàng này" });
     });
 
     // Cancel + approve-cancel + emergencies + dashboard + withdrawals in next part
