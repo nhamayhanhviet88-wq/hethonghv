@@ -639,7 +639,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
     if (c.appointment_date && _saleGetCategory(c, stats) !== 'huy_khach') {
         const d = new Date(c.appointment_date);
         const days = ['CN','T2','T3','T4','T5','T6','T7'];
-        appointDisplay = `<span style="color:#e65100;font-weight:600">${days[d.getDay()]} - ${d.getDate()}/${d.getMonth()+1}</span>`;
+        appointDisplay = `<span style="color:#e65100;font-weight:600">${days[d.getDay()]} - ${d.getDate()}/${d.getMonth()+1}/${String(d.getFullYear()).slice(-2)}</span>`;
     }
 
     const _pinClass = c.is_pinned ? ' crm-row-pinned' : '';
