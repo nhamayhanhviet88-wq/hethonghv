@@ -1134,7 +1134,8 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             ]);
 
             if (fields.payment_record_id) {
-                await db.run(`
+                const prId = Number(fields.payment_record_id);
+                const lockResult = await db.run(`
                     UPDATE payment_records SET
                         payment_type = 'dat_coc',
                         order_ao_mau = $1,
@@ -1146,14 +1147,37 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                         locked_at = NOW(),
                         updated_at = NOW()
                     WHERE id = $5
-                `, [fields.sample_order_code, customer.customer_name, customer.phone, request.user.id, Number(fields.payment_record_id)]);
+                      AND (payment_type IS NULL OR payment_type != 'dat_coc')
+                `, [fields.sample_order_code, customer.customer_name, customer.phone, request.user.id, prId]);
+                if (lockResult.changes === 0) {
+                    return reply.code(409).send({ error: 'Mã tiền này đã được nhận bởi người khác!' });
+                }
+            }
+        }
+
+        // Create a binding text inside content for deposit record selection
+        let consultContent = content || '';
+        const payment_record_id = fields.payment_record_id ? Number(fields.payment_record_id) : null;
+        if (payment_record_id) {
+            const pr = await db.get('SELECT payment_code, amount FROM payment_records WHERE id = $1', [payment_record_id]);
+            if (pr) {
+                const amtFmt = Number(pr.amount || 0).toLocaleString('vi-VN');
+                const bindingText = `(Đã liên kết mã tiền cọc: ${pr.payment_code} - Số tiền: ${amtFmt}đ)`;
+                if (consultContent) {
+                    consultContent += '\n' + bindingText;
+                } else {
+                    consultContent = bindingText;
+                }
             }
         }
 
         const deposit_amount = Number(fields.deposit_amount) || 0;
         const next_consult_type = fields.next_consult_type || null;
-        await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, image_path, logged_by, deposit_amount, next_consult_type) VALUES (?,?,?,?,?,?,?)`,
-            [customerId, log_type, content || null, imagePath, request.user.id, deposit_amount, next_consult_type]);
+        await db.run(
+            `INSERT INTO consultation_logs (customer_id, log_type, content, image_path, logged_by, deposit_amount, next_consult_type, payment_record_id) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [customerId, log_type, consultContent || null, imagePath, request.user.id, deposit_amount, next_consult_type, payment_record_id]
+        );
 
         // ★ Thông báo ĐÃ XỬ LÝ SỐ — lần tư vấn đầu cho số chuyển/gửi lại hôm nay
         if (log_type !== 'khong_xu_ly' && customer.assigned_to_id) {

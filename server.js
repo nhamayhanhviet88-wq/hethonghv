@@ -364,6 +364,18 @@ async function start() {
         await db.exec(`ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS reconciled_waybills TEXT`);
     } catch(e) { /* already exists */ }
 
+    // Migration: add telegram deposit confirmation columns to payment_records
+    try {
+        await db.exec(`ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS telegram_deposit_confirmed BOOLEAN DEFAULT false`);
+        await db.exec(`ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS telegram_deposit_confirmed_by TEXT`);
+        await db.exec(`ALTER TABLE payment_records ADD COLUMN IF NOT EXISTS telegram_deposit_confirmed_at TIMESTAMP`);
+    } catch(e) { /* already exists */ }
+
+    // Migration: add payment_record_id to consultation_logs
+    try {
+        await db.exec(`ALTER TABLE consultation_logs ADD COLUMN IF NOT EXISTS payment_record_id INTEGER REFERENCES payment_records(id) ON DELETE SET NULL`);
+    } catch(e) { /* already exists */ }
+
     // Migration: Email Import Config + Bank Parsers
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS email_import_config (

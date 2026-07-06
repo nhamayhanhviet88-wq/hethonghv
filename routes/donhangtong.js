@@ -4232,6 +4232,7 @@ module.exports = async function(fastify) {
               AND (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
               AND (pr.order_ao_mau IS NULL OR pr.order_ao_mau = '')
               AND (pr.amount - COALESCE(pr_child.child_sum, 0)) > 0
+              AND pr.telegram_deposit_confirmed = true
               AND (
                   pr.locked_by IS NULL
                   OR pr.locked_by = $1
@@ -4867,6 +4868,7 @@ module.exports = async function(fastify) {
               AND (pr.order_ao_mau IS NULL OR pr.order_ao_mau = '')
               AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
               AND (pr.amount - COALESCE(pr_child.child_sum, 0)) > 0
+              AND pr.telegram_deposit_confirmed = true
               AND (pr.locked_by IS NULL OR pr.locked_by = $1
                    OR pr.locked_at < NOW() - INTERVAL '10 minutes')
             ORDER BY pr.payment_date DESC, pr.id DESC

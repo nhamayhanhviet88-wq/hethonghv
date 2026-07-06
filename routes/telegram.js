@@ -368,6 +368,45 @@ async function telegramRoutes(fastify, options) {
                 }
             }
 
+            // Detect payment code reply with "cọc" keyword
+            if (message.reply_to_message) {
+                const replyText = message.reply_to_message.text || message.reply_to_message.caption || '';
+                const codeRegex = /\b(CK\d+-\d+-\d+(?:-Y\d+)?)\b/i;
+                const match = replyText.match(codeRegex);
+                
+                if (match && lowerText.includes('cọc')) {
+                    const paymentCode = match[1].toUpperCase();
+                    const pr = await db.get('SELECT id, total_order_codes, order_tt_coc FROM payment_records WHERE UPPER(payment_code) = $1', [paymentCode]);
+                    if (pr) {
+                        const sender = message.from 
+                            ? (message.from.username 
+                                ? '@' + message.from.username 
+                                : [message.from.first_name, message.from.last_name].filter(Boolean).join(' ')) 
+                            : 'Telegram User';
+                            
+                        await db.run(`
+                            UPDATE payment_records 
+                            SET telegram_deposit_confirmed = true,
+                                telegram_deposit_confirmed_by = $1,
+                                telegram_deposit_confirmed_at = NOW()
+                            WHERE id = $2
+                        `, [sender, pr.id]);
+                        
+                        let extraMsg = '';
+                        if (pr.total_order_codes || pr.order_tt_coc) {
+                            extraMsg = `\n⚠️ <i>Lưu ý: Mã tiền này đã được liên kết với đơn hàng trước đó.</i>`;
+                        }
+                        
+                        await sendTelegramReply(
+                            message.chat.id,
+                            `✅ <b>Xác thực tiền cọc thành công!</b>\nMã tiền <code>${paymentCode}</code> đã được mở hiển thị trên CRM khi kinh doanh chọn ghi nhận cọc.\n👤 Nhân viên: ${sender}${extraMsg}`,
+                            message.message_id
+                        );
+                        return reply.code(200).send({ ok: true });
+                    }
+                }
+            }
+
             // Detect command prefix ";"
             if (!text.startsWith(';')) {
                 return reply.code(200).send({ ok: true });
