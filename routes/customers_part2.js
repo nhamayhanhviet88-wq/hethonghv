@@ -1321,10 +1321,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
         } else if (log_type === 'chot_don' && customer.crm_type === 'sale') {
             const holidays = await getHolidays();
+            const configRow = await db.get("SELECT value FROM app_config WHERE key = 'sale_chot_don_reschedule_days'");
+            const rescheduleDays = configRow ? parseInt(configRow.value) : 350;
             const today = new Date();
             const targetDate = new Date(today);
-            targetDate.setFullYear(targetDate.getFullYear() + 1);
-            targetDate.setDate(targetDate.getDate() - 14);
+            targetDate.setDate(targetDate.getDate() + rescheduleDays);
             const rawTargetStr = toDateStr(targetDate);
             const finalApptDate = await getEffectiveWorkingDay(rawTargetStr, customer.assigned_to_id, holidays);
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [finalApptDate, customerId]);

@@ -125,14 +125,24 @@ async function renderChamsockhsalePage(container) {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div></div>
             ${(typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') ? `
-            <a href="/quytacnuttuvancrmsale" onclick="event.preventDefault();navigate('quytacnuttuvancrmsale')"
-                style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;
-                border:2px solid #f97316;color:#f97316;font-size:13px;font-weight:800;cursor:pointer;
-                background:rgba(249,115,22,.08);text-decoration:none;transition:all .2s;"
-                onmouseover="this.style.background='rgba(249,115,22,.18)';this.style.transform='translateY(-2px)'"
-                onmouseout="this.style.background='rgba(249,115,22,.08)';this.style.transform=''">
-                ⚙️ Quy Tắc Nút Tư Vấn
-            </a>
+            <div style="display:flex;gap:10px;">
+                <a href="/quytacnuttuvancrmsale" onclick="event.preventDefault();navigate('quytacnuttuvancrmsale')"
+                    style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;
+                    border:2px solid #f97316;color:#f97316;font-size:13px;font-weight:800;cursor:pointer;
+                    background:rgba(249,115,22,.08);text-decoration:none;transition:all .2s;"
+                    onmouseover="this.style.background='rgba(249,115,22,.18)';this.style.transform='translateY(-2px)'"
+                    onmouseout="this.style.background='rgba(249,115,22,.08)';this.style.transform=''">
+                    ⚙️ Quy Tắc Nút Tư Vấn
+                </a>
+                <button onclick="_saleShowRescheduleConfigModal()"
+                    style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;
+                    border:2px solid #3b82f6;color:#3b82f6;font-size:13px;font-weight:800;cursor:pointer;
+                    background:rgba(59,130,246,.08);transition:all .2s;"
+                    onmouseover="this.style.background='rgba(59,130,246,.18)';this.style.transform='translateY(-2px)'"
+                    onmouseout="this.style.background='rgba(59,130,246,.08)';this.style.transform=''">
+                    ⚙️ Lịch Hẹn Sau Chốt Đơn
+                </button>
+            </div>
             ` : ''}
         </div>
         <div class="crm-stat-cards" id="saleStatCards">
@@ -2219,6 +2229,64 @@ function _saleShowTelegramOnlyMessage(customerId) {
         `<button class="btn btn-secondary" onclick="closeModal()" style="width:100%;padding:10px;border-radius:8px;font-weight:700;">ĐÃ HIỂU</button>`
     );
 }
+
+async function _saleShowRescheduleConfigModal() {
+    try {
+        const res = await apiCall('/api/app-config/sale_chot_don_reschedule_days');
+        const currentDays = res && res.value !== null ? parseInt(res.value) : 350;
+
+        const body = `
+            <div style="font-family:'Segoe UI',system-ui,sans-serif;padding:16px;">
+                <div style="margin-bottom:16px;">
+                    <label style="display:block;font-weight:700;color:#1e293b;margin-bottom:8px;font-size:14px;">
+                        Số ngày hẹn lại tự động sau khi chốt đơn:
+                    </label>
+                    <input type="number" id="cfgRescheduleDaysInput" class="form-control" value="${currentDays}" min="1" max="999"
+                        style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:16px;font-weight:700;color:#1e293b;" />
+                </div>
+                <div style="font-size:12px;color:#64748b;line-height:1.5;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
+                    💡 <strong>Lưu ý:</strong> Khi nhân viên sale bấm chốt đơn nhưng không chọn "Ngày Hẹn Làm Việc Khách", hệ thống sẽ tự động lên lịch hẹn chăm sóc lại sau số ngày này.
+                </div>
+            </div>
+        `;
+
+        const footer = `
+            <div style="display:flex;justify-content:flex-end;gap:10px;width:100%;">
+                <button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 20px;border-radius:8px;font-weight:600;">Hủy</button>
+                <button class="btn" onclick="_saleSaveRescheduleConfig()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-weight:700;box-shadow:0 4px 12px rgba(59,130,246,0.25);">💾 Lưu thiết lập</button>
+            </div>
+        `;
+
+        openModal('⚙️ Thiết lập lịch hẹn sau chốt đơn', body, footer);
+    } catch (e) {
+        showToast('Lỗi khi tải cấu hình!', 'error');
+    }
+}
+
+async function _saleSaveRescheduleConfig() {
+    const input = document.getElementById('cfgRescheduleDaysInput');
+    if (!input) return;
+    const days = parseInt(input.value);
+    if (isNaN(days) || days < 1) {
+        showToast('Vui lòng nhập số ngày hợp lệ (lớn hơn 0)', 'error');
+        return;
+    }
+
+    try {
+        const res = await apiCall('/api/app-config/sale_chot_don_reschedule_days', 'PUT', { value: String(days) });
+        if (res.success) {
+            showToast('Lưu thiết lập thành công!', 'success');
+            closeModal();
+        } else {
+            showToast(res.error || 'Lỗi lưu thiết lập!', 'error');
+        }
+    } catch (e) {
+        showToast('Lỗi kết nối server!', 'error');
+    }
+}
+
+window._saleShowRescheduleConfigModal = _saleShowRescheduleConfigModal;
+window._saleSaveRescheduleConfig = _saleSaveRescheduleConfig;
 
 document.addEventListener('click', function(e) {
     const dd = document.getElementById('consultDepositDropdownSale');

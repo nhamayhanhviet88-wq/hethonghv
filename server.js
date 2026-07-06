@@ -203,6 +203,14 @@ async function start() {
         }
     } catch(e) { /* exists */ }
 
+    // Seed app_config for sale_chot_don_reschedule_days
+    try {
+        const existsReschedule = await db.get("SELECT key FROM app_config WHERE key = 'sale_chot_don_reschedule_days'");
+        if (!existsReschedule) {
+            await db.run("INSERT INTO app_config (key, value) VALUES ('sale_chot_don_reschedule_days', '350')");
+        }
+    } catch(e) { /* exists */ }
+
     // Migration: Meeting Commitments — Cam kết cuộc họp
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS meeting_sessions (
