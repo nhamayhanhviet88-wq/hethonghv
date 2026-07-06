@@ -1756,11 +1756,57 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         const isSaleCrm = customer.crm_type === 'sale';
         let targetLogType = 'lam_quen_tuong_tac';
+        let finalOrderStatus = 'lam_quen_tuong_tac';
         if (isSaleCrm) {
-            targetLogType = customer.order_status || 'goi_dien';
-            if (targetLogType === 'lam_quen_tuong_tac') {
+            const OVERRIDE_STATUSES = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy'];
+            if (customer.order_status && OVERRIDE_STATUSES.includes(customer.order_status)) {
+                targetLogType = customer.order_status;
+            } else {
+                // Find the most recent specific consultation log type
+                const lastLog = await db.get(
+                    `SELECT log_type FROM consultation_logs 
+                     WHERE customer_id = ? 
+                       AND log_type NOT IN ('chuyen_doi_crm', 'cancel_auto_revert', 'dang_tu_van')
+                     ORDER BY id DESC LIMIT 1`,
+                    [customerId]
+                );
+                if (lastLog && lastLog.log_type) {
+                    targetLogType = lastLog.log_type;
+                } else {
+                    targetLogType = customer.order_status || 'goi_dien';
+                }
+            }
+
+            if (targetLogType === 'lam_quen_tuong_tac' || targetLogType === 'dang_tu_van') {
                 targetLogType = 'goi_dien';
             }
+
+            const statusMap = { 
+                'goi_dien': 'dang_tu_van', 
+                'nhan_tin': 'dang_tu_van', 
+                'gap_truc_tiep': 'dang_tu_van', 
+                'gui_bao_gia': 'bao_gia', 
+                'gui_mau': 'dang_tu_van', 
+                'thiet_ke': 'dang_tu_van', 
+                'bao_sua': 'dang_tu_van', 
+                'lam_quen_tuong_tac': 'lam_quen_tuong_tac', 
+                'gui_stk_coc': 'gui_stk_coc', 
+                'giuc_coc': 'gui_stk_coc', 
+                'dat_coc': 'dat_coc', 
+                'chot_don': 'chot_don', 
+                'dang_san_xuat': 'chot_don', 
+                'hoan_thanh': 'hoan_thanh', 
+                'sau_ban_hang': 'sau_ban_hang', 
+                'tuong_tac_ket_noi': 'tuong_tac_ket_noi', 
+                'gui_ct_kh_cu': 'gui_ct_kh_cu', 
+                'giam_gia': 'giam_gia', 
+                'huy_coc': 'huy_coc', 
+                'da_huy_don_tra_coc': 'da_huy_don_tra_coc',
+                'tu_van_lai': 'tu_van_lai',
+                'cho_duyet_huy': 'cho_duyet_huy',
+                'duyet_huy': 'duyet_huy'
+            };
+            finalOrderStatus = statusMap[targetLogType] || targetLogType;
         }
 
         await db.run(
@@ -1775,7 +1821,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                  appointment_date = ?, 
                  updated_at = NOW() 
              WHERE id = ?`,
-            [targetLogType, nextFollowUp, customerId]
+            [finalOrderStatus, nextFollowUp, customerId]
         );
 
         if (customer.cancel_approved === 1 || customer.cancel_approved === -2) {
