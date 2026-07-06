@@ -80,9 +80,6 @@ async function renderCaidatpancakePage(container) {
                             <button type="button" onclick="showGlobalWorkingDaysModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
                                 ⚙️ Thiết Lập Thứ Nhận Lead
                             </button>
-                            <button type="button" onclick="showSundayRosterModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
-                                📅 Lịch Trực Chủ Nhật
-                            </button>
                             <button type="button" onclick="showStaffOffDaysModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
                                 📅 Setup Ngày Nghỉ / Đi Làm
                             </button>
@@ -489,8 +486,8 @@ function renderGlobalWorkingDaysTable() {
             if (dIdx === 0) {
                 const formattedSundays = futureSundays.map(d => d.split('-').reverse().join('/')).join(', ');
                 const toastMsg = isChecked
-                    ? `Không ấn được trực tiếp tại đây vì ${u.full_name} có lịch trực vào ngày CN, ${formattedSundays}. Muốn hủy trực thì hãy vào 📅 Phân Lịch Trực Chủ Nhật để chuyển cho người khác.`
-                    : `Không ấn được trực tiếp tại đây vì ${u.full_name} không có lịch trực vào các ngày Chủ Nhật sắp tới. Muốn bật trực thì hãy vào 📅 Phân Lịch Trực Chủ Nhật để phân công.`;
+                    ? `Không ấn được trực tiếp tại đây. ${u.full_name} có lịch trực vào ngày CN (${formattedSundays}). Để thay đổi, vui lòng cấu hình tại 📅 Setup Ngày Nghỉ / Đi Làm.`
+                    : `Chủ Nhật mặc định nghỉ. Để bật trực Chủ Nhật cho ${u.full_name}, vui lòng cấu hình tại 📅 Setup Ngày Nghỉ / Đi Làm.`;
                 return `
                     <span class="day-badge ${isChecked ? 'active' : ''}" 
                           data-day="${dIdx}" 
