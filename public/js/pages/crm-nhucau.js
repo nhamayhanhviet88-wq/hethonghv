@@ -460,27 +460,19 @@ async function renderCRMNhuCauPage(container) {
                     <thead><tr>
                         <th style="min-width:30px;text-align:center;padding:4px 2px" title="Pin khách">📌</th>
                         <th style="min-width:45px;text-align:center">STT</th>
-                        <th style="min-width:100px">NV Phụ Trách</th>
-                        <th style="min-width:80px">Mã Đơn</th>
+                        <th style="min-width:120px">Phụ Trách / Đơn</th>
                         <th style="min-width:120px">Nút Tư Vấn</th>
                         <th style="min-width:160px">Nội Dung TV</th>
                         <th style="min-width:70px;text-align:center">Lần Chăm</th>
                         <th style="min-width:140px">Ngày Hẹn</th>
-                        <th style="min-width:80px">Mã KH</th>
-                        <th style="min-width:150px">Tên KH</th>
-                        <th style="min-width:110px">SĐT</th>
-                        <th style="min-width:110px">Link Khách Hàng</th>
-                        <th style="min-width:130px">Địa Chỉ</th>
-                        <th style="min-width:100px">Nguồn</th>
-                        <th style="min-width:120px">Người GT</th>
-                        <th style="min-width:70px;text-align:center" title="Hoa Hồng Affiliate đơn tiếp theo">HH AFF</th>
-                        <th style="min-width:110px">CRM Người GT</th>
+                        <th style="min-width:180px">Khách Hàng</th>
+                        <th style="min-width:180px">Liên Hệ</th>
+                        <th style="min-width:200px">Nguồn & Giới Thiệu</th>
                         <th style="min-width:100px">Lĩnh Vực</th>
-                        <th style="min-width:70px;text-align:center">Lần Đặt</th>
-                        <th style="min-width:110px;text-align:right">Doanh Số</th>
+                        <th style="min-width:120px;text-align:right">Mua Hàng</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
                     </tr></thead>
-                    <tbody id="crmNhuCauTbody"><tr><td colspan="19" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
+                    <tbody id="crmNhuCauTbody"><tr><td colspan="13" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
                 <div id="crmPagination" class="crm-pagination"></div>
             </div>
@@ -779,7 +771,7 @@ function _crmRenderFilteredTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="19"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
         document.getElementById('crmPagination').innerHTML = '';
         return;
     }
@@ -797,11 +789,11 @@ function _crmRenderFilteredTable() {
         let html = '';
         let stt = startIdx + 1;
         if (moiChuyenRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="19"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="13"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
             html += moiChuyenRows.map(c => _crmRenderCustomerRow(c, stats, stt++)).join('');
         }
         if (phaiXuLyRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="19"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="13"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
             html += phaiXuLyRows.map(c => _crmRenderCustomerRow(c, stats, stt++)).join('');
         }
         tbody.innerHTML = html;
@@ -859,8 +851,13 @@ function _crmRenderCustomerRow(c, stats, stt) {
             ${!c.readonly && canDo('crm_nhu_cau', 'edit') ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_crmTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
-        <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
-        <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="openOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
+        
+        <!-- Column 3: Phụ Trách / Đơn -->
+        <td style="font-size:12px;">
+            <div style="font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</div>
+            ${s.latestOrderCode ? `<div style="font-size:11px;font-weight:700;color:#2563eb;margin-top:2px;cursor:pointer;" onclick="openOrderCodesPopup(${c.id})">Đơn: ${s.latestOrderCode}</div>` : ''}
+        </td>
+
         <td>
             ${c.readonly || !canDo('crm_nhu_cau', 'edit') ? (
                 (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
@@ -912,47 +909,76 @@ function _crmRenderCustomerRow(c, stats, stt) {
         <td style="font-size:12px;">
             ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
         </td>
-        <td><strong style="color:#e65100">${getCustomerCode(c)}</strong><br>${getCustomerUidBadge(c)}</td>
-        <td>
-            ${!c.readonly && canDo('crm_nhu_cau', 'edit') ? '<button class="btn btn-sm" onclick="event.stopPropagation();openCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
-            ${(() => {
-                const _colors = [
-                    {bg:'rgba(239,68,68,0.12)',text:'#dc2626',border:'rgba(239,68,68,0.25)'},
-                    {bg:'rgba(249,115,22,0.12)',text:'#ea580c',border:'rgba(249,115,22,0.25)'},
-                    {bg:'rgba(234,179,8,0.12)',text:'#ca8a04',border:'rgba(234,179,8,0.25)'},
-                    {bg:'rgba(34,197,94,0.12)',text:'#16a34a',border:'rgba(34,197,94,0.25)'},
-                    {bg:'rgba(20,184,166,0.12)',text:'#0d9488',border:'rgba(20,184,166,0.25)'},
-                    {bg:'rgba(6,182,212,0.12)',text:'#0891b2',border:'rgba(6,182,212,0.25)'},
-                    {bg:'rgba(59,130,246,0.12)',text:'#2563eb',border:'rgba(59,130,246,0.25)'},
-                    {bg:'rgba(139,92,246,0.12)',text:'#7c3aed',border:'rgba(139,92,246,0.25)'},
-                    {bg:'rgba(236,72,153,0.12)',text:'#db2777',border:'rgba(236,72,153,0.25)'},
-                    {bg:'rgba(244,63,94,0.12)',text:'#e11d48',border:'rgba(244,63,94,0.25)'},
-                ];
-                const _ci = (c.id || 0) % _colors.length;
-                const _cc = _colors[_ci];
-                const _bdayIcon = _crmIsBirthdayToday(c.birthday) ? '🎂🎉 ' : '';
-                return `<span onclick="openCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span><span onclick="event.stopPropagation();_crmCopyText('${c.customer_name.replace(/'/g, "\\'")  }',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>`;
-            })()}
+
+        <!-- Column 8: Khách Hàng (Tên + Mã + UID) -->
+        <td style="font-size:12px;">
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
+                ${!c.readonly && canDo('crm_nhu_cau', 'edit') ? '<button class="btn btn-sm" onclick="event.stopPropagation();openCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
+                ${(() => {
+                    const _colors = [
+                        {bg:'rgba(239,68,68,0.12)',text:'#dc2626',border:'rgba(239,68,68,0.25)'},
+                        {bg:'rgba(249,115,22,0.12)',text:'#ea580c',border:'rgba(249,115,22,0.25)'},
+                        {bg:'rgba(234,179,8,0.12)',text:'#ca8a04',border:'rgba(234,179,8,0.25)'},
+                        {bg:'rgba(34,197,94,0.12)',text:'#16a34a',border:'rgba(34,197,94,0.25)'},
+                        {bg:'rgba(20,184,166,0.12)',text:'#0d9488',border:'rgba(20,184,166,0.25)'},
+                        {bg:'rgba(6,182,212,0.12)',text:'#0891b2',border:'rgba(6,182,212,0.25)'},
+                        {bg:'rgba(59,130,246,0.12)',text:'#2563eb',border:'rgba(59,130,246,0.25)'},
+                        {bg:'rgba(139,92,246,0.12)',text:'#7c3aed',border:'rgba(139,92,246,0.25)'},
+                        {bg:'rgba(236,72,153,0.12)',text:'#db2777',border:'rgba(236,72,153,0.25)'},
+                        {bg:'rgba(244,63,94,0.12)',text:'#e11d48',border:'rgba(244,63,94,0.25)'},
+                    ];
+                    const _ci = (c.id || 0) % _colors.length;
+                    const _cc = _colors[_ci];
+                    const _bdayIcon = _crmIsBirthdayToday(c.birthday) ? '🎂🎉 ' : '';
+                    return `<span onclick="openCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span><span onclick="event.stopPropagation();_crmCopyText('${c.customer_name.replace(/'/g, "\\'")}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>`;
+                })()}
+            </div>
+            <div style="font-size:11px;color:#64748b;margin-bottom:2px;">
+                Mã: <strong style="color:#e65100">${getCustomerCode(c)}</strong>
+            </div>
+            ${getCustomerUidBadge(c) ? `<div style="margin-top:2px;">${getCustomerUidBadge(c)}</div>` : ''}
         </td>
-        <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}${c.phone && !c.readonly ? '<span onclick="event.stopPropagation();_crmCopyText(\'' + c.phone + '\',this,\'SĐT\')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color=\'#3b82f6\'" onmouseout="this.style.color=\'#94a3b8\'" title="Copy SĐT">📋</span>' : ''}</td>
-        <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">🔗 FB</a>' : '<span style="color:var(--gray-600)">—</span>'}</td>
-        <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
-        <td style="font-size:12px">${c.source_name || '—'}</td>
-        <td style="font-size:12px;${currentUser.role === 'giam_doc' ? 'cursor:pointer;' : ''}" onclick="${currentUser.role === 'giam_doc' && !c.referrer_id ? 'openReferrerSearch(' + c.id + ')' : ''}">
-            ${c.referrer_id ? `<span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();openAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>` : (currentUser.role === 'giam_doc' ? '<span style="color:var(--gray-500)" title="Click để tìm">🔍 Tìm</span>' : '<span style="color:var(--gray-500)">—</span>')}
+
+        <!-- Column 9: Liên Hệ (SĐT + Link FB/Zalo + Địa Chỉ) -->
+        <td style="font-size:12px;">
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
+                ${c.readonly ? `<span style="color:var(--gray-400)">${c.phone}</span>` : `<a href="tel:${c.phone}" style="color:var(--info);font-weight:600;">${c.phone}</a>`}
+                ${c.phone && !c.readonly ? `<span onclick="event.stopPropagation();_crmCopyText('${c.phone}',this,'SĐT')" style="cursor:pointer;font-size:11px;color:#94a3b8;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy SĐT">📋</span>` : ''}
+                ${c.facebook_link ? `<a href="${c.facebook_link}" target="_blank" style="margin-left:6px;color:#1877F2;font-weight:700;font-size:11px;" title="${c.facebook_link}">🔗 FB</a>` : ''}
+            </div>
+            ${c.address ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">📍 ${c.address}</div>` : ''}
         </td>
-        <td style="text-align:center;font-size:11px;font-weight:700;">${(() => { const r = c.next_aff_rate || 0; if (r >= 15) return '<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:10px;">15%</span>'; if (r >= 10) return '<span style="background:#fff7ed;color:#ea580c;padding:2px 8px;border-radius:10px;">10%</span>'; if (r >= 5) return '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:10px;">5%</span>'; return '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:10px;">0%</span>'; })()}</td>
-        <td style="font-size:11px">${(c.referrer_user_crm_type || c.referrer_crm_type) ? (CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type) : '—'}</td>
+
+        <!-- Column 10: Nguồn & Giới Thiệu (Nguồn + Người GT + HH AFF + CRM Người GT) -->
+        <td style="font-size:12px;">
+            <div style="font-weight:700;color:#334155;margin-bottom:4px;">${c.source_name || '—'}</div>
+            ${c.referrer_id ? `
+                <div style="font-size:11px;color:#475569;margin-bottom:2px;">
+                    Người GT: <span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();openAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>
+                </div>
+            ` : (currentUser.role === 'giam_doc' ? `<div style="font-size:11px;color:var(--gray-500);cursor:pointer;margin-bottom:2px;" onclick="openReferrerSearch(${c.id})">🔍 Tìm người GT</div>` : '')}
+            
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;margin-top:2px;">
+                <span>Aff: ${(() => { const r = c.next_aff_rate || 0; if (r >= 15) return '<span style="background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:6px;font-weight:700;">15%</span>'; if (r >= 10) return '<span style="background:#fff7ed;color:#ea580c;padding:1px 6px;border-radius:6px;font-weight:700;">10%</span>'; if (r >= 5) return '<span style="background:#eff6ff;color:#2563eb;padding:1px 6px;border-radius:6px;font-weight:700;">5%</span>'; return '<span style="background:#f0fdf4;color:#16a34a;padding:1px 6px;border-radius:6px;font-weight:700;">0%</span>'; })()}</span>
+                ${(c.referrer_user_crm_type || c.referrer_crm_type) ? `<span style="color:#64748b;font-size:10px;">(${CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type})</span>` : ''}
+            </div>
+        </td>
+
+        <!-- Column 11: Lĩnh Vực -->
         <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">—</span>'}</td>
-        <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
-        <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
+
+        <!-- Column 12: Mua Hàng (Doanh Số + Lần Đặt) -->
+        <td style="text-align:right;font-size:12px;">
+            <div style="font-weight:800;color:${s.revenue > 0 ? 'var(--success)' : '#475569'};">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</div>
+            <div style="font-size:10.5px;color:#64748b;margin-top:2px;">(${s.chotDonCount} lần đặt)</div>
+        </td>
+
+        <!-- Column 13: 🔄 CTV proposal -->
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && canDo('crm_nhu_cau', 'edit') && c.cancel_approved !== 1 ? (() => {
-                // ★ Show pending CTV badge if customer has pending conversion request
                 if (_crmPendingCtvIds.includes(c.id)) {
                     return `<span title="Đang chờ duyệt chuyển CRM" style="font-size:10px;padding:3px 8px;border-radius:6px;background:#fef3c7;color:#92400e;font-weight:700;white-space:nowrap;cursor:default;">⏳ Chờ CTV</span>`;
                 }
-                // ★ GATE UI: KH có referrer_id + chưa có đơn → khóa nút chuyển CRM
                 if (c.referrer_id && !s.latestOrderCode) {
                     return `<span title="🔒 Khách có nguồn giới thiệu từ Đối Tác — cần có đơn hàng mới được chuyển CRM" style="cursor:not-allowed;font-size:16px;opacity:0.35;">🔒</span>`;
                 }
