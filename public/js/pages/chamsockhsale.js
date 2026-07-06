@@ -254,8 +254,7 @@ function _saleGetCategory(c, stats) {
         if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
         return 'huy_khach';
     }
-    const s = (stats && stats[c.id]) || {};
-    if (s.lastLog && s.lastLog.log_type === 'huy' && c.cancel_approved !== -2) {
+    if (c.last_consult_type === 'huy' && c.cancel_approved !== -2) {
         return 'huy_khach';
     }
 
