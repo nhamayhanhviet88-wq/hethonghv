@@ -1120,7 +1120,7 @@ async function _kockolOpenConsultModal(customerId) {
 
     // Override: if customer cancel was auto-reverted (24h no response) → lock to Hủy Khách only
     if (customerInfo.cancel_approved === -2) {
-        allowedTypes = allTypes.filter(([k]) => k === 'huy');
+        allowedTypes = _getFlowRuleTypes('cancel_auto_revert') || allTypes.filter(([k]) => k === 'huy');
     }
 
     // ★ Use admin-configured flow rule defaults (⭐ Mặc định from Quy Tắc Liên Kết)

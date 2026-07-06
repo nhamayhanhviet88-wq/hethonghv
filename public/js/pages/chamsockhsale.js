@@ -1180,7 +1180,7 @@ async function _saleOpenConsultModal(customerId) {
     }
 
     if (customerInfo.cancel_approved === -2) {
-        allowedTypes = allTypes.filter(([k]) => k === 'huy');
+        allowedTypes = _getFlowRuleTypes('cancel_auto_revert') || allTypes.filter(([k]) => k === 'huy');
     }
 
     const effectiveRules = flowRules[effectiveStatus] || [];
