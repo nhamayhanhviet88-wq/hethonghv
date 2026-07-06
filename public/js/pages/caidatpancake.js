@@ -464,9 +464,11 @@ function showGlobalWorkingDaysModal() {
 }
 
 async function saveGlobalWorkingDaysFromModal() {
-    await savePancakeConfigToDB();
-    closeModal();
-    showToast('✅ Đã lưu lịch trực toàn cục của nhân viên!');
+    const success = await savePancakeConfigToDB();
+    if (success) {
+        closeModal();
+        showToast('✅ Đã lưu lịch trực toàn cục của nhân viên!');
+    }
 }
 
 function onRosterCrmUserChange(select) {
@@ -537,39 +539,56 @@ async function saveGlobalPancakeSettings() {
     _pancakeConfig.delay_assignment_seconds = delaySecs;
     _pancakeConfig.update_phone_limit_minutes = updateLimit;
     
-    await savePancakeConfigToDB();
-    showToast('✅ Đã lưu cấu hình Pancake chung!');
+    const success = await savePancakeConfigToDB();
+    if (success) {
+        showToast('✅ Đã lưu cấu hình Pancake chung!');
+    }
 }
 
 async function togglePancakeActive(checked) {
     _pancakeConfig.is_active = checked;
-    await savePancakeConfigToDB();
-    showToast(checked ? '✅ Đã kích hoạt đồng bộ Pancake' : '⚠️ Đã tạm dừng đồng bộ Pancake');
+    const success = await savePancakeConfigToDB();
+    if (success) {
+        showToast(checked ? '✅ Đã kích hoạt đồng bộ Pancake' : '⚠️ Đã tạm dừng đồng bộ Pancake');
+    } else {
+        document.getElementById('pancakeActiveSwitch').checked = !checked;
+    }
 }
 
 async function togglePageStatus(index) {
     if (_pancakeConfig.pages[index]) {
-        _pancakeConfig.pages[index].is_active = !_pancakeConfig.pages[index].is_active;
-        await savePancakeConfigToDB();
-        renderPagesTable();
-        showToast('✅ Đã cập nhật trạng thái hoạt động của Page!');
+        const oldVal = _pancakeConfig.pages[index].is_active;
+        _pancakeConfig.pages[index].is_active = !oldVal;
+        const success = await savePancakeConfigToDB();
+        if (success) {
+            renderPagesTable();
+            showToast('✅ Đã cập nhật trạng thái hoạt động của Page!');
+        } else {
+            _pancakeConfig.pages[index].is_active = oldVal;
+        }
     }
 }
 
 async function deletePageConfig(index) {
     if (!confirm('Bạn có chắc chắn muốn xóa cấu hình đồng bộ của Page này?')) return;
-    _pancakeConfig.pages.splice(index, 1);
-    await savePancakeConfigToDB();
-    renderPagesTable();
-    showToast('🗑️ Đã xóa cấu hình Page thành công!');
+    const removed = _pancakeConfig.pages.splice(index, 1)[0];
+    const success = await savePancakeConfigToDB();
+    if (success) {
+        renderPagesTable();
+        showToast('🗑️ Đã xóa cấu hình Page thành công!');
+    } else {
+        _pancakeConfig.pages.splice(index, 0, removed);
+    }
 }
 
 async function savePancakeConfigToDB() {
     try {
         await apiCall('/api/app-config/pancake_settings', 'PUT', { value: _pancakeConfig });
+        return true;
     } catch(e) {
         console.error('Error saving pancake settings:', e);
         showToast('Lỗi khi lưu cấu hình lên máy chủ!', 'error');
+        return false;
     }
 }
 
@@ -723,10 +742,12 @@ async function savePageConfigFromModal(index = null) {
         _pancakeConfig.pages.push(pageObject);
     }
 
-    await savePancakeConfigToDB();
-    closeModal();
-    renderPagesTable();
-    showToast(isEdit ? '✅ Đã cập nhật cấu hình Page!' : '✅ Đã thêm Page mới thành công!');
+    const success = await savePancakeConfigToDB();
+    if (success) {
+        closeModal();
+        renderPagesTable();
+        showToast(isEdit ? '✅ Đã cập nhật cấu hình Page!' : '✅ Đã thêm Page mới thành công!');
+    }
 }
 
 // ========== ROSTER CONFIGURATION MODAL ==========
