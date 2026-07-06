@@ -196,16 +196,18 @@
     }
 
     async function mRenderForm() {
-        const [sourcesAll, sourcesCSO, promotions, industries, usersData, deptData, configData] = await Promise.all([
+        const [sourcesAll, sourcesCSO, promotions, industries, usersData, deptData, configData, pancakeSettingsData] = await Promise.all([
             apiCall('/api/settings/sources?crm_type=sale'),
             apiCall('/api/settings/sources-chuyensale'),
             apiCall('/api/settings/promotions'),
             apiCall('/api/settings/industries'),
             apiCall('/api/users/dropdown'),
             apiCall('/api/departments'),
-            apiCall('/api/app-config/chuyensosale_allowed_depts')
+            apiCall('/api/app-config/chuyensosale_allowed_depts'),
+            apiCall('/api/app-config/pancake_settings')
         ]);
 
+        const pancakeConfig = pancakeSettingsData && pancakeSettingsData.value ? JSON.parse(pancakeSettingsData.value) : {};
         const allDepts = deptData.departments || [];
         const allowedDeptIds = configData.value ? JSON.parse(configData.value) : null;
         const ROLE_LABELS = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'QLCC', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', thu_viec:'Thử Việc' };
@@ -238,16 +240,76 @@
         }
 
         function userLabel(u) {
-            let label = `${u.full_name} (${ROLE_LABELS[u.role] || r => u.role})`;
+            let label = `${u.full_name} (${ROLE_LABELS[u.role] || u.role})`;
             const dn = getDeptName(u.department_id);
             if (dn) label += ` — ${dn}`;
             return label;
         }
 
+        // Determine active receiving users for today (Vietnam Timezone)
+        const vnTimeStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
+        const vnNow = new Date(vnTimeStr);
+        const dayOfWeek = vnNow.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
+
+        const y = vnNow.getFullYear();
+        const m = String(vnNow.getMonth() + 1).padStart(2, '0');
+        const day = String(vnNow.getDate()).padStart(2, '0');
+        const vnDateStr = `${y}-${m}-${day}`;
+
+        const workingUsers = [];
+        const careUsers = [];
+
+        receiverUsers.forEach(u => {
+            let isWorkingToday = false;
+            if (dayOfWeek === 0) {
+                const schedule = pancakeConfig.sunday_duty_schedule || {};
+                const assignedUsers = schedule[vnDateStr] || [];
+                isWorkingToday = assignedUsers.includes(Number(u.id)) || assignedUsers.includes(String(u.id));
+            } else {
+                const globalWorkingDays = pancakeConfig.global_working_days || {};
+                let workingDays = [1, 2, 3, 4, 5, 6]; // default Mon-Sat
+                if (globalWorkingDays[u.id] !== undefined) {
+                    workingDays = globalWorkingDays[u.id].map(Number).filter(d => d !== 0);
+                }
+                isWorkingToday = workingDays.includes(dayOfWeek);
+            }
+
+            if (isWorkingToday) {
+                workingUsers.push(u);
+            } else {
+                careUsers.push(u);
+            }
+        });
+
+        const workingOptions = workingUsers.map(u => {
+            return `<option value="${u.id}" class="m-receiver-receiving" ${u.id === currentUser.id ? 'selected' : ''}>🟢 ${userLabel(u)}</option>`;
+        }).join('');
+
+        const careOptions = careUsers.map(u => {
+            return `<option value="${u.id}" class="m-receiver-followup" ${u.id === currentUser.id ? 'selected' : ''}>⚪ ${userLabel(u)} (Chăm lại)</option>`;
+        }).join('');
+
         const sources = sourcesCSO.items || [];
         const container = document.getElementById('mContent');
 
         container.innerHTML = `
+        <style>
+            .m-receiver-receiving {
+                color: #4ade80 !important;
+                font-weight: 800 !important;
+            }
+            .m-receiver-followup {
+                color: #64748b !important;
+                opacity: 0.7;
+                font-style: italic;
+            }
+            optgroup {
+                color: #94a3b8;
+                background-color: #1e293b;
+                font-size: 13px;
+                font-weight: 700;
+            }
+        </style>
         <div class="m-card">
             <div class="m-card-header">
                 <span style="font-size:24px;">📱</span>
@@ -311,9 +373,14 @@
                             <input type="text" class="m-input" value="${userLabel(receiverUsers[0] || currentUser)}" disabled>
                             <input type="hidden" id="mReceiver" value="${receiverUsers[0]?.id || currentUser.id}">
                         ` : `
-                            <select id="mReceiver" class="m-select" required>
+                            <select id="mReceiver" class="m-select" required style="font-weight: 600;">
                                 <option value="">-- Chọn --</option>
-                                ${receiverUsers.map(u => `<option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''}>${userLabel(u)}</option>`).join('')}
+                                <optgroup label="🟢 NHÂN VIÊN NHẬN SỐ HÔM NAY (ƯU TIÊN)">
+                                    ${workingOptions || '<option disabled>Không có nhân viên nhận số</option>'}
+                                </optgroup>
+                                <optgroup label="⚪ CHĂM LẠI KHÁCH HÀNG (KHÔNG ƯU TIÊN)">
+                                    ${careOptions}
+                                </optgroup>
                             </select>
                         `}
                     </div>
