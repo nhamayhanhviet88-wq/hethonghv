@@ -342,6 +342,26 @@ function getUpcomingSundayDate() {
     return `${y}-${m}-${d}`;
 }
 
+function getDateOfWeekdayInCurrentWeek(targetDOW) {
+    const today = new Date();
+    const todayDOW = today.getDay(); // 0 = CN, 1 = T2...
+    
+    // We treat Monday (1) to Sunday (0) as a single week block.
+    // Let's adjust DOW to be 1-indexed (Mon = 1, Tue = 2, ..., Sun = 7)
+    const currentMonDOW = todayDOW === 0 ? 7 : todayDOW;
+    const targetMonDOW = targetDOW === 0 ? 7 : targetDOW;
+    
+    const diff = targetMonDOW - currentMonDOW;
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + diff);
+    
+    const y = targetDate.getFullYear();
+    const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const d = String(targetDate.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 function renderGlobalWorkingDaysTable() {
     const tbody = document.getElementById('globalWorkingDaysTableBody');
     if (!tbody) return;
@@ -378,14 +398,19 @@ function renderGlobalWorkingDaysTable() {
         const daysBadgeHTML = dayLabels.map((label, dIdx) => {
             const isChecked = workingDays.includes(dIdx);
             
-            // Check if this badge is today's day of week and employee is off today
-            if (isOffToday && dIdx === todayDOW) {
+            // Check if user has an off-day override for this weekday's date in the current week
+            const targetDateStr = getDateOfWeekdayInCurrentWeek(dIdx);
+            const hasOffOverride = window._offDaysMonthlyList && window._offDaysMonthlyList.some(od => 
+                od.user_id === u.id && od.off_date === targetDateStr && od.type !== 'work'
+            );
+
+            if (hasOffOverride) {
                 return `
                     <span class="day-badge" 
                           data-day="${dIdx}" 
-                          onclick="showToast('${u.full_name} có lịch nghỉ ngày hôm nay (${label}). Hệ thống đã tự động tắt nhận lead.', 'warning')" 
+                          onclick="showToast('${u.full_name} có lịch nghỉ ngày ${targetDateStr.split('-').reverse().join('/')} (${label}). Hệ thống tự động tắt nhận lead.', 'warning')" 
                           style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1.5px dashed #dc2626; background: #fef2f2; color: #dc2626; transition: all 0.15s; user-select: none;"
-                          title="Hôm nay nghỉ (Lịch Nghỉ) - Tự động tắt nhận lead">
+                          title="Nghỉ ngày ${targetDateStr.split('-').reverse().join('/')} (Tự động tắt nhận lead)">
                         ${label} 🚫
                     </span>
                 `;
@@ -499,6 +524,7 @@ async function showGlobalWorkingDaysModal() {
     }
 
     _offUsersToday = [];
+    window._offDaysMonthlyList = [];
     try {
         const res = await apiCall('/api/settings/staff-off-dates/today');
         _offUsersToday = res.off_user_ids || [];
@@ -506,20 +532,19 @@ async function showGlobalWorkingDaysModal() {
         console.error('Error fetching today off users:', e);
     }
 
-    renderGlobalWorkingDaysTable();
-
     // Fetch monthly off days note list
     const noteContainer = document.getElementById('globalWorkingDaysOffNoteContainer');
-    if (noteContainer) {
-        try {
-            const nowObj = new Date();
-            const year = nowObj.getFullYear();
-            const month = String(nowObj.getMonth() + 1).padStart(2, '0');
-            const monthStr = `${year}-${month}`;
-            const res = await apiCall(`/api/settings/staff-off-dates/monthly?month=${monthStr}`);
-            if (res && res.off_dates) {
-                // Filter only off days (type !== 'work' or type === 'off')
-                const offDays = res.off_dates.filter(d => d.type !== 'work');
+    try {
+        const nowObj = new Date();
+        const year = nowObj.getFullYear();
+        const month = String(nowObj.getMonth() + 1).padStart(2, '0');
+        const monthStr = `${year}-${month}`;
+        const res = await apiCall(`/api/settings/staff-off-dates/monthly?month=${monthStr}`);
+        if (res && res.off_dates) {
+            window._offDaysMonthlyList = res.off_dates;
+            // Filter only off days (type !== 'work' or type === 'off')
+            const offDays = res.off_dates.filter(d => d.type !== 'work');
+            if (noteContainer) {
                 if (offDays.length === 0) {
                     noteContainer.innerHTML = `<span style="color: var(--gray-400); font-style: italic;">Không có ai xin nghỉ trong tháng ${nowObj.getMonth() + 1}.</span>`;
                 } else {
@@ -533,14 +558,20 @@ async function showGlobalWorkingDaysModal() {
                     }).join('<br>');
                     noteContainer.innerHTML = html;
                 }
-            } else {
+            }
+        } else {
+            if (noteContainer) {
                 noteContainer.innerHTML = `<span style="color: var(--gray-400); font-style: italic;">Không có thông tin lịch nghỉ.</span>`;
             }
-        } catch(e) {
-            console.error('Error fetching monthly off days for global working days note:', e);
+        }
+    } catch(e) {
+        console.error('Error fetching monthly off days for global working days note:', e);
+        if (noteContainer) {
             noteContainer.innerHTML = `<span style="color: #dc2626; font-style: italic;">Lỗi khi tải lịch nghỉ.</span>`;
         }
     }
+
+    renderGlobalWorkingDaysTable();
 }
 
 async function saveGlobalWorkingDaysFromModal() {
