@@ -238,6 +238,135 @@ async function telegramRoutes(fastify, options) {
             }
 
             const text = (message.text || '').trim();
+            const lowerText = text.toLowerCase();
+
+            // Handle global duty toggle command /t or /b
+            if (lowerText === '/t' || lowerText === '/b') {
+                const isTurnOff = lowerText === '/t';
+                const chatIdStr = String(message.chat.id);
+                
+                // 1. Find user by group ID
+                let targetUser = null;
+                const userRow = await db.get(`SELECT id, full_name, role FROM users WHERE telegram_group_id = $1 LIMIT 1`, [chatIdStr]);
+                if (userRow) {
+                    targetUser = userRow;
+                } else {
+                    const notificationRow = await db.get(
+                        `SELECT user_id FROM telegram_notifications WHERE chat_id = $1 AND enabled = true LIMIT 1`,
+                        [chatIdStr]
+                    );
+                    if (notificationRow) {
+                        const uRow = await db.get(`SELECT id, full_name, role FROM users WHERE id = $1 LIMIT 1`, [notificationRow.user_id]);
+                        if (uRow) targetUser = uRow;
+                    }
+                }
+
+                if (!targetUser) {
+                    await sendTelegramReply(
+                        message.chat.id,
+                        `⚠️ <b>Lỗi:</b> Nhóm chat này chưa được liên kết với tài khoản nhân viên nào trên CRM!`,
+                        message.message_id
+                    );
+                    return reply.code(200).send({ ok: true });
+                }
+
+                const userId = targetUser.id;
+                const userIdStr = String(userId);
+
+                // 2. Fetch pancake_settings
+                const configRow = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+                let pancakeConfig = {};
+                if (configRow?.value) {
+                    try {
+                        pancakeConfig = JSON.parse(configRow.value);
+                    } catch (e) {
+                        pancakeConfig = {};
+                    }
+                }
+
+                // 3. Determine Vietnam date and day of week
+                const vnTimeStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
+                const vnNow = new Date(vnTimeStr);
+                const dayOfWeek = vnNow.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
+
+                const y = vnNow.getFullYear();
+                const m = String(vnNow.getMonth() + 1).padStart(2, '0');
+                const day = String(vnNow.getDate()).padStart(2, '0');
+                const vnDateStr = `${y}-${m}-${day}`;
+
+                const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                const dayLabel = dayLabels[dayOfWeek];
+
+                let actionSuccess = false;
+
+                if (dayOfWeek === 0) {
+                    // Sunday
+                    pancakeConfig.sunday_duty_schedule = pancakeConfig.sunday_duty_schedule || {};
+                    let sundayList = pancakeConfig.sunday_duty_schedule[vnDateStr] || [];
+                    
+                    // Normalize all items to numbers
+                    sundayList = sundayList.map(Number);
+                    
+                    if (isTurnOff) {
+                        pancakeConfig.sunday_duty_schedule[vnDateStr] = sundayList.filter(id => id !== userId);
+                    } else {
+                        if (!sundayList.includes(userId)) {
+                            sundayList.push(userId);
+                        }
+                        pancakeConfig.sunday_duty_schedule[vnDateStr] = sundayList;
+                    }
+                    actionSuccess = true;
+                } else {
+                    // Monday - Saturday
+                    pancakeConfig.global_working_days = pancakeConfig.global_working_days || {};
+                    let currentDays = pancakeConfig.global_working_days[userIdStr];
+                    if (currentDays === undefined) {
+                        currentDays = [1, 2, 3, 4, 5, 6];
+                    }
+                    currentDays = currentDays.map(Number);
+
+                    if (isTurnOff) {
+                        pancakeConfig.global_working_days[userIdStr] = currentDays.filter(d => d !== dayOfWeek);
+                    } else {
+                        if (!currentDays.includes(dayOfWeek)) {
+                            currentDays.push(dayOfWeek);
+                        }
+                        pancakeConfig.global_working_days[userIdStr] = currentDays.sort((a, b) => a - b);
+                    }
+                    actionSuccess = true;
+                }
+
+                if (actionSuccess) {
+                    // Save to DB
+                    await db.run(
+                        `INSERT INTO app_config (key, value, updated_at) VALUES ('pancake_settings', $1, NOW())
+                         ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+                        [JSON.stringify(pancakeConfig)]
+                    );
+
+                    // Clear Settings Cache
+                    const settingsRoutes = require('./settings');
+                    if (settingsRoutes && settingsRoutes.appConfigCache) {
+                        settingsRoutes.appConfigCache.delete('pancake_settings');
+                    }
+
+                    // Reply status
+                    const statusEmoji = isTurnOff ? '🔴' : '🟢';
+                    const statusText = isTurnOff ? 'TẮT' : 'BẬT';
+                    const detailText = isTurnOff 
+                        ? `đã được <b>TẮT nhận số</b> ngày hôm nay (${dayLabel} - ${vnDateStr.split('-').reverse().join('/')}).` 
+                        : `đã được <b>BẬT nhận số</b> ngày hôm nay (${dayLabel} - ${vnDateStr.split('-').reverse().join('/')}).`;
+
+                    const confirmMsg = `${statusEmoji} <b>Cập nhật lịch trực toàn cục thành công!</b>\n` +
+                                       `👤 Nhân viên: <code>${targetUser.full_name}</code>\n` +
+                                       `📅 Lịch hôm nay: <b>${statusText}</b>\n` +
+                                       `💻 Hệ thống: Sale ${targetUser.full_name} ${detailText}`;
+                    
+                    await sendTelegramReply(message.chat.id, confirmMsg, message.message_id);
+                    return reply.code(200).send({ ok: true });
+                }
+            }
+
             // Detect command prefix ";"
             if (!text.startsWith(';')) {
                 return reply.code(200).send({ ok: true });
