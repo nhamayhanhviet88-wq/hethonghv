@@ -583,10 +583,10 @@ function toggleGlobalWorkingDayBadge(badge, userId) {
 async function showGlobalWorkingDaysModal() {
     _globalWorkingDaysSearchQuery = '';
     const modalBody = `
-        <div style="margin-bottom: 16px; font-size: 13px; color: var(--gray-600); font-weight: 500; line-height: 1.5;">
+        <div style="margin-bottom: 16px; font-size: 13px; color: var(--gray-600); font-weight: 500; line-height: 1.5; flex: 0 0 auto;">
             Thiết lập ngày trong tuần (Thứ nhận Lead) áp dụng chung cho toàn bộ Fanpage. Nhấp chọn các ngày nhân viên trực nhận số.
         </div>
-        <div style="margin-bottom: 14px; position: relative;">
+        <div style="margin-bottom: 14px; position: relative; flex: 0 0 auto;">
             <input type="text" id="globalWorkingDaysSearchInput" placeholder="🔍 Tìm tên hoặc tài khoản nhân viên..." 
                    style="width: 100%; padding: 10px 14px 10px 36px; border-radius: 10px; border: 1.5px solid var(--gray-200); font-size: 13px; outline: none; transition: border-color 0.2s;"
                    oninput="onGlobalWorkingDaysSearch()"
@@ -594,7 +594,7 @@ async function showGlobalWorkingDaysModal() {
                    onblur="this.style.borderColor='var(--gray-200)'">
             <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--gray-400); pointer-events: none;">🔍</span>
         </div>
-        <div style="max-height: 320px; overflow-y: auto; border: 1.5px solid var(--gray-200); border-radius: 12px; background: white; box-shadow: inset 0 2px 8px rgba(0,0,0,0.02); margin-bottom: 12px;">
+        <div style="flex: 1; min-height: 250px; overflow-y: auto; border: 1.5px solid var(--gray-200); border-radius: 12px; background: white; box-shadow: inset 0 2px 8px rgba(0,0,0,0.02); margin-bottom: 12px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;">
                 <thead>
                     <tr style="background: #1e293b; border-bottom: 1.5px solid #0f172a;">
@@ -609,7 +609,7 @@ async function showGlobalWorkingDaysModal() {
                 </tbody>
             </table>
         </div>
-        <div style="margin-top: 15px; border-top: 1.5px solid var(--gray-200); padding-top: 12px;">
+        <div style="margin-top: 15px; border-top: 1.5px solid var(--gray-200); padding-top: 12px; flex: 0 0 auto;">
             <label style="display: block; font-weight: 800; font-size: 12px; color: var(--navy); margin-bottom: 6px;">📝 Ghi Chú Lịch Nghỉ / Trực Trong Tháng</label>
             <div id="globalWorkingDaysOffNoteContainer" style="max-height: 120px; overflow-y: auto; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11.5px; color: #334155; line-height: 1.4;">
                 Đang tải...
@@ -626,11 +626,23 @@ async function showGlobalWorkingDaysModal() {
 
     openModal('📅 Thiết Lập Thứ Nhận Lead Toàn Cục', modalBody, modalFooter);
     
-    // Adjust modal width for comfortable table viewing
+    // Adjust modal dimensions
     const container = document.getElementById('modalContainer');
     if (container) {
         container.style.maxWidth = '850px';
         container.style.width = '90%';
+        container.style.height = '900px';
+        container.style.maxHeight = '90vh';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+    }
+
+    const body = document.getElementById('modalBody');
+    if (body) {
+        body.style.display = 'flex';
+        body.style.flexDirection = 'column';
+        body.style.flex = '1';
+        body.style.overflowY = 'hidden';
     }
 
     _offUsersToday = [];
