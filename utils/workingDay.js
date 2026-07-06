@@ -25,6 +25,11 @@ async function getHolidays() {
 let _leaveCache = null;
 let _leaveCacheTime = 0;
 
+function clearLeaveCache() {
+    _leaveCache = null;
+    _leaveCacheTime = 0;
+}
+
 // Kiểm tra user có nghỉ ngày X không
 async function isUserOnLeave(userId, dateStr) {
     const now = Date.now();
@@ -35,7 +40,11 @@ async function isUserOnLeave(userId, dateStr) {
     }
 
     try {
-        const rows = await db.all("SELECT user_id, date_from::text as date_from, date_to::text as date_to FROM leave_requests WHERE status = 'active'");
+        const rows = await db.all(`
+            SELECT user_id, date_from::text as date_from, date_to::text as date_to FROM leave_requests WHERE status = 'active'
+            UNION ALL
+            SELECT user_id, off_date::text as date_from, off_date::text as date_to FROM staff_off_dates
+        `);
         const map = new Map();
         for (const r of rows) {
             if (!map.has(r.user_id)) map.set(r.user_id, []);
@@ -49,7 +58,9 @@ async function isUserOnLeave(userId, dateStr) {
         return list.some(lr => dateStr >= lr.date_from && dateStr <= lr.date_to);
     } catch(e) {
         const leave = await db.get(
-            "SELECT id FROM leave_requests WHERE user_id = $1 AND status = 'active' AND date_from <= $2 AND date_to >= $2",
+            `SELECT id FROM leave_requests WHERE user_id = $1 AND status = 'active' AND date_from <= $2 AND date_to >= $2
+             UNION ALL
+             SELECT id FROM staff_off_dates WHERE user_id = $1 AND off_date = $2 LIMIT 1`,
             [userId, dateStr]
         );
         return !!leave;
@@ -294,5 +305,6 @@ module.exports = {
     getNextWorkingDay,
     getEffectiveWorkingDay,
     getNextFollowUpDate,
-    getDynamicCutoffTime
+    getDynamicCutoffTime,
+    clearLeaveCache
 };

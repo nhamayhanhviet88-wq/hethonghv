@@ -1719,3 +1719,17 @@ CREATE TABLE IF NOT EXISTS ctv_quotations (
 CREATE INDEX IF NOT EXISTS idx_ctv_quotations_created_by ON ctv_quotations(created_by);
 CREATE INDEX IF NOT EXISTS idx_ctv_quotations_customer_id ON ctv_quotations(customer_id);
 
+-- ========== STAFF OFF DATES (Lịch nghỉ Sale/Kinh Doanh) ==========
+CREATE TABLE IF NOT EXISTS staff_off_dates (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    off_date DATE NOT NULL,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, off_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_staff_off_dates_user ON staff_off_dates(user_id);
+CREATE INDEX IF NOT EXISTS idx_staff_off_dates_date ON staff_off_dates(off_date);
+
+

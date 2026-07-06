@@ -12,6 +12,10 @@ let _saleSources = [];
 let _allUsers = [];
 let _kdAndSaleUsers = [];
 let _pancakeMembersCache = {}; // Cache pancake members by pageId
+let _offUsersToday = []; // Users off today
+let _offDaysCurrentDate = new Date();
+let _offDaysSelectedUserId = null;
+let _offDaysList = [];
 
 async function renderCaidatpancakePage(container) {
     container.innerHTML = `
@@ -74,6 +78,9 @@ async function renderCaidatpancakePage(container) {
                             </button>
                             <button type="button" onclick="showSundayRosterModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
                                 📅 Lịch Trực Chủ Nhật
+                            </button>
+                            <button type="button" onclick="showStaffOffDaysModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
+                                📅 Lịch Nghỉ Sale/Kinh Doanh
                             </button>
                         </div>
                     </div>
@@ -344,12 +351,16 @@ function renderGlobalWorkingDaysTable() {
     }
 
     const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const today = new Date();
+    const todayDOW = today.getDay(); // 0 = CN, 1 = T2...
     
     tbody.innerHTML = users.map(u => {
         const workingDays = _pancakeConfig.global_working_days && _pancakeConfig.global_working_days[u.id] !== undefined
             ? _pancakeConfig.global_working_days[u.id].filter(d => d !== 0) // exclude static Sunday
             : [1, 2, 3, 4, 5, 6]; // Default Monday to Saturday
         
+        const isOffToday = _offUsersToday.includes(u.id);
+
         // Find all future Sundays (today onwards) assigned to this user
         const todayStr = typeof vnDateStr === 'function' ? vnDateStr() : new Date().toISOString().split('T')[0];
         const schedule = _pancakeConfig.sunday_duty_schedule || {};
@@ -364,6 +375,20 @@ function renderGlobalWorkingDaysTable() {
         
         const daysBadgeHTML = dayLabels.map((label, dIdx) => {
             const isChecked = workingDays.includes(dIdx);
+            
+            // Check if this badge is today's day of week and employee is off today
+            if (isOffToday && dIdx === todayDOW) {
+                return `
+                    <span class="day-badge" 
+                          data-day="${dIdx}" 
+                          onclick="showToast('${u.full_name} có lịch nghỉ ngày hôm nay (${label}). Hệ thống đã tự động tắt nhận lead.', 'warning')" 
+                          style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1.5px dashed #dc2626; background: #fef2f2; color: #dc2626; transition: all 0.15s; user-select: none;"
+                          title="Hôm nay nghỉ (Lịch Nghỉ) - Tự động tắt nhận lead">
+                        ${label} 🚫
+                    </span>
+                `;
+            }
+
             if (dIdx === 0) {
                 const formattedSundays = futureSundays.map(d => d.split('-').reverse().join('/')).join(', ');
                 const toastMsg = isChecked
@@ -427,7 +452,7 @@ function toggleGlobalWorkingDayBadge(badge, userId) {
     _pancakeConfig.global_working_days[userId] = arr;
 }
 
-function showGlobalWorkingDaysModal() {
+async function showGlobalWorkingDaysModal() {
     const modalBody = `
         <div style="margin-bottom: 16px; font-size: 13px; color: var(--gray-600); font-weight: 500; line-height: 1.5;">
             Thiết lập ngày trong tuần (Thứ nhận Lead) áp dụng chung cho toàn bộ Fanpage. Nhấp chọn các ngày nhân viên trực nhận số.
@@ -463,6 +488,14 @@ function showGlobalWorkingDaysModal() {
     if (container) {
         container.style.maxWidth = '650px';
         container.style.width = '90%';
+    }
+
+    _offUsersToday = [];
+    try {
+        const res = await apiCall('/api/settings/staff-off-dates/today');
+        _offUsersToday = res.off_user_ids || [];
+    } catch(e) {
+        console.error('Error fetching today off users:', e);
     }
 
     renderGlobalWorkingDaysTable();
@@ -1416,5 +1449,295 @@ async function saveSundayRosterFromModal() {
         showToast('✅ Đã lưu lịch trực Chủ Nhật thành công!');
     } catch (e) {
         showToast('Lỗi khi lưu lịch trực!', 'error');
+    }
+}
+
+// ===== LỊCH NGHỈ SALE/KINH DOANH MODAL LOGIC =====
+
+async function showStaffOffDaysModal() {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const hasPerm = currentUser.role === 'giam_doc' || currentUser.role === 'quan_ly_cap_cao' || currentUser.username === 'leviettrinh';
+    if (!hasPerm) {
+        showToast('Bạn không có quyền quản lý lịch nghỉ. Chỉ Giám Đốc và Quản Lý Cấp Cao Lê Việt Trinh mới được quyền.', 'error');
+        return;
+    }
+
+    const modalBody = `
+        <div style="margin-bottom: 16px; font-size: 13px; color: var(--gray-600); line-height: 1.5;">
+            Chọn nhân viên và nhấp vào các ngày trên lịch để <b>thêm/bỏ lịch nghỉ</b>. Nhân viên nghỉ ngày nào sẽ tự động tắt nhận lead ngày đó.
+        </div>
+        <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; min-height: 420px; background: white; border-radius: 12px; border: 1.5px solid var(--gray-200); padding: 16px;">
+            <!-- Left panel: Employee Selection -->
+            <div style="border-right: 1.5px solid var(--gray-200); padding-right: 16px; display: flex; flex-direction: column; justify-content: flex-start; gap: 15px;">
+                <div>
+                    <label style="display: block; font-weight: 800; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">👤 Chọn Nhân Viên</label>
+                    <select id="offDaysStaffSelect" class="form-control" onchange="onOffDaysStaffChange()" style="width: 100%; height: 38px; border-radius: 8px; font-weight: 600;">
+                        <option value="">-- Chọn nhân viên --</option>
+                    </select>
+                </div>
+                <div id="offDaysStaffInfo" style="display: none; background: #fafafa; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 12.5px;">
+                    <!-- Filled dynamically -->
+                </div>
+                <div style="font-size: 12px; color: var(--gray-400); line-height: 1.4; border-top: 1.5px solid var(--gray-100); padding-top: 12px;">
+                    💡 <b>Chú thích màu lịch:</b><br>
+                    <span style="display: inline-block; width: 12px; height: 12px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> Ngày nghỉ (Off Day)<br>
+                    <span style="display: inline-block; width: 12px; height: 12px; background: #eff6ff; border: 1px solid #3b82f6; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> Hôm nay (Today)<br>
+                    <span style="display: inline-block; width: 12px; height: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> Ngày thường (Work Day)<br>
+                </div>
+            </div>
+            
+            <!-- Right panel: Calendar -->
+            <div id="offDaysCalendarContainer" style="display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="changeOffDaysMonth(-1)" style="height: 32px; border-radius: 6px; font-weight: 700; font-size: 12px;">◀ Tháng trước</button>
+                    <h4 id="offDaysCalendarTitle" style="margin: 0; font-size: 15px; font-weight: 800; color: var(--gray-800);">Tháng 7 / 2026</h4>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="changeOffDaysMonth(1)" style="height: 32px; border-radius: 6px; font-weight: 700; font-size: 12px;">Tháng sau ▶</button>
+                </div>
+                
+                <div id="offDaysCalendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; flex: 1; min-height: 300px;">
+                    <!-- Calendar days header (T2, T3... CN) and cells populated here -->
+                </div>
+            </div>
+        </div>
+    `;
+
+    const modalFooter = `
+        <button class="btn btn-secondary" onclick="closeModal()" style="border-radius: 8px; padding: 8px 16px;">Đóng</button>
+    `;
+
+    openModal('📅 Quản Lý Lịch Nghỉ Sale/Kinh Doanh', modalBody, modalFooter);
+
+    // Adjust modal width
+    const container = document.getElementById('modalContainer');
+    if (container) {
+        container.style.maxWidth = '900px';
+        container.style.width = '95%';
+    }
+
+    _offDaysCurrentDate = new Date(); // Reset to current date
+    _offDaysSelectedUserId = null;
+    _offDaysList = [];
+
+    // Load active users list into select dropdown
+    const select = document.getElementById('offDaysStaffSelect');
+    if (select) {
+        try {
+            const res = await apiCall('/api/settings/staff-off-dates/users');
+            if (res && res.users) {
+                select.innerHTML = `
+                    <option value="">-- Chọn nhân viên --</option>
+                    ${res.users.map(u => `<option value="${u.id}" data-dept="${u.department_name}" data-role="${u.role}" data-username="${u.username}">${u.full_name} (${u.username})</option>`).join('')}
+                `;
+            }
+        } catch(e) {
+            console.error('Error loading users for off days:', e);
+            showToast('Không thể tải danh sách nhân viên!', 'error');
+        }
+    }
+
+    renderOffDaysCalendar();
+}
+
+async function onOffDaysStaffChange() {
+    const select = document.getElementById('offDaysStaffSelect');
+    const info = document.getElementById('offDaysStaffInfo');
+    if (!select || !info) return;
+
+    const val = select.value;
+    if (!val) {
+        _offDaysSelectedUserId = null;
+        _offDaysList = [];
+        info.style.display = 'none';
+        renderOffDaysCalendar();
+        return;
+    }
+
+    _offDaysSelectedUserId = Number(val);
+    const opt = select.options[select.selectedIndex];
+    const dept = opt.getAttribute('data-dept') || '';
+    const role = opt.getAttribute('data-role') || '';
+    const username = opt.getAttribute('data-username') || '';
+
+    info.innerHTML = `
+        <div style="font-weight: 700; color: var(--gray-800); margin-bottom: 4px;">Thông tin nhân viên:</div>
+        <div>🏢 Bộ phận: <b>${dept}</b></div>
+        <div>🔑 Vai trò: <b>${role}</b></div>
+        <div>👤 Tài khoản: <b>${username}</b></div>
+    `;
+    info.style.display = 'block';
+
+    // Fetch user's off days
+    try {
+        const res = await apiCall(`/api/settings/staff-off-dates?user_id=${_offDaysSelectedUserId}`);
+        if (res && res.off_dates) {
+            _offDaysList = res.off_dates;
+        } else {
+            _offDaysList = [];
+        }
+    } catch(e) {
+        console.error('Error fetching off dates:', e);
+        _offDaysList = [];
+    }
+
+    renderOffDaysCalendar();
+}
+
+function changeOffDaysMonth(dir) {
+    _offDaysCurrentDate.setMonth(_offDaysCurrentDate.getMonth() + dir);
+    renderOffDaysCalendar();
+}
+
+function renderOffDaysCalendar() {
+    const grid = document.getElementById('offDaysCalendarGrid');
+    const title = document.getElementById('offDaysCalendarTitle');
+    if (!grid || !title) return;
+
+    const year = _offDaysCurrentDate.getFullYear();
+    const month = _offDaysCurrentDate.getMonth(); // 0-indexed
+
+    // Format month title
+    title.textContent = `Tháng ${month + 1} / ${year}`;
+
+    // Clear grid
+    grid.innerHTML = '';
+
+    // Render calendar headers
+    const headers = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    headers.forEach(h => {
+        const el = document.createElement('div');
+        el.textContent = h;
+        el.style.fontWeight = '800';
+        el.style.fontSize = '12px';
+        el.style.color = '#475569';
+        el.style.padding = '6px 0';
+        el.style.background = '#f1f5f9';
+        el.style.borderRadius = '4px';
+        grid.appendChild(el);
+    });
+
+    // Find start day of the month and total number of days
+    const firstDay = new Date(year, month, 1);
+    let startDayIdx = firstDay.getDay() - 1; // 0 for Monday, 6 for Sunday
+    if (startDayIdx === -1) startDayIdx = 6; // Sunday is index 6
+
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    // Render empty spaces
+    for (let i = 0; i < startDayIdx; i++) {
+        const el = document.createElement('div');
+        grid.appendChild(el);
+    }
+
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    // Render days of month
+    for (let d = 1; d <= totalDays; d++) {
+        const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isOffDay = _offDaysList.includes(dStr);
+        const isToday = dStr === todayStr;
+
+        const cell = document.createElement('div');
+        cell.textContent = d;
+        cell.style.padding = '10px 0';
+        cell.style.borderRadius = '6px';
+        cell.style.fontSize = '13px';
+        cell.style.fontWeight = '700';
+        cell.style.cursor = _offDaysSelectedUserId ? 'pointer' : 'default';
+        cell.style.transition = 'all 0.15s';
+        cell.style.display = 'flex';
+        cell.style.alignItems = 'center';
+        cell.style.justifyContent = 'center';
+        cell.style.position = 'relative';
+
+        if (!_offDaysSelectedUserId) {
+            cell.style.opacity = '0.5';
+        }
+
+        // Apply styles based on status
+        if (isOffDay) {
+            cell.style.background = '#fee2e2';
+            cell.style.color = '#dc2626';
+            cell.style.border = '1.5px solid #fca5a5';
+            
+            const indicator = document.createElement('span');
+            indicator.textContent = 'OFF';
+            indicator.style.position = 'absolute';
+            indicator.style.bottom = '2px';
+            indicator.style.fontSize = '8px';
+            indicator.style.fontWeight = '800';
+            indicator.style.color = '#dc2626';
+            cell.appendChild(indicator);
+        } else if (isToday) {
+            cell.style.background = '#eff6ff';
+            cell.style.color = '#2563eb';
+            cell.style.border = '1.5px solid #93c5fd';
+        } else {
+            cell.style.background = '#f9fafb';
+            cell.style.color = '#374151';
+            cell.style.border = '1px solid #e5e7eb';
+        }
+
+        // Hover effect (only if user selected)
+        if (_offDaysSelectedUserId) {
+            cell.onmouseover = () => {
+                cell.style.transform = 'scale(1.08)';
+                if (!isOffDay) {
+                    cell.style.background = '#fee2e2';
+                    cell.style.color = '#dc2626';
+                    cell.style.border = '1.5px solid #fca5a5';
+                } else {
+                    cell.style.background = '#f9fafb';
+                    cell.style.color = '#374151';
+                    cell.style.border = '1px solid #e5e7eb';
+                }
+            };
+            cell.onmouseout = () => {
+                cell.style.transform = 'scale(1)';
+                if (isOffDay) {
+                    cell.style.background = '#fee2e2';
+                    cell.style.color = '#dc2626';
+                    cell.style.border = '1.5px solid #fca5a5';
+                } else if (isToday) {
+                    cell.style.background = '#eff6ff';
+                    cell.style.color = '#2563eb';
+                    cell.style.border = '1.5px solid #93c5fd';
+                } else {
+                    cell.style.background = '#f9fafb';
+                    cell.style.color = '#374151';
+                    cell.style.border = '1px solid #e5e7eb';
+                }
+            };
+            cell.onclick = () => toggleOffDay(dStr);
+        }
+
+        grid.appendChild(cell);
+    }
+}
+
+async function toggleOffDay(dateStr) {
+    if (!_offDaysSelectedUserId) return;
+    
+    try {
+        const res = await apiCall('/api/settings/staff-off-dates/toggle', 'POST', {
+            user_id: _offDaysSelectedUserId,
+            off_date: dateStr
+        });
+
+        if (res && res.success) {
+            if (res.action === 'added') {
+                _offDaysList.push(dateStr);
+                showToast(`✅ Đã thiết lập ngày nghỉ ${dateStr} cho nhân viên!`);
+            } else {
+                _offDaysList = _offDaysList.filter(d => d !== dateStr);
+                showToast(`❌ Đã bỏ ngày nghỉ ${dateStr} cho nhân viên!`);
+            }
+            renderOffDaysCalendar();
+        } else {
+            showToast(res.error || 'Lỗi khi cập nhật ngày nghỉ!', 'error');
+        }
+    } catch(e) {
+        console.error('Error toggling off day:', e);
+        showToast('Không thể cập nhật ngày nghỉ!', 'error');
     }
 }

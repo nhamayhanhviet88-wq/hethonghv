@@ -423,6 +423,119 @@ async function settingsRoutes(fastify, options) {
             message: `Đã tắt Thực Chiến. ${revertedCount} tài khoản test đã hiện lại.`
         };
     });
+
+    // ===== LỊCH NGHỈ SALE/KINH DOANH =====
+
+    function checkManagerPermission(user) {
+        return user.role === 'giam_doc' || user.role === 'quan_ly_cap_cao' || user.username === 'leviettrinh';
+    }
+
+    // 1. GET: Lấy danh sách nhân viên Sale / Kinh Doanh để chọn
+    fastify.get('/api/settings/staff-off-dates/users', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!checkManagerPermission(request.user)) {
+            return reply.code(403).send({ error: 'Bạn không có quyền thực hiện thao tác này.' });
+        }
+
+        try {
+            const users = await db.all(`
+                WITH RECURSIVE sale_kd_depts AS (
+                    SELECT id FROM departments WHERE id IN (1, 4)
+                    UNION ALL
+                    SELECT d.id FROM departments d
+                    INNER JOIN sale_kd_depts skd ON d.parent_id = skd.id
+                )
+                SELECT u.id, u.username, u.full_name, u.role, u.department_id, d.name as department_name
+                FROM users u
+                LEFT JOIN departments d ON u.department_id = d.id
+                WHERE u.status = 'active' AND u.department_id IN (SELECT id FROM sale_kd_depts)
+                ORDER BY u.full_name
+            `);
+            return { users };
+        } catch (e) {
+            console.error('[staff-off-dates] Error fetching users:', e.message);
+            return reply.code(500).send({ error: 'Lỗi server khi lấy danh sách nhân viên' });
+        }
+    });
+
+    // 2. GET: Lấy tất cả lịch nghỉ của một nhân viên
+    fastify.get('/api/settings/staff-off-dates', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!checkManagerPermission(request.user)) {
+            return reply.code(403).send({ error: 'Bạn không có quyền thực hiện thao tác này.' });
+        }
+
+        const { user_id } = request.query || {};
+        if (!user_id) {
+            return reply.code(400).send({ error: 'Thiếu user_id' });
+        }
+
+        try {
+            const rows = await db.all(
+                "SELECT off_date::text as off_date FROM staff_off_dates WHERE user_id = $1 ORDER BY off_date ASC",
+                [Number(user_id)]
+            );
+            return { off_dates: rows.map(r => r.off_date) };
+        } catch (e) {
+            console.error('[staff-off-dates] Error fetching off dates:', e.message);
+            return reply.code(500).send({ error: 'Lỗi server khi lấy lịch nghỉ' });
+        }
+    });
+
+    // 2.5 GET: Lấy danh sách ID nhân viên có lịch nghỉ hôm nay
+    fastify.get('/api/settings/staff-off-dates/today', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const { getVNToday } = require('../utils/workingDay');
+            const todayStr = getVNToday();
+            const rows = await db.all("SELECT user_id FROM staff_off_dates WHERE off_date = $1", [todayStr]);
+            return { off_user_ids: rows.map(r => r.user_id) };
+        } catch (e) {
+            console.error('[staff-off-dates] Error fetching today off users:', e.message);
+            return { off_user_ids: [] };
+        }
+    });
+
+    // 3. POST: Toggle ngày nghỉ của một nhân viên
+    fastify.post('/api/settings/staff-off-dates/toggle', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!checkManagerPermission(request.user)) {
+            return reply.code(403).send({ error: 'Bạn không có quyền thực hiện thao tác này.' });
+        }
+
+        const { user_id, off_date } = request.body || {};
+        if (!user_id || !off_date) {
+            return reply.code(400).send({ error: 'Thiếu thông tin user_id hoặc off_date' });
+        }
+
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(off_date)) {
+            return reply.code(400).send({ error: 'Định dạng ngày không hợp lệ. Vui lòng dùng YYYY-MM-DD.' });
+        }
+
+        try {
+            const existing = await db.get(
+                "SELECT id FROM staff_off_dates WHERE user_id = $1 AND off_date = $2",
+                [Number(user_id), off_date]
+            );
+
+            const { clearLeaveCache } = require('../utils/workingDay');
+
+            if (existing) {
+                await db.run(
+                    "DELETE FROM staff_off_dates WHERE user_id = $1 AND off_date = $2",
+                    [Number(user_id), off_date]
+                );
+                clearLeaveCache();
+                return { success: true, action: 'removed', message: `Đã xóa ngày nghỉ ${off_date}` };
+            } else {
+                await db.run(
+                    "INSERT INTO staff_off_dates (user_id, off_date, created_by) VALUES ($1, $2, $3)",
+                    [Number(user_id), off_date, request.user.id]
+                );
+                clearLeaveCache();
+                return { success: true, action: 'added', message: `Đã thêm ngày nghỉ ${off_date}` };
+            }
+        } catch (e) {
+            console.error('[staff-off-dates] Error toggling off date:', e.message);
+            return reply.code(500).send({ error: 'Lỗi server khi cập nhật ngày nghỉ' });
+        }
+    });
 }
 
 settingsRoutes.appConfigCache = appConfigCache;
