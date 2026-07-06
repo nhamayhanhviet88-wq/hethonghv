@@ -2063,6 +2063,13 @@ async function deleteOverride(userId, dateStr) {
 
 function showQuickAddOverrideModal() {
     const users = window._offDaysUsersList || [];
+    
+    // Calculate today's date in YYYY-MM-DD local format
+    const todayVal = new Date();
+    const y = todayVal.getFullYear();
+    const m = String(todayVal.getMonth() + 1).padStart(2, '0');
+    const d = String(todayVal.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${d}`;
 
     // Remove existing if any
     closeQuickAddOverride();
@@ -2093,7 +2100,7 @@ function showQuickAddOverrideModal() {
 
             <div style="margin-bottom: 12px;">
                 <label style="display: block; font-weight: 800; font-size: 11.5px; color: var(--gray-700); margin-bottom: 4px;">Chọn Ngày</label>
-                <input type="date" id="quickAddDate" class="form-control" style="width: 100%; height: 38px; border-radius: 8px; font-weight: 600; padding: 6px 10px; font-size: 12px; border: 1.5px solid var(--gray-200); outline: none;">
+                <input type="date" id="quickAddDate" min="${todayStr}" class="form-control" style="width: 100%; height: 38px; border-radius: 8px; font-weight: 600; padding: 6px 10px; font-size: 12px; border: 1.5px solid var(--gray-200); outline: none;">
             </div>
 
             <div style="margin-bottom: 18px;">
@@ -2124,6 +2131,17 @@ async function submitQuickAddOverride() {
 
     if (!userId || !dateStr || !type) {
         showToast('Vui lòng điền đầy đủ thông tin!', 'error');
+        return;
+    }
+
+    // Validate that the selected date is not in the past
+    const todayVal = new Date();
+    const y = todayVal.getFullYear();
+    const m = String(todayVal.getMonth() + 1).padStart(2, '0');
+    const d = String(todayVal.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${d}`;
+    if (dateStr < todayStr) {
+        showToast('Không được cấu hình ngày trong quá khứ!', 'error');
         return;
     }
 
