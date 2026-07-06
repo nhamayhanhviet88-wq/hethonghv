@@ -467,9 +467,9 @@ function renderGlobalWorkingDaysTable() {
                     <span class="day-badge active" 
                           data-day="${dIdx}" 
                           onclick="showToast('${u.full_name} có lịch đi làm/trực thêm ngày ${targetDateStr.split('-').reverse().join('/')} (${label}). Hệ thống tự động bật nhận lead.', 'success')" 
-                          style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1.5px dashed #059669; background: #ecfdf5; color: #059669; transition: all 0.15s; user-select: none;"
+                          style="display: flex; align-items: center; justify-content: center; width: 100%; height: 26px; box-sizing: border-box; cursor: pointer; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1.5px dashed #059669; background: #ecfdf5; color: #059669; transition: all 0.15s; user-select: none;"
                           title="Đi làm ngày ${targetDateStr.split('-').reverse().join('/')} (Tự động bật nhận lead)">
-                        ${label} 🟢
+                        ${label}🟢
                     </span>
                 `;
             }
@@ -479,9 +479,9 @@ function renderGlobalWorkingDaysTable() {
                     <span class="day-badge" 
                           data-day="${dIdx}" 
                           onclick="showToast('${u.full_name} có lịch nghỉ ngày ${targetDateStr.split('-').reverse().join('/')} (${label}). Hệ thống tự động tắt nhận lead.', 'warning')" 
-                          style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1.5px dashed #dc2626; background: #fef2f2; color: #dc2626; transition: all 0.15s; user-select: none;"
+                          style="display: flex; align-items: center; justify-content: center; width: 100%; height: 26px; box-sizing: border-box; cursor: pointer; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1.5px dashed #dc2626; background: #fef2f2; color: #dc2626; transition: all 0.15s; user-select: none;"
                           title="Nghỉ ngày ${targetDateStr.split('-').reverse().join('/')} (Tự động tắt nhận lead)">
-                        ${label} 🚫
+                        ${label}🚫
                     </span>
                 `;
             }
@@ -495,7 +495,7 @@ function renderGlobalWorkingDaysTable() {
                     <span class="day-badge ${isChecked ? 'active' : ''}" 
                           data-day="${dIdx}" 
                           onclick="showToast('${toastMsg}', 'warning')" 
-                          style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; transition: all 0.15s; user-select: none;"
+                          style="display: flex; align-items: center; justify-content: center; width: 100%; height: 26px; box-sizing: border-box; cursor: pointer; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; transition: all 0.15s; user-select: none;"
                           title="Trực Chủ Nhật: ${isChecked ? 'BẬT (' + formattedSundays + ')' : 'TẮT'}">
                         ${label}
                     </span>
@@ -505,7 +505,7 @@ function renderGlobalWorkingDaysTable() {
                 <span class="day-badge ${isChecked ? 'active' : ''}" 
                       data-day="${dIdx}" 
                       onclick="toggleGlobalWorkingDayBadge(this, ${u.id})" 
-                      style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; transition: all 0.15s; user-select: none;">
+                      style="display: flex; align-items: center; justify-content: center; width: 100%; height: 26px; box-sizing: border-box; cursor: pointer; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid ${isChecked ? '#FF7E5F' : '#e2e8f0'}; background: ${isChecked ? '#fff0eb' : '#fff'}; color: ${isChecked ? '#FF7E5F' : '#64748b'}; transition: all 0.15s; user-select: none;">
                     ${label}
                 </span>
             `;
@@ -515,7 +515,7 @@ function renderGlobalWorkingDaysTable() {
             <tr style="border-bottom: 1px solid #f1f5f9; transition: background-color 0.15s;" onmouseover="this.style.backgroundColor='#fafafa'" onmouseout="this.style.backgroundColor='transparent'">
                 <td style="padding: 10px 16px; font-weight: 700; color: #334155; vertical-align: middle;">${u.full_name} (${u.username})</td>
                 <td style="padding: 10px 16px; text-align: center; vertical-align: middle;">
-                    <div style="display: inline-block;">
+                    <div style="display: grid; grid-template-columns: repeat(7, 60px); gap: 6px; justify-content: center; align-items: center; margin: 0 auto; width: fit-content;">
                         ${daysBadgeHTML}
                     </div>
                 </td>
@@ -2267,7 +2267,7 @@ function showQuickAddOverrideModal() {
             </div>
 
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button class="btn btn-secondary" onclick="closeQuickAddOverride()" style="border-radius: 8px; padding: 8px 14px; font-size: 12px; cursor: pointer; border: 1px solid var(--gray-200); background: white;">Hủy</button>
+                <button class="btn btn-secondary" onclick="closeQuickAddOverride()" style="border-radius: 8px; padding: 8px 14px; font-size: 12px; cursor: pointer; border: 1px solid var(--gray-200); background: white; color: var(--gray-700);">Đóng</button>
                 <button class="btn btn-primary" onclick="submitQuickAddOverride()" style="background: var(--navy); border: none; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; color: white; cursor: pointer;">Thêm Vào</button>
             </div>
         </div>
