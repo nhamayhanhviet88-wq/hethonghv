@@ -232,6 +232,7 @@ async function telegramRoutes(fastify, options) {
     // ===== POST /api/webhooks/telegram — Telegram Webhook Interceptor =====
     fastify.post('/api/webhooks/telegram', async (request, reply) => {
         try {
+            console.log('[Telegram Webhook Received]:', JSON.stringify(request.body));
             const { message } = request.body || {};
             if (!message) {
                 return reply.code(200).send({ ok: true });
