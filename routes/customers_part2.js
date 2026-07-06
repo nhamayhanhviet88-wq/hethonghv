@@ -1,6 +1,6 @@
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram, notifyTelegram } = require('../utils/telegram');
-const { getNextWorkingDay, getVNToday, getNextFollowUpDate } = require('../utils/workingDay');
+const { getNextWorkingDay, getVNToday, getNextFollowUpDate, getEffectiveWorkingDay, toDateStr, getHolidays } = require('../utils/workingDay');
 const { calculateRealDeadline } = require('./deadline-checker');
 const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
@@ -1319,6 +1319,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             } else {
                 await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [fields.appointment_date, customerId]);
             }
+        } else if (log_type === 'chot_don' && customer.crm_type === 'sale') {
+            const holidays = await getHolidays();
+            const today = new Date();
+            const targetDate = new Date(today);
+            targetDate.setFullYear(targetDate.getFullYear() + 1);
+            targetDate.setDate(targetDate.getDate() - 14);
+            const rawTargetStr = toDateStr(targetDate);
+            const finalApptDate = await getEffectiveWorkingDay(rawTargetStr, customer.assigned_to_id, holidays);
+            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [finalApptDate, customerId]);
         } else if (customer.crm_type === 'sale' && !['huy', 'cap_cuu_sep', 'chot_don'].includes(log_type)) {
             // SALE CRM: auto-calculate next follow-up date based on rotation cycle (fallback)
             const nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id);

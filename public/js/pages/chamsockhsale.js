@@ -295,9 +295,16 @@ function _saleGetCategory(c, stats) {
         createdToday = (cStr === todayStr);
     }
 
-    if (createdToday) return 'moi_chuyen';
     if (appointIsToday || isBirthdayToday) return 'phai_xu_ly';
     if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
+
+    if (['chot_don', 'hoan_thanh', 'sau_ban_hang'].includes(c.order_status)) {
+        if (!c.appointment_date || appointIsFuture) {
+            return 'gui_hang_hoan_thanh';
+        }
+    }
+
+    if (createdToday) return 'moi_chuyen';
     if (appointIsFuture) return 'cho_xu_ly';
 
     return 'cho_xu_ly';
@@ -1357,7 +1364,7 @@ async function _saleOpenConsultModal(customerId) {
                 </select>
             </div>
             <div class="form-group">
-                <label id="consultChotDonApptLabelSale">Ngày Hẹn Làm Việc Khách <span style="color:var(--danger)">*</span></label>
+                <label id="consultChotDonApptLabelSale">Ngày Hẹn Làm Việc Khách <span style="color:var(--gray-500);font-size:11px;">(Tự động nếu để trống)</span></label>
                 <input type="hidden" id="consultSBHDateSale">
                 <div id="consultSBHCalendarContainerSale"></div>
             </div>
@@ -1674,12 +1681,13 @@ async function _saleSubmitConsultLog(customerId) {
 
         if (!address) { showToast('Vui lòng nhập địa chỉ cụ thể', 'error'); return; }
         if (!city) { showToast('Vui lòng chọn tỉnh/thành', 'error'); return; }
-        if (!apptSBH) { showToast('Vui lòng chọn ngày hẹn làm việc', 'error'); return; }
 
         payload.append('phone', phone);
         payload.append('address', address);
         payload.append('province', city);
-        payload.append('appointment_date', apptSBH);
+        if (apptSBH) {
+            payload.append('appointment_date', apptSBH);
+        }
 
         const items = [];
         const rows = document.querySelectorAll('#consultOrderTableSale tbody tr');
