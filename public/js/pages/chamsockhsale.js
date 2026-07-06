@@ -1254,9 +1254,20 @@ async function _saleOpenConsultModal(customerId) {
         allowedTypes = _getFlowRuleTypes('cancel_auto_revert') || allTypes.filter(([k]) => k === 'huy');
     }
 
+    // Specifically for chamsockhsale, remove 'lam_quen_tuong_tac' and 'cap_cuu_sep' (unless pendingEmergency) from allowedTypes
+    allowedTypes = allowedTypes.filter(([k]) => {
+        if (k === 'lam_quen_tuong_tac') return false;
+        if (k === 'cap_cuu_sep' && !pendingEmergency) return false;
+        return true;
+    });
+
     const effectiveRules = flowRules[effectiveStatus] || [];
     const defaultRule = effectiveRules.find(r => r.is_default);
     let defaultType = defaultRule ? defaultRule.to_type_key : (allowedTypes.length > 0 ? allowedTypes[0][0] : 'goi_dien');
+
+    if (['lam_quen_tuong_tac', 'cap_cuu_sep'].includes(defaultType)) {
+        defaultType = allowedTypes.length > 0 ? allowedTypes[0][0] : 'goi_dien';
+    }
 
     window._currentConsultSectionKey = effectiveStatus;
     window._currentConsultMaxDays = maxDaysPerStatus[effectiveStatus] || 0;
