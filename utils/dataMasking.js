@@ -4,7 +4,12 @@
  */
 
 function maskPhone(phone) {
-    if (!phone || phone.length < 4) return phone;
+    if (!phone) return phone;
+    const trimmed = phone.trim();
+    if (trimmed.toLowerCase().startsWith('pancake_') || trimmed === 'Chưa có SĐT' || trimmed === 'N/A') {
+        return '';
+    }
+    if (phone.length < 4) return phone;
     return phone.substring(0, 2) + '*'.repeat(phone.length - 4) + phone.substring(phone.length - 2);
 }
 
