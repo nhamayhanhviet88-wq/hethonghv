@@ -328,7 +328,7 @@ var _kockolAffApprovedIds = []; // customer IDs that already have affiliate acco
 var _kockolAffLockedIds = []; // customer IDs with locked affiliate accounts
 var _kockolAffApprovedMap = {}; // customer_id -> affiliate user_id
 var _kockolCurrentPage = 1;
-var _kockolPageSize = 50;
+var _kockolPageSize = 100;
 
 function _kockolFilterByCat(cat) {
     if (_kockolActiveCat === cat) { _kockolActiveCat = null; } else { _kockolActiveCat = cat; }

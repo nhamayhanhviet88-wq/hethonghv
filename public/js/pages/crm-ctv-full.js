@@ -346,7 +346,7 @@ var _ctvAffApprovedIds = []; // customer IDs that already have affiliate account
 var _ctvAffLockedIds = []; // customer IDs with locked affiliate accounts
 var _ctvAffApprovedMap = {}; // customer_id -> affiliate user_id
 var _ctvCurrentPage = 1;
-var _ctvPageSize = 50;
+var _ctvPageSize = 100;
 
 function _ctvFilterByCat(cat) {
     if (_ctvActiveCat === cat) { _ctvActiveCat = null; } else { _ctvActiveCat = cat; }

@@ -519,7 +519,7 @@ var _crmAffApprovedIds = []; // customer IDs that already have affiliate account
 var _crmAffLockedIds = []; // customer IDs with locked affiliate accounts
 var _crmAffApprovedMap = {}; // customer_id -> affiliate user_id
 var _crmCurrentPage = 1;
-var _crmPageSize = 50;
+var _crmPageSize = 100;
 
 function _crmFilterByCat(cat) {
     if (_crmActiveCat === cat) { _crmActiveCat = null; } else { _crmActiveCat = cat; }

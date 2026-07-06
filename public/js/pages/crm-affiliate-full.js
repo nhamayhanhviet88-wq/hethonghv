@@ -329,7 +329,7 @@ var _affAffApprovedIds = []; // customer IDs that already have affiliate account
 var _affAffLockedIds = []; // customer IDs with locked affiliate accounts
 var _affAffApprovedMap = {}; // customer_id -> affiliate user_id
 var _affCurrentPage = 1;
-var _affPageSize = 50;
+var _affPageSize = 100;
 
 function _affFilterByCat(cat) {
     if (_affActiveCat === cat) { _affActiveCat = null; } else { _affActiveCat = cat; }
