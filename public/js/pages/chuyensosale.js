@@ -3,16 +3,18 @@ const ROLE_LABELS_CSO_SALE = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quả
 
 async function renderChuyensosalePage(container) {
     // Load dropdowns + departments + allowed depts config
-    const [sourcesAll, sourcesCSO, promotions, industries, users, deptData, configData] = await Promise.all([
+    const [sourcesAll, sourcesCSO, promotions, industries, users, deptData, configData, pancakeSettingsData] = await Promise.all([
         apiCall('/api/settings/sources?crm_type=sale'),
         apiCall('/api/settings/sources-chuyensale'),
         apiCall('/api/settings/promotions'),
         apiCall('/api/settings/industries'),
         apiCall('/api/users/dropdown'),
         apiCall('/api/departments'),
-        apiCall('/api/app-config/chuyensosale_allowed_depts')
+        apiCall('/api/app-config/chuyensosale_allowed_depts'),
+        apiCall('/api/app-config/pancake_settings')
     ]);
     const sources = { items: sourcesAll.items || [], chuyensoItems: sourcesCSO.items || [] };
+    const pancakeConfig = pancakeSettingsData && pancakeSettingsData.value ? JSON.parse(pancakeSettingsData.value) : {};
 
     const allDepts = deptData.departments || [];
     const allowedDeptIds = configData.value ? JSON.parse(configData.value) : null; // null = all allowed
@@ -123,7 +125,62 @@ async function renderChuyensosalePage(container) {
         ? `<button onclick="csoSaleOpenSettings()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:6px 12px;font-size:13px;border-radius:8px;" title="Cài đặt đơn vị nhận số">⚙️ Cài đặt</button>`
         : '';
 
+    // Determine active receiving users for today (Vietnam Timezone)
+    const vnTimeStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
+    const vnNow = new Date(vnTimeStr);
+    const dayOfWeek = vnNow.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
+
+    const y = vnNow.getFullYear();
+    const m = String(vnNow.getMonth() + 1).padStart(2, '0');
+    const day = String(vnNow.getDate()).padStart(2, '0');
+    const vnDateStr = `${y}-${m}-${day}`;
+
+    const workingUsers = [];
+    const careUsers = [];
+
+    receiverUsers.forEach(u => {
+        let isWorkingToday = false;
+        if (dayOfWeek === 0) {
+            const schedule = pancakeConfig.sunday_duty_schedule || {};
+            const assignedUsers = schedule[vnDateStr] || [];
+            isWorkingToday = assignedUsers.includes(Number(u.id)) || assignedUsers.includes(String(u.id));
+        } else {
+            const globalWorkingDays = pancakeConfig.global_working_days || {};
+            let workingDays = [1, 2, 3, 4, 5, 6]; // default Mon-Sat
+            if (globalWorkingDays[u.id] !== undefined) {
+                workingDays = globalWorkingDays[u.id].map(Number).filter(d => d !== 0);
+            }
+            isWorkingToday = workingDays.includes(dayOfWeek);
+        }
+
+        if (isWorkingToday) {
+            workingUsers.push(u);
+        } else {
+            careUsers.push(u);
+        }
+    });
+
+    const workingOptions = workingUsers.map(u => {
+        return `<option value="${u.id}" class="cso-receiver-receiving" ${u.id === currentUser.id ? 'selected' : ''}>🟢 ${userLabel(u)}</option>`;
+    }).join('');
+
+    const careOptions = careUsers.map(u => {
+        return `<option value="${u.id}" class="cso-receiver-followup" ${u.id === currentUser.id ? 'selected' : ''}>⚪ ${userLabel(u)} (Chăm lại)</option>`;
+    }).join('');
+
     container.innerHTML = `
+        <style>
+            .cso-receiver-receiving {
+                color: #047857 !important;
+                font-weight: 800 !important;
+                background-color: #f0fdf4 !important;
+            }
+            .cso-receiver-followup {
+                color: #9ca3af !important;
+                opacity: 0.7;
+                font-style: italic;
+            }
+        </style>
         <div class="card" style="margin-bottom:16px;border:2px solid #6366f1;display:none;">
             <div class="card-header" style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);padding:14px 20px;">
                 <h3 style="color:#fff;margin:0;font-size:15px;">🔍 Tìm Kiếm Nhanh — Tên / SĐT / Link Khách Hàng</h3>
@@ -258,9 +315,14 @@ async function renderChuyensosalePage(container) {
                             <input type="text" class="form-control" value="${userLabel(receiverUsers[0] || {full_name: 'NV quản lý', role: '', department_id: null})}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
                             <input type="hidden" id="csoSaleReceiver" value="${receiverUsers[0]?.id || currentUser.managed_by_user_id || ''}">
                         ` : `
-                            <select id="csoSaleReceiver" class="form-control" required>
+                            <select id="csoSaleReceiver" class="form-control" required style="font-weight: 600;">
                                 <option value="">-- Chọn người nhận --</option>
-                                ${receiverUsers.map(u => `<option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''}>${userLabel(u)}</option>`).join('')}
+                                <optgroup label="🟢 NHÂN VIÊN NHẬN SỐ HÔM NAY (ƯU TIÊN)">
+                                    ${workingOptions || '<option disabled>Không có nhân viên nhận số hôm nay</option>'}
+                                </optgroup>
+                                <optgroup label="⚪ CHĂM LẠI KHÁCH HÀNG (KHÔNG ƯU TIÊN)">
+                                    ${careOptions}
+                                </optgroup>
                             </select>
                         `}
                     </div>
