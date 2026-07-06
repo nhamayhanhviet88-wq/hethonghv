@@ -124,6 +124,7 @@ async function renderChamsockhsalePage(container) {
         </style>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div></div>
+            ${(typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') ? `
             <a href="/quytacnuttuvancrmsale" onclick="event.preventDefault();navigate('quytacnuttuvancrmsale')"
                 style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;
                 border:2px solid #f97316;color:#f97316;font-size:13px;font-weight:800;cursor:pointer;
@@ -132,6 +133,7 @@ async function renderChamsockhsalePage(container) {
                 onmouseout="this.style.background='rgba(249,115,22,.08)';this.style.transform=''">
                 ⚙️ Quy Tắc Nút Tư Vấn
             </a>
+            ` : ''}
         </div>
         <div class="crm-stat-cards" id="saleStatCards">
             <div class="crm-stat-card" data-cat="phai_xu_ly" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;" onclick="_saleFilterByCat('phai_xu_ly')">
