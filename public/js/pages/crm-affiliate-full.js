@@ -777,7 +777,7 @@ function _affRenderCustomerRow(c, stats, stt) {
                     </span>
                     <span onclick="event.stopPropagation();_crmCopyText('${c.customer_name.replace(/'/g, "\\'")}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>
                 </div>
-                <div style="font-size:11px;color:#64748b;margin-top:2px;">Mã: ${getCustomerCode(c)}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">Mã: <strong style="color:#e65100">${getCustomerCode(c)}</strong></div>
                 <div style="margin-top:2px;">${getCustomerUidBadge(c)}</div>
                 `;
             })()}
