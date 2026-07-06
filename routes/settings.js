@@ -493,6 +493,32 @@ async function settingsRoutes(fastify, options) {
         }
     });
 
+    // 2.6 GET: Lấy danh sách lịch nghỉ trong một tháng cụ thể (ví dụ: YYYY-MM) của tất cả nhân viên
+    fastify.get('/api/settings/staff-off-dates/monthly', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!checkManagerPermission(request.user)) {
+            return reply.code(403).send({ error: 'Bạn không có quyền thực hiện thao tác này.' });
+        }
+
+        const { month } = request.query || {}; // YYYY-MM
+        if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+            return reply.code(400).send({ error: 'Thiếu hoặc sai định dạng month (YYYY-MM)' });
+        }
+
+        try {
+            const rows = await db.all(`
+                SELECT s.user_id, s.off_date::text as off_date, u.full_name, u.username
+                FROM staff_off_dates s
+                JOIN users u ON s.user_id = u.id
+                WHERE to_char(s.off_date, 'YYYY-MM') = $1
+                ORDER BY s.off_date ASC, u.full_name ASC
+            `, [month]);
+            return { off_dates: rows };
+        } catch (e) {
+            console.error('[staff-off-dates] Error fetching monthly off dates:', e.message);
+            return reply.code(500).send({ error: 'Lỗi server khi lấy lịch nghỉ trong tháng' });
+        }
+    });
+
     // 3. POST: Toggle ngày nghỉ của một nhân viên
     fastify.post('/api/settings/staff-off-dates/toggle', { preHandler: [authenticate] }, async (request, reply) => {
         if (!checkManagerPermission(request.user)) {

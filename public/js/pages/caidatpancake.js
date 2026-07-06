@@ -1466,7 +1466,7 @@ async function showStaffOffDaysModal() {
         <div style="margin-bottom: 16px; font-size: 13px; color: var(--gray-600); line-height: 1.5;">
             Chọn nhân viên và nhấp vào các ngày trên lịch để <b>thêm/bỏ lịch nghỉ</b>. Nhân viên nghỉ ngày nào sẽ tự động tắt nhận lead ngày đó.
         </div>
-        <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; min-height: 420px; background: white; border-radius: 12px; border: 1.5px solid var(--gray-200); padding: 16px;">
+        <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; min-height: 480px; background: white; border-radius: 12px; border: 1.5px solid var(--gray-200); padding: 16px;">
             <!-- Left panel: Employee Selection -->
             <div style="border-right: 1.5px solid var(--gray-200); padding-right: 16px; display: flex; flex-direction: column; justify-content: flex-start; gap: 15px;">
                 <div>
@@ -1483,6 +1483,12 @@ async function showStaffOffDaysModal() {
                     <span style="display: inline-block; width: 12px; height: 12px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> Ngày nghỉ (Off Day)<br>
                     <span style="display: inline-block; width: 12px; height: 12px; background: #eff6ff; border: 1px solid #3b82f6; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> Hôm nay (Today)<br>
                     <span style="display: inline-block; width: 12px; height: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 3px; vertical-align: middle; margin-right: 4px;"></span> Ngày thường (Work Day)<br>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; border-top: 1.5px solid var(--gray-100); padding-top: 12px; margin-top: 5px;">
+                    <label style="display: block; font-weight: 800; font-size: 12px; color: #FF7E5F; margin-bottom: 6px;">📋 Lịch Nghỉ Trong Tháng</label>
+                    <div id="monthlyOffDaysListContainer" style="flex: 1; overflow-y: auto; background: #fafafa; border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px; font-size: 12px; max-height: 160px;">
+                        <span style="color: var(--gray-400); font-style: italic;">Đang tải...</span>
+                    </div>
                 </div>
             </div>
             
@@ -1536,6 +1542,7 @@ async function showStaffOffDaysModal() {
     }
 
     renderOffDaysCalendar();
+    refreshMonthlyOffDaysList();
 }
 
 async function onOffDaysStaffChange() {
@@ -1585,6 +1592,7 @@ async function onOffDaysStaffChange() {
 function changeOffDaysMonth(dir) {
     _offDaysCurrentDate.setMonth(_offDaysCurrentDate.getMonth() + dir);
     renderOffDaysCalendar();
+    refreshMonthlyOffDaysList();
 }
 
 function renderOffDaysCalendar() {
@@ -1733,11 +1741,46 @@ async function toggleOffDay(dateStr) {
                 showToast(`❌ Đã bỏ ngày nghỉ ${dateStr} cho nhân viên!`);
             }
             renderOffDaysCalendar();
+            refreshMonthlyOffDaysList();
         } else {
             showToast(res.error || 'Lỗi khi cập nhật ngày nghỉ!', 'error');
         }
     } catch(e) {
         console.error('Error toggling off day:', e);
         showToast('Không thể cập nhật ngày nghỉ!', 'error');
+    }
+}
+
+async function refreshMonthlyOffDaysList() {
+    const container = document.getElementById('monthlyOffDaysListContainer');
+    if (!container) return;
+
+    const year = _offDaysCurrentDate.getFullYear();
+    const month = String(_offDaysCurrentDate.getMonth() + 1).padStart(2, '0');
+    const monthStr = `${year}-${month}`;
+
+    try {
+        const res = await apiCall(`/api/settings/staff-off-dates/monthly?month=${monthStr}`);
+        if (res && res.off_dates) {
+            if (res.off_dates.length === 0) {
+                container.innerHTML = `<span style="color: var(--gray-400); font-style: italic;">Không có lịch nghỉ nào trong tháng.</span>`;
+                return;
+            }
+
+            const html = res.off_dates.map(d => {
+                const parts = d.off_date.split('-');
+                const displayDate = `${parts[2]}/${parts[1]}`;
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #f0f0f0;">
+                        <strong style="color: #ef4444; font-size: 11.5px;">📅 ${displayDate}</strong>
+                        <span style="font-weight: 700; color: var(--navy); font-size: 11.5px;">${d.full_name} (${d.username})</span>
+                    </div>
+                `;
+            }).join('');
+            container.innerHTML = html;
+        }
+    } catch(e) {
+        console.error('Error loading monthly off days:', e);
+        container.innerHTML = `<span style="color: #dc2626; font-style: italic;">Lỗi khi tải lịch nghỉ.</span>`;
     }
 }
