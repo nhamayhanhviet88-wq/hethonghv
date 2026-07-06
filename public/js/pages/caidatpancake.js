@@ -519,7 +519,7 @@ async function showGlobalWorkingDaysModal() {
     // Adjust modal width for comfortable table viewing
     const container = document.getElementById('modalContainer');
     if (container) {
-        container.style.maxWidth = '650px';
+        container.style.maxWidth = '850px';
         container.style.width = '90%';
     }
 
