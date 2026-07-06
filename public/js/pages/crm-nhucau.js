@@ -439,11 +439,6 @@ async function renderCRMNhuCauPage(container) {
                 <div class="stat-count" id="crmStatHuyKhach">0</div>
                 <div class="stat-label">Hủy khách</div>
             </div>
-            <div class="crm-stat-card" data-cat="gui_hang_hoan_thanh" style="background:linear-gradient(135deg,#0d9488,#0f766e);color:white;" onclick="_crmFilterByCat('gui_hang_hoan_thanh')">
-                <div class="stat-icon">📦✅</div>
-                <div class="stat-count" id="crmStatGuiHangHT">0</div>
-                <div class="stat-label">Gửi Hàng & Hoàn Thành</div>
-            </div>
         </div>
         <div id="crmDateChipsArea"></div>
 
