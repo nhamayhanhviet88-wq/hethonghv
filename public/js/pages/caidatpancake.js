@@ -1455,8 +1455,8 @@ async function saveSundayRosterFromModal() {
 // ===== LỊCH NGHỈ SALE/KINH DOANH MODAL LOGIC =====
 
 async function showStaffOffDaysModal() {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    const hasPerm = currentUser.role === 'giam_doc' || currentUser.role === 'quan_ly_cap_cao' || currentUser.username === 'leviettrinh';
+    const user = window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null) || {};
+    const hasPerm = user.role === 'giam_doc' || user.role === 'quan_ly_cap_cao' || user.username === 'leviettrinh';
     if (!hasPerm) {
         showToast('Bạn không có quyền quản lý lịch nghỉ. Chỉ Giám Đốc và Quản Lý Cấp Cao Lê Việt Trinh mới được quyền.', 'error');
         return;
