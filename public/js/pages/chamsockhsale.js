@@ -275,8 +275,6 @@ function _saleGetCategory(c, stats) {
         }
     }
 
-    if (consultedToday) return 'da_xu_ly';
-
     let appointIsToday = false;
     let appointIsFuture = false;
     if (c.appointment_date) {
@@ -295,16 +293,32 @@ function _saleGetCategory(c, stats) {
         createdToday = (cStr === todayStr);
     }
 
-    if (appointIsToday || isBirthdayToday) return 'phai_xu_ly';
-    if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
+    // 1. Anniversary/Appointment Today -> Phải xử lý hôm nay
+    if (appointIsToday || isBirthdayToday) {
+        if (consultedToday) return 'da_xu_ly';
+        return 'phai_xu_ly';
+    }
 
+    // 2. Overdue Appointment -> Xử lý trễ
+    if (c.appointment_date && !appointIsToday && !appointIsFuture) {
+        if (consultedToday) return 'da_xu_ly';
+        return 'xu_ly_tre';
+    }
+
+    // 3. Successful Order -> Đã chốt đơn
     if (['chot_don', 'hoan_thanh', 'sau_ban_hang'].includes(c.order_status)) {
         if (!c.appointment_date || appointIsFuture) {
             return 'gui_hang_hoan_thanh';
         }
     }
 
+    // 4. Processed Today -> Đã xử lý hôm nay
+    if (consultedToday) return 'da_xu_ly';
+
+    // 5. New lead today -> Mới chuyển
     if (createdToday) return 'moi_chuyen';
+
+    // 6. Future Appointment -> Chờ xử lý
     if (appointIsFuture) return 'cho_xu_ly';
 
     return 'cho_xu_ly';
