@@ -467,9 +467,9 @@ async function renderCRMNhuCauPage(container) {
                         <th style="min-width:100px">Hẹn</th>
                         <th style="min-width:180px">Khách Hàng</th>
                         <th style="min-width:180px">Liên Hệ</th>
+                        <th style="min-width:120px;text-align:right">Mua Hàng</th>
                         <th style="min-width:200px">Nguồn & Giới Thiệu</th>
                         <th style="min-width:100px">Lĩnh Vực</th>
-                        <th style="min-width:120px;text-align:right">Mua Hàng</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
                     </tr></thead>
                     <tbody id="crmNhuCauTbody"><tr><td colspan="13" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
@@ -949,7 +949,13 @@ function _crmRenderCustomerRow(c, stats, stt) {
             ${c.address ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">📍 ${c.address}</div>` : ''}
         </td>
 
-        <!-- Column 10: Nguồn & Giới Thiệu (Nguồn + Người GT + HH AFF + CRM Người GT) -->
+        <!-- Column 10: Mua Hàng (Doanh Số + Lần Đặt) -->
+        <td style="text-align:right;font-size:12px;">
+            <div style="font-weight:800;color:${s.revenue > 0 ? 'var(--success)' : '#475569'};">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</div>
+            <div style="font-size:10.5px;color:#64748b;margin-top:2px;">(${s.chotDonCount} lần đặt)</div>
+        </td>
+
+        <!-- Column 11: Nguồn & Giới Thiệu (Nguồn + Người GT + HH AFF + CRM Người GT) -->
         <td style="font-size:12px;">
             <div style="font-weight:700;color:#334155;margin-bottom:4px;">${c.source_name || '—'}</div>
             ${c.referrer_id ? `
@@ -964,14 +970,8 @@ function _crmRenderCustomerRow(c, stats, stt) {
             </div>
         </td>
 
-        <!-- Column 11: Lĩnh Vực -->
+        <!-- Column 12: Lĩnh Vực -->
         <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">—</span>'}</td>
-
-        <!-- Column 12: Mua Hàng (Doanh Số + Lần Đặt) -->
-        <td style="text-align:right;font-size:12px;">
-            <div style="font-weight:800;color:${s.revenue > 0 ? 'var(--success)' : '#475569'};">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</div>
-            <div style="font-size:10.5px;color:#64748b;margin-top:2px;">(${s.chotDonCount} lần đặt)</div>
-        </td>
 
         <!-- Column 13: 🔄 CTV proposal -->
         <td style="text-align:center;padding:4px 2px;">
