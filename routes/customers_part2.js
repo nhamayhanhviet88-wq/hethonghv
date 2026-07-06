@@ -870,8 +870,6 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const fields = {};
 
         const contentType = request.headers['content-type'] || '';
-        console.log("[CONSULT DEBUG] Content-Type:", contentType);
-        console.log("[CONSULT DEBUG] Body:", request.body);
         if (contentType.includes('multipart')) {
             const parts = request.parts();
             for await (const part of parts) {
@@ -896,7 +894,6 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             imagePath = fields.image_path || null;
         }
 
-        console.log("[CONSULT DEBUG] Parsed fields:", fields);
         log_type = fields.log_type;
         content = fields.content;
         if (!log_type) return reply.code(400).send({ error: 'Vui lòng chọn loại tư vấn' });

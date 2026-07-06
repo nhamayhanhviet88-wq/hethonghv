@@ -111,7 +111,7 @@ async function initMobileBaogiagocPage() {
     }
 }
 
-async function apiCall(url, method = 'GET', body = null) {
+var apiCall = window.apiCall || async function(url, method = 'GET', body = null) {
     const options = {
         method,
         headers: {},
@@ -127,7 +127,7 @@ async function apiCall(url, method = 'GET', body = null) {
         throw new Error('Chưa đăng nhập');
     }
     return res.json();
-}
+};
 
 function toast(msg, type = 'success') {
     const container = document.getElementById('toastContainer');
