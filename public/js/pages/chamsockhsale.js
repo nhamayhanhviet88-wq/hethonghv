@@ -1738,20 +1738,13 @@ async function _saleSubmitConsultLog(customerId) {
     try {
         const res = await apiCall(`/api/customers/${customerId}/consult`, 'POST', payload);
         if (res.success) {
-            showToast('Ghi nhận tư vấn thành công!');
+            if (type === 'chot_don' && res.orderCode) {
+                showToast(`Chốt đơn thành công! Mã đơn: ${res.orderCode}`, 'success');
+            } else {
+                showToast('Ghi nhận tư vấn thành công!');
+            }
             closeModal();
             _saleLoadData();
-            if (type === 'chot_don' && res.orderCode) {
-                showToast('Chốt đơn thành công! Hệ thống đang chuyển sang màn hình Tạo Đơn Hàng...', 'info');
-                setTimeout(() => {
-                    navigate('donhangtong');
-                    setTimeout(() => {
-                        if (typeof _dhtShowCreate === 'function') {
-                            _dhtShowCreate(res.orderCode);
-                        }
-                    }, 500);
-                }, 1000);
-            }
         } else {
             showToast(res.error || 'Lỗi ghi nhận!', 'error');
         }
