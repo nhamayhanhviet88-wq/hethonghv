@@ -867,22 +867,31 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
         let log_type, content, imagePath = null;
-        const parts = request.parts();
         const fields = {};
-        for await (const part of parts) {
-            if (part.type === 'file' && part.fieldname === 'image') {
-                const fs = require('fs');
-                const path = require('path');
-                const { compressImage } = require('../utils/imageCompressor');
-                const uploadsDir = path.join(__dirname, '..', 'uploads', 'consult');
-                if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-                let buf = await part.toBuffer();
-                const compressed = await compressImage(buf, { maxWidth: 1200, quality: 80, format: 'jpeg' });
-                const filename = `consult_${customerId}_${Date.now()}.jpg`;
-                const filepath = path.join(uploadsDir, filename);
-                fs.writeFileSync(filepath, compressed.buffer);
-                imagePath = `/uploads/consult/${filename}`;
-            } else { fields[part.fieldname] = part.value; }
+
+        const contentType = request.headers['content-type'] || '';
+        if (contentType.includes('multipart')) {
+            const parts = request.parts();
+            for await (const part of parts) {
+                if (part.type === 'file' && part.fieldname === 'image') {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const { compressImage } = require('../utils/imageCompressor');
+                    const uploadsDir = path.join(__dirname, '..', 'uploads', 'consult');
+                    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+                    let buf = await part.toBuffer();
+                    if (buf && buf.length > 0) {
+                        const compressed = await compressImage(buf, { maxWidth: 1200, quality: 80, format: 'jpeg' });
+                        const filename = `consult_${customerId}_${Date.now()}.jpg`;
+                        const filepath = path.join(uploadsDir, filename);
+                        fs.writeFileSync(filepath, compressed.buffer);
+                        imagePath = `/uploads/consult/${filename}`;
+                    }
+                } else { fields[part.fieldname] = part.value; }
+            }
+        } else {
+            Object.assign(fields, request.body || {});
+            imagePath = fields.image_path || null;
         }
 
         log_type = fields.log_type;

@@ -2595,9 +2595,9 @@ async function submitChangePassword() {
 
 // ========== API HELPER ==========
 async function apiCall(url, method = 'GET', body = null) {
-    const options = { method, headers: {} };
+    const options = { method };
     if (body && !(body instanceof FormData)) {
-        options.headers['Content-Type'] = 'application/json';
+        options.headers = { 'Content-Type': 'application/json' };
         options.body = JSON.stringify(body);
     } else if (body instanceof FormData) {
         options.body = body;
