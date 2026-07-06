@@ -1755,7 +1755,13 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id || user.id);
 
         const isSaleCrm = customer.crm_type === 'sale';
-        const targetLogType = isSaleCrm ? 'tuong_tac_ket_noi' : 'lam_quen_tuong_tac';
+        let targetLogType = 'lam_quen_tuong_tac';
+        if (isSaleCrm) {
+            targetLogType = customer.order_status || 'goi_dien';
+            if (targetLogType === 'lam_quen_tuong_tac') {
+                targetLogType = 'goi_dien';
+            }
+        }
 
         await db.run(
             `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
