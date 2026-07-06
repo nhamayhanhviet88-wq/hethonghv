@@ -207,7 +207,7 @@ async function customersRoutes(fastify, options) {
         const promoName = promotion_id ? (await db.get('SELECT name FROM settings_promotions WHERE id = ?', [Number(promotion_id)]))?.name : '';
         const industryName = industry_id ? (await db.get('SELECT name FROM settings_industries WHERE id = ?', [Number(industry_id)]))?.name : '';
 
-        const tgParts = [`<b>${code}</b> : <code>${customer_name}</code> - ${normalizedPhone || 'N/A'}`];
+        const tgParts = [`<b>${code}</b> : <code>${customer_name}</code> - <code>${normalizedPhone || 'N/A'}</code>`];
         if (sourceName) tgParts.push(sourceName);
         if (promoName) tgParts.push(promoName);
         if (industryName) tgParts.push(industryName);
@@ -628,7 +628,7 @@ async function customersRoutes(fastify, options) {
 
         if (customer) {
             const statusLabels = { dang_tu_van: 'Đang Tư Vấn', bao_gia: 'Báo Giá', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', san_xuat: 'Sản Xuất', giao_hang: 'Giao Hàng', hoan_thanh: 'Hoàn Thành' };
-            const tgMsg = `📝 <b>Cập nhật trạng thái</b>\nKhách: <code>${customer.customer_name}</code> - ${customer.phone}\nTrạng thái: <b>${statusLabels[order_status]}</b>\nBởi: ${request.user.full_name}`;
+            const tgMsg = `📝 <b>Cập nhật trạng thái</b>\nKhách: <code>${customer.customer_name}</code> - <code>${customer.phone || 'N/A'}</code>\nTrạng thái: <b>${statusLabels[order_status]}</b>\nBởi: ${request.user.full_name}`;
             notifyTelegram(customer.assigned_to_id, 'chuyen_so', tgMsg);
         }
         return { success: true, message: 'Cập nhật trạng thái thành công' };

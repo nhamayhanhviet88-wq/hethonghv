@@ -321,7 +321,7 @@ async function pancakeRoutes(fastify, options) {
 
             if (staffChatId) {
                 const hasPhone = phone && !phone.startsWith('pancake_') && phone !== 'Chưa có SĐT';
-                const phonePart = hasPhone ? ` - ${phone}` : '';
+                const phonePart = hasPhone ? ` - <code>${phone}</code>` : '';
                 const sourceRow = await db.get("SELECT name FROM settings_sources WHERE id = $1", [page.source_id]);
                 const sourceName = sourceRow?.name || page.name;
                 const sourceDisplay = sourceName.startsWith('📍') ? sourceName : `📍${sourceName}`;
@@ -332,7 +332,8 @@ async function pancakeRoutes(fastify, options) {
                 const yearTwoDigits = String(d.getFullYear()).slice(-2);
                 const serialPrefix = `${dailyNum}-${day}-${month}-Y${yearTwoDigits}`;
 
-                const notifyMsg = `🥞 <b>${serialPrefix} : ${customerName}${phonePart} - ${sourceDisplay}</b>`;
+                const namePart = `<code>${customerName}</code>`;
+                const notifyMsg = `🥞 <b>${serialPrefix} : </b>${namePart}${phonePart}<b> - ${sourceDisplay}</b>`;
                 await sendTelegramMessage(staffChatId, notifyMsg, page.bot_tele);
             }
             return true;
@@ -571,7 +572,7 @@ async function pancakeRoutes(fastify, options) {
                                 const sourceName = sourceRow?.name || page.name;
                                 const sourceDisplay = sourceName.startsWith('📍') ? sourceName : `📍${sourceName}`;
 
-                                const updateMsg = `🥞 <b>Cập nhật SĐT : ${customerName} - ${phone} - ${sourceDisplay}</b>`;
+                                const updateMsg = `🥞 <b>Cập nhật SĐT : </b><code>${customerName}</code><b> - </b><code>${phone}</code><b> - ${sourceDisplay}</b>`;
                                 await sendTelegramMessage(staffChatId, updateMsg, page.bot_tele);
                             }
                         }
