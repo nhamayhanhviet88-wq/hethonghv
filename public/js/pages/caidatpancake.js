@@ -400,9 +400,26 @@ function renderGlobalWorkingDaysTable() {
             
             // Check if user has an off-day override for this weekday's date in the current week
             const targetDateStr = getDateOfWeekdayInCurrentWeek(dIdx);
+            
+            const hasWorkOverride = window._offDaysMonthlyList && window._offDaysMonthlyList.some(od => 
+                od.user_id === u.id && od.off_date === targetDateStr && od.type === 'work'
+            );
+
             const hasOffOverride = window._offDaysMonthlyList && window._offDaysMonthlyList.some(od => 
                 od.user_id === u.id && od.off_date === targetDateStr && od.type !== 'work'
             );
+
+            if (hasWorkOverride) {
+                return `
+                    <span class="day-badge active" 
+                          data-day="${dIdx}" 
+                          onclick="showToast('${u.full_name} có lịch đi làm/trực thêm ngày ${targetDateStr.split('-').reverse().join('/')} (${label}). Hệ thống tự động bật nhận lead.', 'success')" 
+                          style="display: inline-block; cursor: pointer; padding: 4px 8px; margin: 2px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1.5px dashed #059669; background: #ecfdf5; color: #059669; transition: all 0.15s; user-select: none;"
+                          title="Đi làm ngày ${targetDateStr.split('-').reverse().join('/')} (Tự động bật nhận lead)">
+                        ${label} 🟢
+                    </span>
+                `;
+            }
 
             if (hasOffOverride) {
                 return `
@@ -500,8 +517,8 @@ async function showGlobalWorkingDaysModal() {
             </table>
         </div>
         <div style="margin-top: 15px; border-top: 1.5px solid var(--gray-200); padding-top: 12px;">
-            <label style="display: block; font-weight: 800; font-size: 12px; color: #b91c1c; margin-bottom: 6px;">📝 Ghi Chú Lịch Nghỉ Trong Tháng</label>
-            <div id="globalWorkingDaysOffNoteContainer" style="max-height: 120px; overflow-y: auto; background: #fdf2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; font-size: 11.5px; color: #991b1b; line-height: 1.4;">
+            <label style="display: block; font-weight: 800; font-size: 12px; color: var(--navy); margin-bottom: 6px;">📝 Ghi Chú Lịch Nghỉ / Trực Trong Tháng</label>
+            <div id="globalWorkingDaysOffNoteContainer" style="max-height: 120px; overflow-y: auto; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11.5px; color: #334155; line-height: 1.4;">
                 Đang tải...
             </div>
         </div>
@@ -542,19 +559,21 @@ async function showGlobalWorkingDaysModal() {
         const res = await apiCall(`/api/settings/staff-off-dates/monthly?month=${monthStr}`);
         if (res && res.off_dates) {
             window._offDaysMonthlyList = res.off_dates;
-            // Filter only off days (type !== 'work' or type === 'off')
-            const offDays = res.off_dates.filter(d => d.type !== 'work');
             if (noteContainer) {
-                if (offDays.length === 0) {
-                    noteContainer.innerHTML = `<span style="color: var(--gray-400); font-style: italic;">Không có ai xin nghỉ trong tháng ${nowObj.getMonth() + 1}.</span>`;
+                if (res.off_dates.length === 0) {
+                    noteContainer.innerHTML = `<span style="color: var(--gray-400); font-style: italic;">Không có ai xin nghỉ hoặc trực thêm trong tháng ${nowObj.getMonth() + 1}.</span>`;
                 } else {
-                    const html = offDays.map(d => {
+                    const html = res.off_dates.map(d => {
                         const parts = d.off_date.split('-');
                         const dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
                         const dayOfWeek = dateObj.getDay();
                         const weekdays = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
                         const weekdayName = weekdays[dayOfWeek];
-                        return `• <b>${weekdayName} - ${parts[2]}/${parts[1]}:</b> ${d.full_name}`;
+                        if (d.type === 'work') {
+                            return `• <b>${weekdayName} - ${parts[2]}/${parts[1]}:</b> ${d.full_name} <span style="color: #059669; font-weight: bold;">(Đi làm / Trực thêm)</span>`;
+                        } else {
+                            return `• <b>${weekdayName} - ${parts[2]}/${parts[1]}:</b> ${d.full_name} <span style="color: #dc2626; font-weight: bold;">(Nghỉ làm)</span>`;
+                        }
                     }).join('<br>');
                     noteContainer.innerHTML = html;
                 }
