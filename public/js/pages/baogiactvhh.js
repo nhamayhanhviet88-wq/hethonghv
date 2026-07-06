@@ -2845,9 +2845,21 @@ function _ctvOpenExportModal(mode = null) {
         let detailsHtml = `<div style="font-family: inherit; line-height: 1.5; color: #334155; margin-top: 2px;">`;
         
         // 1. Base Price Line
+        let cleanMatName = item.materialName || '';
+        let bestSellerBadgeHtml = '';
+        if (cleanMatName.includes(' - 🔥 Được Chọn Nhiều Nhất')) {
+            cleanMatName = cleanMatName.replace(' - 🔥 Được Chọn Nhiều Nhất', '');
+            bestSellerBadgeHtml = `<div style="color: #ea580c; font-size: 10px; font-weight: 800; margin-top: 2px;">
+                🔥 Được Chọn Nhiều Nhất
+            </div>`;
+        }
+
         detailsHtml += `
             <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #0f172a; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px; margin-bottom: 4px;">
-                <span>👕 Chất Liệu: ${item.materialName}</span>
+                <div style="display: flex; flex-direction: column;">
+                    <span>👕 Chất Liệu: ${cleanMatName}</span>
+                    ${bestSellerBadgeHtml}
+                </div>
                 <span>${displayBasePrice.toLocaleString('vi-VN')} đ/áo</span>
             </div>
         `;
