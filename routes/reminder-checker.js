@@ -86,8 +86,8 @@ async function isWithinReminderHours() {
 
 async function isUserWorkingToday(userId, dateStr) {
     try {
-        const user = await db.get("SELECT is_active FROM users WHERE id = $1", [userId]);
-        if (!user || !user.is_active) return false;
+        const user = await db.get("SELECT status FROM users WHERE id = $1", [userId]);
+        if (!user || user.status !== 'active') return false;
 
         const holidays = await getHolidays();
         if (holidays.has(dateStr)) return false;
