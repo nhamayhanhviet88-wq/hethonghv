@@ -176,7 +176,7 @@ async function checkChuyenSo(today, mins) {
         WHERE (
             (c.effective_date = $1::date AND c.created_at::date = $1::date AND c.created_at <= NOW() - INTERVAL '${interval}')
             OR
-            (c.appointment_date::date = $1::date AND c.updated_at <= NOW() - INTERVAL '${interval}')
+            (c.appointment_date::date = $1::date AND c.updated_at::date = $1::date AND c.updated_at <= NOW() - INTERVAL '${interval}')
             OR
             (c.created_at::date = $1::date AND c.effective_date != $1::date AND c.created_at <= NOW() - INTERVAL '${interval}')
         )
