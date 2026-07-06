@@ -82,7 +82,7 @@ async function renderCaidatpancakePage(container) {
                                 📅 Lịch Trực Chủ Nhật
                             </button>
                             <button type="button" onclick="showStaffOffDaysModal()" class="btn" style="background: linear-gradient(135deg, #FF7E5F, #FEB47B); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(255,126,95,0.15); height: 38px;">
-                                📅 Lịch Nghỉ Sale/Kinh Doanh
+                                📅 Setup Ngày Nghỉ / Đi Làm
                             </button>
                         </div>
                     </div>
