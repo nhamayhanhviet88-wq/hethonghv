@@ -2216,6 +2216,43 @@ async function deleteOverride(userId, dateStr) {
     }
 }
 
+window.showQuickAddStaffDropdown = function() {
+    const dropdown = document.getElementById('quickAddStaffDropdown');
+    if (dropdown) dropdown.style.display = 'block';
+};
+
+window.filterQuickAddStaffDropdown = function(query) {
+    const q = (query || '').toLowerCase();
+    const items = document.querySelectorAll('.staff-dropdown-item');
+    let visibleCount = 0;
+    items.forEach(item => {
+        const searchVal = item.getAttribute('data-search') || '';
+        if (searchVal.includes(q)) {
+            item.style.display = 'block';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    const emptyTip = document.getElementById('quickAddStaffEmptyTip');
+    if (emptyTip) {
+        emptyTip.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+    const dropdown = document.getElementById('quickAddStaffDropdown');
+    if (dropdown) dropdown.style.display = 'block';
+};
+
+window.selectQuickAddStaff = function(id, text) {
+    const input = document.getElementById('quickAddStaffSearchInput');
+    const hidden = document.getElementById('quickAddStaffSelect');
+    const dropdown = document.getElementById('quickAddStaffDropdown');
+    if (input) input.value = text;
+    if (hidden) {
+        hidden.value = id;
+    }
+    if (dropdown) dropdown.style.display = 'none';
+};
+
 function showQuickAddOverrideModal() {
     const users = window._offDaysUsersList || [];
     
@@ -2248,10 +2285,36 @@ function showQuickAddOverrideModal() {
             <div style="flex: 1;">
                 <div style="margin-bottom: 20px;">
                     <label style="display: block; font-weight: 800; font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">Chọn Nhân Viên</label>
-                    <select id="quickAddStaffSelect" class="form-control" style="width: 100%; height: 45px; border-radius: 8px; font-weight: 600; padding: 8px 12px; font-size: 13px; border: 1.5px solid var(--gray-200);">
-                        <option value="">-- Chọn nhân viên --</option>
-                        ${users.map(u => `<option value="${u.id}">${u.full_name} (${u.username})</option>`).join('')}
-                    </select>
+                    <div style="position: relative; width: 100%;">
+                        <input type="text" 
+                               id="quickAddStaffSearchInput" 
+                               class="form-control" 
+                               placeholder="🔍 Nhập tên hoặc tài khoản để tìm..." 
+                               autocomplete="off" 
+                               style="width: 100%; height: 45px; border-radius: 8px; font-weight: 600; padding: 8px 30px 8px 12px; font-size: 13px; border: 1.5px solid var(--gray-200); background: #fff;"
+                               onfocus="showQuickAddStaffDropdown()"
+                               oninput="filterQuickAddStaffDropdown(this.value)">
+                        <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--gray-400); pointer-events: none;">▼</span>
+                        <input type="hidden" id="quickAddStaffSelect" value="">
+                        
+                        <div id="quickAddStaffDropdown" 
+                             style="display: none; position: absolute; top: 48px; left: 0; right: 0; background: white; border: 1.5px solid var(--gray-200); border-radius: 8px; max-height: 180px; overflow-y: auto; z-index: 10001; box-shadow: 0 4px 12px rgba(0,0,0,0.1); box-sizing: border-box;">
+                            <div id="quickAddStaffEmptyTip" style="display: none; padding: 12px; font-size: 13px; color: var(--gray-400); text-align: center;">
+                                Không tìm thấy nhân viên
+                            </div>
+                            ${users.map(u => `
+                                <div class="staff-dropdown-item" 
+                                     data-id="${u.id}" 
+                                     data-search="${(u.full_name || '').toLowerCase()} ${(u.username || '').toLowerCase()}" 
+                                     onclick="selectQuickAddStaff('${u.id}', '${u.full_name} (${u.username})')" 
+                                     onmouseover="this.style.background='#f1f5f9'; this.style.color='#1e293b'" 
+                                     onmouseout="this.style.background='transparent'; this.style.color='var(--gray-700)'"
+                                     style="padding: 10px 12px; font-size: 13px; font-weight: 600; color: var(--gray-700); cursor: pointer; transition: background 0.15s; border-bottom: 1px solid #f1f5f9;">
+                                    ${u.full_name} (${u.username})
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
                 </div>
 
                 <div style="margin-bottom: 20px;">
@@ -2275,10 +2338,24 @@ function showQuickAddOverrideModal() {
         </div>
     `;
     document.body.appendChild(overlay);
+
+    // Setup outside click listener
+    window._quickAddOutsideClickListener = (e) => {
+        const container = document.getElementById('quickAddStaffSearchInput')?.parentElement;
+        const dropdown = document.getElementById('quickAddStaffDropdown');
+        if (container && dropdown && !container.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    };
+    document.addEventListener('click', window._quickAddOutsideClickListener);
 }
 
 function closeQuickAddOverride() {
     document.getElementById('quickAddOverrideOverlay')?.remove();
+    if (window._quickAddOutsideClickListener) {
+        document.removeEventListener('click', window._quickAddOutsideClickListener);
+        window._quickAddOutsideClickListener = null;
+    }
 }
 
 async function submitQuickAddOverride() {
