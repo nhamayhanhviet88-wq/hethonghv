@@ -249,9 +249,11 @@ function _saleIsBirthdayToday(bdayStr) {
 }
 
 function _saleGetCategory(c, stats) {
-    if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
-    if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
     if (c.cancel_approved === 1) return 'huy_khach';
+    if (c.cancel_requested === 1 && c.cancel_approved === 0) {
+        if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
+        return 'huy_khach';
+    }
 
     const today = new Date();
     const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
@@ -1587,7 +1589,24 @@ async function _saleSubmitConsultLog(customerId) {
     if (type === 'huy') {
         const reason = document.getElementById('consultCancelReasonSale')?.value?.trim();
         if (!reason) { showToast('Vui lòng nhập lý do hủy', 'error'); return; }
-        payload.append('cancel_reason', reason);
+        
+        const submitBtn = document.getElementById('consultSubmitBtnSale');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '⏳ Đang lưu...'; }
+        try {
+            const res = await apiCall(`/api/customers/${customerId}/cancel`, 'POST', { reason });
+            if (res.success) {
+                showToast('✅ ' + res.message);
+                closeModal();
+                _saleLoadData();
+            } else {
+                showToast(res.error || 'Lỗi gửi yêu cầu!', 'error');
+            }
+        } catch (e) {
+            showToast('Lỗi kết nối!', 'error');
+        } finally {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '📝 GHI NHẬN'; }
+        }
+        return;
     } else if (type === 'cap_cuu_sep') {
         const handler = document.getElementById('consultHandlerSale')?.value;
         if (!handler) { showToast('Vui lòng chọn người xử lý', 'error'); return; }
