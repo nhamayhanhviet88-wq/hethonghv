@@ -52,7 +52,7 @@ async function isUserOnLeave(userId, dateStr) {
         const rows = await db.all(`
             SELECT user_id, date_from::text as date_from, date_to::text as date_to FROM leave_requests WHERE status = 'active'
             UNION ALL
-            SELECT user_id, off_date::text as date_from, off_date::text as date_to FROM staff_off_dates
+            SELECT user_id, off_date::text as date_from, off_date::text as date_to FROM staff_off_dates WHERE type = 'off' OR type IS NULL
         `);
         const map = new Map();
         for (const r of rows) {
@@ -69,7 +69,7 @@ async function isUserOnLeave(userId, dateStr) {
         const leave = await db.get(
             `SELECT id FROM leave_requests WHERE user_id = $1 AND status = 'active' AND date_from <= $2 AND date_to >= $2
              UNION ALL
-             SELECT id FROM staff_off_dates WHERE user_id = $1 AND off_date = $2 LIMIT 1`,
+             SELECT id FROM staff_off_dates WHERE user_id = $1 AND off_date = $2 AND (type = 'off' OR type IS NULL) LIMIT 1`,
             [userId, dateStr]
         );
         return !!leave;
@@ -176,6 +176,21 @@ async function getPancakeSettingsCached() {
 
 // Check if a specific user is scheduled to work on a date (checks holidays, leaves, and custom shifts)
 async function isUserWorkingOnDate(userId, dateStr) {
+    // 0. Check override in staff_off_dates
+    try {
+        const override = await db.get(
+            "SELECT type FROM staff_off_dates WHERE user_id = $1 AND off_date = $2",
+            [Number(userId), dateStr]
+        );
+        if (override) {
+            const type = override.type || 'off';
+            if (type === 'work') return true;
+            if (type === 'off') return false;
+        }
+    } catch(e) {
+        console.error('Error checking staff_off_dates override:', e.message);
+    }
+
     // 1. Check holidays
     const holidays = await getHolidays();
     if (holidays.has(dateStr)) return false;

@@ -457,7 +457,7 @@ async function settingsRoutes(fastify, options) {
         }
     });
 
-    // 2. GET: Lấy tất cả lịch nghỉ của một nhân viên
+    // 2. GET: Lấy tất cả lịch nghỉ/đi làm của một nhân viên
     fastify.get('/api/settings/staff-off-dates', { preHandler: [authenticate] }, async (request, reply) => {
         if (!checkManagerPermission(request.user)) {
             return reply.code(403).send({ error: 'Bạn không có quyền thực hiện thao tác này.' });
@@ -470,10 +470,10 @@ async function settingsRoutes(fastify, options) {
 
         try {
             const rows = await db.all(
-                "SELECT off_date::text as off_date FROM staff_off_dates WHERE user_id = $1 ORDER BY off_date ASC",
+                "SELECT off_date::text as off_date, COALESCE(type, 'off') as type FROM staff_off_dates WHERE user_id = $1 ORDER BY off_date ASC",
                 [Number(user_id)]
             );
-            return { off_dates: rows.map(r => r.off_date) };
+            return { off_dates: rows };
         } catch (e) {
             console.error('[staff-off-dates] Error fetching off dates:', e.message);
             return reply.code(500).send({ error: 'Lỗi server khi lấy lịch nghỉ' });
@@ -485,7 +485,7 @@ async function settingsRoutes(fastify, options) {
         try {
             const { getVNToday } = require('../utils/workingDay');
             const todayStr = getVNToday();
-            const rows = await db.all("SELECT user_id FROM staff_off_dates WHERE off_date = $1", [todayStr]);
+            const rows = await db.all("SELECT user_id FROM staff_off_dates WHERE off_date = $1 AND (type = 'off' OR type IS NULL)", [todayStr]);
             return { off_user_ids: rows.map(r => r.user_id) };
         } catch (e) {
             console.error('[staff-off-dates] Error fetching today off users:', e.message);
@@ -493,7 +493,7 @@ async function settingsRoutes(fastify, options) {
         }
     });
 
-    // 2.6 GET: Lấy danh sách lịch nghỉ trong một tháng cụ thể (ví dụ: YYYY-MM) của tất cả nhân viên
+    // 2.6 GET: Lấy danh sách lịch nghỉ/đi làm trong một tháng cụ thể (ví dụ: YYYY-MM) của tất cả nhân viên
     fastify.get('/api/settings/staff-off-dates/monthly', { preHandler: [authenticate] }, async (request, reply) => {
         if (!checkManagerPermission(request.user)) {
             return reply.code(403).send({ error: 'Bạn không có quyền thực hiện thao tác này.' });
@@ -506,7 +506,7 @@ async function settingsRoutes(fastify, options) {
 
         try {
             const rows = await db.all(`
-                SELECT s.user_id, s.off_date::text as off_date, u.full_name, u.username
+                SELECT s.user_id, s.off_date::text as off_date, COALESCE(s.type, 'off') as type, u.full_name, u.username
                 FROM staff_off_dates s
                 JOIN users u ON s.user_id = u.id
                 WHERE to_char(s.off_date, 'YYYY-MM') = $1
@@ -519,13 +519,13 @@ async function settingsRoutes(fastify, options) {
         }
     });
 
-    // 3. POST: Toggle ngày nghỉ của một nhân viên
+    // 3. POST: Toggle/Cập nhật ngày nghỉ hoặc ngày đi làm của một nhân viên
     fastify.post('/api/settings/staff-off-dates/toggle', { preHandler: [authenticate] }, async (request, reply) => {
         if (!checkManagerPermission(request.user)) {
             return reply.code(403).send({ error: 'Bạn không có quyền thực hiện thao tác này.' });
         }
 
-        const { user_id, off_date } = request.body || {};
+        const { user_id, off_date, type } = request.body || {};
         if (!user_id || !off_date) {
             return reply.code(400).send({ error: 'Thiếu thông tin user_id hoặc off_date' });
         }
@@ -534,32 +534,46 @@ async function settingsRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Định dạng ngày không hợp lệ. Vui lòng dùng YYYY-MM-DD.' });
         }
 
+        const targetType = type || 'off'; // default to off
+
         try {
             const existing = await db.get(
-                "SELECT id FROM staff_off_dates WHERE user_id = $1 AND off_date = $2",
+                "SELECT id, type FROM staff_off_dates WHERE user_id = $1 AND off_date = $2",
                 [Number(user_id), off_date]
             );
 
             const { clearLeaveCache } = require('../utils/workingDay');
 
-            if (existing) {
-                await db.run(
-                    "DELETE FROM staff_off_dates WHERE user_id = $1 AND off_date = $2",
-                    [Number(user_id), off_date]
-                );
-                clearLeaveCache();
-                return { success: true, action: 'removed', message: `Đã xóa ngày nghỉ ${off_date}` };
+            if (targetType === 'default') {
+                if (existing) {
+                    await db.run(
+                        "DELETE FROM staff_off_dates WHERE user_id = $1 AND off_date = $2",
+                        [Number(user_id), off_date]
+                    );
+                    clearLeaveCache();
+                    return { success: true, action: 'removed', message: `Đã xóa thiết lập ngày ${off_date}` };
+                }
+                return { success: true, action: 'none', message: `Ngày ${off_date} ở trạng thái mặc định` };
             } else {
-                await db.run(
-                    "INSERT INTO staff_off_dates (user_id, off_date, created_by) VALUES ($1, $2, $3)",
-                    [Number(user_id), off_date, request.user.id]
-                );
-                clearLeaveCache();
-                return { success: true, action: 'added', message: `Đã thêm ngày nghỉ ${off_date}` };
+                if (existing) {
+                    await db.run(
+                        "UPDATE staff_off_dates SET type = $1, created_by = $2 WHERE user_id = $3 AND off_date = $4",
+                        [targetType, request.user.id, Number(user_id), off_date]
+                    );
+                    clearLeaveCache();
+                    return { success: true, action: 'updated', message: `Đã cập nhật ngày ${off_date} thành ${targetType === 'work' ? 'Đi làm' : 'Nghỉ làm'}` };
+                } else {
+                    await db.run(
+                        "INSERT INTO staff_off_dates (user_id, off_date, type, created_by) VALUES ($1, $2, $3, $4)",
+                        [Number(user_id), off_date, targetType, request.user.id]
+                    );
+                    clearLeaveCache();
+                    return { success: true, action: 'added', message: `Đã thêm thiết lập ngày ${off_date} là ${targetType === 'work' ? 'Đi làm' : 'Nghỉ làm'}` };
+                }
             }
         } catch (e) {
             console.error('[staff-off-dates] Error toggling off date:', e.message);
-            return reply.code(500).send({ error: 'Lỗi server khi cập nhật ngày nghỉ' });
+            return reply.code(500).send({ error: 'Lỗi server khi cập nhật lịch nghỉ' });
         }
     });
 }

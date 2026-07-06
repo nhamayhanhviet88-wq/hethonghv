@@ -41,6 +41,18 @@ async function pancakeRoutes(fastify, options) {
             if (!user || !user.is_active) return false;
 
             const dateStr = vnDateStr(now);
+
+            // Check global override in staff_off_dates
+            const override = await db.get(
+                "SELECT type FROM staff_off_dates WHERE user_id = $1 AND off_date = $2",
+                [Number(userId), dateStr]
+            );
+            if (override) {
+                const type = override.type || 'off';
+                if (type === 'work') return true;
+                if (type === 'off') return false;
+            }
+
             const holidayRow = await db.get("SELECT id FROM holidays WHERE holiday_date::text = $1", [dateStr]);
             if (holidayRow) return false;
 
