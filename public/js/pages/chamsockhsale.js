@@ -1723,8 +1723,9 @@ async function _saleSubmitConsultLog(customerId) {
                 items.push({ description: desc, quantity: qty, unit_price: price });
             }
         });
-        if (items.length === 0) { showToast('Vui lòng nhập ít nhất một mặt hàng', 'error'); return; }
-        payload.append('items', JSON.stringify(items));
+        if (items.length > 0) {
+            payload.append('items', JSON.stringify(items));
+        }
     } else if (type === 'dat_coc') {
         const recordId = document.getElementById('consultPaymentRecordIdSale')?.value;
         if (!recordId) { showToast('Vui lòng chọn mã tiền đặt cọc', 'error'); return; }
