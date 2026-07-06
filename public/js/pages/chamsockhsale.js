@@ -1325,7 +1325,7 @@ async function _saleOpenConsultModal(customerId) {
                         </tr>`).join('') : ''}
                     </tbody>
                 </table>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;" id="consultOrderTotalWrapperSale">
                     <button class="btn btn-sm" type="button" onclick="_saleAddConsultOrderRow()" style="font-size:12px;">➕ Thêm dòng</button>
                     <div style="text-align:right;">
                         <div style="font-size:16px;font-weight:700;">Tổng: <span id="consultOrderTotalSale" style="color:#d4a843;font-size:18px;">${formatCurrency(grandTotal)}</span> VNĐ</div>
@@ -1534,6 +1534,17 @@ function _saleOnConsultTypeChange() {
     const handlerGroup = document.getElementById('consultHandlerGroupSale');
     const depositGroup = document.getElementById('consultDepositGroupSale');
 
+    // Reset default displays
+    const ocGroup = document.getElementById('consultOrderCodeGroupSale');
+    if (ocGroup) ocGroup.style.display = 'none';
+    const oTable = document.getElementById('consultOrderTableSale');
+    const oTableGroup = oTable ? oTable.closest('.form-group') : null;
+    if (oTableGroup) oTableGroup.style.display = 'block';
+    const totalWrap = document.getElementById('consultOrderTotalWrapperSale');
+    if (totalWrap) totalWrap.style.display = 'flex';
+    const socGroup = document.getElementById('consultSampleOrderCodeGroupSale');
+    if (socGroup) socGroup.style.display = 'none';
+
     if (cancelGroup) cancelGroup.style.display = 'none';
     if (handlerGroup) handlerGroup.style.display = 'none';
     if (orderGroup) orderGroup.style.display = 'none';
@@ -1571,6 +1582,10 @@ function _saleOnConsultTypeChange() {
     } else if (type === 'chot_don') {
         if (orderGroup) orderGroup.style.display = 'block';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
+        if (ocGroup) ocGroup.style.display = 'block';
+        if (oTableGroup) oTableGroup.style.display = 'none';
+        if (totalWrap) totalWrap.style.display = 'none';
+
         _saleCalcConsultOrderTotal();
         const codeInput = document.getElementById('consultOrderCodeSale');
         if (codeInput && !codeInput.value) {
@@ -1581,7 +1596,6 @@ function _saleOnConsultTypeChange() {
             });
         }
     } else if (type === 'gui_mau') {
-        const socGroup = document.getElementById('consultSampleOrderCodeGroupSale');
         if (socGroup) socGroup.style.display = 'block';
         const socInput = document.getElementById('consultSampleOrderCodeSale');
         if (socInput && !socInput.value) {
@@ -1592,6 +1606,15 @@ function _saleOnConsultTypeChange() {
         }
     } else if (type === 'dat_coc') {
         if (depositGroup) depositGroup.style.display = 'block';
+        if (ocGroup) ocGroup.style.display = 'block';
+        const codeInput = document.getElementById('consultOrderCodeSale');
+        if (codeInput && !codeInput.value) {
+            codeInput.value = 'Đang tạo...';
+            const custId = window._currentConsultCustomerId;
+            apiCall(`/api/order-codes/next${custId ? '?customer_id=' + custId : ''}`).then(res => {
+                if (res.order_code) codeInput.value = res.order_code;
+            });
+        }
     }
 }
 
