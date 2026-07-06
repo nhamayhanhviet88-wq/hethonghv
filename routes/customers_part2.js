@@ -889,6 +889,33 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         content = fields.content;
         if (!log_type) return reply.code(400).send({ error: 'Vui lòng chọn loại tư vấn' });
 
+        // Enforce Telegram Consultation for new leads of Sale CRM today
+        if (customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(request.user.role)) {
+            const vnToday = getVNToday();
+            const createdToday = customer.created_at && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(customer.created_at)) === vnToday;
+            
+            if (createdToday) {
+                // Check if there is any manual consultation log today
+                const lastLog = await db.get(
+                    `SELECT id FROM consultation_logs 
+                     WHERE customer_id = ?
+                       AND log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so')
+                       AND logged_by IS NOT NULL
+                       AND content NOT LIKE '%Pancake%'
+                       AND content NOT LIKE '%Đồng bộ%'
+                       AND created_at::date = ?::date
+                     LIMIT 1`,
+                    [customerId, vnToday]
+                );
+                
+                if (!lastLog) {
+                    return reply.code(400).send({ 
+                        error: 'Khách hàng mới nhận hôm nay phải được ghi nhận tư vấn lần đầu qua Telegram (cú pháp: ; [nội dung]) trước khi thao tác trên CRM!' 
+                    });
+                }
+            }
+        }
+
         // ★ Server-side validation: appointment_date constraint for Sale CRM
         if (fields.appointment_date && customer.crm_type === 'sale' && !['huy', 'cap_cuu_sep'].includes(log_type)) {
             const typeConfig = await db.get(

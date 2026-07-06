@@ -610,7 +610,12 @@ function _saleRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
-            `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+            `) : (_saleGetCategory(c, stats) === 'moi_chuyen' && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role)) ? `
+                <button class="btn btn-sm consult-btn" onclick="_saleShowTelegramOnlyMessage(${c.id})" 
+                    style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg, #cbd5e1, #94a3b8);color:white;cursor:pointer;">
+                    🔒 Báo Telegram
+                </button>
+            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </button>
@@ -979,6 +984,14 @@ async function _saleOpenConsultModal(customerId) {
         existingItems = custData.items || [];
         window._currentConsultCustomerPinned = !!customerInfo.is_pinned;
         consultLogs = logData.logs || [];
+
+        const isMoiChuyen = _saleIsMoiChuyenClientSide(customerInfo, consultLogs) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role);
+        if (isMoiChuyen) {
+            closeModal();
+            _saleShowTelegramOnlyMessage(customerId);
+            return;
+        }
+
         var nextFollowUp = followupData?.nextFollowUp || '';
     } catch(e) {}
     const grandTotal = existingItems.reduce((s, i) => s + (i.total || 0), 0);
@@ -1638,11 +1651,16 @@ async function _saleOpenCustomerDetail(customerId) {
         <div id="cdtab-sale-orders" style="display:none;">${orderTab}</div>
     `;
 
+    const isMoiChuyen = _saleIsMoiChuyenClientSide(c, logs) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role);
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        ${!c.cancel_requested && !c.cancel_approved ? `
-            <button class="btn btn-primary" onclick="closeModal();_saleOpenConsultModal(${customerId});" style="width:auto;">📝 TƯ VẤN</button>
-        ` : ''}
+        ${!c.cancel_requested && !c.cancel_approved ? (
+            isMoiChuyen ? `
+                <button class="btn" onclick="_saleShowTelegramOnlyMessage(${customerId})" style="background:linear-gradient(135deg, #cbd5e1, #94a3b8);color:white;width:auto;font-weight:600;">🔒 TƯ VẤN</button>
+            ` : `
+                <button class="btn btn-primary" onclick="closeModal();_saleOpenConsultModal(${customerId});" style="width:auto;">📝 TƯ VẤN</button>
+            `
+        ) : ''}
     `;
 
     openModal(`Chi Tiết Khách Hàng (Sale)`, bodyHTML, footerHTML);
@@ -1894,4 +1912,63 @@ function _saleClearSelectedDeposit() {
     if (selectedDiv) selectedDiv.style.display = 'none';
 
     _saleCalcConsultOrderTotal();
+}
+
+function _saleIsMoiChuyenClientSide(c, logs) {
+    if (c.cancel_requested === 1 && c.cancel_approved === 0) return false;
+    if (c.order_status === 'cho_duyet_huy_don') return false;
+    if (c.cancel_approved === 1) return false;
+
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+
+    let consultedToday = false;
+    if (logs && logs.length > 0) {
+        // Find manual logs today
+        const manualLog = logs.find(log => 
+            log.log_type !== 'chuyen_doi_crm' && 
+            log.log_type !== 'tao_tk_affiliate' && 
+            log.log_type !== 'gui_lai_so' &&
+            log.logged_by && 
+            !(log.content || '').includes('Pancake') && 
+            !(log.content || '').includes('Đồng bộ')
+        );
+        if (manualLog && manualLog.created_at) {
+            const logDate = new Date(manualLog.created_at);
+            const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
+            consultedToday = (logStr === todayStr);
+        }
+    }
+
+    if (consultedToday) return false;
+
+    let createdToday = false;
+    if (c.created_at) {
+        const cDate = new Date(c.created_at);
+        const cStr = cDate.getFullYear() + '-' + String(cDate.getMonth()+1).padStart(2,'0') + '-' + String(cDate.getDate()).padStart(2,'0');
+        createdToday = (cStr === todayStr);
+    }
+
+    return createdToday;
+}
+
+function _saleShowTelegramOnlyMessage(customerId) {
+    openModal(
+        '🔒 Yêu Cầu Xử Lý Qua Telegram',
+        `<div style="text-align:center;padding:24px 16px;font-family:'Segoe UI',system-ui,sans-serif;">
+            <div style="font-size:54px;margin-bottom:18px;animation:emPopShake 0.5s ease infinite;">📥</div>
+            <h3 style="font-size:18px;font-weight:800;color:#1e293b;margin-bottom:12px;">Lead Mới Chưa Xử Lý!</h3>
+            <p style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:20px;max-width:360px;margin-left:auto;margin-right:auto;">
+                Để đảm bảo tính kỷ luật và tính minh bạch, bạn <b>bắt buộc</b> phải tương tác và phản hồi tin nhắn nhận số trên <b>Telegram</b> bằng cú pháp <code>; [Nội dung tư vấn]</code> trước để chuyển sang trạng thái <b>Đang Tư Vấn</b>.
+            </p>
+            <div style="background:#f1f5f9;border-radius:10px;padding:12px 16px;font-size:13px;color:#475569;margin-bottom:20px;text-align:left;">
+                <b>Hướng dẫn nhanh:</b><br>
+                1. Mở ứng dụng <b>Telegram</b>.<br>
+                2. Tìm tin nhắn chuyển số cho khách hàng này.<br>
+                3. <b>Reply (trả lời)</b> trực tiếp tin nhắn đó với nội dung: <code>; [nội dung tư vấn]</code>.<br>
+                4. Sau khi bot Telegram xác nhận thành công, F5 lại CRM để mở khóa nút tư vấn!
+            </div>
+        </div>`,
+        `<button class="btn btn-secondary" onclick="closeModal()" style="width:100%;padding:10px;border-radius:8px;font-weight:700;">ĐÃ HIỂU</button>`
+    );
 }
