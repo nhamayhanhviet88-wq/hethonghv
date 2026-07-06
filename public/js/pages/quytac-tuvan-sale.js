@@ -91,7 +91,7 @@ async function _qtSaleLoadData() {
     _qtSaleAllRules = rulesData.rules || {};
     _qtSaleStages = stagesData.stages || [];
     _qtSaleSections = sectionsData.sections || [];
-    _qtSaleUnsectioned = (sectionsData.unsectioned || []).filter(t => !['cap_cuu_sep', 'huy'].includes(t.key));
+    _qtSaleUnsectioned = (sectionsData.unsectioned || []).filter(t => !['cap_cuu_sep'].includes(t.key));
     _qtSaleGroupMembers = sectionsData.groupMembers || [];
     _qtSaleRulePhases = phasesData.phases || [];
     _qtSaleRulePhases.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -1561,7 +1561,7 @@ async function _qtSaleSaveRules(fromStatus) {
 }
 
 function _qtSaleShowAddRuleGroupModal() {
-    const SYSTEM_KEYS = ['cap_cuu_sep', 'huy'];
+    const SYSTEM_KEYS = ['cap_cuu_sep'];
     const sectionKeys = new Set(_qtSaleSections.map(s => s.key));
     const available = _qtSaleAllTypes.filter(t => !sectionKeys.has(t.key) && t.is_active && !t.section_group && !SYSTEM_KEYS.includes(t.key));
 
@@ -1679,7 +1679,7 @@ function _qtSaleShowMergeModal(sectionKey) {
     const tp = _qtSaleAllTypes.find(x => x.key === sec.key);
     const currentLabel = (isGroup && sec.section_group_label) ? sec.section_group_label : (tp ? tp.label : sec.key);
 
-    const SYSTEM_KEYS = ['cap_cuu_sep', 'huy'];
+    const SYSTEM_KEYS = ['cap_cuu_sep'];
     const sectionKeys = new Set(_qtSaleSections.map(s => s.key));
     const groupMemberKeys = new Set(_qtSaleGroupMembers.map(m => m.key));
     const available = _qtSaleAllTypes.filter(t =>

@@ -91,7 +91,7 @@ async function _qtALoadData() {
     _qtAAllRules = rulesData.rules || {};
     _qtAStages = stagesData.stages || [];
     _qtASections = sectionsData.sections || [];
-    _qtAUnsectioned = (sectionsData.unsectioned || []).filter(t => !['cap_cuu_sep', 'huy'].includes(t.key));
+    _qtAUnsectioned = (sectionsData.unsectioned || []).filter(t => !['cap_cuu_sep'].includes(t.key));
     _qtAGroupMembers = sectionsData.groupMembers || [];
     _qtARulePhases = phasesData.phases || [];
     _qtARulePhases.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -1561,7 +1561,7 @@ async function _qtASaveRules(fromStatus) {
 
 function _qtAShowAddRuleGroupModal() {
     // Show unsectioned types (exclude system keys that already have dedicated workflows)
-    const SYSTEM_KEYS = ['cap_cuu_sep', 'huy'];
+    const SYSTEM_KEYS = ['cap_cuu_sep'];
     const sectionKeys = new Set(_qtASections.map(s => s.key));
     const available = _qtAAllTypes.filter(t => !sectionKeys.has(t.key) && t.is_active && !t.section_group && !SYSTEM_KEYS.includes(t.key));
 
@@ -1687,7 +1687,7 @@ function _qtAShowMergeModal(sectionKey) {
     const tp = _qtAAllTypes.find(x => x.key === sec.key);
     const currentLabel = (isGroup && sec.section_group_label) ? sec.section_group_label : (tp ? tp.label : sec.key);
 
-    const SYSTEM_KEYS = ['cap_cuu_sep', 'huy'];
+    const SYSTEM_KEYS = ['cap_cuu_sep'];
     const sectionKeys = new Set(_qtASections.map(s => s.key));
     const groupMemberKeys = new Set(_qtAGroupMembers.map(m => m.key));
     const available = _qtAAllTypes.filter(t =>
