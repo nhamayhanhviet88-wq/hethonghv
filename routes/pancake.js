@@ -26,6 +26,10 @@ async function pancakeRoutes(fastify, options) {
             
             ALTER TABLE customers ADD COLUMN IF NOT EXISTS pancake_customer_id TEXT;
             ALTER TABLE customers ADD COLUMN IF NOT EXISTS pancake_conversation_id TEXT;
+
+            CREATE INDEX IF NOT EXISTS idx_customers_pancake_cust ON customers(pancake_customer_id) WHERE pancake_customer_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_customers_pancake_conv ON customers(pancake_conversation_id) WHERE pancake_conversation_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_pancake_pending_status ON pancake_pending_leads(status, process_at);
         `);
     } catch (e) {
         console.error('[Pancake Init] Migration error:', e.message);
