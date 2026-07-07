@@ -4135,9 +4135,16 @@ function _tpdChangeSizeType(val) {
 
     it.size_type = val;
 
-    // Filter out sizes that don't match the new type, except custom ones or keep them.
-    // Actually, it is safer to just let the user re-select active sizes via checkboxes.
-    // Redraw and update live preview
+    // Filter out sizes that don't match the new size type config
+    const config = _tpd.sizeTypesConfig || {
+        "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+        "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+    };
+    const configuredSizes = config[val] || [];
+    if (it.quantities && Array.isArray(it.quantities)) {
+        it.quantities = it.quantities.filter(q => configuredSizes.includes(q.size));
+    }
+
     _tpdSaveDraft(it);
     _tpdRenderFormInputs();
     _tpdUpdateLivePreview();
