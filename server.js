@@ -211,6 +211,18 @@ async function start() {
         }
     } catch(e) { /* exists */ }
 
+    // Seed app_config for dht_size_types_config
+    try {
+        const existsSizeCfg = await db.get("SELECT key FROM app_config WHERE key = 'dht_size_types_config'");
+        if (!existsSizeCfg) {
+            const defaultSizeCfg = {
+                "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+                "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+            };
+            await db.run("INSERT INTO app_config (key, value) VALUES ('dht_size_types_config', $1)", [JSON.stringify(defaultSizeCfg)]);
+        }
+    } catch(e) { /* exists */ }
+
     // Migration: Meeting Commitments — Cam kết cuộc họp
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS meeting_sessions (
@@ -945,6 +957,7 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS workshop_note TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS style_name VARCHAR(255)`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS print_details JSONB DEFAULT '[]'`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS size_type VARCHAR(50) DEFAULT 'Size TT'`); } catch(e) {}
 
     // v10: Audit Log — Chi tiết lịch sử thay đổi đơn hàng
     try {

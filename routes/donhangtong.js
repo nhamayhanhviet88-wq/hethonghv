@@ -2820,6 +2820,7 @@ module.exports = async function(fastify) {
         if (b.color_name !== undefined) { sets.push(`color_name = $${idx++}`); vals.push(b.color_name || null); }
         if (b.style_name !== undefined) { sets.push(`style_name = $${idx++}`); vals.push(b.style_name || null); }
         if (b.workshop_note !== undefined) { sets.push(`workshop_note = $${idx++}`); vals.push(b.workshop_note || null); }
+        if (b.size_type !== undefined) { sets.push(`size_type = $${idx++}`); vals.push(b.size_type || 'Size TT'); }
         // Update quantities (size breakdown) — overwrite existing
         if (b.quantities !== undefined) {
             sets.push(`quantities = $${idx++}`);
@@ -4641,7 +4642,7 @@ module.exports = async function(fastify) {
     // ========== USER INFO (for create order form) ==========
     fastify.get('/api/dht/my-info', { preHandler: [authenticate] }, async (request, reply) => {
         const user = await db.get(`
-            SELECT u.id, u.full_name, u.order_code_prefix, u.department_id,
+            SELECT u.id, u.full_name, u.role, u.order_code_prefix, u.department_id,
                    d.name as department_name,
                    pd.name as parent_department_name,
                    COALESCE(pd.name, d.name) as phong_ban,
@@ -5443,6 +5444,39 @@ module.exports = async function(fastify) {
         }
 
         return { success: true, new_total: order.total_amount - oldVal + newVal };
+    });
+
+    // GET /api/dht/size-config
+    fastify.get('/api/dht/size-config', { preHandler: [authenticate] }, async (request, reply) => {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'dht_size_types_config'");
+        if (!row) {
+            return {
+                "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+                "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+            };
+        }
+        try {
+            return typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+        } catch (e) {
+            return {
+                "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+                "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+            };
+        }
+    });
+
+    // PUT /api/dht/size-config
+    fastify.put('/api/dht/size-config', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const configVal = request.body;
+        if (!configVal || typeof configVal !== 'object') {
+            return reply.code(400).send({ error: 'Dữ liệu không hợp lệ' });
+        }
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_size_types_config', $1, NOW()) 
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify(configVal)]
+        );
+        return { success: true };
     });
 };
 

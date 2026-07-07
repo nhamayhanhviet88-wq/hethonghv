@@ -173,7 +173,8 @@ async function renderDesignDraftPage(content) {
         // 1. Fetch order details, user info, and options in parallel
         const [details, myInfoRes] = await Promise.all([
             apiCall(`/api/dht/orders/${orderId}/detail`),
-            apiCall('/api/dht/my-info')
+            apiCall('/api/dht/my-info'),
+            _tpdLoadSizeConfig()
         ]);
 
         if (!details || !details.order) throw new Error('Không lấy được chi tiết đơn hàng');
@@ -195,6 +196,7 @@ async function renderDesignDraftPage(content) {
             surcharges: details.surcharges || [],
             activeItemIndex: 0,
             hasEditPermission: hasEditPermission,
+            role: myInfo.role || '',
             // Deep copy of active item editing state
             editingItem: items.length > 0 ? _tpdCloneItemState(items[0]) : null
         };
@@ -283,7 +285,8 @@ function _tpdCloneItemState(item) {
         quantities: mergedQuantities,
         unit_price: Number(item.unit_price) || 0,
         product_name: item.product_name || '',
-        pattern_name: item.pattern_name || ''
+        pattern_name: item.pattern_name || '',
+        size_type: item.size_type || 'Size TT'
     };
 }
 
@@ -3070,9 +3073,7 @@ function _tpdUpdateLivePreview() {
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
 
     // Render active sizes table row columns
-    // We only render columns where qty > 0 OR if we want S M L XL XXL 3XL 4XL 5XL sizes.
-    // The user requested: "size nào hiển thị size đó" (only display size if it is filled in quantities)
-    const filledQuantities = it.quantities.filter(q => q.qty > 0);
+    const filledQuantities = it.quantities || [];
     const hasSizes = filledQuantities.length > 0;
 
     let sizeHeaders = '';
@@ -3082,8 +3083,8 @@ function _tpdUpdateLivePreview() {
     if (hasSizes) {
         filledQuantities.forEach(q => {
             sizeHeaders += `<th>${q.size}</th>`;
-            sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty}</td>`;
-            totalQty += q.qty;
+            sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
+            totalQty += Number(q.qty || 0);
         });
     } else {
         // Fallback display standard sizes empty
@@ -3218,43 +3219,67 @@ function _tpdRenderFormInputs() {
     `;
 
     // 2. Size Breakdown Grid
-    // Render S, M, L, XL, XXL, XXXL, XXXXL, XXXXXL inputs.
-    // Plus let them edit any extra custom size that exists in state.
-    const stdSizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
+    const currentSizeType = it.size_type || 'Size TT';
+    const config = _tpd.sizeTypesConfig || {
+        "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+        "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+    };
+    const configuredSizes = config[currentSizeType] || [];
+
     let sizeGridHtml = '';
-
-    // Standard sizes first
-    stdSizes.forEach(sz => {
-        const qObj = it.quantities.find(q => q.size === sz) || { qty: 0 };
-        sizeGridHtml += `
-            <div class="tpd-ws-size-input-box">
-                <span class="tpd-ws-size-label">${sz}</span>
-                <input type="number" class="tpd-ws-size-qty" value="${qObj.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${sz}', this.value)" onkeyup="_tpdUpdateQty('${sz}', this.value)" ${disabledAttr}>
-            </div>
-        `;
-    });
-
-    // Custom sizes (non-standard)
-    it.quantities.forEach(q => {
-        if (!stdSizes.includes(q.size)) {
+    if (it.quantities.length === 0) {
+        sizeGridHtml = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:#94a3b8; font-size:12px;">Chưa chọn size nào để hiển thị. Hãy tích chọn size ở trên.</div>`;
+    } else {
+        it.quantities.forEach(q => {
+            const isCustom = !configuredSizes.includes(q.size);
+            const labelStyle = isCustom ? 'background:#ea580c;' : '';
             sizeGridHtml += `
                 <div class="tpd-ws-size-input-box">
-                    <span class="tpd-ws-size-label" style="background:#ea580c;">${q.size}</span>
+                    <span class="tpd-ws-size-label" style="${labelStyle}">${q.size}</span>
                     <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
                 </div>
             `;
-        }
-    });
+        });
+    }
 
     html += `
-        <div class="tpd-ws-form-group">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <label class="tpd-ws-form-label">Phân bổ Số lượng Size số</label>
+        <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                <label class="tpd-ws-form-label" style="margin-bottom:0;">Loại Size</label>
+                <div style="display:flex; gap: 8px; align-items:center;">
+                    <select class="tpd-ws-select" style="padding: 4px 8px; font-size:12px; height:auto; width:150px; border-radius:4px; border:1px solid #cbd5e1;" onchange="_tpdChangeSizeType(this.value)" ${disabledAttr}>
+                        <option value="Size TT" ${currentSizeType === 'Size TT' ? 'selected' : ''}>Size TT</option>
+                        <option value="Size Nam / Nữ" ${currentSizeType === 'Size Nam / Nữ' ? 'selected' : ''}>Size Nam / Nữ</option>
+                    </select>
+                    ${state.role === 'giam_doc' ? `
+                        <button type="button" class="btn" onclick="_tpdOpenSizeConfigModal()" style="padding: 4px 8px; font-size:11px; border-radius:4px; font-weight:700; background:#f59e0b; border:none; color:white; cursor:pointer;">⚙️ Cài đặt</button>
+                    ` : ''}
+                </div>
+            </div>
+
+            <!-- Active size selector (Checkboxes) -->
+            <div class="tpd-ws-size-selector-panel" style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:6px; padding:8px; margin-bottom:12px;">
+                <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px;">Chọn các size hiển thị:</div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    ${configuredSizes.map(sz => {
+                        const isActive = it.quantities.some(q => q.size === sz);
+                        return `
+                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; cursor:pointer; font-weight:500; margin:0;">
+                                <input type="checkbox" style="cursor:pointer; margin:0;" ${isActive ? 'checked' : ''} onchange="_tpdToggleSizeActive('${sz}', this.checked)" ${disabledAttr}>
+                                <span>${sz}</span>
+                            </label>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                <label class="tpd-ws-form-label" style="margin-bottom:0;">Phân bổ Số lượng Size số</label>
                 ${state.hasEditPermission ? `
                     <button type="button" class="btn btn-secondary" onclick="_tpdAddCustomSize()" style="padding: 2px 8px; font-size: 10px; border-radius:4px; font-weight:700;">+ Thêm size khác</button>
                 ` : ''}
             </div>
-            <div class="tpd-ws-size-grid">
+            <div class="tpd-ws-size-grid" style="margin-top:8px;">
                 ${sizeGridHtml}
             </div>
         </div>
@@ -3599,7 +3624,8 @@ async function _tpdSaveProductionSheet() {
             print_details: it.print_details || [],
             front_technique_image: it.print_details && it.print_details[0] ? it.print_details[0].image : null,
             back_technique_image: it.print_details && it.print_details[1] ? it.print_details[1].image : null,
-            quantities: it.quantities.filter(q => q.qty > 0)
+            quantities: it.quantities,
+            size_type: it.size_type || 'Size TT'
         };
 
         const res = await apiCall(`/api/dht/orders/${state.orderId}/items/${it.id}/sheet`, 'PUT', payload);
@@ -3664,7 +3690,7 @@ async function _tpdPrintAllSheets() {
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
 
         // Sizes
-        const filledQuantities = it.quantities.filter(q => q.qty > 0);
+        const filledQuantities = it.quantities || [];
         let sizeHeaders = '';
         let sizeValues = '';
         let totalQty = 0;
@@ -3672,8 +3698,8 @@ async function _tpdPrintAllSheets() {
         if (filledQuantities.length > 0) {
             filledQuantities.forEach(q => {
                 sizeHeaders += `<th>${q.size}</th>`;
-                sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty}</td>`;
-                totalQty += q.qty;
+                sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
+                totalQty += Number(q.qty || 0);
             });
         } else {
             const stdSizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
@@ -3778,4 +3804,143 @@ async function _tpdPrintAllSheets() {
     setTimeout(() => {
         window.print();
     }, 100);
+}
+
+// Load size configuration from backend
+async function _tpdLoadSizeConfig() {
+    try {
+        const res = await apiCall('/api/dht/size-config', 'GET');
+        if (res && !res.error) {
+            _tpd.sizeTypesConfig = res;
+        }
+    } catch (e) {
+        console.error('Failed to load size config:', e);
+    }
+    // Fallback if not loaded
+    if (!_tpd.sizeTypesConfig) {
+        _tpd.sizeTypesConfig = {
+            "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+            "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+        };
+    }
+}
+
+// Change size type for the current editing item
+function _tpdChangeSizeType(val) {
+    const state = window._tpdWorkspaceState;
+    const it = state.editingItem;
+    if (!it) return;
+
+    it.size_type = val;
+
+    // Filter out sizes that don't match the new type, except custom ones or keep them.
+    // Actually, it is safer to just let the user re-select active sizes via checkboxes.
+    // Redraw and update live preview
+    _tpdRenderFormInputs();
+    _tpdUpdateLivePreview();
+}
+
+// Toggle a size active/inactive in the quantities list
+function _tpdToggleSizeActive(sizeName, isChecked) {
+    const state = window._tpdWorkspaceState;
+    const it = state.editingItem;
+    if (!it) return;
+
+    if (isChecked) {
+        if (!it.quantities.some(q => q.size === sizeName)) {
+            it.quantities.push({ size: sizeName, qty: 0, price: it.unit_price || 0 });
+        }
+    } else {
+        it.quantities = it.quantities.filter(q => q.size !== sizeName);
+    }
+
+    _tpdRenderFormInputs();
+    _tpdUpdateLivePreview();
+}
+
+// Open modal for Director to configure size templates
+function _tpdOpenSizeConfigModal() {
+    const state = window._tpdWorkspaceState;
+    if (state.role !== 'giam_doc') {
+        showToast('Chỉ Giám Đốc mới có quyền thay đổi cấu hình này!', 'danger');
+        return;
+    }
+
+    const config = _tpd.sizeTypesConfig || {
+        "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+        "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+    };
+
+    const sizeTTStr = (config["Size TT"] || []).join(', ');
+    const sizeNamNuStr = (config["Size Nam / Nữ"] || []).join(', ');
+
+    // Create Modal Element
+    const modal = document.createElement('div');
+    modal.id = 'tpdSizeConfigModal';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(15, 23, 42, 0.6)';
+    modal.style.backdropFilter = 'blur(4px)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '99999';
+
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; width: 500px; max-width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden;">
+            <div style="background: #1e293b; color: white; padding: 16px; font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: center;">
+                <span>⚙️ Cài đặt mẫu size sản xuất</span>
+                <span style="cursor: pointer; font-size: 18px;" onclick="document.getElementById('tpdSizeConfigModal').remove()">✕</span>
+            </div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                <div>
+                    <label style="display: block; font-weight: 700; font-size: 13px; color: #334155; margin-bottom: 6px;">Mẫu Size TT (Ngăn cách bởi dấu phẩy):</label>
+                    <textarea id="modalSizeTT" style="width: 100%; height: 80px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: none; outline: none; box-sizing: border-box;">${sizeTTStr}</textarea>
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 700; font-size: 13px; color: #334155; margin-bottom: 6px;">Mẫu Size Nam / Nữ (Ngăn cách bởi dấu phẩy):</label>
+                    <textarea id="modalSizeNamNu" style="width: 100%; height: 80px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: none; outline: none; box-sizing: border-box;">${sizeNamNuStr}</textarea>
+                </div>
+            </div>
+            <div style="background: #f8fafc; padding: 12px 16px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0;">
+                <button type="button" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: white; color: #334155; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;" onclick="document.getElementById('tpdSizeConfigModal').remove()">Hủy</button>
+                <button type="button" style="padding: 8px 16px; border: none; background: #2563eb; color: white; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;" onclick="_tpdSaveSizeConfig()">Lưu cài đặt</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// Save size configuration to backend
+async function _tpdSaveSizeConfig() {
+    const sizeTTRaw = document.getElementById('modalSizeTT').value || '';
+    const sizeNamNuRaw = document.getElementById('modalSizeNamNu').value || '';
+
+    const sizeTT = sizeTTRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    const sizeNamNu = sizeNamNuRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+    const payload = {
+        "Size TT": sizeTT,
+        "Size Nam / Nữ": sizeNamNu
+    };
+
+    try {
+        const res = await apiCall('/api/dht/size-config', 'PUT', payload);
+        if (res && res.success) {
+            showToast('Lưu cài đặt mẫu size thành công!', 'success');
+            const modal = document.getElementById('tpdSizeConfigModal');
+            if (modal) modal.remove();
+            // Reload size config and redraw
+            await _tpdLoadSizeConfig();
+            _tpdRenderFormInputs();
+        } else {
+            showToast(res && res.error ? res.error : 'Có lỗi xảy ra khi lưu cấu hình', 'danger');
+        }
+    } catch(e) {
+        console.error(e);
+        showToast('Không thể kết nối đến máy chủ', 'danger');
+    }
 }
