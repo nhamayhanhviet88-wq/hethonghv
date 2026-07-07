@@ -3140,11 +3140,12 @@ function _tpdUpdateLivePreview() {
     const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${state.activeItemIndex}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
 
-    // Render active sizes table row columns
+    // Render active sizes table row columns (only those with qty > 0)
     const filledQuantities = it.quantities || [];
     const sortedQuantities = _tpdSortSizes(filledQuantities.map(q => q.size))
         .map(sz => filledQuantities.find(q => q.size === sz))
-        .filter(Boolean);
+        .filter(Boolean)
+        .filter(q => Number(q.qty) > 0);
     const hasSizes = sortedQuantities.length > 0;
 
     let sizeHeaders = '';
@@ -3158,12 +3159,8 @@ function _tpdUpdateLivePreview() {
             totalQty += Number(q.qty || 0);
         });
     } else {
-        // Fallback display standard sizes empty
-        const stdSizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
-        stdSizes.forEach(sz => {
-            sizeHeaders += `<th>${sz}</th>`;
-            sizeValues += `<td>0</td>`;
-        });
+        sizeHeaders = '';
+        sizeValues = '';
         totalQty = 0;
     }
 
@@ -3847,11 +3844,12 @@ async function _tpdPrintAllSheets() {
         const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${idx}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
 
-        // Sizes
+        // Sizes (only those with qty > 0)
         const filledQuantities = it.quantities || [];
         const sortedQuantities = _tpdSortSizes(filledQuantities.map(q => q.size))
             .map(sz => filledQuantities.find(q => q.size === sz))
-            .filter(Boolean);
+            .filter(Boolean)
+            .filter(q => Number(q.qty) > 0);
         let sizeHeaders = '';
         let sizeValues = '';
         let totalQty = 0;
@@ -3863,11 +3861,9 @@ async function _tpdPrintAllSheets() {
                 totalQty += Number(q.qty || 0);
             });
         } else {
-            const stdSizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
-            stdSizes.forEach(sz => {
-                sizeHeaders += `<th>${sz}</th>`;
-                sizeValues += `<td>0</td>`;
-            });
+            sizeHeaders = '';
+            sizeValues = '';
+            totalQty = 0;
         }
 
         const mockupSrc = it.mockup_image || '';
