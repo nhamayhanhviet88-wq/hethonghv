@@ -3871,8 +3871,8 @@ function _tpdOpenSizeConfigModal() {
         "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
     };
 
-    const sizeTTStr = (config["Size TT"] || []).join(', ');
-    const sizeNamNuStr = (config["Size Nam / Nữ"] || []).join(', ');
+    window._tpdModalSizeTT = [...(config["Size TT"] || [])];
+    window._tpdModalSizeNamNu = [...(config["Size Nam / Nữ"] || [])];
 
     // Create Modal Element
     const modal = document.createElement('div');
@@ -3890,20 +3890,39 @@ function _tpdOpenSizeConfigModal() {
     modal.style.zIndex = '99999';
 
     modal.innerHTML = `
-        <div style="background: white; border-radius: 12px; width: 500px; max-width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden;">
+        <div style="background: white; border-radius: 12px; width: 550px; max-width: 95%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden;">
             <div style="background: #1e293b; color: white; padding: 16px; font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: center;">
                 <span>⚙️ Cài đặt mẫu size sản xuất</span>
                 <span style="cursor: pointer; font-size: 18px;" onclick="document.getElementById('tpdSizeConfigModal').remove()">✕</span>
             </div>
-            <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 20px; max-height: 400px; overflow-y: auto; box-sizing: border-box;">
+                
+                <!-- Size TT Section -->
                 <div>
-                    <label style="display: block; font-weight: 700; font-size: 13px; color: #334155; margin-bottom: 6px;">Mẫu Size TT (Ngăn cách bởi dấu phẩy):</label>
-                    <textarea id="modalSizeTT" style="width: 100%; height: 80px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: none; outline: none; box-sizing: border-box;">${sizeTTStr}</textarea>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label style="font-weight: 700; font-size: 13px; color: #334155;">Mẫu Size TT:</label>
+                        <button type="button" onclick="_tpdAddModalSize('TT')" style="background: #2563eb; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            <span>+ Thêm size</span>
+                        </button>
+                    </div>
+                    <div id="modalSizeTTContainer" style="display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; min-height: 60px; max-height: 120px; overflow-y: auto; background: #f8fafc; box-sizing: border-box;">
+                        <!-- JS renders inputs here -->
+                    </div>
                 </div>
+
+                <!-- Size Nam / Nu Section -->
                 <div>
-                    <label style="display: block; font-weight: 700; font-size: 13px; color: #334155; margin-bottom: 6px;">Mẫu Size Nam / Nữ (Ngăn cách bởi dấu phẩy):</label>
-                    <textarea id="modalSizeNamNu" style="width: 100%; height: 80px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: none; outline: none; box-sizing: border-box;">${sizeNamNuStr}</textarea>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label style="font-weight: 700; font-size: 13px; color: #334155;">Mẫu Size Nam / Nữ:</label>
+                        <button type="button" onclick="_tpdAddModalSize('NamNu')" style="background: #2563eb; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            <span>+ Thêm size</span>
+                        </button>
+                    </div>
+                    <div id="modalSizeNamNuContainer" style="display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; min-height: 60px; max-height: 120px; overflow-y: auto; background: #f8fafc; box-sizing: border-box;">
+                        <!-- JS renders inputs here -->
+                    </div>
                 </div>
+
             </div>
             <div style="background: #f8fafc; padding: 12px 16px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0;">
                 <button type="button" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: white; color: #334155; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;" onclick="document.getElementById('tpdSizeConfigModal').remove()">Hủy</button>
@@ -3912,15 +3931,66 @@ function _tpdOpenSizeConfigModal() {
         </div>
     `;
     document.body.appendChild(modal);
+
+    // Initial render
+    _tpdRenderModalSizes('TT');
+    _tpdRenderModalSizes('NamNu');
+}
+
+// Render list of inputs inside size modal
+function _tpdRenderModalSizes(type) {
+    const list = type === 'TT' ? window._tpdModalSizeTT : window._tpdModalSizeNamNu;
+    const container = document.getElementById(type === 'TT' ? 'modalSizeTTContainer' : 'modalSizeNamNuContainer');
+    if (!container) return;
+
+    if (list.length === 0) {
+        container.innerHTML = `<span style="font-size: 12px; color: #94a3b8; font-style: italic;">Chưa có size nào. Hãy nhấn "+ Thêm size"</span>`;
+        return;
+    }
+
+    container.innerHTML = list.map((sz, idx) => {
+        return `
+            <div style="display: inline-flex; align-items: center; background: white; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); box-sizing: border-box;">
+                <input type="text" value="${sz}" oninput="_tpdUpdateModalSizeVal('${type}', ${idx}, this.value)" style="border: none; background: transparent; font-size: 12px; font-weight: 600; width: 70px; color: #1e293b; outline: none; padding: 0; margin: 0; box-sizing: border-box;" placeholder="Nhập size...">
+                <button type="button" onclick="_tpdDeleteModalSize('${type}', ${idx})" style="color: #ef4444; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 700; padding: 0 2px; margin: 0; line-height: 1; display: inline-flex; align-items: center;" title="Xóa size">✕</button>
+            </div>
+        `;
+    }).join('');
+}
+
+// Add size item
+function _tpdAddModalSize(type) {
+    const list = type === 'TT' ? window._tpdModalSizeTT : window._tpdModalSizeNamNu;
+    list.push("");
+    _tpdRenderModalSizes(type);
+
+    // Auto-focus the last added input
+    const container = document.getElementById(type === 'TT' ? 'modalSizeTTContainer' : 'modalSizeNamNuContainer');
+    if (container) {
+        const inputs = container.querySelectorAll('input[type="text"]');
+        if (inputs.length > 0) {
+            inputs[inputs.length - 1].focus();
+        }
+    }
+}
+
+// Delete size item
+function _tpdDeleteModalSize(type, idx) {
+    const list = type === 'TT' ? window._tpdModalSizeTT : window._tpdModalSizeNamNu;
+    list.splice(idx, 1);
+    _tpdRenderModalSizes(type);
+}
+
+// Update local array value on input
+function _tpdUpdateModalSizeVal(type, idx, val) {
+    const list = type === 'TT' ? window._tpdModalSizeTT : window._tpdModalSizeNamNu;
+    list[idx] = val;
 }
 
 // Save size configuration to backend
 async function _tpdSaveSizeConfig() {
-    const sizeTTRaw = document.getElementById('modalSizeTT').value || '';
-    const sizeNamNuRaw = document.getElementById('modalSizeNamNu').value || '';
-
-    const sizeTT = sizeTTRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
-    const sizeNamNu = sizeNamNuRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    const sizeTT = (window._tpdModalSizeTT || []).map(s => s.trim()).filter(s => s.length > 0);
+    const sizeNamNu = (window._tpdModalSizeNamNu || []).map(s => s.trim()).filter(s => s.length > 0);
 
     const payload = {
         "Size TT": sizeTT,
