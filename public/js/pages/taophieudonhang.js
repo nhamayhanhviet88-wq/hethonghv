@@ -3158,15 +3158,6 @@ function _tpdRenderA4SizeTable(it) {
             return fullSize.replace(/^Nam\s+/i, '').replace(/^Nữ\s+/i, '').replace(/^Nu\s+/i, '');
         };
 
-        // Extract the union of all short sizes present in the active list
-        const unionShortSizes = [];
-        sortedQuantities.forEach(q => {
-            const short = getShortSize(q.size);
-            if (!unionShortSizes.includes(short)) {
-                unionShortSizes.push(short);
-            }
-        });
-
         const getNamQty = (shortSize) => {
             const match = namSizes.find(q => getShortSize(q.size) === shortSize);
             return match ? Number(match.qty || 0) : null;
@@ -3182,14 +3173,22 @@ function _tpdRenderA4SizeTable(it) {
             return match ? Number(match.qty || 0) : null;
         };
 
-        let html = '<table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">';
+        let html = '<div class="tpd-a4-tables-container" style="display: flex; flex-direction: column; gap: 8px;">';
         let grandTotal = 0;
 
         if (namSizes.length > 0) {
+            const namShortSizes = [];
+            namSizes.forEach(q => {
+                const short = getShortSize(q.size);
+                if (!namShortSizes.includes(short)) {
+                    namShortSizes.push(short);
+                }
+            });
+
             let rowTotal = 0;
             let headers = '';
             let values = '';
-            unionShortSizes.forEach(short => {
+            namShortSizes.forEach(short => {
                 const qty = getNamQty(short);
                 headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
                 if (qty !== null) {
@@ -3202,28 +3201,38 @@ function _tpdRenderA4SizeTable(it) {
             grandTotal += rowTotal;
 
             html += `
-                <thead>
-                    <tr>
-                        <th style="background:#1e3a8a; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NAM</th>
-                        ${headers}
-                        <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NAM</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="font-weight:700; color:#1e3a8a; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Nam (${(it.product_name || 'Áo').toUpperCase()})</td>
-                        ${values}
-                        <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
-                    </tr>
-                </tbody>
+                <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
+                    <thead>
+                        <tr>
+                            <th style="background:#1e3a8a; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NAM</th>
+                            ${headers}
+                            <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NAM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight:700; color:#1e3a8a; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Nam (${(it.product_name || 'Áo').toUpperCase()})</td>
+                            ${values}
+                            <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
+                        </tr>
+                    </tbody>
+                </table>
             `;
         }
 
         if (nuSizes.length > 0) {
+            const nuShortSizes = [];
+            nuSizes.forEach(q => {
+                const short = getShortSize(q.size);
+                if (!nuShortSizes.includes(short)) {
+                    nuShortSizes.push(short);
+                }
+            });
+
             let rowTotal = 0;
             let headers = '';
             let values = '';
-            unionShortSizes.forEach(short => {
+            nuShortSizes.forEach(short => {
                 const qty = getNuQty(short);
                 headers += `<th style="background:#fce7f3; color:#be185d; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
                 if (qty !== null) {
@@ -3236,28 +3245,38 @@ function _tpdRenderA4SizeTable(it) {
             grandTotal += rowTotal;
 
             html += `
-                <thead>
-                    <tr style="border-top: 2px solid #cbd5e1;">
-                        <th style="background:#db2777; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NỮ</th>
-                        ${headers}
-                        <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NỮ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="font-weight:700; color:#db2777; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Nữ (${(it.product_name || 'Áo').toUpperCase()})</td>
-                        ${values}
-                        <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
-                    </tr>
-                </tbody>
+                <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
+                    <thead>
+                        <tr>
+                            <th style="background:#db2777; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NỮ</th>
+                            ${headers}
+                            <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NỮ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight:700; color:#db2777; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Nữ (${(it.product_name || 'Áo').toUpperCase()})</td>
+                            ${values}
+                            <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
+                        </tr>
+                    </tbody>
+                </table>
             `;
         }
 
         if (otherSizes.length > 0) {
+            const otherShortSizes = [];
+            otherSizes.forEach(q => {
+                const short = getShortSize(q.size);
+                if (!otherShortSizes.includes(short)) {
+                    otherShortSizes.push(short);
+                }
+            });
+
             let rowTotal = 0;
             let headers = '';
             let values = '';
-            unionShortSizes.forEach(short => {
+            otherShortSizes.forEach(short => {
                 const qty = getOtherQty(short);
                 headers += `<th style="background:#f1f5f9; color:#475569; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
                 if (qty !== null) {
@@ -3270,35 +3289,33 @@ function _tpdRenderA4SizeTable(it) {
             grandTotal += rowTotal;
 
             html += `
-                <thead>
-                    <tr style="border-top: 2px solid #cbd5e1;">
-                        <th style="background:#ea580c; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
-                        ${headers}
-                        <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG KHÁC</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="font-weight:700; color:#ea580c; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Khác (${(it.product_name || 'Áo').toUpperCase()})</td>
-                        ${values}
-                        <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
-                    </tr>
-                </tbody>
+                <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
+                    <thead>
+                        <tr>
+                            <th style="background:#ea580c; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
+                            ${headers}
+                            <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG KHÁC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight:700; color:#ea580c; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Khác (${(it.product_name || 'Áo').toUpperCase()})</td>
+                            ${values}
+                            <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
+                        </tr>
+                    </tbody>
+                </table>
             `;
         }
 
         // Add Grand Total Row at the bottom
         html += `
-            <tfoot>
-                <tr style="border-top: 2px solid #475569; background: #f8fafc;">
-                    <td colspan="99" style="text-align:right; padding: 8px 12px; font-weight:900; color:#122546; font-size:11px; border: 1px solid #cbd5e1;">
-                        TỔNG CỘNG CẢ HAI: <span style="background:#fad24c; padding: 4px 12px; border-radius: 4px; font-size:13px; margin-left: 8px; border: 1px solid #fbbf24;">${grandTotal} ÁO</span>
-                    </td>
-                </tr>
-            </tfoot>
+            <div style="text-align:right; font-weight:900; color:#122546; font-size:11px; padding: 8px 12px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+                TỔNG CỘNG CẢ HAI: <span style="background:#fad24c; padding: 4px 12px; border-radius: 4px; font-size:13px; margin-left: 8px; border: 1px solid #fbbf24;">${grandTotal} ÁO</span>
+            </div>
         `;
 
-        html += '</table>';
+        html += '</div>';
         return html;
     } else {
         let sizeHeaders = '';
