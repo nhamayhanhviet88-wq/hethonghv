@@ -454,7 +454,7 @@ module.exports = async function(fastify) {
                         WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                            OR order_tt_coc = o.order_code
                     ) pr_dep ON true
-                    WHERE (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
+                    WHERE o.is_draft = FALSE AND (COALESCE(o.total_amount, 0) - COALESCE(o.discount_amount, 0) - GREATEST(COALESCE((SELECT COALESCE(SUM(amount), 0) FROM payment_records pr_dep2 WHERE pr_dep2.total_order_codes ILIKE '%' || o.order_code || '%' OR pr_dep2.order_tt_coc = o.order_code), 0), COALESCE(o.deposit_amount_cache, 0)) - COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)) > 0
 
                     UNION ALL
 
@@ -881,6 +881,7 @@ module.exports = async function(fastify) {
         } else {
             // Original Year -> Category -> Month -> Day grouping
             let whereClause = treeWhere ? ('WHERE ' + treeWhere + ' AND o.parent_order_id IS NULL') : 'WHERE o.parent_order_id IS NULL';
+            whereClause += ' AND o.is_draft = FALSE';
 
             let revenueExpr = 'COALESCE(SUM(o.total_amount), 0)::numeric AS revenue';
             const rows = await db.all(`
@@ -962,10 +963,13 @@ module.exports = async function(fastify) {
 
     // ========== ORDERS: List with filters ==========
     fastify.get('/api/dht/orders', { preHandler: [authenticate] }, async (request, reply) => {
-        const { year, month, day, category_id, search, unpaid, carrier_id } = request.query;
+        const { year, month, day, category_id, search, unpaid, carrier_id, include_drafts } = request.query;
         const shipCkDeductSql = `COALESCE((SELECT SUM(COALESCE(os.shipping_fee, 0)) FROM dht_order_shipments os WHERE os.dht_order_id = o.id AND os.shipping_fee_payer = 'hv' AND os.shipping_fee_method = 'ck' AND (os.tracking_code IS NULL OR os.tracking_code = '')), CASE WHEN o.shipping_fee_payer = 'hv' AND o.shipping_fee_method = 'ck' AND (o.tracking_code IS NULL OR o.tracking_code = '') THEN COALESCE(o.shipping_fee, 0) ELSE 0 END)`;
 
         let where = 'WHERE 1=1';
+        if (include_drafts !== 'true') {
+            where += ' AND o.is_draft = FALSE';
+        }
         let orderBy = 'o.order_date DESC, o.id DESC';
         if (unpaid === 'true') {
             orderBy = `
@@ -1760,6 +1764,9 @@ module.exports = async function(fastify) {
             const seqRow = await db.get(`SELECT nextval('${cfg.seq}') as seq`);
             orderCode = cfg.prefix + String(seqRow.seq).padStart(4, '0');
         } else if (isDraftOrder) {
+            if (!b.draft_name || !b.draft_name.trim()) {
+                return reply.code(400).send({ error: 'Tên bản nháp là bắt buộc khi lưu nháp' });
+            }
             orderCode = 'NHAP-' + request.user.username + '-' + Date.now();
         } else {
             orderCode = b.order_code.trim();
@@ -1827,8 +1834,8 @@ module.exports = async function(fastify) {
                 expected_ship_date, shipping_priority, standard_proof_image, standard_delivery_time, zalo_oa_sent,
                 sale_note_for_accountant, department_id, notes, surcharges, free_customer_id,
                 parent_order_id, repair_source_code,
-                created_by, last_updated_by, is_draft, customer_id
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34,$35,$36)
+                created_by, last_updated_by, is_draft, customer_id, draft_name
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34,$35,$36,$37)
             RETURNING *
         `, [
             orderCode,
@@ -1866,7 +1873,8 @@ module.exports = async function(fastify) {
             isRepairOrder ? b.repair_source_code : null,
             request.user.id,
             isDraftOrder,
-            b.customer_id ? Number(b.customer_id) : null
+            b.customer_id ? Number(b.customer_id) : null,
+            b.draft_name || null
         ]);
 
         // Record consumed slips for this order
@@ -3578,6 +3586,14 @@ module.exports = async function(fastify) {
         const oldOrder = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
         if (!oldOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn' });
 
+        const isDraftNewVal = b.is_draft !== undefined ? (b.is_draft === true || b.is_draft === 'true') : oldOrder.is_draft;
+        if (isDraftNewVal) {
+            const draftNameVal = b.draft_name !== undefined ? b.draft_name : oldOrder.draft_name;
+            if (!draftNameVal || !draftNameVal.trim()) {
+                return reply.code(400).send({ error: 'Tên bản nháp là bắt buộc khi lưu nháp' });
+            }
+        }
+
         if (Array.isArray(b.items)) {
             try {
                 await validateFabricStockLimits(b.items, orderId);
@@ -3725,7 +3741,8 @@ module.exports = async function(fastify) {
             'tracking_code', 'actual_carrier_id', 'actual_ship_datetime', 'delivery_progress',
             'deposit_amount_cache', 'standard_delivery_time', 'sale_note_for_accountant',
             'discount_reason',
-            'sx_print_confirmed', 'sx_print_confirmed_at', 'sx_print_confirmed_by'
+            'sx_print_confirmed', 'sx_print_confirmed_at', 'sx_print_confirmed_by',
+            'draft_name'
         ];
 
         const sets = [];

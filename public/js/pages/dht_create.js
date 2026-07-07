@@ -567,6 +567,9 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Phòng Ban</label><input class="form-control" value="'+(mi.phong_ban||mi.department_name||'')+'" disabled style="'+_dis+'"></div>'
         +'<div class="form-group"><label>Team</label><input class="form-control" value="'+_teamName+'" disabled style="'+_dis+'"></div>'
         +'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        // Draft Name input field
+        +'<div class="form-group" style="grid-column:span 2"><label style="font-weight:800;color:#d97706">📝 Tên Bản Nháp <span style="font-size:11px;font-weight:normal;color:#dc2626">(Bắt buộc nếu chọn Lưu Nháp)</span></label>'
+        +'<input id="_co_draftName" class="form-control" placeholder="Nhập tên gợi nhớ cho bản nháp này..." style="border:1.5px solid #f59e0b"></div>'
         // Row 2: Ngày + Lĩnh vực
         +'<div class="form-group"><label>Ngày Lên Đơn</label><input class="form-control" value="'+vnDateStr()+'" disabled style="'+_dis+'"></div>'
         +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control" onchange="_dhtOnCatChange()"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
@@ -701,6 +704,9 @@ async function _dhtGoStep2() {
             }
         }
         document.getElementById('_co_custId').value = o.customer_id || '';
+        if (document.getElementById('_co_draftName')) {
+            document.getElementById('_co_draftName').value = o.draft_name || '';
+        }
         document.getElementById('_co_phone').value = o.customer_phone || '';
         document.getElementById('_co_name').value = o.customer_name || '';
         document.getElementById('_co_addr').value = o.address || '';
@@ -2154,6 +2160,7 @@ async function _dhtSubmitCreateV2(isDraft) {
     var prov = document.getElementById('_co_prov')?.value || null;
     var shipDate = document.getElementById('_co_shipDate')?.value || null;
     var carrier = document.getElementById('_co_carrier')?.value || null;
+    var draftName = (document.getElementById('_co_draftName')?.value || '').trim();
     if (!isDraft && !cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
 
     // ★ Determine free vs normal mode
@@ -2197,6 +2204,11 @@ async function _dhtSubmitCreateV2(isDraft) {
         var saleNote = document.getElementById('_co_saleNote')?.value?.trim();
         if (!saleNote) { showToast('📝 Nhập Nội Dung Sale Dặn Kế Toán Gửi Hàng', 'error'); return; }
     } else {
+        if (!draftName) {
+            showToast('📝 Vui lòng nhập Tên Bản Nháp!', 'error');
+            document.getElementById('_co_draftName')?.focus();
+            return;
+        }
         if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
     }
     var carrierExtra = _dhtGetCarrierExtra(isDraft);
@@ -2284,7 +2296,8 @@ async function _dhtSubmitCreateV2(isDraft) {
         free_customer_action: _dhtPhoneAction || null,
         department_id: _dhtCreate.myInfo?.department_id,
         items: items,
-        is_draft: !!isDraft
+        is_draft: !!isDraft,
+        draft_name: draftName || null
     };
     // ★ Normal: send order_code + customer_id
     if (!isFree) {
@@ -2943,6 +2956,7 @@ async function _dhtEditOrderFree(o) {
 async function _dhtSubmitEditV2(isDraft) {
     var id = _dhtCreate.editOrderId;
     if (!id) { showToast('Lỗi: không có ID đơn', 'error'); return; }
+    var draftName = (document.getElementById('_co_draftName')?.value || '').trim();
     var cat = document.getElementById('_co_cat')?.value;
     var custId = document.getElementById('_co_custId')?.value || null;
     var addr = document.getElementById('_co_addr')?.value?.trim() || null;
@@ -2956,6 +2970,13 @@ async function _dhtSubmitEditV2(isDraft) {
         if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
     }
     if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
+    if (isDraft) {
+        if (!draftName) {
+            showToast('📝 Vui lòng nhập Tên Bản Nháp!', 'error');
+            document.getElementById('_co_draftName')?.focus();
+            return;
+        }
+    }
 
     var items = _dhtCreate.phieuItems || [];
     if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
@@ -3043,7 +3064,8 @@ async function _dhtSubmitEditV2(isDraft) {
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
         sale_note_for_accountant: document.getElementById('_co_saleNote')?.value?.trim() || null,
         items: items,
-        is_draft: !!isDraft
+        is_draft: !!isDraft,
+        draft_name: draftName || null
     };
     if (proofImg !== undefined) payload.standard_proof_image = proofImg;
     

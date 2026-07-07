@@ -265,17 +265,17 @@ function _dhtDateFilterCskh() {
 function _dhtDateFilterClear() {
     _dht.filter = {};
     _dht.cskhFilter = null;
-    _dht.draftFilter = null;
+    _dht.draftFilter = 'official';
     var mp = document.getElementById('dhtMonthPick'); if(mp) mp.value = '';
     var yp = document.getElementById('dhtYearPick'); if(yp) yp.value = '';
     var cp = document.getElementById('dhtCskhPick'); if(cp) cp.value = '';
-    var dp = document.getElementById('dhtDraftPick'); if(dp) dp.value = '';
+    var dp = document.getElementById('dhtDraftPick'); if(dp) dp.value = 'official';
     _dhtLoadOrders();
 }
 function _dhtDateFilterDraft() {
     var v = document.getElementById('dhtDraftPick')?.value;
     _dht.draftFilter = v || null;
-    _dhtRenderTable();
+    _dhtLoadOrders();
 }
 function _dhtSyncDateInputs() {
     var mp = document.getElementById('dhtMonthPick');
@@ -570,10 +570,13 @@ async function renderDonhangtongPage(content) {
     // Default: load current year (no month pre-selected)
     var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     _dht.filter = { year: nowVN.getFullYear() };
+    _dht.draftFilter = 'official';
     _dhtSyncDateInputs();
     // Populate year dropdown (current year ± 2)
     var ypEl = document.getElementById('dhtYearPick');
     if (ypEl) { var cy = nowVN.getFullYear(); for (var yi = cy+1; yi >= cy-3; yi--) { ypEl.innerHTML += '<option value="'+yi+'">'+yi+'</option>'; } }
+    var dpEl = document.getElementById('dhtDraftPick');
+    if (dpEl) dpEl.value = 'official';
     await _dhtLoadTree();
     await _dhtLoadOrders();
     _dhtShowNextCode();
@@ -736,6 +739,10 @@ async function _dhtLoadOrders() {
         if (f.month) url += `month=${f.month}&`;
         if (f.day) url += `day=${f.day}&`;
         if (f.category_id) url += `category_id=${f.category_id}&`;
+    }
+
+    if (_dht.draftFilter !== 'official') {
+        url += 'include_drafts=true&';
     }
 
     const data = await apiCall(url);

@@ -497,6 +497,7 @@ async function start() {
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_ocs_order ON kv_order_consumed_slips(order_id)`);
         try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_draft BOOLEAN DEFAULT FALSE`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS draft_name TEXT`); } catch(e) {}
     } catch(e) { console.error('[DHT Migration]', e.message); }
 
     // Migration: daily_penalty_ledger — Sổ phạt hàng ngày (single source of truth)
