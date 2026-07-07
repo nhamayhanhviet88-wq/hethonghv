@@ -278,7 +278,7 @@ function _tpdCloneItemState(item) {
         front_technique_image: item.front_technique_image || '',
         back_technique_image: item.back_technique_image || '',
         print_details: clonedPrintDetails,
-        quantities: cleanedQuantities,
+        quantities: item.quantities,
         unit_price: Number(item.unit_price) || 0,
         product_name: item.product_name || '',
         pattern_name: item.pattern_name || '',
