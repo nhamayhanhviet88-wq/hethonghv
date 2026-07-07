@@ -684,9 +684,22 @@ async function _dhtGoStep2() {
     if (isEdit && _dhtCreate.editData) {
         var ed = _dhtCreate.editData;
         var o = ed.order;
-        // Lock order code
+        // Lock order code (except for drafts)
         var codeInp = document.getElementById('_co_code');
-        if (codeInp) { codeInp.value = o.order_code; codeInp.disabled = true; codeInp.style.background = '#f0fdf4'; codeInp.style.fontWeight = '900'; codeInp.style.color = '#b8860b'; }
+        if (codeInp) {
+            codeInp.value = o.order_code;
+            if (o.is_draft) {
+                codeInp.disabled = false;
+                codeInp.style.background = '';
+                codeInp.style.fontWeight = '';
+                codeInp.style.color = '';
+            } else {
+                codeInp.disabled = true;
+                codeInp.style.background = '#f0fdf4';
+                codeInp.style.fontWeight = '900';
+                codeInp.style.color = '#b8860b';
+            }
+        }
         document.getElementById('_co_custId').value = o.customer_id || '';
         document.getElementById('_co_phone').value = o.customer_phone || '';
         document.getElementById('_co_name').value = o.customer_name || '';
@@ -2164,9 +2177,11 @@ async function _dhtSubmitCreateV2(isDraft) {
     if (isFree) {
         custId = null;
     } else {
-        custId = document.getElementById('_co_custId')?.value;
-        if (!isDraft && !_dhtCreate.orderCode) { showToast('Vui lòng chọn mã đơn từ CRM', 'error'); return; }
-        if (!custId) { showToast('Vui lòng chọn mã đơn hoặc khách hàng', 'error'); return; }
+        custId = document.getElementById('_co_custId')?.value || null;
+        if (!isDraft) {
+            if (!_dhtCreate.orderCode) { showToast('Vui lòng chọn mã đơn từ CRM', 'error'); return; }
+            if (!custId) { showToast('Vui lòng chọn mã đơn hoặc khách hàng', 'error'); return; }
+        }
     }
 
     if (!isDraft) {
@@ -2200,7 +2215,7 @@ async function _dhtSubmitCreateV2(isDraft) {
     }
 
     var items = _dhtCreate.phieuItems || [];
-    if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
+    if (!isDraft && items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
     
     // Final check for PET: no "Tờ" product allowed
     if (catName === 'PET') {

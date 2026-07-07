@@ -1707,7 +1707,7 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Vui lòng nhập Tên Khách Hàng' });
             }
         } else {
-            // Normal / Draft: require CRM customer
+            // Normal / Draft: require CRM customer (skip if draft and customer is not selected)
             if (b.customer_id) {
                 const cust = await db.get(`
                     SELECT c.customer_name, s.name as source_name
@@ -1720,7 +1720,7 @@ module.exports = async function(fastify) {
                 }
                 b.customer_name = cust.customer_name;
                 b.source = cust.source_name || b.source;
-            } else {
+            } else if (!isDraftOrder) {
                 return reply.code(400).send({ error: 'Vui lòng chọn khách hàng từ danh sách' });
             }
         }
@@ -1827,8 +1827,8 @@ module.exports = async function(fastify) {
                 expected_ship_date, shipping_priority, standard_proof_image, standard_delivery_time, zalo_oa_sent,
                 sale_note_for_accountant, department_id, notes, surcharges, free_customer_id,
                 parent_order_id, repair_source_code,
-                created_by, last_updated_by, is_draft
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34,$35)
+                created_by, last_updated_by, is_draft, customer_id
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34,$35,$36)
             RETURNING *
         `, [
             orderCode,
@@ -1865,7 +1865,8 @@ module.exports = async function(fastify) {
             isRepairOrder ? Number(b.parent_order_id) : null,
             isRepairOrder ? b.repair_source_code : null,
             request.user.id,
-            isDraftOrder
+            isDraftOrder,
+            b.customer_id ? Number(b.customer_id) : null
         ]);
 
         // Record consumed slips for this order
@@ -3741,6 +3742,18 @@ module.exports = async function(fastify) {
                 if (dupCode) {
                     return reply.code(400).send({ error: `Mã đơn "${b.order_code}" đã được sử dụng!` });
                 }
+
+                // Check if customer_id is provided for normal orders
+                const cat = await db.get('SELECT name FROM dht_categories WHERE id = $1', [oldOrder.category_id]);
+                const isFreeOrder = cat && (cat.name === 'PET' || cat.name === 'TEM');
+                const isRepairOrder = oldOrder.is_repair === true || (cat && cat.name === 'ĐƠN SỬA');
+                if (!isFreeOrder && !isRepairOrder) {
+                    const custId = b.customer_id || oldOrder.customer_id;
+                    if (!custId) {
+                        return reply.code(400).send({ error: 'Vui lòng chọn khách hàng từ CRM để lưu chính thức.' });
+                    }
+                }
+
                 sets.push(`order_code = $${idx++}`);
                 params.push(b.order_code.trim());
                 sets.push(`is_draft = FALSE`);
