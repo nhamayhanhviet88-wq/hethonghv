@@ -108,6 +108,8 @@ async function _spqtSelectProduct(pid) {
         + '<select id="_spqtCcSelect" class="form-control" style="max-width:250px;font-weight:600">' + ccOpts + '</select>'
         + '<button onclick="_spqtSaveCc(' + pid + ')" style="background:#2563eb;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">💾 Lưu Loại SP</button>'
         + '<button onclick="_spqtShowAddCc()" style="background:none;border:1px dashed #94a3b8;color:#64748b;padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">+ Thêm Loại Mới</button>'
+        + '<button onclick="_spqtRenameCcSelected()" style="background:none;border:1px dashed #eab308;color:#d97706;padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">✏️ Sửa Tên</button>'
+        + '<button onclick="_spqtDeleteCcSelected()" style="background:none;border:1px dashed #ef4444;color:#dc2626;padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">🗑️ Xóa</button>'
         + '</div>'
         + '<div style="font-size:10px;color:#94a3b8;margin-top:4px">Xác định sản phẩm này khi đi vào Bộ Phận Cắt sẽ cắt loại gì (Áo, Quần, Váy, Túi...)</div>'
         + '</div>';
@@ -274,5 +276,46 @@ async function _spqtRenameProduct(pid, oldName) {
         _spqt.selProduct = _spqt.products.find(function(p) { return p.id === pid; }) || null;
         _spqtRenderSidebar();
         if (_spqt.selProduct) _spqtSelectProduct(pid);
+    } else showToast(res.error || 'Lỗi', 'error');
+}
+
+async function _spqtRenameCcSelected() {
+    var ccId = document.getElementById('_spqtCcSelect')?.value;
+    if (!ccId) { showToast('Hãy chọn một Loại Sản Phẩm Cắt trong danh sách để sửa tên!', 'warning'); return; }
+    var cc = _spqt.cuttingCategories.find(function(c) { return c.id === Number(ccId); });
+    if (!cc) return;
+    var newName = prompt('Nhập tên mới cho Loại Sản Phẩm Cắt này:', cc.name);
+    if (!newName || !newName.trim() || newName.trim() === cc.name) return;
+    
+    var res = await apiCall('/api/dht/settings-options/' + ccId, 'PUT', { name: newName.trim() });
+    if (res.success) {
+        showToast('✅ Đã đổi tên thành công');
+        var oldSelProduct = _spqt.selProduct;
+        await _spqtLoadAll();
+        _spqtRenderSidebar();
+        if (oldSelProduct) {
+            _spqt.selProduct = _spqt.products.find(function(p) { return p.id === oldSelProduct.id; }) || null;
+            if (_spqt.selProduct) _spqtSelectProduct(oldSelProduct.id);
+        }
+    } else showToast(res.error || 'Lỗi', 'error');
+}
+
+async function _spqtDeleteCcSelected() {
+    var ccId = document.getElementById('_spqtCcSelect')?.value;
+    if (!ccId) { showToast('Hãy chọn một Loại Sản Phẩm Cắt trong danh sách để xóa!', 'warning'); return; }
+    var cc = _spqt.cuttingCategories.find(function(c) { return c.id === Number(ccId); });
+    if (!cc) return;
+    if (!confirm('Bạn có chắc chắn muốn xóa Loại Sản Phẩm Cắt "' + cc.name + '"?\nCác sản phẩm đang gán loại này sẽ bị hủy liên kết.')) return;
+    
+    var res = await apiCall('/api/dht/settings-options/' + ccId, 'DELETE');
+    if (res.success) {
+        showToast('🗑️ Đã xóa thành công');
+        var oldSelProduct = _spqt.selProduct;
+        await _spqtLoadAll();
+        _spqtRenderSidebar();
+        if (oldSelProduct) {
+            _spqt.selProduct = _spqt.products.find(function(p) { return p.id === oldSelProduct.id; }) || null;
+            if (_spqt.selProduct) _spqtSelectProduct(oldSelProduct.id);
+        }
     } else showToast(res.error || 'Lỗi', 'error');
 }

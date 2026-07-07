@@ -4827,6 +4827,13 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
+    fastify.put('/api/dht/settings-options/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { name } = request.body || {};
+        if (!name) return reply.code(400).send({ error: 'Thiếu name' });
+        await db.run('UPDATE dht_settings_options SET name = $1 WHERE id = $2', [name.trim(), Number(request.params.id)]);
+        return { success: true };
+    });
+
     // ========== PRODUCT & PROCESS CONFIG ==========
 
     // GET all products (with sale_type + cutting_category info)
