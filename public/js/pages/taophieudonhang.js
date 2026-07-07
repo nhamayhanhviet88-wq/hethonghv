@@ -234,36 +234,18 @@ function _tpdCloneItemState(item) {
     const stdSizes = config[currentSizeType] || [];
     const mergedQuantities = [];
     
-    // First import existing sizes
+    // Only import existing sizes that actually have a quantity greater than 0
     qtyArr.forEach(q => {
-        if (q.size) {
+        if (q.size && Number(q.qty) > 0) {
             mergedQuantities.push({
                 size: q.size.trim(),
-                qty: Number(q.qty) || 0,
+                qty: Number(q.qty),
                 price: Number(q.price) || Number(item.unit_price) || 0
             });
         }
     });
 
-    // Then ensure standard sizes are at least represented in editing state
-    stdSizes.forEach(sz => {
-        if (!mergedQuantities.some(q => q.size === sz)) {
-            mergedQuantities.push({
-                size: sz,
-                qty: 0,
-                price: Number(item.unit_price) || 0
-            });
-        }
-    });
-
-    // Filter out legacy sizes that have 0 or empty quantity and are not in config
-    const cleanedQuantities = mergedQuantities.filter(q => {
-        const isConfigured = stdSizes.includes(q.size);
-        const hasQty = q.qty && Number(q.qty) > 0;
-        return isConfigured || hasQty;
-    });
-
-    item.quantities = cleanedQuantities;
+    item.quantities = mergedQuantities;
 
     let printDetails = [];
     if (item.print_details) {
