@@ -296,12 +296,66 @@ function _tpdCloneItemState(item) {
         front_technique_image: item.front_technique_image || '',
         back_technique_image: item.back_technique_image || '',
         print_details: clonedPrintDetails,
-        quantities: mergedQuantities,
+        quantities: cleanedQuantities,
         unit_price: Number(item.unit_price) || 0,
         product_name: item.product_name || '',
         pattern_name: item.pattern_name || '',
         size_type: item.size_type || 'Size TT'
     };
+}
+
+// Helper to sort size list cleanly (Nam first, Nữ second, Unisex/others last; inside each group, sort by standard size progression)
+function _tpdSortSizes(sizes) {
+    if (!Array.isArray(sizes)) return [];
+
+    const sizeOrder = [
+        'S', 'M', 'L', 'XL', 'XXL',
+        'XXXL', '3XL', 'XXXXL', '4XL', 'XXXXXL', '5XL', 'XXXXXXL', '6XL', '7XL'
+    ];
+
+    const getSizeRank = (sz) => {
+        let core = sz.replace(/^(Nam|Nữ)\s+/i, '').trim().toUpperCase();
+        
+        const idx = sizeOrder.indexOf(core);
+        if (idx !== -1) return idx;
+
+        const parsed = parseInt(core);
+        if (!isNaN(parsed)) return 1000 + parsed;
+
+        return 9999;
+    };
+
+    const getGroupRank = (sz) => {
+        const lower = sz.toLowerCase();
+        if (lower.startsWith('nam')) return 0;
+        if (lower.startsWith('nữ')) return 1;
+        return 2;
+    };
+
+    return [...sizes].sort((a, b) => {
+        const groupA = getGroupRank(a);
+        const groupB = getGroupRank(b);
+
+        if (groupA !== groupB) {
+            return groupA - groupB;
+        }
+
+        const rankA = getSizeRank(a);
+        const rankB = getSizeRank(b);
+        if (rankA !== rankB) {
+            return rankA - rankB;
+        }
+
+        return a.localeCompare(b, 'vi', { sensitivity: 'base' });
+    });
+}
+
+function _tpdGetLabelStyle(sz, isCustom) {
+    if (isCustom) return 'background: #ea580c; color: white;';
+    const lower = sz.toLowerCase();
+    if (lower.startsWith('nam')) return 'background: #1e3a8a; color: white; font-weight: 800;';
+    if (lower.startsWith('nữ')) return 'background: #db2777; color: white; font-weight: 800;';
+    return 'background: #122546; color: white;';
 }
 
 // Fetch all orders/drafts from server
@@ -3088,14 +3142,17 @@ function _tpdUpdateLivePreview() {
 
     // Render active sizes table row columns
     const filledQuantities = it.quantities || [];
-    const hasSizes = filledQuantities.length > 0;
+    const sortedQuantities = _tpdSortSizes(filledQuantities.map(q => q.size))
+        .map(sz => filledQuantities.find(q => q.size === sz))
+        .filter(Boolean);
+    const hasSizes = sortedQuantities.length > 0;
 
     let sizeHeaders = '';
     let sizeValues = '';
     let totalQty = 0;
 
     if (hasSizes) {
-        filledQuantities.forEach(q => {
+        sortedQuantities.forEach(q => {
             sizeHeaders += `<th>${q.size}</th>`;
             sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
             totalQty += Number(q.qty || 0);
@@ -3155,14 +3212,14 @@ function _tpdUpdateLivePreview() {
                 <table class="tpd-a4-table">
                     <thead>
                         <tr>
-                            <th style="background:#122546; text-transform:uppercase;">Size Số áo</th>
+                            <th style="background:#122546; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
                             ${sizeHeaders}
                             <th style="background:#fad24c; color:#122546;">TỔNG SL</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px;">Số lượng (Áo)</td>
+                            <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
                             ${sizeValues}
                             <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
                         </tr>
@@ -3253,16 +3310,98 @@ function _tpdRenderFormInputs() {
     if (it.quantities.length === 0) {
         sizeGridHtml = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:#94a3b8; font-size:12px;">Chưa chọn size nào để hiển thị. Hãy tích chọn size ở trên.</div>`;
     } else {
-        it.quantities.forEach(q => {
-            const isCustom = !configuredSizes.includes(q.size);
-            const labelStyle = isCustom ? 'background:#ea580c;' : '';
-            sizeGridHtml += `
-                <div class="tpd-ws-size-input-box">
-                    <span class="tpd-ws-size-label" style="${labelStyle}">${q.size}</span>
-                    <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+        const sortedQuantities = _tpdSortSizes(it.quantities.map(q => q.size))
+            .map(sz => it.quantities.find(q => q.size === sz))
+            .filter(Boolean);
+
+        if (currentSizeType === 'Size Nam / Nữ') {
+            const namQty = [];
+            const nuQty = [];
+            const khacQty = [];
+
+            sortedQuantities.forEach(q => {
+                const lower = q.size.toLowerCase();
+                if (lower.startsWith('nam')) {
+                    namQty.push(q);
+                } else if (lower.startsWith('nữ')) {
+                    nuQty.push(q);
+                } else {
+                    khacQty.push(q);
+                }
+            });
+
+            sizeGridHtml = `
+                <div style="display:flex; flex-direction:column; gap:12px; width:100%;">
+                    <!-- Nam row -->
+                    <div style="display:flex; align-items:flex-start; gap:10px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                        <span style="background:#1e3a8a; color:white; font-weight:800; font-size:11px; padding:4px 10px; border-radius:4px; min-width:60px; text-align:center; text-transform:uppercase; margin-top: 4px; box-shadow: 0 2px 4px rgba(30,58,138,0.2);">Nam</span>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1;">
+                            ${namQty.length === 0 ? '<span style="font-size:11px; color:#94a3b8; padding-top:4px;">Chưa chọn size Nam</span>' : namQty.map(q => {
+                                const isCustom = !configuredSizes.includes(q.size);
+                                const labelBg = _tpdGetLabelStyle(q.size, isCustom);
+                                return `
+                                    <div class="tpd-ws-size-input-box" style="width:70px; flex-shrink:0;">
+                                        <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
+                                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Nữ row -->
+                    <div style="display:flex; align-items:flex-start; gap:10px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                        <span style="background:#db2777; color:white; font-weight:800; font-size:11px; padding:4px 10px; border-radius:4px; min-width:60px; text-align:center; text-transform:uppercase; margin-top: 4px; box-shadow: 0 2px 4px rgba(219,39,119,0.2);">Nữ</span>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1;">
+                            ${nuQty.length === 0 ? '<span style="font-size:11px; color:#94a3b8; padding-top:4px;">Chưa chọn size Nữ</span>' : nuQty.map(q => {
+                                const isCustom = !configuredSizes.includes(q.size);
+                                const labelBg = _tpdGetLabelStyle(q.size, isCustom);
+                                return `
+                                    <div class="tpd-ws-size-input-box" style="width:70px; flex-shrink:0;">
+                                        <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
+                                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Khác row -->
+                    ${khacQty.length > 0 ? `
+                    <div style="display:flex; align-items:flex-start; gap:10px; padding-bottom: 4px;">
+                        <span style="background:#ea580c; color:white; font-weight:800; font-size:11px; padding:4px 10px; border-radius:4px; min-width:60px; text-align:center; text-transform:uppercase; margin-top: 4px; box-shadow: 0 2px 4px rgba(234,88,12,0.2);">Khác</span>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1;">
+                            ${khacQty.map(q => {
+                                const isCustom = !configuredSizes.includes(q.size);
+                                const labelBg = _tpdGetLabelStyle(q.size, isCustom);
+                                return `
+                                    <div class="tpd-ws-size-input-box" style="width:70px; flex-shrink:0;">
+                                        <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
+                                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
             `;
-        });
+        } else {
+            sizeGridHtml = `
+                <div class="tpd-ws-size-grid" style="width:100%;">
+                    ${sortedQuantities.map(q => {
+                        const isCustom = !configuredSizes.includes(q.size);
+                        const labelBg = _tpdGetLabelStyle(q.size, isCustom);
+                        return `
+                            <div class="tpd-ws-size-input-box">
+                                <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
+                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
     }
 
     html += `
@@ -3284,7 +3423,7 @@ function _tpdRenderFormInputs() {
             <div class="tpd-ws-size-selector-panel" style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:6px; padding:8px; margin-bottom:12px;">
                 <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px;">Chọn các size hiển thị:</div>
                 <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                    ${configuredSizes.map(sz => {
+                    ${_tpdSortSizes(configuredSizes).map(sz => {
                         const isActive = it.quantities.some(q => q.size === sz);
                         return `
                             <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; cursor:pointer; font-weight:500; margin:0;">
@@ -3302,7 +3441,7 @@ function _tpdRenderFormInputs() {
                     <button type="button" class="btn btn-secondary" onclick="_tpdAddCustomSize()" style="padding: 2px 8px; font-size: 10px; border-radius:4px; font-weight:700;">+ Thêm size khác</button>
                 ` : ''}
             </div>
-            <div class="tpd-ws-size-grid" style="margin-top:8px;">
+            <div class="${currentSizeType === 'Size Nam / Nữ' ? '' : 'tpd-ws-size-grid'}" style="margin-top:8px;">
                 ${sizeGridHtml}
             </div>
         </div>
@@ -3714,12 +3853,15 @@ async function _tpdPrintAllSheets() {
 
         // Sizes
         const filledQuantities = it.quantities || [];
+        const sortedQuantities = _tpdSortSizes(filledQuantities.map(q => q.size))
+            .map(sz => filledQuantities.find(q => q.size === sz))
+            .filter(Boolean);
         let sizeHeaders = '';
         let sizeValues = '';
         let totalQty = 0;
 
-        if (filledQuantities.length > 0) {
-            filledQuantities.forEach(q => {
+        if (sortedQuantities.length > 0) {
+            sortedQuantities.forEach(q => {
                 sizeHeaders += `<th>${q.size}</th>`;
                 sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
                 totalQty += Number(q.qty || 0);
@@ -3778,14 +3920,14 @@ async function _tpdPrintAllSheets() {
                         <table class="tpd-a4-table">
                             <thead>
                                 <tr>
-                                    <th style="background:#122546; text-transform:uppercase;">Size Số áo</th>
+                                    <th style="background:#122546; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
                                     ${sizeHeaders}
                                     <th style="background:#fad24c; color:#122546;">TỔNG SL</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px;">Số lượng (Áo)</td>
+                                    <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
                                     ${sizeValues}
                                     <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
                                 </tr>
