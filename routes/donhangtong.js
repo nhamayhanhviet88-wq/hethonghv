@@ -2798,6 +2798,23 @@ module.exports = async function(fastify) {
             sets.push(`back_technique_image = $${idx++}`);
             vals.push(imgPath || b.back_technique_image || null);
         }
+        // Update print_details (dynamic printing positions)
+        if (b.print_details !== undefined) {
+            const processedDetails = [];
+            const detailsList = Array.isArray(b.print_details) ? b.print_details : [];
+            for (let i = 0; i < detailsList.length; i++) {
+                const itemDetail = detailsList[i];
+                if (itemDetail && itemDetail.position) {
+                    const imgPath = saveImage(itemDetail.image, `pos_${i}`);
+                    processedDetails.push({
+                        position: itemDetail.position,
+                        image: imgPath || itemDetail.image || null
+                    });
+                }
+            }
+            sets.push(`print_details = $${idx++}`);
+            vals.push(JSON.stringify(processedDetails));
+        }
         // Update text fields
         if (b.material_name !== undefined) { sets.push(`material_name = $${idx++}`); vals.push(b.material_name || null); }
         if (b.color_name !== undefined) { sets.push(`color_name = $${idx++}`); vals.push(b.color_name || null); }

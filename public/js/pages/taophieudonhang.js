@@ -249,6 +249,29 @@ function _tpdCloneItemState(item) {
         }
     });
 
+    let printDetails = [];
+    if (item.print_details) {
+        try {
+            printDetails = typeof item.print_details === 'string' ? JSON.parse(item.print_details) : item.print_details;
+        } catch(e) { printDetails = []; }
+    }
+    if (!Array.isArray(printDetails)) printDetails = [];
+
+    // Backwards-compatibility self-healing
+    if (printDetails.length === 0) {
+        if (item.front_technique_image) {
+            printDetails.push({ position: 'Ngực', image: item.front_technique_image });
+        }
+        if (item.back_technique_image) {
+            printDetails.push({ position: 'Lưng', image: item.back_technique_image });
+        }
+    }
+
+    const clonedPrintDetails = printDetails.map(d => ({
+        position: d.position || '',
+        image: d.image || ''
+    }));
+
     return {
         id: item.id,
         style_name: item.style_name || '',
@@ -258,6 +281,7 @@ function _tpdCloneItemState(item) {
         mockup_image: item.mockup_image || '',
         front_technique_image: item.front_technique_image || '',
         back_technique_image: item.back_technique_image || '',
+        print_details: clonedPrintDetails,
         quantities: mergedQuantities,
         unit_price: Number(item.unit_price) || 0,
         product_name: item.product_name || '',
@@ -3074,8 +3098,6 @@ function _tpdUpdateLivePreview() {
     }
 
     const mockupSrc = it.mockup_image || '';
-    const frontSrc = it.front_technique_image || '';
-    const backSrc = it.back_technique_image || '';
 
     container.innerHTML = `
         <div class="tpd-a4-preview-card" id="tpdPrintSheet">
@@ -3112,21 +3134,7 @@ function _tpdUpdateLivePreview() {
                         ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Bấm vào đây hoặc vùng bên phải rồi Ctrl+V để dán</span></div>`}
                     </div>
                 </div>
-                
-                <div class="tpd-a4-tech-wrapper">
-                    <div class="tpd-a4-tech-box paste-target" data-zone="front">
-                        <div class="tpd-a4-img-header">KT Chi tiết Mặt Trước (Ctrl+V)</div>
-                        <div class="tpd-a4-img-body" id="prev_front_container">
-                            ${frontSrc ? `<img src="${frontSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh mặt trước</div>`}
-                        </div>
-                    </div>
-                    <div class="tpd-a4-tech-box paste-target" data-zone="back">
-                        <div class="tpd-a4-img-header">KT Chi tiết Mặt Sau (Ctrl+V)</div>
-                        <div class="tpd-a4-img-body" id="prev_back_container">
-                            ${backSrc ? `<img src="${backSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh mặt sau</div>`}
-                        </div>
-                    </div>
-                </div>
+                ${_tpdGetTechWrapperHtml(it, false)}
             </div>
 
             <!-- Size breakdown table -->
@@ -3254,45 +3262,62 @@ function _tpdRenderFormInputs() {
         </div>
     `;
 
-    // 3. Paste Zones (Mockup, Front, Back)
+    // 3. Paste Zones (Mockup & Dynamic Print Details)
     const mockupSrc = it.mockup_image || '';
-    const frontSrc = it.front_technique_image || '';
-    const backSrc = it.back_technique_image || '';
+    const details = it.print_details || [];
+
+    // Build upload boxes for dynamic details
+    let detailBoxesHtml = '';
+    details.forEach((d, idx) => {
+        detailBoxesHtml += `
+            <div class="tpd-ws-upload-box paste-target" data-zone="detail_${idx}" id="zone_detail_${idx}">
+                <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdRemoveDetailZone(${idx})" style="background:#ef4444;" title="Xóa vị trí này" ${disabledAttr}>✕</button>
+                ${d.image ? `
+                    <img src="${d.image}" class="tpd-ws-upload-preview">
+                    <span style="font-size: 10px; font-weight: 700; color: #122546; margin-top: 4px;">${d.position}</span>
+                ` : `
+                    <span class="tpd-ws-upload-icon">📍</span>
+                    <span class="tpd-ws-upload-text" style="font-weight:700; color:#122546;">${d.position}</span>
+                    <span style="font-size: 8px; color: #94a3b8;">Ctrl+V để dán</span>
+                `}
+            </div>
+        `;
+    });
 
     html += `
         <div class="tpd-ws-form-group">
-            <label class="tpd-ws-form-label">Hình ảnh thiết kế & kỹ thuật (Ctrl+V để dán)</label>
-            <div class="tpd-ws-upload-row">
-                <!-- Mockup image -->
-                <div class="tpd-ws-upload-box paste-target" data-zone="mockup" id="zone_mockup">
-                    ${mockupSrc ? `
-                        <button class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('mockup')" ${disabledAttr}>✕</button>
-                        <img src="${mockupSrc}" class="tpd-ws-upload-preview">
-                    ` : `
-                        <span class="tpd-ws-upload-icon">🎨</span>
-                        <span class="tpd-ws-upload-text">Ảnh Mockup lớn<br>(Click dán)</span>
-                    `}
-                </div>
-                <!-- Front image -->
-                <div class="tpd-ws-upload-box paste-target" data-zone="front" id="zone_front">
-                    ${frontSrc ? `
-                        <button class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('front')" ${disabledAttr}>✕</button>
-                        <img src="${frontSrc}" class="tpd-ws-upload-preview">
-                    ` : `
-                        <span class="tpd-ws-upload-icon">👕</span>
-                        <span class="tpd-ws-upload-text">Mặt trước<br>(Click dán)</span>
-                    `}
-                </div>
-                <!-- Back image -->
-                <div class="tpd-ws-upload-box paste-target" data-zone="back" id="zone_back">
-                    ${backSrc ? `
-                        <button class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('back')" ${disabledAttr}>✕</button>
-                        <img src="${backSrc}" class="tpd-ws-upload-preview">
-                    ` : `
-                        <span class="tpd-ws-upload-icon">👚</span>
-                        <span class="tpd-ws-upload-text">Mặt sau<br>(Click dán)</span>
-                    `}
-                </div>
+            <label class="tpd-ws-form-label">Hình ảnh thiết kế Mockup lớn (Ctrl+V để dán)</label>
+            <div class="tpd-ws-upload-box paste-target" data-zone="mockup" id="zone_mockup" style="min-height: 140px;">
+                ${mockupSrc ? `
+                    <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('mockup')" ${disabledAttr}>✕</button>
+                    <img src="${mockupSrc}" class="tpd-ws-upload-preview" style="max-height:120px;">
+                ` : `
+                    <span class="tpd-ws-upload-icon">🎨</span>
+                    <span class="tpd-ws-upload-text">Ảnh Mockup lớn (Click dán)</span>
+                `}
+            </div>
+        </div>
+
+        <div class="tpd-ws-form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <label class="tpd-ws-form-label" style="margin-bottom:0;">Vị trí in / thêu chi tiết</label>
+                ${state.hasEditPermission ? `
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <select id="tpdNewPositionSelect" class="tpd-ws-input" style="padding:2px 6px; font-size:11px; height:24px; width:110px; border-radius:4px;">
+                            <option value="Ngực">Ngực</option>
+                            <option value="Lưng">Lưng</option>
+                            <option value="Bụng">Bụng</option>
+                            <option value="Tay Trái">Tay Trái</option>
+                            <option value="Tay Phải">Tay Phải</option>
+                            <option value="Gáy">Gáy</option>
+                            <option value="Vị Trí Khác">Vị Trí Khác...</option>
+                        </select>
+                        <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546;">Thêm</button>
+                    </div>
+                ` : ''}
+            </div>
+            <div class="tpd-ws-upload-row" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px;">
+                ${detailBoxesHtml || `<div style="grid-column:1/-1; padding:20px; text-align:center; color:#94a3b8; font-size:11px; font-weight:600; border:2px dashed #cbd5e1; border-radius:10px;">Chưa thêm vị trí in/thêu nào.</div>`}
             </div>
         </div>
     `;
@@ -3362,14 +3387,126 @@ function _tpdAddCustomSize() {
     _tpdSetupPasteZones();
 }
 
+// Dynamic print details helper
+function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
+    const details = it.print_details || [];
+    let techBoxesHtml = '';
+
+    if (details.length === 0) {
+        techBoxesHtml = `
+            <div class="tpd-a4-tech-box">
+                <div class="tpd-a4-img-header">Chi tiết in / thêu</div>
+                <div class="tpd-a4-img-body">
+                    <div class="tpd-a4-img-placeholder">Chưa thêm vị trí in/thêu nào.<br><span style="font-size: 8px; color: #94a3b8;">Chọn vị trí ở cột phải rồi bấm Thêm</span></div>
+                </div>
+            </div>
+        `;
+    } else {
+        details.forEach((d, idx) => {
+            const pasteClass = isPrintMode ? '' : 'paste-target';
+            techBoxesHtml += `
+                <div class="tpd-a4-tech-box ${pasteClass}" data-zone="detail_${idx}" style="cursor: pointer;">
+                    <div class="tpd-a4-img-header">${d.position}</div>
+                    <div class="tpd-a4-img-body" style="background: #ffffff;">
+                        ${d.image ? `<img src="${d.image}">` : `<div class="tpd-a4-img-placeholder" style="font-size: 9px; padding: 10px;">Chưa có ảnh vị trí ${d.position}<br><span style="font-size: 8px; color: #94a3b8;">Click & Ctrl+V để dán</span></div>`}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    let gridCols = '1fr';
+    let gridRows = '1fr';
+    const count = details.length;
+    if (count === 2) {
+        gridCols = '1fr 1fr';
+    } else if (count === 3) {
+        gridCols = 'repeat(3, 1fr)';
+    } else if (count === 4) {
+        gridCols = 'repeat(2, 1fr)';
+        gridRows = 'repeat(2, 1fr)';
+    } else if (count >= 5 && count <= 6) {
+        gridCols = 'repeat(3, 1fr)';
+        gridRows = 'repeat(2, 1fr)';
+    } else if (count >= 7) {
+        gridCols = 'repeat(4, 1fr)';
+        gridRows = 'repeat(2, 1fr)';
+    }
+
+    return `
+        <div class="tpd-a4-tech-wrapper" style="flex: 2; display: grid; grid-template-columns: ${gridCols}; grid-template-rows: ${gridRows}; gap: 8px; height: 100%;">
+            ${techBoxesHtml}
+        </div>
+    `;
+}
+
+// Add a print position
+function _tpdAddPosition() {
+    const state = window._tpdWorkspaceState;
+    if (!state.hasEditPermission) return;
+
+    const select = document.getElementById('tpdNewPositionSelect');
+    if (!select) return;
+
+    let val = select.value;
+    if (val === 'Vị Trí Khác') {
+        const custom = prompt('Nhập tên vị trí in/thêu khác (Ví dụ: Cổ áo, Sườn áo...):');
+        if (!custom) return;
+        val = custom.trim();
+    }
+
+    if (!val) return;
+
+    const it = state.editingItem;
+    if (!it.print_details) it.print_details = [];
+
+    // Prevent duplicates
+    if (it.print_details.some(d => d.position.toLowerCase() === val.toLowerCase())) {
+        showToast('Vị trí này đã được thêm!', 'warning');
+        return;
+    }
+
+    it.print_details.push({ position: val, image: '' });
+
+    _tpdRenderFormInputs();
+    _tpdUpdateLivePreview();
+    _tpdSetupPasteZones();
+    showToast(`✅ Đã thêm vị trí in/thêu: ${val}`, 'success');
+}
+
+// Remove position from print_details list
+function _tpdRemoveDetailZone(idx) {
+    const state = window._tpdWorkspaceState;
+    if (!state.hasEditPermission || !state.editingItem) return;
+
+    const it = state.editingItem;
+    if (!it.print_details) return;
+
+    const removed = it.print_details[idx];
+    it.print_details.splice(idx, 1);
+
+    _tpdRenderFormInputs();
+    _tpdUpdateLivePreview();
+    _tpdSetupPasteZones();
+    if (removed) {
+        showToast(`❌ Đã xóa vị trí: ${removed.position}`, 'info');
+    }
+}
+
 // Clear image inside upload zone
 function _tpdClearZone(zone) {
     const state = window._tpdWorkspaceState;
     if (!state.hasEditPermission || !state.editingItem) return;
 
-    state.editingItem[`${zone}_image`] = '';
+    if (zone === 'mockup') {
+        state.editingItem.mockup_image = '';
+    } else if (zone.startsWith('detail_')) {
+        const idx = parseInt(zone.replace('detail_', ''), 10);
+        if (state.editingItem.print_details && state.editingItem.print_details[idx]) {
+            state.editingItem.print_details[idx].image = '';
+        }
+    }
 
-    // Re-render form inputs and preview
     _tpdRenderFormInputs();
     _tpdUpdateLivePreview();
     _tpdSetupPasteZones();
@@ -3381,24 +3518,18 @@ function _tpdSetupPasteZones() {
     if (!state || !state.hasEditPermission) return;
 
     const activeZoneClass = 'dragging';
-
-    // Query both right-panel form upload cards and left-panel preview image wrappers
     const targets = document.querySelectorAll('.paste-target');
-
     let activeTarget = null;
 
-    // Track active target focus by clicking
     targets.forEach(t => {
         t.addEventListener('click', () => {
             targets.forEach(el => el.classList.remove(activeZoneClass));
             t.classList.add(activeZoneClass);
             activeTarget = t;
-            // Setup visual helper
             showToast(`👉 Đã chọn vùng "${t.getAttribute('data-zone').toUpperCase()}". Nhấn Ctrl+V để dán ảnh.`, 'info');
         });
     });
 
-    // Global keyboard paste listener
     const pasteHandler = async (e) => {
         if (!activeTarget) return;
 
@@ -3416,13 +3547,18 @@ function _tpdSetupPasteZones() {
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     const base64 = event.target.result;
-                    state.editingItem[`${zone}_image`] = base64;
+                    if (zone === 'mockup') {
+                        state.editingItem.mockup_image = base64;
+                    } else if (zone.startsWith('detail_')) {
+                        const idx = parseInt(zone.replace('detail_', ''), 10);
+                        if (state.editingItem.print_details && state.editingItem.print_details[idx]) {
+                            state.editingItem.print_details[idx].image = base64;
+                        }
+                    }
 
-                    // Clear highlights
                     activeTarget.classList.remove(activeZoneClass);
                     activeTarget = null;
 
-                    // Sync UI
                     _tpdRenderFormInputs();
                     _tpdUpdateLivePreview();
                     _tpdSetupPasteZones();
@@ -3435,7 +3571,6 @@ function _tpdSetupPasteZones() {
         }
     };
 
-    // Remove old handler to prevent duplicates
     if (window._tpdGlobalPasteHandler) {
         document.removeEventListener('paste', window._tpdGlobalPasteHandler);
     }
@@ -3457,16 +3592,15 @@ async function _tpdSaveProductionSheet() {
     showToast('⏳ Đang lưu thông tin phiếu sản xuất...', 'info');
 
     try {
-        // Prepare API request payload
         const payload = {
             style_name: it.style_name,
             material_name: it.material_name,
             color_name: it.color_name,
             workshop_note: it.workshop_note,
             mockup_image: it.mockup_image,
-            front_technique_image: it.front_technique_image,
-            back_technique_image: it.back_technique_image,
-            // Only submit sizes with qty > 0 to keep DB quantities compact
+            print_details: it.print_details || [],
+            front_technique_image: it.print_details && it.print_details[0] ? it.print_details[0].image : null,
+            back_technique_image: it.print_details && it.print_details[1] ? it.print_details[1].image : null,
             quantities: it.quantities.filter(q => q.qty > 0)
         };
 
@@ -3552,8 +3686,6 @@ async function _tpdPrintAllSheets() {
         }
 
         const mockupSrc = it.mockup_image || '';
-        const frontSrc = it.front_technique_image || '';
-        const backSrc = it.back_technique_image || '';
 
         printHtml += `
             <div class="tpd-print-page">
@@ -3591,21 +3723,7 @@ async function _tpdPrintAllSheets() {
                                 ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
-                        
-                        <div class="tpd-a4-tech-wrapper">
-                            <div class="tpd-a4-tech-box">
-                                <div class="tpd-a4-img-header">KT Chi tiết Mặt Trước</div>
-                                <div class="tpd-a4-img-body">
-                                    ${frontSrc ? `<img src="${frontSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh mặt trước</div>`}
-                                </div>
-                            </div>
-                            <div class="tpd-a4-tech-box">
-                                <div class="tpd-a4-img-header">KT Chi tiết Mặt Sau</div>
-                                <div class="tpd-a4-img-body">
-                                    ${backSrc ? `<img src="${backSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh mặt sau</div>`}
-                                </div>
-                            </div>
-                        </div>
+                        ${_tpdGetTechWrapperHtml(it, true)}
                     </div>
 
                     <!-- Size breakdown table -->
