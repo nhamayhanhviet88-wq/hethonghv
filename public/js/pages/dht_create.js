@@ -2334,9 +2334,10 @@ async function _dhtSubmitCreateV2(isDraft) {
         _dhtFreeMode = false;
         _dhtRepairData = null;
         closeModal();
-        await _dhtLoadTree();
-        await _dhtLoadOrders();
-        _dhtShowNextCode();
+        if (typeof _dhtLoadTree === 'function') await _dhtLoadTree();
+        if (typeof _dhtLoadOrders === 'function') await _dhtLoadOrders();
+        if (typeof _dhtShowNextCode === 'function') _dhtShowNextCode();
+        if (typeof _tpdLoadOrders === 'function') await _tpdLoadOrders();
     } else {
         showToast(data.error || 'Lỗi tạo đơn', 'error');
     }
@@ -2586,11 +2587,57 @@ function _ppApplyBgm() {
     _ppRenderSewTags();
 }
 
+// === Dedicated Design Draft Full-Page Route ===
+async function renderDesignDraftPage(content) {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (!id) {
+        content.innerHTML = `
+            <div class="card" style="margin: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                <div class="card-body" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                    <h3 style="font-weight: 700; color: #1e293b; margin-bottom: 8px;">Thiếu thông tin đơn hàng</h3>
+                    <p style="color: #64748b; font-size: 14px;">Không tìm thấy ID của bản nháp cần thiết kế.</p>
+                    <button class="btn btn-secondary" onclick="navigate('taophieudonhang')" style="margin-top: 16px; padding: 8px 24px; border-radius: 8px;"> Quay lại danh sách</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    // Enable full page mode and set container
+    window._dhtFullPageMode = true;
+    window._dhtFullPageContainer = content;
+    
+    // Initialize the edit state for the draft order
+    await _dhtInitializeEditState(id);
+}
+
 // ========== FULL EDIT ORDER (reuse create form) ==========
 async function _dhtEditOrderFull(id) {
     try {
         showToast('⏳ Đang tải dữ liệu...');
         var data = await apiCall('/api/dht/orders/' + id + '/detail');
+        if (!data.order) { showToast('Không tìm thấy đơn hàng', 'error'); return; }
+        var o = data.order;
+        if (o.is_draft) {
+            // It's a draft! Let's navigate to the dedicated design page
+            navigate('design-draft?id=' + id);
+            return;
+        }
+        await _dhtInitializeEditState(id, data);
+    } catch(e) {
+        console.error('Edit order full error:', e);
+        showToast('Lỗi tải dữ liệu: ' + (e.message || ''), 'error');
+    }
+}
+
+async function _dhtInitializeEditState(id, data) {
+    try {
+        if (!data) {
+            showToast('⏳ Đang tải dữ liệu...');
+            data = await apiCall('/api/dht/orders/' + id + '/detail');
+        }
         if (!data.order) { showToast('Không tìm thấy đơn hàng', 'error'); return; }
         var o = data.order;
         var items = data.items || [];
@@ -2689,8 +2736,8 @@ async function _dhtEditOrderFull(id) {
             await _dhtGoStep2();
         }
     } catch(e) {
-        console.error('Edit order full error:', e);
-        showToast('Lỗi tải dữ liệu: ' + (e.message || ''), 'error');
+        console.error('Initialize edit state error:', e);
+        showToast('Lỗi tải thông tin chi tiết: ' + (e.message || ''), 'error');
     }
 }
 
@@ -3091,8 +3138,9 @@ async function _dhtSubmitEditV2(isDraft) {
         showToast('✅ Đã cập nhật đơn hàng!');
         _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
         closeModal();
-        await _dhtLoadTree();
-        await _dhtLoadOrders();
+        if (typeof _dhtLoadTree === 'function') await _dhtLoadTree();
+        if (typeof _dhtLoadOrders === 'function') await _dhtLoadOrders();
+        if (typeof _tpdLoadOrders === 'function') await _tpdLoadOrders();
     } else {
         showToast(data.error || 'Lỗi cập nhật', 'error');
     }

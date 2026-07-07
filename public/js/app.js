@@ -1817,6 +1817,11 @@ async function handleRoute() {
     // Read page from pathname (e.g. /crm-nhu-cau → crm-nhu-cau)
     const pathname = window.location.pathname.replace(/^\//, '') || 'dashboard';
 
+    if (pathname !== 'design-draft') {
+        window._dhtFullPageMode = false;
+        window._dhtFullPageContainer = null;
+    }
+
     // Block tkaffiliate from dashboard — first 3 login sessions → guide, 4th+ → report
     // sessionStorage flag ensures redirect fires ONCE per login session (survives reload, clears on tab close)
     var _hdsdSessionKey = 'hdsd_done_' + (currentUser ? currentUser.id : '0');
@@ -2317,6 +2322,7 @@ var _PAGE_INIT_REGISTRY = {
     'xuatvaicat': 'renderXuatvaicatPage',
     'chuanbiqlx': 'renderQuanlyxuongqlxPage',
     'taophieudonhang': 'renderTaophieudonhangPage',
+    'design-draft': 'renderDesignDraftPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {
@@ -2407,6 +2413,28 @@ function setupEventListeners() {
 
 // ========== MODAL ==========
 function openModal(title, bodyHTML, footerHTML = '') {
+    if (window._dhtFullPageMode && window._dhtFullPageContainer) {
+        window._dhtFullPageContainer.innerHTML = `
+            <div class="card dht-design-card" style="margin: 0; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; background: #fff; overflow: hidden; animation: fadeInUp 0.4s ease;">
+                <div class="card-header dht-design-header" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b;">
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #fbbf24; text-shadow: 0 1px 2px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px;">
+                        🎨 ${title}
+                    </h3>
+                    <button class="btn btn-secondary btn-sm" onclick="closeModal()" style="padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer; transition: all 0.2s;">
+                        ← Quay lại
+                    </button>
+                </div>
+                <div class="card-body dht-design-body" style="padding: 24px; color: #1e293b; max-height: unset; overflow-y: visible;">
+                    ${bodyHTML}
+                </div>
+                <div class="card-footer dht-design-footer" style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; border-radius: 0 0 16px 16px;">
+                    ${footerHTML}
+                </div>
+            </div>
+        `;
+        document.getElementById('modalOverlay').classList.remove('show');
+        return;
+    }
     document.getElementById('modalTitle').innerHTML = title;
     document.getElementById('modalBody').innerHTML = bodyHTML;
     document.getElementById('modalFooter').innerHTML = footerHTML;
@@ -2414,6 +2442,16 @@ function openModal(title, bodyHTML, footerHTML = '') {
 }
 
 function closeModal() {
+    if (window._dhtFullPageMode) {
+        window._dhtFullPageMode = false;
+        window._dhtFullPageContainer = null;
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            navigate('taophieudonhang');
+        }
+        return;
+    }
     document.getElementById('modalOverlay').classList.remove('show');
     var container = document.getElementById('modalContainer');
     if (container) {
