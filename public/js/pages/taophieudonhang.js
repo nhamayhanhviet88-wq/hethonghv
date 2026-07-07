@@ -120,6 +120,21 @@ async function renderTaophieudonhangPage(content) {
         // Open details
         _tpdOpenOrderTechCard(queryId);
     }
+
+    // Event delegation for deleting draft orders
+    if (!_tpd.deleteListenerAttached) {
+        document.addEventListener('click', function(event) {
+            const btn = event.target.closest('.tpd-delete-draft-btn');
+            if (btn) {
+                event.stopPropagation();
+                event.preventDefault();
+                const orderId = btn.getAttribute('data-id');
+                const orderCode = btn.getAttribute('data-code');
+                _tpdDeleteDraft(orderId, orderCode);
+            }
+        }, true);
+        _tpd.deleteListenerAttached = true;
+    }
 }
 
 // Fetch all orders/drafts from server
@@ -202,7 +217,7 @@ function _tpdRenderList() {
                     <span class="card-code">${escapeHTML(o.order_code || 'CHƯA CÓ MÃ')}</span>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <span class="tpd-badge ${badgeClass}">${badgeLabel}</span>
-                        ${isDraft ? `<button class="tpd-delete-draft-btn" onclick="event.stopPropagation(); _tpdDeleteDraft(${o.id}, '${escapeHTML(o.order_code || '')}')" title="Xóa bản nháp" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;transition:all 0.15s;outline:none;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">🗑️ Xóa</button>` : ''}
+                        ${isDraft ? `<button class="tpd-delete-draft-btn" data-id="${o.id}" data-code="${escapeHTML(o.order_code || '')}" data-no-debounce="true" title="Xóa bản nháp" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;transition:all 0.15s;outline:none;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">🗑️ Xóa</button>` : ''}
                     </div>
                 </div>
                 <div class="card-body">
