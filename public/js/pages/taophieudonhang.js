@@ -221,6 +221,23 @@ async function renderDesignDraftPage(content) {
 
 // Clone order item to independent workspace editing state
 function _tpdCloneItemState(item) {
+    if (!item) return null;
+
+    // Check if there is a draft in localStorage
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
+    if (orderId && item.id) {
+        const draftStr = localStorage.getItem(`tpd_draft_${orderId}_${item.id}`);
+        if (draftStr) {
+            try {
+                const draft = JSON.parse(draftStr);
+                if (draft && draft.id === item.id) {
+                    return draft;
+                }
+            } catch(e) {}
+        }
+    }
+
     let qtyArr = [];
     try { qtyArr = typeof item.quantities === 'string' ? JSON.parse(item.quantities) : (item.quantities || []); } catch(e) {}
     if (!Array.isArray(qtyArr)) qtyArr = [];
@@ -3677,6 +3694,8 @@ function _tpdUpdateField(field, val) {
     if (prevEl) {
         prevEl.innerText = val || '—';
     }
+
+    _tpdSaveDraft(state.editingItem);
 }
 
 // Update size quantity in editing item state
@@ -3693,6 +3712,7 @@ function _tpdUpdateQty(size, val) {
         it.quantities.push({ size: size, qty: qty, price: it.unit_price || 0 });
     }
 
+    _tpdSaveDraft(it);
     // Refresh preview size table dynamically (without full rerender)
     _tpdUpdateLivePreview();
 }
@@ -3715,6 +3735,7 @@ function _tpdAddCustomSize() {
     }
 
     it.quantities.push({ size: cleanName, qty: 0, price: it.unit_price || 0 });
+    _tpdSaveDraft(it);
     _tpdRenderFormInputs();
     _tpdSetupPasteZones();
 }
@@ -3800,6 +3821,7 @@ function _tpdAddPosition() {
 
     it.print_details.push({ position: val, image: '' });
 
+    _tpdSaveDraft(it);
     _tpdRenderFormInputs();
     _tpdUpdateLivePreview();
     _tpdSetupPasteZones();
@@ -3817,6 +3839,7 @@ function _tpdRemoveDetailZone(idx) {
     const removed = it.print_details[idx];
     it.print_details.splice(idx, 1);
 
+    _tpdSaveDraft(it);
     _tpdRenderFormInputs();
     _tpdUpdateLivePreview();
     _tpdSetupPasteZones();
@@ -3839,6 +3862,7 @@ function _tpdClearZone(zone) {
         }
     }
 
+    _tpdSaveDraft(state.editingItem);
     _tpdRenderFormInputs();
     _tpdUpdateLivePreview();
     _tpdSetupPasteZones();
@@ -3891,6 +3915,7 @@ function _tpdSetupPasteZones() {
                     activeTarget.classList.remove(activeZoneClass);
                     activeTarget = null;
 
+                    _tpdSaveDraft(state.editingItem);
                     _tpdRenderFormInputs();
                     _tpdUpdateLivePreview();
                     _tpdSetupPasteZones();
@@ -3940,6 +3965,9 @@ async function _tpdSaveProductionSheet() {
         const res = await apiCall(`/api/dht/orders/${state.orderId}/items/${it.id}/sheet`, 'PUT', payload);
         if (res.success) {
             showToast('✅ Đã lưu phiếu sản xuất thành công!', 'success');
+            
+            // Clear the draft from localStorage since it is now saved to the DB
+            _tpdClearDraft(it);
             
             // Reload details in workspace state to keep other components in sync
             const details = await apiCall(`/api/dht/orders/${state.orderId}/detail`);
@@ -4110,6 +4138,7 @@ function _tpdChangeSizeType(val) {
     // Filter out sizes that don't match the new type, except custom ones or keep them.
     // Actually, it is safer to just let the user re-select active sizes via checkboxes.
     // Redraw and update live preview
+    _tpdSaveDraft(it);
     _tpdRenderFormInputs();
     _tpdUpdateLivePreview();
 }
@@ -4128,6 +4157,7 @@ function _tpdToggleSizeActive(sizeName, isChecked) {
         it.quantities = it.quantities.filter(q => q.size !== sizeName);
     }
 
+    _tpdSaveDraft(it);
     _tpdRenderFormInputs();
     _tpdUpdateLivePreview();
 }
@@ -4287,4 +4317,21 @@ async function _tpdSaveSizeConfig() {
         console.error(e);
         showToast('Không thể kết nối đến máy chủ', 'danger');
     }
+}
+
+// Draft helpers to save/clear editing progress in localStorage on F5 refresh
+function _tpdSaveDraft(it) {
+    if (!it || !it.id) return;
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
+    if (!orderId) return;
+    localStorage.setItem(`tpd_draft_${orderId}_${it.id}`, JSON.stringify(it));
+}
+
+function _tpdClearDraft(it) {
+    if (!it || !it.id) return;
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
+    if (!orderId) return;
+    localStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
 }
