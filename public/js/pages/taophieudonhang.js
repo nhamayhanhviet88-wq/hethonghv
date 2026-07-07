@@ -257,14 +257,12 @@ function _tpdCloneItemState(item) {
     }
     if (!Array.isArray(printDetails)) printDetails = [];
 
-    // Backwards-compatibility self-healing
+    // Backwards-compatibility self-healing & default pre-population
     if (printDetails.length === 0) {
-        if (item.front_technique_image) {
-            printDetails.push({ position: 'Ngực', image: item.front_technique_image });
-        }
-        if (item.back_technique_image) {
-            printDetails.push({ position: 'Lưng', image: item.back_technique_image });
-        }
+        printDetails.push({ position: 'Ngực', image: item.front_technique_image || '' });
+        printDetails.push({ position: 'Lưng', image: item.back_technique_image || '' });
+        printDetails.push({ position: 'Tay Trái', image: '' });
+        printDetails.push({ position: 'Tay Phải', image: '' });
     }
 
     const clonedPrintDetails = printDetails.map(d => ({
