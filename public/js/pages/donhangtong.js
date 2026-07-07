@@ -336,6 +336,7 @@ function _dhtSortCol(key) {
 function _dhtRenderTable() {
     // Re-render from cached data without API call
     _dhtRenderFilterChips();
+    var sf = _dht.statFilter || '';
     var filtered = _dht.orders.slice();
     var af = _dht.activeFilters || {};
     if (af.vat_done) filtered = filtered.filter(function(o){ return o.has_vat && o.vat_exported; });
