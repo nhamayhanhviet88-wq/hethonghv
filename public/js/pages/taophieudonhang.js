@@ -355,7 +355,7 @@ function _tpdGetLabelStyle(sz, isCustom) {
     const lower = sz.toLowerCase();
     if (lower.startsWith('nam')) return 'background: #1e3a8a; color: white; font-weight: 800;';
     if (lower.startsWith('nữ')) return 'background: #db2777; color: white; font-weight: 800;';
-    return 'background: #122546; color: white;';
+    return 'background: #ea580c; color: white;';
 }
 
 // Fetch all orders/drafts from server
@@ -2574,7 +2574,7 @@ function _tpdInjectWorkspaceStyles() {
         .tpd-ws-size-label {
             font-size: 10px;
             font-weight: 800;
-            background: #122546;
+            background: #ea580c;
             color: white;
             width: 100%;
             text-align: center;
@@ -2840,10 +2840,10 @@ function _tpdInjectWorkspaceStyles() {
         }
 
         .tpd-a4-table th {
-            background: #122546;
+            background: #ea580c;
             color: white;
             font-weight: 800;
-            border: 1px solid #122546;
+            border: 1px solid #ea580c;
             padding: 5px;
             text-align: center;
         }
@@ -3212,9 +3212,9 @@ function _tpdUpdateLivePreview() {
                 <table class="tpd-a4-table">
                     <thead>
                         <tr>
-                            <th style="background:#122546; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
+                            <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
                             ${sizeHeaders}
-                            <th style="background:#fad24c; color:#122546;">TỔNG SL</th>
+                            <th style="background:#fad24c; color:#122546; border-color:#fad24c;">TỔNG SL</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -3387,20 +3387,16 @@ function _tpdRenderFormInputs() {
                 </div>
             `;
         } else {
-            sizeGridHtml = `
-                <div class="tpd-ws-size-grid" style="width:100%;">
-                    ${sortedQuantities.map(q => {
-                        const isCustom = !configuredSizes.includes(q.size);
-                        const labelBg = _tpdGetLabelStyle(q.size, isCustom);
-                        return `
-                            <div class="tpd-ws-size-input-box">
-                                <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
-                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
+            sizeGridHtml = sortedQuantities.map(q => {
+                const isCustom = !configuredSizes.includes(q.size);
+                const labelBg = _tpdGetLabelStyle(q.size, isCustom);
+                return `
+                    <div class="tpd-ws-size-input-box">
+                        <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
+                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                    </div>
+                `;
+            }).join('');
         }
     }
 
@@ -3920,9 +3916,9 @@ async function _tpdPrintAllSheets() {
                         <table class="tpd-a4-table">
                             <thead>
                                 <tr>
-                                    <th style="background:#122546; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
+                                    <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
                                     ${sizeHeaders}
-                                    <th style="background:#fad24c; color:#122546;">TỔNG SL</th>
+                                    <th style="background:#fad24c; color:#122546; border-color:#fad24c;">TỔNG SL</th>
                                 </tr>
                             </thead>
                             <tbody>
