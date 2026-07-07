@@ -3206,7 +3206,7 @@ function _tpdRenderA4SizeTable(it) {
                         <tr>
                             <th style="background:#1e3a8a; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NAM</th>
                             ${headers}
-                            <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NAM</th>
+                            <th style="background:#1e3a8a; color:#ffffff; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NAM</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -3250,7 +3250,7 @@ function _tpdRenderA4SizeTable(it) {
                         <tr>
                             <th style="background:#db2777; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NỮ</th>
                             ${headers}
-                            <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NỮ</th>
+                            <th style="background:#db2777; color:#ffffff; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NỮ</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -3294,7 +3294,7 @@ function _tpdRenderA4SizeTable(it) {
                         <tr>
                             <th style="background:#ea580c; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
                             ${headers}
-                            <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG KHÁC</th>
+                            <th style="background:#ea580c; color:#ffffff; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG KHÁC</th>
                         </tr>
                     </thead>
                     <tbody>
