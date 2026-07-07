@@ -225,15 +225,20 @@ function _tpdCloneItemState(item) {
     try { qtyArr = typeof item.quantities === 'string' ? JSON.parse(item.quantities) : (item.quantities || []); } catch(e) {}
     if (!Array.isArray(qtyArr)) qtyArr = [];
     
-    // Ensure S, M, L, XL, XXL, XXXL, XXXXL, XXXXXL exist in quantities list for easy editor binding
-    const stdSizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
+    // Ensure currently configured sizes exist in quantities list for easy editor binding
+    const currentSizeType = item.size_type || 'Size TT';
+    const config = _tpd.sizeTypesConfig || {
+        "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+        "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+    };
+    const stdSizes = config[currentSizeType] || [];
     const mergedQuantities = [];
     
     // First import existing sizes
     qtyArr.forEach(q => {
         if (q.size) {
             mergedQuantities.push({
-                size: q.size.trim().toUpperCase(),
+                size: q.size.trim(),
                 qty: Number(q.qty) || 0,
                 price: Number(q.price) || Number(item.unit_price) || 0
             });
@@ -250,6 +255,15 @@ function _tpdCloneItemState(item) {
             });
         }
     });
+
+    // Filter out legacy sizes that have 0 or empty quantity and are not in config
+    const cleanedQuantities = mergedQuantities.filter(q => {
+        const isConfigured = stdSizes.includes(q.size);
+        const hasQty = q.qty && Number(q.qty) > 0;
+        return isConfigured || hasQty;
+    });
+
+    item.quantities = cleanedQuantities;
 
     let printDetails = [];
     if (item.print_details) {
@@ -3225,6 +3239,15 @@ function _tpdRenderFormInputs() {
         "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
     };
     const configuredSizes = config[currentSizeType] || [];
+
+    // Auto-clean up legacy sizes that have 0 or empty quantity and are not in config
+    if (it.quantities && Array.isArray(it.quantities)) {
+        it.quantities = it.quantities.filter(q => {
+            const isConfigured = configuredSizes.includes(q.size);
+            const hasQty = q.qty && Number(q.qty) > 0;
+            return isConfigured || hasQty;
+        });
+    }
 
     let sizeGridHtml = '';
     if (it.quantities.length === 0) {
