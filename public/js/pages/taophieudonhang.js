@@ -3155,21 +3155,50 @@ function _tpdRenderA4SizeTable(it) {
         const nuSizes = sortedQuantities.filter(q => q.size.toLowerCase().includes('nữ') || q.size.toLowerCase().includes('nu'));
         const otherSizes = sortedQuantities.filter(q => !q.size.toLowerCase().includes('nam') && !q.size.toLowerCase().includes('nữ') && !q.size.toLowerCase().includes('nu'));
 
-        let html = '<table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">';
-        let grandTotal = 0;
-
         const getShortSize = (fullSize) => {
             return fullSize.replace(/^Nam\s+/i, '').replace(/^Nữ\s+/i, '').replace(/^Nu\s+/i, '');
         };
+
+        // Extract the union of all short sizes present in the active list
+        const unionShortSizes = [];
+        sortedQuantities.forEach(q => {
+            const short = getShortSize(q.size);
+            if (!unionShortSizes.includes(short)) {
+                unionShortSizes.push(short);
+            }
+        });
+
+        const getNamQty = (shortSize) => {
+            const match = namSizes.find(q => getShortSize(q.size) === shortSize);
+            return match ? Number(match.qty || 0) : null;
+        };
+
+        const getNuQty = (shortSize) => {
+            const match = nuSizes.find(q => getShortSize(q.size) === shortSize);
+            return match ? Number(match.qty || 0) : null;
+        };
+
+        const getOtherQty = (shortSize) => {
+            const match = otherSizes.find(q => getShortSize(q.size) === shortSize);
+            return match ? Number(match.qty || 0) : null;
+        };
+
+        let html = '<table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">';
+        let grandTotal = 0;
 
         if (namSizes.length > 0) {
             let rowTotal = 0;
             let headers = '';
             let values = '';
-            namSizes.forEach(q => {
-                headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${getShortSize(q.size)}</th>`;
-                values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 6px;">${q.qty || 0}</td>`;
-                rowTotal += Number(q.qty || 0);
+            unionShortSizes.forEach(short => {
+                const qty = getNamQty(short);
+                headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
+                if (qty !== null) {
+                    values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 6px;">${qty}</td>`;
+                    rowTotal += qty;
+                } else {
+                    values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;">-</td>`;
+                }
             });
             grandTotal += rowTotal;
 
@@ -3195,10 +3224,15 @@ function _tpdRenderA4SizeTable(it) {
             let rowTotal = 0;
             let headers = '';
             let values = '';
-            nuSizes.forEach(q => {
-                headers += `<th style="background:#fce7f3; color:#be185d; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${getShortSize(q.size)}</th>`;
-                values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 6px;">${q.qty || 0}</td>`;
-                rowTotal += Number(q.qty || 0);
+            unionShortSizes.forEach(short => {
+                const qty = getNuQty(short);
+                headers += `<th style="background:#fce7f3; color:#be185d; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
+                if (qty !== null) {
+                    values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 6px;">${qty}</td>`;
+                    rowTotal += qty;
+                } else {
+                    values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;">-</td>`;
+                }
             });
             grandTotal += rowTotal;
 
@@ -3224,10 +3258,15 @@ function _tpdRenderA4SizeTable(it) {
             let rowTotal = 0;
             let headers = '';
             let values = '';
-            otherSizes.forEach(q => {
-                headers += `<th style="background:#f1f5f9; color:#475569; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${q.size}</th>`;
-                values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 6px;">${q.qty || 0}</td>`;
-                rowTotal += Number(q.qty || 0);
+            unionShortSizes.forEach(short => {
+                const qty = getOtherQty(short);
+                headers += `<th style="background:#f1f5f9; color:#475569; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
+                if (qty !== null) {
+                    values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 6px;">${qty}</td>`;
+                    rowTotal += qty;
+                } else {
+                    values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;">-</td>`;
+                }
             });
             grandTotal += rowTotal;
 
