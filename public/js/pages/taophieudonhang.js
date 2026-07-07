@@ -243,11 +243,11 @@ function _tpdCloneItemState(item) {
     if (!Array.isArray(qtyArr)) qtyArr = [];
     
     // Ensure currently configured sizes exist in quantities list for easy editor binding
-    const currentSizeType = item.size_type || 'Size TT';
     const config = _tpd.sizeTypesConfig || {
         "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
         "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
     };
+    const currentSizeType = item.size_type || Object.keys(config)[0] || 'Size TT';
     const stdSizes = config[currentSizeType] || [];
     const mergedQuantities = [];
     
@@ -3121,6 +3121,13 @@ function _tpdSwitchItemTab(idx) {
     _tpdRenderWorkspace(content);
 }
 
+// Helper to detect if a size type should render using the split gender layout
+function _tpdIsNamNuSize(sizeType) {
+    if (!sizeType) return false;
+    const lower = sizeType.toLowerCase();
+    return lower.includes('nam / nữ') || lower.includes('nam/nữ');
+}
+
 // Generate HTML for the size table on the A4 sheet, grouping by gender if size type is 'Size Nam / Nữ'
 function _tpdRenderA4SizeTable(it) {
     const filledQuantities = it.quantities || [];
@@ -3149,7 +3156,7 @@ function _tpdRenderA4SizeTable(it) {
         `;
     }
 
-    if (it.size_type === 'Size Nam / Nữ') {
+    if (_tpdIsNamNuSize(it.size_type)) {
         const namSizes = sortedQuantities.filter(q => q.size.toLowerCase().includes('nam'));
         const nuSizes = sortedQuantities.filter(q => q.size.toLowerCase().includes('nữ') || q.size.toLowerCase().includes('nu'));
         const otherSizes = sortedQuantities.filter(q => !q.size.toLowerCase().includes('nam') && !q.size.toLowerCase().includes('nữ') && !q.size.toLowerCase().includes('nu'));
@@ -3334,7 +3341,7 @@ function _tpdRenderA4SizeTable(it) {
                     <tr>
                         <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
                         ${sizeHeaders}
-                        <th style="background:#fad24c; color:#122546; border-color:#fad24c;">TỔNG SL</th>
+                        <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; width: 80px; text-align:center;">TỔNG SL</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -3499,7 +3506,7 @@ function _tpdRenderFormInputs() {
             .map(sz => it.quantities.find(q => q.size === sz))
             .filter(Boolean);
 
-        if (currentSizeType === 'Size Nam / Nữ') {
+        if (_tpdIsNamNuSize(currentSizeType)) {
             const namQty = [];
             const nuQty = [];
             const khacQty = [];
@@ -3591,8 +3598,9 @@ function _tpdRenderFormInputs() {
                 <label class="tpd-ws-form-label" style="margin-bottom:0;">Loại Size</label>
                 <div style="display:flex; gap: 8px; align-items:center;">
                     <select class="tpd-ws-select" style="padding: 4px 8px; font-size:12px; height:auto; width:150px; border-radius:4px; border:1px solid #cbd5e1;" onchange="_tpdChangeSizeType(this.value)" ${disabledAttr}>
-                        <option value="Size TT" ${currentSizeType === 'Size TT' ? 'selected' : ''}>Size TT</option>
-                        <option value="Size Nam / Nữ" ${currentSizeType === 'Size Nam / Nữ' ? 'selected' : ''}>Size Nam / Nữ</option>
+                        ${Object.keys(config).map(typeName => `
+                            <option value="${typeName}" ${currentSizeType === typeName ? 'selected' : ''}>${typeName}</option>
+                        `).join('')}
                     </select>
                     ${state.role === 'giam_doc' ? `
                         <button type="button" class="btn" onclick="_tpdOpenSizeConfigModal()" style="padding: 4px 8px; font-size:11px; border-radius:4px; font-weight:700; background:#f59e0b; border:none; color:white; cursor:pointer;">⚙️ Cài đặt</button>
@@ -3622,7 +3630,7 @@ function _tpdRenderFormInputs() {
                     <button type="button" class="btn btn-secondary" onclick="_tpdAddCustomSize()" style="padding: 2px 8px; font-size: 10px; border-radius:4px; font-weight:700;">+ Thêm size khác</button>
                 ` : ''}
             </div>
-            <div class="${currentSizeType === 'Size Nam / Nữ' ? '' : 'tpd-ws-size-grid'}" style="margin-top:8px;">
+            <div class="${_tpdIsNamNuSize(currentSizeType) ? '' : 'tpd-ws-size-grid'}" style="margin-top:8px;">
                 ${sizeGridHtml}
             </div>
         </div>
@@ -4186,7 +4194,7 @@ function _tpdToggleSizeActive(sizeName, isChecked) {
     _tpdUpdateLivePreview();
 }
 
-// Open modal for Director to configure size templates
+// Open modal for Director to configure size templates (supports dynamically adding, renaming, and deleting custom templates)
 function _tpdOpenSizeConfigModal() {
     const state = window._tpdWorkspaceState;
     if (state.role !== 'giam_doc') {
@@ -4199,8 +4207,7 @@ function _tpdOpenSizeConfigModal() {
         "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
     };
 
-    window._tpdModalSizeTT = [...(config["Size TT"] || [])];
-    window._tpdModalSizeNamNu = [...(config["Size Nam / Nữ"] || [])];
+    window._tpdModalSizeTemplates = JSON.parse(JSON.stringify(config));
 
     // Create Modal Element
     const modal = document.createElement('div');
@@ -4218,41 +4225,24 @@ function _tpdOpenSizeConfigModal() {
     modal.style.zIndex = '99999';
 
     modal.innerHTML = `
-        <div style="background: white; border-radius: 12px; width: 550px; max-width: 95%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden;">
-            <div style="background: #1e293b; color: white; padding: 16px; font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="background: white; border-radius: 12px; width: 620px; max-width: 95%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden; display: flex; flex-direction: column; max-height: 85vh;">
+            <div style="background: #1e293b; color: white; padding: 16px; font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                 <span>⚙️ Cài đặt mẫu size sản xuất</span>
                 <span style="cursor: pointer; font-size: 18px;" onclick="document.getElementById('tpdSizeConfigModal').remove()">✕</span>
             </div>
-            <div style="padding: 20px; display: flex; flex-direction: column; gap: 20px; max-height: 400px; overflow-y: auto; box-sizing: border-box;">
-                
-                <!-- Size TT Section -->
-                <div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <label style="font-weight: 700; font-size: 13px; color: #334155;">Mẫu Size TT:</label>
-                        <button type="button" onclick="_tpdAddModalSize('TT')" style="background: #2563eb; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                            <span>+ Thêm size</span>
-                        </button>
-                    </div>
-                    <div id="modalSizeTTContainer" style="display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; min-height: 60px; max-height: 120px; overflow-y: auto; background: #f8fafc; box-sizing: border-box;">
-                        <!-- JS renders inputs here -->
-                    </div>
-                </div>
-
-                <!-- Size Nam / Nu Section -->
-                <div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <label style="font-weight: 700; font-size: 13px; color: #334155;">Mẫu Size Nam / Nữ:</label>
-                        <button type="button" onclick="_tpdAddModalSize('NamNu')" style="background: #2563eb; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                            <span>+ Thêm size</span>
-                        </button>
-                    </div>
-                    <div id="modalSizeNamNuContainer" style="display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; min-height: 60px; max-height: 120px; overflow-y: auto; background: #f8fafc; box-sizing: border-box;">
-                        <!-- JS renders inputs here -->
-                    </div>
-                </div>
-
+            
+            <div style="padding: 16px 20px 0; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; color: #64748b; font-style: italic;">Bạn có thể đổi tên mẫu size, thêm/xóa size hoặc tạo/xóa các mẫu khác.</span>
+                <button type="button" onclick="_tpdAddNewSizeTemplate()" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(16,185,129,0.15);">
+                    <span>+ Tạo mẫu size mới</span>
+                </button>
             </div>
-            <div style="background: #f8fafc; padding: 12px 16px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0;">
+
+            <div id="tpdSizeTemplatesContainer" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex-grow: 1; box-sizing: border-box;">
+                <!-- Templates list will be rendered dynamically here -->
+            </div>
+
+            <div style="background: #f8fafc; padding: 12px 16px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; flex-shrink: 0;">
                 <button type="button" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: white; color: #334155; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;" onclick="document.getElementById('tpdSizeConfigModal').remove()">Hủy</button>
                 <button type="button" style="padding: 8px 16px; border: none; background: #2563eb; color: white; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;" onclick="_tpdSaveSizeConfig()">Lưu cài đặt</button>
             </div>
@@ -4261,69 +4251,158 @@ function _tpdOpenSizeConfigModal() {
     document.body.appendChild(modal);
 
     // Initial render
-    _tpdRenderModalSizes('TT');
-    _tpdRenderModalSizes('NamNu');
+    _tpdRenderAllSizeTemplates();
 }
 
-// Render list of inputs inside size modal
-function _tpdRenderModalSizes(type) {
-    const list = type === 'TT' ? window._tpdModalSizeTT : window._tpdModalSizeNamNu;
-    const container = document.getElementById(type === 'TT' ? 'modalSizeTTContainer' : 'modalSizeNamNuContainer');
+// Render dynamic size templates inside modal
+function _tpdRenderAllSizeTemplates() {
+    const container = document.getElementById('tpdSizeTemplatesContainer');
     if (!container) return;
 
-    if (list.length === 0) {
-        container.innerHTML = `<span style="font-size: 12px; color: #94a3b8; font-style: italic;">Chưa có size nào. Hãy nhấn "+ Thêm size"</span>`;
+    const templates = window._tpdModalSizeTemplates || {};
+    const keys = Object.keys(templates);
+
+    if (keys.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                <span style="font-size: 32px;">📋</span>
+                <p style="margin-top: 8px; font-size: 13px;">Chưa có mẫu size nào. Hãy nhấn "+ Tạo mẫu size mới" để bắt đầu.</p>
+            </div>
+        `;
         return;
     }
 
-    container.innerHTML = list.map((sz, idx) => {
+    container.innerHTML = keys.map(tplName => {
+        const list = templates[tplName] || [];
         return `
-            <div style="display: inline-flex; align-items: center; background: white; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); box-sizing: border-box;">
-                <input type="text" value="${sz}" oninput="_tpdUpdateModalSizeVal('${type}', ${idx}, this.value)" style="border: none; background: transparent; font-size: 12px; font-weight: 600; width: 70px; color: #1e293b; outline: none; padding: 0; margin: 0; box-sizing: border-box;" placeholder="Nhập size...">
-                <button type="button" onclick="_tpdDeleteModalSize('${type}', ${idx})" style="color: #ef4444; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 700; padding: 0 2px; margin: 0; line-height: 1; display: inline-flex; align-items: center;" title="Xóa size">✕</button>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; flex-wrap: wrap;">
+                    <!-- Template Name Input -->
+                    <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1; min-width: 200px;">
+                        <span style="font-size: 14px;">📋</span>
+                        <input type="text" value="${tplName}" onchange="_tpdRenameSizeTemplate('${tplName}', this.value)" style="font-weight: 700; font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; width: 100%; max-width: 250px; background: white;" placeholder="Nhập tên mẫu size...">
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button type="button" onclick="_tpdAddModalSize('${tplName}')" style="background: #2563eb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            <span>+ Thêm size</span>
+                        </button>
+                        <button type="button" onclick="_tpdDeleteSizeTemplate('${tplName}')" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Xóa mẫu size này">
+                            <span>Xóa mẫu</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Size items container -->
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px; min-height: 50px; background: white; box-sizing: border-box; max-height: 120px; overflow-y: auto;">
+                    ${list.length === 0 ? `
+                        <span style="font-size: 11px; color: #94a3b8; font-style: italic;">Chưa có size nào. Nhấn "+ Thêm size"</span>
+                    ` : list.map((sz, idx) => `
+                        <div style="display: inline-flex; align-items: center; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 2px 6px; gap: 6px; box-sizing: border-box;">
+                            <input type="text" value="${sz}" oninput="_tpdUpdateModalSizeVal('${tplName}', ${idx}, this.value)" style="border: none; background: transparent; font-size: 12px; font-weight: 600; width: 70px; color: #1e293b; outline: none; padding: 0; margin: 0; box-sizing: border-box;" placeholder="Nhập size...">
+                            <button type="button" onclick="_tpdDeleteModalSize('${tplName}', ${idx})" style="color: #ef4444; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 700; padding: 0 2px; margin: 0; line-height: 1; display: inline-flex; align-items: center;" title="Xóa size">✕</button>
+                        </div>
+                    `).join('')}
+                </div>
             </div>
         `;
     }).join('');
 }
 
-// Add size item
-function _tpdAddModalSize(type) {
-    const list = type === 'TT' ? window._tpdModalSizeTT : window._tpdModalSizeNamNu;
-    list.push("");
-    _tpdRenderModalSizes(type);
+// Add new template block
+function _tpdAddNewSizeTemplate() {
+    const templates = window._tpdModalSizeTemplates || {};
+    let newName = 'Mẫu Size Mới';
+    let counter = 1;
+    while (templates[newName] !== undefined) {
+        counter++;
+        newName = `Mẫu Size Mới ${counter}`;
+    }
+    templates[newName] = [];
+    _tpdRenderAllSizeTemplates();
 
-    // Auto-focus the last added input
-    const container = document.getElementById(type === 'TT' ? 'modalSizeTTContainer' : 'modalSizeNamNuContainer');
+    // Scroll to the bottom of the container
+    const container = document.getElementById('tpdSizeTemplatesContainer');
     if (container) {
-        const inputs = container.querySelectorAll('input[type="text"]');
-        if (inputs.length > 0) {
-            inputs[inputs.length - 1].focus();
-        }
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 50);
     }
 }
 
-// Delete size item
-function _tpdDeleteModalSize(type, idx) {
-    const list = type === 'TT' ? window._tpdModalSizeTT : window._tpdModalSizeNamNu;
-    list.splice(idx, 1);
-    _tpdRenderModalSizes(type);
+// Rename template block key
+function _tpdRenameSizeTemplate(oldName, newName) {
+    newName = newName.trim();
+    if (!newName) {
+        showToast('Tên mẫu size không được để trống!', 'warning');
+        _tpdRenderAllSizeTemplates();
+        return;
+    }
+    if (newName === oldName) return;
+
+    const templates = window._tpdModalSizeTemplates || {};
+    if (templates[newName] !== undefined) {
+        showToast('Tên mẫu size này đã tồn tại!', 'danger');
+        _tpdRenderAllSizeTemplates();
+        return;
+    }
+
+    const updated = {};
+    Object.keys(templates).forEach(k => {
+        if (k === oldName) {
+            updated[newName] = templates[oldName];
+        } else {
+            updated[k] = templates[k];
+        }
+    });
+    window._tpdModalSizeTemplates = updated;
+    _tpdRenderAllSizeTemplates();
 }
 
-// Update local array value on input
-function _tpdUpdateModalSizeVal(type, idx, val) {
-    const list = type === 'TT' ? window._tpdModalSizeTT : window._tpdModalSizeNamNu;
-    list[idx] = val;
+// Delete template block key
+function _tpdDeleteSizeTemplate(tplName) {
+    if (confirm(`Bạn có chắc chắn muốn xóa mẫu size "${tplName}"?`)) {
+        delete window._tpdModalSizeTemplates[tplName];
+        _tpdRenderAllSizeTemplates();
+    }
+}
+
+// Add size input inside a template block
+function _tpdAddModalSize(tplName) {
+    const templates = window._tpdModalSizeTemplates || {};
+    if (templates[tplName]) {
+        templates[tplName].push("");
+        _tpdRenderAllSizeTemplates();
+    }
+}
+
+// Delete size input inside a template block
+function _tpdDeleteModalSize(tplName, idx) {
+    const templates = window._tpdModalSizeTemplates || {};
+    if (templates[tplName]) {
+        templates[tplName].splice(idx, 1);
+        _tpdRenderAllSizeTemplates();
+    }
+}
+
+// Update size input value inside a template block
+function _tpdUpdateModalSizeVal(tplName, idx, val) {
+    const templates = window._tpdModalSizeTemplates || {};
+    if (templates[tplName]) {
+        templates[tplName][idx] = val;
+    }
 }
 
 // Save size configuration to backend
 async function _tpdSaveSizeConfig() {
-    const sizeTT = (window._tpdModalSizeTT || []).map(s => s.trim()).filter(s => s.length > 0);
-    const sizeNamNu = (window._tpdModalSizeNamNu || []).map(s => s.trim()).filter(s => s.length > 0);
+    const templates = window._tpdModalSizeTemplates || {};
+    const payload = {};
 
-    const payload = {
-        "Size TT": sizeTT,
-        "Size Nam / Nữ": sizeNamNu
-    };
+    // Clean and validate
+    for (const key of Object.keys(templates)) {
+        const cleanedSizes = (templates[key] || [])
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+        payload[key] = cleanedSizes;
+    }
 
     try {
         const res = await apiCall('/api/dht/size-config', 'PUT', payload);
@@ -4331,6 +4410,7 @@ async function _tpdSaveSizeConfig() {
             showToast('Lưu cài đặt mẫu size thành công!', 'success');
             const modal = document.getElementById('tpdSizeConfigModal');
             if (modal) modal.remove();
+            
             // Reload size config and redraw
             await _tpdLoadSizeConfig();
             _tpdRenderFormInputs();
