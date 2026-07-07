@@ -2316,6 +2316,7 @@ var _PAGE_INIT_REGISTRY = {
     'loithuonggap': '_ltgInit',
     'xuatvaicat': 'renderXuatvaicatPage',
     'chuanbiqlx': 'renderQuanlyxuongqlxPage',
+    'taophieudonhang': 'renderTaophieudonhangPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {

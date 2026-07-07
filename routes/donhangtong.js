@@ -2500,7 +2500,12 @@ module.exports = async function(fastify) {
             };
         }
 
-        const orderId = Number(request.params.id);
+        let orderId = Number(request.params.id);
+        if (isNaN(orderId)) {
+            const orderRow = await db.get(`SELECT id FROM dht_orders WHERE order_code = $1`, [request.params.id]);
+            if (!orderRow) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+            orderId = orderRow.id;
+        }
 
         // 1. Full order + joined fields
         const order = await db.get(`
@@ -4812,7 +4817,12 @@ module.exports = async function(fastify) {
 
     // GET production status for a specific order
     fastify.get('/api/dht/orders/:orderId/production', { preHandler: [authenticate] }, async (request, reply) => {
-        const orderId = Number(request.params.orderId);
+        let orderId = Number(request.params.orderId);
+        if (isNaN(orderId)) {
+            const orderRow = await db.get(`SELECT id FROM dht_orders WHERE order_code = $1`, [request.params.orderId]);
+            if (!orderRow) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+            orderId = orderRow.id;
+        }
         const order = await db.get(`
             SELECT o.id, o.order_code, o.shipping_status, o.shipped_at, o.shipped_by,
                    c.name AS category_name,
@@ -4842,7 +4852,12 @@ module.exports = async function(fastify) {
 
     // POST toggle a production step for an order
     fastify.post('/api/dht/orders/:orderId/production/:stepId', { preHandler: [authenticate] }, async (request, reply) => {
-        const orderId = Number(request.params.orderId);
+        let orderId = Number(request.params.orderId);
+        if (isNaN(orderId)) {
+            const orderRow = await db.get(`SELECT id FROM dht_orders WHERE order_code = $1`, [request.params.orderId]);
+            if (!orderRow) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+            orderId = orderRow.id;
+        }
         const stepId = Number(request.params.stepId);
         const userId = request.user.id;
         const { vnNow } = require('./utils/timezone');
