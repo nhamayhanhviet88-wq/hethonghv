@@ -4862,6 +4862,15 @@ module.exports = async function(fastify) {
         return { success: true, product: r };
     });
 
+    fastify.put('/api/dht/products/reorder', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { ids } = request.body || {};
+        if (!Array.isArray(ids)) return reply.code(400).send({ error: 'Thiếu hoặc sai định dạng danh sách ids' });
+        for (let i = 0; i < ids.length; i++) {
+            await db.run('UPDATE dht_products SET display_order = $1 WHERE id = $2', [i + 1, Number(ids[i])]);
+        }
+        return { success: true };
+    });
+
     // UPDATE product cutting_category or name
     fastify.put('/api/dht/products/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const pid = Number(request.params.id);

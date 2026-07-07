@@ -44,8 +44,13 @@ function _spqtRenderSidebar() {
             var ccBadge = p.cutting_category_name
                 ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-left:4px">' + p.cutting_category_name + '</span>'
                 : '<span style="background:#fee2e2;color:#dc2626;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-left:4px">⚠️</span>';
-            h += '<div onclick="_spqtSelectProduct(' + p.id + ')" style="padding:5px 10px 5px 20px;font-size:12px;cursor:pointer;border-radius:4px;margin:1px 0;font-weight:'+(sel?'700':'500')+';background:'+(sel?'#fef3c7':'#fff')+';color:'+(sel?'#b45309':'#64748b')+'" onmouseover="if(!this.style.fontWeight||this.style.fontWeight!==\'700\')this.style.background=\'#f8fafc\'" onmouseout="if(!this.style.fontWeight||this.style.fontWeight!==\'700\')this.style.background=\'#fff\'">'
-                + '🏷️ ' + p.name + ccBadge + '</div>';
+            h += '<div onclick="_spqtSelectProduct(' + p.id + ')" style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px 5px 20px;font-size:12px;cursor:pointer;border-radius:4px;margin:1px 0;font-weight:'+(sel?'700':'500')+';background:'+(sel?'#fef3c7':'#fff')+';color:'+(sel?'#b45309':'#64748b')+'" onmouseover="if(!this.style.fontWeight||this.style.fontWeight!==\'700\')this.style.background=\'#f8fafc\'" onmouseout="if(!this.style.fontWeight||this.style.fontWeight!==\'700\')this.style.background=\'#fff\'">'
+                + '<div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🏷️ ' + p.name + ccBadge + '</div>'
+                + '<div style="display:flex;gap:4px;margin-left:6px">'
+                + '<span onclick="event.stopPropagation();_spqtMoveProduct(' + p.id + ', -1)" style="padding:1px 4px;background:#f1f5f9;color:#94a3b8;border-radius:3px;font-size:9px;font-weight:700" onmouseover="this.style.color=\'#2563eb\';this.style.background=\'#dbeafe\'" onmouseout="this.style.color=\'#94a3b8\';this.style.background=\'#f1f5f9\'" title="Lên">▲</span>'
+                + '<span onclick="event.stopPropagation();_spqtMoveProduct(' + p.id + ', 1)" style="padding:1px 4px;background:#f1f5f9;color:#94a3b8;border-radius:3px;font-size:9px;font-weight:700" onmouseover="this.style.color=\'#2563eb\';this.style.background=\'#dbeafe\'" onmouseout="this.style.color=\'#94a3b8\';this.style.background=\'#f1f5f9\'" title="Xuống">▼</span>'
+                + '</div>'
+                + '</div>';
         });
         // Add product button
         h += '<div style="padding:3px 10px 3px 20px"><button onclick="_spqtShowAddProduct(' + st.id + ')" style="background:none;border:1px dashed #94a3b8;color:#64748b;padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">+ Thêm SP</button></div>';
@@ -318,4 +323,34 @@ async function _spqtDeleteCcSelected() {
             if (_spqt.selProduct) _spqtSelectProduct(oldSelProduct.id);
         }
     } else showToast(res.error || 'Lỗi', 'error');
+}
+
+async function _spqtMoveProduct(pid, direction) {
+    var prod = _spqt.products.find(function(p) { return p.id === pid; });
+    if (!prod) return;
+    
+    var prods = _spqt.products.filter(function(p) { return p.sale_type_id === prod.sale_type_id; });
+    var idx = prods.findIndex(function(p) { return p.id === pid; });
+    if (idx === -1) return;
+    
+    var targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= prods.length) return;
+    
+    var temp = prods[idx];
+    prods[idx] = prods[targetIdx];
+    prods[targetIdx] = temp;
+    
+    var ids = prods.map(function(p) { return p.id; });
+    
+    var res = await apiCall('/api/dht/products/reorder', 'PUT', { ids: ids });
+    if (res.success) {
+        var oldSelProduct = _spqt.selProduct;
+        await _spqtLoadAll();
+        _spqtRenderSidebar();
+        if (oldSelProduct) {
+            _spqt.selProduct = _spqt.products.find(function(p) { return p.id === oldSelProduct.id; }) || null;
+        }
+    } else {
+        showToast(res.error || 'Lỗi sắp xếp', 'error');
+    }
 }
