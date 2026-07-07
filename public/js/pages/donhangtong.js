@@ -924,7 +924,7 @@ function _dhtRenderOrderRows(filtered) {
             <td style="font-weight:600;">${shipDateFmt}</td>
             <td ${tienDoClick}>${tienDo}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
-            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? '<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP</span>' : ''}${badgeRow}</td>
+            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${badgeRow}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.province || '—'}</td>

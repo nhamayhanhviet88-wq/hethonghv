@@ -214,7 +214,10 @@ function _tpdRenderList() {
         return `
             <div class="tpd-order-card ${isDraft ? 'card-draft' : ''} ${_tpd.activeOrderId == o.id ? 'card-active' : ''}" onclick="_tpdOpenOrderTechCard(${o.id})">
                 <div class="card-header">
-                    <span class="card-code">${escapeHTML(o.order_code || 'CHƯA CÓ MÃ')}</span>
+                    <span class="card-code" style="display: flex; flex-direction: column; gap: 2px;">
+                        ${isDraft && o.draft_name ? `<span class="draft-name-label" style="color: #d97706; font-size: 14px; font-weight: 800;">📝 ${escapeHTML(o.draft_name)}</span>` : ''}
+                        <span style="${isDraft ? 'font-size: 11px; color: #64748b; font-weight: 500;' : ''}">${escapeHTML(o.order_code || 'CHƯA CÓ MÃ')}</span>
+                    </span>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <span class="tpd-badge ${badgeClass}">${badgeLabel}</span>
                         ${isDraft ? `<button class="tpd-delete-draft-btn" data-id="${o.id}" data-code="${escapeHTML(o.order_code || '')}" data-no-debounce="true" title="Xóa bản nháp" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;transition:all 0.15s;outline:none;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">🗑️ Xóa</button>` : ''}
@@ -392,7 +395,10 @@ function _tpdRenderTechCardContent(data, steps) {
 
                 <div class="sheet-title-banner">
                     <h2 class="sheet-title-text">PHIẾU SẢN XUẤT ĐƠN HÀNG</h2>
-                    <span class="sheet-order-code">Mã đơn: ${escapeHTML(o.order_code || 'DRAFT')}</span>
+                    <span class="sheet-order-code">
+                        Mã đơn: ${escapeHTML(o.order_code || 'DRAFT')}
+                        ${(o.is_draft === true || o.is_draft === 1 || o.is_draft === 'true') && o.draft_name ? ` (Bản nháp: ${escapeHTML(o.draft_name)})` : ''}
+                    </span>
                 </div>
 
                 <!-- Two Column Layout: Specs & Design -->
