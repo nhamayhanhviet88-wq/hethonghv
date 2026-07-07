@@ -129,7 +129,7 @@ async function _tpdLoadOrders() {
         if (grid) grid.innerHTML = '<div class="tpd-loading"><div class="tpd-spinner"></div><p>Đang tải đơn hàng...</p></div>';
 
         // Load dht orders
-        let url = '/api/dht/orders?';
+        let url = '/api/dht/orders?include_drafts=true&';
         if (_tpd.filter.year) url += `year=${_tpd.filter.year}&`;
         if (_tpd.filter.month) url += `month=${_tpd.filter.month}&`;
 
@@ -200,7 +200,10 @@ function _tpdRenderList() {
             <div class="tpd-order-card ${isDraft ? 'card-draft' : ''} ${_tpd.activeOrderId == o.id ? 'card-active' : ''}" onclick="_tpdOpenOrderTechCard(${o.id})">
                 <div class="card-header">
                     <span class="card-code">${escapeHTML(o.order_code || 'CHƯA CÓ MÃ')}</span>
-                    <span class="tpd-badge ${badgeClass}">${badgeLabel}</span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="tpd-badge ${badgeClass}">${badgeLabel}</span>
+                        ${isDraft ? `<button class="tpd-delete-draft-btn" onclick="event.stopPropagation(); _tpdDeleteDraft(${o.id}, '${escapeHTML(o.order_code || '')}')" title="Xóa bản nháp" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;transition:all 0.15s;outline:none;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">🗑️ Xóa</button>` : ''}
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="card-row">
@@ -246,6 +249,24 @@ function _tpdOnFilterChange(key, value) {
         _tpdLoadOrders();
     } else {
         _tpdRenderList();
+    }
+}
+
+async function _tpdDeleteDraft(orderId, orderCode) {
+    if (!confirm(`Bạn có chắc chắn muốn xóa bản nháp "${orderCode || 'này'}" không?`)) {
+        return;
+    }
+    try {
+        const res = await apiCall(`/api/dht/orders/${orderId}`, 'DELETE');
+        if (res && res.success) {
+            showToast('Đã xóa bản nháp thành công!', 'success');
+            await _tpdLoadOrders();
+        } else {
+            throw new Error(res.error || 'Lỗi không xác định');
+        }
+    } catch(e) {
+        console.error(e);
+        showToast('Lỗi xóa bản nháp: ' + e.message, 'error');
     }
 }
 

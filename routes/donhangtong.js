@@ -4179,12 +4179,18 @@ module.exports = async function(fastify) {
     });
 
     // ========== ORDERS: Delete ==========
-    // ★ Requires “Xóa Đơn” permission
-    fastify.delete('/api/dht/orders/:id', { preHandler: [authenticate, requirePerm('dht_xoa_don', 'view')] }, async (request, reply) => {
+    // ★ Requires “Xóa Đơn” permission for official orders; draft orders can be deleted by creator without the permission
+    fastify.delete('/api/dht/orders/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.id);
-        // Only creator or giam_doc can delete
-        const order = await db.get('SELECT created_by FROM dht_orders WHERE id = $1', [orderId]);
+        const order = await db.get('SELECT created_by, is_draft FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        if (!order.is_draft) {
+            const checkPerm = requirePerm('dht_xoa_don', 'view');
+            await checkPerm(request, reply);
+            if (reply.sent) return;
+        }
+
         if (order.created_by !== request.user.id && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ người tạo hoặc Giám Đốc mới được xóa' });
         }
