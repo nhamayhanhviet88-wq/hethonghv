@@ -1190,7 +1190,7 @@ function _dhtOnCarrierChange() {
 }
 
 // Collect carrier extra data (returns object, null, or false if validation fails)
-function _dhtGetCarrierExtra() {
+function _dhtGetCarrierExtra(isDraft) {
     var sel = document.getElementById('_co_carrier');
     if (!sel) return null;
     var selectedText = sel.options[sel.selectedIndex]?.text || '';
@@ -1199,28 +1199,32 @@ function _dhtGetCarrierExtra() {
         var busPhone = document.getElementById('_co_busPhone')?.value?.trim();
         var busH = document.getElementById('_co_busHour')?.value;
         var busM = document.getElementById('_co_busMin')?.value;
-        if (!busName) { showToast('Nhập Tên Nhà Xe', 'error'); return false; }
-        if (!busPhone) { showToast('Nhập SĐT Nhà Xe', 'error'); return false; }
-        var phoneDigits = busPhone.replace(/\D/g, '');
-        if (phoneDigits.length !== 10) { showToast('SĐT Nhà Xe phải đúng 10 số (hiện tại: ' + phoneDigits.length + ' số)', 'error'); document.getElementById('_co_busPhone')?.focus(); return false; }
+        var phoneDigits = busPhone ? busPhone.replace(/\D/g, '') : '';
         var busLocation = document.getElementById('_co_busLocation')?.value?.trim();
         var busDestination = document.getElementById('_co_busDestination')?.value?.trim();
-        if (!busLocation) { showToast('Nhập Địa Điểm Xe Đỗ', 'error'); document.getElementById('_co_busLocation')?.focus(); return false; }
-        if (!busDestination) { showToast('Nhập Xe Đi Về Đâu', 'error'); document.getElementById('_co_busDestination')?.focus(); return false; }
-        if (!busH || busH === '') { showToast('Chọn Giờ Xe Chạy', 'error'); return false; }
-        if (busM === undefined || busM === null || busM === '') { showToast('Chọn Phút Xe Chạy', 'error'); return false; }
-        var busTime = busH + ':' + busM;
-        return { type: 'nha_xe', bus_name: busName, bus_phone: phoneDigits, bus_location: busLocation, bus_destination: busDestination, bus_departure_time: busTime };
+        var busTime = (busH && busM !== '') ? (busH + ':' + busM) : null;
+        if (!isDraft) {
+            if (!busName) { showToast('Nhập Tên Nhà Xe', 'error'); return false; }
+            if (!busPhone) { showToast('Nhập SĐT Nhà Xe', 'error'); return false; }
+            if (phoneDigits.length !== 10) { showToast('SĐT Nhà Xe phải đúng 10 số (hiện tại: ' + phoneDigits.length + ' số)', 'error'); document.getElementById('_co_busPhone')?.focus(); return false; }
+            if (!busLocation) { showToast('Nhập Địa Điểm Xe Đỗ', 'error'); document.getElementById('_co_busLocation')?.focus(); return false; }
+            if (!busDestination) { showToast('Nhập Xe Đi Về Đâu', 'error'); document.getElementById('_co_busDestination')?.focus(); return false; }
+            if (!busH || busH === '') { showToast('Chọn Giờ Xe Chạy', 'error'); return false; }
+            if (busM === undefined || busM === null || busM === '') { showToast('Chọn Phút Xe Chạy', 'error'); return false; }
+        }
+        return { type: 'nha_xe', bus_name: busName || null, bus_phone: phoneDigits || null, bus_location: busLocation || null, bus_destination: busDestination || null, bus_departure_time: busTime };
     } else if (selectedText.indexOf('Nhận Hàng Hộ') >= 0 || selectedText.indexOf('Nhận Hộ') >= 0) {
         var proxyName = document.getElementById('_co_proxyName')?.value?.trim();
         var proxyAddr = document.getElementById('_co_proxyAddr')?.value?.trim();
         var proxyPhone = document.getElementById('_co_proxyPhone')?.value?.trim();
-        if (!proxyName) { showToast('Nhập Tên Người Nhận Hộ', 'error'); document.getElementById('_co_proxyName')?.focus(); return false; }
-        if (!proxyAddr) { showToast('Nhập Địa Chỉ Người Nhận Hộ', 'error'); document.getElementById('_co_proxyAddr')?.focus(); return false; }
-        if (!proxyPhone) { showToast('Nhập SĐT Người Nhận Hộ', 'error'); document.getElementById('_co_proxyPhone')?.focus(); return false; }
-        var proxyDigits = proxyPhone.replace(/\D/g, '');
-        if (proxyDigits.length !== 10) { showToast('SĐT Người Nhận Hộ phải đúng 10 số (hiện tại: ' + proxyDigits.length + ' số)', 'error'); document.getElementById('_co_proxyPhone')?.focus(); return false; }
-        return { type: 'nguoi_nhan_ho', proxy_name: proxyName, proxy_address: proxyAddr, proxy_phone: proxyDigits };
+        var proxyDigits = proxyPhone ? proxyPhone.replace(/\D/g, '') : '';
+        if (!isDraft) {
+            if (!proxyName) { showToast('Nhập Tên Người Nhận Hộ', 'error'); document.getElementById('_co_proxyName')?.focus(); return false; }
+            if (!proxyAddr) { showToast('Nhập Địa Chỉ Người Nhận Hộ', 'error'); document.getElementById('_co_proxyAddr')?.focus(); return false; }
+            if (!proxyPhone) { showToast('Nhập SĐT Người Nhận Hộ', 'error'); document.getElementById('_co_proxyPhone')?.focus(); return false; }
+            if (proxyDigits.length !== 10) { showToast('SĐT Người Nhận Hộ phải đúng 10 số (hiện tại: ' + proxyDigits.length + ' số)', 'error'); document.getElementById('_co_proxyPhone')?.focus(); return false; }
+        }
+        return { type: 'nguoi_nhan_ho', proxy_name: proxyName || null, proxy_address: proxyAddr || null, proxy_phone: proxyDigits || null };
     }
     return null;
 }
@@ -2131,12 +2135,12 @@ function _dhtRenderSurcharges() {
 // === Submit Order ===
 async function _dhtSubmitCreateV2(isDraft) {
     var cat = _dhtRepairData ? String(_dhtRepairData.catId) : (document.getElementById('_co_cat')?.value);
-    var phone = document.getElementById('_co_phone')?.value?.trim();
-    var name = document.getElementById('_co_name')?.value?.trim();
-    var addr = document.getElementById('_co_addr')?.value?.trim();
-    var prov = document.getElementById('_co_prov')?.value;
-    var shipDate = document.getElementById('_co_shipDate')?.value;
-    var carrier = document.getElementById('_co_carrier')?.value;
+    var phone = document.getElementById('_co_phone')?.value?.trim() || null;
+    var name = document.getElementById('_co_name')?.value?.trim() || null;
+    var addr = document.getElementById('_co_addr')?.value?.trim() || null;
+    var prov = document.getElementById('_co_prov')?.value || null;
+    var shipDate = document.getElementById('_co_shipDate')?.value || null;
+    var carrier = document.getElementById('_co_carrier')?.value || null;
     if (!cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
 
     // ★ Determine free vs normal mode
@@ -2151,7 +2155,7 @@ async function _dhtSubmitCreateV2(isDraft) {
         src = _dhtRepairData.order.source || document.getElementById('_co_srcFreeSelect')?.value || document.getElementById('_co_src')?.value;
     } else if (isFree) {
         src = document.getElementById('_co_srcFreeSelect')?.value;
-        if (!src) { showToast('Chọn Nguồn ' + catName, 'error'); return; }
+        if (!isDraft && !src) { showToast('Chọn Nguồn ' + catName, 'error'); return; }
     } else {
         src = document.getElementById('_co_src')?.value;
     }
@@ -2165,18 +2169,22 @@ async function _dhtSubmitCreateV2(isDraft) {
         if (!custId) { showToast('Vui lòng chọn mã đơn hoặc khách hàng', 'error'); return; }
     }
 
-    if (!phone) { showToast('Nhập Số Điện Thoại', 'error'); return; }
-    if (!name) { showToast('Nhập Tên Khách Hàng', 'error'); return; }
-    if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
-    if (!prov || _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
-    if (!isFree && !src) { showToast('Chưa có Nguồn (chọn KH để tự điền)', 'error'); return; }
-    var desVal = _dhtRepairData ? 'old_design' : (document.getElementById('_co_designer')?.value);
-    if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
-    if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
-    if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
-    var saleNote = document.getElementById('_co_saleNote')?.value?.trim();
-    if (!saleNote) { showToast('📝 Nhập Nội Dung Sale Dặn Kế Toán Gửi Hàng', 'error'); return; }
-    var carrierExtra = _dhtGetCarrierExtra();
+    if (!isDraft) {
+        if (!phone) { showToast('Nhập Số Điện Thoại', 'error'); return; }
+        if (!name) { showToast('Nhập Tên Khách Hàng', 'error'); return; }
+        if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
+        if (!prov || _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
+        if (!isFree && !src) { showToast('Chưa có Nguồn (chọn KH để tự điền)', 'error'); return; }
+        var desVal = _dhtRepairData ? 'old_design' : (document.getElementById('_co_designer')?.value);
+        if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
+        if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
+        if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
+        var saleNote = document.getElementById('_co_saleNote')?.value?.trim();
+        if (!saleNote) { showToast('📝 Nhập Nội Dung Sale Dặn Kế Toán Gửi Hàng', 'error'); return; }
+    } else {
+        if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
+    }
+    var carrierExtra = _dhtGetCarrierExtra(isDraft);
     if (carrierExtra === false) return;
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
     if (!isDraft && pri === 'CHUẨN') {
@@ -2211,7 +2219,7 @@ async function _dhtSubmitCreateV2(isDraft) {
     (_dhtCreate.surcharges||[]).forEach(function(s) { _totalAmt += Number(s.amount) || 0; });
     var _depAmt = _dhtCreate.depositAmount || 0;
     var _remain = (_totalAmt + _totalVat + additionalVat) - _depAmt;
-    if (_remain < 0) { showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn (' + (_totalAmt + _totalVat + additionalVat).toLocaleString('vi-VN') + 'đ) nhỏ hơn tiền cọc (' + _depAmt.toLocaleString('vi-VN') + 'đ)', 'error'); return; }
+    if (!isDraft && _remain < 0) { showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn (' + (_totalAmt + _totalVat + additionalVat).toLocaleString('vi-VN') + 'đ) nhỏ hơn tiền cọc (' + _depAmt.toLocaleString('vi-VN') + 'đ)', 'error'); return; }
     var totalAmt = 0, totalVatAmt = 0;
     items.forEach(function(p) { totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
     var hasVat = (totalVatAmt > 0 || additionalVat > 0);
@@ -2221,10 +2229,12 @@ async function _dhtSubmitCreateV2(isDraft) {
     var desId = desVal2 === 'old_design' ? null : (desVal2 || null);
 
     // Check if phone action toggle is needed
-    var phoneActionEl = document.getElementById('_co_phoneAction');
-    if (phoneActionEl && phoneActionEl.style.display !== 'none' && !_dhtPhoneAction) {
-        showToast('⚠️ Chọn hành động: Đổi SĐT cho KH cũ hay Tạo KH mới', 'error');
-        return;
+    if (!isDraft) {
+        var phoneActionEl = document.getElementById('_co_phoneAction');
+        if (phoneActionEl && phoneActionEl.style.display !== 'none' && !_dhtPhoneAction) {
+            showToast('⚠️ Chọn hành động: Đổi SĐT cho KH cũ hay Tạo KH mới', 'error');
+            return;
+        }
     }
 
     var payload = {
@@ -2919,15 +2929,17 @@ async function _dhtSubmitEditV2(isDraft) {
     var id = _dhtCreate.editOrderId;
     if (!id) { showToast('Lỗi: không có ID đơn', 'error'); return; }
     var cat = document.getElementById('_co_cat')?.value;
-    var addr = document.getElementById('_co_addr')?.value?.trim();
-    var prov = document.getElementById('_co_prov')?.value;
-    var shipDate = document.getElementById('_co_shipDate')?.value;
-    var carrier = document.getElementById('_co_carrier')?.value;
+    var addr = document.getElementById('_co_addr')?.value?.trim() || null;
+    var prov = document.getElementById('_co_prov')?.value || null;
+    var shipDate = document.getElementById('_co_shipDate')?.value || null;
+    var carrier = document.getElementById('_co_carrier')?.value || null;
     if (!cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
-    if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
+    if (!isDraft) {
+        if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
+        var desVal = document.getElementById('_co_designer')?.value;
+        if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
+    }
     if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
-    var desVal = document.getElementById('_co_designer')?.value;
-    if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
 
     var items = _dhtCreate.phieuItems || [];
     var catSel = document.getElementById('_co_cat');
@@ -2989,6 +3001,9 @@ async function _dhtSubmitEditV2(isDraft) {
     var desType = desVal2 === 'old_design' ? 'old_design' : 'staff';
     var desId = desVal2 === 'old_design' ? null : (desVal2 || null);
 
+    var carrierExtra = _dhtGetCarrierExtra(isDraft);
+    if (carrierExtra === false) return;
+
     var payload = {
         category_id: cat,
         address: addr,
@@ -3003,7 +3018,7 @@ async function _dhtSubmitEditV2(isDraft) {
         designer_user_id: desId,
         designer_type: desType,
         carrier_id: carrier || null,
-        carrier_extra: _dhtGetCarrierExtra() || null,
+        carrier_extra: carrierExtra || null,
         expected_ship_date: shipDate || null,
         shipping_priority: pri,
         standard_delivery_time: pri === 'CHUẨN' ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
