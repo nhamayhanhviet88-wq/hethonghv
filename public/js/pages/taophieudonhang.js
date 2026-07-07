@@ -137,6 +137,66 @@ async function renderTaophieudonhangPage(content) {
     }
 }
 
+// === Dedicated Design Draft Full-Page Route ===
+async function renderDesignDraftPage(content) {
+    _tpdInjectStyles();
+
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (!id) {
+        content.innerHTML = `
+            <div class="card" style="margin: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                <div class="card-body" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                    <h3 style="font-weight: 700; color: #1e293b; margin-bottom: 8px;">Thiếu thông tin đơn hàng</h3>
+                    <p style="color: #64748b; font-size: 14px;">Không tìm thấy ID của bản nháp cần thiết kế.</p>
+                    <button class="btn btn-secondary" onclick="navigate('taophieudonhang')" style="margin-top: 16px; padding: 8px 24px; border-radius: 8px;"> Quay lại danh sách</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // Enable full page mode and set container
+    window._dhtFullPageMode = true;
+    window._dhtFullPageContainer = content;
+
+    content.innerHTML = `
+        <div class="tpd-drawer-loading" style="padding: 60px; text-align: center; background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin-top: 10px;">
+            <div class="tpd-spinner" style="margin: 0 auto 15px;"></div>
+            <p style="color: #64748b; font-weight: 500;">Đang tải chi tiết phiếu kỹ thuật đơn hàng...</p>
+        </div>
+    `;
+
+    try {
+        // 1. Load details
+        const details = await apiCall(`/api/dht/orders/${id}/detail`);
+        if (!details || !details.order) throw new Error('Không lấy được chi tiết đơn hàng');
+
+        // 2. Load production steps
+        const prodRes = await apiCall(`/api/dht/orders/${id}/production`);
+        const steps = prodRes && prodRes.steps ? prodRes.steps : [];
+
+        _tpd.activeOrderId = id;
+        _tpd.activeOrderDetails = details;
+        _tpd.activeOrderDetails.steps = steps;
+
+        _tpdRenderTechCardContent(details, steps);
+    } catch(e) {
+        console.error(e);
+        content.innerHTML = `
+            <div class="card" style="margin: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                <div class="card-body" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                    <h3 style="font-weight: 700; color: #dc2626; margin-bottom: 8px;">Không thể tải thông tin</h3>
+                    <p style="color: #64748b; font-size: 14px;">${e.message}</p>
+                    <button class="btn btn-secondary" onclick="navigate('taophieudonhang')" style="margin-top: 16px; padding: 8px 24px; border-radius: 8px;"> Quay lại danh sách</button>
+                </div>
+            </div>
+        `;
+    }
+}
+
 // Fetch all orders/drafts from server
 async function _tpdLoadOrders() {
     try {
@@ -345,7 +405,9 @@ function _tpdCloseDrawer() {
 
 // Render the actual production job card content inside the drawer
 function _tpdRenderTechCardContent(data, steps) {
-    const body = document.getElementById('tpdDrawerBody');
+    const body = (window._dhtFullPageMode && window._dhtFullPageContainer)
+        ? window._dhtFullPageContainer
+        : document.getElementById('tpdDrawerBody');
     if (!body) return;
 
     const o = data.order;
@@ -361,18 +423,31 @@ function _tpdRenderTechCardContent(data, steps) {
 
     // Prepare design proof image
     const proofImage = o.standard_proof_image || o.sample_image || '';
+    const isFullPage = window._dhtFullPageMode;
 
     // HTML Structure of Tech Card
     body.innerHTML = `
-        <div class="tpd-tech-card-wrapper">
+        <div class="tpd-tech-card-wrapper" style="${isFullPage ? 'padding: 24px; background: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-top: 10px;' : ''}">
             <!-- Toolbar -->
-            <div class="tpd-tech-card-toolbar no-print">
-                <button class="tpd-btn tpd-btn-print" onclick="_tpdPrintOrderTechCard(${o.id})">
-                    🖨️ In Phiếu Đơn Hàng
-                </button>
-                <button class="tpd-btn tpd-btn-secondary" onclick="_tpdCopyScanLink('${deepLink}')">
-                    🔗 Copy Link Quét
-                </button>
+            <div class="tpd-tech-card-toolbar no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; gap: 8px;">
+                    <button class="tpd-btn tpd-btn-print" onclick="_tpdPrintOrderTechCard(${o.id})">
+                        🖨️ In Phiếu Đơn Hàng
+                    </button>
+                    <button class="tpd-btn tpd-btn-secondary" onclick="_tpdCopyScanLink('${deepLink}')">
+                        🔗 Copy Link Quét
+                    </button>
+                    ${isFullPage ? `
+                        <button class="tpd-btn" onclick="_dhtInitializeEditState(${o.id})" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700;">
+                            ✏️ Sửa Đơn Nháp
+                        </button>
+                    ` : ''}
+                </div>
+                ${isFullPage ? `
+                    <button class="btn btn-secondary" onclick="closeModal()" style="font-weight: 700; padding: 8px 20px; border-radius: 8px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+                        ← Quay lại danh sách
+                    </button>
+                ` : ''}
             </div>
 
             <!-- Printable Sheet Area -->
@@ -691,14 +766,37 @@ async function _tpdUploadImageFile(file, orderId) {
             showToast('Đã lưu ảnh market thiết kế thành công!', 'success');
             
             // Reload card details
-            _tpdOpenOrderTechCard(orderId);
+            _tpdReloadTechCard(orderId);
         } catch(e) {
             console.error(e);
             showToast('Lỗi lưu ảnh thiết kế: ' + e.message, 'error');
-            _tpdOpenOrderTechCard(orderId);
+            _tpdReloadTechCard(orderId);
         }
     };
     reader.readAsDataURL(file);
+}
+
+// Reload card details on page or drawer depending on mode
+async function _tpdReloadTechCard(orderId) {
+    if (window._dhtFullPageMode && window._dhtFullPageContainer) {
+        try {
+            const details = await apiCall(`/api/dht/orders/${orderId}/detail`);
+            if (!details || !details.order) throw new Error('Không lấy được chi tiết đơn hàng');
+
+            const prodRes = await apiCall(`/api/dht/orders/${orderId}/production`);
+            const steps = prodRes && prodRes.steps ? prodRes.steps : [];
+
+            _tpd.activeOrderDetails = details;
+            _tpd.activeOrderDetails.steps = steps;
+
+            _tpdRenderTechCardContent(details, steps);
+        } catch(e) {
+            console.error('Reload tech card error:', e);
+            showToast('Lỗi tải lại chi tiết: ' + e.message, 'error');
+        }
+    } else {
+        _tpdOpenOrderTechCard(orderId);
+    }
 }
 
 // Trigger change market image (show paste zone)
@@ -713,7 +811,7 @@ function _tpdTriggerChangeMarket(orderId) {
             <span class="paste-subtitle">Click vào đây rồi nhấn <b>Ctrl+V</b> để dán ảnh thiết kế</span>
             <input type="file" id="tpdMarketFileInput" style="display:none" onchange="_tpdOnImageFileSelect(event, ${orderId})">
             <button class="tpd-mini-btn" style="margin-top:8px" onclick="document.getElementById('tpdMarketFileInput').click()">Chọn file từ máy</button>
-            <button class="tpd-mini-btn btn-cancel" style="margin-top:4px" onclick="_tpdOpenOrderTechCard(${orderId})">Hủy</button>
+            <button class="tpd-mini-btn btn-cancel" style="margin-top:4px" onclick="_tpdReloadTechCard(${orderId})">Hủy</button>
         </div>
     `;
 }

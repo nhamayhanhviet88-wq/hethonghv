@@ -2587,32 +2587,6 @@ function _ppApplyBgm() {
     _ppRenderSewTags();
 }
 
-// === Dedicated Design Draft Full-Page Route ===
-async function renderDesignDraftPage(content) {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-    if (!id) {
-        content.innerHTML = `
-            <div class="card" style="margin: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
-                <div class="card-body" style="padding: 40px; text-align: center;">
-                    <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-                    <h3 style="font-weight: 700; color: #1e293b; margin-bottom: 8px;">Thiếu thông tin đơn hàng</h3>
-                    <p style="color: #64748b; font-size: 14px;">Không tìm thấy ID của bản nháp cần thiết kế.</p>
-                    <button class="btn btn-secondary" onclick="navigate('taophieudonhang')" style="margin-top: 16px; padding: 8px 24px; border-radius: 8px;"> Quay lại danh sách</button>
-                </div>
-            </div>
-        `;
-        return;
-    }
-    
-    // Enable full page mode and set container
-    window._dhtFullPageMode = true;
-    window._dhtFullPageContainer = content;
-    
-    // Initialize the edit state for the draft order
-    await _dhtInitializeEditState(id);
-}
-
 // ========== FULL EDIT ORDER (reuse create form) ==========
 async function _dhtEditOrderFull(id) {
     try {
@@ -3137,7 +3111,11 @@ async function _dhtSubmitEditV2(isDraft) {
     if (data.success) {
         showToast('✅ Đã cập nhật đơn hàng!');
         _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
-        closeModal();
+        if (window.location.hash.includes('design-draft')) {
+            renderDesignDraftPage(window._dhtFullPageContainer);
+        } else {
+            closeModal();
+        }
         if (typeof _dhtLoadTree === 'function') await _dhtLoadTree();
         if (typeof _dhtLoadOrders === 'function') await _dhtLoadOrders();
         if (typeof _tpdLoadOrders === 'function') await _tpdLoadOrders();

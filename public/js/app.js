@@ -2414,13 +2414,14 @@ function setupEventListeners() {
 // ========== MODAL ==========
 function openModal(title, bodyHTML, footerHTML = '') {
     if (window._dhtFullPageMode && window._dhtFullPageContainer) {
+        const isDesignDraft = window.location.hash.includes('design-draft');
         window._dhtFullPageContainer.innerHTML = `
             <div class="card dht-design-card" style="margin: 0; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; background: #fff; overflow: hidden; animation: fadeInUp 0.4s ease;">
                 <div class="card-header dht-design-header" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b;">
                     <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #fbbf24; text-shadow: 0 1px 2px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px;">
                         🎨 ${title}
                     </h3>
-                    <button class="btn btn-secondary btn-sm" onclick="closeModal()" style="padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer; transition: all 0.2s;">
+                    <button class="btn btn-secondary btn-sm" onclick="${isDesignDraft ? 'renderDesignDraftPage(window._dhtFullPageContainer)' : 'closeModal()'}" style="padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer; transition: all 0.2s;">
                         ← Quay lại
                     </button>
                 </div>
