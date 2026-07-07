@@ -567,8 +567,8 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Phòng Ban</label><input class="form-control" value="'+(mi.phong_ban||mi.department_name||'')+'" disabled style="'+_dis+'"></div>'
         +'<div class="form-group"><label>Team</label><input class="form-control" value="'+_teamName+'" disabled style="'+_dis+'"></div>'
         +'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        // Draft Name input field
-        +'<div class="form-group" style="grid-column:span 2"><label style="font-weight:800;color:#d97706">📝 Tên Bản Nháp <span style="font-size:11px;font-weight:normal;color:#dc2626">(Bắt buộc nếu chọn Lưu Nháp)</span></label>'
+        // Draft Name input field (hidden, prompted on save draft)
+        +'<div class="form-group" style="grid-column:span 2; display:none"><label style="font-weight:800;color:#d97706">📝 Tên Bản Nháp <span style="font-size:11px;font-weight:normal;color:#dc2626">(Bắt buộc nếu chọn Lưu Nháp)</span></label>'
         +'<input id="_co_draftName" class="form-control" placeholder="Nhập tên gợi nhớ cho bản nháp này..." style="border:1.5px solid #f59e0b"></div>'
         // Row 2: Ngày + Lĩnh vực
         +'<div class="form-group"><label>Ngày Lên Đơn</label><input class="form-control" value="'+vnDateStr()+'" disabled style="'+_dis+'"></div>'
@@ -2161,6 +2161,18 @@ async function _dhtSubmitCreateV2(isDraft) {
     var shipDate = document.getElementById('_co_shipDate')?.value || null;
     var carrier = document.getElementById('_co_carrier')?.value || null;
     var draftName = (document.getElementById('_co_draftName')?.value || '').trim();
+    if (isDraft) {
+        var inputName = prompt("Vui lòng nhập Tên Bản Nháp để lưu:", draftName);
+        if (inputName === null) return; // User cancelled
+        inputName = inputName.trim();
+        if (!inputName) {
+            showToast('📝 Vui lòng nhập Tên Bản Nháp!', 'error');
+            return;
+        }
+        draftName = inputName;
+        const draftInput = document.getElementById('_co_draftName');
+        if (draftInput) draftInput.value = inputName;
+    }
     if (!isDraft && !cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
 
     // ★ Determine free vs normal mode
@@ -2204,11 +2216,6 @@ async function _dhtSubmitCreateV2(isDraft) {
         var saleNote = document.getElementById('_co_saleNote')?.value?.trim();
         if (!saleNote) { showToast('📝 Nhập Nội Dung Sale Dặn Kế Toán Gửi Hàng', 'error'); return; }
     } else {
-        if (!draftName) {
-            showToast('📝 Vui lòng nhập Tên Bản Nháp!', 'error');
-            document.getElementById('_co_draftName')?.focus();
-            return;
-        }
         if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
     }
     var carrierExtra = _dhtGetCarrierExtra(isDraft);
@@ -2957,6 +2964,18 @@ async function _dhtSubmitEditV2(isDraft) {
     var id = _dhtCreate.editOrderId;
     if (!id) { showToast('Lỗi: không có ID đơn', 'error'); return; }
     var draftName = (document.getElementById('_co_draftName')?.value || '').trim();
+    if (isDraft) {
+        var inputName = prompt("Vui lòng nhập Tên Bản Nháp để lưu:", draftName);
+        if (inputName === null) return; // User cancelled
+        inputName = inputName.trim();
+        if (!inputName) {
+            showToast('📝 Vui lòng nhập Tên Bản Nháp!', 'error');
+            return;
+        }
+        draftName = inputName;
+        const draftInput = document.getElementById('_co_draftName');
+        if (draftInput) draftInput.value = inputName;
+    }
     var cat = document.getElementById('_co_cat')?.value;
     var custId = document.getElementById('_co_custId')?.value || null;
     var addr = document.getElementById('_co_addr')?.value?.trim() || null;
@@ -2970,13 +2989,6 @@ async function _dhtSubmitEditV2(isDraft) {
         if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
     }
     if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
-    if (isDraft) {
-        if (!draftName) {
-            showToast('📝 Vui lòng nhập Tên Bản Nháp!', 'error');
-            document.getElementById('_co_draftName')?.focus();
-            return;
-        }
-    }
 
     var items = _dhtCreate.phieuItems || [];
     if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
