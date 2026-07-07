@@ -85,7 +85,7 @@ async function switchCdsxTab(tab, el) {
 // ===== SP & QT Tab — reuses all functions from caidatspqt.js =====
 async function _cdsxLoadSpQt(content) {
     content.innerHTML = '<div style="max-width:1100px;margin:0 auto;padding:16px 0">'
-        + '<div style="display:grid;grid-template-columns:330px 1fr;gap:16px" id="_spqtMain">'
+        + '<div style="display:grid;grid-template-columns:350px 1fr;gap:16px" id="_spqtMain">'
         + '<div id="_spqtSidebar" style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);max-height:70vh;overflow-y:auto"></div>'
         + '<div id="_spqtContent" style="background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,0.06);min-height:400px"></div>'
         + '</div></div>';
