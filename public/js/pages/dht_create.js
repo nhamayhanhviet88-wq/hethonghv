@@ -795,8 +795,8 @@ async function _dhtGoStep2() {
         }
         _dhtCalcTotal();
 
-        // ★ EDIT RESTRICTIONS: Non-GĐ users cannot modify critical fields
-        if (typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'giam_doc') {
+        // ★ EDIT RESTRICTIONS: Non-GĐ users cannot modify critical fields (skip for drafts)
+        if (!o.is_draft && typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'giam_doc') {
             // 1. Lock Lĩnh Vực (category) — read-only
             var catEl = document.getElementById('_co_cat');
             if (catEl) { catEl.disabled = true; catEl.style.background = '#f1f5f9'; catEl.style.color = '#64748b'; catEl.style.cursor = 'not-allowed'; catEl.title = '🔒 Chỉ GĐ mới đổi được Lĩnh Vực'; }
@@ -2154,7 +2154,7 @@ async function _dhtSubmitCreateV2(isDraft) {
     var prov = document.getElementById('_co_prov')?.value || null;
     var shipDate = document.getElementById('_co_shipDate')?.value || null;
     var carrier = document.getElementById('_co_carrier')?.value || null;
-    if (!cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
+    if (!isDraft && !cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
 
     // ★ Determine free vs normal mode
     var catSel = document.getElementById('_co_cat');
@@ -2254,7 +2254,7 @@ async function _dhtSubmitCreateV2(isDraft) {
 
     var payload = {
         order_date: vnDateStr(),
-        category_id: cat,
+        category_id: cat || null,
         customer_name: name,
         customer_phone: phone,
         source: src,
@@ -2917,8 +2917,8 @@ async function _dhtEditOrderFree(o) {
     }
     _dhtCalcTotal();
 
-    // ★ EDIT RESTRICTIONS for non-GĐ users
-    if (typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'giam_doc') {
+    // ★ EDIT RESTRICTIONS for non-GĐ users (skip for drafts)
+    if (!o.is_draft && typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'giam_doc') {
         var catEl2 = document.getElementById('_co_cat');
         if (catEl2) { catEl2.disabled = true; catEl2.style.background = '#f1f5f9'; catEl2.style.color = '#64748b'; catEl2.style.cursor = 'not-allowed'; catEl2.title = '🔒 Chỉ GĐ mới đổi được Lĩnh Vực'; }
 
@@ -2944,11 +2944,12 @@ async function _dhtSubmitEditV2(isDraft) {
     var id = _dhtCreate.editOrderId;
     if (!id) { showToast('Lỗi: không có ID đơn', 'error'); return; }
     var cat = document.getElementById('_co_cat')?.value;
+    var custId = document.getElementById('_co_custId')?.value || null;
     var addr = document.getElementById('_co_addr')?.value?.trim() || null;
     var prov = document.getElementById('_co_prov')?.value || null;
     var shipDate = document.getElementById('_co_shipDate')?.value || null;
     var carrier = document.getElementById('_co_carrier')?.value || null;
-    if (!cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
+    if (!isDraft && !cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
     if (!isDraft) {
         if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
         var desVal = document.getElementById('_co_designer')?.value;
@@ -2957,6 +2958,7 @@ async function _dhtSubmitEditV2(isDraft) {
     if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
 
     var items = _dhtCreate.phieuItems || [];
+    if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
     var catSel = document.getElementById('_co_cat');
     var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
     if (catName === 'PET') {
@@ -3020,7 +3022,8 @@ async function _dhtSubmitEditV2(isDraft) {
     if (carrierExtra === false) return;
 
     var payload = {
-        category_id: cat,
+        category_id: cat || null,
+        customer_id: custId,
         address: addr,
         province: prov || null,
         total_quantity: items.reduce(function(s, x) { return s + (x ? x.quantity : 0); }, 0),

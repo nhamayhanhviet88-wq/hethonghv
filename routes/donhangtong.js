@@ -3670,8 +3670,9 @@ module.exports = async function(fastify) {
             
             const prevShipCKVal = Number(currentObj.previous_ship_ck_val) || 0;
             const newShipCKVal = hasCarrierPay ? 0 : (prevShipCKVal + newShipCK);
+            const isDraftOrder = b.is_draft === true || b.is_draft === 'true' || oldOrder.is_draft;
             const newRemain = newTotal - newDiscount - newDeposit - newShipCKVal;
-            if (newRemain < 0) {
+            if (!isDraftOrder && newRemain < 0) {
                 return reply.code(400).send({ error: `⛔ Số tiền Còn Lại không được phép âm! (Mới tính: ${newRemain.toLocaleString('vi-VN')}đ)` });
             }
         }
@@ -3716,6 +3717,7 @@ module.exports = async function(fastify) {
         // Build dynamic SET clause
         const allowed = [
             'customer_name', 'customer_phone', 'source', 'province', 'address',
+            'customer_id',
             'cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount',
             'shipping_status', 'shipping_priority', 'shipping_date', 'notes', 'category_id', 'order_date',
             'has_vat', 'vat_amount', 'additional_vat_amount', 'designer_user_id', 'designer_type', 'carrier_id',
@@ -3758,10 +3760,6 @@ module.exports = async function(fastify) {
                 params.push(b.order_code.trim());
                 sets.push(`is_draft = FALSE`);
                 
-                if (b.customer_id) {
-                    sets.push(`customer_id = $${idx++}`);
-                    params.push(Number(b.customer_id));
-                }
                 if (b.deposit_payment_id) {
                     sets.push(`deposit_payment_id = $${idx++}`);
                     params.push(Number(b.deposit_payment_id));
@@ -3814,7 +3812,7 @@ module.exports = async function(fastify) {
                 const numericFields = [
                     'cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 
                     'category_id', 'vat_amount', 'additional_vat_amount', 'designer_user_id', 
-                    'carrier_id', 'actual_carrier_id', 'deposit_amount_cache'
+                    'carrier_id', 'actual_carrier_id', 'deposit_amount_cache', 'customer_id'
                 ];
                 const boolFields = ['has_vat', 'zalo_oa_sent', 'sx_print_confirmed'];
                 if (numericFields.includes(key)) {
