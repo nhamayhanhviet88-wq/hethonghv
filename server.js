@@ -938,6 +938,13 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_payment_id INTEGER`); } catch(e) {}
     try { await db.exec(`UPDATE dht_order_items SET shipping_status = 'pending' WHERE shipping_status IS NULL`); } catch(e) {}
 
+    // v_phieu: Production Sheet (Phiếu Sản Xuất) — per-item images & workshop data
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS mockup_image TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS front_technique_image TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS back_technique_image TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS workshop_note TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS style_name VARCHAR(255)`); } catch(e) {}
+
     // v10: Audit Log — Chi tiết lịch sử thay đổi đơn hàng
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS dht_audit_logs (

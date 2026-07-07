@@ -137,13 +137,18 @@ async function renderTaophieudonhangPage(content) {
     }
 }
 
-// === Dedicated Design Draft Full-Page Route ===
+// === Dedicated Design Draft Full-Page Route (Phiếu Sản Xuất SPA Workspace) ===
 async function renderDesignDraftPage(content) {
     _tpdInjectStyles();
+    _tpdInjectWorkspaceStyles();
+
+    // Enable full page mode and set container
+    window._dhtFullPageMode = true;
+    window._dhtFullPageContainer = content;
 
     const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-    if (!id) {
+    const orderId = params.get('id');
+    if (!orderId) {
         content.innerHTML = `
             <div class="card" style="margin: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
                 <div class="card-body" style="padding: 40px; text-align: center;">
@@ -157,10 +162,6 @@ async function renderDesignDraftPage(content) {
         return;
     }
 
-    // Enable full page mode and set container
-    window._dhtFullPageMode = true;
-    window._dhtFullPageContainer = content;
-
     content.innerHTML = `
         <div class="tpd-drawer-loading" style="padding: 60px; text-align: center; background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin-top: 10px;">
             <div class="tpd-spinner" style="margin: 0 auto 15px;"></div>
@@ -169,19 +170,38 @@ async function renderDesignDraftPage(content) {
     `;
 
     try {
-        // 1. Load details
-        const details = await apiCall(`/api/dht/orders/${id}/detail`);
+        // 1. Fetch order details, user info, and options in parallel
+        const [details, myInfoRes] = await Promise.all([
+            apiCall(`/api/dht/orders/${orderId}/detail`),
+            apiCall('/api/dht/my-info')
+        ]);
+
         if (!details || !details.order) throw new Error('Không lấy được chi tiết đơn hàng');
+        const order = details.order;
+        const items = details.items || [];
+        const myInfo = myInfoRes.user || {};
 
-        // 2. Load production steps
-        const prodRes = await apiCall(`/api/dht/orders/${id}/production`);
-        const steps = prodRes && prodRes.steps ? prodRes.steps : [];
+        // 2. Determine permissions
+        const isOwner = order.created_by === myInfo.id;
+        const isAdmin = ['giam_doc', 'quan_ly'].includes(myInfo.role);
+        const hasEditPermission = isOwner || isAdmin;
 
-        _tpd.activeOrderId = id;
-        _tpd.activeOrderDetails = details;
-        _tpd.activeOrderDetails.steps = steps;
+        // 3. Initialize workspace state
+        window._tpdWorkspaceState = {
+            orderId: orderId,
+            order: order,
+            items: items,
+            payments: details.payments || [],
+            surcharges: details.surcharges || [],
+            activeItemIndex: 0,
+            hasEditPermission: hasEditPermission,
+            // Deep copy of active item editing state
+            editingItem: items.length > 0 ? _tpdCloneItemState(items[0]) : null
+        };
 
-        _tpdRenderTechCardContent(details, steps);
+        // Render main workspace wrapper
+        _tpdRenderWorkspace(content);
+
     } catch(e) {
         console.error(e);
         content.innerHTML = `
@@ -195,6 +215,54 @@ async function renderDesignDraftPage(content) {
             </div>
         `;
     }
+}
+
+// Clone order item to independent workspace editing state
+function _tpdCloneItemState(item) {
+    let qtyArr = [];
+    try { qtyArr = typeof item.quantities === 'string' ? JSON.parse(item.quantities) : (item.quantities || []); } catch(e) {}
+    if (!Array.isArray(qtyArr)) qtyArr = [];
+    
+    // Ensure S, M, L, XL, XXL, XXXL, XXXXL, XXXXXL exist in quantities list for easy editor binding
+    const stdSizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
+    const mergedQuantities = [];
+    
+    // First import existing sizes
+    qtyArr.forEach(q => {
+        if (q.size) {
+            mergedQuantities.push({
+                size: q.size.trim().toUpperCase(),
+                qty: Number(q.qty) || 0,
+                price: Number(q.price) || Number(item.unit_price) || 0
+            });
+        }
+    });
+
+    // Then ensure standard sizes are at least represented in editing state
+    stdSizes.forEach(sz => {
+        if (!mergedQuantities.some(q => q.size === sz)) {
+            mergedQuantities.push({
+                size: sz,
+                qty: 0,
+                price: Number(item.unit_price) || 0
+            });
+        }
+    });
+
+    return {
+        id: item.id,
+        style_name: item.style_name || '',
+        material_name: item.material_name || '',
+        color_name: item.color_name || '',
+        workshop_note: item.workshop_note || '',
+        mockup_image: item.mockup_image || '',
+        front_technique_image: item.front_technique_image || '',
+        back_technique_image: item.back_technique_image || '',
+        quantities: mergedQuantities,
+        unit_price: Number(item.unit_price) || 0,
+        product_name: item.product_name || '',
+        pattern_name: item.pattern_name || ''
+    };
 }
 
 // Fetch all orders/drafts from server
@@ -2207,4 +2275,1391 @@ function _tpdInjectStyles() {
         }
     `;
     document.head.appendChild(style);
+}
+
+// === Dedicated Split-Panel Workspace Styles Injection ===
+function _tpdInjectWorkspaceStyles() {
+    if (document.getElementById('tpd-workspace-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'tpd-workspace-styles';
+    style.textContent = `
+        /* Workspace Layout styling */
+        .tpd-ws-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 80px);
+            font-family: 'Inter', system-ui, sans-serif;
+            color: #0f172a;
+            background: #f1f5f9;
+            overflow: hidden;
+            margin-top: -15px;
+        }
+
+        .tpd-ws-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #122546;
+            color: white;
+            padding: 12px 24px;
+            box-shadow: 0 4px 12px rgba(18, 37, 70, 0.15);
+            z-index: 10;
+        }
+
+        .tpd-ws-topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .tpd-ws-logo {
+            height: 36px;
+            object-fit: contain;
+        }
+
+        .tpd-ws-title {
+            font-size: 16px;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .tpd-ws-subtitle {
+            font-size: 11px;
+            color: #cbd5e1;
+            margin: 2px 0 0 0;
+        }
+
+        .tpd-ws-topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tpd-ws-main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Workspace Panels split */
+        .tpd-ws-left-panel {
+            flex: 1.6;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            background: #cbd5e1;
+        }
+
+        .tpd-ws-right-panel {
+            flex: 1;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .tpd-ws-editor-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .tpd-ws-editor-body {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .tpd-ws-editor-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* Tabs styling */
+        .tpd-ws-tabs {
+            display: flex;
+            gap: 4px;
+            overflow-x: auto;
+            background: #f8fafc;
+            padding: 8px 16px 0;
+            border-bottom: 1px solid #cbd5e1;
+        }
+
+        .tpd-ws-tab-btn {
+            background: #e2e8f0;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .tpd-ws-tab-btn:hover {
+            background: #cbd5e1;
+            color: #0f172a;
+        }
+
+        .tpd-ws-tab-btn.active {
+            background: white;
+            color: #122546;
+            border-color: #cbd5e1;
+            box-shadow: 0 -2px 6px rgba(18, 37, 70, 0.05);
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Form elements */
+        .tpd-ws-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .tpd-ws-form-label {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #475569;
+        }
+
+        .tpd-ws-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .tpd-ws-input:focus {
+            border-color: #122546;
+            box-shadow: 0 0 0 3px rgba(18, 37, 70, 0.1);
+        }
+
+        .tpd-ws-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* Size grid */
+        .tpd-ws-size-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 8px;
+        }
+
+        .tpd-ws-size-input-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+
+        .tpd-ws-size-label {
+            font-size: 10px;
+            font-weight: 800;
+            background: #122546;
+            color: white;
+            width: 100%;
+            text-align: center;
+            padding: 3px 0;
+        }
+
+        .tpd-ws-size-qty {
+            width: 100%;
+            border: none;
+            background: transparent;
+            text-align: center;
+            padding: 6px 0;
+            font-weight: 700;
+            font-size: 13px;
+            outline: none;
+        }
+
+        /* Paste Image Zones */
+        .tpd-ws-upload-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        .tpd-ws-upload-box {
+            border: 2px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+            background: #f8fafc;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tpd-ws-upload-box:hover {
+            border-color: #122546;
+            background: #f0fdf4;
+        }
+
+        .tpd-ws-upload-box.dragging {
+            border-color: #10b981;
+            background: #ecfdf5;
+        }
+
+        .tpd-ws-upload-icon {
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+
+        .tpd-ws-upload-text {
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        .tpd-ws-upload-preview {
+            max-width: 100%;
+            max-height: 110px;
+            object-fit: contain;
+            border-radius: 6px;
+            margin-top: 4px;
+        }
+
+        .tpd-ws-upload-clear {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            border: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            font-size: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+        }
+
+        /* Printable Preview Card (A4 landscape scale-fit) */
+        .tpd-a4-preview-card {
+            width: 297mm;
+            height: 210mm;
+            background: white;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            box-sizing: border-box;
+            padding: 8mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            transform-origin: top center;
+        }
+
+        /* High-contrast brand elements */
+        .tpd-a4-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #122546;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+        }
+
+        .tpd-a4-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tpd-a4-logo {
+            height: 48px;
+            object-fit: contain;
+        }
+
+        .tpd-a4-brand {
+            font-size: 20px;
+            font-weight: 900;
+            color: #122546;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .tpd-a4-brand-gold {
+            color: #fad24c;
+        }
+
+        .tpd-a4-header-right {
+            text-align: right;
+        }
+
+        .tpd-a4-title {
+            font-size: 22px;
+            font-weight: 900;
+            color: #122546;
+            margin: 0;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .tpd-a4-order-code {
+            font-size: 14px;
+            font-weight: 800;
+            color: #475569;
+            margin-top: 2px;
+        }
+
+        /* Metadata info grid */
+        .tpd-a4-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+
+        .tpd-a4-meta-item {
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .tpd-a4-meta-label {
+            font-weight: 700;
+            color: #64748b;
+        }
+
+        .tpd-a4-meta-val {
+            font-weight: 800;
+            color: #122546;
+        }
+
+        /* Images Layout row */
+        .tpd-a4-images-row {
+            display: flex;
+            gap: 10px;
+            height: 84mm; /* Adjusted to fit neatly on A4 */
+            margin-bottom: 10px;
+        }
+
+        .tpd-a4-mockup-wrapper {
+            flex: 1.3;
+            border: 1.5px solid #122546;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+            position: relative;
+        }
+
+        .tpd-a4-tech-wrapper {
+            flex: 2;
+            display: flex;
+            gap: 10px;
+        }
+
+        .tpd-a4-tech-box {
+            flex: 1;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+            position: relative;
+        }
+
+        .tpd-a4-img-header {
+            background: #122546;
+            color: white;
+            font-size: 11px;
+            font-weight: 800;
+            text-align: center;
+            padding: 4px 0;
+            text-transform: uppercase;
+        }
+
+        .tpd-a4-img-body {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 4px;
+        }
+
+        .tpd-a4-img-body img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .tpd-a4-img-placeholder {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 600;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Size table */
+        .tpd-a4-table-row {
+            margin-bottom: 10px;
+        }
+
+        .tpd-a4-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11.5px;
+        }
+
+        .tpd-a4-table th {
+            background: #122546;
+            color: white;
+            font-weight: 800;
+            border: 1px solid #122546;
+            padding: 5px;
+            text-align: center;
+        }
+
+        .tpd-a4-table td {
+            border: 1px solid #cbd5e1;
+            padding: 5px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .tpd-a4-table-qty-val {
+            color: #122546;
+            font-weight: 900;
+            background: #fef08a; /* Gold-highlight for quantities */
+        }
+
+        /* Bottom Row: Note & QR, Signatures */
+        .tpd-a4-bottom-row {
+            display: flex;
+            gap: 15px;
+            align-items: stretch;
+        }
+
+        .tpd-a4-note-section {
+            flex: 2.2;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .tpd-a4-note-title {
+            font-size: 11px;
+            font-weight: 900;
+            color: #122546;
+            text-transform: uppercase;
+        }
+
+        .tpd-a4-note-content {
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.4;
+            color: #334155;
+            white-space: pre-line;
+            flex: 1;
+        }
+
+        .tpd-a4-qr-section {
+            flex: 0.8;
+            border: 1.5px solid #122546;
+            border-radius: 8px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            text-align: center;
+        }
+
+        .tpd-a4-qr-img {
+            width: 64px;
+            height: 64px;
+            object-fit: contain;
+        }
+
+        .tpd-a4-qr-text {
+            font-size: 8px;
+            font-weight: 800;
+            color: #122546;
+            margin-top: 3px;
+            text-transform: uppercase;
+        }
+
+        .tpd-a4-sigs-section {
+            flex: 2;
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            padding-bottom: 5px;
+        }
+
+        .tpd-a4-sig-box {
+            text-align: center;
+        }
+
+        .tpd-a4-sig-title {
+            font-size: 11px;
+            font-weight: 900;
+            color: #122546;
+            text-transform: uppercase;
+        }
+
+        .tpd-a4-sig-space {
+            height: 38px;
+        }
+
+        .tpd-a4-sig-desc {
+            font-size: 8px;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        /* Printable styles */
+        #tpdPrintAllSheetsContainer {
+            display: none;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #tpdPrintAllSheetsContainer, #tpdPrintAllSheetsContainer * {
+                visibility: visible !important;
+            }
+            #tpdPrintAllSheetsContainer {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 297mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+            }
+            .tpd-print-page {
+                width: 297mm !important;
+                height: 210mm !important;
+                box-sizing: border-box !important;
+                padding: 8mm !important;
+                page-break-after: always !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: white !important;
+                margin: 0 !important;
+            }
+            @page {
+                size: A4 landscape;
+                margin: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Render the Split Panel Workspace UI
+function _tpdRenderWorkspace(container) {
+    const state = window._tpdWorkspaceState;
+    const o = state.order;
+    const items = state.items;
+
+    // Create item tabs
+    let tabButtonsHtml = '';
+    items.forEach((item, idx) => {
+        const activeClass = state.activeItemIndex === idx ? 'active' : '';
+        tabButtonsHtml += `
+            <button class="tpd-ws-tab-btn ${activeClass}" onclick="_tpdSwitchItemTab(${idx})">
+                📦 Phiếu ${idx + 1}: ${item.product_name || 'Đồng phục'} (${item.quantity || 0} áo)
+            </button>
+        `;
+    });
+
+    // Create Main Workspace Split DOM
+    container.innerHTML = `
+        <div class="tpd-ws-wrapper">
+            <!-- Topbar sticky -->
+            <div class="tpd-ws-topbar no-print">
+                <div class="tpd-ws-topbar-left">
+                    <img src="/images/logo.png" class="tpd-ws-logo" onerror="this.style.display='none'">
+                    <div>
+                        <h1 class="tpd-ws-title">THIẾT KẾ PHIẾU SẢN XUẤT</h1>
+                        <p class="tpd-ws-subtitle">Mã đơn: <strong>${o.order_code}</strong> | KH: <strong>${o.customer_name}</strong> | Sale: <strong>${o.cskh_name || 'Chưa nhận'}</strong></p>
+                    </div>
+                </div>
+                <div class="tpd-ws-topbar-right">
+                    <button class="tpd-btn" onclick="_dhtInitializeEditState(${state.orderId})" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700;">
+                        ✏️ Sửa Thông Tin Đơn (Giá/Cọc)
+                    </button>
+                    <button class="tpd-btn tpd-btn-print" onclick="_tpdPrintSingleSheet()">
+                        🖨️ In Phiếu Này (A4)
+                    </button>
+                    <button class="tpd-btn tpd-btn-scanner" onclick="_tpdPrintAllSheets()">
+                        🖨️ In Tất Cả (${items.length} Phiếu)
+                    </button>
+                    <button class="tpd-btn tpd-btn-secondary" onclick="navigate('taophieudonhang')">
+                        ✕ Đóng Workspace
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabs row -->
+            <div class="tpd-ws-tabs no-print">
+                ${tabButtonsHtml}
+            </div>
+
+            <!-- Workspace Main Content split -->
+            <div class="tpd-ws-main">
+                <!-- Left Panel: Live Preview Card (Scaled dynamically in UI) -->
+                <div class="tpd-ws-left-panel">
+                    <div id="tpdWorkspacePreviewContainer"></div>
+                </div>
+
+                <!-- Right Panel: Inputs Editor form -->
+                <div class="tpd-ws-right-panel no-print">
+                    <div class="tpd-ws-editor-header">
+                        <h2 style="font-size: 14px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">
+                            ✏️ HIỆU CHỈNH THÔNG TIN SẢN XUẤT
+                        </h2>
+                        <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0;">
+                            ${state.hasEditPermission ? 'Điền thông tin và hình ảnh kỹ thuật để cập nhật trực tiếp lên phiếu.' : '🔒 Bạn chỉ có quyền xem chi tiết phiếu này (Read-only)'}
+                        </p>
+                    </div>
+
+                    <div class="tpd-ws-editor-body" id="tpdWorkspaceFormContainer">
+                        <!-- Filled dynamically -->
+                    </div>
+
+                    <div class="tpd-ws-editor-footer">
+                        ${state.hasEditPermission ? `
+                            <button class="tpd-btn" onclick="_tpdSaveProductionSheet()" style="background: linear-gradient(135deg, #122546, #1e3a8a); color: white; padding: 10px 24px; font-size: 13px; box-shadow: 0 4px 10px rgba(18, 37, 70, 0.2);">
+                                💾 Lưu Thay Đổi Phiếu
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden Container for Printing all sheets at once -->
+        <div id="tpdPrintAllSheetsContainer"></div>
+    `;
+
+    // Initialize layout scaling and trigger preview/form rendering
+    _tpdUpdateLivePreview();
+    _tpdRenderFormInputs();
+    _tpdSetupPasteZones();
+    _tpdSetupPreviewScale();
+}
+
+// Dynamically scale A4 landscape preview to fit left panel width
+function _tpdSetupPreviewScale() {
+    const leftPanel = document.querySelector('.tpd-ws-left-panel');
+    const previewCard = document.querySelector('.tpd-a4-preview-card');
+    if (!leftPanel || !previewCard) return;
+
+    const resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+            const containerWidth = entry.contentRect.width - 48; // padding
+            const cardWidth = 1122.52; // 297mm in pixels (approx)
+            const scale = containerWidth / cardWidth;
+            if (scale < 1) {
+                previewCard.style.transform = `scale(${scale})`;
+            } else {
+                previewCard.style.transform = 'scale(1)';
+            }
+        }
+    });
+    resizeObserver.observe(leftPanel);
+}
+
+// Switch Item Tab, saving current state first
+function _tpdSwitchItemTab(idx) {
+    const state = window._tpdWorkspaceState;
+    if (state.activeItemIndex === idx) return;
+
+    // Check if there are unsaved changes (optional prompt, or auto-save)
+    state.activeItemIndex = idx;
+    state.editingItem = _tpdCloneItemState(state.items[idx]);
+
+    // Redraw workspace inside full page container
+    const content = window._dhtFullPageContainer || document.getElementById('main-content');
+    _tpdRenderWorkspace(content);
+}
+
+// Generate the Left landscape A4 Card Preview HTML
+function _tpdUpdateLivePreview() {
+    const container = document.getElementById('tpdWorkspacePreviewContainer');
+    if (!container) return;
+
+    const state = window._tpdWorkspaceState;
+    const o = state.order;
+    const it = state.editingItem;
+    if (!it) return;
+
+    // Dates
+    const orderDate = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
+    const shipDate = o.expected_ship_date ? new Date(o.expected_ship_date).toLocaleDateString('vi-VN') : '—';
+
+    // Build department deep link QR url
+    const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${state.activeItemIndex}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
+
+    // Render active sizes table row columns
+    // We only render columns where qty > 0 OR if we want S M L XL XXL 3XL 4XL 5XL sizes.
+    // The user requested: "size nào hiển thị size đó" (only display size if it is filled in quantities)
+    const filledQuantities = it.quantities.filter(q => q.qty > 0);
+    const hasSizes = filledQuantities.length > 0;
+
+    let sizeHeaders = '';
+    let sizeValues = '';
+    let totalQty = 0;
+
+    if (hasSizes) {
+        filledQuantities.forEach(q => {
+            sizeHeaders += `<th>${q.size}</th>`;
+            sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty}</td>`;
+            totalQty += q.qty;
+        });
+    } else {
+        // Fallback display standard sizes empty
+        const stdSizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
+        stdSizes.forEach(sz => {
+            sizeHeaders += `<th>${sz}</th>`;
+            sizeValues += `<td>0</td>`;
+        });
+        totalQty = 0;
+    }
+
+    const mockupSrc = it.mockup_image || '';
+    const frontSrc = it.front_technique_image || '';
+    const backSrc = it.back_technique_image || '';
+
+    container.innerHTML = `
+        <div class="tpd-a4-preview-card" id="tpdPrintSheet">
+            <!-- Header Block -->
+            <div class="tpd-a4-header">
+                <div class="tpd-a4-header-left">
+                    <img src="/images/logo.png" class="tpd-a4-logo" onerror="this.style.display='none'">
+                    <span class="tpd-a4-brand">Đồng Phục <span class="tpd-a4-brand-gold">HV</span></span>
+                </div>
+                <div class="tpd-a4-header-right">
+                    <h1 class="tpd-a4-title">PHIẾU SẢN XUẤT</h1>
+                    <div class="tpd-a4-order-code">MÃ ĐƠN: ${o.order_code} | PHIẾU ${state.activeItemIndex + 1}/${state.items.length}</div>
+                </div>
+            </div>
+
+            <!-- Metadata info grid -->
+            <div class="tpd-a4-meta-grid">
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Số điện thoại:</span> <span class="tpd-a4-meta-val">${o.customer_phone || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày xuất hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}</span></div>
+
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Kiểu dáng:</span> <span id="prev_style_name" class="tpd-a4-meta-val" style="color: #16a34a;">${it.style_name || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Chất liệu vải:</span> <span id="prev_material_name" class="tpd-a4-meta-val">${it.material_name || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Màu sắc phối:</span> <span id="prev_color_name" class="tpd-a4-meta-val">${it.color_name || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế / Mẫu rập:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'} / ${it.pattern_name || '—'}</span></div>
+            </div>
+
+            <!-- Images Row -->
+            <div class="tpd-a4-images-row">
+                <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup">
+                    <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn (Click/Ctrl+V)</div>
+                    <div class="tpd-a4-img-body" id="prev_mockup_container">
+                        ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Bấm vào đây hoặc vùng bên phải rồi Ctrl+V để dán</span></div>`}
+                    </div>
+                </div>
+                
+                <div class="tpd-a4-tech-wrapper">
+                    <div class="tpd-a4-tech-box paste-target" data-zone="front">
+                        <div class="tpd-a4-img-header">KT Chi tiết Mặt Trước (Ctrl+V)</div>
+                        <div class="tpd-a4-img-body" id="prev_front_container">
+                            ${frontSrc ? `<img src="${frontSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh mặt trước</div>`}
+                        </div>
+                    </div>
+                    <div class="tpd-a4-tech-box paste-target" data-zone="back">
+                        <div class="tpd-a4-img-header">KT Chi tiết Mặt Sau (Ctrl+V)</div>
+                        <div class="tpd-a4-img-body" id="prev_back_container">
+                            ${backSrc ? `<img src="${backSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh mặt sau</div>`}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Size breakdown table -->
+            <div class="tpd-a4-table-row">
+                <table class="tpd-a4-table">
+                    <thead>
+                        <tr>
+                            <th style="background:#122546; text-transform:uppercase;">Size Số áo</th>
+                            ${sizeHeaders}
+                            <th style="background:#fad24c; color:#122546;">TỔNG SL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px;">Số lượng (Áo)</td>
+                            ${sizeValues}
+                            <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Bottom Row (Note, QR and Signatures) -->
+            <div class="tpd-a4-bottom-row">
+                <!-- Notes -->
+                <div class="tpd-a4-note-section">
+                    <span class="tpd-a4-note-title">📝 Ghi chú Kỹ thuật may của Xưởng:</span>
+                    <div id="prev_workshop_note" class="tpd-a4-note-content">${it.workshop_note || 'Chưa có ghi chú kỹ thuật xưởng.'}</div>
+                </div>
+
+                <!-- QR Link -->
+                <div class="tpd-a4-qr-section">
+                    <img src="${qrUrl}" class="tpd-a4-qr-img">
+                    <span class="tpd-a4-qr-text">Quét mã tiến độ</span>
+                </div>
+
+                <!-- Signatures -->
+                <div class="tpd-a4-sigs-section">
+                    <div class="tpd-a4-sig-box">
+                        <span class="tpd-a4-sig-title">Người Lập Phiếu</span>
+                        <div class="tpd-a4-sig-space"></div>
+                        <span class="tpd-a4-sig-desc">${o.cskh_name || 'Kinh Doanh'}</span>
+                    </div>
+                    <div class="tpd-a4-sig-box">
+                        <span class="tpd-a4-sig-title">Quản Lý Xưởng</span>
+                        <div class="tpd-a4-sig-space"></div>
+                        <span class="tpd-a4-sig-desc">Ký xác nhận</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Generate the Right inputs form editor UI
+function _tpdRenderFormInputs() {
+    const container = document.getElementById('tpdWorkspaceFormContainer');
+    if (!container) return;
+
+    const state = window._tpdWorkspaceState;
+    const it = state.editingItem;
+    if (!it) return;
+
+    const disabledAttr = state.hasEditPermission ? '' : 'disabled';
+
+    // 1. Text Fields
+    let html = `
+        <div class="tpd-ws-form-group">
+            <label class="tpd-ws-form-label">Tên Kiểu Dáng May</label>
+            <input type="text" class="tpd-ws-input" value="${it.style_name || ''}" placeholder="Ví dụ: Áo phông cổ tròn, Quần âu..." onkeyup="_tpdUpdateField('style_name', this.value)" ${disabledAttr}>
+        </div>
+
+        <div class="tpd-ws-grid-2">
+            <div class="tpd-ws-form-group">
+                <label class="tpd-ws-form-label">Chất liệu vải</label>
+                <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="Cá sấu, thun cotton..." onkeyup="_tpdUpdateField('material_name', this.value)" ${disabledAttr}>
+            </div>
+            <div class="tpd-ws-form-group">
+                <label class="tpd-ws-form-label">Màu sắc phối</label>
+                <input type="text" class="tpd-ws-input" value="${it.color_name || ''}" placeholder="Navy phối vàng, đen..." onkeyup="_tpdUpdateField('color_name', this.value)" ${disabledAttr}>
+            </div>
+        </div>
+    `;
+
+    // 2. Size Breakdown Grid
+    // Render S, M, L, XL, XXL, XXXL, XXXXL, XXXXXL inputs.
+    // Plus let them edit any extra custom size that exists in state.
+    const stdSizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
+    let sizeGridHtml = '';
+
+    // Standard sizes first
+    stdSizes.forEach(sz => {
+        const qObj = it.quantities.find(q => q.size === sz) || { qty: 0 };
+        sizeGridHtml += `
+            <div class="tpd-ws-size-input-box">
+                <span class="tpd-ws-size-label">${sz}</span>
+                <input type="number" class="tpd-ws-size-qty" value="${qObj.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${sz}', this.value)" onkeyup="_tpdUpdateQty('${sz}', this.value)" ${disabledAttr}>
+            </div>
+        `;
+    });
+
+    // Custom sizes (non-standard)
+    it.quantities.forEach(q => {
+        if (!stdSizes.includes(q.size)) {
+            sizeGridHtml += `
+                <div class="tpd-ws-size-input-box">
+                    <span class="tpd-ws-size-label" style="background:#ea580c;">${q.size}</span>
+                    <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                </div>
+            `;
+        }
+    });
+
+    html += `
+        <div class="tpd-ws-form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label class="tpd-ws-form-label">Phân bổ Số lượng Size số</label>
+                ${state.hasEditPermission ? `
+                    <button type="button" class="btn btn-secondary" onclick="_tpdAddCustomSize()" style="padding: 2px 8px; font-size: 10px; border-radius:4px; font-weight:700;">+ Thêm size khác</button>
+                ` : ''}
+            </div>
+            <div class="tpd-ws-size-grid">
+                ${sizeGridHtml}
+            </div>
+        </div>
+    `;
+
+    // 3. Paste Zones (Mockup, Front, Back)
+    const mockupSrc = it.mockup_image || '';
+    const frontSrc = it.front_technique_image || '';
+    const backSrc = it.back_technique_image || '';
+
+    html += `
+        <div class="tpd-ws-form-group">
+            <label class="tpd-ws-form-label">Hình ảnh thiết kế & kỹ thuật (Ctrl+V để dán)</label>
+            <div class="tpd-ws-upload-row">
+                <!-- Mockup image -->
+                <div class="tpd-ws-upload-box paste-target" data-zone="mockup" id="zone_mockup">
+                    ${mockupSrc ? `
+                        <button class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('mockup')" ${disabledAttr}>✕</button>
+                        <img src="${mockupSrc}" class="tpd-ws-upload-preview">
+                    ` : `
+                        <span class="tpd-ws-upload-icon">🎨</span>
+                        <span class="tpd-ws-upload-text">Ảnh Mockup lớn<br>(Click dán)</span>
+                    `}
+                </div>
+                <!-- Front image -->
+                <div class="tpd-ws-upload-box paste-target" data-zone="front" id="zone_front">
+                    ${frontSrc ? `
+                        <button class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('front')" ${disabledAttr}>✕</button>
+                        <img src="${frontSrc}" class="tpd-ws-upload-preview">
+                    ` : `
+                        <span class="tpd-ws-upload-icon">👕</span>
+                        <span class="tpd-ws-upload-text">Mặt trước<br>(Click dán)</span>
+                    `}
+                </div>
+                <!-- Back image -->
+                <div class="tpd-ws-upload-box paste-target" data-zone="back" id="zone_back">
+                    ${backSrc ? `
+                        <button class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('back')" ${disabledAttr}>✕</button>
+                        <img src="${backSrc}" class="tpd-ws-upload-preview">
+                    ` : `
+                        <span class="tpd-ws-upload-icon">👚</span>
+                        <span class="tpd-ws-upload-text">Mặt sau<br>(Click dán)</span>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 4. Workshop Note Textarea
+    html += `
+        <div class="tpd-ws-form-group">
+            <label class="tpd-ws-form-label">Ghi chú kỹ thuật của xưởng</label>
+            <textarea class="tpd-ws-input" rows="4" style="resize:vertical; font-family:inherit;" placeholder="Nhập ghi chú yêu cầu kỹ thuật chi tiết như: Cắt gấu bo len, phối chỉ vàng..." onkeyup="_tpdUpdateField('workshop_note', this.value)" ${disabledAttr}>${it.workshop_note || ''}</textarea>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+// Update single field in editing item state
+function _tpdUpdateField(field, val) {
+    const state = window._tpdWorkspaceState;
+    if (!state.editingItem) return;
+
+    state.editingItem[field] = val;
+
+    // Live sync preview text immediately
+    const prevEl = document.getElementById(`prev_${field}`);
+    if (prevEl) {
+        prevEl.innerText = val || '—';
+    }
+}
+
+// Update size quantity in editing item state
+function _tpdUpdateQty(size, val) {
+    const state = window._tpdWorkspaceState;
+    const it = state.editingItem;
+    if (!it) return;
+
+    const qty = Number(val) || 0;
+    const qObj = it.quantities.find(q => q.size === size);
+    if (qObj) {
+        qObj.qty = qty;
+    } else {
+        it.quantities.push({ size: size, qty: qty, price: it.unit_price || 0 });
+    }
+
+    // Refresh preview size table dynamically (without full rerender)
+    _tpdUpdateLivePreview();
+}
+
+// Add a custom size name input popup
+function _tpdAddCustomSize() {
+    const state = window._tpdWorkspaceState;
+    if (!state.hasEditPermission) return;
+
+    const name = prompt('Nhập tên size muốn thêm (Ví dụ: 6XL, Child 4, 30, 31...):');
+    if (!name) return;
+
+    const cleanName = name.trim().toUpperCase();
+    if (!cleanName) return;
+
+    const it = state.editingItem;
+    if (it.quantities.some(q => q.size === cleanName)) {
+        showToast('Size này đã tồn tại!', 'warning');
+        return;
+    }
+
+    it.quantities.push({ size: cleanName, qty: 0, price: it.unit_price || 0 });
+    _tpdRenderFormInputs();
+    _tpdSetupPasteZones();
+}
+
+// Clear image inside upload zone
+function _tpdClearZone(zone) {
+    const state = window._tpdWorkspaceState;
+    if (!state.hasEditPermission || !state.editingItem) return;
+
+    state.editingItem[`${zone}_image`] = '';
+
+    // Re-render form inputs and preview
+    _tpdRenderFormInputs();
+    _tpdUpdateLivePreview();
+    _tpdSetupPasteZones();
+}
+
+// Setup Paste (Ctrl+V) listener on both form zones and active preview wrappers
+function _tpdSetupPasteZones() {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.hasEditPermission) return;
+
+    const activeZoneClass = 'dragging';
+
+    // Query both right-panel form upload cards and left-panel preview image wrappers
+    const targets = document.querySelectorAll('.paste-target');
+
+    let activeTarget = null;
+
+    // Track active target focus by clicking
+    targets.forEach(t => {
+        t.addEventListener('click', () => {
+            targets.forEach(el => el.classList.remove(activeZoneClass));
+            t.classList.add(activeZoneClass);
+            activeTarget = t;
+            // Setup visual helper
+            showToast(`👉 Đã chọn vùng "${t.getAttribute('data-zone').toUpperCase()}". Nhấn Ctrl+V để dán ảnh.`, 'info');
+        });
+    });
+
+    // Global keyboard paste listener
+    const pasteHandler = async (e) => {
+        if (!activeTarget) return;
+
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const file = items[i].getAsFile();
+                if (!file) continue;
+
+                const zone = activeTarget.getAttribute('data-zone');
+                showToast(`⏳ Đang tải ảnh ${zone.toUpperCase()} lên...`);
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const base64 = event.target.result;
+                    state.editingItem[`${zone}_image`] = base64;
+
+                    // Clear highlights
+                    activeTarget.classList.remove(activeZoneClass);
+                    activeTarget = null;
+
+                    // Sync UI
+                    _tpdRenderFormInputs();
+                    _tpdUpdateLivePreview();
+                    _tpdSetupPasteZones();
+                    showToast('✅ Dán ảnh thành công!', 'success');
+                };
+                reader.readAsDataURL(file);
+                e.preventDefault();
+                break;
+            }
+        }
+    };
+
+    // Remove old handler to prevent duplicates
+    if (window._tpdGlobalPasteHandler) {
+        document.removeEventListener('paste', window._tpdGlobalPasteHandler);
+    }
+    window._tpdGlobalPasteHandler = pasteHandler;
+    document.addEventListener('paste', pasteHandler);
+}
+
+// Save active production sheet changes via PUT API
+async function _tpdSaveProductionSheet() {
+    const state = window._tpdWorkspaceState;
+    const it = state.editingItem;
+    if (!it) return;
+
+    if (!state.hasEditPermission) {
+        showToast('Bạn không có quyền chỉnh sửa phiếu này.', 'error');
+        return;
+    }
+
+    showToast('⏳ Đang lưu thông tin phiếu sản xuất...', 'info');
+
+    try {
+        // Prepare API request payload
+        const payload = {
+            style_name: it.style_name,
+            material_name: it.material_name,
+            color_name: it.color_name,
+            workshop_note: it.workshop_note,
+            mockup_image: it.mockup_image,
+            front_technique_image: it.front_technique_image,
+            back_technique_image: it.back_technique_image,
+            // Only submit sizes with qty > 0 to keep DB quantities compact
+            quantities: it.quantities.filter(q => q.qty > 0)
+        };
+
+        const res = await apiCall(`/api/dht/orders/${state.orderId}/items/${it.id}/sheet`, 'PUT', payload);
+        if (res.success) {
+            showToast('✅ Đã lưu phiếu sản xuất thành công!', 'success');
+            
+            // Reload details in workspace state to keep other components in sync
+            const details = await apiCall(`/api/dht/orders/${state.orderId}/detail`);
+            state.items = details.items || [];
+            state.order = details.order;
+            state.editingItem = _tpdCloneItemState(state.items[state.activeItemIndex]);
+            
+            // Refresh preview and tab buttons
+            _tpdRenderWorkspace(window._dhtFullPageContainer || document.getElementById('main-content'));
+        } else {
+            showToast('Lưu phiếu thất bại: ' + (res.error || 'Lỗi không xác định'), 'error');
+        }
+    } catch(e) {
+        console.error(e);
+        showToast('Lỗi khi lưu phiếu sản xuất: ' + e.message, 'error');
+    }
+}
+
+// Print single active production sheet layout
+function _tpdPrintSingleSheet() {
+    // Generate clean printing element
+    const state = window._tpdWorkspaceState;
+    const printContainer = document.getElementById('tpdPrintAllSheetsContainer');
+    if (!printContainer) return;
+
+    // Render single card inside container
+    const activePreview = document.getElementById('tpdWorkspacePreviewContainer').innerHTML;
+    printContainer.innerHTML = `<div class="tpd-print-page">${activePreview}</div>`;
+
+    window.print();
+}
+
+// Render all sheets of the order and print them sequentially using CSS page breaks
+async function _tpdPrintAllSheets() {
+    const state = window._tpdWorkspaceState;
+    const orderId = state.orderId;
+    const items = state.items;
+    const o = state.order;
+
+    const printContainer = document.getElementById('tpdPrintAllSheetsContainer');
+    if (!printContainer) return;
+
+    showToast('⏳ Đang chuẩn bị bản in cho tất cả phiếu...', 'info');
+
+    let printHtml = '';
+
+    // Render each item's sheet A4 preview
+    items.forEach((item, idx) => {
+        const it = _tpdCloneItemState(item);
+
+        // Dates
+        const orderDate = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
+        const shipDate = o.expected_ship_date ? new Date(o.expected_ship_date).toLocaleDateString('vi-VN') : '—';
+
+        // QR
+        const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${idx}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
+
+        // Sizes
+        const filledQuantities = it.quantities.filter(q => q.qty > 0);
+        let sizeHeaders = '';
+        let sizeValues = '';
+        let totalQty = 0;
+
+        if (filledQuantities.length > 0) {
+            filledQuantities.forEach(q => {
+                sizeHeaders += `<th>${q.size}</th>`;
+                sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty}</td>`;
+                totalQty += q.qty;
+            });
+        } else {
+            const stdSizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
+            stdSizes.forEach(sz => {
+                sizeHeaders += `<th>${sz}</th>`;
+                sizeValues += `<td>0</td>`;
+            });
+        }
+
+        const mockupSrc = it.mockup_image || '';
+        const frontSrc = it.front_technique_image || '';
+        const backSrc = it.back_technique_image || '';
+
+        printHtml += `
+            <div class="tpd-print-page">
+                <div class="tpd-a4-preview-card" style="border:none; box-shadow:none; width:100%; height:100%;">
+                    <!-- Header Block -->
+                    <div class="tpd-a4-header">
+                        <div class="tpd-a4-header-left">
+                            <img src="/images/logo.png" class="tpd-a4-logo" onerror="this.style.display='none'">
+                            <span class="tpd-a4-brand">Đồng Phục <span class="tpd-a4-brand-gold">HV</span></span>
+                        </div>
+                        <div class="tpd-a4-header-right">
+                            <h1 class="tpd-a4-title">PHIẾU SẢN XUẤT</h1>
+                            <div class="tpd-a4-order-code">MÃ ĐƠN: ${o.order_code} | PHIẾU ${idx + 1}/${items.length}</div>
+                        </div>
+                    </div>
+
+                    <!-- Metadata info grid -->
+                    <div class="tpd-a4-meta-grid">
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Số điện thoại:</span> <span class="tpd-a4-meta-val">${o.customer_phone || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày xuất hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}</span></div>
+
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Kiểu dáng:</span> <span class="tpd-a4-meta-val" style="color: #16a34a;">${it.style_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Chất liệu vải:</span> <span class="tpd-a4-meta-val">${it.material_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Màu sắc phối:</span> <span class="tpd-a4-meta-val">${it.color_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế / Mẫu rập:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'} / ${it.pattern_name || '—'}</span></div>
+                    </div>
+
+                    <!-- Images Row -->
+                    <div class="tpd-a4-images-row">
+                        <div class="tpd-a4-mockup-wrapper">
+                            <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
+                            <div class="tpd-a4-img-body">
+                                ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
+                            </div>
+                        </div>
+                        
+                        <div class="tpd-a4-tech-wrapper">
+                            <div class="tpd-a4-tech-box">
+                                <div class="tpd-a4-img-header">KT Chi tiết Mặt Trước</div>
+                                <div class="tpd-a4-img-body">
+                                    ${frontSrc ? `<img src="${frontSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh mặt trước</div>`}
+                                </div>
+                            </div>
+                            <div class="tpd-a4-tech-box">
+                                <div class="tpd-a4-img-header">KT Chi tiết Mặt Sau</div>
+                                <div class="tpd-a4-img-body">
+                                    ${backSrc ? `<img src="${backSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh mặt sau</div>`}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Size breakdown table -->
+                    <div class="tpd-a4-table-row">
+                        <table class="tpd-a4-table">
+                            <thead>
+                                <tr>
+                                    <th style="background:#122546; text-transform:uppercase;">Size Số áo</th>
+                                    ${sizeHeaders}
+                                    <th style="background:#fad24c; color:#122546;">TỔNG SL</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px;">Số lượng (Áo)</td>
+                                    ${sizeValues}
+                                    <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Bottom Row -->
+                    <div class="tpd-a4-bottom-row">
+                        <div class="tpd-a4-note-section">
+                            <span class="tpd-a4-note-title"> Ghi chú Kỹ thuật may của Xưởng:</span>
+                            <div class="tpd-a4-note-content">${it.workshop_note || 'Chưa có ghi chú kỹ thuật xưởng.'}</div>
+                        </div>
+
+                        <div class="tpd-a4-qr-section">
+                            <img src="${qrUrl}" class="tpd-a4-qr-img">
+                            <span class="tpd-a4-qr-text">Quét mã tiến độ</span>
+                        </div>
+
+                        <div class="tpd-a4-sigs-section">
+                            <div class="tpd-a4-sig-box">
+                                <span class="tpd-a4-sig-title">Người Lập Phiếu</span>
+                                <div class="tpd-a4-sig-space"></div>
+                                <span class="tpd-a4-sig-desc">${o.cskh_name || 'Kinh Doanh'}</span>
+                            </div>
+                            <div class="tpd-a4-sig-box">
+                                <span class="tpd-a4-sig-title">Quản Lý Xưởng</span>
+                                <div class="tpd-a4-sig-space"></div>
+                                <span class="tpd-a4-sig-desc">Ký xác nhận</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    printContainer.innerHTML = printHtml;
+    setTimeout(() => {
+        window.print();
+    }, 100);
 }

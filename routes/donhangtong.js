@@ -2735,6 +2735,131 @@ module.exports = async function(fastify) {
         };
     });
 
+    // ========== ORDERS: Update Production Sheet per Item (Phiếu Sản Xuất) ==========
+    fastify.put('/api/dht/orders/:orderId/items/:itemId/sheet', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.orderId);
+        const itemId = Number(request.params.itemId);
+        if (isNaN(orderId) || isNaN(itemId)) return reply.code(400).send({ error: 'ID không hợp lệ' });
+
+        // Verify order exists and check permissions
+        const order = await db.get('SELECT id, created_by FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        const user = request.user;
+        const isOwner = order.created_by === user.id;
+        const isAdmin = ['giam_doc', 'quan_ly'].includes(user.role);
+        if (!isOwner && !isAdmin) {
+            return reply.code(403).send({ error: 'Bạn không có quyền sửa phiếu này. Chỉ người tạo đơn, Giám Đốc hoặc Quản Lý mới được phép.' });
+        }
+
+        // Verify item belongs to this order
+        const item = await db.get('SELECT id FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
+        if (!item) return reply.code(404).send({ error: 'Không tìm thấy phiếu sản phẩm trong đơn hàng này' });
+
+        const b = request.body || {};
+        const sets = [];
+        const vals = [];
+        let idx = 1;
+
+        // Helper to save base64 image to file and return path
+        const saveImage = (base64, prefix) => {
+            if (!base64) return null;
+            if (base64.startsWith('/uploads/')) return base64; // Already a path
+            try {
+                const match = base64.match(/^data:image\/([\w+]+);base64,(.+)$/);
+                if (match) {
+                    const ext = match[1] === 'jpeg' ? 'jpg' : match[1].replace('+xml', '');
+                    const buffer = Buffer.from(match[2], 'base64');
+                    const dir = path.join(__dirname, '..', 'uploads', 'dht-sheets');
+                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                    const filename = `${prefix}_${orderId}_${itemId}_${Date.now()}.${ext}`;
+                    fs.writeFileSync(path.join(dir, filename), buffer);
+                    return '/uploads/dht-sheets/' + filename;
+                }
+            } catch(e) { console.error('Sheet image save error:', e.message); }
+            return null;
+        };
+
+        // Update mockup image
+        if (b.mockup_image !== undefined) {
+            const imgPath = saveImage(b.mockup_image, 'mockup');
+            sets.push(`mockup_image = $${idx++}`);
+            vals.push(imgPath || b.mockup_image || null);
+        }
+        // Update front technique image
+        if (b.front_technique_image !== undefined) {
+            const imgPath = saveImage(b.front_technique_image, 'front');
+            sets.push(`front_technique_image = $${idx++}`);
+            vals.push(imgPath || b.front_technique_image || null);
+        }
+        // Update back technique image
+        if (b.back_technique_image !== undefined) {
+            const imgPath = saveImage(b.back_technique_image, 'back');
+            sets.push(`back_technique_image = $${idx++}`);
+            vals.push(imgPath || b.back_technique_image || null);
+        }
+        // Update text fields
+        if (b.material_name !== undefined) { sets.push(`material_name = $${idx++}`); vals.push(b.material_name || null); }
+        if (b.color_name !== undefined) { sets.push(`color_name = $${idx++}`); vals.push(b.color_name || null); }
+        if (b.style_name !== undefined) { sets.push(`style_name = $${idx++}`); vals.push(b.style_name || null); }
+        if (b.workshop_note !== undefined) { sets.push(`workshop_note = $${idx++}`); vals.push(b.workshop_note || null); }
+        // Update quantities (size breakdown) — overwrite existing
+        if (b.quantities !== undefined) {
+            sets.push(`quantities = $${idx++}`);
+            vals.push(JSON.stringify(b.quantities || []));
+            // Recalculate total quantity
+            const totalQty = (b.quantities || []).reduce((s, x) => s + (Number(x.qty) || 0), 0);
+            sets.push(`quantity = $${idx++}`);
+            vals.push(totalQty);
+
+            // Fetch unit_price to update item total/item_total
+            const itemData = await db.get('SELECT unit_price FROM dht_order_items WHERE id = $1', [itemId]);
+            const unitPrice = Number(itemData?.unit_price) || 0;
+            const itemTotal = totalQty * unitPrice;
+            sets.push(`total = $${idx++}`);
+            vals.push(itemTotal);
+            sets.push(`item_total = $${idx++}`);
+            vals.push(itemTotal);
+        }
+
+        if (sets.length === 0) return reply.code(400).send({ error: 'Không có dữ liệu cần cập nhật' });
+
+        vals.push(itemId);
+        await db.run(`UPDATE dht_order_items SET ${sets.join(', ')} WHERE id = $${idx}`, vals);
+
+        // Recalculate order total_quantity and total_amount from all items
+        if (b.quantities !== undefined) {
+            // Get sum of all item_totals for this order
+            const sumRes = await db.get('SELECT COALESCE(SUM(item_total), 0) AS total_items, COALESCE(SUM(quantity), 0) AS total_qty FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            const totalItemsVal = Number(sumRes.total_items) || 0;
+            const totalQtyVal = Number(sumRes.total_qty) || 0;
+
+            // Fetch order surcharges and discount to compute new total_amount
+            const orderData = await db.get('SELECT surcharges, discount_amount FROM dht_orders WHERE id = $1', [orderId]);
+            let surTotal = 0;
+            if (orderData?.surcharges) {
+                try {
+                    const surArr = typeof orderData.surcharges === 'string' ? JSON.parse(orderData.surcharges) : orderData.surcharges;
+                    if (Array.isArray(surArr)) {
+                        for (const s of surArr) surTotal += Number(s.amount) || 0;
+                    }
+                } catch(e) {}
+            }
+            const discountAmt = Number(orderData?.discount_amount) || 0;
+            const newTotalAmount = totalItemsVal + surTotal - discountAmt;
+
+            await db.run(`
+                UPDATE dht_orders 
+                SET total_quantity = $1, total_amount = $2, last_updated_at = NOW(), last_updated_by = $3 
+                WHERE id = $4
+            `, [totalQtyVal, newTotalAmount, user.id, orderId]);
+        } else {
+            await db.run(`UPDATE dht_orders SET last_updated_at = NOW(), last_updated_by = $1 WHERE id = $2`, [user.id, orderId]);
+        }
+
+        return { success: true };
+    });
+
     // ========== ORDERS: Print Shipping Receipt ==========
     fastify.get('/api/dht/orders/:id/print', { preHandler: [authenticate] }, async (request, reply) => {
       try {
