@@ -1826,6 +1826,16 @@ function _tlcgRenderModalProducts() {
     const q = (document.getElementById('tlcgProdSearch')?.value || '').trim().toLowerCase();
     const filtered = _tlcg.products.filter(p => !q || p.name.toLowerCase().includes(q));
 
+    // Sort to prioritize products that already have a size segment, then alphabetically by name
+    filtered.sort((a, b) => {
+        const hasSegA = a.size_segment ? 1 : 0;
+        const hasSegB = b.size_segment ? 1 : 0;
+        if (hasSegA !== hasSegB) {
+            return hasSegB - hasSegA; // 1 (has segment) comes before 0 (no segment)
+        }
+        return a.name.localeCompare(b.name, 'vi');
+    });
+
     if (filtered.length === 0) {
         listDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #64748b;">Không tìm thấy sản phẩm nào</div>';
         return;
