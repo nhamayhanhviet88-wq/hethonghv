@@ -2215,7 +2215,7 @@ async function _dhtSubmitCreateV2(isDraft) {
     }
 
     var items = _dhtCreate.phieuItems || [];
-    if (!isDraft && items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
+    if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
     
     // Final check for PET: no "Tờ" product allowed
     if (catName === 'PET') {
