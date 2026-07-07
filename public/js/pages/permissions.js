@@ -116,6 +116,7 @@ const PERM_FEATURES = [
 
     // ===== VĂN PHÒNG QUẢN LÝ =====
     { key: 'don_hang_tong', label: 'Đơn Hàng Tổng', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'taophieudonhang', label: 'Tạo Phiếu Đơn Hàng', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'dht_sua_don', label: '  ↳ Nút: ✏️ Sửa Đơn', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'dht_xoa_don', label: '  ↳ Nút: 🗑️ Xóa Đơn', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'dht_bao_loi', label: '  ↳ Nút: 🚨 Báo Đơn Lỗi', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
