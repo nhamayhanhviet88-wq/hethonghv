@@ -880,7 +880,7 @@ module.exports = async function(fastify) {
             return { tree, grandTotal, grandCount, grandMonths, summaryVisibility };
         } else {
             // Original Year -> Category -> Month -> Day grouping
-            let whereClause = treeWhere ? (treeWhere + ' AND o.parent_order_id IS NULL') : 'WHERE o.parent_order_id IS NULL';
+            let whereClause = treeWhere ? ('WHERE ' + treeWhere + ' AND o.parent_order_id IS NULL') : 'WHERE o.parent_order_id IS NULL';
 
             let revenueExpr = 'COALESCE(SUM(o.total_amount), 0)::numeric AS revenue';
             const rows = await db.all(`
