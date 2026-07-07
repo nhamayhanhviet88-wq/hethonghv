@@ -3122,6 +3122,178 @@ function _tpdSwitchItemTab(idx) {
     _tpdRenderWorkspace(content);
 }
 
+// Generate HTML for the size table on the A4 sheet, grouping by gender if size type is 'Size Nam / Nữ'
+function _tpdRenderA4SizeTable(it) {
+    const filledQuantities = it.quantities || [];
+    const sortedQuantities = _tpdSortSizes(filledQuantities.map(q => q.size))
+        .map(sz => filledQuantities.find(q => q.size === sz))
+        .filter(Boolean)
+        .filter(q => Number(q.qty) > 0);
+
+    const hasSizes = sortedQuantities.length > 0;
+    if (!hasSizes) {
+        return `
+            <table class="tpd-a4-table">
+                <thead>
+                    <tr>
+                        <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
+                        <th style="background:#fad24c; color:#122546; border-color:#fad24c;">TỔNG SL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
+                        <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">0</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+    }
+
+    if (it.size_type === 'Size Nam / Nữ') {
+        const namSizes = sortedQuantities.filter(q => q.size.toLowerCase().includes('nam'));
+        const nuSizes = sortedQuantities.filter(q => q.size.toLowerCase().includes('nữ') || q.size.toLowerCase().includes('nu'));
+        const otherSizes = sortedQuantities.filter(q => !q.size.toLowerCase().includes('nam') && !q.size.toLowerCase().includes('nữ') && !q.size.toLowerCase().includes('nu'));
+
+        let html = '<table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">';
+        let grandTotal = 0;
+
+        const getShortSize = (fullSize) => {
+            return fullSize.replace(/^Nam\s+/i, '').replace(/^Nữ\s+/i, '').replace(/^Nu\s+/i, '');
+        };
+
+        if (namSizes.length > 0) {
+            let rowTotal = 0;
+            let headers = '';
+            let values = '';
+            namSizes.forEach(q => {
+                headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${getShortSize(q.size)}</th>`;
+                values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 6px;">${q.qty || 0}</td>`;
+                rowTotal += Number(q.qty || 0);
+            });
+            grandTotal += rowTotal;
+
+            html += `
+                <thead>
+                    <tr>
+                        <th style="background:#1e3a8a; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NAM</th>
+                        ${headers}
+                        <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NAM</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:700; color:#1e3a8a; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Nam (${(it.product_name || 'Áo').toUpperCase()})</td>
+                        ${values}
+                        <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
+                    </tr>
+                </tbody>
+            `;
+        }
+
+        if (nuSizes.length > 0) {
+            let rowTotal = 0;
+            let headers = '';
+            let values = '';
+            nuSizes.forEach(q => {
+                headers += `<th style="background:#fce7f3; color:#be185d; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${getShortSize(q.size)}</th>`;
+                values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 6px;">${q.qty || 0}</td>`;
+                rowTotal += Number(q.qty || 0);
+            });
+            grandTotal += rowTotal;
+
+            html += `
+                <thead>
+                    <tr style="border-top: 2px solid #cbd5e1;">
+                        <th style="background:#db2777; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NỮ</th>
+                        ${headers}
+                        <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NỮ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:700; color:#db2777; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Nữ (${(it.product_name || 'Áo').toUpperCase()})</td>
+                        ${values}
+                        <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
+                    </tr>
+                </tbody>
+            `;
+        }
+
+        if (otherSizes.length > 0) {
+            let rowTotal = 0;
+            let headers = '';
+            let values = '';
+            otherSizes.forEach(q => {
+                headers += `<th style="background:#f1f5f9; color:#475569; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${q.size}</th>`;
+                values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 6px;">${q.qty || 0}</td>`;
+                rowTotal += Number(q.qty || 0);
+            });
+            grandTotal += rowTotal;
+
+            html += `
+                <thead>
+                    <tr style="border-top: 2px solid #cbd5e1;">
+                        <th style="background:#ea580c; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
+                        ${headers}
+                        <th style="background:#fad24c; color:#122546; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG KHÁC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:700; color:#ea580c; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Khác (${(it.product_name || 'Áo').toUpperCase()})</td>
+                        ${values}
+                        <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
+                    </tr>
+                </tbody>
+            `;
+        }
+
+        // Add Grand Total Row at the bottom
+        html += `
+            <tfoot>
+                <tr style="border-top: 2px solid #475569; background: #f8fafc;">
+                    <td colspan="99" style="text-align:right; padding: 8px 12px; font-weight:900; color:#122546; font-size:11px; border: 1px solid #cbd5e1;">
+                        TỔNG CỘNG CẢ HAI: <span style="background:#fad24c; padding: 4px 12px; border-radius: 4px; font-size:13px; margin-left: 8px; border: 1px solid #fbbf24;">${grandTotal} ÁO</span>
+                    </td>
+                </tr>
+            </tfoot>
+        `;
+
+        html += '</table>';
+        return html;
+    } else {
+        let sizeHeaders = '';
+        let sizeValues = '';
+        let totalQty = 0;
+
+        sortedQuantities.forEach(q => {
+            sizeHeaders += `<th>${q.size}</th>`;
+            sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
+            totalQty += Number(q.qty || 0);
+        });
+
+        return `
+            <table class="tpd-a4-table">
+                <thead>
+                    <tr>
+                        <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
+                        ${sizeHeaders}
+                        <th style="background:#fad24c; color:#122546; border-color:#fad24c;">TỔNG SL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
+                        ${sizeValues}
+                        <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+    }
+}
+
 // Generate the Left landscape A4 Card Preview HTML
 function _tpdUpdateLivePreview() {
     const container = document.getElementById('tpdWorkspacePreviewContainer');
@@ -3139,30 +3311,6 @@ function _tpdUpdateLivePreview() {
     // Build department deep link QR url
     const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${state.activeItemIndex}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
-
-    // Render active sizes table row columns (only those with qty > 0)
-    const filledQuantities = it.quantities || [];
-    const sortedQuantities = _tpdSortSizes(filledQuantities.map(q => q.size))
-        .map(sz => filledQuantities.find(q => q.size === sz))
-        .filter(Boolean)
-        .filter(q => Number(q.qty) > 0);
-    const hasSizes = sortedQuantities.length > 0;
-
-    let sizeHeaders = '';
-    let sizeValues = '';
-    let totalQty = 0;
-
-    if (hasSizes) {
-        sortedQuantities.forEach(q => {
-            sizeHeaders += `<th>${q.size}</th>`;
-            sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
-            totalQty += Number(q.qty || 0);
-        });
-    } else {
-        sizeHeaders = '';
-        sizeValues = '';
-        totalQty = 0;
-    }
 
     const mockupSrc = it.mockup_image || '';
 
@@ -3206,22 +3354,7 @@ function _tpdUpdateLivePreview() {
 
             <!-- Size breakdown table -->
             <div class="tpd-a4-table-row">
-                <table class="tpd-a4-table">
-                    <thead>
-                        <tr>
-                            <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
-                            ${sizeHeaders}
-                            <th style="background:#fad24c; color:#122546; border-color:#fad24c;">TỔNG SL</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
-                            ${sizeValues}
-                            <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
-                        </tr>
-                    </tbody>
-                </table>
+                ${_tpdRenderA4SizeTable(it)}
             </div>
 
             <!-- Bottom Row (Note, QR and Signatures) -->
@@ -3844,28 +3977,6 @@ async function _tpdPrintAllSheets() {
         const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${idx}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
 
-        // Sizes (only those with qty > 0)
-        const filledQuantities = it.quantities || [];
-        const sortedQuantities = _tpdSortSizes(filledQuantities.map(q => q.size))
-            .map(sz => filledQuantities.find(q => q.size === sz))
-            .filter(Boolean)
-            .filter(q => Number(q.qty) > 0);
-        let sizeHeaders = '';
-        let sizeValues = '';
-        let totalQty = 0;
-
-        if (sortedQuantities.length > 0) {
-            sortedQuantities.forEach(q => {
-                sizeHeaders += `<th>${q.size}</th>`;
-                sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
-                totalQty += Number(q.qty || 0);
-            });
-        } else {
-            sizeHeaders = '';
-            sizeValues = '';
-            totalQty = 0;
-        }
-
         const mockupSrc = it.mockup_image || '';
 
         printHtml += `
@@ -3909,22 +4020,7 @@ async function _tpdPrintAllSheets() {
 
                     <!-- Size breakdown table -->
                     <div class="tpd-a4-table-row">
-                        <table class="tpd-a4-table">
-                            <thead>
-                                <tr>
-                                    <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
-                                    ${sizeHeaders}
-                                    <th style="background:#fad24c; color:#122546; border-color:#fad24c;">TỔNG SL</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
-                                    ${sizeValues}
-                                    <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        ${_tpdRenderA4SizeTable(it)}
                     </div>
 
                     <!-- Bottom Row -->
