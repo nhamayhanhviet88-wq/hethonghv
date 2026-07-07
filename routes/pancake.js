@@ -582,19 +582,25 @@ async function pancakeRoutes(fastify, options) {
                 
                 // A. Check if this customer is already in the database
                 // Default to 1440 minutes (24 hours) to prevent duplicates when customers reply late
-                const updateLimitMin = config.update_phone_limit_minutes || 1440;
+                const duplicateCheckMin = 1440; // 24 hours duplicate check window
                 const existingCust = await db.get(
                     `SELECT id, assigned_to_id, phone, customer_name, created_at 
                      FROM customers 
                      WHERE (pancake_customer_id = $1 OR pancake_conversation_id = $2) 
                        AND created_at >= NOW() - ($3 || ' minutes')::interval
                      ORDER BY id DESC LIMIT 1`,
-                    [customerId, conversationId, String(updateLimitMin)]
+                    [customerId, conversationId, String(duplicateCheckMin)]
                 );
 
                 if (existingCust) {
-                    // Only update and notify if the phone number has changed (different from existing)
-                    if (existingCust.phone !== phone) {
+                    const isTempPhone = existingCust.phone && existingCust.phone.startsWith('pancake_');
+                    const timeDiffMinutes = (Date.now() - new Date(existingCust.created_at).getTime()) / (60 * 1000);
+                    const updateLimitMin = config.update_phone_limit_minutes || 1440;
+                    
+                    const shouldUpdatePhone = existingCust.phone !== phone && (isTempPhone || timeDiffMinutes <= updateLimitMin);
+
+                    // Only update and notify if the phone number has changed (different from existing) and is allowed
+                    if (shouldUpdatePhone) {
                         await db.run(
                             `UPDATE customers SET phone = $1, updated_at = NOW() WHERE id = $2`,
                             [phone, existingCust.id]
