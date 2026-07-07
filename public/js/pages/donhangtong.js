@@ -261,13 +261,21 @@ function _dhtDateFilterCskh() {
     _dht.cskhFilter = v ? Number(v) : null;
     _dhtRenderTable();
 }
+
 function _dhtDateFilterClear() {
     _dht.filter = {};
     _dht.cskhFilter = null;
+    _dht.draftFilter = null;
     var mp = document.getElementById('dhtMonthPick'); if(mp) mp.value = '';
     var yp = document.getElementById('dhtYearPick'); if(yp) yp.value = '';
     var cp = document.getElementById('dhtCskhPick'); if(cp) cp.value = '';
+    var dp = document.getElementById('dhtDraftPick'); if(dp) dp.value = '';
     _dhtLoadOrders();
+}
+function _dhtDateFilterDraft() {
+    var v = document.getElementById('dhtDraftPick')?.value;
+    _dht.draftFilter = v || null;
+    _dhtRenderTable();
 }
 function _dhtSyncDateInputs() {
     var mp = document.getElementById('dhtMonthPick');
@@ -279,6 +287,7 @@ function _dhtSyncDateInputs() {
         yp.value = String(_dht.filter.year);
     } else if (yp) { yp.value = ''; }
 }
+
 function _dhtPopulateCskhDropdown() {
     var sel = document.getElementById('dhtCskhPick'); if (!sel) return;
     var curVal = sel.value;
@@ -337,12 +346,20 @@ function _dhtRenderTable() {
     if (af.loi) filtered = filtered.filter(function(o){ return o.has_error; });
     if (af.sua) filtered = filtered.filter(function(o){ return o.has_repair_order; });
     if (af.no) filtered = filtered.filter(function(o){ return (Number(o.remaining_amount) || 0) > 0; });
+
     // CSKH filter
     if (_dht.cskhFilter) {
         filtered = filtered.filter(function(o) { return Number(o.cskh_user_id) === _dht.cskhFilter; });
     }
+    // Draft filter
+    if (_dht.draftFilter) {
+        if (_dht.draftFilter === 'draft') {
+            filtered = filtered.filter(function(o) { return o.is_draft === true || o.is_draft === 'true'; });
+        } else if (_dht.draftFilter === 'official') {
+            filtered = filtered.filter(function(o) { return !o.is_draft || o.is_draft === 'false'; });
+        }
+    }
     // ★ Stat card filter
-    var sf = _dht.statFilter || '';
     if (sf === 'remaining') {
         filtered = filtered.filter(function(o) { return (Number(o.remaining_amount) || 0) > 0; });
         filtered.sort(function(a, b) { return (Number(b.remaining_amount)||0) - (Number(a.remaining_amount)||0); });
@@ -530,9 +547,17 @@ async function renderDonhangtongPage(content) {
         +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
         +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">📆 CHỌN NĂM</label>'
         +'<select id="dhtYearPick" class="form-control" style="width:90px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterYear()"><option value="">Tất cả</option></select>'
+
         +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
         +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">👤 CSKH</label>'
         +'<select id="dhtCskhPick" class="form-control" style="width:150px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterCskh()"><option value="">Tất cả</option></select>'
+        +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
+        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">📝 LOẠI ĐƠN</label>'
+        +'<select id="dhtDraftPick" class="form-control" style="width:130px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterDraft()">'
+        +'<option value="">Tất cả</option>'
+        +'<option value="official">Đơn chính thức</option>'
+        +'<option value="draft">Đơn nháp</option>'
+        +'</select>'
         +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
         +'</div>'
         +'<div id="dhtPaginationTop" style="margin:8px 0"></div>'
@@ -884,13 +909,14 @@ function _dhtRenderOrderRows(filtered) {
             }
         }
 
-        return `<tr data-id="${o.id}" onclick="_dhtShowDetail('${o.id}')" style="cursor:pointer;" title="Xem chi tiết">
+
+        return `<tr data-id="${o.id}" onclick="_dhtShowDetail('${o.id}')" style="cursor:pointer;${(o.is_draft === true || o.is_draft === 'true') ? 'background-color:#fffbeb;' : ''}" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
             <td>${_dhtFmtOrderDate(o.order_date, o.created_at)}</td>
             <td style="font-weight:600;">${shipDateFmt}</td>
             <td ${tienDoClick}>${tienDo}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
-            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${badgeRow}</td>
+            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? '<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP</span>' : ''}${badgeRow}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.province || '—'}</td>
@@ -902,17 +928,17 @@ function _dhtRenderOrderRows(filtered) {
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
                 ${vatBtnHtml}
-                ${canDo('dht_sua_don', 'view') ? ((Number(o.remaining_amount) || 0) <= 0 ? `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>` : `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull('${o.id}')" title="Sửa">✏️</button>`) : ''}
-                ${canDo('dht_xoa_don', 'view') ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtDeleteOrder('${o.id}')" title="Xóa" style="color:var(--danger);">🗑️</button>` : ''}
+                ${canDo('dht_sua_don', 'view') ? (((o.is_draft === true || o.is_draft === 'true') || (Number(o.remaining_amount) || 0) > 0) ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull('${o.id}')" title="Sửa">✏️</button>` : `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>`) : ''}
             </td>
         </tr>`;
     }).join('');
-
     _dhtUpdateInfo(filtered.length, filtered);
 }
 
 function _dhtUpdateInfo(count, filtered) {
     const el = document.getElementById('dhtFilterInfo');
+    
+
     if (!el) return;
     var parts = [];
     if (_dht.filter.day) {

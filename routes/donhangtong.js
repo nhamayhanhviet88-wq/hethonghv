@@ -1675,6 +1675,7 @@ module.exports = async function(fastify) {
         const catId = b.category_id ? Number(b.category_id) : null;
         const isFreeOrder = !!FREE_CAT_MAP[catId];
         const isRepairOrder = b.is_repair === true;
+        const isDraftOrder = b.is_draft === true || b.is_draft === 'true';
 
         // ★ REPAIR orders: auto-generate code, skip prefix check
         if (isRepairOrder) {
@@ -1682,8 +1683,8 @@ module.exports = async function(fastify) {
             if (!b.repair_source_code) return reply.code(400).send({ error: 'Thiếu mã đơn gốc' });
         }
 
-        // ★ NORMAL orders: require order_code_prefix
-        if (!isFreeOrder && !isRepairOrder) {
+        // ★ NORMAL orders: require order_code_prefix (skip if draft)
+        if (!isFreeOrder && !isRepairOrder && !isDraftOrder) {
             const userPrefixCheck = await db.get('SELECT order_code_prefix FROM users WHERE id = $1', [request.user.id]);
             if (!userPrefixCheck?.order_code_prefix) {
                 return reply.code(403).send({ error: 'Tài khoản chưa được cấp Mã Đơn KD. Không thể tạo đơn hàng.' });
@@ -1706,7 +1707,7 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Vui lòng nhập Tên Khách Hàng' });
             }
         } else {
-            // Normal: require CRM customer
+            // Normal / Draft: require CRM customer
             if (b.customer_id) {
                 const cust = await db.get(`
                     SELECT c.customer_name, s.name as source_name
@@ -1736,7 +1737,7 @@ module.exports = async function(fastify) {
             }
         }
 
-        // ★ Generate order code for PET/TEM via sequence (atomic), or repair order
+        // ★ Generate order code for PET/TEM via sequence (atomic), or repair order, or draft order
         let orderCode;
         if (isRepairOrder) {
             // Repair: SUA + original code. If already exists, try SUA2, SUA3, etc.
@@ -1758,13 +1759,15 @@ module.exports = async function(fastify) {
             const cfg = FREE_CAT_MAP[catId];
             const seqRow = await db.get(`SELECT nextval('${cfg.seq}') as seq`);
             orderCode = cfg.prefix + String(seqRow.seq).padStart(4, '0');
+        } else if (isDraftOrder) {
+            orderCode = 'NHAP-' + request.user.username + '-' + Date.now();
         } else {
             orderCode = b.order_code.trim();
         }
 
-        // Validate proof image for CHUẨN priority (skip for repair orders)
+        // Validate proof image for CHUẨN priority (skip for repair and draft orders)
         let proofPath = null;
-        if (!isRepairOrder && (b.shipping_priority || 'CHUẨN') === 'CHUẨN') {
+        if (!isRepairOrder && !isDraftOrder && (b.shipping_priority || 'CHUẨN') === 'CHUẨN') {
             if (!b.standard_proof_image) {
                 return reply.code(400).send({ error: 'Vui lòng dán ảnh chứng minh Tiêu Chuẩn CHUẨN' });
             }
@@ -1824,8 +1827,8 @@ module.exports = async function(fastify) {
                 expected_ship_date, shipping_priority, standard_proof_image, standard_delivery_time, zalo_oa_sent,
                 sale_note_for_accountant, department_id, notes, surcharges, free_customer_id,
                 parent_order_id, repair_source_code,
-                created_by, last_updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34)
+                created_by, last_updated_by, is_draft
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34,$35)
             RETURNING *
         `, [
             orderCode,
@@ -1861,7 +1864,8 @@ module.exports = async function(fastify) {
             b.free_customer_id ? parseInt(b.free_customer_id) : null,
             isRepairOrder ? Number(b.parent_order_id) : null,
             isRepairOrder ? b.repair_source_code : null,
-            request.user.id
+            request.user.id,
+            isDraftOrder
         ]);
 
         // Record consumed slips for this order
@@ -3564,6 +3568,10 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.id);
         const b = request.body || {};
 
+        // Fetch old data for audit log diff and draft logic
+        const oldOrder = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
+        if (!oldOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn' });
+
         if (Array.isArray(b.items)) {
             try {
                 await validateFabricStockLimits(b.items, orderId);
@@ -3637,8 +3645,8 @@ module.exports = async function(fastify) {
             const shipCKVal = hasCarrierPay ? 0 : (Number(currentObj.ship_ck_val) || 0);
             const rem = tot - disc - dep - shipCKVal;
 
-            // Edit restriction: If remaining amount <= 0, non-GĐ cannot edit order details
-            if (request.user.role !== 'giam_doc' && rem <= 0) {
+            // Edit restriction: If remaining amount <= 0, non-GĐ cannot edit order details (skip for drafts)
+            if (!oldOrder.is_draft && request.user.role !== 'giam_doc' && rem <= 0) {
                 return reply.code(403).send({ error: '🔒 Đã thu đủ tiền — không thể sửa đơn (chỉ Giám đốc mới được sửa)' });
             }
 
@@ -3685,8 +3693,8 @@ module.exports = async function(fastify) {
                 }
             }
         }
-        // ★ EDIT RESTRICTIONS: Non-GĐ cannot change critical fields
-        if (request.user.role !== 'giam_doc') {
+        // ★ EDIT RESTRICTIONS: Non-GĐ cannot change critical fields (skip for drafts)
+        if (!oldOrder.is_draft && request.user.role !== 'giam_doc') {
             const restrictedFields = ['category_id', 'expected_ship_date', 'shipping_priority', 'standard_delivery_time'];
             for (const rf of restrictedFields) {
                 if (b[rf] !== undefined) {
@@ -3698,10 +3706,6 @@ module.exports = async function(fastify) {
                 }
             }
         }
-
-        // ★ Fetch old data for audit log diff
-        const oldOrder = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
-        if (!oldOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn' });
 
         // Build dynamic SET clause
         const allowed = [
@@ -3719,6 +3723,73 @@ module.exports = async function(fastify) {
         const sets = [];
         const params = [];
         let idx = 1;
+
+        // Handle draft promotion or updating draft code specially
+        if (oldOrder.is_draft) {
+            const isDraftNewVal = b.is_draft !== undefined ? (b.is_draft === true || b.is_draft === 'true') : true;
+            if (!isDraftNewVal) {
+                // Promoting draft to active order
+                if (!b.order_code || !b.order_code.trim() || b.order_code.startsWith('NHAP-') || b.order_code.startsWith('📝')) {
+                    return reply.code(400).send({ error: 'Vui lòng cung cấp Mã Đơn hợp lệ từ CRM để lưu chính thức.' });
+                }
+                const dupCode = await db.get('SELECT id FROM dht_orders WHERE order_code = $1 AND id <> $2', [b.order_code.trim(), orderId]);
+                if (dupCode) {
+                    return reply.code(400).send({ error: `Mã đơn "${b.order_code}" đã được sử dụng!` });
+                }
+                sets.push(`order_code = $${idx++}`);
+                params.push(b.order_code.trim());
+                sets.push(`is_draft = FALSE`);
+                
+                if (b.customer_id) {
+                    sets.push(`customer_id = $${idx++}`);
+                    params.push(Number(b.customer_id));
+                }
+                if (b.deposit_payment_id) {
+                    sets.push(`deposit_payment_id = $${idx++}`);
+                    params.push(Number(b.deposit_payment_id));
+                }
+                
+                // Link deposit
+                if (b.deposit_payment_id) {
+                    const depositPrId = Number(b.deposit_payment_id);
+                    const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [depositPrId]);
+                    if (pr) {
+                        const depositAllocatedAmount = Number(b.deposit_amount_cache || b.deposit_amount) || pr.amount;
+                        const childCountRow = await db.get(`
+                            SELECT COUNT(*) AS cnt FROM payment_records
+                            WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                        `, [depositPrId]);
+                        const childIdx = Number(childCountRow.cnt) + 1;
+                        const splitCode = `${pr.payment_code}-S${childIdx}`;
+                        
+                        await db.run(`
+                            INSERT INTO payment_records (
+                                payment_code, payment_method, daily_seq,
+                                customer_name, customer_phone, cskh_user_id,
+                                amount, payment_type,
+                                order_tt_coc, order_ao_mau,
+                                transfer_note, money_source, bank_name,
+                                total_order_codes, total_cod, shipping_fee,
+                                handover_status, handover_at, handover_by,
+                                source, source_ref_id, payment_date, created_by,
+                                parent_id
+                            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                        `, [
+                            splitCode, pr.payment_method, pr.daily_seq,
+                            b.customer_name || oldOrder.customer_name || null, b.customer_phone || oldOrder.customer_phone || null, oldOrder.cskh_user_id || request.user.id,
+                            depositAllocatedAmount, 'child_sll',
+                            b.order_code.trim(), null,
+                            (pr.transfer_note || '') + ' (Đặt cọc đơn ' + b.order_code.trim() + ')',
+                            pr.money_source, pr.bank_name,
+                            pr.total_order_codes, pr.total_cod, pr.shipping_fee,
+                            pr.handover_status, pr.handover_at, pr.handover_by,
+                            pr.source, pr.source_ref_id, pr.payment_date, pr.created_by,
+                            depositPrId
+                        ]);
+                    }
+                }
+            }
+        }
 
         for (const key of allowed) {
             if (b[key] !== undefined) {

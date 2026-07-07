@@ -572,9 +572,10 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control" onchange="_dhtOnCatChange()"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
         // Row 3: Mã Đơn — Normal (CRM) + Free (auto-generate)
         +'<div id="_co_codeNormal" class="form-group" style="position:relative;grid-column:span 2"><label>Mã Đơn <span style="color:red">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(Chọn mã đã tạo ở CRM)</span></label>'
-        +'<input id="_co_code" class="form-control" placeholder="🔍 Gõ mã đơn hoặc tên KH để tìm..." autocomplete="off" oninput="_dhtSearchOrderCode()" onfocus="_dhtSearchOrderCode()" style="font-size:14px;font-weight:700;border:2px solid #daa520">'
+        +'<input id="_co_code" class="form-control" placeholder="🔍 Gõ mã đơn hoặc tên KH để tìm..." autocomplete="off" oninput="_dhtSearchOrderCode()" onfocus="if(this.value.startsWith(\'📝\') || this.value.startsWith(\'NHAP-\')){this.value=\'\'; _dhtCreate.orderCode=\'\';}; _dhtSearchOrderCode()" style="font-size:14px;font-weight:700;border:2px solid #daa520">'
         +'<input type="hidden" id="_co_custId">'
         +'<div id="_co_codeList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:250px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+
         // Free mode: auto-generate code placeholder
         +'<div id="_co_codeFree" style="display:none;grid-column:span 2"><div class="form-group"><label>Mã Đơn <span style="font-size:10px;color:#059669;font-weight:700">✅ Tự động khi xác nhận</span></label>'
         +'<input id="_co_codeFreeLabel" class="form-control" disabled value="🔄 Mã sẽ tự động tạo khi bấm Lưu Đơn" style="'+_dis+';font-weight:800;font-size:14px;color:#059669;border:2px solid #059669;background:#f0fdf4"></div></div>'
@@ -654,10 +655,19 @@ async function _dhtGoStep2() {
         +'<div id="_co_depositInfo" style="background:#fffbeb;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#b8860b;font-weight:600">💰 Mã Cọc: '+depositDisplay+'</div>';
 
     var isEdit = _dhtCreate.editMode;
-    var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>'
-        + (isEdit
-            ? '<button class="btn" onclick="_dhtSubmitEditV2()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Cập Nhật Đơn</button>'
-            : '<button class="btn" onclick="_dhtSubmitCreateV2()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Lưu Đơn Hàng</button>');
+    var isDraftOrder = _dhtCreate.editData && _dhtCreate.editData.order && (_dhtCreate.editData.order.is_draft === true || _dhtCreate.editData.order.is_draft === 'true');
+    var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>';
+    if (isEdit) {
+        if (isDraftOrder) {
+            footer += '<button class="btn" onclick="_dhtSubmitEditV2(true)" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">📝 Lưu Nháp</button>'
+                   + '<button class="btn" onclick="_dhtSubmitEditV2(false)" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">💾 Lưu Chính Thức</button>';
+        } else {
+            footer += '<button class="btn" onclick="_dhtSubmitEditV2(false)" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">💾 Cập Nhật Đơn</button>';
+        }
+    } else {
+        footer += '<button class="btn" onclick="_dhtSubmitCreateV2(true)" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">📝 Lưu Nháp</button>'
+               + '<button class="btn" onclick="_dhtSubmitCreateV2(false)" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">💾 Lưu Đơn Hàng</button>';
+    }
 
     openModal(isEdit ? '✏️ Sửa Đơn ' + _dhtCreate.orderCode : '➕ Tạo Đơn Hàng', body, footer);
 
@@ -934,19 +944,29 @@ function _dhtOnFreeDepositChange() {
 var _dhtCodeTimer;
 function _dhtSearchOrderCode() {
     clearTimeout(_dhtCodeTimer);
-    _dhtCodeTimer = setTimeout(function() {
-        var q = (document.getElementById('_co_code')?.value || '').toLowerCase();
+    _dhtCodeTimer = setTimeout(async function() {
+        var q = (document.getElementById('_co_code')?.value || '').toLowerCase().trim();
         var list = document.getElementById('_co_codeList');
         if (!list) return;
+        
         var codes = _dhtCreate.availableCodes || [];
-        var filtered = codes.filter(function(c) {
+        var filteredCodes = codes.filter(function(c) {
             var text = (c.order_code + ' ' + c.customer_name + ' ' + c.phone).toLowerCase();
             return !q || text.indexOf(q) >= 0;
         });
-        if (filtered.length === 0) {
-            list.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9ca3af">Không có mã đơn chờ.<br><span style="color:#dc2626;font-weight:600">Vui lòng Chốt Đơn ở CRM trước.</span></div>';
-        } else {
-            list.innerHTML = filtered.map(function(c) {
+
+        var customers = [];
+        if (q.length >= 2) {
+            try {
+                var res = await apiCall('/api/dht/customer-search?q=' + encodeURIComponent(q));
+                customers = res.customers || [];
+            } catch(e) { console.error(e); }
+        }
+
+        var html = '';
+        if (filteredCodes.length > 0) {
+            html += '<div style="padding:4px 10px;background:#f8fafc;font-size:10px;font-weight:800;color:#64748b;border-bottom:1.5px solid #e2e8f0;letter-spacing:0.5px">MÃ ĐƠN CHỜ (CRM)</div>';
+            html += filteredCodes.map(function(c) {
                 return '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px"'
                     +' onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'"'
                     +' onclick="_dhtPickOrderCode('+c.id+')"'
@@ -956,6 +976,26 @@ function _dhtSearchOrderCode() {
                     +(c.source_name ? ' <span style="font-size:10px;color:#6b7280">('+c.source_name+')</span>' : '')+'</div>';
             }).join('');
         }
+
+        if (customers.length > 0) {
+            html += '<div style="padding:4px 10px;background:#fffbeb;font-size:10px;font-weight:800;color:#d97706;border-bottom:1.5px solid #fde68a;margin-top:4px;letter-spacing:0.5px">KHÁCH HÀNG (ĐỂ LƯU NHÁP)</div>';
+            html += customers.map(function(c) {
+                // escape quotes for JSON string
+                var dataStr = JSON.stringify(c).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+                return '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px"'
+                    +' onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'"'
+                    +' onclick="_dhtPickCustomerForDraft(\''+dataStr+'\')"'
+                    +'><b style="color:#d97706">👤 '+c.customer_name+'</b>'
+                    +' — <span style="color:#2563eb">'+c.phone+'</span>'
+                    +(c.source_name ? ' <span style="font-size:10px;color:#6b7280">('+c.source_name+')</span>' : '')+'</div>';
+            }).join('');
+        }
+
+        if (filteredCodes.length === 0 && customers.length === 0) {
+            html = '<div style="padding:12px;text-align:center;font-size:11px;color:#9ca3af">Không tìm thấy mã đơn chờ hoặc khách hàng.<br><span style="color:#dc2626;font-weight:600">Gõ từ khóa khác hoặc tạo Khách hàng ở CRM trước.</span></div>';
+        }
+
+        list.innerHTML = html;
         list.style.display = 'block';
     }, 200);
 }
@@ -1008,6 +1048,48 @@ async function _dhtPickOrderCode(codeId) {
         }
     }
     _dhtCalcTotal();
+}
+
+function _dhtPickCustomerForDraft(cStr) {
+    try {
+        var c = JSON.parse(cStr);
+        _dhtCreate.orderCode = '';
+        _dhtCreate.isDraftSelected = true;
+        
+        var codeInput = document.getElementById('_co_code');
+        if (codeInput) {
+            codeInput.value = '📝 ĐƠN NHÁP (Chưa có mã)';
+            codeInput.style.background = '#fffbeb';
+            codeInput.style.fontWeight = '900';
+            codeInput.style.fontSize = '14px';
+            codeInput.style.color = '#d97706';
+        }
+        
+        document.getElementById('_co_custId').value = c.id;
+        document.getElementById('_co_phone').value = c.phone || '';
+        document.getElementById('_co_name').value = c.customer_name || '';
+        document.getElementById('_co_src').value = c.source_name || '';
+        document.getElementById('_co_addr').value = c.address || '';
+        if (c.province) {
+            document.getElementById('_co_prov').value = c.province;
+        }
+        
+        _dhtCreate.depositAmount = 0;
+        var depEl = document.getElementById('_co_deposit');
+        if (depEl) depEl.value = '0đ';
+        
+        var depInfo = document.getElementById('_co_depositInfo');
+        if (depInfo) {
+            depInfo.innerHTML = '💰 Chưa liên kết cọc (Lưu Nháp)';
+            depInfo.style.color = '#d97706';
+        }
+        
+        document.getElementById('_co_codeList').style.display = 'none';
+        _dhtCalcTotal();
+    } catch(e) {
+        console.error('Error picking customer for draft:', e);
+        showToast('Lỗi chọn khách hàng', 'error');
+    }
 }
 
 // Close order code dropdown when clicking outside
@@ -2046,10 +2128,8 @@ function _dhtRenderSurcharges() {
     c.innerHTML = h;
 }
 
-
-
 // === Submit Order ===
-async function _dhtSubmitCreateV2() {
+async function _dhtSubmitCreateV2(isDraft) {
     var cat = _dhtRepairData ? String(_dhtRepairData.catId) : (document.getElementById('_co_cat')?.value);
     var phone = document.getElementById('_co_phone')?.value?.trim();
     var name = document.getElementById('_co_name')?.value?.trim();
@@ -2081,8 +2161,8 @@ async function _dhtSubmitCreateV2() {
         custId = null;
     } else {
         custId = document.getElementById('_co_custId')?.value;
-        if (!_dhtCreate.orderCode) { showToast('Vui lòng chọn mã đơn từ CRM', 'error'); return; }
-        if (!custId) { showToast('Vui lòng chọn mã đơn để tự điền khách hàng', 'error'); return; }
+        if (!isDraft && !_dhtCreate.orderCode) { showToast('Vui lòng chọn mã đơn từ CRM', 'error'); return; }
+        if (!custId) { showToast('Vui lòng chọn mã đơn hoặc khách hàng', 'error'); return; }
     }
 
     if (!phone) { showToast('Nhập Số Điện Thoại', 'error'); return; }
@@ -2099,7 +2179,7 @@ async function _dhtSubmitCreateV2() {
     var carrierExtra = _dhtGetCarrierExtra();
     if (carrierExtra === false) return;
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
-    if (pri === 'CHUẨN') {
+    if (!isDraft && pri === 'CHUẨN') {
         var dH = document.getElementById('_co_deliveryHour')?.value;
         var dM = document.getElementById('_co_deliveryMin')?.value;
         if (!dH || dH === '') { showToast('⏰ Chọn Giờ Yêu Cầu Chuẩn Hàng Ra', 'error'); return; }
@@ -2178,11 +2258,14 @@ async function _dhtSubmitCreateV2() {
         free_customer_id: _dhtSelectedCustId || null,
         free_customer_action: _dhtPhoneAction || null,
         department_id: _dhtCreate.myInfo?.department_id,
-        items: items
+        items: items,
+        is_draft: !!isDraft
     };
     // ★ Normal: send order_code + customer_id
     if (!isFree) {
-        payload.order_code = _dhtCreate.orderCode;
+        if (!isDraft) {
+            payload.order_code = _dhtCreate.orderCode;
+        }
         payload.customer_id = custId;
     }
     // ★ Repair: send repair fields + order_code
@@ -2201,7 +2284,7 @@ async function _dhtSubmitCreateV2() {
             await apiCall('/api/dht/lock-deposit/' + _dhtCreate.depositId, 'PUT');
         }
         var generatedCode = data.order?.order_code || '';
-        showToast('✅ ' + (_dhtRepairData ? 'Đã tạo đơn sửa! Mã: ' + generatedCode : 'Đã tạo đơn thành công!' + (isFree ? ' Mã: ' + generatedCode : '')));
+        showToast('✅ ' + (isDraft ? 'Đã lưu đơn nháp thành công!' : (_dhtRepairData ? 'Đã tạo đơn sửa! Mã: ' + generatedCode : 'Đã tạo đơn thành công!' + (isFree ? ' Mã: ' + generatedCode : ''))));
         _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
         _dhtFreeMode = false;
         _dhtRepairData = null;
@@ -2829,8 +2912,10 @@ async function _dhtEditOrderFree(o) {
     }
 }
 
+
+
 // === Submit Edit V2 (PUT with items) ===
-async function _dhtSubmitEditV2() {
+async function _dhtSubmitEditV2(isDraft) {
     var id = _dhtCreate.editOrderId;
     if (!id) { showToast('Lỗi: không có ID đơn', 'error'); return; }
     var cat = document.getElementById('_co_cat')?.value;
@@ -2856,6 +2941,17 @@ async function _dhtSubmitEditV2() {
             return;
         }
     }
+    
+    // Check promote logic: if draft is promoted to official, we require a valid order code
+    var isDraftOrder = _dhtCreate.editData && _dhtCreate.editData.order && (_dhtCreate.editData.order.is_draft === true || _dhtCreate.editData.order.is_draft === 'true');
+    var orderCodeVal = document.getElementById('_co_code')?.value?.trim();
+    if (isDraftOrder && !isDraft) {
+        if (!orderCodeVal || orderCodeVal.startsWith('📝') || orderCodeVal.startsWith('NHAP-')) {
+            showToast('Vui lòng nhập/chọn mã đơn chính thức từ CRM để Lưu Chính Thức', 'error');
+            return;
+        }
+    }
+
     var totalAmt = 0, totalVatAmt = 0;
     items.forEach(function(p) { if(!p)return; totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
     var surTotal = 0;
@@ -2865,12 +2961,8 @@ async function _dhtSubmitEditV2() {
     // Validate that remaining amount is not negative
     var discountAmt = Number(_dhtCreate.editData?.order?.discount_amount) || 0;
     var depAmt = Number(_dhtCreate.depositAmount) || 0;
-    var shipFee = Number(_dhtCreate.editData?.order?.shipping_fee) || 0;
-    var shipPayer = _dhtCreate.editData?.order?.shipping_fee_payer || '';
-    var shipMethod = _dhtCreate.editData?.order?.shipping_fee_method || '';
-    var shipCK = 0;
     var remain = (totalAmt + totalVatAmt + additionalVat + surTotal) - discountAmt - depAmt;
-    if (remain < 0) {
+    if (!isDraft && remain < 0) {
         showToast('⛔ Số tiền Còn Lại không được âm! Tổng đơn mới (' + (totalAmt + totalVatAmt + additionalVat + surTotal).toLocaleString('vi-VN') + 'đ) nhỏ hơn cọc (' + depAmt.toLocaleString('vi-VN') + 'đ) và chiết khấu (' + discountAmt.toLocaleString('vi-VN') + 'đ)', 'error');
         return;
     }
@@ -2878,9 +2970,10 @@ async function _dhtSubmitEditV2() {
     var hasVat = (totalVatAmt > 0 || additionalVat > 0);
     var vatAmt = totalVatAmt + additionalVat;
     var pri = document.getElementById('_co_pri')?.value || 'CHUẨN';
-    // Handle proof image for CHUẨN and validate time + image
+    
+    // Handle proof image for CHUẨN and validate time + image (skip for drafts)
     var proofImg = undefined;
-    if (pri === 'CHUẨN') {
+    if (!isDraft && pri === 'CHUẨN') {
         var dH = document.getElementById('_co_deliveryHour')?.value;
         var dM = document.getElementById('_co_deliveryMin')?.value;
         if (!dH || dH === '') { showToast('⏰ Chọn Giờ Yêu Cầu Chuẩn Hàng Ra', 'error'); return; }
@@ -2892,9 +2985,9 @@ async function _dhtSubmitEditV2() {
             return;
         }
     }
-    var desVal = document.getElementById('_co_designer')?.value;
-    var desType = desVal === 'old_design' ? 'old_design' : 'staff';
-    var desId = desVal === 'old_design' ? null : (desVal || null);
+    var desVal2 = document.getElementById('_co_designer')?.value;
+    var desType = desVal2 === 'old_design' ? 'old_design' : 'staff';
+    var desId = desVal2 === 'old_design' ? null : (desVal2 || null);
 
     var payload = {
         category_id: cat,
@@ -2916,9 +3009,15 @@ async function _dhtSubmitEditV2() {
         standard_delivery_time: pri === 'CHUẨN' ? ((document.getElementById('_co_deliveryHour')?.value || '00') + ':' + (document.getElementById('_co_deliveryMin')?.value || '00')) : null,
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
         sale_note_for_accountant: document.getElementById('_co_saleNote')?.value?.trim() || null,
-        items: items
+        items: items,
+        is_draft: !!isDraft
     };
     if (proofImg !== undefined) payload.standard_proof_image = proofImg;
+    
+    // If promoting, include the official order code in payload
+    if (isDraftOrder && !isDraft) {
+        payload.order_code = orderCodeVal;
+    }
 
     var data = await apiCall('/api/dht/orders/' + id, 'PUT', payload);
     if (data.success) {
