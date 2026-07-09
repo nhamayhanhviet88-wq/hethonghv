@@ -3421,29 +3421,6 @@ function _tpdRenderA4SizeTable(it) {
                 </tbody>
             </table>
         `;
-    }= `<th>${q.size}</th>`;
-            sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
-            totalQty += Number(q.qty || 0);
-        });
-
-        return `
-            <table class="tpd-a4-table">
-                <thead>
-                    <tr>
-                        <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
-                        ${sizeHeaders}
-                        <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; width: 80px; text-align:center;">TỔNG SL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
-                        ${sizeValues}
-                        <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
-                    </tr>
-                </tbody>
-            </table>
-        `;
     }
 }
 
