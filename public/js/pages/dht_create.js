@@ -1511,6 +1511,7 @@ async function _dhtAddItem(editIdx) {
     var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
     window._ppCurrentPhieuIdx = idx;
     var existing = _dhtCreate.phieuItems[idx] || {};
+    window._ppCurrentExistingPhieu = existing;
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
     var isRestricted = isOldItem && window._dhtEditRestricted;
     var po = _dhtCreate.phieuOpts || {};
@@ -1564,27 +1565,16 @@ async function _dhtAddItem(editIdx) {
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
         +saveBtn+'</div>';
     document.body.appendChild(ov);
-    // Restore existing material pairs if editing
-    if (existing.pattern_name) {
-        setTimeout(function(){ _dhtPatternChange(existing); }, 100);
-    }
-    setTimeout(_ppCalc,100);
     
-    // Set initial size_type if existing
+    // Restore existing values / cascade product change
     setTimeout(function() {
-        var pName = existing.product_name || '';
-        if (pName) {
-            var allProds = (_dhtCreate.phieuOpts||{}).products||[];
-            var prod = allProds.find(function(p){return p.name===pName;});
-            var sizeType = prod?.size_type || existing.size_type || 'Size TT';
-            var sContainer = document.getElementById('_pp_sizeTypeContainer');
-            var sInput = document.getElementById('_pp_sizeType');
-            if (sContainer && sInput) {
-                sInput.value = sizeType;
-                sContainer.style.display = 'block';
-            }
+        if (existing.product_name) {
+            _dhtProductChange(true);
+        } else {
+            _dhtUpdatePatternList(null);
         }
-    }, 120);
+    }, 100);
+    setTimeout(_ppCalc,100);
 
     // ★ READ-ONLY MODE: Set flag BEFORE rendering sew tags
     window._dhtPhieuRestricted = isRestricted;
@@ -1711,8 +1701,57 @@ function _dhtSaleChange() {
     }).join('');
 }
 
+// Cascade: product → filter patterns
+function _dhtUpdatePatternList(prodId) {
+    var patInp = document.getElementById('_pp_pattern');
+    var patVal = document.getElementById('_pp_pattern_val');
+    var patList = document.getElementById('_pp_pattern_list');
+    if (!patInp || !patList) return;
+
+    if (!prodId) {
+        patInp.value = '';
+        if (patVal) patVal.value = '';
+        patInp.disabled = true;
+        patInp.placeholder = '← Chọn Sản Phẩm trước';
+        patInp.style.background = '#f1f5f9';
+        patInp.style.cursor = 'not-allowed';
+        patList.innerHTML = '';
+        return;
+    }
+
+    var allPats = window._ppTsamPatterns || [];
+    var filtered = allPats.filter(function(p) {
+        var pIds = p.product_ids || [];
+        if (typeof pIds === 'string') {
+            try { pIds = JSON.parse(pIds); } catch(e) { pIds = []; }
+        }
+        return Array.isArray(pIds) && pIds.map(Number).indexOf(Number(prodId)) >= 0;
+    });
+
+    var items = filtered.map(function(p) { return { text: p.name, value: p.name }; });
+    if (items.length === 0) {
+        patInp.value = '';
+        if (patVal) patVal.value = '';
+        patInp.disabled = true;
+        patInp.placeholder = '⚠️ Không có mẫu tương ứng';
+        patInp.style.background = '#f8fafc';
+        patInp.style.cursor = 'not-allowed';
+        patList.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px;text-align:center">⚠️ Không có mẫu tương ứng sản phẩm này</div>';
+        return;
+    }
+
+    patInp.disabled = false;
+    patInp.placeholder = 'Chọn thông số mẫu...';
+    patInp.style.background = '';
+    patInp.style.cursor = 'pointer';
+
+    patList.innerHTML = items.map(function(it) {
+        return '<div class="_ppOpt" data-val="'+it.value+'" data-txt="'+it.text+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'_pp_pattern\',this)">'+it.text+'</div>';
+    }).join('');
+}
+
 // Cascade: product → show process steps + store assigned materials globally
-async function _dhtProductChange() {
+async function _dhtProductChange(keepExistingPattern) {
     window._ppStockLimits = {};
     var prodName=document.getElementById('_pp_product')?.value;
     var bar=document.getElementById('_pp_processBar');
@@ -1729,6 +1768,7 @@ async function _dhtProductChange() {
     if(!prodName){
         if(bar)bar.style.display='none';
         if(sContainer) sContainer.style.display = 'none';
+        _dhtUpdatePatternList(null);
         return;
     }
     // Find product ID
@@ -1737,6 +1777,7 @@ async function _dhtProductChange() {
     if(!prod){
         if(bar)bar.style.display='none';
         if(sContainer) sContainer.style.display = 'none';
+        _dhtUpdatePatternList(null);
         return;
     }
     // Set default size template display
@@ -1745,6 +1786,18 @@ async function _dhtProductChange() {
         sInput.value = sizeType;
         sContainer.style.display = 'block';
     }
+
+    // Cascade pattern list update
+    _dhtUpdatePatternList(prod.id);
+    if (!keepExistingPattern) {
+        var pInp = document.getElementById('_pp_pattern');
+        var pVal = document.getElementById('_pp_pattern_val');
+        if (pInp) pInp.value = '';
+        if (pVal) pVal.value = '';
+        var imgEl = document.getElementById('_pp_specImage');
+        if (imgEl) imgEl.style.display = 'none';
+    }
+
     // Fetch process steps + assigned materials in parallel
     try{
         var [procRes, matRes]=await Promise.all([
@@ -1771,7 +1824,9 @@ async function _dhtProductChange() {
         window._ppAssignedMats=matRes.materials||[];
         // Re-render pairs if pattern already selected
         var patName=document.getElementById('_pp_pattern')?.value;
-        if(patName) _dhtPatternChange();
+        if(patName) {
+            _dhtPatternChange(window._ppCurrentExistingPhieu);
+        }
     }catch(e){if(bar)bar.style.display='none';}
 }
 
@@ -2022,6 +2077,23 @@ function _dhtSavePhieu(idx) {
     if(!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
     if(!prod){showToast('Chọn Sản Phẩm','error');return;}
     if(!pat){showToast('Chọn Thông Số Mẫu Áo','error');return;}
+
+    // Validate pattern is associated with product
+    var allProds=(po.products||[]);
+    var selectedProd=allProds.find(function(p){return p.name===prod;});
+    if(!selectedProd){showToast('Sản Phẩm không hợp lệ','error');return;}
+    var selectedPat=(window._ppTsamPatterns||[]).find(function(p){return p.name===pat;});
+    if(selectedPat){
+        var pIds = selectedPat.product_ids || [];
+        if (typeof pIds === 'string') {
+            try { pIds = JSON.parse(pIds); } catch(e) { pIds = []; }
+        }
+        var mappedIds = pIds.map(Number);
+        if (mappedIds.indexOf(Number(selectedProd.id)) === -1) {
+            showToast('⚠️ Mẫu "' + pat + '" không phù hợp với Sản Phẩm "' + prod + '"!', 'error');
+            return;
+        }
+    }
     // Collect material/color pairs from searchable inputs
     var matInputs=document.querySelectorAll('[id^="_ppMatVal"]');
     var pairs=[];

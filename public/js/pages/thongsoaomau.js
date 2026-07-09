@@ -28,9 +28,14 @@ async function renderThongsoaomauPage(content) {
         ].join('');
         document.head.appendChild(st);
     }
-    var [treeRes, catRes] = await Promise.all([apiCall('/api/tsam/tree'), apiCall('/api/dht/categories')]);
+    var [treeRes, catRes, phieuOpts] = await Promise.all([
+        apiCall('/api/tsam/tree'),
+        apiCall('/api/dht/categories'),
+        apiCall('/api/dht/phieu-options')
+    ]);
     _tsam.tree = treeRes.categories || [];
     _tsam.categories = catRes.categories || [];
+    _tsam.products = phieuOpts.products || [];
     _tsam.totalInfo = treeRes.total || {};
     content.innerHTML = '<div class="tsam-wrap"><div class="tsam-sb" id="tsamSB"></div><div class="tsam-main"><div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><input type="text" id="tsamSearch" class="form-control" placeholder="🔍 Tìm mã mẫu, BST..." style="width:auto;min-width:220px"><select id="tsamStatusFilter" class="form-control" style="width:auto" onchange="_tsamLoad()"><option value="">Tất cả trạng thái</option><option value="PENDING">🟡 Chờ Duyệt</option><option value="APPROVED">✅ Đã Duyệt</option><option value="REJECTED">❌ Từ Chối</option></select><div style="margin-left:auto"><button class="btn" onclick="_tsamShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Thêm Mẫu</button></div></div><div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="tsam-tbl"><thead><tr><th style="text-align:center">STT</th><th style="text-align:center">Lĩnh Vực</th><th style="text-align:center">Mã Mẫu</th><th style="text-align:center">Loại</th><th style="text-align:center">SL Màu Phối</th><th style="text-align:center">Bộ Sưu Tập</th><th style="text-align:center">KT May</th><th style="text-align:center">Giá May Nhà</th><th style="text-align:center">Giá Gia Công</th><th style="text-align:center">Duyệt</th><th style="text-align:center">Lịch Sử CN</th></tr></thead><tbody id="tsamTbody"><tr><td colspan="11" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _st; document.getElementById('tsamSearch').addEventListener('input', function() { clearTimeout(_st); _st = setTimeout(function() { _tsamLoad(); }, 400); });
@@ -113,6 +118,15 @@ function _tsamShowCreate(editId) {
         + '<div class="form-group"><label>Loại ' + rq + '</label><select id="_tsamType" class="form-control" onchange="_tsamTypeChanged()"><option value="DON"' + (curType === 'DON' ? ' selected' : '') + '>Đơn</option><option value="PHA_PHOI"' + (curType === 'PHA_PHOI' ? ' selected' : '') + '>Pha Phối</option><option value="3D"' + (curType === '3D' ? ' selected' : '') + '>3D</option></select></div>'
         + '<div class="form-group"><label>SL Màu Phối ' + rq + ' <span id="_tsamMixHint" style="font-size:10px;color:' + (isLocked ? '#059669' : '#f59e0b') + '">' + (isLocked ? '🔒 Auto = 1' : '✏️ Nhập ≥ 2') + '</span></label><input type="number" id="_tsamMixCount" class="form-control" value="' + mixVal + '" min="' + (isLocked ? '1' : '2') + '"' + (isLocked ? ' disabled style="background:#f1f5f9;cursor:not-allowed"' : '') + '></div>'
         + '</div>'
+        // === PRODUCT CHECKLIST PICKER (Loại Bán) ===
+        + '<div class="form-group" style="margin-top:8px"><label>📦 Sản Phẩm Áp Dụng (Loại Bán) ' + rq + '</label>'
+        + '<div style="margin-bottom:6px;display:flex;gap:6px;align-items:center">'
+        + '<input type="text" id="_tsamProdSearch" class="form-control" placeholder="🔍 Tìm nhanh sản phẩm..." oninput="_tsamFilterProds(this.value)" style="font-size:11px;padding:4px 8px;height:auto;width:180px">'
+        + '<button type="button" class="btn btn-secondary" onclick="_tsamSelectAllProds(true)" style="font-size:10px;padding:3px 8px;white-space:nowrap;background:#e2e8f0;border:1px solid #cbd5e1;cursor:pointer;border-radius:4px">Chọn tất cả</button>'
+        + '<button type="button" class="btn btn-secondary" onclick="_tsamSelectAllProds(false)" style="font-size:10px;padding:3px 8px;white-space:nowrap;background:#e2e8f0;border:1px solid #cbd5e1;cursor:pointer;border-radius:4px;margin-left:4px">Bỏ chọn</button>'
+        + '</div>'
+        + '<div id="_tsamProdList" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:6px;max-height:130px;overflow-y:auto;padding:8px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc"></div>'
+        + '</div>'
         // === MIX POSITION PICKER (only for PHA_PHOI) ===
         + '<div id="_tsamMixPosWrap" style="margin-top:8px;display:' + (curType === 'PHA_PHOI' ? 'block' : 'none') + '"><div class="form-group"><label>📌 Vị Trí Phối ' + rq + '</label>'
         + '<div id="_tsamMixPosList" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;min-height:36px"><span style="color:#94a3b8;font-size:11px">Đang tải...</span></div></div></div>'
@@ -148,6 +162,15 @@ function _tsamShowCreate(editId) {
             zone.addEventListener('paste', _tsamHandlePaste);
             zone.addEventListener('click', function() { this.focus(); });
         }
+        var selectedIds = [];
+        if (s.product_ids) {
+            if (typeof s.product_ids === 'string') {
+                try { selectedIds = JSON.parse(s.product_ids); } catch(e) {}
+            } else if (Array.isArray(s.product_ids)) {
+                selectedIds = s.product_ids;
+            }
+        }
+        _tsamRenderProdList(selectedIds);
         _tsamRenderSewTags();
         _tsamLoadMixPositions(s);
         // Attach real-time Google Drive link validation
@@ -277,6 +300,7 @@ async function _tsamSubmit(editId) {
         sample_type: document.getElementById('_tsamType')?.value || 'DON',
         mix_color_count: document.getElementById('_tsamMixCount')?.value || 0,
         mix_positions: [],
+        product_ids: [],
         collection: document.getElementById('_tsamCollection')?.value?.trim() || '',
         design_market: document.getElementById('_tsamMarket')?.value?.trim() || '',
         total_sample: document.getElementById('_tsamTotal')?.value?.trim() || '',
@@ -288,9 +312,12 @@ async function _tsamSubmit(editId) {
     };
     // Collect mix positions from checkboxes
     document.querySelectorAll('._tsamMixCb:checked').forEach(function(cb) { data.mix_positions.push(cb.value); });
+    // Collect checked product IDs
+    document.querySelectorAll('#_tsamProdList ._tsamProdCb:checked').forEach(function(cb) { data.product_ids.push(Number(cb.value)); });
     // === Client-side validation ===
     if (!data.category_id) { showToast('Chọn Lĩnh Vực', 'error'); return; }
     if (!data.sample_code) { showToast('Nhập Mã Mẫu', 'error'); return; }
+    if (data.product_ids.length === 0) { showToast('Chọn ít nhất 1 sản phẩm áp dụng (Loại Bán)', 'error'); return; }
     if (!data.spec_image) { showToast('Chưa dán Hình Ảnh Thông Số (Ctrl+V)', 'error'); return; }
     if (!data.collection) { showToast('Nhập Bộ Sưu Tập', 'error'); return; }
     if (!data.design_market) { showToast('Nhập Market Thiết Kế', 'error'); return; }
@@ -326,6 +353,7 @@ async function _tsamDetail(id) {
     var rows = [
         ['MÃ MẪU', '<b style="color:#7c3aed;font-size:15px">' + s.sample_code + '</b>'],
         ['LĨNH VỰC', s.category_name || '—'],
+        ['SẢN PHẨM ÁP DỤNG', '<span style="color:#4f46e5;font-weight:700">' + (s.product_names || '—') + '</span>'],
         ['LOẠI', '<span class="tsam-badge" style="background:' + (_tsamTypeColors[s.sample_type]||'#64748b') + '">' + (_tsamTypes[s.sample_type]||s.sample_type) + '</span>'],
         ['VỊ TRÍ PHỐI', mix.length ? mix.join(', ') : '—'],
         ['SL MÀU PHỐI', s.mix_color_count || 0],
@@ -474,6 +502,12 @@ async function _tsamOpenBgmPicker() {
     var mixPosChecked = [];
     document.querySelectorAll('._tsamMixCb:checked').forEach(function(cb) { mixPosChecked.push(cb.value); });
     window._bgmParentFormValues.mix_positions = mixPosChecked;
+
+    // Also save checked product_ids
+    var prodIdsChecked = [];
+    document.querySelectorAll('#_tsamProdList ._tsamProdCb:checked').forEach(function(cb) { prodIdsChecked.push(Number(cb.value)); });
+    window._bgmParentFormValues.product_ids = prodIdsChecked;
+
     window._bgmParentModal = {
         title: document.getElementById('modalTitle').innerHTML,
         body: document.getElementById('modalBody').innerHTML,
@@ -662,6 +696,12 @@ function _tsamCloseBgmPicker() {
                     }
                 });
             }
+            // Restore product_ids checkboxes
+            if (fv.product_ids && fv.product_ids.length) {
+                _tsamRenderProdList(fv.product_ids);
+            } else {
+                _tsamRenderProdList([]);
+            }
             // Show/hide mix position section based on type
             _tsamTypeChanged();
             // Re-attach paste handler
@@ -687,4 +727,65 @@ function _tsamApplyBgm() {
     window._tsamSewItems = items;
     // Restore parent modal (Thêm Mẫu Áo Mới)
     _tsamCloseBgmPicker();
+}
+
+function _tsamRenderProdList(selectedIds) {
+    var container = document.getElementById('_tsamProdList');
+    if (!container) return;
+    if (!_tsam.products || _tsam.products.length === 0) {
+        container.innerHTML = '<span style="color:#94a3b8;font-size:11px">Không có sản phẩm nào</span>';
+        return;
+    }
+    var h = _tsam.products.map(function(p) {
+        var isChecked = selectedIds.indexOf(p.id) >= 0;
+        var checkedAttr = isChecked ? ' checked' : '';
+        var bg = isChecked ? '#ede9fe' : '#fff';
+        var border = isChecked ? '#7c3aed' : '#e2e8f0';
+        return '<label class="_tsamProdLabel" data-name="' + p.name.toLowerCase() + '" style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;margin-bottom:0;transition:all 0.15s;user-select:none">'
+            + '<input type="checkbox" class="_tsamProdCb" value="' + p.id + '"' + checkedAttr + ' onchange="_tsamProdCbChanged(this)" style="cursor:pointer;margin:0">'
+            + ' <span style="flex-grow:1">' + p.name + '</span>'
+            + '<span style="font-size:9px;color:#94a3b8;font-weight:normal">(' + (p.sale_type_name || 'Bán') + ')</span>'
+            + '</label>';
+    }).join('');
+    container.innerHTML = h;
+}
+
+function _tsamProdCbChanged(cb) {
+    var label = cb.closest('label');
+    if (label) {
+        if (cb.checked) {
+            label.style.background = '#ede9fe';
+            label.style.borderColor = '#7c3aed';
+        } else {
+            label.style.background = '#fff';
+            label.style.borderColor = '#e2e8f0';
+        }
+    }
+}
+
+function _tsamFilterProds(val) {
+    var q = (val || '').toLowerCase().trim();
+    var labels = document.querySelectorAll('#_tsamProdList ._tsamProdCb');
+    labels.forEach(function(cb) {
+        var l = cb.closest('label');
+        if (l) {
+            var name = l.getAttribute('data-name') || '';
+            if (!q || name.indexOf(q) >= 0) {
+                l.style.display = 'flex';
+            } else {
+                l.style.display = 'none';
+            }
+        }
+    });
+}
+
+function _tsamSelectAllProds(select) {
+    var cbs = document.querySelectorAll('#_tsamProdList ._tsamProdCb');
+    cbs.forEach(function(cb) {
+        var label = cb.closest('label');
+        if (label && label.style.display !== 'none') {
+            cb.checked = select;
+            _tsamProdCbChanged(cb);
+        }
+    });
 }

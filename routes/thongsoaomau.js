@@ -5,6 +5,18 @@ const { vnNow, vnFormat } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
+    // Auto-migrate: create tsam_sample_products table if not exists
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS tsam_sample_products (
+            sample_id INTEGER NOT NULL REFERENCES tsam_samples(id) ON DELETE CASCADE,
+            product_id INTEGER NOT NULL REFERENCES dht_products(id) ON DELETE CASCADE,
+            PRIMARY KEY (sample_id, product_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_tsam_sample_products_sample ON tsam_sample_products(sample_id);
+        CREATE INDEX IF NOT EXISTS idx_tsam_sample_products_product ON tsam_sample_products(product_id);
+    `);
+
+
     // ========== UPLOAD image (Ctrl+V paste) ==========
     fastify.post('/api/tsam/upload', { preHandler: [authenticate] }, async (request, reply) => {
         const data = await request.file();
@@ -38,6 +50,8 @@ module.exports = async function(fastify) {
                 c.name AS category_name,
                 u_created.full_name AS created_by_name,
                 u_approved.full_name AS approved_by_name,
+                COALESCE((SELECT array_to_json(array_agg(product_id)) FROM tsam_sample_products WHERE sample_id = s.id), '[]'::json) AS product_ids,
+                COALESCE((SELECT string_agg(p.name, ', ') FROM tsam_sample_products sp JOIN dht_products p ON sp.product_id = p.id WHERE sp.sample_id = s.id), '') AS product_names,
                 (SELECT COUNT(*) FROM tsam_order_links ol WHERE ol.sample_id = s.id) AS order_count
             FROM tsam_samples s
             LEFT JOIN dht_categories c ON s.category_id = c.id
@@ -57,7 +71,8 @@ module.exports = async function(fastify) {
             SELECT s.*,
                 c.name AS category_name,
                 u_created.full_name AS created_by_name,
-                u_approved.full_name AS approved_by_name
+                u_approved.full_name AS approved_by_name,
+                COALESCE((SELECT array_to_json(array_agg(product_id)) FROM tsam_sample_products WHERE sample_id = s.id), '[]'::json) AS product_ids
             FROM tsam_samples s
             LEFT JOIN dht_categories c ON s.category_id = c.id
             LEFT JOIN users u_created ON s.created_by = u_created.id
@@ -79,6 +94,7 @@ module.exports = async function(fastify) {
         if (!b.sample_type) return reply.code(400).send({ error: 'Chọn Loại' });
         if (!['PHA_PHOI', '3D', 'DON'].includes(b.sample_type)) return reply.code(400).send({ error: 'Loại không hợp lệ' });
         if (!b.collection || !b.collection.trim()) return reply.code(400).send({ error: 'Nhập Bộ Sưu Tập' });
+        if (!b.product_ids || !Array.isArray(b.product_ids) || b.product_ids.length === 0) return reply.code(400).send({ error: 'Chọn ít nhất 1 sản phẩm áp dụng' });
 
         // === URL validation for 3 link fields (must be Google Drive folder links) ===
         if (!b.design_market || !b.design_market.trim()) return reply.code(400).send({ error: 'Nhập Market Thiết Kế' });
@@ -144,9 +160,14 @@ module.exports = async function(fastify) {
             request.user.id
         ]);
 
+        // Insert product relationships
+        for (const pid of b.product_ids) {
+            await db.run('INSERT INTO tsam_sample_products (sample_id, product_id) VALUES ($1, $2)', [result.id, Number(pid)]);
+        }
+
         // Log history
         await db.run(`INSERT INTO tsam_history (sample_id, action, changed_fields, changed_by) VALUES ($1, 'CREATE', $2, $3)`,
-            [result.id, JSON.stringify({ sample_code: b.sample_code.trim() }), request.user.id]);
+            [result.id, JSON.stringify({ sample_code: b.sample_code.trim(), product_ids: b.product_ids }), request.user.id]);
 
         return { success: true, sample: result };
     });
@@ -164,6 +185,11 @@ module.exports = async function(fastify) {
         // === Validate required fields if provided ===
         if (b.category_id !== undefined && !b.category_id) return reply.code(400).send({ error: 'Chọn Lĩnh Vực' });
         if (b.collection !== undefined && (!b.collection || !b.collection.trim())) return reply.code(400).send({ error: 'Nhập Bộ Sưu Tập' });
+        if (b.product_ids !== undefined) {
+            if (!b.product_ids || !Array.isArray(b.product_ids) || b.product_ids.length === 0) {
+                return reply.code(400).send({ error: 'Chọn ít nhất 1 sản phẩm áp dụng' });
+            }
+        }
         if (b.design_market !== undefined) {
             if (!b.design_market || !b.design_market.trim()) return reply.code(400).send({ error: 'Nhập Market Thiết Kế' });
             if (!urlRegex.test(b.design_market.trim())) return reply.code(400).send({ error: 'Market Thiết Kế phải là link Google Drive folder (https://drive.google.com/drive/folders/...)' });
@@ -236,12 +262,23 @@ module.exports = async function(fastify) {
             }
         }
 
-        if (sets.length === 0) return reply.code(400).send({ error: 'Không có dữ liệu cập nhật' });
+        if (sets.length > 0) {
+            sets.push(`updated_at = NOW()`);
+            params.push(id);
+            await db.run(`UPDATE tsam_samples SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+        }
 
-        sets.push(`updated_at = NOW()`);
-        params.push(id);
+        if (b.product_ids !== undefined) {
+            await db.run('DELETE FROM tsam_sample_products WHERE sample_id = $1', [id]);
+            for (const pid of b.product_ids) {
+                await db.run('INSERT INTO tsam_sample_products (sample_id, product_id) VALUES ($1, $2)', [id, Number(pid)]);
+            }
+            changes['product_ids'] = { new: b.product_ids };
+        }
 
-        await db.run(`UPDATE tsam_samples SET ${sets.join(', ')} WHERE id = $${idx}`, params);
+        if (sets.length === 0 && b.product_ids === undefined) {
+            return reply.code(400).send({ error: 'Không có dữ liệu cập nhật' });
+        }
 
         // Log history
         await db.run(`INSERT INTO tsam_history (sample_id, action, changed_fields, changed_by) VALUES ($1, 'UPDATE', $2, $3)`,
@@ -343,10 +380,11 @@ module.exports = async function(fastify) {
     // ========== DROPDOWN for DHT Phiếu form ==========
     fastify.get('/api/tsam/dropdown', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(`
-            SELECT id, sample_code AS name, sample_type, category_id, approval_status, mix_color_count, spec_image
-            FROM tsam_samples
-            WHERE is_active = true AND approval_status = 'APPROVED'
-            ORDER BY display_order ASC, sample_code ASC
+            SELECT s.id, s.sample_code AS name, s.sample_type, s.category_id, s.approval_status, s.mix_color_count, s.spec_image,
+                   COALESCE((SELECT array_to_json(array_agg(product_id)) FROM tsam_sample_products WHERE sample_id = s.id), '[]'::json) AS product_ids
+            FROM tsam_samples s
+            WHERE s.is_active = true AND s.approval_status = 'APPROVED'
+            ORDER BY s.display_order ASC, s.sample_code ASC
         `);
         return { patterns: rows };
     });
