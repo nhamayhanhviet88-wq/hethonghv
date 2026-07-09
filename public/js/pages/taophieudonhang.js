@@ -247,17 +247,18 @@ function _tpdCloneItemState(item) {
         "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
         "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
     };
-    const currentSizeType = item.size_type || Object.keys(config)[0] || 'Size TT';
+    const currentSizeType = item.size_type || Object.keys(config).filter(k => !k.startsWith('_'))[0] || 'Size TT';
     const stdSizes = config[currentSizeType] || [];
     const mergedQuantities = [];
     
-    // Only import existing sizes that actually have a quantity greater than 0
+    // Only import existing sizes that actually have a quantity greater than 0 or a non-empty note
     qtyArr.forEach(q => {
-        if (q.size && Number(q.qty) > 0) {
+        if (q.size && (Number(q.qty) > 0 || (q.note && q.note.trim()))) {
             mergedQuantities.push({
                 size: q.size.trim(),
-                qty: Number(q.qty),
-                price: Number(q.price) || Number(item.unit_price) || 0
+                qty: Number(q.qty) || 0,
+                price: Number(q.price) || Number(item.unit_price) || 0,
+                note: q.note || ''
             });
         }
     });
@@ -3245,7 +3246,7 @@ function _tpdRenderA4SizeTable(it) {
     const sortedQuantities = _tpdSortSizes(filledQuantities.map(q => q.size))
         .map(sz => filledQuantities.find(q => q.size === sz))
         .filter(Boolean)
-        .filter(q => Number(q.qty) > 0);
+        .filter(q => Number(q.qty) > 0 || (q.note && q.note.trim()));
 
     const hasSizes = sortedQuantities.length > 0;
     if (!hasSizes) {
@@ -3308,11 +3309,15 @@ function _tpdRenderA4SizeTable(it) {
             let headers = '';
             let values = '';
             namShortSizes.forEach(short => {
-                const qty = getNamQty(short);
-                headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
-                if (qty !== null) {
-                    values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 6px;">${qty}</td>`;
-                    rowTotal += qty;
+                const qObj = namSizes.find(q => getShortSize(q.size) === short);
+                headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">	ext{${short}}</th>`;
+                if (qObj) {
+                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 8px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
+                    values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px;">
+                        <div>${qObj.qty || 0}</div>
+                        ${noteHtml}
+                    </td>`;
+                    rowTotal += Number(qObj.qty || 0);
                 } else {
                     values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;">-</td>`;
                 }
@@ -3352,11 +3357,15 @@ function _tpdRenderA4SizeTable(it) {
             let headers = '';
             let values = '';
             nuShortSizes.forEach(short => {
-                const qty = getNuQty(short);
+                const qObj = nuSizes.find(q => getShortSize(q.size) === short);
                 headers += `<th style="background:#fce7f3; color:#be185d; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
-                if (qty !== null) {
-                    values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 6px;">${qty}</td>`;
-                    rowTotal += qty;
+                if (qObj) {
+                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 8px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
+                    values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px;">
+                        <div>${qObj.qty || 0}</div>
+                        ${noteHtml}
+                    </td>`;
+                    rowTotal += Number(qObj.qty || 0);
                 } else {
                     values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;">-</td>`;
                 }
@@ -3396,11 +3405,15 @@ function _tpdRenderA4SizeTable(it) {
             let headers = '';
             let values = '';
             otherShortSizes.forEach(short => {
-                const qty = getOtherQty(short);
+                const qObj = otherSizes.find(q => getShortSize(q.size) === short);
                 headers += `<th style="background:#f1f5f9; color:#475569; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
-                if (qty !== null) {
-                    values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 6px;">${qty}</td>`;
-                    rowTotal += qty;
+                if (qObj) {
+                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 8px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
+                    values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px;">
+                        <div>${qObj.qty || 0}</div>
+                        ${noteHtml}
+                    </td>`;
+                    rowTotal += Number(qObj.qty || 0);
                 } else {
                     values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;">-</td>`;
                 }
@@ -3445,7 +3458,11 @@ function _tpdRenderA4SizeTable(it) {
 
         sortedQuantities.forEach(q => {
             sizeHeaders += `<th>${q.size}</th>`;
-            sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
+            const noteHtml = q.note && q.note.trim() ? `<div style="font-size: 8px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(q.note)}</div>` : '';
+            sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px;">
+                <div>${q.qty || 0}</div>
+                ${noteHtml}
+            </td>`;
             totalQty += Number(q.qty || 0);
         });
 
@@ -3610,9 +3627,12 @@ function _tpdRenderFormInputs() {
         it.quantities = it.quantities.filter(q => {
             const isConfigured = configuredSizes.includes(q.size);
             const hasQty = q.qty && Number(q.qty) > 0;
-            return isConfigured || hasQty;
+            const hasNote = q.note && q.note.trim().length > 0;
+            return isConfigured || hasQty || hasNote;
         });
     }
+
+    const ncList = (config._nc_config && config._nc_config[currentSizeType]) || [];
 
     let sizeGridHtml = '';
     if (it.quantities.length === 0) {
@@ -3646,7 +3666,19 @@ function _tpdRenderFormInputs() {
                         <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1;">
                             ${namQty.length === 0 ? '<span style="font-size:11px; color:#94a3b8; padding-top:4px;">Chưa chọn size Nam</span>' : namQty.map(q => {
                                 const isCustom = !configuredSizes.includes(q.size);
+                                const isNC = ncList.includes(q.size);
                                 const labelBg = _tpdGetLabelStyle(q.size, isCustom);
+                                if (isNC) {
+                                    return `
+                                        <div class="tpd-ws-size-input-box" style="width:140px; flex-shrink:0;">
+                                            <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
+                                            <div style="display:flex; flex-direction:column; width:100%; box-sizing:border-box; padding:4px;">
+                                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
+                                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${disabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
+                                            </div>
+                                        </div>
+                                    `;
+                                }
                                 return `
                                     <div class="tpd-ws-size-input-box" style="width:70px; flex-shrink:0;">
                                         <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
@@ -3663,7 +3695,19 @@ function _tpdRenderFormInputs() {
                         <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1;">
                             ${nuQty.length === 0 ? '<span style="font-size:11px; color:#94a3b8; padding-top:4px;">Chưa chọn size Nữ</span>' : nuQty.map(q => {
                                 const isCustom = !configuredSizes.includes(q.size);
+                                const isNC = ncList.includes(q.size);
                                 const labelBg = _tpdGetLabelStyle(q.size, isCustom);
+                                if (isNC) {
+                                    return `
+                                        <div class="tpd-ws-size-input-box" style="width:140px; flex-shrink:0;">
+                                            <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
+                                            <div style="display:flex; flex-direction:column; width:100%; box-sizing:border-box; padding:4px;">
+                                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
+                                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${disabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
+                                            </div>
+                                        </div>
+                                    `;
+                                }
                                 return `
                                     <div class="tpd-ws-size-input-box" style="width:70px; flex-shrink:0;">
                                         <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
@@ -3681,7 +3725,19 @@ function _tpdRenderFormInputs() {
                         <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1;">
                             ${khacQty.map(q => {
                                 const isCustom = !configuredSizes.includes(q.size);
+                                const isNC = ncList.includes(q.size);
                                 const labelBg = _tpdGetLabelStyle(q.size, isCustom);
+                                if (isNC) {
+                                    return `
+                                        <div class="tpd-ws-size-input-box" style="width:140px; flex-shrink:0;">
+                                            <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
+                                            <div style="display:flex; flex-direction:column; width:100%; box-sizing:border-box; padding:4px;">
+                                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
+                                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${disabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
+                                            </div>
+                                        </div>
+                                    `;
+                                }
                                 return `
                                     <div class="tpd-ws-size-input-box" style="width:70px; flex-shrink:0;">
                                         <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
@@ -3697,7 +3753,19 @@ function _tpdRenderFormInputs() {
         } else {
             sizeGridHtml = sortedQuantities.map(q => {
                 const isCustom = !configuredSizes.includes(q.size);
+                const isNC = ncList.includes(q.size);
                 const labelBg = _tpdGetLabelStyle(q.size, isCustom);
+                if (isNC) {
+                    return `
+                        <div class="tpd-ws-size-input-box" style="grid-column: span 2; min-width: 140px;">
+                            <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
+                            <div style="display:flex; flex-direction:column; width:100%; box-sizing:border-box; padding:4px;">
+                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
+                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${disabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
+                            </div>
+                        </div>
+                    `;
+                }
                 return `
                     <div class="tpd-ws-size-input-box">
                         <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
@@ -3714,7 +3782,7 @@ function _tpdRenderFormInputs() {
                 <label class="tpd-ws-form-label" style="margin-bottom:0;">Loại Size</label>
                 <div style="display:flex; gap: 8px; align-items:center;">
                     <select class="tpd-ws-select" style="padding: 4px 8px; font-size:12px; height:auto; width:150px; border-radius:4px; border:1px solid #cbd5e1;" onchange="_tpdChangeSizeType(this.value)" ${disabledAttr}>
-                        ${Object.keys(config).map(typeName => `
+                        ${Object.keys(config).filter(k => !k.startsWith('_')).map(typeName => `
                             <option value="${typeName}" ${currentSizeType === typeName ? 'selected' : ''}>${typeName}</option>
                         `).join('')}
                     </select>
@@ -3850,11 +3918,28 @@ function _tpdUpdateQty(size, val) {
     if (qObj) {
         qObj.qty = qty;
     } else {
-        it.quantities.push({ size: size, qty: qty, price: it.unit_price || 0 });
+        it.quantities.push({ size: size, qty: qty, price: it.unit_price || 0, note: '' });
     }
 
     _tpdSaveDraft(it);
     // Refresh preview size table dynamically (without full rerender)
+    _tpdUpdateLivePreview();
+}
+
+// Update size note in editing item state
+function _tpdUpdateSizeNote(size, noteVal) {
+    const state = window._tpdWorkspaceState;
+    const it = state.editingItem;
+    if (!it) return;
+
+    const qObj = it.quantities.find(q => q.size === size);
+    if (qObj) {
+        qObj.note = noteVal;
+    } else {
+        it.quantities.push({ size: size, qty: 0, price: it.unit_price || 0, note: noteVal });
+    }
+
+    _tpdSaveDraft(it);
     _tpdUpdateLivePreview();
 }
 
@@ -4376,7 +4461,7 @@ function _tpdRenderAllSizeTemplates() {
     if (!container) return;
 
     const templates = window._tpdModalSizeTemplates || {};
-    const keys = Object.keys(templates);
+    const keys = Object.keys(templates).filter(k => !k.startsWith('_'));
 
     if (keys.length === 0) {
         container.innerHTML = `
@@ -4411,12 +4496,17 @@ function _tpdRenderAllSizeTemplates() {
                 <div style="display: flex; flex-wrap: wrap; gap: 8px; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px; min-height: 50px; background: white; box-sizing: border-box; max-height: 120px; overflow-y: auto;">
                     ${list.length === 0 ? `
                         <span style="font-size: 11px; color: #94a3b8; font-style: italic;">Chưa có size nào. Nhấn "+ Thêm size"</span>
-                    ` : list.map((sz, idx) => `
-                        <div style="display: inline-flex; align-items: center; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 2px 6px; gap: 6px; box-sizing: border-box;">
-                            <input type="text" value="${sz}" oninput="_tpdUpdateModalSizeVal('${tplName}', ${idx}, this.value)" style="border: none; background: transparent; font-size: 12px; font-weight: 600; width: 70px; color: #1e293b; outline: none; padding: 0; margin: 0; box-sizing: border-box;" placeholder="Nhập size...">
-                            <button type="button" onclick="_tpdDeleteModalSize('${tplName}', ${idx})" style="color: #ef4444; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 700; padding: 0 2px; margin: 0; line-height: 1; display: inline-flex; align-items: center;" title="Xóa size">✕</button>
-                        </div>
-                    `).join('')}
+                    ` : list.map((sz, idx) => {
+                        const ncList = (templates._nc_config && templates._nc_config[tplName]) || [];
+                        const isNC = ncList.includes(sz);
+                        return `
+                            <div style="display: inline-flex; align-items: center; background: ${isNC ? '#ffe4e6' : '#f1f5f9'}; border: 1px solid ${isNC ? '#fda4af' : '#e2e8f0'}; border-radius: 6px; padding: 2px 6px; gap: 6px; box-sizing: border-box;">
+                                <input type="checkbox" ${isNC ? 'checked' : ''} onchange="_tpdToggleModalSizeNC('${tplName}', '${sz}', this.checked)" title="Đánh dấu Ngoại cỡ (NC) để ghi chú số lượng & chữ" style="cursor: pointer; margin: 0; width: 13px; height: 13px;">
+                                <input type="text" value="${sz}" oninput="_tpdUpdateModalSizeVal('${tplName}', ${idx}, this.value)" style="border: none; background: transparent; font-size: 12px; font-weight: 600; width: 70px; color: #1e293b; outline: none; padding: 0; margin: 0; box-sizing: border-box;" placeholder="Nhập size...">
+                                <button type="button" onclick="_tpdDeleteModalSize('${tplName}', ${idx})" style="color: #ef4444; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 700; padding: 0 2px; margin: 0; line-height: 1; display: inline-flex; align-items: center;" title="Xóa size">✕</button>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -4461,6 +4551,12 @@ function _tpdRenameSizeTemplate(oldName, newName) {
         return;
     }
 
+    // Also rename in _nc_config
+    if (templates._nc_config && templates._nc_config[oldName]) {
+        templates._nc_config[newName] = templates._nc_config[oldName];
+        delete templates._nc_config[oldName];
+    }
+
     const updated = {};
     Object.keys(templates).forEach(k => {
         if (k === oldName) {
@@ -4477,6 +4573,9 @@ function _tpdRenameSizeTemplate(oldName, newName) {
 function _tpdDeleteSizeTemplate(tplName) {
     if (confirm(`Bạn có chắc chắn muốn xóa mẫu size "${tplName}"?`)) {
         delete window._tpdModalSizeTemplates[tplName];
+        if (window._tpdModalSizeTemplates._nc_config) {
+            delete window._tpdModalSizeTemplates._nc_config[tplName];
+        }
         _tpdRenderAllSizeTemplates();
     }
 }
@@ -4494,7 +4593,17 @@ function _tpdAddModalSize(tplName) {
 function _tpdDeleteModalSize(tplName, idx) {
     const templates = window._tpdModalSizeTemplates || {};
     if (templates[tplName]) {
+        const oldVal = templates[tplName][idx];
         templates[tplName].splice(idx, 1);
+        
+        // Remove from _nc_config
+        if (templates._nc_config && templates._nc_config[tplName]) {
+            const list = templates._nc_config[tplName];
+            const oldIdx = list.indexOf(oldVal);
+            if (oldIdx !== -1) {
+                list.splice(oldIdx, 1);
+            }
+        }
         _tpdRenderAllSizeTemplates();
     }
 }
@@ -4503,8 +4612,46 @@ function _tpdDeleteModalSize(tplName, idx) {
 function _tpdUpdateModalSizeVal(tplName, idx, val) {
     const templates = window._tpdModalSizeTemplates || {};
     if (templates[tplName]) {
+        const oldVal = templates[tplName][idx];
         templates[tplName][idx] = val;
+        
+        // Update in _nc_config if present
+        if (templates._nc_config && templates._nc_config[tplName]) {
+            const list = templates._nc_config[tplName];
+            const oldIdx = list.indexOf(oldVal);
+            if (oldIdx !== -1) {
+                if (val && val.trim()) {
+                    list[oldIdx] = val;
+                } else {
+                    list.splice(oldIdx, 1);
+                }
+            }
+        }
     }
+}
+
+// Toggle size NC configuration in modal
+function _tpdToggleModalSizeNC(tplName, sz, isChecked) {
+    const templates = window._tpdModalSizeTemplates || {};
+    if (!templates._nc_config) {
+        templates._nc_config = {};
+    }
+    if (!templates._nc_config[tplName]) {
+        templates._nc_config[tplName] = [];
+    }
+    
+    const list = templates._nc_config[tplName];
+    const idxOf = list.indexOf(sz);
+    if (isChecked) {
+        if (idxOf === -1) {
+            list.push(sz);
+        }
+    } else {
+        if (idxOf !== -1) {
+            list.splice(idxOf, 1);
+        }
+    }
+    _tpdRenderAllSizeTemplates();
 }
 
 // Save size configuration to backend
@@ -4514,10 +4661,24 @@ async function _tpdSaveSizeConfig() {
 
     // Clean and validate
     for (const key of Object.keys(templates)) {
+        if (key.startsWith('_')) continue;
         const cleanedSizes = (templates[key] || [])
             .map(s => s.trim())
             .filter(s => s.length > 0);
         payload[key] = cleanedSizes;
+    }
+
+    // Clean and validate _nc_config
+    if (templates._nc_config) {
+        payload._nc_config = {};
+        for (const key of Object.keys(templates._nc_config)) {
+            const cleanedNc = (templates._nc_config[key] || [])
+                .map(s => s.trim())
+                .filter(s => s.length > 0 && payload[key] && payload[key].includes(s));
+            if (cleanedNc.length > 0) {
+                payload._nc_config[key] = cleanedNc;
+            }
+        }
     }
 
     try {
