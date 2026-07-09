@@ -3128,6 +3128,69 @@ function _tpdIsNamNuSize(sizeType) {
     return lower.includes('nam / nữ') || lower.includes('nam/nữ');
 }
 
+// Predefined beautiful, high-contrast, premium color palette for different size types
+const _TPD_SIZE_PALETTE = [
+    { bg: '#ea580c', text: '#ffffff' }, // Orange
+    { bg: '#0d9488', text: '#ffffff' }, // Teal
+    { bg: '#7c3aed', text: '#ffffff' }, // Violet
+    { bg: '#059669', text: '#ffffff' }, // Emerald
+    { bg: '#2563eb', text: '#ffffff' }, // Royal Blue
+    { bg: '#4f46e5', text: '#ffffff' }, // Indigo
+    { bg: '#e11d48', text: '#ffffff' }, // Rose/Dark Pink
+    { bg: '#b45309', text: '#ffffff' }, // Amber/Brown
+    { bg: '#0891b2', text: '#ffffff' }, // Cyan
+    { bg: '#c026d3', text: '#ffffff' }, // Magenta
+    { bg: '#15803d', text: '#ffffff' }, // Forest Green
+    { bg: '#881337', text: '#ffffff' }  // Wine/Plum
+];
+
+function _tpdGetSizeTheme(sizeType) {
+    if (!sizeType) return { bg: '#ea580c', text: '#ffffff' };
+    const name = String(sizeType).trim();
+    const lower = name.toLowerCase();
+
+    // Specific mapping for known size templates to ensure they look excellent and distinct
+    const mappings = {
+        'size áo thun oversize': { bg: '#ea580c', text: '#ffffff' }, // Orange
+        'size sơ mi oversize': { bg: '#4f46e5', text: '#ffffff' },   // Indigo
+        'size tạp dề :': { bg: '#16a34a', text: '#ffffff' },         // Green
+        'size cái': { bg: '#475569', text: '#ffffff' },              // Slate
+        'size chữ': { bg: '#059669', text: '#ffffff' },              // Emerald
+        'size áo gió': { bg: '#0d9488', text: '#ffffff' },           // Teal
+        'size túi vải bố': { bg: '#b45309', text: '#ffffff' },       // Brown
+        'size áo sơ mi': { bg: '#7c3aed', text: '#ffffff' },         // Violet
+        'size quần dài thể dục': { bg: '#2563eb', text: '#ffffff' },  // Royal Blue
+        'size áo mầm non': { bg: '#0891b2', text: '#ffffff' },       // Cyan
+        'size áo tiểu học': { bg: '#881337', text: '#ffffff' },      // Wine/Plum
+        'size quần ngắn mầm non': { bg: '#c026d3', text: '#ffffff' }, // Magenta
+        'size váy mầm non': { bg: '#e11d48', text: '#ffffff' },       // Rose
+        'size quần ngắn tiểu học': { bg: '#0284c7', text: '#ffffff' },// Light Blue
+        'size váy tiểu học': { bg: '#be123c', text: '#ffffff' },      // Dark Red
+        'size quần ngắn người lớn': { bg: '#5b21b6', text: '#ffffff' },// Deep Purple
+        'size váy người lớn': { bg: '#065f46', text: '#ffffff' },     // Forest Green
+        'size tạp dề ngắn': { bg: '#c2410c', text: '#ffffff' },      // Burnt Orange
+        'size tạp dề dài': { bg: '#4d7c0f', text: '#ffffff' },       // Olive
+        'size tạp dề cách điệu': { bg: '#991b1b', text: '#ffffff' }   // Crimson
+    };
+
+    if (mappings[lower]) {
+        return mappings[lower];
+    }
+
+    for (const key of Object.keys(mappings)) {
+        if (lower.includes(key)) {
+            return mappings[key];
+        }
+    }
+
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % _TPD_SIZE_PALETTE.length;
+    return _TPD_SIZE_PALETTE[index];
+}
+
 // Generate HTML for the size table on the A4 sheet, grouping by gender if size type is 'Size Nam / Nữ'
 function _tpdRenderA4SizeTable(it) {
     const filledQuantities = it.quantities || [];
@@ -3138,12 +3201,13 @@ function _tpdRenderA4SizeTable(it) {
 
     const hasSizes = sortedQuantities.length > 0;
     if (!hasSizes) {
+        const theme = _tpdGetSizeTheme(it.size_type);
         return `
             <table class="tpd-a4-table">
                 <thead>
                     <tr>
-                        <th style="background:#ea580c; color:#ffffff; border-color:#ea580c; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
-                        <th style="background:#fad24c; color:#122546; border-color:#fad24c;">TỔNG SL</th>
+                        <th style="background:${theme.bg}; color:${theme.text}; border-color:${theme.bg}; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
+                        <th style="background:${theme.bg}; color:${theme.text}; border-color:${theme.bg}; width: 80px; text-align:center;">TỔNG SL</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -3295,18 +3359,20 @@ function _tpdRenderA4SizeTable(it) {
             });
             grandTotal += rowTotal;
 
+            const theme = _tpdGetSizeTheme(it.size_type);
+
             html += `
                 <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
                     <thead>
                         <tr>
-                            <th style="background:#ea580c; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
+                            <th style="background:${theme.bg}; color:${theme.text}; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
                             ${headers}
-                            <th style="background:#ea580c; color:#ffffff; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG KHÁC</th>
+                            <th style="background:${theme.bg}; color:${theme.text}; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG KHÁC</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="font-weight:700; color:#ea580c; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Khác (${(it.product_name || 'Áo').toUpperCase()})</td>
+                            <td style="font-weight:700; color:${theme.bg}; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Khác (${(it.product_name || 'Áo').toUpperCase()})</td>
                             ${values}
                             <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
                         </tr>
@@ -3331,6 +3397,31 @@ function _tpdRenderA4SizeTable(it) {
 
         sortedQuantities.forEach(q => {
             sizeHeaders += `<th>${q.size}</th>`;
+            sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
+            totalQty += Number(q.qty || 0);
+        });
+
+        const theme = _tpdGetSizeTheme(it.size_type);
+
+        return `
+            <table class="tpd-a4-table">
+                <thead>
+                    <tr>
+                        <th style="background:${theme.bg}; color:${theme.text}; border-color:${theme.bg}; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
+                        ${sizeHeaders}
+                        <th style="background:${theme.bg}; color:${theme.text}; border-color:${theme.bg}; width: 80px; text-align:center;">TỔNG SL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
+                        ${sizeValues}
+                        <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+    }= `<th>${q.size}</th>`;
             sizeValues += `<td class="tpd-a4-table-qty-val">${q.qty || 0}</td>`;
             totalQty += Number(q.qty || 0);
         });
