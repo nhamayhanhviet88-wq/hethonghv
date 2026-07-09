@@ -206,7 +206,7 @@ function _tsamTypeChanged() {
 }
 
 // ========== REAL-TIME LINK VALIDATION ==========
-var _tsamDriveRe = /^https:\/\/drive\.google\.com\/drive\/folders\/.+/i;
+var _tsamDriveRe = /^https:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\/.+/i;
 function _tsamValidateLinkInput(el) {
     var val = (el.value || '').trim();
     if (!val) { el.style.borderColor = ''; el.style.boxShadow = ''; return; }
@@ -289,7 +289,7 @@ async function _tsamHandlePaste(e) {
 }
 
 async function _tsamSubmit(editId) {
-    var urlRe = /^https:\/\/drive\.google\.com\/drive\/folders\/.+/i;
+    var urlRe = /^https:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\/.+/i;
     var sewArr = (window._tsamSewItems || []).slice();
     // Auto-calc prices from selected BGM items
     var autoFP = 0, autoPP = 0;

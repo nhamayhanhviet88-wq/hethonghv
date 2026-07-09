@@ -86,7 +86,7 @@ module.exports = async function(fastify) {
     // ========== CREATE sample ==========
     fastify.post('/api/tsam/samples', { preHandler: [authenticate] }, async (request, reply) => {
         const b = request.body || {};
-        const urlRegex = /^https:\/\/drive\.google\.com\/drive\/folders\/.+/i;
+        const urlRegex = /^https:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\/.+/i;
 
         // === All fields required ===
         if (!b.category_id) return reply.code(400).send({ error: 'Chọn Lĩnh Vực' });
@@ -176,7 +176,7 @@ module.exports = async function(fastify) {
     fastify.put('/api/tsam/samples/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
         const b = request.body || {};
-        const urlRegex = /^https:\/\/drive\.google\.com\/drive\/folders\/.+/i;
+        const urlRegex = /^https:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\/.+/i;
 
         const old = await db.get('SELECT * FROM tsam_samples WHERE id = $1', [id]);
         if (!old) return reply.code(404).send({ error: 'Không tìm thấy mẫu' });
