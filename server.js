@@ -1209,6 +1209,7 @@ async function start() {
     // v14: Tỉ lệ cắt gốc thực tế & Phân loại phân khúc sản phẩm
     try {
         await db.exec(`ALTER TABLE dht_products ADD COLUMN IF NOT EXISTS size_segment VARCHAR(50)`);
+        await db.exec(`ALTER TABLE dht_products ADD COLUMN IF NOT EXISTS size_type VARCHAR(50) DEFAULT 'Size TT'`);
         await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_approved BOOLEAN DEFAULT false`);
         await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_approved_at TIMESTAMPTZ`);
         await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_approved_by INTEGER`);

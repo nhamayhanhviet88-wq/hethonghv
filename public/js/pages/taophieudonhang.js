@@ -350,11 +350,59 @@ function _tpdSortSizes(sizes) {
 }
 
 function _tpdGetLabelStyle(sz, isCustom) {
-    if (isCustom) return 'background: #ea580c; color: white;';
-    const lower = sz.toLowerCase();
-    if (lower.startsWith('nam')) return 'background: #1e3a8a; color: white; font-weight: 800;';
-    if (lower.startsWith('nữ')) return 'background: #db2777; color: white; font-weight: 800;';
-    return 'background: #ea580c; color: white;';
+    const lower = sz.trim().toLowerCase();
+    
+    // Male / Female sizes
+    if (lower.startsWith('nam')) {
+        return 'background: #1e3a8a; color: #eff6ff; font-weight: 800; box-shadow: 0 1px 3px rgba(30,58,138,0.3);';
+    }
+    if (lower.startsWith('nữ')) {
+        return 'background: #db2777; color: #fff1f2; font-weight: 800; box-shadow: 0 1px 3px rgba(219,39,119,0.3);';
+    }
+
+    // Standard unisex sizes
+    const stdColors = {
+        's': 'background: #047857; color: #ecfdf5; font-weight: 800;',
+        'm': 'background: #0f766e; color: #f0fdfa; font-weight: 800;',
+        'l': 'background: #4338ca; color: #e0e7ff; font-weight: 800;',
+        'xl': 'background: #6d28d9; color: #f5f3ff; font-weight: 800;',
+        'xxl': 'background: #be185d; color: #fdf2f8; font-weight: 800;',
+        'xxxl': 'background: #c2410c; color: #fff7ed; font-weight: 800;',
+        '3xl': 'background: #c2410c; color: #fff7ed; font-weight: 800;',
+        'xxxxl': 'background: #b91c1c; color: #fef2f2; font-weight: 800;',
+        '4xl': 'background: #b91c1c; color: #fef2f2; font-weight: 800;',
+        'xxxxxl': 'background: #374151; color: #f9fafb; font-weight: 800;',
+        '5xl': 'background: #374151; color: #f9fafb; font-weight: 800;',
+        'xxxxxxl': 'background: #111827; color: #f9fafb; font-weight: 800;',
+        '6xl': 'background: #111827; color: #f9fafb; font-weight: 800;'
+    };
+
+    if (stdColors[lower]) {
+        return stdColors[lower] + ' box-shadow: 0 1px 2px rgba(0,0,0,0.1);';
+    }
+
+    // Child / Numeric sizes (e.g. "2", "4", "S1", "S2")
+    const numericColors = {
+        '1': 'background: #b45309; color: #fef3c7; font-weight: 800;',
+        '2': 'background: #d97706; color: #fef3c7; font-weight: 800;',
+        '3': 'background: #eab308; color: #fefde8; font-weight: 800;',
+        '4': 'background: #84cc16; color: #f7fee7; font-weight: 800;',
+        '6': 'background: #10b981; color: #ecfdf5; font-weight: 800;',
+        '8': 'background: #06b6d4; color: #ecfeff; font-weight: 800;',
+        '10': 'background: #3b82f6; color: #eff6ff; font-weight: 800;',
+        '12': 'background: #6366f1; color: #e0e7ff; font-weight: 800;',
+        '14': 'background: #8b5cf6; color: #f3e8ff; font-weight: 800;',
+        '16': 'background: #d946ef; color: #fdf4ff; font-weight: 800;'
+    };
+
+    if (numericColors[lower]) {
+        return numericColors[lower] + ' box-shadow: 0 1px 2px rgba(0,0,0,0.1);';
+    }
+
+    if (isCustom) {
+        return 'background: #f97316; color: #fff7ed; font-weight: 800; box-shadow: 0 1px 2px rgba(249,115,22,0.2);';
+    }
+    return 'background: #475569; color: #f8fafc; font-weight: 800; box-shadow: 0 1px 2px rgba(71,85,105,0.2);';
 }
 
 // Fetch all orders/drafts from server

@@ -1965,8 +1965,8 @@ module.exports = async function(fastify) {
                         sale_type, product_name, material_id, material_name,
                         color_id, color_name, pattern_name, sewing_techniques,
                         accounting_notes, extra_materials, quantities,
-                        extra_product, extra_price, item_total, material_pairs)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                        extra_product, extra_price, item_total, material_pairs, size_type)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
                 `, [
                     result.id,
                     item.product_name || '',
@@ -1987,7 +1987,8 @@ module.exports = async function(fastify) {
                     item.extra_product || null,
                     Number(item.extra_price) || 0,
                     Number(item.item_total) || 0,
-                    JSON.stringify(item.material_pairs || [])
+                    JSON.stringify(item.material_pairs || []),
+                    item.size_type || 'Size TT'
                 ]);
             }
 
@@ -4108,8 +4109,9 @@ module.exports = async function(fastify) {
                             sale_type = $5, product_name = $6, material_id = $7, material_name = $8,
                             color_id = $9, color_name = $10, pattern_name = $11, sewing_techniques = $12,
                             accounting_notes = $13, extra_materials = $14, quantities = $15,
-                            extra_product = $16, extra_price = $17, item_total = $18, material_pairs = $19
-                        WHERE id = $20 AND dht_order_id = $21
+                            extra_product = $16, extra_price = $17, item_total = $18, material_pairs = $19,
+                            size_type = $20
+                        WHERE id = $21 AND dht_order_id = $22
                     `, [
                         item.product_name || '',
                         Number(item.quantity) || 0,
@@ -4130,6 +4132,7 @@ module.exports = async function(fastify) {
                         Number(item.extra_price) || 0,
                         Number(item.item_total) || 0,
                         JSON.stringify(item.material_pairs || []),
+                        item.size_type || 'Size TT',
                         itemId,
                         orderId
                     ]);
@@ -4183,8 +4186,8 @@ module.exports = async function(fastify) {
                             sale_type, product_name, material_id, material_name,
                             color_id, color_name, pattern_name, sewing_techniques,
                             accounting_notes, extra_materials, quantities,
-                            extra_product, extra_price, item_total, material_pairs)
-                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                            extra_product, extra_price, item_total, material_pairs, size_type)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
                     `, [
                         orderId,
                         item.product_name || '',
@@ -4205,7 +4208,8 @@ module.exports = async function(fastify) {
                         item.extra_product || null,
                         Number(item.extra_price) || 0,
                         Number(item.item_total) || 0,
-                        JSON.stringify(item.material_pairs || [])
+                        JSON.stringify(item.material_pairs || []),
+                        item.size_type || 'Size TT'
                     ]);
                 }
             }
@@ -4839,7 +4843,7 @@ module.exports = async function(fastify) {
     // GET all products (with sale_type + cutting_category info)
     fastify.get('/api/dht/products', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(`SELECT p.id, p.name, p.sale_type_id, p.display_order, s.name as sale_type_name,
-                p.cutting_category_id, cc.name as cutting_category_name
+                p.cutting_category_id, cc.name as cutting_category_name, p.size_type
             FROM dht_products p JOIN dht_settings_options s ON s.id = p.sale_type_id
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             WHERE p.is_active = true ORDER BY s.name ASC, p.display_order ASC, p.name ASC`);
@@ -4848,17 +4852,17 @@ module.exports = async function(fastify) {
 
     // GET products filtered by sale_type_id
     fastify.get('/api/dht/products-by-sale/:saleTypeId', { preHandler: [authenticate] }, async (request, reply) => {
-        const rows = await db.all(`SELECT id, name FROM dht_products WHERE sale_type_id = $1 AND is_active = true ORDER BY display_order ASC, name ASC`, [Number(request.params.saleTypeId)]);
+        const rows = await db.all(`SELECT id, name, size_type FROM dht_products WHERE sale_type_id = $1 AND is_active = true ORDER BY display_order ASC, name ASC`, [Number(request.params.saleTypeId)]);
         return { products: rows };
     });
 
-    // CREATE product (with optional cutting_category_id)
+    // CREATE product (with optional cutting_category_id and size_type)
     fastify.post('/api/dht/products', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
-        const { sale_type_id, name, cutting_category_id } = request.body || {};
+        const { sale_type_id, name, cutting_category_id, size_type } = request.body || {};
         if (!sale_type_id || !name) return reply.code(400).send({ error: 'Thiếu thông tin' });
         const mx = await db.get('SELECT COALESCE(MAX(display_order),0) as mx FROM dht_products WHERE sale_type_id = $1', [sale_type_id]);
-        const r = await db.get('INSERT INTO dht_products (sale_type_id, name, display_order, cutting_category_id) VALUES ($1,$2,$3,$4) RETURNING *',
-            [sale_type_id, name.trim(), (mx?.mx||0)+1, cutting_category_id ? Number(cutting_category_id) : null]);
+        const r = await db.get('INSERT INTO dht_products (sale_type_id, name, display_order, cutting_category_id, size_type) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+            [sale_type_id, name.trim(), (mx?.mx||0)+1, cutting_category_id ? Number(cutting_category_id) : null, size_type || 'Size TT']);
         return { success: true, product: r };
     });
 
@@ -4871,10 +4875,10 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
-    // UPDATE product cutting_category or name
+    // UPDATE product cutting_category, name, or size_type
     fastify.put('/api/dht/products/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const pid = Number(request.params.id);
-        const { cutting_category_id, name } = request.body || {};
+        const { cutting_category_id, name, size_type } = request.body || {};
 
         const oldProd = await db.get('SELECT name, sale_type_id FROM dht_products WHERE id = $1', [pid]);
         if (!oldProd) {
@@ -4907,6 +4911,11 @@ module.exports = async function(fastify) {
         if (cutting_category_id !== undefined) {
             await db.run('UPDATE dht_products SET cutting_category_id = $1 WHERE id = $2',
                 [cutting_category_id ? Number(cutting_category_id) : null, pid]);
+        }
+
+        if (size_type !== undefined) {
+            await db.run('UPDATE dht_products SET size_type = $1 WHERE id = $2',
+                [size_type || 'Size TT', pid]);
         }
 
         return { success: true };

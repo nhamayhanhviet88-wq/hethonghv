@@ -11,16 +11,18 @@ async function renderCaidatspqtPage(content) {
 }
 
 async function _spqtLoadAll() {
-    var [stRes, pRes, sRes, mRes] = await Promise.all([
+    var [stRes, pRes, sRes, mRes, sizeCfg] = await Promise.all([
         apiCall('/api/dht/phieu-options'),
         apiCall('/api/dht/products'),
         apiCall('/api/dht/process-steps'),
-        apiCall('/api/dht/material-colors/0').catch(function(){ return {}; })
+        apiCall('/api/dht/material-colors/0').catch(function(){ return {}; }),
+        apiCall('/api/dht/size-config').catch(function(){ return null; })
     ]);
     _spqt.saleTypes = (stRes.sale_types || []);
     _spqt.cuttingCategories = (stRes.cutting_categories || []);
     _spqt.products = (pRes.products || []);
     _spqt.steps = (sRes.steps || []);
+    _spqt.sizeTypes = sizeCfg ? Object.keys(sizeCfg) : ["Size TT", "Size Nam / Nữ"];
     // Load all materials from khovai (no wid = return all)
     try { var mr = await apiCall('/api/khovai/materials'); _spqt.materials = mr.materials || []; } catch(e) { _spqt.materials = []; }
 }
@@ -38,6 +40,16 @@ function _spqtRenderSidebar() {
         
         // Products under this sale type
         var prods = _spqt.products.filter(function(p) { return p.sale_type_id === st.id; });
+        // Prioritize products that have a cutting category assigned (i.e. are configured) to show on top
+        prods.sort(function(a, b) {
+            var aHasCc = a.cutting_category_id ? 1 : 0;
+            var bHasCc = b.cutting_category_id ? 1 : 0;
+            if (aHasCc !== bHasCc) {
+                return bHasCc - aHasCc; // Chosen ones go on top
+            }
+            return (a.display_order || 0) - (b.display_order || 0);
+        });
+
         h += '<div id="_stGrp_' + st.id + '" style="margin-top:4px">';
         prods.forEach(function(p) {
             var sel = (_spqt.selProduct && _spqt.selProduct.id === p.id);
@@ -119,6 +131,20 @@ async function _spqtSelectProduct(pid) {
         + '<div style="font-size:10px;color:#94a3b8;margin-top:4px">Xác định sản phẩm này khi đi vào Bộ Phận Cắt sẽ cắt loại gì (Áo, Quần, Váy, Túi...)</div>'
         + '</div>';
 
+    // === Section 0.5: Loại Size Mặc Định ===
+    var sizeOpts = '';
+    (_spqt.sizeTypes || ["Size TT", "Size Nam / Nữ"]).forEach(function(stName) {
+        sizeOpts += '<option value="' + stName + '"' + (p.size_type === stName ? ' selected' : '') + '>' + stName + '</option>';
+    });
+    h += '<div style="margin-bottom:20px">'
+        + '<h4 style="font-size:13px;font-weight:800;color:#475569;margin:0 0 8px;padding-bottom:4px;border-bottom:2px solid #e2e8f0">📏 Loại Size Mặc Định <span style="color:red">*</span></h4>'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<select id="_spqtSizeSelect" class="form-control" style="max-width:250px;font-weight:600">' + sizeOpts + '</select>'
+        + '<button onclick="_spqtSaveSize(' + pid + ')" style="background:#2563eb;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">💾 Lưu Loại Size</button>'
+        + '</div>'
+        + '<div style="font-size:10px;color:#94a3b8;margin-top:4px">Chọn loại size mặc định khi tạo mới phiếu cho sản phẩm này</div>'
+        + '</div>';
+
     // === Section 1: Chất Liệu ===
     h += '<div style="margin-bottom:20px">'
         + '<h4 style="font-size:13px;font-weight:800;color:#475569;margin:0 0 8px;padding-bottom:4px;border-bottom:2px solid #e2e8f0">🧶 Chất Liệu được dùng</h4>'
@@ -177,6 +203,10 @@ function _spqtShowAddProduct(saleTypeId) {
     _spqt.cuttingCategories.forEach(function(cc) {
         ccOpts += '<option value="' + cc.id + '">' + cc.name + '</option>';
     });
+    var sizeOpts = '';
+    (_spqt.sizeTypes || ["Size TT", "Size Nam / Nữ"]).forEach(function(stName) {
+        sizeOpts += '<option value="' + stName + '">' + stName + '</option>';
+    });
     var body = '<div style="display:grid;gap:12px">'
         + '<div><label style="font-weight:700;font-size:12px">Tên Sản Phẩm <span style="color:red">*</span></label>'
         + '<input id="_spqtNewName" class="form-control" placeholder="VD: Áo Polo, Áo Thun..." autofocus></div>'
@@ -186,6 +216,9 @@ function _spqtShowAddProduct(saleTypeId) {
         + '<button onclick="_spqtShowAddCc()" type="button" style="background:none;border:1px dashed #94a3b8;color:#64748b;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;white-space:nowrap">+ Mới</button>'
         + '</div>'
         + '<div style="font-size:10px;color:#94a3b8;margin-top:2px">Xác định sản phẩm cắt loại gì (Áo, Quần, Váy...)</div></div>'
+        + '<div><label style="font-weight:700;font-size:12px">Loại Size Mặc Định <span style="color:red">*</span></label>'
+        + '<select id="_spqtNewSize" class="form-control" style="margin-top:4px">' + sizeOpts + '</select>'
+        + '</div>'
         + '</div>';
     var footer = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
         + '<button class="btn" onclick="_spqtDoAddProduct(' + saleTypeId + ')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700">➕ Tạo Sản Phẩm</button>';
@@ -195,9 +228,10 @@ function _spqtShowAddProduct(saleTypeId) {
 async function _spqtDoAddProduct(saleTypeId) {
     var name = document.getElementById('_spqtNewName')?.value?.trim();
     var ccId = document.getElementById('_spqtNewCc')?.value;
+    var sizeType = document.getElementById('_spqtNewSize')?.value;
     if (!name) { showToast('Nhập tên sản phẩm', 'error'); return; }
     if (!ccId) { showToast('Chọn Loại Sản Phẩm Cắt', 'error'); return; }
-    var res = await apiCall('/api/dht/products', 'POST', { sale_type_id: saleTypeId, name: name, cutting_category_id: Number(ccId) });
+    var res = await apiCall('/api/dht/products', 'POST', { sale_type_id: saleTypeId, name: name, cutting_category_id: Number(ccId), size_type: sizeType });
     if (res.success) { showToast('✅ Đã thêm SP'); closeModal(); await _spqtLoadAll(); _spqtRenderSidebar(); }
     else showToast(res.error || 'Lỗi', 'error');
 }
@@ -208,6 +242,20 @@ async function _spqtSaveCc(pid) {
     var res = await apiCall('/api/dht/products/' + pid, 'PUT', { cutting_category_id: Number(ccId) });
     if (res.success) {
         showToast('✅ Đã lưu Loại SP Cắt');
+        await _spqtLoadAll();
+        // Re-select the product to refresh the view
+        _spqt.selProduct = _spqt.products.find(function(p) { return p.id === pid; }) || null;
+        _spqtRenderSidebar();
+        if (_spqt.selProduct) _spqtSelectProduct(pid);
+    } else showToast(res.error || 'Lỗi', 'error');
+}
+
+async function _spqtSaveSize(pid) {
+    var sizeType = document.getElementById('_spqtSizeSelect')?.value;
+    if (!sizeType) { showToast('Chọn Loại Size Mặc Định', 'error'); return; }
+    var res = await apiCall('/api/dht/products/' + pid, 'PUT', { size_type: sizeType });
+    if (res.success) {
+        showToast('✅ Đã lưu Loại Size Mặc Định');
         await _spqtLoadAll();
         // Re-select the product to refresh the view
         _spqt.selProduct = _spqt.products.find(function(p) { return p.id === pid; }) || null;
