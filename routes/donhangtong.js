@@ -4673,7 +4673,7 @@ module.exports = async function(fastify) {
 
         // Products from dht_products (linked to sale_type)
         const products = await db.all(`SELECT p.id, p.name, p.sale_type_id, s.name as sale_type_name,
-                p.cutting_category_id, cc.name as cutting_category_name
+                p.cutting_category_id, cc.name as cutting_category_name, p.size_type
             FROM dht_products p JOIN dht_settings_options s ON s.id = p.sale_type_id
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             WHERE p.is_active = true ORDER BY p.display_order ASC, p.name ASC`);
