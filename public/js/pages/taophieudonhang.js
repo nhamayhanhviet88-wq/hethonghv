@@ -4088,41 +4088,63 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
                 }
             }
 
+            const paddingStyle = (widthText || heightText)
+                ? 'padding: 10px 25px 20px 10px;'
+                : 'padding: 4px;';
+
             techBoxesHtml += `
                 <div class="tpd-a4-tech-box ${pasteClass}" data-zone="detail_${idx}" style="cursor: pointer; display: flex; flex-direction: column; height: 100%;">
                     <div class="tpd-a4-img-header">${headerText}</div>
-                    <div class="tpd-a4-img-body" style="background: #ffffff; display: flex; flex-direction: row; align-items: stretch; padding: 4px; flex: 1; box-sizing: border-box; overflow: hidden; position: relative;">
-                        <!-- Main Content Area: Image + Horizontal line (Width) -->
-                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; min-height: 0; min-width: 0;">
-                            <!-- Image wrapper -->
-                            <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden; min-height: 0;">
-                                ${d.image ? `
-                                    <img src="${d.image}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
-                                ` : `
-                                    <div class="tpd-a4-img-placeholder" style="font-size: 9px; padding: 10px; text-align: center;">Chưa có ảnh vị trí ${d.position}<br><span style="font-size: 8px; color: #94a3b8;">Click & Ctrl+V để dán</span></div>
-                                `}
+                    <div class="tpd-a4-img-body" style="background: #ffffff; display: flex; align-items: center; justify-content: center; flex: 1; box-sizing: border-box; overflow: visible; ${paddingStyle} min-height: 0;">
+                        ${d.image ? `
+                            <div style="position: relative; display: inline-flex; align-items: center; justify-content: center; max-width: 100%; max-height: 100%;">
+                                <img src="${d.image}" style="max-width: 100%; max-height: 100%; object-fit: contain; display: block;">
+                                
+                                <!-- Width indicator (Horizontal line) -->
+                                ${widthText ? `
+                                    <div style="position: absolute; bottom: -18px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 5;">
+                                        <svg width="100%" height="8" style="overflow: visible; display: block;">
+                                            <defs>
+                                                <marker id="arrow-start-${idx}" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                                                    <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="#ef4444" />
+                                                </marker>
+                                                <marker id="arrow-end-${idx}" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                                                    <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#ef4444" />
+                                                </marker>
+                                            </defs>
+                                            <line x1="0" y1="4" x2="100%" y2="4" stroke="#ef4444" stroke-width="2" marker-start="url(#arrow-start-${idx})" marker-end="url(#arrow-end-${idx})" />
+                                        </svg>
+                                        <div style="color: #ef4444; font-size: 10.5px; font-weight: 800; text-align: center; line-height: 1.1; margin-top: 1px; white-space: nowrap;">
+                                            ${widthText}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                <!-- Height indicator (Vertical line) -->
+                                ${heightText ? `
+                                    <div style="position: absolute; right: -22px; top: 0; bottom: 0; width: 18px; display: flex; align-items: center; justify-content: center; z-index: 5;">
+                                        <div style="position: relative; height: 100%; width: 100%; display: flex; align-items: center;">
+                                            <svg width="8" height="100%" style="overflow: visible; display: block; height: 100%;">
+                                                <defs>
+                                                    <marker id="arrow-top-${idx}" viewBox="0 0 10 10" refX="5" refY="0" markerWidth="5" markerHeight="5" orient="auto">
+                                                        <path d="M 1.5 10 L 5 0 L 8.5 10 z" fill="#ef4444" />
+                                                    </marker>
+                                                    <marker id="arrow-bottom-${idx}" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="5" markerHeight="5" orient="auto">
+                                                        <path d="M 1.5 0 L 5 10 L 8.5 0 z" fill="#ef4444" />
+                                                    </marker>
+                                                </defs>
+                                                <line x1="4" y1="0" x2="4" y2="100%" stroke="#ef4444" stroke-width="2" marker-start="url(#arrow-top-${idx})" marker-end="url(#arrow-bottom-${idx})" />
+                                            </svg>
+                                            <div style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: left center; color: #ef4444; font-size: 10.5px; font-weight: 800; white-space: nowrap; line-height: 1;">
+                                                ${heightText}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ` : ''}
                             </div>
-                            
-                            <!-- Width (Ngang) indicator -->
-                            ${widthText ? `
-                                <div style="width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 4px; padding-bottom: 2px;">
-                                    <div style="width: 80%; border-top: 2px solid #ef4444; margin-bottom: 2px;"></div>
-                                    <div style="color: #ef4444; font-size: 11px; font-weight: 800; text-align: center; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">${widthText}</div>
-                                </div>
-                            ` : ''}
-                        </div>
-
-                        <!-- Height (Cao) indicator on the right side -->
-                        ${heightText ? `
-                            <div style="width: 28px; display: flex; flex-direction: row; align-items: stretch; margin-left: 4px; flex-shrink: 0; min-width: 0;">
-                                <!-- Vertical red line -->
-                                <div style="width: 2px; border-left: 2.5px solid #ef4444; margin: 8px 2px 8px 0; height: auto;"></div>
-                                <!-- Text label rotated vertically -->
-                                <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #ef4444; font-size: 10.5px; font-weight: 800; text-align: center; line-height: 1.1; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;">
-                                    ${heightText}
-                                </div>
-                            </div>
-                        ` : ''}
+                        ` : `
+                            <div class="tpd-a4-img-placeholder" style="font-size: 9px; padding: 10px; text-align: center; width: 100%;">Chưa có ảnh vị trí ${d.position}<br><span style="font-size: 8px; color: #94a3b8;">Click & Ctrl+V để dán</span></div>
+                        `}
                     </div>
                 </div>
             `;
