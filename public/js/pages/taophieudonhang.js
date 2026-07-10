@@ -3351,9 +3351,10 @@ function _tpdRenderA4SizeTable(it) {
                 if (qObj) {
                     const isNC = ncList.includes(qObj.size);
                     if (isNC && qObj.note && qObj.note.trim()) {
+                        const cleanNote = qObj.note.trim().replace(/\s*,\s*/g, ', ');
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px; background: #fee2e2;">
                             <div style="color: #dc2626;">${qObj.qty || 0}</div>
-                            <div style="font-size: 7.5px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 65px; margin-left: auto; margin-right: auto;">${escapeHTML(qObj.note.trim())}</div>
+                            <div style="font-size: 7px; color: #dc2626; font-weight: 800; line-height: 1.0; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 90px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                         </td>`;
                     } else {
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px;">
@@ -3408,9 +3409,10 @@ function _tpdRenderA4SizeTable(it) {
                 if (qObj) {
                     const isNC = ncList.includes(qObj.size);
                     if (isNC && qObj.note && qObj.note.trim()) {
+                        const cleanNote = qObj.note.trim().replace(/\s*,\s*/g, ', ');
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px; background: #fee2e2;">
                             <div style="color: #dc2626;">${qObj.qty || 0}</div>
-                            <div style="font-size: 7.5px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 65px; margin-left: auto; margin-right: auto;">${escapeHTML(qObj.note.trim())}</div>
+                            <div style="font-size: 7px; color: #dc2626; font-weight: 800; line-height: 1.0; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 90px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                         </td>`;
                     } else {
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px;">
@@ -3465,9 +3467,10 @@ function _tpdRenderA4SizeTable(it) {
                 if (qObj) {
                     const isNC = ncList.includes(qObj.size);
                     if (isNC && qObj.note && qObj.note.trim()) {
+                        const cleanNote = qObj.note.trim().replace(/\s*,\s*/g, ', ');
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px; background: #fee2e2;">
                             <div style="color: #dc2626;">${qObj.qty || 0}</div>
-                            <div style="font-size: 7.5px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 65px; margin-left: auto; margin-right: auto;">${escapeHTML(qObj.note.trim())}</div>
+                            <div style="font-size: 7px; color: #dc2626; font-weight: 800; line-height: 1.0; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 90px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                         </td>`;
                     } else {
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px;">
@@ -3524,9 +3527,10 @@ function _tpdRenderA4SizeTable(it) {
             sizeHeaders += `<th>${q.size}</th>`;
             const isNC = ncList.includes(q.size);
             if (isNC && q.note && q.note.trim()) {
+                const cleanNote = q.note.trim().replace(/\s*,\s*/g, ', ');
                 sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px; background: #fee2e2;">
                     <div style="font-weight:700; color: #dc2626;">${q.qty || 0}</div>
-                    <div style="font-size: 7.5px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 65px; margin-left: auto; margin-right: auto;">${escapeHTML(q.note.trim())}</div>
+                    <div style="font-size: 7px; color: #dc2626; font-weight: 800; line-height: 1.0; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 90px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                 </td>`;
             } else {
                 sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px;">
