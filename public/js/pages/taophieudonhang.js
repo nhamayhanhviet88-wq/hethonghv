@@ -3706,6 +3706,16 @@ function _tpdChangeLayoutEditable(checked) {
     _tpdSaveDraft(state.editingItem);
 }
 
+function _tpdChangeLayoutRedSheet(checked) {
+    const state = window._tpdWorkspaceState;
+    if (!state) return;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    layout.is_red_sheet = checked;
+    _tpdUpdateLivePreview();
+    _tpdRenderFormInputs();
+    _tpdSaveDraft(state.editingItem);
+}
+
 // Calculate table count to adjust images row height dynamically and avoid A4 overflow
 function _tpdGetImagesRowHeight(it) {
     let tableCount = 1;
@@ -3774,12 +3784,21 @@ function _tpdUpdateLivePreview() {
             </div>
 
             <!-- Metadata info grid -->
-            <div class="tpd-a4-meta-grid" style="${metaMarginStyle}">
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${creatorName}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
-            </div>
+            ${(() => {
+                const isRedSheet = (layout && typeof layout.is_red_sheet === 'boolean') 
+                    ? layout.is_red_sheet 
+                    : (o && ['VT', 'HVVT'].includes(o.source));
+                const gridStyle = isRedSheet ? 'background: #dc2626 !important; border-color: #dc2626 !important;' : '';
+                const itemStyle = isRedSheet ? 'color: #ffffff !important;' : '';
+                return `
+                    <div class="tpd-a4-meta-grid" style="${metaMarginStyle} ${gridStyle}">
+                        <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Khách hàng:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${o.customer_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Người lên đơn:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${creatorName}</span></div>
+                        <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Thiết kế:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${o.designer_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Ngày lên đơn:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${orderDate}</span></div>
+                    </div>
+                `;
+            })()}
 
             <!-- Images Row -->
             <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
@@ -3862,8 +3881,19 @@ function _tpdRenderFormInputs() {
         } catch(e){}
     }
 
+    const isRedSheet = (layout && typeof layout.is_red_sheet === 'boolean') 
+        ? layout.is_red_sheet 
+        : (state.order && ['VT', 'HVVT'].includes(state.order.source));
+
     // 1. Text Fields (Sản phẩm, Chất liệu vải, Màu sắc phối)
     let html = `
+        <div class="tpd-ws-form-group" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="tpdRedSheetCheckbox" ${isRedSheet ? 'checked' : ''} onchange="_tpdChangeLayoutRedSheet(this.checked)" style="width: 18px; height: 18px; cursor: pointer;" ${disabledAttr}>
+            <label for="tpdRedSheetCheckbox" style="font-weight: 800; color: #dc2626; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 4px; margin: 0;">
+                🔴 PHIẾU ĐỎ (Khách hàng VIP)
+            </label>
+        </div>
+
         <div class="tpd-ws-form-group">
             <label class="tpd-ws-form-label">Sản phẩm</label>
             <input type="text" class="tpd-ws-input" value="${it.product_name || ''}" placeholder="Tên sản phẩm..." disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;">
@@ -5365,12 +5395,21 @@ async function _tpdPrintAllSheets() {
                     </div>
 
                     <!-- Metadata info grid -->
-                    <div class="tpd-a4-meta-grid" style="${metaMarginStyle}">
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${o.cskh_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
-                    </div>
+                    ${(() => {
+                        const isRedSheet = (layout && typeof layout.is_red_sheet === 'boolean') 
+                            ? layout.is_red_sheet 
+                            : (o && ['VT', 'HVVT'].includes(o.source));
+                        const gridStyle = isRedSheet ? 'background: #dc2626 !important; border-color: #dc2626 !important;' : '';
+                        const itemStyle = isRedSheet ? 'color: #ffffff !important;' : '';
+                        return `
+                            <div class="tpd-a4-meta-grid" style="${metaMarginStyle} ${gridStyle}">
+                                <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Khách hàng:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${o.customer_name || '—'}</span></div>
+                                <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Người lên đơn:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${o.cskh_name || '—'}</span></div>
+                                <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Thiết kế:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${o.designer_name || '—'}</span></div>
+                                <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Ngày lên đơn:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${orderDate}</span></div>
+                            </div>
+                        `;
+                    })()}
 
                     <!-- Images Row -->
                     <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
