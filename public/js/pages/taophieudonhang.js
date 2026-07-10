@@ -4316,9 +4316,11 @@ function _tpdRenderFormInputs() {
                         const offsetVal = (d.offset_value || d.gay_xuong || d.co_xuong || '').trim();
                         if (offsetVal) {
                             const offsetSuffix = offsetVal.toLowerCase().endsWith('cm') ? '' : 'cm';
-                            const label = posConfig.offset_label || 'Gáy';
+                            let label = posConfig.offset_label || 'Gáy';
+                            if (label === 'Gáy xuống') label = 'Gáy';
+                            if (label === 'Cổ xuống') label = 'Cổ';
                             const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
-                            offsetStr = ` - ${displayLabel}: ${offsetVal}${offsetSuffix}`;
+                            offsetStr = ` - ${displayLabel} : ${offsetVal}${offsetSuffix}`;
                         }
                     }
                     return `${d.position}: ${d.print_type || '—'}${dimStr ? ` - ${dimStr}` : ''}${offsetStr}`;
@@ -4665,9 +4667,11 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                         const offsetVal = (d.offset_value || d.gay_xuong || d.co_xuong || '').trim();
                         if (offsetVal) {
                             const offsetSuffix = offsetVal.toLowerCase().endsWith('cm') ? '' : 'cm';
-                            const label = posConfig.offset_label || 'Gáy';
+                            let label = posConfig.offset_label || 'Gáy';
+                            if (label === 'Gáy xuống') label = 'Gáy';
+                            if (label === 'Cổ xuống') label = 'Cổ';
                             const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
-                            offsetStr = ` - ${displayLabel}: ${offsetVal}${offsetSuffix}`;
+                            offsetStr = ` - ${displayLabel} : ${offsetVal}${offsetSuffix}`;
                         }
                     }
                     const safePosition = escapeHTML(d.position || '—');
