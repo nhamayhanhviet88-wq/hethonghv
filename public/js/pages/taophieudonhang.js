@@ -3931,6 +3931,19 @@ function _tpdRenderFormInputs() {
                         <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
                         <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr || (valWidth ? 'disabled' : '')}>
                     </div>
+
+                    ${(d.position === 'Lưng' || d.position === 'Gáy') ? `
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">Gáy xuống:</span>
+                            <input type="text" placeholder="Ví dụ: 10cm" value="${d.gay_xuong || ''}" oninput="_tpdUpdateDetailField(${idx}, 'gay_xuong', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${!(d.gay_xuong && d.gay_xuong.trim()) ? 'border: 1.5px solid #ef4444; background: #fef2f2;' : 'border: 1px solid #cbd5e1;'}" ${disabledAttr} required>
+                        </div>
+                    ` : ''}
+                    ${d.position === 'Bụng' ? `
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">Cổ xuống:</span>
+                            <input type="text" placeholder="Ví dụ: 12cm" value="${d.co_xuong || ''}" oninput="_tpdUpdateDetailField(${idx}, 'co_xuong', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${!(d.co_xuong && d.co_xuong.trim()) ? 'border: 1.5px solid #ef4444; background: #fef2f2;' : 'border: 1px solid #cbd5e1;'}" ${disabledAttr} required>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -4084,9 +4097,17 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
             const pasteClass = isPrintMode ? '' : 'paste-target';
             
             // Format header text: e.g. "Ngực - Thêu" or "Lưng - In PET"
-            const headerText = d.print_type && d.print_type.trim() && d.print_type !== 'Khác'
+            let headerText = d.print_type && d.print_type.trim() && d.print_type !== 'Khác'
                 ? `${d.position} - ${d.print_type.trim()}`
                 : d.position;
+
+            if (d.position === 'Lưng' || d.position === 'Gáy') {
+                const val = d.gay_xuong && d.gay_xuong.trim() ? d.gay_xuong.trim().toUpperCase() : '<span style="color:#f87171; font-weight:900;">CHƯA ĐIỀN</span>';
+                headerText += ` (GÁY XUỐNG: ${val})`;
+            } else if (d.position === 'Bụng') {
+                const val = d.co_xuong && d.co_xuong.trim() ? d.co_xuong.trim().toUpperCase() : '<span style="color:#f87171; font-weight:900;">CHƯA ĐIỀN</span>';
+                headerText += ` (CỔ XUỐNG: ${val})`;
+            }
 
             // Backward compatibility logic
             let widthText = '';
