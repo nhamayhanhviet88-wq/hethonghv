@@ -6212,13 +6212,16 @@ function _tpdGetNormalizedSewingTechs() {
 }
 
 function _tpdGetSewingTechGroup(tech) {
-    if (!tech || tech === 'Khác') return 'Khác';
+    if (!tech) return 'Khác';
+    const techName = typeof tech === 'object' ? (tech.tech || '') : String(tech);
+    if (!techName || techName === 'Khác') return 'Khác';
+    
     const normalized = _tpdGetNormalizedSewingTechs();
-    const match = normalized.find(n => n.tech === tech);
+    const match = normalized.find(n => n.tech === techName);
     if (match) return match.group;
     
     // Heuristic fallback for custom/new entries
-    const lower = tech.toLowerCase();
+    const lower = techName.toLowerCase();
     if (lower.includes('cổ')) return 'Nhóm Cổ';
     if (lower.includes('bo') || lower.includes('tay')) return 'Nhóm Bo / Tay';
     return 'Khác';
@@ -6244,14 +6247,15 @@ function _tpdAddSewingItem() {
     
     let defaultTech = 'Khác';
     for (const t of configSewingTechs) {
-        const group = _tpdGetSewingTechGroup(t);
+        const tName = typeof t === 'object' ? (t.tech || '') : String(t);
+        const group = _tpdGetSewingTechGroup(tName);
         if (group === 'Khác') {
-            defaultTech = t;
+            defaultTech = tName;
             break;
         } else {
             const alreadyChosen = layout.sewing_items.some(item => _tpdGetSewingTechGroup(item.tech) === group);
             if (!alreadyChosen) {
-                defaultTech = t;
+                defaultTech = tName;
                 break;
             }
         }
