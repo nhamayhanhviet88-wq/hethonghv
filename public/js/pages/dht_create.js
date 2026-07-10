@@ -3243,6 +3243,17 @@ async function _dhtSubmitEditV2(isDraft) {
         showToast('✅ Đã cập nhật đơn hàng!');
         _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
         if (window.location.href.includes('design-draft')) {
+            // ★ Clear all localStorage drafts for this order so fresh DB values are used
+            // (prevents stale material/color/quantity from overriding the just-saved data)
+            try {
+                var keysToRemove = [];
+                for (var k = 0; k < localStorage.length; k++) {
+                    var key = localStorage.key(k);
+                    if (key && key.startsWith('tpd_draft_' + id + '_')) keysToRemove.push(key);
+                }
+                keysToRemove.forEach(function(key) { localStorage.removeItem(key); });
+            } catch(e) { /* ignore localStorage errors */ }
+
             var overlay = document.getElementById('modalOverlay');
             if (overlay) overlay.classList.remove('show');
             renderDesignDraftPage(window._dhtFullPageContainer);
