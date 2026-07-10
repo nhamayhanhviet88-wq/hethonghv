@@ -3975,6 +3975,10 @@ function _tpdRenderFormInputs() {
             </div>
             <div style="background: #ffffff; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
                 ${sewingListHtml}
+                <div style="margin-top: 8px; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+                    <label style="font-size: 10px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Ghi chú Kỹ Thuật May:</label>
+                    <input type="text" placeholder="Nhập ghi chú riêng cho kỹ thuật may..." value="${escapeHTML(layout.custom_sewing_note || '')}" onchange="_tpdUpdateSewingNote(this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; width: 100%; box-sizing: border-box;" ${disabledAttr}>
+                </div>
             </div>
         </div>
     `;
@@ -4666,6 +4670,13 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
             sewingHtml = parts.map(part => {
                 return `<div style="margin-top: 1px;">• ${escapeHTML(part)}</div>`;
             }).join('');
+    }
+    if (layout.custom_sewing_note && layout.custom_sewing_note.trim()) {
+        const noteHtml = `<div style="margin-top: 2px; color: #dc2626; font-weight: 800;">* Ghi chú: ${escapeHTML(layout.custom_sewing_note.trim())}</div>`;
+        if (sewingHtml === '—') {
+            sewingHtml = noteHtml;
+        } else {
+            sewingHtml += noteHtml;
         }
     }
 
@@ -6033,6 +6044,19 @@ function _tpdUpdateSewingItem(sIdx, field, value) {
     if (field === 'tech') {
         _tpdRenderFormInputs();
     }
+}
+
+function _tpdUpdateSewingNote(value) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem) return;
+
+    const it = state.editingItem;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+
+    layout.custom_sewing_note = value ? value.trim() : '';
+
+    _tpdSaveDraft(it);
+    _tpdUpdateLivePreview();
 }
 
 // Remove sewing item row
