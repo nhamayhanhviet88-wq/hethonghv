@@ -5503,5 +5503,40 @@ module.exports = async function(fastify) {
         );
         return { success: true };
     });
+
+    // GET /api/dht/print-positions
+    fastify.get('/api/dht/print-positions', { preHandler: [authenticate] }, async (request, reply) => {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'dht_print_positions_config'");
+        const defaults = [
+            { name: "Ngực", require_offset: false, offset_label: "", offset_placeholder: "" },
+            { name: "Lưng", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 10cm" },
+            { name: "Bụng", require_offset: true, offset_label: "Cổ xuống", offset_placeholder: "Ví dụ: 12cm" },
+            { name: "Tay Trái", require_offset: false, offset_label: "", offset_placeholder: "" },
+            { name: "Tay Phải", require_offset: false, offset_label: "", offset_placeholder: "" },
+            { name: "Gáy", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 4cm" }
+        ];
+        if (!row) {
+            return defaults;
+        }
+        try {
+            return typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+        } catch (e) {
+            return defaults;
+        }
+    });
+
+    // PUT /api/dht/print-positions
+    fastify.put('/api/dht/print-positions', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const configVal = request.body;
+        if (!Array.isArray(configVal)) {
+            return reply.code(400).send({ error: 'Dữ liệu phải là một mảng vị trí in' });
+        }
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_print_positions_config', $1, NOW()) 
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify(configVal)]
+        );
+        return { success: true };
+    });
 };
 

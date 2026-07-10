@@ -107,7 +107,10 @@ async function renderTaophieudonhangPage(content) {
     `;
 
     // Load initial data
-    await _tpdLoadOrders();
+    await Promise.all([
+        _tpdLoadOrders(),
+        _tpdLoadPrintPositionsConfig()
+    ]);
 
     // Check URL parameters for scanned ID
     const params = new URLSearchParams(window.location.search);
@@ -174,7 +177,8 @@ async function renderDesignDraftPage(content) {
         const [details, myInfoRes] = await Promise.all([
             apiCall(`/api/dht/orders/${orderId}/detail`),
             apiCall('/api/dht/my-info'),
-            _tpdLoadSizeConfig()
+            _tpdLoadSizeConfig(),
+            _tpdLoadPrintPositionsConfig()
         ]);
 
         if (!details || !details.order) throw new Error('Không lấy được chi tiết đơn hàng');
@@ -275,10 +279,20 @@ function _tpdCloneItemState(item) {
 
     // Backwards-compatibility self-healing & default pre-population
     if (printDetails.length === 0) {
-        printDetails.push({ position: 'Ngực', image: item.front_technique_image || '' });
-        printDetails.push({ position: 'Lưng', image: item.back_technique_image || '' });
-        printDetails.push({ position: 'Tay Trái', image: '' });
-        printDetails.push({ position: 'Tay Phải', image: '' });
+        const defaultPositions = _tpd.printPositionsConfig || [
+            { name: "Ngực", require_offset: false, offset_label: "", offset_placeholder: "" },
+            { name: "Lưng", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 10cm" },
+            { name: "Bụng", require_offset: true, offset_label: "Cổ xuống", offset_placeholder: "Ví dụ: 12cm" },
+            { name: "Tay Trái", require_offset: false, offset_label: "", offset_placeholder: "" },
+            { name: "Tay Phải", require_offset: false, offset_label: "", offset_placeholder: "" },
+            { name: "Gáy", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 4cm" }
+        ];
+        defaultPositions.forEach(pos => {
+            let img = '';
+            if (pos.name === 'Ngực') img = item.front_technique_image || '';
+            else if (pos.name === 'Lưng') img = item.back_technique_image || '';
+            printDetails.push({ position: pos.name, image: img });
+        });
     }
 
     const clonedPrintDetails = printDetails.map(d => ({
@@ -3993,18 +4007,23 @@ function _tpdRenderFormInputs() {
                         <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '')}>
                     </div>
 
-                    ${(d.position === 'Lưng' || d.position === 'Gáy') ? `
-                        <div style="display: flex; gap: 4px; align-items: center;">
-                            <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">Gáy xuống:</span>
-                            <input type="text" placeholder="Ví dụ: 10cm" value="${d.gay_xuong || ''}" onchange="_tpdUpdateDetailField(${idx}, 'gay_xuong', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${!(d.gay_xuong && d.gay_xuong.trim()) ? 'border: 1.5px solid #ef4444; background: #fef2f2;' : 'border: 1px solid #cbd5e1;'}" ${disabledAttr} required>
-                        </div>
-                    ` : ''}
-                    ${d.position === 'Bụng' ? `
-                        <div style="display: flex; gap: 4px; align-items: center;">
-                            <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">Cổ xuống:</span>
-                            <input type="text" placeholder="Ví dụ: 12cm" value="${d.co_xuong || ''}" onchange="_tpdUpdateDetailField(${idx}, 'co_xuong', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${!(d.co_xuong && d.co_xuong.trim()) ? 'border: 1.5px solid #ef4444; background: #fef2f2;' : 'border: 1px solid #cbd5e1;'}" ${disabledAttr} required>
-                        </div>
-                    ` : ''}
+                    ${(() => {
+                        const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+                        if (posConfig && posConfig.require_offset) {
+                            const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                            const isFilled = offsetVal && offsetVal.trim();
+                            const borderBgStyle = !isFilled 
+                                ? 'border: 1.5px solid #ef4444; background: #fef2f2;' 
+                                : 'border: 1px solid #cbd5e1;';
+                            return `
+                                <div style="display: flex; gap: 4px; align-items: center;">
+                                    <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">${posConfig.offset_label || 'Khoảng cách'}:</span>
+                                    <input type="text" placeholder="${posConfig.offset_placeholder || 'Ví dụ: 10cm'}" value="${offsetVal}" onchange="_tpdUpdateDetailField(${idx}, 'offset_value', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} required>
+                                </div>
+                            `;
+                        }
+                        return '';
+                    })()}
                 </div>
             </div>
         `;
@@ -4030,15 +4049,15 @@ function _tpdRenderFormInputs() {
                 ${state.hasEditPermission ? `
                     <div style="display:flex; gap:6px; align-items:center;">
                         <select id="tpdNewPositionSelect" class="tpd-ws-input" style="padding:2px 6px; font-size:11px; height:24px; width:110px; border-radius:4px;">
-                            <option value="Ngực">Ngực</option>
-                            <option value="Lưng">Lưng</option>
-                            <option value="Bụng">Bụng</option>
-                            <option value="Tay Trái">Tay Trái</option>
-                            <option value="Tay Phải">Tay Phải</option>
-                            <option value="Gáy">Gáy</option>
+                            ${(_tpd.printPositionsConfig || []).map(p => `
+                                <option value="${p.name}">${p.name}</option>
+                            `).join('')}
                             <option value="Vị Trí Khác">Vị Trí Khác...</option>
                         </select>
                         <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546; color: white;">Thêm</button>
+                        ${state.role === 'giam_doc' ? `
+                            <button type="button" class="btn btn-secondary" onclick="_tpdOpenPrintPositionsConfigModal()" style="padding:2px 6px; font-size:12px; height:24px; border-radius:4px; font-weight:700; background:#64748b; border:1px solid #64748b; color: white;" title="Cấu hình vị trí in/thêu">⚙️</button>
+                        ` : ''}
                     </div>
                 ` : ''}
             </div>
@@ -4165,16 +4184,14 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
                 ? `${d.position} - ${d.print_type.trim()}`
                 : d.position;
 
-            if (d.position === 'Lưng' || d.position === 'Gáy') {
-                const isFilled = d.gay_xuong && d.gay_xuong.trim();
-                const valStr = isFilled ? d.gay_xuong.trim().toUpperCase() : 'CHƯA ĐIỀN';
+            const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+            if (posConfig && posConfig.require_offset) {
+                const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                const isFilled = offsetVal && offsetVal.trim();
+                const valStr = isFilled ? offsetVal.trim().toUpperCase() : 'CHƯA ĐIỀN';
                 const color = isFilled ? '#facc15' : '#f87171';
-                headerText += ` <span style="color: ${color}; font-weight: 800;">(GÁY XUỐNG: ${valStr})</span>`;
-            } else if (d.position === 'Bụng') {
-                const isFilled = d.co_xuong && d.co_xuong.trim();
-                const valStr = isFilled ? d.co_xuong.trim().toUpperCase() : 'CHƯA ĐIỀN';
-                const color = isFilled ? '#facc15' : '#f87171';
-                headerText += ` <span style="color: ${color}; font-weight: 800;">(CỔ XUỐNG: ${valStr})</span>`;
+                const labelUpper = (posConfig.offset_label || 'Offset').trim().toUpperCase();
+                headerText += ` <span style="color: ${color}; font-weight: 800;">(${labelUpper}: ${valStr})</span>`;
             }
 
             // Backward compatibility logic
@@ -4368,7 +4385,7 @@ function _tpdUpdateDetailField(idx, field, value) {
     if (!it.print_details || !it.print_details[idx]) return;
 
     let cleanVal = value ? value.trim() : '';
-    if (['width', 'height', 'gay_xuong', 'co_xuong'].includes(field)) {
+    if (['width', 'height', 'gay_xuong', 'co_xuong', 'offset_value'].includes(field)) {
         if (cleanVal) {
             // If it is a number (integer or float), automatically append 'cm'
             if (/^\d+(\.\d+)?$/.test(cleanVal)) {
@@ -4378,6 +4395,20 @@ function _tpdUpdateDetailField(idx, field, value) {
     }
 
     it.print_details[idx][field] = cleanVal;
+
+    // Backward compatibility sync
+    if (field === 'offset_value') {
+        const d = it.print_details[idx];
+        const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+        if (posConfig && posConfig.require_offset) {
+            const lbl = (posConfig.offset_label || '').toLowerCase();
+            if (lbl.includes('gáy')) {
+                d.gay_xuong = cleanVal;
+            } else if (lbl.includes('cổ')) {
+                d.co_xuong = cleanVal;
+            }
+        }
+    }
 
     _tpdSaveDraft(it);
     
@@ -4483,6 +4514,38 @@ async function _tpdSaveProductionSheet() {
     if (!state.hasEditPermission) {
         showToast('Bạn không có quyền chỉnh sửa phiếu này.', 'error');
         return;
+    }
+
+    // Validation for print details: Kiểu, Kích thước (ngang hoặc cao), and offset
+    if (it.print_details && it.print_details.length > 0) {
+        for (let i = 0; i < it.print_details.length; i++) {
+            const d = it.print_details[i];
+            
+            // 1. Kiểu
+            if (!d.print_type || !d.print_type.trim()) {
+                showToast(`⚠️ Vui lòng chọn Kiểu in/thêu cho vị trí "${d.position}"!`, 'error');
+                return;
+            }
+            
+            // 2. Kích thước (ngang hoặc cao)
+            const hasWidth = d.width && d.width.trim();
+            const hasHeight = d.height && d.height.trim();
+            const hasDim = d.dimension && d.dimension.trim();
+            if (!hasWidth && !hasHeight && !hasDim) {
+                showToast(`⚠️ Vui lòng điền kích thước Ngang hoặc Cao cho vị trí "${d.position}"!`, 'error');
+                return;
+            }
+            
+            // 3. Offset if required
+            const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+            if (posConfig && posConfig.require_offset) {
+                const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                if (!offsetVal || !offsetVal.trim()) {
+                    showToast(`⚠️ Vui lòng điền thông tin "${posConfig.offset_label || 'khoảng cách'}" cho vị trí "${d.position}"!`, 'error');
+                    return;
+                }
+            }
+        }
     }
 
     showToast('⏳ Đang lưu thông tin phiếu sản xuất...', 'info');
@@ -4663,6 +4726,29 @@ async function _tpdLoadSizeConfig() {
             "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
             "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
         };
+    }
+}
+
+// Load print positions configuration from backend
+async function _tpdLoadPrintPositionsConfig() {
+    try {
+        const res = await apiCall('/api/dht/print-positions', 'GET');
+        if (res && !res.error) {
+            _tpd.printPositionsConfig = res;
+        }
+    } catch (e) {
+        console.error('Failed to load print positions config:', e);
+    }
+    // Fallback if not loaded
+    if (!_tpd.printPositionsConfig) {
+        _tpd.printPositionsConfig = [
+            { name: "Ngực", require_offset: false, offset_label: "", offset_placeholder: "" },
+            { name: "Lưng", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 10cm" },
+            { name: "Bụng", require_offset: true, offset_label: "Cổ xuống", offset_placeholder: "Ví dụ: 12cm" },
+            { name: "Tay Trái", require_offset: false, offset_label: "", offset_placeholder: "" },
+            { name: "Tay Phải", require_offset: false, offset_label: "", offset_placeholder: "" },
+            { name: "Gáy", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 4cm" }
+        ];
     }
 }
 
@@ -5028,4 +5114,198 @@ function _tpdClearDraft(it) {
     const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
     if (!orderId) return;
     localStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
+}
+
+// Print Positions Configuration Modal and Management
+function _tpdOpenPrintPositionsConfigModal() {
+    const state = window._tpdWorkspaceState;
+    if (state.role !== 'giam_doc') {
+        showToast('Chỉ Giám Đốc mới có quyền thay đổi cấu hình này!', 'danger');
+        return;
+    }
+
+    const config = _tpd.printPositionsConfig || [
+        { name: "Ngực", require_offset: false, offset_label: "", offset_placeholder: "" },
+        { name: "Lưng", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 10cm" },
+        { name: "Bụng", require_offset: true, offset_label: "Cổ xuống", offset_placeholder: "Ví dụ: 12cm" },
+        { name: "Tay Trái", require_offset: false, offset_label: "", offset_placeholder: "" },
+        { name: "Tay Phải", require_offset: false, offset_label: "", offset_placeholder: "" },
+        { name: "Gáy", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 4cm" }
+    ];
+
+    window._tpdModalPrintPositions = JSON.parse(JSON.stringify(config));
+
+    // Create Modal Element
+    const modal = document.createElement('div');
+    modal.id = 'tpdPrintPositionsConfigModal';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(15, 23, 42, 0.6)';
+    modal.style.backdropFilter = 'blur(4px)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '99999';
+
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; width: 680px; max-width: 95%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden; display: flex; flex-direction: column; max-height: 85vh;">
+            <div style="background: #1e293b; color: white; padding: 16px; font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <span>⚙️ Cài đặt vị trí in / thêu sản xuất</span>
+                <span style="cursor: pointer; font-size: 18px;" onclick="document.getElementById('tpdPrintPositionsConfigModal').remove()">✕</span>
+            </div>
+            
+            <div style="padding: 16px 20px 0; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; color: #64748b; font-style: italic;">Cấu hình vị trí in/thêu, nhãn khoảng cách bắt buộc và ví dụ tương ứng.</span>
+                <button type="button" onclick="_tpdAddNewPrintPosition()" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(16,185,129,0.15);">
+                    <span>+ Thêm vị trí mới</span>
+                </button>
+            </div>
+
+            <div id="tpdPrintPositionsContainer" style="padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex-grow: 1; box-sizing: border-box;">
+                <!-- Positions list will be rendered dynamically here -->
+            </div>
+
+            <div style="background: #f8fafc; padding: 12px 16px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; flex-shrink: 0;">
+                <button type="button" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: white; color: #334155; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;" onclick="document.getElementById('tpdPrintPositionsConfigModal').remove()">Hủy</button>
+                <button type="button" style="padding: 8px 16px; border: none; background: #2563eb; color: white; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;" onclick="_tpdSavePrintPositionsConfig()">Lưu cấu hình</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Initial render
+    _tpdRenderPrintPositionsModalList();
+}
+
+function _tpdRenderPrintPositionsModalList() {
+    const container = document.getElementById('tpdPrintPositionsContainer');
+    if (!container) return;
+
+    const list = window._tpdModalPrintPositions || [];
+
+    if (list.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                <span style="font-size: 32px;">📍</span>
+                <p style="margin-top: 8px; font-size: 13px;">Chưa có vị trí nào. Hãy nhấn "+ Thêm vị trí mới" để bắt đầu.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = list.map((item, idx) => {
+        return `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                    <!-- Position Name -->
+                    <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px;">
+                        <span style="font-size: 12px; font-weight: 700; color: #475569; min-width: 70px;">Vị trí in:</span>
+                        <input type="text" value="${item.name || ''}" onchange="_tpdUpdateModalPosVal(${idx}, 'name', this.value)" style="font-weight: 700; font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; flex: 1; background: white;" placeholder="Ví dụ: Ngực, Lưng, Bụng...">
+                    </div>
+                    
+                    <!-- Checkbox for required offset -->
+                    <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; margin: 0;">
+                        <input type="checkbox" ${item.require_offset ? 'checked' : ''} onchange="_tpdUpdateModalPosVal(${idx}, 'require_offset', this.checked)" style="cursor: pointer; width: 14px; height: 14px; margin: 0;">
+                        <span>Bắt buộc điền khoảng cách</span>
+                    </label>
+
+                    <!-- Delete button -->
+                    <button type="button" onclick="_tpdDeleteModalPrintPosition(${idx})" style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Xóa vị trí này">
+                        <span>Xóa</span>
+                    </button>
+                </div>
+
+                <!-- Offset Settings Panel (shown only if required offset is checked) -->
+                ${item.require_offset ? `
+                    <div style="display: flex; gap: 10px; background: white; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 8px; margin-top: 4px;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                            <span style="font-size: 11px; font-weight: 600; color: #64748b; min-width: 90px;">Tên khoảng cách:</span>
+                            <input type="text" value="${item.offset_label || ''}" onchange="_tpdUpdateModalPosVal(${idx}, 'offset_label', this.value)" style="font-size: 12px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px; flex: 1;" placeholder="Ví dụ: Gáy xuống, Cổ xuống...">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                            <span style="font-size: 11px; font-weight: 600; color: #64748b; min-width: 80px;">Gợi ý/Ví dụ:</span>
+                            <input type="text" value="${item.offset_placeholder || ''}" onchange="_tpdUpdateModalPosVal(${idx}, 'offset_placeholder', this.value)" style="font-size: 12px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px; flex: 1;" placeholder="Ví dụ: 10cm, 12cm...">
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function _tpdAddNewPrintPosition() {
+    const list = window._tpdModalPrintPositions || [];
+    list.push({ name: '', require_offset: false, offset_label: '', offset_placeholder: '' });
+    _tpdRenderPrintPositionsModalList();
+    
+    const container = document.getElementById('tpdPrintPositionsContainer');
+    if (container) {
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 50);
+    }
+}
+
+function _tpdUpdateModalPosVal(idx, field, val) {
+    const list = window._tpdModalPrintPositions || [];
+    if (list[idx]) {
+        if (field === 'require_offset') {
+            list[idx][field] = !!val;
+            if (val) {
+                if (!list[idx].offset_label) list[idx].offset_label = 'Gáy xuống';
+                if (!list[idx].offset_placeholder) list[idx].offset_placeholder = 'Ví dụ: 10cm';
+            }
+        } else {
+            list[idx][field] = val;
+        }
+        _tpdRenderPrintPositionsModalList();
+    }
+}
+
+function _tpdDeleteModalPrintPosition(idx) {
+    const list = window._tpdModalPrintPositions || [];
+    if (confirm('Bạn có chắc chắn muốn xóa vị trí in này?')) {
+        list.splice(idx, 1);
+        _tpdRenderPrintPositionsModalList();
+    }
+}
+
+async function _tpdSavePrintPositionsConfig() {
+    const list = window._tpdModalPrintPositions || [];
+    // Validate
+    const cleaned = [];
+    for (const item of list) {
+        const name = item.name ? item.name.trim() : '';
+        if (!name) {
+            showToast('Tên vị trí in không được để trống!', 'warning');
+            return;
+        }
+        cleaned.push({
+            name,
+            require_offset: !!item.require_offset,
+            offset_label: item.require_offset ? (item.offset_label ? item.offset_label.trim() : 'Khoảng cách') : '',
+            offset_placeholder: item.require_offset ? (item.offset_placeholder ? item.offset_placeholder.trim() : 'Ví dụ: 10cm') : ''
+        });
+    }
+
+    try {
+        const res = await apiCall('/api/dht/print-positions', 'PUT', cleaned);
+        if (res && res.success) {
+            showToast('Lưu cài đặt vị trí in thành công!', 'success');
+            const modal = document.getElementById('tpdPrintPositionsConfigModal');
+            if (modal) modal.remove();
+            
+            // Reload and redraw
+            await _tpdLoadPrintPositionsConfig();
+            _tpdRenderFormInputs();
+        } else {
+            showToast(res && res.error ? res.error : 'Có lỗi xảy ra khi lưu cấu hình', 'danger');
+        }
+    } catch(e) {
+        console.error(e);
+        showToast('Không thể kết nối đến máy chủ', 'danger');
+    }
 }
