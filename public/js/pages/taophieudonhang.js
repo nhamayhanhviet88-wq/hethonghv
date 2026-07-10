@@ -3238,8 +3238,8 @@ function _tpdRenderWorkspace(container) {
 
                     <div class="tpd-ws-editor-footer">
                         ${state.hasEditPermission ? `
-                            <button class="tpd-btn" onclick="_tpdSaveProductionSheet()" style="background: linear-gradient(135deg, #122546, #1e3a8a); color: white; padding: 10px 24px; font-size: 13px; box-shadow: 0 4px 10px rgba(18, 37, 70, 0.2);">
-                                💾 Lưu Thay Đổi Phiếu
+                            <button class="tpd-btn" onclick="_tpdExportSheetAndOrder()" style="background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 10px 24px; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.2); border-radius: 8px;">
+                                📤 Xuất Phiếu & Lên Đơn
                             </button>
                         ` : ''}
                     </div>
@@ -3657,7 +3657,22 @@ function _tpdGetCustomLayout(index) {
     if (index === state.activeItemIndex && state.editingItem) {
         it = state.editingItem;
     } else {
-        it = state.items[index];
+        const item = state.items[index];
+        const params = new URLSearchParams(window.location.search);
+        const orderId = params.get('id') || state.orderId || '';
+        let mergedItem = null;
+        if (orderId && item && item.id) {
+            const draftStr = localStorage.getItem(`tpd_draft_${orderId}_${item.id}`);
+            if (draftStr) {
+                try {
+                    const draft = JSON.parse(draftStr);
+                    if (draft && draft.id === item.id) {
+                        mergedItem = draft;
+                    }
+                } catch(e) {}
+            }
+        }
+        it = mergedItem || item;
     }
 
     if (!it) return { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
@@ -5327,11 +5342,11 @@ function _tpdSetupPasteZones() {
 async function _tpdSaveProductionSheet() {
     const state = window._tpdWorkspaceState;
     const it = state.editingItem;
-    if (!it) return;
+    if (!it) return false;
 
     if (!state.hasEditPermission) {
         showToast('Bạn không có quyền chỉnh sửa phiếu này.', 'error');
-        return;
+        return false;
     }
 
     // ★ Validation: total size qty must match DHT quantity
@@ -5339,7 +5354,7 @@ async function _tpdSaveProductionSheet() {
     const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
     if (dhtQty > 0 && totalSizeQty !== dhtQty) {
         showToast(`⚠️ Tổng SL bảng size (${totalSizeQty}) không khớp với SL phiếu DHT (${dhtQty}). Vui lòng điều chỉnh bảng size!`, 'error');
-        return;
+        return false;
     }
 
     // Validation for print details: Kiểu, Kích thước (ngang hoặc cao), and offset
@@ -5350,7 +5365,7 @@ async function _tpdSaveProductionSheet() {
             // 1. Kiểu
             if (!d.print_type || !d.print_type.trim()) {
                 showToast(`⚠️ Vui lòng chọn Kiểu in/thêu cho vị trí "${d.position}"!`, 'error');
-                return;
+                return false;
             }
             
             // 2. Kích thước (ngang hoặc cao)
@@ -5359,7 +5374,7 @@ async function _tpdSaveProductionSheet() {
             const hasDim = d.dimension && d.dimension.trim();
             if (!hasWidth && !hasHeight && !hasDim) {
                 showToast(`⚠️ Vui lòng điền kích thước Ngang hoặc Cao cho vị trí "${d.position}"!`, 'error');
-                return;
+                return false;
             }
             
             // 3. Offset if required
@@ -5368,7 +5383,7 @@ async function _tpdSaveProductionSheet() {
                 const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
                 if (!offsetVal || !offsetVal.trim()) {
                     showToast(`⚠️ Vui lòng điền thông tin "${posConfig.offset_label || 'khoảng cách'}" cho vị trí "${d.position}"!`, 'error');
-                    return;
+                    return false;
                 }
             }
         }
@@ -5382,11 +5397,11 @@ async function _tpdSaveProductionSheet() {
             const techName = (s.tech || '').trim();
             if (!techName || techName === 'Khác') {
                 showToast(`⚠️ Vui lòng chọn hoặc nhập tên kỹ thuật may ở dòng thứ ${i + 1}!`, 'error');
-                return;
+                return false;
             }
             if (!s.detail || !s.detail.trim()) {
                 showToast(`⚠️ Vui lòng nhập thông tin chi tiết cho kỹ thuật may "${techName}"!`, 'error');
-                return;
+                return false;
             }
         }
     }
@@ -5425,12 +5440,413 @@ async function _tpdSaveProductionSheet() {
             
             // Refresh preview and tab buttons
             _tpdRenderWorkspace(window._dhtFullPageContainer || document.getElementById('main-content'));
+            return true;
         } else {
             showToast('Lưu phiếu thất bại: ' + (res.error || 'Lỗi không xác định'), 'error');
+            return false;
         }
     } catch(e) {
         console.error(e);
         showToast('Lỗi khi lưu phiếu sản xuất: ' + e.message, 'error');
+        return false;
+    }
+}
+
+// Validate all sheets of the order to ensure they are fully filled
+function _tpdValidateAllSheets() {
+    const state = window._tpdWorkspaceState;
+    if (!state) return false;
+
+    for (let idx = 0; idx < state.items.length; idx++) {
+        // Active tab has current edits in editingItem, other tabs load from cloned state (which pulls from localStorage draft if exists)
+        const it = (idx === state.activeItemIndex) ? state.editingItem : _tpdCloneItemState(state.items[idx]);
+        if (!it) continue;
+
+        const layout = _tpdGetCustomLayout(idx);
+
+        // 1. Validate quantities match
+        const dhtQty = Number(it.quantity) || 0;
+        const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
+        if (dhtQty > 0 && totalSizeQty !== dhtQty) {
+            showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Tổng SL bảng size (${totalSizeQty}) không khớp với SL phiếu DHT (${dhtQty})!`, 'error');
+            _tpdSwitchItemTab(idx); // Auto switch tab to error sheet
+            return false;
+        }
+
+        // 2. Validate print details
+        if (it.print_details && it.print_details.length > 0) {
+            for (let k = 0; k < it.print_details.length; k++) {
+                const d = it.print_details[k];
+                if (!d.print_type || !d.print_type.trim()) {
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng chọn Kiểu in/thêu cho vị trí "${d.position}"!`, 'error');
+                    _tpdSwitchItemTab(idx);
+                    return false;
+                }
+                const hasWidth = d.width && d.width.trim();
+                const hasHeight = d.height && d.height.trim();
+                const hasDim = d.dimension && d.dimension.trim();
+                if (!hasWidth && !hasHeight && !hasDim) {
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng điền kích thước Ngang hoặc Cao cho vị trí "${d.position}"!`, 'error');
+                    _tpdSwitchItemTab(idx);
+                    return false;
+                }
+                const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+                if (posConfig && posConfig.require_offset) {
+                    const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                    if (!offsetVal || !offsetVal.trim()) {
+                        showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng điền thông tin "${posConfig.offset_label || 'khoảng cách'}" cho vị trí "${d.position}"!`, 'error');
+                        _tpdSwitchItemTab(idx);
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // 3. Validate sewing items
+        if (layout.sewing_items && layout.sewing_items.length > 0) {
+            for (let k = 0; k < layout.sewing_items.length; k++) {
+                const s = layout.sewing_items[k];
+                const techName = (s.tech || '').trim();
+                if (!techName || techName === 'Khác') {
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng chọn hoặc nhập tên kỹ thuật may ở dòng thứ ${k + 1}!`, 'error');
+                    _tpdSwitchItemTab(idx);
+                    return false;
+                }
+                if (!s.detail || !s.detail.trim()) {
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng nhập thông tin chi tiết cho kỹ thuật may "${techName}"!`, 'error');
+                    _tpdSwitchItemTab(idx);
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+// Export all sheets as images and prompt mandatory downloads before final order confirmation
+async function _tpdExportSheetAndOrder() {
+    const state = window._tpdWorkspaceState;
+    if (!state) return;
+
+    // Condition 1: Must be official order (not draft)
+    if (state.order && (state.order.is_draft === true || state.order.is_draft === 'true' || (state.order.order_code || '').startsWith('NHAP-') || (state.order.order_code || '').startsWith('📝'))) {
+        showToast('⚠️ Đơn hàng hiện tại là bản nháp. Vui lòng bấm nút "✏️ Sửa Thông Tin Đơn (Giá/Cọc)" ở góc phải trên màn hình và chọn "Lưu Chính Thức" trước khi Xuất Phiếu.', 'error');
+        return;
+    }
+
+    // Condition 2: Validate all sheets in order
+    const allValid = _tpdValidateAllSheets();
+    if (!allValid) return;
+
+    // Save active sheet changes first
+    const saveSuccess = await _tpdSaveProductionSheet();
+    if (!saveSuccess) return;
+
+    // Show export modal and process images
+    _tpdShowExportSheetsModal();
+}
+
+// Helper to wait for all images to finish loading inside a container
+async function _tpdWaitForImages(container) {
+    const imgs = container.querySelectorAll('img');
+    const promises = Array.from(imgs).map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve; // Continue even if load fails
+        });
+    });
+    await Promise.all(promises);
+}
+
+// Render and show the export modal with image generation and mandatory download flow
+async function _tpdShowExportSheetsModal() {
+    const state = window._tpdWorkspaceState;
+    if (!state) return;
+    const o = state.order;
+    const items = state.items;
+
+    // Create the overlay container if not exists
+    let overlay = document.getElementById('tpdExportOverlay');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.id = 'tpdExportOverlay';
+    overlay.style.position = 'fixed';
+    overlay.style.left = '0';
+    overlay.style.top = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.7)';
+    overlay.style.backdropFilter = 'blur(8px)';
+    overlay.style.display = 'flex';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    overlay.style.zIndex = '99999';
+    overlay.style.fontFamily = "'Inter', system-ui, sans-serif";
+
+    // Build the modal card HTML
+    overlay.innerHTML = `
+        <div class="tpd-export-modal" style="background: #ffffff; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 850px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; animation: tpdFadeIn 0.3s ease;">
+            <!-- Modal Header -->
+            <div style="padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #122546; color: white;">
+                <div>
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">📥 Tải về phiếu sản xuất để lên đơn</h3>
+                    <p style="margin: 4px 0 0 0; font-size: 12px; color: #cbd5e1;">Mã đơn: <strong style="color: #fad24c;">${o.order_code}</strong> | Bạn cần tải xuống toàn bộ phiếu dưới đây để gửi cho xưởng trước khi hoàn tất.</p>
+                </div>
+                <button onclick="document.getElementById('tpdExportOverlay').remove()" style="background: none; border: none; color: #ffffff; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div style="padding: 24px; overflow-y: auto; flex: 1; background: #f8fafc;">
+                <!-- Main Status Banner -->
+                <div id="tpdExportMainStatus" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 22px;">⏳</div>
+                    <div style="font-size: 13px; color: #1e3a8a; font-weight: 500; line-height: 1.4;">
+                        Đang khởi tạo hình ảnh kỹ thuật chất lượng cao cho các phiếu sản xuất. Vui lòng đợi trong giây lát...
+                    </div>
+                </div>
+
+                <!-- Grid of sheets -->
+                <div id="tpdExportGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                    ${items.map((item, idx) => `
+                        <div class="tpd-export-card" id="exportCard_${idx}" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: all 0.2s;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        Phiếu ${idx + 1}: ${item.product_name || 'Đồng phục'}
+                                    </h4>
+                                    <span style="font-size: 11px; color: #64748b; display: block; margin-top: 2px;">SL: ${item.quantity || 0} áo | ${item.material_name || '—'} - ${item.color_name || '—'}</span>
+                                </div>
+                                <div id="exportStatusBadge_${idx}" style="background: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; white-space: nowrap;">
+                                    Đang tạo...
+                                </div>
+                            </div>
+                            
+                            <!-- Thumbnail Preview Container -->
+                            <div id="exportThumbContainer_${idx}" style="height: 150px; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+                                <div class="tpd-spinner" style="width: 24px; height: 24px; border-width: 3px;"></div>
+                            </div>
+
+                            <!-- Action Button -->
+                            <button id="exportDlBtn_${idx}" disabled style="width: 100%; border: none; border-radius: 8px; background: #cbd5e1; color: #64748b; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: not-allowed; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                📥 Tải xuống hình ảnh
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div style="padding: 20px 24px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #ffffff;">
+                <button onclick="document.getElementById('tpdExportOverlay').remove()" style="border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #475569; padding: 10px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+                    Hủy bỏ
+                </button>
+                <button id="exportConfirmBtn" disabled style="border: none; border-radius: 8px; background: #cbd5e1; color: #64748b; padding: 10px 28px; font-size: 13px; font-weight: 800; cursor: not-allowed; transition: all 0.3s; box-shadow: none;">
+                    ✓ Xác Nhận Lên Đơn & Hoàn Tất
+                </button>
+            </div>
+        </div>
+        <style>
+            @keyframes tpdFadeIn {
+                from { opacity: 0; transform: scale(0.95); }
+                to { opacity: 1; transform: scale(1); }
+            }
+        </style>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Setup A4 hidden container and render all pages
+    let tempContainer = document.getElementById('tpdTempExportContainer');
+    if (tempContainer) tempContainer.remove();
+
+    tempContainer = document.createElement('div');
+    tempContainer.id = 'tpdTempExportContainer';
+    tempContainer.style.position = 'fixed';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '0';
+    tempContainer.style.width = '297mm';
+    tempContainer.style.zIndex = '-9999';
+    tempContainer.style.background = 'white';
+    document.body.appendChild(tempContainer);
+
+    let printHtml = '';
+
+    // Loop and generate A4 print templates
+    items.forEach((item, idx) => {
+        const it = _tpdCloneItemState(item);
+        const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
+        const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
+        const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${idx}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(deepLink)}`;
+        const mockupSrc = it.mockup_image || '';
+        const layout = _tpdGetCustomLayout(idx);
+        const customHeight = layout.height ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
+        const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
+        const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 5}px;`;
+
+        printHtml += `
+            <div class="tpd-print-page" id="tempExportPage_${idx}" style="width: 297mm; height: 210mm; box-sizing: border-box; padding: 8mm; background: white; border: none; margin: 0; overflow: hidden;">
+                <div class="tpd-a4-preview-card" style="border:none; box-shadow:none; width:100%; height:100%; padding:0;">
+                    <!-- Header Block -->
+                    <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 6px;">
+                        <div class="tpd-a4-header-left" style="display: flex; align-items: center; gap: 12px;">
+                            <img src="/images/logo.png" class="tpd-a4-logo" style="height: 64px; object-fit: contain;" onerror="this.style.display='none'">
+                            <span class="tpd-a4-brand" style="font-size: 24px; font-weight: 900; color: #122546; text-transform: uppercase; letter-spacing: 0.5px;">ĐỒNG PHỤC <span class="tpd-a4-brand-gold" style="color: #fad24c; font-weight: 900;">HV</span></span>
+                        </div>
+                        <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
+                            <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
+                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">MÃ ĐƠN: ${o.order_code} | PHIẾU ${idx + 1}/${items.length}</div>
+                        </div>
+                        <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
+                            <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
+                            <span style="font-size: 7px; font-weight: 800; color: #122546; text-transform: uppercase; white-space: nowrap;">Quét mã tiến độ</span>
+                        </div>
+                    </div>
+
+                    <!-- Metadata info grid -->
+                    ${(() => {
+                        const isSourceVip = !!(o && ['VT', 'HVVT'].includes(o.source));
+                        const isRedSheet = isSourceVip ? true : ((layout && typeof layout.is_red_sheet === 'boolean') ? layout.is_red_sheet : false);
+                        const gridStyle = isRedSheet ? 'background: #dc2626 !important; border-color: #dc2626 !important;' : '';
+                        const itemStyle = isRedSheet ? 'color: #ffffff !important;' : '';
+                        return `
+                            <div class="tpd-a4-meta-grid" style="${metaMarginStyle} ${gridStyle}">
+                                <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Khách hàng:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${o.customer_name || '—'}</span></div>
+                                <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Người lên đơn:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${o.cskh_name || '—'}</span></div>
+                                <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Thiết kế:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${o.designer_name || '—'}</span></div>
+                                <div class="tpd-a4-meta-item" style="${itemStyle}"><span class="tpd-a4-meta-label" style="${itemStyle}">Ngày lên đơn:</span> <span class="tpd-a4-meta-val" style="${itemStyle}">${orderDate}</span></div>
+                            </div>
+                        `;
+                    })()}
+
+                    <!-- Images Row -->
+                    <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle} margin-bottom: 0;">
+                        <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
+                            <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
+                            <div class="tpd-a4-img-body">
+                                ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" style="max-height:100%; object-fit:contain;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
+                            </div>
+                        </div>
+                        ${_tpdGetInfoBoxHtml(it, layout, o)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    tempContainer.innerHTML = printHtml;
+
+    // Wait for all images inside tempContainer to load
+    await _tpdWaitForImages(tempContainer);
+
+    // Track download state
+    const downloaded = new Array(items.length).fill(false);
+    const generatedImages = new Array(items.length).fill(null);
+
+    // Generate canvas for each page sequentially
+    for (let idx = 0; idx < items.length; idx++) {
+        const pageEl = document.getElementById(`tempExportPage_${idx}`);
+        if (!pageEl) continue;
+
+        try {
+            const canvas = await html2canvas(pageEl, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            });
+
+            const imgUrl = canvas.toDataURL('image/png');
+            generatedImages[idx] = imgUrl;
+
+            // Update Thumbnail Preview
+            const thumbContainer = document.getElementById(`exportThumbContainer_${idx}`);
+            if (thumbContainer) {
+                thumbContainer.innerHTML = `<img src="${imgUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 4px;">`;
+            }
+
+            // Update Badge Status
+            const statusBadge = document.getElementById(`exportStatusBadge_${idx}`);
+            if (statusBadge) {
+                statusBadge.innerHTML = 'Chưa tải';
+                statusBadge.style.backgroundColor = '#fef3c7';
+                statusBadge.style.color = '#d97706';
+            }
+
+            // Enable Download Button
+            const dlBtn = document.getElementById(`exportDlBtn_${idx}`);
+            if (dlBtn) {
+                dlBtn.disabled = false;
+                dlBtn.style.background = 'linear-gradient(135deg, #1e3a8a, #3b82f6)';
+                dlBtn.style.color = '#ffffff';
+                dlBtn.style.cursor = 'pointer';
+
+                dlBtn.onclick = function() {
+                    const cleanProductName = (items[idx].product_name || 'SanPham')
+                        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove tone accents
+                        .replace(/đ/g, "d").replace(/Đ/g, "D")
+                        .replace(/[^a-zA-Z0-9]/g, "_"); // replace special chars with underscore
+                    const filename = `${o.order_code || 'HV'}_Phieu_${idx + 1}_${cleanProductName}.png`;
+                    
+                    const link = document.createElement('a');
+                    link.href = imgUrl;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    // Mark as downloaded
+                    downloaded[idx] = true;
+                    
+                    // Update Badge to success
+                    if (statusBadge) {
+                        statusBadge.innerHTML = '✓ Đã tải';
+                        statusBadge.style.backgroundColor = '#dcfce7';
+                        statusBadge.style.color = '#15803d';
+                    }
+
+                    // Check if all sheets are downloaded
+                    if (downloaded.every(d => d === true)) {
+                        const confirmBtn = document.getElementById('exportConfirmBtn');
+                        if (confirmBtn) {
+                            confirmBtn.disabled = false;
+                            confirmBtn.style.background = 'linear-gradient(135deg, #059669, #10b981)';
+                            confirmBtn.style.color = '#ffffff';
+                            confirmBtn.style.cursor = 'pointer';
+                            confirmBtn.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.3)';
+                            confirmBtn.onclick = function() {
+                                showToast('🎉 Xác nhận lên đơn và xuất phiếu thành công!', 'success');
+                                overlay.remove();
+                                if (tempContainer) tempContainer.remove();
+                                navigate('taophieudonhang'); // Redirect back to list
+                            };
+                        }
+                    }
+                };
+            }
+
+        } catch (err) {
+            console.error(`Error rendering sheet index ${idx}:`, err);
+            const thumbContainer = document.getElementById(`exportThumbContainer_${idx}`);
+            if (thumbContainer) {
+                thumbContainer.innerHTML = `<span style="font-size: 11px; color: #ef4444; font-weight: 500;">⚠️ Lỗi render hình ảnh</span>`;
+            }
+        }
+    }
+
+    // Update banner status when complete
+    const mainStatus = document.getElementById('tpdExportMainStatus');
+    if (mainStatus) {
+        mainStatus.innerHTML = `
+            <div style="font-size: 22px;">✅</div>
+            <div style="font-size: 13px; color: #15803d; font-weight: 500; line-height: 1.4;">
+                Đã khởi tạo xong hình ảnh toàn bộ phiếu sản xuất! Vui lòng tải xuống từng phiếu để mở khóa nút Xác Nhận.
+            </div>
+        `;
+        mainStatus.style.background = '#f0fdf4';
+        mainStatus.style.borderColor = '#bbf7d0';
     }
 }
 
