@@ -26,6 +26,7 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="telegram-notify" onclick="switchSettingTab('telegram-notify', this)">🔔 Telegram Thông Báo</div>
                     <div class="tab" data-tab="production-mode" onclick="switchSettingTab('production-mode', this)" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;color:#92400e;font-weight:700;">🚀 Thực Chiến</div>
                     <div class="tab" data-tab="master-key" onclick="switchSettingTab('master-key', this)">🔐 Mã Khóa Tổng</div>
+                    <div class="tab" data-tab="export-template" onclick="switchSettingTab('export-template', this)">📝 Mẫu Xác Nhận</div>
                 </div>
                 <div id="settingsContent">
                     <div class="text-center text-muted" style="padding:30px;">Đang tải...</div>
@@ -66,6 +67,8 @@ function switchSettingTab(tab, el) {
         loadTelegramNotifySettings();
     } else if (tab === 'master-key') {
         loadMasterKeySettings();
+    } else if (tab === 'export-template') {
+        loadExportTemplateSettings();
     } else if (tab === 'production-mode') {
         loadProductionModeSettings();
     } else if (tab === 'dht-carriers') {
@@ -2271,4 +2274,79 @@ async function deleteCarrierItem(id, name) {
     } else {
         showToast(data.error || 'Lỗi xóa', 'error');
     }
+}
+
+// ========== EXPORT MESSAGE TEMPLATE SETTINGS ==========
+async function loadExportTemplateSettings() {
+    const content = document.getElementById('settingsContent');
+    content.innerHTML = '<div class="text-center text-muted" style="padding:30px;">Đang tải...</div>';
+    
+    const res = await apiCall('/api/app-config/export_confirmation_template');
+    const template = res.value || '';
+    
+    const defaultTemplate = `Để đơn hàng hoàn thiện như mong muốn, bên em xin gửi lại các thông tin như sau, mong anh/chị xác nhận giúp em ạ :
+ 1. Nội dung in / thêu và kích thước trên MAKET :
+{print_details}
+• Mong anh/chị kiểm tra kỹ nội dung, phông chữ, kích thước logo ,bố cục và vị trí logo xem đã chính xác chưa ?
+• Tuy nhiên, bên em rất mong anh/chị đo thử chiều ngang logo thực tế trên áo mẫu để cảm nhận trực tiếp kích thước có phù hợp không ?
+
+ 2. Báo size đã chốt ở phiếu đơn hàng :
+{size_details}
+
+3. Màu áo & chất liệu:
+{fabric_details}
+• Màu logo in/thêu chỉ giống tương đối so với màu cổ và nẹp áo.
+• Màu áo và cổ/nẹp có thể có độ lệch nhẹ do chất liệu vải khác nhau.
+• Tất cả màu áo và chất liệu đều có độ phai màu nhất định , khi giặt a/c lưu ý ạ
+⸻
+*LƯU Ý QUAN TRỌNG : Mọi điều chỉnh xin được báo lại sớm trước khi in hàng loạt ạ
+
+Để tránh những vấn đề sau khi sản xuất, bên em xin phép không chịu trách nhiệm trong các trường hợp sau:
+ • Nội dung in, size áo, chất liệu và màu áo có sai sót sau khi đã được chốt.
+ • Kích thước logo quá to hoặc quá nhỏ, vì đã làm đúng theo thông tin được xác nhận trước đó.
+ • Trong trường hợp anh/chị không ưng cây vải và bên em phải đổi sang cây vải mới, bên em xin phép được lùi thời gian sản xuất đơn hàng ạ`;
+
+    content.innerHTML = `
+        <div style="max-width: 800px;">
+            <h4 style="color: var(--navy); margin: 0 0 12px;">📝 Thiết lập mẫu tin nhắn xác nhận đơn hàng</h4>
+            <p style="font-size: 13px; color: var(--gray-500); margin-bottom: 20px;">
+                Cấu hình mẫu tin nhắn tự động hiển thị trong hộp thoại xuất phiếu sản xuất để Sale copy gửi khách hàng.
+            </p>
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 6px;">Nội dung mẫu:</label>
+                <textarea id="tpdExportTemplateText" class="form-control" style="width: 100%; height: 350px; font-family: monospace; font-size: 12px; line-height: 1.5; padding: 12px; border: 1.5px solid var(--gray-200); border-radius: 8px;" placeholder="Nhập mẫu tin nhắn xác nhận...">${template || defaultTemplate}</textarea>
+            </div>
+
+            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 14px; margin-bottom: 20px;">
+                <h5 style="margin: 0 0 8px; color: #1e40af; font-size: 13px; font-weight: 800;">💡 Hướng dẫn sử dụng Placeholders:</h5>
+                <ul style="margin: 0; padding-left: 20px; font-size: 12px; color: #1e40af; line-height: 1.8;">
+                    <li>Sử dụng <strong><code>{print_details}</code></strong> để tự động chèn thông tin In/Thêu của đơn hàng.</li>
+                    <li>Sử dụng <strong><code>{size_details}</code></strong> để tự động chèn thông tin Size chốt của đơn hàng.</li>
+                    <li>Sử dụng <strong><code>{fabric_details}</code></strong> để tự động chèn thông tin Chất liệu & Màu áo của đơn hàng.</li>
+                </ul>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-success" onclick="saveExportTemplateSettings()" style="padding: 10px 24px; font-weight: 700;">💾 Lưu Cài Đặt</button>
+                <button class="btn btn-secondary" onclick="resetExportTemplateSettings()" style="padding: 10px 20px;">🔄 Đặt lại mặc định</button>
+            </div>
+        </div>
+    `;
+}
+
+async function saveExportTemplateSettings() {
+    const val = document.getElementById('tpdExportTemplateText').value;
+    const res = await apiCall('/api/app-config/export_confirmation_template', 'PUT', { value: val });
+    if (res.success) {
+        showToast('✅ Đã lưu mẫu tin nhắn xác nhận đơn hàng thành công!', 'success');
+    } else {
+        showToast('⚠️ Lỗi lưu cài đặt: ' + (res.error || 'Lỗi hệ thống'), 'error');
+    }
+}
+
+function resetExportTemplateSettings() {
+    if (!confirm('Đặt lại mẫu tin nhắn về trạng thái mặc định ban đầu?')) return;
+    document.getElementById('tpdExportTemplateText').value = '';
+    saveExportTemplateSettings();
 }
