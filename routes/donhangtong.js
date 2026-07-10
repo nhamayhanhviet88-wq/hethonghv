@@ -4186,7 +4186,7 @@ module.exports = async function(fastify) {
                         UPDATE sewing_records
                         SET product_name = $1
                         WHERE order_item_id = $2
-                    `, [prodName, itemId]);
+                    `, [item.product_name || '', itemId]);
                 } else {
                     // Insert new item
                     await db.run(`

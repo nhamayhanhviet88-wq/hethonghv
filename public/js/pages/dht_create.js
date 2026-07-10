@@ -96,11 +96,11 @@ async function _dhtShowCreateFree() {
         // ★ STEP 1: Tên KH trước (có autocomplete)
         +'<div class="form-group" style="position:relative;grid-column:span 2"><label style="font-weight:800;color:#166534">① Tên Khách Hàng <span style="color:red">*</span> ✏️ <span style="font-size:10px;font-weight:600;color:#64748b">— Gõ tên để tìm KH cũ hoặc nhập mới</span></label>'
         +'<input id="_co_name" class="form-control" placeholder="🔍 Gõ tên khách hàng..." autocomplete="off" oninput="_dhtNameAutocomplete()" onfocus="_dhtNameAutocomplete()" style="font-size:14px;border:2px solid #059669">'
-        +'<div id="_co_nameList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:200px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div id="_co_nameList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:200px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
         // ★ STEP 2: SĐT (disabled cho đến khi nhập tên, cũng có autocomplete)
         +'<div class="form-group" style="position:relative"><label style="font-weight:800;color:#1e40af">② SĐT Khách Hàng <span style="color:red">*</span> ✏️</label>'
         +'<input id="_co_phone" class="form-control" placeholder="Nhập tên KH trước..." disabled autocomplete="off" oninput="_dhtPhoneAutocomplete();_dhtCheckPhoneChange()" style="background:#f1f5f9;cursor:not-allowed">'
-        +'<div id="_co_phoneList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #60a5fa;border-radius:8px;max-height:180px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div>'
+        +'<div id="_co_phoneList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #60a5fa;border-radius:8px;max-height:180px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div>'
         +'<div id="_co_phoneAction" style="display:none;margin-top:6px;background:#fffbeb;border:2px solid #f59e0b;border-radius:8px;padding:10px 12px">'
         +'<div style="font-size:11px;font-weight:800;color:#92400e;margin-bottom:8px">⚠️ SĐT đã thay đổi! Chọn hành động: <span style="color:red">*</span></div>'
         +'<div style="display:flex;gap:8px">'
@@ -111,7 +111,7 @@ async function _dhtShowCreateFree() {
         +'<div class="form-group"><label>③ Địa Chỉ <span style="color:red">*</span> ✏️</label><input id="_co_addr" class="form-control" placeholder="Địa chỉ giao hàng"></div>'
         +'<div class="form-group" style="position:relative"><label>③ Tỉnh, Thành Phố <span style="color:red">*</span> ✏️</label>'
         +'<input id="_co_prov" class="form-control" placeholder="Gõ để tìm tỉnh/TP..." autocomplete="off" oninput="_dhtFilterProvince()" onfocus="_dhtFilterProvince()">'
-        +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
+        +'<div id="_co_provList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
         // Nguồn PET/TEM (dropdown)
         +'<div class="form-group"><label>Nguồn <span style="color:red">*</span></label><select id="_co_srcFreeSelect" class="form-control"><option value="">-- Chọn nguồn --</option></select></div>'
         // Thiết kế
@@ -127,7 +127,7 @@ async function _dhtShowCreateFree() {
         +'<div style="margin:10px 0;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #86efac;border-radius:10px;padding:12px">'
         +'<label style="font-weight:800;font-size:12px;color:#166534;margin-bottom:6px;display:block">💰 Chọn Mã Cọc (tùy chọn) <span style="font-size:10px;color:#64748b;font-weight:600">— từ Sổ Ghi Nhận Tiền</span></label>'
         +'<div style="position:relative"><input id="_co_depSearch" class="form-control" placeholder="🔍 Gõ mã tiền, số tiền, nội dung CK..." autocomplete="off" oninput="_dhtSearchDeposit()" onfocus="_dhtSearchDeposit()" style="font-size:12px;border:2px solid #059669">'
-        +'<div id="_co_depSearchList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div id="_co_depSearchList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
         +'<div id="_co_depSelected" style="display:none;margin-top:6px;background:#fff;border:1px solid #86efac;border-radius:6px;padding:8px 10px;font-size:12px;color:#166534;font-weight:600"></div>'
         +'</div>'
         // Phụ Phí
@@ -577,7 +577,7 @@ async function _dhtGoStep2() {
         +'<div id="_co_codeNormal" class="form-group" style="position:relative;grid-column:span 2"><label>Mã Đơn <span style="color:red">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(Chọn mã đã tạo ở CRM)</span></label>'
         +'<input id="_co_code" class="form-control" placeholder="🔍 Gõ mã đơn hoặc tên KH để tìm..." autocomplete="off" oninput="_dhtSearchOrderCode()" onfocus="if(this.value.startsWith(\'📝\') || this.value.startsWith(\'NHAP-\')){this.value=\'\'; _dhtCreate.orderCode=\'\';}; _dhtSearchOrderCode()" style="font-size:14px;font-weight:700;border:2px solid #daa520">'
         +'<input type="hidden" id="_co_custId">'
-        +'<div id="_co_codeList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:250px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div id="_co_codeList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:250px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
 
         // Free mode: auto-generate code placeholder
         +'<div id="_co_codeFree" style="display:none;grid-column:span 2"><div class="form-group"><label>Mã Đơn <span style="font-size:10px;color:#059669;font-weight:700">✅ Tự động khi xác nhận</span></label>'
@@ -1287,7 +1287,7 @@ function _ppSearchField(id, label, items, curVal, hiddenVal) {
     var h = '<div style="position:relative"><label style="font-size:11px;font-weight:700">'+label+'</label>'
         +'<input id="'+id+'" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="'+placeholder+'" value="'+(curVal||'')+'" onfocus="_ppShowList(\''+id+'\')" oninput="_ppFilterList(\''+id+'\')"' + roAttr + '>'
         +'<input type="hidden" id="'+id+'_val" value="'+(hiddenVal||'')+'">'
-        +'<div id="'+id+'_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">';
+        +'<div id="'+id+'_list" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">';
     items.forEach(function(it) {
         var txt = it.text||it.name||it, val = it.value!==undefined?it.value:txt;
         h += '<div class="_ppOpt" data-val="'+val+'" data-txt="'+txt+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\''+id+'\',this)">'+txt+'</div>';
@@ -1916,13 +1916,13 @@ function _dhtPatternChange(existing) {
         h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Chất Liệu '+(i+1)+' *</label>'
             + '<input id="_ppMat'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer" placeholder="Chọn chất liệu..." value="'+(ep.material_name||'')+'" onfocus="_ppShowPairList(\'_ppMatList'+i+'\')" oninput="_ppFilterPairList(\'_ppMat'+i+'\',\'_ppMatList'+i+'\')">'
             + '<input type="hidden" id="_ppMatVal'+i+'" value="'+(ep.material_id||'')+'">'
-            + '<div id="_ppMatList'+i+'" style="display:none;position:absolute;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">'
+            + '<div id="_ppMatList'+i+'" style="display:none;position:absolute;top:100%;left:0;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">'
             + matListHtml + '</div></div>';
         // Color searchable input (populated after material selection)
         h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu '+(i+1)+' *</label>'
             + '<input id="_ppColor'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;background:#f1f5f9" placeholder="← Chọn Chất Liệu" value="'+(ep.color_name||'')+'" disabled onfocus="_ppShowPairList(\'_ppColorList'+i+'\')" oninput="_ppFilterPairList(\'_ppColor'+i+'\',\'_ppColorList'+i+'\')">'
             + '<input type="hidden" id="_ppColorVal'+i+'" value="'+(ep.color_id||'')+'">'
-            + '<div id="_ppColorList'+i+'" style="display:none;position:absolute;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div>';
+            + '<div id="_ppColorList'+i+'" style="display:none;position:absolute;top:100%;left:0;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div>';
         h += '</div></div>';
     }
     pairsEl.innerHTML = h;
@@ -2902,10 +2902,10 @@ async function _dhtEditOrderFree(o) {
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         +'<div class="form-group" style="position:relative;grid-column:span 2"><label style="font-weight:800;color:#166534">① Tên Khách Hàng <span style="color:red">*</span> ✏️ <span style="font-size:10px;font-weight:600;color:#64748b">— Gõ tên để tìm KH cũ hoặc nhập mới</span></label>'
         +'<input id="_co_name" class="form-control" placeholder="🔍 Gõ tên khách hàng..." autocomplete="off" oninput="_dhtNameAutocomplete()" onfocus="_dhtNameAutocomplete()" style="font-size:14px;border:2px solid #059669">'
-        +'<div id="_co_nameList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:200px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div id="_co_nameList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:200px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
         +'<div class="form-group" style="position:relative"><label style="font-weight:800;color:#1e40af">② SĐT Khách Hàng <span style="color:red">*</span> ✏️</label>'
         +'<input id="_co_phone" class="form-control" placeholder="Nhập SĐT khách hàng" autocomplete="off" oninput="_dhtPhoneAutocomplete();_dhtCheckPhoneChange()" style="font-size:13px">'
-        +'<div id="_co_phoneList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #60a5fa;border-radius:8px;max-height:180px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div>'
+        +'<div id="_co_phoneList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #60a5fa;border-radius:8px;max-height:180px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div>'
         +'<div id="_co_phoneAction" style="display:none;margin-top:6px;background:#fffbeb;border:2px solid #f59e0b;border-radius:8px;padding:10px 12px">'
         +'<div style="font-size:11px;font-weight:800;color:#92400e;margin-bottom:8px">⚠️ SĐT đã thay đổi! Chọn hành động: <span style="color:red">*</span></div>'
         +'<div style="display:flex;gap:8px">'
@@ -2915,7 +2915,7 @@ async function _dhtEditOrderFree(o) {
         +'<div class="form-group"><label>③ Địa Chỉ <span style="color:red">*</span> ✏️</label><input id="_co_addr" class="form-control" placeholder="Địa chỉ giao hàng"></div>'
         +'<div class="form-group" style="position:relative"><label>③ Tỉnh, Thành Phố <span style="color:red">*</span> ✏️</label>'
         +'<input id="_co_prov" class="form-control" placeholder="Gõ để tìm tỉnh/TP..." autocomplete="off" oninput="_dhtFilterProvince()" onfocus="_dhtFilterProvince()">'
-        +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
+        +'<div id="_co_provList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
         +'<div class="form-group"><label>Nguồn <span style="color:red">*</span></label><select id="_co_srcFreeSelect" class="form-control"><option value="">-- Chọn nguồn --</option></select></div>'
         +'<div class="form-group"><label>Thiết Kế <span style="color:red">*</span></label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
         +'</div>'
@@ -2927,7 +2927,7 @@ async function _dhtEditOrderFree(o) {
         +'<div style="margin:10px 0;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #86efac;border-radius:10px;padding:12px">'
         +'<label style="font-weight:800;font-size:12px;color:#166534;margin-bottom:6px;display:block">💰 Chọn Mã Cọc (tùy chọn) <span style="font-size:10px;color:#64748b;font-weight:600">— từ Sổ Ghi Nhận Tiền</span></label>'
         +'<div style="position:relative"><input id="_co_depSearch" class="form-control" placeholder="🔍 Gõ mã tiền, số tiền, nội dung CK..." autocomplete="off" oninput="_dhtSearchDeposit()" onfocus="_dhtSearchDeposit()" style="font-size:12px;border:2px solid #059669">'
-        +'<div id="_co_depSearchList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div id="_co_depSearchList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
         +'<div id="_co_depSelected" style="display:none;margin-top:6px;background:#fff;border:1px solid #86efac;border-radius:6px;padding:8px 10px;font-size:12px;color:#166534;font-weight:600"></div>'
         +'</div>'
         +'<div style="margin:10px 0;border:1px dashed #e2e8f0;border-radius:8px;padding:10px 12px;background:#fffbeb">'
@@ -3334,7 +3334,7 @@ function _dhtApplyRepairOverrides() {
     var _repairDepositHTML = '<div id="_co_repairDepWrap" style="margin:10px 0;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #86efac;border-radius:10px;padding:12px">'
         +'<label style="font-weight:800;font-size:12px;color:#166534;margin-bottom:6px;display:block">💰 Chọn Mã Cọc (tùy chọn) <span style="font-size:10px;color:#64748b;font-weight:600">— từ Sổ Ghi Nhận Tiền</span></label>'
         +'<div style="position:relative"><input id="_co_depSearch" class="form-control" placeholder="🔍 Gõ mã tiền, số tiền, nội dung CK..." autocomplete="off" oninput="_dhtSearchDeposit()" onfocus="_dhtSearchDeposit()" style="font-size:12px;border:2px solid #059669">'
-        +'<div id="_co_depSearchList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        +'<div id="_co_depSearchList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
         +'<div id="_co_depSelected" style="display:none;margin-top:6px;background:#fff;border:1px solid #86efac;border-radius:6px;padding:8px 10px;font-size:12px;color:#166534;font-weight:600"></div>'
         +'</div>';
 
