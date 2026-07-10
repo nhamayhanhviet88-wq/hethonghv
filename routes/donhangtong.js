@@ -3973,6 +3973,19 @@ module.exports = async function(fastify) {
                         ]);
                     }
                 }
+            } else {
+                // Still saving as draft, but allow linking/updating order code if provided
+                if (b.order_code && b.order_code.trim() && b.order_code.trim() !== oldOrder.order_code) {
+                    const cleanCode = b.order_code.trim();
+                    if (!cleanCode.startsWith('NHAP-') && !cleanCode.startsWith('📝')) {
+                        const dupCode = await db.get('SELECT id FROM dht_orders WHERE order_code = $1 AND id <> $2', [cleanCode, orderId]);
+                        if (dupCode) {
+                            return reply.code(400).send({ error: `Mã đơn \"${cleanCode}\" đã được sử dụng!` });
+                        }
+                    }
+                    sets.push(`order_code = $${idx++}`);
+                    params.push(cleanCode);
+                }
             }
         }
 

@@ -3233,8 +3233,8 @@ async function _dhtSubmitEditV2(isDraft) {
     };
     if (proofImg !== undefined) payload.standard_proof_image = proofImg;
     
-    // If promoting, include the official order code in payload
-    if (isDraftOrder && !isDraft) {
+    // If draft order, include the order code in payload (for both draft updates and official promotion)
+    if (isDraftOrder) {
         payload.order_code = orderCodeVal;
     }
 
