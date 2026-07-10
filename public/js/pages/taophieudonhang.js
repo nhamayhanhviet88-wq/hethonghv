@@ -4393,8 +4393,37 @@ function _tpdRenderFormInputs() {
                     <button type="button" class="btn btn-secondary" onclick="_tpdAddCustomSize()" style="padding: 2px 8px; font-size: 10px; border-radius:4px; font-weight:700;">+ Thêm size khác</button>
                 ` : ''}
             </div>
-            <div class="${_tpdIsNamNuSize(currentSizeType) ? '' : 'tpd-ws-size-grid'}" style="margin-top:8px; margin-bottom: 20px;">
+            <div class="${_tpdIsNamNuSize(currentSizeType) ? '' : 'tpd-ws-size-grid'}" style="margin-top:8px; margin-bottom: 8px;">
                 ${sizeGridHtml}
+            </div>
+            <div id="tpd-qty-warning" style="display:${(() => {
+                const dhtQ = Number(it.quantity) || 0;
+                const totalQ = (it.quantities || []).reduce((s,q) => s + (Number(q.qty)||0), 0);
+                return (dhtQ > 0 && totalQ !== dhtQ) ? 'block' : 'none';
+            })()}; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:700; margin-bottom:12px; ${(() => {
+                const dhtQ = Number(it.quantity) || 0;
+                const totalQ = (it.quantities || []).reduce((s,q) => s + (Number(q.qty)||0), 0);
+                if (dhtQ > 0 && totalQ > dhtQ) return 'color:#dc2626; background:#fef2f2; border:1px solid #fecaca;';
+                if (dhtQ > 0 && totalQ < dhtQ) return 'color:#d97706; background:#fffbeb; border:1px solid #fde68a;';
+                return 'color:#059669; background:#ecfdf5; border:1px solid #a7f3d0;';
+            })()}">
+                ${(() => {
+                    const dhtQ = Number(it.quantity) || 0;
+                    const totalQ = (it.quantities || []).reduce((s,q) => s + (Number(q.qty)||0), 0);
+                    if (dhtQ > 0 && totalQ > dhtQ) return '⚠️ Tổng size (<b>' + totalQ + '</b>) vượt quá SL phiếu (<b>' + dhtQ + '</b>). Vui lòng điều chỉnh!';
+                    if (dhtQ > 0 && totalQ < dhtQ) return '⚠️ Tổng size (<b>' + totalQ + '</b>) chưa đủ SL phiếu (<b>' + dhtQ + '</b>). Còn thiếu <b>' + (dhtQ - totalQ) + '</b> áo.';
+                    return '';
+                })()}
+            </div>
+            <div style="font-size:11px; color:#64748b; font-weight:600; margin-bottom:12px; padding:6px 10px; background:#f1f5f9; border-radius:4px; display:flex; justify-content:space-between;">
+                <span>📋 SL phiếu DHT: <b style="color:#1e40af">${Number(it.quantity) || 0}</b></span>
+                <span>📊 Tổng size đã điền: <b style="color:${(() => {
+                    const dhtQ = Number(it.quantity) || 0;
+                    const totalQ = (it.quantities || []).reduce((s,q) => s + (Number(q.qty)||0), 0);
+                    if (dhtQ > 0 && totalQ === dhtQ) return '#059669';
+                    if (totalQ > dhtQ) return '#dc2626';
+                    return '#d97706';
+                })()}">${(it.quantities || []).reduce((s,q) => s + (Number(q.qty)||0), 0)}</b> / <b>${Number(it.quantity) || 0}</b></span>
             </div>
         </div>
     `;
@@ -4504,6 +4533,35 @@ function _tpdUpdateQty(size, val) {
         qObj.qty = qty;
     } else {
         it.quantities.push({ size: size, qty: qty, price: it.unit_price || 0, note: '' });
+    }
+
+    // ★ Validate: total sizes must not exceed DHT quantity
+    const dhtQty = Number(it.quantity) || 0;
+    const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
+    const qtyWarning = document.getElementById('tpd-qty-warning');
+    if (dhtQty > 0 && totalSizeQty > dhtQty) {
+        if (qtyWarning) {
+            qtyWarning.style.display = 'block';
+            qtyWarning.innerHTML = `⚠️ Tổng size (<b>${totalSizeQty}</b>) vượt quá SL phiếu (<b>${dhtQty}</b>). Vui lòng điều chỉnh!`;
+        }
+        // Highlight the input that just changed
+        document.querySelectorAll('.tpd-ws-size-qty').forEach(inp => {
+            const parentBox = inp.closest('.tpd-ws-size-input-box');
+            if (parentBox) parentBox.style.borderColor = '';
+        });
+    } else if (dhtQty > 0 && totalSizeQty === dhtQty) {
+        if (qtyWarning) {
+            qtyWarning.style.display = 'block';
+            qtyWarning.innerHTML = `✅ Tổng size (<b>${totalSizeQty}</b>) khớp với SL phiếu (<b>${dhtQty}</b>)`;
+            qtyWarning.style.color = '#059669';
+            qtyWarning.style.background = '#ecfdf5';
+            qtyWarning.style.borderColor = '#a7f3d0';
+            setTimeout(() => {
+                if (qtyWarning) { qtyWarning.style.display = 'none'; qtyWarning.style.color = ''; qtyWarning.style.background = ''; qtyWarning.style.borderColor = ''; }
+            }, 3000);
+        }
+    } else {
+        if (qtyWarning) qtyWarning.style.display = 'none';
     }
 
     _tpdSaveDraft(it);
@@ -5109,6 +5167,14 @@ async function _tpdSaveProductionSheet() {
 
     if (!state.hasEditPermission) {
         showToast('Bạn không có quyền chỉnh sửa phiếu này.', 'error');
+        return;
+    }
+
+    // ★ Validation: total size qty must match DHT quantity
+    const dhtQty = Number(it.quantity) || 0;
+    const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
+    if (dhtQty > 0 && totalSizeQty !== dhtQty) {
+        showToast(`⚠️ Tổng SL bảng size (${totalSizeQty}) không khớp với SL phiếu DHT (${dhtQty}). Vui lòng điều chỉnh bảng size!`, 'error');
         return;
     }
 
