@@ -4468,13 +4468,7 @@ function _tpdRenderFormInputs() {
         </div>
     `;
 
-    // 6. Ghi chú kỹ thuật của xưởng
-    html += `
-        <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
-            <label class="tpd-ws-form-label">Ghi chú kỹ thuật của xưởng</label>
-            <textarea class="tpd-ws-input" rows="4" style="resize:vertical; font-family:inherit;" placeholder="Nhập ghi chú yêu cầu kỹ thuật chi tiết như: Cắt gấu bo len, phối chỉ vàng..." onkeyup="_tpdUpdateField('workshop_note', this.value)" ${disabledAttr}>${it.workshop_note || ''}</textarea>
-        </div>
-    `;
+
 
     // 7. Layout Customize Panel
     html += `
