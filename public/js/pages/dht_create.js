@@ -3149,12 +3149,38 @@ async function _dhtSubmitEditV2(isDraft) {
     var carrier = document.getElementById('_co_carrier')?.value || null;
     var orderCodeVal = document.getElementById('_co_code')?.value?.trim();
 
+    var catSel = document.getElementById('_co_cat');
+    var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
+    var isFree = _dhtFreeMode || (catName === 'PET' || catName === 'TEM');
+    
+    var phone = document.getElementById('_co_phone')?.value?.trim() || null;
+    if (phone === '← Chọn mã đơn') phone = null;
+    var name = document.getElementById('_co_name')?.value?.trim() || null;
+    if (name === '← Chọn mã đơn') name = null;
+    var src = isFree ? (document.getElementById('_co_srcFreeSelect')?.value || null) : (document.getElementById('_co_src')?.value?.trim() || null);
+    if (src === '← Tự điền từ mã đơn') src = null;
+
+    if (!isFree && orderCodeVal) {
+        var foundCode = (_dhtCreate.availableCodes || []).find(function(x) {
+            return x.order_code.toLowerCase().trim() === orderCodeVal.toLowerCase().trim();
+        });
+        if (foundCode) {
+            custId = foundCode.customer_id;
+            if (!phone) phone = foundCode.phone || null;
+            if (!name) name = foundCode.customer_name || null;
+            if (!src) src = foundCode.source_name || null;
+        }
+    }
+
     if (!isDraft) {
         if (!cat) { showToast('Vui lòng chọn Lĩnh Vực', 'error'); return; }
         if (!orderCodeVal || orderCodeVal.startsWith('📝') || orderCodeVal.startsWith('NHAP-')) {
             showToast('Vui lòng nhập/chọn mã đơn chính thức từ CRM để Lưu Chính Thức', 'error');
             return;
         }
+        if (!phone) { showToast('Không tìm thấy Số điện thoại của khách hàng. Vui lòng chọn mã đơn từ danh sách gợi ý!', 'error'); return; }
+        if (!name) { showToast('Không tìm thấy Tên khách hàng. Vui lòng chọn mã đơn từ danh sách gợi ý!', 'error'); return; }
+        if (!src) { showToast('Chưa có nguồn đơn hàng. Vui lòng chọn mã đơn từ danh sách gợi ý!', 'error'); return; }
         if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
         if (!prov) { showToast('Chọn Tỉnh/Thành Phố', 'error'); return; }
         if (_dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
@@ -3173,8 +3199,6 @@ async function _dhtSubmitEditV2(isDraft) {
 
     var items = _dhtCreate.phieuItems || [];
     if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
-    var catSel = document.getElementById('_co_cat');
-    var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
     if (catName === 'PET') {
         var hasTo = items.some(function(item) {
             return item && item.product_name === 'Tờ';
@@ -3230,6 +3254,9 @@ async function _dhtSubmitEditV2(isDraft) {
     var payload = {
         category_id: cat || null,
         customer_id: custId,
+        customer_name: name,
+        customer_phone: phone,
+        source: src,
         address: addr,
         province: prov || null,
         total_quantity: items.reduce(function(s, x) { return s + (x ? x.quantity : 0); }, 0),
