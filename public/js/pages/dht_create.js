@@ -2292,7 +2292,7 @@ async function _dhtSubmitCreateV2(isDraft) {
     var shipDate = document.getElementById('_co_shipDate')?.value || null;
     var carrier = document.getElementById('_co_carrier')?.value || null;
     var draftName = (document.getElementById('_co_draftName')?.value || '').trim();
-    if (isDraft) {
+    if (isDraft && !draftName) {
         var inputName = prompt("Vui lòng nhập Tên Bản Nháp để lưu:", draftName);
         if (inputName === null) return; // User cancelled
         inputName = inputName.trim();
@@ -3116,7 +3116,7 @@ async function _dhtSubmitEditV2(isDraft) {
     var id = _dhtCreate.editOrderId;
     if (!id) { showToast('Lỗi: không có ID đơn', 'error'); return; }
     var draftName = (document.getElementById('_co_draftName')?.value || '').trim();
-    if (isDraft) {
+    if (isDraft && !draftName) {
         var inputName = prompt("Vui lòng nhập Tên Bản Nháp để lưu:", draftName);
         if (inputName === null) return; // User cancelled
         inputName = inputName.trim();
