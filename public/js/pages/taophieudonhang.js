@@ -3777,6 +3777,39 @@ function _tpdUpdateLivePreview() {
     `;
 }
 
+const POSITION_ORDER = ["Ngực", "Lưng", "Bụng", "Tay Trái", "Tay Phải", "Gáy"];
+
+function _tpdSortPrintDetails(details) {
+    if (!Array.isArray(details)) return [];
+    return [...details].sort((a, b) => {
+        const idxA = POSITION_ORDER.indexOf(a.position);
+        const idxB = POSITION_ORDER.indexOf(b.position);
+        const valA = idxA === -1 ? 999 : idxA;
+        const valB = idxB === -1 ? 999 : idxB;
+        if (valA !== valB) {
+            return valA - valB;
+        }
+        return (a.position || '').localeCompare(b.position || '');
+    });
+}
+
+function _tpdIsPrintDetailComplete(d) {
+    if (!d || !d.position) return false;
+    if (!d.print_type || !d.print_type.trim() || d.print_type === '-- Kiểu in/thêu --') return false;
+    
+    const hasWidth = d.width && d.width.trim();
+    const hasHeight = d.height && d.height.trim();
+    const hasDim = d.dimension && d.dimension.trim();
+    if (!hasWidth && !hasHeight && !hasDim) return false;
+    
+    const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
+    if (posConfig && posConfig.require_offset) {
+        const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+        if (!offsetVal || !offsetVal.trim()) return false;
+    }
+    return true;
+}
+
 // Generate the Right inputs form editor UI
 function _tpdRenderFormInputs() {
     const container = document.getElementById('tpdWorkspaceFormContainer');
@@ -4297,34 +4330,38 @@ function _tpdRenderFormInputs() {
         try {
             const details = typeof it.print_details === 'string' ? JSON.parse(it.print_details) : it.print_details;
             if (Array.isArray(details) && details.length > 0) {
-                defaultPrinting = details.map(d => {
-                    let dimStr = '';
-                    const w = (d.width || '').trim();
-                    const h = (d.height || '').trim();
-                    if (w) {
-                        const wSuffix = w.toLowerCase().endsWith('cm') ? '' : 'cm';
-                        dimStr += `Ngang ${w}${wSuffix}`;
-                    }
-                    if (h) {
-                        const hSuffix = h.toLowerCase().endsWith('cm') ? '' : 'cm';
-                        if (dimStr) dimStr += ' x ';
-                        dimStr += `Cao ${h}${hSuffix}`;
-                    }
-                    const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
-                    let offsetStr = '';
-                    if (posConfig && posConfig.require_offset) {
-                        const offsetVal = (d.offset_value || d.gay_xuong || d.co_xuong || '').trim();
-                        if (offsetVal) {
-                            const offsetSuffix = offsetVal.toLowerCase().endsWith('cm') ? '' : 'cm';
-                            let label = posConfig.offset_label || 'Gáy';
-                            if (label === 'Gáy xuống') label = 'Gáy';
-                            if (label === 'Cổ xuống') label = 'Cổ';
-                            const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
-                            offsetStr = ` - ${displayLabel} : ${offsetVal}${offsetSuffix}`;
+                const completedDetails = details.filter(_tpdIsPrintDetailComplete);
+                const sortedDetails = _tpdSortPrintDetails(completedDetails);
+                if (sortedDetails.length > 0) {
+                    defaultPrinting = sortedDetails.map(d => {
+                        let dimStr = '';
+                        const w = (d.width || '').trim();
+                        const h = (d.height || '').trim();
+                        if (w) {
+                            const wSuffix = w.toLowerCase().endsWith('cm') ? '' : 'cm';
+                            dimStr += `Ngang ${w}${wSuffix}`;
                         }
-                    }
-                    return `${d.position}: ${d.print_type || '—'}${dimStr ? ` - ${dimStr}` : ''}${offsetStr}`;
-                }).join('; ');
+                        if (h) {
+                            const hSuffix = h.toLowerCase().endsWith('cm') ? '' : 'cm';
+                            if (dimStr) dimStr += ' x ';
+                            dimStr += `Cao ${h}${hSuffix}`;
+                        }
+                        const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
+                        let offsetStr = '';
+                        if (posConfig && posConfig.require_offset) {
+                            const offsetVal = (d.offset_value || d.gay_xuong || d.co_xuong || '').trim();
+                            if (offsetVal) {
+                                const offsetSuffix = offsetVal.toLowerCase().endsWith('cm') ? '' : 'cm';
+                                let label = posConfig.offset_label || 'Gáy';
+                                if (label === 'Gáy xuống') label = 'Gáy';
+                                if (label === 'Cổ xuống') label = 'Cổ';
+                                const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
+                                offsetStr = ` - ${displayLabel} : ${offsetVal}${offsetSuffix}`;
+                            }
+                        }
+                        return `${d.position}: ${d.print_type || '—'}${dimStr ? ` - ${dimStr}` : ''}${offsetStr}`;
+                    }).join('; ');
+                }
             }
         } catch(e){}
     }
@@ -4648,38 +4685,42 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
         try {
             const details = typeof it.print_details === 'string' ? JSON.parse(it.print_details) : it.print_details;
             if (Array.isArray(details) && details.length > 0) {
-                defaultPrinting = details.map(d => {
-                    let dimStr = '';
-                    const w = (d.width || '').trim();
-                    const h = (d.height || '').trim();
-                    if (w) {
-                        const wSuffix = w.toLowerCase().endsWith('cm') ? '' : 'cm';
-                        dimStr += `<span style="color: #ea580c; font-weight: 800;">Ngang ${escapeHTML(w)}${wSuffix}</span>`;
-                    }
-                    if (h) {
-                        const hSuffix = h.toLowerCase().endsWith('cm') ? '' : 'cm';
-                        if (dimStr) dimStr += ' x ';
-                        dimStr += `<span style="color: #ea580c; font-weight: 800;">Cao ${escapeHTML(h)}${hSuffix}</span>`;
-                    }
-                    const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
-                    let offsetStr = '';
-                    if (posConfig && posConfig.require_offset) {
-                        const offsetVal = (d.offset_value || d.gay_xuong || d.co_xuong || '').trim();
-                        if (offsetVal) {
-                            const offsetSuffix = offsetVal.toLowerCase().endsWith('cm') ? '' : 'cm';
-                            let label = posConfig.offset_label || 'Gáy';
-                            if (label === 'Gáy xuống') label = 'Gáy';
-                            if (label === 'Cổ xuống') label = 'Cổ';
-                            const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
-                            offsetStr = ` - ${displayLabel} : ${offsetVal}${offsetSuffix}`;
+                const completedDetails = details.filter(_tpdIsPrintDetailComplete);
+                const sortedDetails = _tpdSortPrintDetails(completedDetails);
+                if (sortedDetails.length > 0) {
+                    defaultPrinting = sortedDetails.map(d => {
+                        let dimStr = '';
+                        const w = (d.width || '').trim();
+                        const h = (d.height || '').trim();
+                        if (w) {
+                            const wSuffix = w.toLowerCase().endsWith('cm') ? '' : 'cm';
+                            dimStr += `<span style="color: #ea580c; font-weight: 800;">Ngang ${escapeHTML(w)}${wSuffix}</span>`;
                         }
-                    }
-                    const safePosition = escapeHTML(d.position || '—');
-                    const safePrintType = escapeHTML(d.print_type || '—');
-                    const safeDimStr = dimStr ? ` - ${dimStr}` : '';
-                    const safeOffsetStr = escapeHTML(offsetStr);
-                    return `<div style="margin-top: 1px;"><span style="color: #047857; font-weight: 800;">${safePosition}:</span> ${safePrintType}${safeDimStr}${safeOffsetStr}</div>`;
-                }).join('');
+                        if (h) {
+                            const hSuffix = h.toLowerCase().endsWith('cm') ? '' : 'cm';
+                            if (dimStr) dimStr += ' x ';
+                            dimStr += `<span style="color: #ea580c; font-weight: 800;">Cao ${escapeHTML(h)}${hSuffix}</span>`;
+                        }
+                        const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
+                        let offsetStr = '';
+                        if (posConfig && posConfig.require_offset) {
+                            const offsetVal = (d.offset_value || d.gay_xuong || d.co_xuong || '').trim();
+                            if (offsetVal) {
+                                const offsetSuffix = offsetVal.toLowerCase().endsWith('cm') ? '' : 'cm';
+                                let label = posConfig.offset_label || 'Gáy';
+                                if (label === 'Gáy xuống') label = 'Gáy';
+                                if (label === 'Cổ xuống') label = 'Cổ';
+                                const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
+                                offsetStr = ` - ${displayLabel} : ${offsetVal}${offsetSuffix}`;
+                            }
+                        }
+                        const safePosition = escapeHTML(d.position || '—');
+                        const safePrintType = escapeHTML(d.print_type || '—');
+                        const safeDimStr = dimStr ? ` - ${dimStr}` : '';
+                        const safeOffsetStr = escapeHTML(offsetStr);
+                        return `<div style="margin-top: 1px;"><span style="color: #047857; font-weight: 800;">${safePosition}:</span> ${safePrintType}${safeDimStr}${safeOffsetStr}</div>`;
+                    }).join('');
+                }
             }
         } catch(e){}
     }
