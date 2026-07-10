@@ -3635,17 +3635,32 @@ function _tpdRenderA4SizeTable(it) {
 
 // Adjust mockup wrapper width to match the image's actual rendered width
 function _tpdAdjustMockupWidth(img) {
-    if (!img || !img.naturalHeight) return;
+    if (!img) return;
     const wrapper = img.closest('.tpd-a4-mockup-wrapper');
     if (!wrapper) return;
     const body = img.closest('.tpd-a4-img-body');
     if (!body) return;
-    const bodyHeight = body.clientHeight;
-    if (bodyHeight > 0) {
-        const ratio = img.naturalWidth / img.naturalHeight;
-        const targetWidth = Math.ceil(bodyHeight * ratio) + 8; // 8px for body padding (4px on each side)
-        wrapper.style.width = targetWidth + 'px';
-    }
+
+    let retries = 0;
+    const adjust = () => {
+        if (!img.naturalHeight) {
+            if (retries < 30) {
+                retries++;
+                setTimeout(adjust, 50);
+            }
+            return;
+        }
+        const bodyHeight = body.clientHeight;
+        if (bodyHeight > 0) {
+            const ratio = img.naturalWidth / img.naturalHeight;
+            const targetWidth = Math.ceil(bodyHeight * ratio) + 8; // 8px for body padding (4px on each side)
+            wrapper.style.width = targetWidth + 'px';
+        } else if (retries < 30) {
+            retries++;
+            setTimeout(adjust, 50);
+        }
+    };
+    adjust();
 }
 
 // Helper to retrieve or initialize custom layout options for an item index
