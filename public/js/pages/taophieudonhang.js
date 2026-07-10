@@ -5049,7 +5049,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                         </div>
                         <div>
                             <strong style="color: #0f172a; font-weight: 800;">Màu sắc phối:</strong> 
-                            <span style="font-weight: 700; color: #475569;">${escapeHTML(colorVal)}</span>
+                            <span style="font-weight: 800; color: #dc2626;">${escapeHTML(colorVal)}</span>
                         </div>
                     </div>
 
