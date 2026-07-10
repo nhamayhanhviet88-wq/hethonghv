@@ -94,7 +94,7 @@ module.exports = async function(fastify) {
         if (!b.sample_type) return reply.code(400).send({ error: 'Chọn Loại' });
         if (!['PHA_PHOI', '3D', 'DON'].includes(b.sample_type)) return reply.code(400).send({ error: 'Loại không hợp lệ' });
         if (!b.collection || !b.collection.trim()) return reply.code(400).send({ error: 'Nhập Bộ Sưu Tập' });
-        if (!b.product_ids || !Array.isArray(b.product_ids) || b.product_ids.length === 0) return reply.code(400).send({ error: 'Chọn ít nhất 1 sản phẩm áp dụng' });
+        if (!b.product_ids || !Array.isArray(b.product_ids) || b.product_ids.length === 0) return reply.code(400).send({ error: 'Chọn ít nhất 1 sản phẩm bán' });
 
         // === URL validation for 3 link fields (must be Google Drive folder links) ===
         if (!b.design_market || !b.design_market.trim()) return reply.code(400).send({ error: 'Nhập Market Thiết Kế' });
@@ -187,7 +187,7 @@ module.exports = async function(fastify) {
         if (b.collection !== undefined && (!b.collection || !b.collection.trim())) return reply.code(400).send({ error: 'Nhập Bộ Sưu Tập' });
         if (b.product_ids !== undefined) {
             if (!b.product_ids || !Array.isArray(b.product_ids) || b.product_ids.length === 0) {
-                return reply.code(400).send({ error: 'Chọn ít nhất 1 sản phẩm áp dụng' });
+                return reply.code(400).send({ error: 'Chọn ít nhất 1 sản phẩm bán' });
             }
         }
         if (b.design_market !== undefined) {

@@ -37,7 +37,7 @@ async function renderThongsoaomauPage(content) {
     _tsam.categories = catRes.categories || [];
     _tsam.products = phieuOpts.products || [];
     _tsam.totalInfo = treeRes.total || {};
-    content.innerHTML = '<div class="tsam-wrap"><div class="tsam-sb" id="tsamSB"></div><div class="tsam-main"><div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><input type="text" id="tsamSearch" class="form-control" placeholder="🔍 Tìm mã mẫu, BST..." style="width:auto;min-width:220px"><select id="tsamStatusFilter" class="form-control" style="width:auto" onchange="_tsamLoad()"><option value="">Tất cả trạng thái</option><option value="PENDING">🟡 Chờ Duyệt</option><option value="APPROVED">✅ Đã Duyệt</option><option value="REJECTED">❌ Từ Chối</option></select><div style="margin-left:auto"><button class="btn" onclick="_tsamShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Thêm Mẫu</button></div></div><div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="tsam-tbl"><thead><tr><th style="text-align:center">STT</th><th style="text-align:center">Lĩnh Vực</th><th style="text-align:center">Mã Mẫu</th><th style="text-align:center">Loại</th><th style="text-align:center">SL Màu Phối</th><th style="text-align:center">Bộ Sưu Tập</th><th style="text-align:center">KT May</th><th style="text-align:center">Giá May Nhà</th><th style="text-align:center">Giá Gia Công</th><th style="text-align:center">Duyệt</th><th style="text-align:center">Lịch Sử CN</th></tr></thead><tbody id="tsamTbody"><tr><td colspan="11" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+    content.innerHTML = '<div class="tsam-wrap"><div class="tsam-sb" id="tsamSB"></div><div class="tsam-main"><div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><input type="text" id="tsamSearch" class="form-control" placeholder="🔍 Tìm mã mẫu, BST..." style="width:auto;min-width:220px"><select id="tsamStatusFilter" class="form-control" style="width:auto" onchange="_tsamLoad()"><option value="">Tất cả trạng thái</option><option value="PENDING">🟡 Chờ Duyệt</option><option value="APPROVED">✅ Đã Duyệt</option><option value="REJECTED">❌ Từ Chối</option></select><div style="margin-left:auto"><button class="btn" onclick="_tsamShowCreate()" style="font-size:13px;padding:8px 20px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">➕ Thêm Mẫu</button></div></div><div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="tsam-tbl"><thead><tr><th style="text-align:center">STT</th><th style="text-align:center">Lĩnh Vực</th><th style="text-align:center">Sản Phẩm Bán</th><th style="text-align:center">Mã Mẫu</th><th style="text-align:center">Loại</th><th style="text-align:center">SL Màu Phối</th><th style="text-align:center">Bộ Sưu Tập</th><th style="text-align:center">KT May</th><th style="text-align:center">Giá May Nhà</th><th style="text-align:center">Giá Gia Công</th><th style="text-align:center">Duyệt</th><th style="text-align:center">Lịch Sử CN</th></tr></thead><tbody id="tsamTbody"><tr><td colspan="12" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     var _st; document.getElementById('tsamSearch').addEventListener('input', function() { clearTimeout(_st); _st = setTimeout(function() { _tsamLoad(); }, 400); });
     _tsamRenderSB();
     await _tsamLoad();
@@ -69,7 +69,7 @@ async function _tsamLoad() {
     var data = await apiCall(url);
     _tsam.samples = data.samples || [];
     var tbody = document.getElementById('tsamTbody'); if (!tbody) return;
-    if (!_tsam.samples.length) { tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="icon">📐</div><h3>Chưa có mẫu áo</h3></div></td></tr>'; return; }
+    if (!_tsam.samples.length) { tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="icon">📐</div><h3>Chưa có mẫu áo</h3></div></td></tr>'; return; }
     tbody.innerHTML = _tsam.samples.map(function(s, i) {
         var typeColor = _tsamTypeColors[s.sample_type] || '#64748b';
         var stColor = _tsamStatusColors[s.approval_status] || '#94a3b8';
@@ -84,9 +84,14 @@ async function _tsamLoad() {
             approveBtn = '<button onclick="event.stopPropagation();_tsamApprove(' + s.id + ')" style="background:#059669;color:#fff;border:none;padding:2px 6px;border-radius:3px;font-size:9px;cursor:pointer;margin-right:2px" title="Duyệt">✅</button>'
                 + '<button onclick="event.stopPropagation();_tsamReject(' + s.id + ')" style="background:#dc2626;color:#fff;border:none;padding:2px 6px;border-radius:3px;font-size:9px;cursor:pointer" title="Từ chối">❌</button>';
         }
+        var prodNames = s.product_names ? s.product_names.split(', ') : [];
+        var prodBadges = prodNames.length ? prodNames.map(function(name) {
+            return '<span class="tsam-badge" style="background:#ede9fe;color:#6d28d9 !important;border:1px solid #ddd6fe;margin:2px;display:inline-block;white-space:normal;padding:2px 6px;text-align:center">' + name + '</span>';
+        }).join('') : '—';
         return '<tr style="cursor:pointer" onclick="_tsamDetail(' + s.id + ')">'
             + '<td style="text-align:center;color:var(--gray-400)">' + (i + 1) + '</td>'
             + '<td style="text-align:center"><span class="tsam-badge" style="background:#7c3aed">' + (s.category_name || '—') + '</span></td>'
+            + '<td style="text-align:center;max-width:250px;white-space:normal">' + prodBadges + '</td>'
             + '<td style="text-align:center;font-weight:800;color:#7c3aed">' + s.sample_code + '</td>'
             + '<td style="text-align:center"><span class="tsam-badge" style="background:' + typeColor + '">' + (_tsamTypes[s.sample_type] || s.sample_type) + '</span></td>'
             + '<td style="text-align:center;font-weight:700">' + (s.mix_color_count || 0) + '</td>'
@@ -119,7 +124,7 @@ function _tsamShowCreate(editId) {
         + '<div class="form-group"><label>SL Màu Phối ' + rq + ' <span id="_tsamMixHint" style="font-size:10px;color:' + (isLocked ? '#059669' : '#f59e0b') + '">' + (isLocked ? '🔒 Auto = 1' : '✏️ Nhập ≥ 2') + '</span></label><input type="number" id="_tsamMixCount" class="form-control" value="' + mixVal + '" min="' + (isLocked ? '1' : '2') + '"' + (isLocked ? ' disabled style="background:#f1f5f9;cursor:not-allowed"' : '') + '></div>'
         + '</div>'
         // === PRODUCT CHECKLIST PICKER (Loại Bán) ===
-        + '<div class="form-group" style="margin-top:8px"><label>📦 Sản Phẩm Áp Dụng (Loại Bán) ' + rq + '</label>'
+        + '<div class="form-group" style="margin-top:8px"><label>📦 Sản Phẩm Bán ' + rq + '</label>'
         + '<div style="margin-bottom:6px;display:flex;gap:6px;align-items:center">'
         + '<input type="text" id="_tsamProdSearch" class="form-control" placeholder="🔍 Tìm nhanh sản phẩm..." oninput="_tsamFilterProds(this.value)" style="font-size:11px;padding:4px 8px;height:auto;width:180px">'
         + '<button type="button" class="btn btn-secondary" onclick="_tsamSelectAllProds(true)" style="font-size:10px;padding:3px 8px;white-space:nowrap;background:#e2e8f0;border:1px solid #cbd5e1;cursor:pointer;border-radius:4px">Chọn tất cả</button>'
@@ -317,7 +322,7 @@ async function _tsamSubmit(editId) {
     // === Client-side validation ===
     if (!data.category_id) { showToast('Chọn Lĩnh Vực', 'error'); return; }
     if (!data.sample_code) { showToast('Nhập Mã Mẫu', 'error'); return; }
-    if (data.product_ids.length === 0) { showToast('Chọn ít nhất 1 sản phẩm áp dụng (Loại Bán)', 'error'); return; }
+    if (data.product_ids.length === 0) { showToast('Chọn ít nhất 1 sản phẩm bán', 'error'); return; }
     if (!data.spec_image) { showToast('Chưa dán Hình Ảnh Thông Số (Ctrl+V)', 'error'); return; }
     if (!data.collection) { showToast('Nhập Bộ Sưu Tập', 'error'); return; }
     if (!data.design_market) { showToast('Nhập Market Thiết Kế', 'error'); return; }
@@ -348,12 +353,16 @@ async function _tsamDetail(id) {
     var stColor = _tsamStatusColors[s.approval_status] || '#94a3b8';
     var sewTags = sewing.length ? sewing.map(function(t){ var nm = typeof t === 'string' ? t : (t.name || ''); return '<span style="background:#6366f1;color:#fff;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:3px">'+nm+'</span>'; }).join('') : '—';
     var updatedStr = '—'; try { if (s.updated_at) { var _d2 = new Date(s.updated_at); updatedStr = _d2.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); } } catch(e) {}
+    var prodNames = s.product_names ? s.product_names.split(', ') : [];
+    var prodBadges = prodNames.length ? prodNames.map(function(name) {
+        return '<span class="tsam-badge" style="background:#ede9fe;color:#6d28d9 !important;border:1px solid #ddd6fe;margin:2px;display:inline-block;white-space:normal;padding:2px 6px;text-align:center">' + name + '</span>';
+    }).join('') : '—';
     var body = '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:12px">'
         + '<table style="width:100%;font-size:13px;border-collapse:collapse">';
     var rows = [
         ['MÃ MẪU', '<b style="color:#7c3aed;font-size:15px">' + s.sample_code + '</b>'],
         ['LĨNH VỰC', s.category_name || '—'],
-        ['SẢN PHẨM ÁP DỤNG', '<span style="color:#4f46e5;font-weight:700">' + (s.product_names || '—') + '</span>'],
+        ['SẢN PHẨM BÁN', prodBadges],
         ['LOẠI', '<span class="tsam-badge" style="background:' + (_tsamTypeColors[s.sample_type]||'#64748b') + '">' + (_tsamTypes[s.sample_type]||s.sample_type) + '</span>'],
         ['VỊ TRÍ PHỐI', mix.length ? mix.join(', ') : '—'],
         ['SL MÀU PHỐI', s.mix_color_count || 0],
@@ -739,12 +748,14 @@ function _tsamRenderProdList(selectedIds) {
     var h = _tsam.products.map(function(p) {
         var isChecked = selectedIds.indexOf(p.id) >= 0;
         var checkedAttr = isChecked ? ' checked' : '';
-        var bg = isChecked ? '#ede9fe' : '#fff';
-        var border = isChecked ? '#7c3aed' : '#e2e8f0';
-        return '<label class="_tsamProdLabel" data-name="' + p.name.toLowerCase() + '" style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;margin-bottom:0;transition:all 0.15s;user-select:none">'
+        var bg = isChecked ? '#f5f3ff' : '#fff';
+        var border = isChecked ? '#8b5cf6' : '#e2e8f0';
+        var color = isChecked ? '#6d28d9' : '#475569';
+        var shadow = isChecked ? '0 2px 6px rgba(139, 92, 246, 0.15)' : 'none';
+        return '<label class="_tsamProdLabel" data-name="' + p.name.toLowerCase() + '" style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';box-shadow:' + shadow + ';border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;margin-bottom:0;transition:all 0.15s;user-select:none">'
             + '<input type="checkbox" class="_tsamProdCb" value="' + p.id + '"' + checkedAttr + ' onchange="_tsamProdCbChanged(this)" style="cursor:pointer;margin:0">'
             + ' <span style="flex-grow:1">' + p.name + '</span>'
-            + '<span style="font-size:9px;color:#94a3b8;font-weight:normal">(' + (p.sale_type_name || 'Bán') + ')</span>'
+            + '<span style="font-size:9px;color:#a78bfa;font-weight:normal">(' + (p.sale_type_name || 'Bán') + ')</span>'
             + '</label>';
     }).join('');
     container.innerHTML = h;
@@ -754,11 +765,15 @@ function _tsamProdCbChanged(cb) {
     var label = cb.closest('label');
     if (label) {
         if (cb.checked) {
-            label.style.background = '#ede9fe';
-            label.style.borderColor = '#7c3aed';
+            label.style.background = '#f5f3ff';
+            label.style.borderColor = '#8b5cf6';
+            label.style.color = '#6d28d9';
+            label.style.boxShadow = '0 2px 6px rgba(139, 92, 246, 0.15)';
         } else {
             label.style.background = '#fff';
             label.style.borderColor = '#e2e8f0';
+            label.style.color = '#475569';
+            label.style.boxShadow = 'none';
         }
     }
 }
