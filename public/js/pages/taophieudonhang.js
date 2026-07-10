@@ -4889,6 +4889,18 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
     const rawColor = layout.custom_color !== undefined && layout.custom_color !== '' ? layout.custom_color : (it.color_name || '—');
     const colorVal = rawColor !== '—' ? _tpdFormatColorName(rawColor) : '—';
 
+    // Pair fabric parts and color parts if they match in length when split by '+' or '/' or ','
+    let displayFabric = fabricVal;
+    const splitRegex = /\s*[\+\/,]\s*/;
+    const fabricParts = typeof fabricVal === 'string' ? fabricVal.split(splitRegex).map(s => s.trim()).filter(Boolean) : [];
+    const colorParts = typeof colorVal === 'string' ? colorVal.split(splitRegex).map(s => s.trim()).filter(Boolean) : [];
+
+    if (fabricParts.length > 1 && fabricParts.length === colorParts.length) {
+        displayFabric = fabricParts.map((f, i) => {
+            return `${f} (màu ${colorParts[i]})`;
+        }).join(' + ');
+    }
+
     // 3. Sewing tech (Kỹ thuật may)
     let defaultSewing = '—';
     if (it.tsam_sewing_tech) {
@@ -5079,7 +5091,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                         </div>
                         <div>
                             <strong style="color: #0f172a; font-weight: 800;">Chất liệu vải:</strong> 
-                            <span style="font-weight: 700; color: #1e3a8a;">${escapeHTML(fabricVal)}</span>
+                            <span style="font-weight: 700; color: #1e3a8a;">${escapeHTML(displayFabric)}</span>
                         </div>
                         <div>
                             <strong style="color: #0f172a; font-weight: 800;">Màu sắc phối:</strong> 
