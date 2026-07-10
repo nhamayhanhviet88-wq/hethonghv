@@ -282,8 +282,13 @@ function _tpdCloneItemState(item) {
     }
 
     const clonedPrintDetails = printDetails.map(d => ({
+        ...d,
         position: d.position || '',
-        image: d.image || ''
+        image: d.image || '',
+        print_type: d.print_type || '',
+        width: d.width || '',
+        height: d.height || '',
+        dimension: d.dimension || ''
     }));
 
     return {
