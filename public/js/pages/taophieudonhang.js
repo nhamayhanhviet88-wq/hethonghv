@@ -4062,7 +4062,11 @@ function _tpdAddCustomSize() {
 
 // Dynamic print details helper
 function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
-    const details = it.print_details || [];
+    const allDetails = it.print_details || [];
+    const details = allDetails
+        .map((d, idx) => ({ ...d, originalIndex: idx }))
+        .filter(d => d.image && d.image.trim().length > 0);
+        
     let techBoxesHtml = '';
 
     if (details.length === 0) {
@@ -4075,7 +4079,8 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
             </div>
         `;
     } else {
-        details.forEach((d, idx) => {
+        details.forEach((d, index) => {
+            const idx = d.originalIndex;
             const pasteClass = isPrintMode ? '' : 'paste-target';
             
             // Format header text: e.g. "Ngực - Thêu" or "Lưng - In PET"
