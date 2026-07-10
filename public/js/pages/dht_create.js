@@ -3127,6 +3127,7 @@ async function _dhtEditOrderFree(o) {
 async function _dhtSubmitEditV2(isDraft) {
     var id = _dhtCreate.editOrderId;
     if (!id) { showToast('Lỗi: không có ID đơn', 'error'); return; }
+    var isDraftOrder = _dhtCreate.editData && _dhtCreate.editData.order && (_dhtCreate.editData.order.is_draft === true || _dhtCreate.editData.order.is_draft === 'true');
     var draftName = (document.getElementById('_co_draftName')?.value || '').trim();
     if (isDraft && !draftName) {
         var inputName = prompt("Vui lòng nhập Tên Bản Nháp để lưu:", draftName);
@@ -3224,6 +3225,8 @@ async function _dhtSubmitEditV2(isDraft) {
     var carrierExtra = _dhtGetCarrierExtra(isDraft);
     if (carrierExtra === false) return;
 
+    var finalIsDraft = isDraftOrder ? true : false;
+    var officialSaveClicked = isDraftOrder ? (!isDraft) : true;
     var payload = {
         category_id: cat || null,
         customer_id: custId,
@@ -3246,7 +3249,8 @@ async function _dhtSubmitEditV2(isDraft) {
         zalo_oa_sent: document.getElementById('_co_zalo')?.value === '1',
         sale_note_for_accountant: document.getElementById('_co_saleNote')?.value?.trim() || null,
         items: items,
-        is_draft: !!isDraft,
+        is_draft: finalIsDraft,
+        official_save_clicked: officialSaveClicked,
         draft_name: draftName || null
     };
     if (proofImg !== undefined) payload.standard_proof_image = proofImg;

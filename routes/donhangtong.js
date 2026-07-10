@@ -3155,6 +3155,90 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
+    // ========== ORDERS: Confirm Export (Promote draft to official) ==========
+    fastify.post('/api/dht/orders/:id/confirm-export', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        const order = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+        
+        if (!order.is_draft) {
+            return { success: true, message: 'Đơn hàng đã được lên đơn chính thức' };
+        }
+
+        // Validate order code before promoting
+        if (!order.order_code || !order.order_code.trim() || order.order_code.startsWith('NHAP-') || order.order_code.startsWith('📝')) {
+            return reply.code(400).send({ error: 'Vui lòng cung cấp Mã Đơn hợp lệ từ CRM trước khi Lên Đơn.' });
+        }
+
+        const dupCode = await db.get('SELECT id FROM dht_orders WHERE order_code = $1 AND id <> $2', [order.order_code.trim(), orderId]);
+        if (dupCode) {
+            return reply.code(400).send({ error: `Mã đơn "${order.order_code}" đã được sử dụng!` });
+        }
+
+        // Start transaction or sequential db operations
+        await db.run(
+            `UPDATE dht_orders SET is_draft = FALSE, official_save_clicked = TRUE, last_updated_at = NOW(), last_updated_by = $1 WHERE id = $2`,
+            [request.user.id, orderId]
+        );
+
+        // Link deposit child record if deposit_payment_id exists and not already linked
+        if (order.deposit_payment_id) {
+            const depositPrId = Number(order.deposit_payment_id);
+            const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [depositPrId]);
+            if (pr) {
+                // Check if child_sll already exists for this order & deposit
+                const existingChild = await db.get(
+                    `SELECT id FROM payment_records WHERE payment_type = 'child_sll' AND parent_id = $1 AND order_tt_coc = $2`,
+                    [depositPrId, order.order_code.trim()]
+                );
+                if (!existingChild) {
+                    const depositAllocatedAmount = Number(order.deposit_amount_cache) || pr.amount;
+                    const childCountRow = await db.get(`
+                        SELECT COUNT(*) AS cnt FROM payment_records
+                        WHERE payment_type = 'child_sll' AND (parent_id = $1 OR source_ref_id = $1::text)
+                    `, [depositPrId]);
+                    const childIdx = Number(childCountRow.cnt) + 1;
+                    const splitCode = `${pr.payment_code}-S${childIdx}`;
+                    
+                    await db.run(`
+                        INSERT INTO payment_records (
+                            payment_code, payment_method, daily_seq,
+                            customer_name, customer_phone, cskh_user_id,
+                            amount, payment_type,
+                            order_tt_coc, order_ao_mau,
+                            transfer_note, money_source, bank_name,
+                            total_order_codes, total_cod, shipping_fee,
+                            handover_status, handover_at, handover_by,
+                            source, source_ref_id, payment_date, created_by,
+                            parent_id
+                        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                    `, [
+                        splitCode, pr.payment_method, pr.daily_seq,
+                        order.customer_name || null, order.customer_phone || null, order.cskh_user_id || request.user.id,
+                        depositAllocatedAmount, 'child_sll',
+                        order.order_code.trim(), null,
+                        (pr.transfer_note || '') + ' (Đặt cọc đơn ' + order.order_code.trim() + ')',
+                        pr.money_source, pr.bank_name,
+                        pr.total_order_codes, pr.total_cod, pr.shipping_fee,
+                        pr.handover_status, pr.handover_at, pr.handover_by,
+                        pr.source, pr.source_ref_id, pr.payment_date, pr.created_by,
+                        depositPrId
+                    ]);
+                }
+            }
+        }
+
+        // Audit log
+        try {
+            await db.run(
+                `INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1,$2,$3,$4,$5)`,
+                [orderId, 'promote_draft', '📤 Xuất Phiếu & Lên Đơn (Xác nhận chính thức)', JSON.stringify([{ field: 'is_draft', label: 'Bản Nháp', old: 'true', new: 'false' }]), request.user.id]
+            );
+        } catch(e) { console.error('[AuditLog] promote_draft:', e.message); }
+
+        return { success: true };
+    });
+
     // ★ Dedicated endpoint for exporting VAT — only GĐ, QLCC, or Kế Toán
     fastify.post('/api/dht/orders/:id/export-vat', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.id);
@@ -3894,7 +3978,7 @@ module.exports = async function(fastify) {
             'deposit_amount_cache', 'standard_delivery_time', 'sale_note_for_accountant',
             'discount_reason',
             'sx_print_confirmed', 'sx_print_confirmed_at', 'sx_print_confirmed_by',
-            'draft_name'
+            'draft_name', 'official_save_clicked', 'is_draft'
         ];
 
         const sets = [];
@@ -3996,7 +4080,7 @@ module.exports = async function(fastify) {
                     'category_id', 'vat_amount', 'additional_vat_amount', 'designer_user_id', 
                     'carrier_id', 'actual_carrier_id', 'deposit_amount_cache', 'customer_id'
                 ];
-                const boolFields = ['has_vat', 'zalo_oa_sent', 'sx_print_confirmed'];
+                const boolFields = ['has_vat', 'zalo_oa_sent', 'sx_print_confirmed', 'official_save_clicked', 'is_draft'];
                 if (numericFields.includes(key)) {
                     sets.push(`${key} = $${idx++}`);
                     params.push(b[key] === null || b[key] === '' ? null : Number(b[key]));

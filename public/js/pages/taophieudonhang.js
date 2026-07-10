@@ -3224,7 +3224,7 @@ function _tpdRenderWorkspace(container) {
                 <!-- Right Panel: Inputs Editor form -->
                 <div class="tpd-ws-right-panel no-print">
                     <div class="tpd-ws-editor-header">
-                        <h2 style="font-size: 14px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">
+                        <h2 style="font-size: 15px; font-weight: 900; color: #b91c1c; margin: 0; text-transform: uppercase; background: #fff; padding: 4px 8px; border-radius: 4px; display: inline-block;">
                             ✏️ HIỆU CHỈNH THÔNG TIN SẢN XUẤT
                         </h2>
                         <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0;">
@@ -5528,9 +5528,9 @@ async function _tpdExportSheetAndOrder() {
     const state = window._tpdWorkspaceState;
     if (!state) return;
 
-    // Condition 1: Must be official order (not draft)
-    if (state.order && (state.order.is_draft === true || state.order.is_draft === 'true' || (state.order.order_code || '').startsWith('NHAP-') || (state.order.order_code || '').startsWith('📝'))) {
-        showToast('⚠️ Đơn hàng hiện tại là bản nháp. Vui lòng bấm nút "✏️ Sửa Thông Tin Đơn (Giá/Cọc)" ở góc phải trên màn hình và chọn "Lưu Chính Thức" trước khi Xuất Phiếu.', 'error');
+    // Condition 1: Must be official order or have official_save_clicked = true
+    if (state.order && !state.order.official_save_clicked && (state.order.is_draft === true || state.order.is_draft === 'true' || (state.order.order_code || '').startsWith('NHAP-') || (state.order.order_code || '').startsWith('📝'))) {
+        showToast('⚠️ Đơn hàng hiện tại là bản nháp chưa được Lưu Chính Thức. Vui lòng bấm nút "✏️ Sửa Thông Tin Đơn (Giá/Cọc)" ở góc phải trên màn hình và chọn "Lưu Chính Thức" trước khi Xuất Phiếu.', 'error');
         return;
     }
 
@@ -5816,11 +5816,27 @@ async function _tpdShowExportSheetsModal() {
                             confirmBtn.style.color = '#ffffff';
                             confirmBtn.style.cursor = 'pointer';
                             confirmBtn.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.3)';
-                            confirmBtn.onclick = function() {
-                                showToast('🎉 Xác nhận lên đơn và xuất phiếu thành công!', 'success');
-                                overlay.remove();
-                                if (tempContainer) tempContainer.remove();
-                                navigate('taophieudonhang'); // Redirect back to list
+                            confirmBtn.onclick = async function() {
+                                try {
+                                    confirmBtn.disabled = true;
+                                    confirmBtn.innerHTML = 'Đang xử lý...';
+                                    const res = await apiCall(`/api/dht/orders/${o.id}/confirm-export`, 'POST');
+                                    if (res.success) {
+                                        showToast('🎉 Xác nhận lên đơn và xuất phiếu thành công!', 'success');
+                                        overlay.remove();
+                                        if (tempContainer) tempContainer.remove();
+                                        navigate('taophieudonhang'); // Redirect back to list
+                                    } else {
+                                        confirmBtn.disabled = false;
+                                        confirmBtn.innerHTML = 'Xác Nhận Lên Đơn';
+                                        showToast('⚠️ Lên đơn thất bại: ' + (res.error || 'Lỗi hệ thống'), 'error');
+                                    }
+                                } catch (err) {
+                                    confirmBtn.disabled = false;
+                                    confirmBtn.innerHTML = 'Xác Nhận Lên Đơn';
+                                    console.error(err);
+                                    showToast('⚠️ Lên đơn thất bại: ' + err.message, 'error');
+                                }
                             };
                         }
                     }
