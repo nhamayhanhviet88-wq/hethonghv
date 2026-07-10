@@ -2856,7 +2856,7 @@ function _tpdInjectWorkspaceStyles() {
         /* Images Layout row */
         .tpd-a4-images-row {
             display: flex;
-            justify-content: center;
+            justify-content: flex-start;
             gap: 10px;
             height: 84mm; /* Adjusted to fit neatly on A4 */
             margin-bottom: 10px;
