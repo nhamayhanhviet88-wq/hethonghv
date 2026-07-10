@@ -3243,15 +3243,38 @@ async function _dhtSubmitEditV2(isDraft) {
         showToast('✅ Đã cập nhật đơn hàng!');
         _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
         if (window.location.href.includes('design-draft')) {
-            // ★ Clear all localStorage drafts for this order so fresh DB values are used
-            // (prevents stale material/color/quantity from overriding the just-saved data)
+            // ★ Smart merge: update DHT-managed fields in existing drafts
+            // (preserves TPD data like mockup_image, print_details, custom_layout
+            //  while ensuring material/color/quantity changes are reflected)
             try {
-                var keysToRemove = [];
-                for (var k = 0; k < localStorage.length; k++) {
-                    var key = localStorage.key(k);
-                    if (key && key.startsWith('tpd_draft_' + id + '_')) keysToRemove.push(key);
+                var savedItems = payload.items || [];
+                for (var si = 0; si < savedItems.length; si++) {
+                    var savedItem = savedItems[si];
+                    if (!savedItem || !savedItem.id) continue;
+                    var draftKey = 'tpd_draft_' + id + '_' + savedItem.id;
+                    var draftStr = localStorage.getItem(draftKey);
+                    if (draftStr) {
+                        try {
+                            var draft = JSON.parse(draftStr);
+                            // Overwrite only DHT-managed fields, keep TPD fields intact
+                            draft.material_name = savedItem.material_name || '';
+                            draft.color_name = savedItem.color_name || '';
+                            draft.material_id = savedItem.material_id || null;
+                            draft.color_id = savedItem.color_id || null;
+                            draft.product_name = savedItem.product_name || '';
+                            draft.sale_type = savedItem.sale_type || '';
+                            draft.pattern_name = savedItem.pattern_name || '';
+                            draft.size_type = savedItem.size_type || 'Size TT';
+                            draft.quantity = Number(savedItem.quantity) || 0;
+                            draft.unit_price = Number(savedItem.unit_price) || 0;
+                            draft.item_total = Number(savedItem.item_total) || 0;
+                            draft.sewing_techniques = savedItem.sewing_techniques || [];
+                            draft.extra_materials = savedItem.extra_materials || [];
+                            draft.material_pairs = savedItem.material_pairs || [];
+                            localStorage.setItem(draftKey, JSON.stringify(draft));
+                        } catch(pe) { /* parse error, skip */ }
+                    }
                 }
-                keysToRemove.forEach(function(key) { localStorage.removeItem(key); });
             } catch(e) { /* ignore localStorage errors */ }
 
             var overlay = document.getElementById('modalOverlay');
