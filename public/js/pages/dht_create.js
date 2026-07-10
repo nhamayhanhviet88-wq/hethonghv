@@ -672,7 +672,7 @@ async function _dhtGoStep2() {
                + '<button class="btn" onclick="_dhtSubmitCreateV2(false)" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">💾 Lưu Đơn Hàng</button>';
     }
 
-    openModal(isEdit ? '✏️ Sửa Đơn ' + _dhtCreate.orderCode : '➕ Tạo Đơn Hàng', body, footer);
+    openModal(isEdit ? '✏️ Sửa Đơn ' + _dhtCreate.orderCode : '➕ Tạo Đơn Hàng', body, footer, isEdit);
 
     if (!isEdit) {
         _dhtCreate.phieuItems = [];
@@ -2941,7 +2941,7 @@ async function _dhtEditOrderFree(o) {
     var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>'
         +'<button class="btn" onclick="_dhtSubmitEditV2()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Cập Nhật Đơn</button>';
 
-    openModal('✏️ Sửa Đơn ' + _dhtCreate.orderCode, body, footer);
+    openModal('✏️ Sửa Đơn ' + _dhtCreate.orderCode, body, footer, true);
 
     _dhtCreate._allDeposits = depRes.deposits || depRes || [];
 
@@ -3218,7 +3218,9 @@ async function _dhtSubmitEditV2(isDraft) {
     if (data.success) {
         showToast('✅ Đã cập nhật đơn hàng!');
         _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], editMode: false, editOrderId: null, editData: null };
-        if (window.location.hash.includes('design-draft')) {
+        if (window.location.href.includes('design-draft')) {
+            var overlay = document.getElementById('modalOverlay');
+            if (overlay) overlay.classList.remove('show');
             renderDesignDraftPage(window._dhtFullPageContainer);
         } else {
             closeModal();

@@ -2412,9 +2412,9 @@ function setupEventListeners() {
 }
 
 // ========== MODAL ==========
-function openModal(title, bodyHTML, footerHTML = '') {
-    if (window._dhtFullPageMode && window._dhtFullPageContainer) {
-        const isDesignDraft = window.location.hash.includes('design-draft');
+function openModal(title, bodyHTML, footerHTML = '', forcePopup = false) {
+    if (window._dhtFullPageMode && window._dhtFullPageContainer && !forcePopup) {
+        const isDesignDraft = window.location.href.includes('design-draft');
         window._dhtFullPageContainer.innerHTML = `
             <div class="card dht-design-card" style="margin: 0; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; background: #fff; overflow: hidden; animation: fadeInUp 0.4s ease;">
                 <div class="card-header dht-design-header" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b;">
@@ -2443,6 +2443,17 @@ function openModal(title, bodyHTML, footerHTML = '') {
 }
 
 function closeModal() {
+    var overlay = document.getElementById('modalOverlay');
+    if (overlay && overlay.classList.contains('show')) {
+        overlay.classList.remove('show');
+        var container = document.getElementById('modalContainer');
+        if (container) {
+            container.classList.remove('modal-dark');
+            container.style.maxWidth = '';
+            container.style.width = '';
+        }
+        return;
+    }
     if (window._dhtFullPageMode) {
         window._dhtFullPageMode = false;
         window._dhtFullPageContainer = null;
@@ -2453,7 +2464,7 @@ function closeModal() {
         }
         return;
     }
-    document.getElementById('modalOverlay').classList.remove('show');
+    if (overlay) overlay.classList.remove('show');
     var container = document.getElementById('modalContainer');
     if (container) {
         container.classList.remove('modal-dark');
