@@ -12,6 +12,28 @@ var _tpd = {
     scanner: null
 };
 
+function _tpdFormatDateWithDayOfWeek(dateStr) {
+    if (!dateStr) return '—';
+    let d;
+    if (typeof dateStr === 'string' && dateStr.includes('-')) {
+        const parts = dateStr.split('T')[0].split('-');
+        if (parts.length === 3) {
+            d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        }
+    }
+    if (!d || isNaN(d.getTime())) {
+        d = new Date(dateStr);
+    }
+    if (isNaN(d.getTime())) return '—';
+
+    const dayOfWeek = d.getDay();
+    const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const dayName = days[dayOfWeek];
+    const date = d.getDate();
+    const month = d.getMonth() + 1;
+    return `${dayName} - ${date}/${month}`;
+}
+
 // Main Entry Point
 async function renderTaophieudonhangPage(content) {
     // Inject clean styling for page and print layout
@@ -495,8 +517,8 @@ function _tpdRenderList() {
         const badgeLabel = isDraft ? 'Dự Thảo (Nháp)' : 'Chính thức';
         
         // Date formats
-        const orderDate = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
-        const shipDate = o.expected_ship_date ? new Date(o.expected_ship_date).toLocaleDateString('vi-VN') : '—';
+        const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
+        const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
 
         // Render card
         return `
@@ -526,7 +548,7 @@ function _tpdRenderList() {
                     </div>
                     <div class="card-row">
                         <span class="card-label">Hạn giao:</span>
-                        <span class="card-value font-warning">${shipDate}</span>
+                        <span class="card-value font-warning">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</span>
                     </div>
                 </div>
                 <div class="card-footer">
@@ -642,8 +664,8 @@ function _tpdRenderTechCardContent(data, steps) {
     const items = data.items || [];
     
     // Setup Dates
-    const orderDate = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
-    const shipDate = o.expected_ship_date ? new Date(o.expected_ship_date).toLocaleDateString('vi-VN') : '—';
+    const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
+    const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
 
     // Build unique URL for QR code scan
     const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}`;
@@ -725,7 +747,7 @@ function _tpdRenderTechCardContent(data, steps) {
                                 </tr>
                                 <tr>
                                     <td class="info-label">Ngày giao hàng:</td>
-                                    <td class="info-value text-bold color-warning">${shipDate}</td>
+                                    <td class="info-value text-bold color-warning">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</td>
                                 </tr>
                                 <tr>
                                     <td class="info-label">Lĩnh vực/Thể loại:</td>
@@ -3556,8 +3578,8 @@ function _tpdUpdateLivePreview() {
     if (!it) return;
 
     // Dates
-    const orderDate = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
-    const shipDate = o.expected_ship_date ? new Date(o.expected_ship_date).toLocaleDateString('vi-VN') : '—';
+    const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
+    const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
 
     // Build department deep link QR url
     const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${state.activeItemIndex}`;
@@ -3581,10 +3603,9 @@ function _tpdUpdateLivePreview() {
 
             <!-- Metadata info grid -->
             <div class="tpd-a4-meta-grid">
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Tiêu chuẩn gửi:</span> <span class="tpd-a4-meta-val" style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority || 'CHUẨN'}</span></div>
+                <div class="tpd-a4-meta-item" style="grid-column: span 2;"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</span></div>
 
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Sản phẩm:</span> <span id="prev_product_name" class="tpd-a4-meta-val" style="color: #16a34a;">${it.product_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế / Mẫu rập:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'} / ${it.pattern_name || '—'}</span></div>
@@ -4621,8 +4642,8 @@ async function _tpdPrintAllSheets() {
         const it = _tpdCloneItemState(item);
 
         // Dates
-        const orderDate = o.order_date ? new Date(o.order_date).toLocaleDateString('vi-VN') : '—';
-        const shipDate = o.expected_ship_date ? new Date(o.expected_ship_date).toLocaleDateString('vi-VN') : '—';
+        const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
+        const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
 
         // QR
         const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${idx}`;
@@ -4647,10 +4668,9 @@ async function _tpdPrintAllSheets() {
 
                     <!-- Metadata info grid -->
                     <div class="tpd-a4-meta-grid">
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Tiêu chuẩn gửi:</span> <span class="tpd-a4-meta-val" style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority || 'CHUẨN'}</span></div>
+                        <div class="tpd-a4-meta-item" style="grid-column: span 2;"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</span></div>
 
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Sản phẩm:</span> <span class="tpd-a4-meta-val" style="color: #16a34a;">${it.product_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế / Mẫu rập:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'} / ${it.pattern_name || '—'}</span></div>
