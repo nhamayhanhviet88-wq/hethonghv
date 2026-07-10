@@ -4117,11 +4117,15 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
                 : d.position;
 
             if (d.position === 'Lưng' || d.position === 'Gáy') {
-                const val = d.gay_xuong && d.gay_xuong.trim() ? d.gay_xuong.trim().toUpperCase() : '<span style="color:#f87171; font-weight:900;">CHƯA ĐIỀN</span>';
-                headerText += ` (GÁY XUỐNG: ${val})`;
+                const isFilled = d.gay_xuong && d.gay_xuong.trim();
+                const valStr = isFilled ? d.gay_xuong.trim().toUpperCase() : 'CHƯA ĐIỀN';
+                const color = isFilled ? '#facc15' : '#f87171';
+                headerText += ` <span style="color: ${color}; font-weight: 800;">(GÁY XUỐNG: ${valStr})</span>`;
             } else if (d.position === 'Bụng') {
-                const val = d.co_xuong && d.co_xuong.trim() ? d.co_xuong.trim().toUpperCase() : '<span style="color:#f87171; font-weight:900;">CHƯA ĐIỀN</span>';
-                headerText += ` (CỔ XUỐNG: ${val})`;
+                const isFilled = d.co_xuong && d.co_xuong.trim();
+                const valStr = isFilled ? d.co_xuong.trim().toUpperCase() : 'CHƯA ĐIỀN';
+                const color = isFilled ? '#facc15' : '#f87171';
+                headerText += ` <span style="color: ${color}; font-weight: 800;">(CỔ XUỐNG: ${valStr})</span>`;
             }
 
             // Backward compatibility logic
