@@ -347,6 +347,7 @@ function _tpdCloneItemState(item) {
         quantities: item.quantities,
         unit_price: Number(item.unit_price) || 0,
         product_name: item.product_name || '',
+        sale_type: item.sale_type || '',
         pattern_name: item.pattern_name || '',
         size_type: item.size_type || 'Size TT',
         custom_layout: customLayout
@@ -4831,6 +4832,10 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
     // 8. Expected Sender (Người gửi dự kiến)
     const senderVal = layout.custom_sender !== undefined && layout.custom_sender !== '' ? layout.custom_sender : '—';
 
+    // 0. Sale Type (Bán/Quà)
+    const saleTypeVal = (it.sale_type || '').trim();
+    const normalizedSaleType = (saleTypeVal.toLowerCase() === 'bán' || saleTypeVal.toLowerCase() === 'ban') ? 'Bán' : (saleTypeVal.toLowerCase() === 'quà' || saleTypeVal.toLowerCase() === 'qua') ? 'Quà' : (saleTypeVal || 'Bán');
+
     return `
         <div class="tpd-a4-info-box" style="flex: 1; border: 1.5px solid #122546; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; background: #ffffff; height: 100%; box-sizing: border-box; min-width: 200px;">
             <div style="background: #122546; color: white; padding: 5px 8px; font-weight: 700; font-size: 11px; text-transform: uppercase; text-align: center; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -4838,6 +4843,10 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
             </div>
             <div style="flex: 1; padding: 6px 10px; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; line-height: 1.35; color: #1e293b; background: #ffffff; box-sizing: border-box;">
                 <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div>
+                        <strong style="color: #0f172a; font-weight: 800;">Sản Phẩm ${normalizedSaleType}:</strong> 
+                        <span style="font-weight: 700; color: #1e293b;">${escapeHTML(it.product_name || '—')}</span>
+                    </div>
                     <div>
                         <strong style="color: #0f172a; font-weight: 800;">Chất liệu vải:</strong> 
                         <span style="font-weight: 700; color: #1e3a8a;">${escapeHTML(fabricVal)}</span>
