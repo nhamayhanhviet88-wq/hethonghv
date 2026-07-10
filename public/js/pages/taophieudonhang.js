@@ -402,6 +402,25 @@ function _tpdSortSizes(sizes) {
     });
 }
 
+function _tpdFormatSizeItem(sz, qty, note) {
+    const cleanSz = sz.trim();
+    const qtyNum = Number(qty) || 0;
+    let sizeText = '';
+    if (qtyNum > 0) {
+        if (/^\d/.test(cleanSz)) {
+            sizeText = `${qtyNum} ${cleanSz}`;
+        } else {
+            sizeText = `${qtyNum}${cleanSz}`;
+        }
+    } else {
+        sizeText = cleanSz;
+    }
+    if (note && note.trim()) {
+        sizeText += ` (${note.trim()})`;
+    }
+    return sizeText;
+}
+
 function _tpdGetLabelStyle(sz, isCustom) {
     const lower = sz.trim().toLowerCase();
     
@@ -4721,10 +4740,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                             namStr = sortedNam.map(sz => {
                                 const q = namList.find(x => x.size === sz);
                                 const cleanSz = sz.replace(/^Nam\s+/, '');
-                                const parts = [];
-                                if (Number(q.qty) > 0) parts.push(q.qty);
-                                if (q.note && q.note.trim()) parts.push(q.note.trim());
-                                return `${cleanSz}: ${parts.join(' - ')}`;
+                                return _tpdFormatSizeItem(cleanSz, q.qty, q.note);
                             }).join(' | ');
                         }
                         lines.push(`<div style="margin-top: 1px;"><span style="color: #1e3a8a; font-weight: 800;">Nam:</span> ${escapeHTML(namStr)}</div>`);
@@ -4736,10 +4752,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                             nuStr = sortedNu.map(sz => {
                                 const q = nuList.find(x => x.size === sz);
                                 const cleanSz = sz.replace(/^Nữ\s+/, '');
-                                const parts = [];
-                                if (Number(q.qty) > 0) parts.push(q.qty);
-                                if (q.note && q.note.trim()) parts.push(q.note.trim());
-                                return `${cleanSz}: ${parts.join(' - ')}`;
+                                return _tpdFormatSizeItem(cleanSz, q.qty, q.note);
                             }).join(' | ');
                         }
                         lines.push(`<div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> ${escapeHTML(nuStr)}</div>`);
@@ -4748,10 +4761,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                             const sortedOther = _tpdSortSizes(otherList.map(q => q.size));
                             const otherStr = sortedOther.map(sz => {
                                 const q = otherList.find(x => x.size === sz);
-                                const parts = [];
-                                if (Number(q.qty) > 0) parts.push(q.qty);
-                                if (q.note && q.note.trim()) parts.push(q.note.trim());
-                                return `${sz}: ${parts.join(' - ')}`;
+                                return _tpdFormatSizeItem(sz, q.qty, q.note);
                             }).join(' | ');
                             lines.push(`<div style="margin-top: 1px;"><span style="color: #ea580c; font-weight: 800;">Khác:</span> ${escapeHTML(otherStr)}</div>`);
                         }
@@ -4762,10 +4772,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                             .map(sz => activeQuantities.find(q => q.size === sz))
                             .filter(Boolean);
                         defaultSizeTT = escapeHTML(sorted.map(q => {
-                            const parts = [];
-                            if (Number(q.qty) > 0) parts.push(q.qty);
-                            if (q.note && q.note.trim()) parts.push(q.note.trim());
-                            return `${q.size}: ${parts.join(' - ')}`;
+                            return _tpdFormatSizeItem(q.size, q.qty, q.note);
                         }).join(' | '));
                     }
                 } else {
