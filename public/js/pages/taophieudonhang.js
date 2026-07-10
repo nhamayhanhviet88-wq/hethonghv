@@ -3699,19 +3699,32 @@ function _tpdGetCustomLayout(index) {
     ];
     const uniqueMasterTechs = [...new Set(masterTechNames)];
 
-    // 1. Add missing techs from master order / TSAM pattern
+    // 1. Add missing techs from master order / TSAM pattern (and mark them as is_bgm)
     uniqueMasterTechs.forEach(techName => {
-        const exists = layout.sewing_items.some(x => x.tech === techName);
-        if (!exists) {
-            layout.sewing_items.push({ tech: techName, detail: '' });
+        const existingItem = layout.sewing_items.find(x => x.tech === techName);
+        if (existingItem) {
+            existingItem.is_bgm = true;
+        } else {
+            layout.sewing_items.push({ tech: techName, detail: '', is_bgm: true });
         }
     });
 
-    // 2. Remove techs not in master order (under Option A: only if details are empty)
+    // Tag any other items that match master tech names as is_bgm
+    layout.sewing_items.forEach(item => {
+        if (item && uniqueMasterTechs.includes(item.tech)) {
+            item.is_bgm = true;
+        }
+    });
+
+    // 2. Remove techs not in master order (under Option A: only if details are empty AND it was a BGM tag)
     layout.sewing_items = layout.sewing_items.filter(item => {
         const inMaster = uniqueMasterTechs.includes(item.tech);
         if (inMaster) return true;
-        // If not in master, keep it ONLY if it has custom details
+        
+        // If it was NOT a synced BGM tag, it was manually added by user -> KEEP IT!
+        if (!item.is_bgm) return true;
+
+        // If it was a BGM tag but is no longer in the master list -> keep ONLY if it has custom details
         return item.detail && item.detail.trim().length > 0;
     });
 
