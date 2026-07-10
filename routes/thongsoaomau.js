@@ -139,8 +139,8 @@ module.exports = async function(fastify) {
                 mix_positions, mix_color_count, collection,
                 design_market, total_sample, sample_care,
                 sewing_tech, factory_price, processing_price,
-                spec_image, display_order, created_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+                spec_image, display_order, created_by, sample_details
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
             RETURNING *
         `, [
             Number(b.category_id),
@@ -157,7 +157,8 @@ module.exports = async function(fastify) {
             Number(b.processing_price) || 0,
             b.spec_image.trim(),
             (mx?.mx || 0) + 1,
-            request.user.id
+            request.user.id,
+            JSON.stringify(b.sample_details || [])
         ]);
 
         // Insert product relationships
@@ -231,7 +232,7 @@ module.exports = async function(fastify) {
             'category_id', 'sample_code', 'sample_type',
             'mix_positions', 'mix_color_count', 'collection',
             'design_market', 'total_sample', 'sample_care',
-            'sewing_tech', 'factory_price', 'processing_price', 'spec_image'
+            'sewing_tech', 'factory_price', 'processing_price', 'spec_image', 'sample_details'
         ];
 
         const sets = [];
@@ -242,7 +243,7 @@ module.exports = async function(fastify) {
         for (const key of allowed) {
             if (b[key] !== undefined) {
                 const numericFields = ['category_id', 'mix_color_count', 'factory_price', 'processing_price'];
-                const jsonFields = ['mix_positions', 'sewing_tech'];
+                const jsonFields = ['mix_positions', 'sewing_tech', 'sample_details'];
 
                 if (jsonFields.includes(key)) {
                     sets.push(`${key} = $${idx++}`);

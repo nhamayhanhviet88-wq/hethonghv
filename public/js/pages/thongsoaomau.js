@@ -1,5 +1,49 @@
-// ========== THÔNG SỐ MẪU ÁO — Frontend ==========
 var _tsam = { tree: [], samples: [], filter: {}, categories: [] };
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+window._tsamDetailsManuallyEdited = false;
+
+function _tsamAddDetailRow(value) {
+    window._tsamDetailsManuallyEdited = true;
+    var container = document.getElementById('_tsamDetailsList');
+    if (!container) return;
+    var rowId = 'tsam_detail_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    var rowHtml = '<div id="' + rowId + '" style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">'
+        + '<input type="text" class="form-control _tsamDetailInput" value="' + escapeHTML(value || '') + '" placeholder="Nhập chi tiết mẫu..." style="font-size:11px;padding:4px 8px;height:auto;flex:1;" oninput="window._tsamDetailsManuallyEdited = true">'
+        + '<button type="button" class="btn btn-secondary" onclick="_tsamRemoveDetailRow(\'' + rowId + '\')" style="font-size:11px;padding:3px 8px;background:#ef4444;color:#fff;border:none;cursor:pointer;border-radius:4px;height:24px;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>'
+        + '</div>';
+    container.insertAdjacentHTML('beforeend', rowHtml);
+}
+
+function _tsamRemoveDetailRow(rowId) {
+    window._tsamDetailsManuallyEdited = true;
+    var el = document.getElementById(rowId);
+    if (el) el.remove();
+}
+
+function _tsamRenderDetailsList(parts) {
+    var container = document.getElementById('_tsamDetailsList');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!parts || !parts.length) return;
+    parts.forEach(function(p) {
+        var rowId = 'tsam_detail_row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        var rowHtml = '<div id="' + rowId + '" style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">'
+            + '<input type="text" class="form-control _tsamDetailInput" value="' + escapeHTML(p) + '" placeholder="Nhập chi tiết mẫu..." style="font-size:11px;padding:4px 8px;height:auto;flex:1;" oninput="window._tsamDetailsManuallyEdited = true">'
+            + '<button type="button" class="btn btn-secondary" onclick="_tsamRemoveDetailRow(\'' + rowId + '\')" style="font-size:11px;padding:3px 8px;background:#ef4444;color:#fff;border:none;cursor:pointer;border-radius:4px;height:24px;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>'
+            + '</div>';
+        container.insertAdjacentHTML('beforeend', rowHtml);
+    });
+}
 var _tsamFmt = function(n) { return Number(n||0).toLocaleString('vi-VN'); };
 var _tsamTypes = { PHA_PHOI: 'Pha Phối', '3D': '3D', DON: 'Đơn' };
 var _tsamTypeColors = { PHA_PHOI: '#8b5cf6', '3D': '#3b82f6', DON: '#059669' };
@@ -115,6 +159,8 @@ function _tsamShowCreate(editId) {
     var rq = '<span style="color:red">*</span>';
     // Parse existing sewing_tech (now stores BGM item IDs with qty)
     var sewExist = []; try { sewExist = typeof s.sewing_tech === 'string' ? JSON.parse(s.sewing_tech) : (s.sewing_tech || []); } catch(e) {}
+    var existingDetails = [];
+    try { existingDetails = typeof s.sample_details === 'string' ? JSON.parse(s.sample_details) : (s.sample_details || []); } catch(e) {}
     window._tsamImgUrl = s.spec_image || '';
     window._tsamSewItems = sewExist.slice(); // [{id,name,qty,fp,pp}]
     var body = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
@@ -122,6 +168,14 @@ function _tsamShowCreate(editId) {
         + '<div class="form-group"><label>Mã Mẫu ' + rq + '</label><input id="_tsamCode" class="form-control" autocomplete="off" value="' + (s.sample_code || '') + '"' + (isEdit ? ' disabled' : '') + ' placeholder="VD: DP-001"></div>'
         + '<div class="form-group"><label>Loại ' + rq + '</label><select id="_tsamType" class="form-control" onchange="_tsamTypeChanged()"><option value="DON"' + (curType === 'DON' ? ' selected' : '') + '>Đơn</option><option value="PHA_PHOI"' + (curType === 'PHA_PHOI' ? ' selected' : '') + '>Pha Phối</option><option value="3D"' + (curType === '3D' ? ' selected' : '') + '>3D</option></select></div>'
         + '<div class="form-group"><label>SL Màu Phối ' + rq + ' <span id="_tsamMixHint" style="font-size:10px;color:' + (isLocked ? '#059669' : '#f59e0b') + '">' + (isLocked ? '🔒 Auto = 1' : '✏️ Nhập ≥ 2') + '</span></label><input type="number" id="_tsamMixCount" class="form-control" value="' + mixVal + '" min="' + (isLocked ? '1' : '2') + '"' + (isLocked ? ' disabled style="background:#f1f5f9;cursor:not-allowed"' : '') + '></div>'
+        + '</div>'
+        // === SAMPLE DETAILS (Chi Tiết Mẫu Áo) ===
+        + '<div class="form-group" style="margin-top:8px">'
+        + '<label>🏷️ Chi Tiết Mẫu Áo (Tự động tách từ Mã Mẫu bằng dấu "-")</label>'
+        + '<div id="_tsamDetailsWrap" style="display:flex; flex-direction:column; gap:6px; padding:8px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc">'
+        + '<div id="_tsamDetailsList" style="display:flex; flex-direction:column; gap:4px;"></div>'
+        + '<button type="button" class="btn" onclick="_tsamAddDetailRow(\'\')" style="align-self:flex-start; font-size:10px; padding:3px 8px; background:#ede9fe; color:#7c3aed; border:1px solid #c084fc; border-radius:4px; font-weight:700; cursor:pointer; margin-top:4px;">➕ Thêm chi tiết</button>'
+        + '</div>'
         + '</div>'
         // === PRODUCT CHECKLIST PICKER (Loại Bán) ===
         + '<div class="form-group" style="margin-top:8px"><label>📦 Sản Phẩm Bán ' + rq + '</label>'
@@ -178,6 +232,28 @@ function _tsamShowCreate(editId) {
         _tsamRenderProdList(selectedIds);
         _tsamRenderSewTags();
         _tsamLoadMixPositions(s);
+
+        // Render details
+        window._tsamDetailsManuallyEdited = isEdit;
+        if (isEdit) {
+            _tsamRenderDetailsList(existingDetails);
+        } else {
+            var codeVal = document.getElementById('_tsamCode')?.value || '';
+            if (codeVal) {
+                var parts = codeVal.split('-').map(function(p) { return p.trim(); }).filter(Boolean);
+                _tsamRenderDetailsList(parts);
+            } else {
+                _tsamRenderDetailsList([]);
+            }
+        }
+        // Input listener on Mã Mẫu
+        document.getElementById('_tsamCode')?.addEventListener('input', function() {
+            if (!window._tsamDetailsManuallyEdited) {
+                var parts = this.value.split('-').map(function(p) { return p.trim(); }).filter(Boolean);
+                _tsamRenderDetailsList(parts);
+            }
+        });
+
         // Attach real-time Google Drive link validation
         ['_tsamMarket', '_tsamTotal', '_tsamCare'].forEach(function(id) {
             var el = document.getElementById(id);
@@ -299,6 +375,11 @@ async function _tsamSubmit(editId) {
     // Auto-calc prices from selected BGM items
     var autoFP = 0, autoPP = 0;
     sewArr.forEach(function(s) { autoFP += (Number(s.fp)||0)*(Number(s.qty)||1); autoPP += (Number(s.pp)||0)*(Number(s.qty)||1); });
+    var detailArr = [];
+    document.querySelectorAll('#_tsamDetailsList ._tsamDetailInput').forEach(function(inp) {
+        var val = (inp.value || '').trim();
+        if (val) detailArr.push(val);
+    });
     var data = {
         category_id: document.getElementById('_tsamCat')?.value || null,
         sample_code: document.getElementById('_tsamCode')?.value?.trim(),
@@ -313,7 +394,8 @@ async function _tsamSubmit(editId) {
         sewing_tech: sewArr,
         spec_image: window._tsamImgUrl || '',
         factory_price: autoFP,
-        processing_price: autoPP
+        processing_price: autoPP,
+        sample_details: detailArr
     };
     // Collect mix positions from checkboxes
     document.querySelectorAll('._tsamMixCb:checked').forEach(function(cb) { data.mix_positions.push(cb.value); });
@@ -357,10 +439,17 @@ async function _tsamDetail(id) {
     var prodBadges = prodNames.length ? prodNames.map(function(name) {
         return '<span class="tsam-badge" style="background:#ede9fe;color:#6d28d9 !important;border:1px solid #ddd6fe;margin:4px auto;display:block;width:fit-content;white-space:nowrap;padding:2px 6px;text-align:center">' + name + '</span>';
     }).join('') : '—';
+    var details = [];
+    try { details = typeof s.sample_details === 'string' ? JSON.parse(s.sample_details) : (s.sample_details || []); } catch(e) {}
+    var detailsHtml = details.length ? details.map(function(d) {
+        return '<span style="background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-right:4px;border:1px solid #c084fc;display:inline-block;margin-top:2px;">' + escapeHTML(d) + '</span>';
+    }).join('') : '—';
+
     var body = '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:12px">'
         + '<table style="width:100%;font-size:13px;border-collapse:collapse">';
     var rows = [
         ['MÃ MẪU', '<b style="color:#7c3aed;font-size:15px">' + s.sample_code + '</b>'],
+        ['CHI TIẾT MẪU', detailsHtml],
         ['LĨNH VỰC', s.category_name || '—'],
         ['SẢN PHẨM BÁN', prodBadges],
         ['LOẠI', '<span class="tsam-badge" style="background:' + (_tsamTypeColors[s.sample_type]||'#64748b') + '">' + (_tsamTypes[s.sample_type]||s.sample_type) + '</span>'],
@@ -516,6 +605,14 @@ async function _tsamOpenBgmPicker() {
     var prodIdsChecked = [];
     document.querySelectorAll('#_tsamProdList ._tsamProdCb:checked').forEach(function(cb) { prodIdsChecked.push(Number(cb.value)); });
     window._bgmParentFormValues.product_ids = prodIdsChecked;
+
+    // Also save sample details list
+    var detailsList = [];
+    document.querySelectorAll('#_tsamDetailsList ._tsamDetailInput').forEach(function(inp) {
+        detailsList.push(inp.value);
+    });
+    window._bgmParentFormValues.sample_details = detailsList;
+    window._bgmParentFormValues.details_manually_edited = window._tsamDetailsManuallyEdited;
 
     window._bgmParentModal = {
         title: document.getElementById('modalTitle').innerHTML,
@@ -720,6 +817,16 @@ function _tsamCloseBgmPicker() {
                 zone.addEventListener('click', function() { this.focus(); });
             }
             _tsamRenderSewTags();
+            // Restore details list
+            window._tsamDetailsManuallyEdited = fv.details_manually_edited || false;
+            _tsamRenderDetailsList(fv.sample_details || []);
+            // Re-attach input listener on Mã Mẫu
+            document.getElementById('_tsamCode')?.addEventListener('input', function() {
+                if (!window._tsamDetailsManuallyEdited) {
+                    var parts = this.value.split('-').map(function(p) { return p.trim(); }).filter(Boolean);
+                    _tsamRenderDetailsList(parts);
+                }
+            });
             // Reload mix positions for PHA_PHOI
             _tsamLoadMixPositions({ mix_positions: fv.mix_positions || [] });
         }, 100);

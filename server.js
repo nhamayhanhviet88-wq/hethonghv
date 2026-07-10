@@ -776,6 +776,8 @@ async function start() {
             display_order   INTEGER DEFAULT 0,
             created_at      TIMESTAMPTZ DEFAULT NOW()
         )`);
+        // v4: Add sample_details JSONB column for detailed design elements
+        try { await db.exec(`ALTER TABLE tsam_samples ADD COLUMN sample_details JSONB DEFAULT '[]'`); } catch(e) { /* already exists */ }
     } catch(e) { console.error('[TSAM Migration]', e.message); }
 
     // v4: Add can_approve_tsam flag to users table
