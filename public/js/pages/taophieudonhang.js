@@ -4660,7 +4660,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                         const safePrintType = escapeHTML(d.print_type || '—');
                         const safeDimStr = dimStr ? ` - ${dimStr}` : '';
                         const safeOffsetStr = escapeHTML(offsetStr);
-                        return `<div style="margin-top: 1px;"><span style="color: #047857; font-weight: 800;">${safePosition}:</span> ${safePrintType}${safeDimStr}${safeOffsetStr}</div>`;
+                        return `<div style="margin-top: 1px;">• <span style="color: #047857; font-weight: 800;">${safePosition}:</span> <span style="color: #1e40af; font-weight: 800;">${safePrintType}</span>${safeDimStr}${safeOffsetStr}</div>`;
                     }).join('');
                 }
             }
