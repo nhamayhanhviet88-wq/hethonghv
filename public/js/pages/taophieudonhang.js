@@ -4956,6 +4956,36 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                         <span style="font-weight: 700; color: #0f172a; display: block; margin-top: 2px;">${sizeTTVal}</span>
                     </div>
                 </div>
+                ${(() => {
+                    // ★ Shipping info banner
+                    if (!o || !o.expected_ship_date) return '';
+                    const sDate = new Date(o.expected_ship_date);
+                    if (isNaN(sDate.getTime())) return '';
+                    const dayNames = ['CHỦ NHẬT', 'THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7'];
+                    const dayStr = dayNames[sDate.getDay()];
+                    const dateStr = sDate.getDate() + '/' + (sDate.getMonth() + 1);
+                    const pri = (o.shipping_priority || 'GỬI').toUpperCase();
+                    const timeStr = o.standard_delivery_time ? o.standard_delivery_time.replace(':', 'h') : '';
+                    // Color coding: CHUẨN = red (most prominent), GẤP = orange, GỬI = blue
+                    let bgColor, textColor, borderColor, label;
+                    if (pri === 'CHUẨN') {
+                        bgColor = '#dc2626'; textColor = '#ffffff'; borderColor = '#b91c1c'; label = 'ĐƠN CHUẨN';
+                    } else if (pri === 'GẤP') {
+                        bgColor = '#ea580c'; textColor = '#ffffff'; borderColor = '#c2410c'; label = 'ĐƠN GẤP';
+                    } else {
+                        bgColor = '#2563eb'; textColor = '#ffffff'; borderColor = '#1d4ed8'; label = 'ĐƠN GỬI';
+                    }
+                    const parts = ['GỬI HÀNG:'];
+                    if (timeStr) parts.push(timeStr);
+                    parts.push(dayStr);
+                    parts.push(dateStr);
+                    return `
+                        <div style="background:${bgColor}; color:${textColor}; border:2px solid ${borderColor}; border-radius:6px; padding:6px 10px; margin-top:6px; text-align:center; font-weight:900; font-size:12px; letter-spacing:0.5px; line-height:1.4;">
+                            <div style="font-size:13px;">${parts.join(' - ')}</div>
+                            <div style="font-size:14px; margin-top:2px; text-transform:uppercase; letter-spacing:1px; text-decoration:underline;">${label}</div>
+                        </div>
+                    `;
+                })()}
                 <div style="border-top: 2px solid #122546; padding: 4px 6px; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 4px; box-sizing: border-box;">
                     <div>
                         <strong style="color: #0f172a; font-weight: 800; font-size: 10px;">Tổng SL:</strong> 
